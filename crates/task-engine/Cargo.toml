@@ -1,0 +1,16 @@
+[package]
+name = "orkestr-task-engine"
+description = "Orkestr task engine: task state machine (implemented), DAG, priority queue, scheduler (skeleton) (§10, §11)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+orkestr-domain.workspace = true
+async-trait.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true

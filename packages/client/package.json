@@ -1,0 +1,26 @@
+{
+  "name": "@orkestr/client",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Orkestr WebSocket RPC client with typed calls, subscriptions and auto-reconnect (shared by desktop/web/mobile)",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@orkestr/protocol": "0.1.0"
+  }
+}

@@ -1,0 +1,29 @@
+# Rust
+target/
+**/*.rs.bk
+
+# Node
+node_modules/
+dist/
+*.tsbuildinfo
+.vite/
+coverage/
+
+# Tauri
+apps/desktop/src-tauri/gen/schemas/
+apps/desktop/src-tauri/target/
+
+# Local data / secrets
+*.db
+*.db-shm
+*.db-wal
+.env
+.env.*
+!.env.example
+.orkestr/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+*.swp

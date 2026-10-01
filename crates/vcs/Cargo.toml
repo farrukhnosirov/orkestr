@@ -1,0 +1,17 @@
+[package]
+name = "orkestr-vcs"
+description = "SKELETON — Orkestr VCS: Git via the git CLI (status, diff, branches, worktrees, merge, conflicts) (§16)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+orkestr-domain.workspace = true
+async-trait.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true

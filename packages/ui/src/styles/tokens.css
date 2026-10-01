@@ -1,0 +1,162 @@
+/*
+ * Orkestr design tokens — "Nebula" (default dark theme).
+ * Every visual value in the product comes from an --ok-* variable. Themes
+ * override these at runtime through the theme engine (src/theme.ts); never
+ * hardcode colors in panels (contract §8).
+ */
+:root,
+[data-ok-theme] {
+  color-scheme: dark;
+
+  /* ── surfaces ─────────────────────────────────────────── */
+  --ok-color-bg: #04050d;
+  --ok-color-bg-elevated: #0a0d1c;
+  --ok-color-surface: rgba(16, 21, 44, 0.62);
+  --ok-color-surface-strong: rgba(20, 26, 54, 0.86);
+  --ok-color-surface-sunken: rgba(5, 7, 18, 0.55);
+  --ok-color-surface-hover: rgba(70, 90, 170, 0.16);
+  --ok-color-surface-active: rgba(80, 110, 210, 0.24);
+  --ok-color-overlay: rgba(2, 3, 10, 0.62);
+
+  /* ── borders ──────────────────────────────────────────── */
+  --ok-color-border: rgba(136, 156, 255, 0.12);
+  --ok-color-border-strong: rgba(150, 175, 255, 0.24);
+  --ok-color-border-accent: rgba(34, 211, 238, 0.45);
+
+  /* ── text ─────────────────────────────────────────────── */
+  --ok-color-text: #e8ecff;
+  --ok-color-text-muted: #9aa3c8;
+  --ok-color-text-subtle: #646d96;
+  --ok-color-text-inverse: #040611;
+
+  /* ── accents ──────────────────────────────────────────── */
+  --ok-color-accent: #22d3ee;
+  --ok-color-accent-strong: #06b6d4;
+  --ok-color-accent-soft: rgba(34, 211, 238, 0.14);
+  --ok-color-violet: #a78bfa;
+  --ok-color-violet-strong: #8b5cf6;
+  --ok-color-violet-soft: rgba(167, 139, 250, 0.16);
+  --ok-color-magenta: #f472b6;
+
+  /* ── status ───────────────────────────────────────────── */
+  --ok-color-success: #34d399;
+  --ok-color-success-soft: rgba(52, 211, 153, 0.14);
+  --ok-color-warning: #fbbf24;
+  --ok-color-warning-soft: rgba(251, 191, 36, 0.14);
+  --ok-color-danger: #fb7185;
+  --ok-color-danger-soft: rgba(251, 113, 133, 0.14);
+  --ok-color-info: #60a5fa;
+  --ok-color-info-soft: rgba(96, 165, 250, 0.14);
+
+  /* ── gradients ────────────────────────────────────────── */
+  --ok-gradient-accent: linear-gradient(135deg, #22d3ee 0%, #6d8bff 52%, #a78bfa 100%);
+  --ok-gradient-accent-soft: linear-gradient(135deg, rgba(34, 211, 238, 0.18) 0%, rgba(167, 139, 250, 0.18) 100%);
+  --ok-gradient-panel: linear-gradient(180deg, rgba(255, 255, 255, 0.045) 0%, rgba(255, 255, 255, 0) 38%);
+  --ok-gradient-space:
+    radial-gradient(1200px 700px at 12% -10%, rgba(76, 61, 180, 0.28) 0%, rgba(4, 5, 13, 0) 60%),
+    radial-gradient(900px 600px at 105% 15%, rgba(14, 116, 144, 0.26) 0%, rgba(4, 5, 13, 0) 55%),
+    radial-gradient(1000px 800px at 50% 120%, rgba(91, 33, 182, 0.22) 0%, rgba(4, 5, 13, 0) 60%),
+    linear-gradient(180deg, #05060f 0%, #04050d 100%);
+
+  /* ── effects ──────────────────────────────────────────── */
+  --ok-blur: 18px;
+  --ok-glow-intensity: 0.6;
+  --ok-panel-opacity: 0.72;
+  --ok-glow-accent: 0 0 calc(28px * var(--ok-glow-intensity)) rgba(34, 211, 238, calc(0.55 * var(--ok-glow-intensity)));
+  --ok-glow-violet: 0 0 calc(30px * var(--ok-glow-intensity)) rgba(167, 139, 250, calc(0.55 * var(--ok-glow-intensity)));
+  --ok-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --ok-shadow-md: 0 8px 24px rgba(0, 0, 0, 0.38);
+  --ok-shadow-panel: 0 18px 48px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --ok-focus-ring: 0 0 0 2px rgba(4, 5, 13, 1), 0 0 0 4px rgba(34, 211, 238, 0.7);
+
+  /* ── shape ────────────────────────────────────────────── */
+  --ok-radius-xs: 4px;
+  --ok-radius-sm: 6px;
+  --ok-radius-md: 10px;
+  --ok-radius-lg: 14px;
+  --ok-radius-xl: 20px;
+  --ok-radius-pill: 999px;
+
+  /* ── spacing ──────────────────────────────────────────── */
+  --ok-space-1: 4px;
+  --ok-space-2: 8px;
+  --ok-space-3: 12px;
+  --ok-space-4: 16px;
+  --ok-space-5: 20px;
+  --ok-space-6: 24px;
+  --ok-space-8: 32px;
+  --ok-space-10: 40px;
+
+  /* ── typography ───────────────────────────────────────── */
+  --ok-font-sans: "Inter", "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", sans-serif;
+  --ok-font-display: "Inter Display", "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  --ok-font-mono: "JetBrains Mono", "Cascadia Code", "Cascadia Mono", "SF Mono", Consolas, ui-monospace, monospace;
+  --ok-font-size-xs: 11px;
+  --ok-font-size-sm: 12px;
+  --ok-font-size-md: 13px;
+  --ok-font-size-lg: 15px;
+  --ok-font-size-xl: 18px;
+  --ok-font-size-2xl: 24px;
+  --ok-font-weight-regular: 400;
+  --ok-font-weight-medium: 500;
+  --ok-font-weight-semibold: 600;
+  --ok-line-height: 1.5;
+  --ok-letter-spacing-caps: 0.08em;
+
+  /* ── motion ───────────────────────────────────────────── */
+  --ok-duration-fast: 120ms;
+  --ok-duration-base: 200ms;
+  --ok-duration-slow: 360ms;
+  --ok-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ok-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* ── layout ───────────────────────────────────────────── */
+  --ok-titlebar-height: 40px;
+  --ok-statusbar-height: 26px;
+  --ok-rail-width: 68px;
+  --ok-z-overlay: 1000;
+  --ok-z-tooltip: 1100;
+}
+
+/* Light base (used by light themes; Nebula stays dark). */
+[data-ok-mode="light"] {
+  color-scheme: light;
+  --ok-color-bg: #eef1fb;
+  --ok-color-bg-elevated: #ffffff;
+  --ok-color-surface: rgba(255, 255, 255, 0.7);
+  --ok-color-surface-strong: rgba(255, 255, 255, 0.92);
+  --ok-color-surface-sunken: rgba(220, 226, 245, 0.6);
+  --ok-color-surface-hover: rgba(90, 110, 200, 0.08);
+  --ok-color-surface-active: rgba(90, 110, 200, 0.14);
+  --ok-color-overlay: rgba(20, 24, 50, 0.35);
+  --ok-color-border: rgba(40, 60, 140, 0.12);
+  --ok-color-border-strong: rgba(40, 60, 140, 0.22);
+  --ok-color-text: #121633;
+  --ok-color-text-muted: #4b5378;
+  --ok-color-text-subtle: #7d84a6;
+  --ok-color-text-inverse: #ffffff;
+  --ok-gradient-space:
+    radial-gradient(1200px 700px at 10% -10%, rgba(139, 92, 246, 0.16) 0%, rgba(238, 241, 251, 0) 60%),
+    radial-gradient(900px 600px at 105% 15%, rgba(6, 182, 212, 0.14) 0%, rgba(238, 241, 251, 0) 55%),
+    linear-gradient(180deg, #f4f6fd 0%, #eceffa 100%);
+  --ok-shadow-panel: 0 12px 36px rgba(30, 40, 90, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  --ok-focus-ring: 0 0 0 2px #ffffff, 0 0 0 4px rgba(6, 182, 212, 0.7);
+}
+
+/* Performance modes (§31): effects scale down without changing layout. */
+[data-ok-performance="Performance"],
+[data-ok-performance="BatterySaver"] {
+  --ok-blur: 0px;
+  --ok-glow-intensity: 0;
+  --ok-duration-fast: 0ms;
+  --ok-duration-base: 0ms;
+  --ok-duration-slow: 0ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --ok-duration-fast: 0ms;
+    --ok-duration-base: 0ms;
+    --ok-duration-slow: 0ms;
+  }
+}

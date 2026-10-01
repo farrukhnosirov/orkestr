@@ -1,0 +1,19 @@
+[package]
+name = "orkestr-agent-runtime"
+description = "SKELETON — Orkestr agent runtime: template/instance lifecycle, tool loop, tool registry, handoff, budgets (§6, §57)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+orkestr-domain.workspace = true
+async-trait.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio-util.workspace = true
+
+[lints]
+workspace = true

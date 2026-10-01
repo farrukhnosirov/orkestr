@@ -1,0 +1,19 @@
+[package]
+name = "orkestr-sync"
+description = "Orkestr sync: SyncBackend trait + LocalOnly backend (implemented) + journal types (Phase 4 extends) (§41–45)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+orkestr-domain.workspace = true
+async-trait.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tokio.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,34 @@
+[package]
+name = "orkestr-desktop"
+description = "Orkestr desktop shell: Tauri 2 host embedding the Orkestr core."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+default-run = "orkestr-desktop"
+
+[lib]
+name = "orkestr_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build.workspace = true
+
+[dependencies]
+orkestr-core.workspace = true
+orkestr-platform.workspace = true
+tauri.workspace = true
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+
+[lints]
+workspace = true
+
+[features]
+# Serve the bundled frontend (`../dist`) instead of the Vite dev server.
+# `tauri build` enables this automatically; enable it manually for a
+# standalone `cargo build` that should run without `npm run dev`.
+custom-protocol = ["tauri/custom-protocol"]

@@ -1,0 +1,25 @@
+[package]
+name = "orkestr-events"
+description = "Orkestr EventBus (tokio broadcast, topics, monotonic seq), persisted event log, replay and correlation ids."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+orkestr-domain.workspace = true
+orkestr-protocol.workspace = true
+orkestr-storage.workspace = true
+tokio.workspace = true
+async-trait.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+chrono.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,5 @@
+[env]
+# ts-rs writes generated TypeScript bindings here (see docs/ENGINEERING_CONTRACT.md §4).
+TS_RS_EXPORT_DIR = { value = "packages/protocol/src/generated", relative = true }
+# u64/i64 travel as JSON numbers; values stay below 2^53 by construction (seq, tokens, bytes).
+TS_RS_LARGE_INT = "number"
