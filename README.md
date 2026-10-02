@@ -6,10 +6,13 @@ specialised agents, models, tools and compute nodes. The product spec is in
 [`docs/spec/MASTER_SPEC.md`](docs/spec/MASTER_SPEC.md). The rules every
 contributor follows are in [`docs/ENGINEERING_CONTRACT.md`](docs/ENGINEERING_CONTRACT.md).
 
-> Status: **Phase 0 foundation**. The core service, wire protocol, storage,
-> event bus, platform layer, TypeScript client, design system and desktop shell
-> work end to end. Engines such as providers, agents and terminal are typed
-> skeletons that later phases fill in.
+> Status: **Phase 1 — Windows desktop core MVP** (acceptance passed
+> 2026-10-02). You can open a project, ask the AI Manager to build something,
+> approve its plan and watch agents work in parallel in their own git
+> worktrees, with approvals for dangerous actions, snapshots and task
+> rollback, an emergency stop and crash recovery. What is done and what is
+> still open is tracked in [`docs/roadmap/mvp-milestones.md`](docs/roadmap/mvp-milestones.md).
+> Screenshots: [`docs/screenshots/phase1/`](docs/screenshots/phase1/).
 
 ## Architecture in one picture
 
@@ -47,6 +50,23 @@ npm run tauri dev           # desktop app with hot reload (embedded core)
 cargo run -p orkestr-core --bin orkestrd -- --port 0   # headless core
 ```
 
+### First run (offline, no API keys)
+
+1. `npm run tauri dev` (or build with `cargo build -p orkestr-desktop` and run
+   `target/debug/orkestr-desktop` while `npm run dev -w @orkestr/desktop`
+   serves the UI on port 1420).
+2. The onboarding wizard opens. Under **AI providers** / **Manager model** pick
+   **Mock (offline demo)** — a scripted, clearly labelled provider that needs
+   no network — or connect a real provider (API key, Ollama, or the official
+   Claude Code / Codex CLI with your own login).
+3. In **First project**, import a folder (a git repository gives every agent
+   its own worktree).
+4. In the **Manager** panel, ask e.g. *"Create a hello module with a unit
+   test"*, review the plan card and press **Approve**. Agents, tasks, the
+   task graph, terminal output and worktrees appear in their panels; dangerous
+   commands wait for you in the title bar's Approvals. **Stop** in the title
+   bar stops all AI activity.
+
 Data lives in the OS data directory. To keep everything in one folder (tests,
 portable setups), set `ORKESTR_HOME=/path`. To develop the UI in a plain
 browser, start `orkestrd` and open
@@ -70,6 +90,29 @@ node scripts/smoke/phase1-smoke.mjs --headless   # same checks against target/de
 
 It needs Node 22+ (global `WebSocket`) and `git` on `PATH`, prints one
 `PASS`/`FAIL` line per check and exits non-zero on failure.
+
+## Phase 1 acceptance
+
+`scripts/smoke/phase1-acceptance.mjs` drives the whole Manager flow against
+the real app with the Mock provider: setup → chat → plan → approve → a
+parallel run in per-agent worktrees (checked with `git worktree list`) → a
+dangerous command that waits for `approvals.resolve` → snapshots and a task
+rollback that keeps an unrelated user edit (§63 J) → `emergency.stopAll` on a
+live run → a hard kill mid-run and a restart that marks in-flight work
+`Interrupted`.
+
+```bash
+cargo build -p orkestr-desktop
+node scripts/smoke/phase1-acceptance.mjs             # desktop app
+node scripts/smoke/phase1-acceptance.mjs --headless  # against orkestrd
+```
+
+`scripts/smoke/phase1-screenshots.mjs` (Windows) seeds a demo project, drives
+the UI through the WebView2 DevTools protocol and saves the main views to
+`docs/screenshots/phase1/` with any console errors in `manifest.json`. Start
+`npm run dev -w @orkestr/desktop` first; `--window` captures the native window
+with PowerShell `CopyFromScreen` instead (that also captures anything on top
+of the window, such as notifications from other apps).
 
 ## Layout
 

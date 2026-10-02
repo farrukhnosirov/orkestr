@@ -105,6 +105,11 @@ export function rankItems(items: readonly PaletteItem[], query: string): Palette
   return scored.sort((a, b) => b.score - a.score).map((x) => x.item);
 }
 
+/** The order rows are displayed in (grouped); selection indices refer to it. */
+export function displayOrder(items: readonly PaletteItem[]): PaletteItem[] {
+  return groupItems(items).flatMap((g) => g.items);
+}
+
 /** Groups items keeping first-appearance order of groups. */
 export function groupItems(items: readonly PaletteItem[]): Array<{ group: string; items: PaletteItem[] }> {
   const groups = new Map<string, PaletteItem[]>();
@@ -231,6 +236,10 @@ export function CommandPalette() {
     return rankItems(allItems, query);
   }, [searchMode, searchGroups, query, allItems, recent]);
 
+  // Rows are displayed grouped; keyboard selection and Enter must address
+  // the same (display) order, not the ranking order.
+  const ordered = useMemo(() => displayOrder(results), [results]);
+
   useEffect(() => {
     setIndex((i) => Math.min(i, Math.max(0, results.length - 1)));
   }, [results.length]);
@@ -251,19 +260,19 @@ export function CommandPalette() {
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setIndex((i) => (results.length ? (i + 1) % results.length : 0));
+      setIndex((i) => (ordered.length ? (i + 1) % ordered.length : 0));
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
-      setIndex((i) => (results.length ? (i - 1 + results.length) % results.length : 0));
+      setIndex((i) => (ordered.length ? (i - 1 + ordered.length) % ordered.length : 0));
     } else if (e.key === "Home" && e.ctrlKey) {
       e.preventDefault();
       setIndex(0);
     } else if (e.key === "End" && e.ctrlKey) {
       e.preventDefault();
-      setIndex(Math.max(0, results.length - 1));
+      setIndex(Math.max(0, ordered.length - 1));
     } else if (e.key === "Enter") {
       e.preventDefault();
-      run(results[index]);
+      run(ordered[index]);
     } else if (e.key === "Escape") {
       e.preventDefault();
       setOpen(false);
@@ -313,7 +322,7 @@ export function CommandPalette() {
             aria-expanded="true"
             aria-controls="palette-list"
             aria-autocomplete="list"
-            aria-activedescendant={results[index] ? `palette-${results[index]?.id}` : undefined}
+            aria-activedescendant={ordered[index] ? `palette-${ordered[index]?.id}` : undefined}
           />
           {searching && <Spinner size={14} />}
           <Kbd>Esc</Kbd>

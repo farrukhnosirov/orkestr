@@ -71,7 +71,21 @@ fn history_messages(history: &[ManagerChatMessage], keep: usize) -> Vec<ChatMess
         out.push(ChatMessage::user(format!("Summary of the earlier conversation:\n{}", summarize_messages(older))));
         out.push(ChatMessage::assistant("Understood."));
     }
-    for m in recent {
+    // An Orkestr event stored while the user's latest message was being
+    // sent (e.g. "run completed" racing a new request) must not end up after
+    // that message: the turn answers the user's request, so such events are
+    // moved just before it.
+    let mut ordered: Vec<&ManagerChatMessage> = recent.iter().collect();
+    if let Some(last_user) = ordered.iter().rposition(|m| m.role == ManagerMessageRole::User) {
+        let tail = ordered.split_off(last_user + 1);
+        let (events, rest): (Vec<_>, Vec<_>) =
+            tail.into_iter().partition(|m| m.role == ManagerMessageRole::SystemEvent);
+        let user = ordered.pop();
+        ordered.extend(events);
+        ordered.extend(user);
+        ordered.extend(rest);
+    }
+    for m in ordered {
         match m.role {
             ManagerMessageRole::User => out.push(ChatMessage::user(m.text.clone())),
             ManagerMessageRole::Manager => {
@@ -370,6 +384,42 @@ impl Inner {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn msg(role: &str, text: &str) -> ManagerChatMessage {
+        serde_json::from_value(serde_json::json!({
+            "id": text,
+            "projectId": "0192a000-0000-7000-8000-000000000001",
+            "conversationId": "0192a000-0000-7000-8000-000000000002",
+            "role": role,
+            "text": text,
+            "toolEvents": [],
+            "createdAt": "2026-01-01T00:00:00Z"
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn events_racing_the_latest_request_are_moved_before_it() {
+        let history = vec![
+            msg("User", "first"),
+            msg("Manager", "ok"),
+            msg("SystemEvent", "older event"),
+            msg("User", "Create a greeter module"),
+            msg("SystemEvent", "Run completed"),
+        ];
+        let out = history_messages(&history, 50);
+        let texts: Vec<&str> = out.iter().map(|m| m.content.as_str()).collect();
+        assert_eq!(
+            texts,
+            vec![
+                "first",
+                "ok",
+                "[Orkestr event] older event",
+                "[Orkestr event] Run completed",
+                "Create a greeter module"
+            ]
+        );
+    }
 
     #[test]
     fn attachment_is_rendered_as_a_fenced_block() {

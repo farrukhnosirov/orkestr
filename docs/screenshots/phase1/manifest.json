@@ -1,0 +1,50 @@
+[
+  {
+    "name": "01-manager-plan-card.png",
+    "note": "Manager chat with the finished run and a pending plan card",
+    "capture": "devtools",
+    "consoleErrors": []
+  },
+  {
+    "name": "02-agents.png",
+    "note": "Agents panel after the run",
+    "capture": "devtools",
+    "consoleErrors": []
+  },
+  {
+    "name": "03-tasks-graph.png",
+    "note": "Tasks graph (maximized): the Manager's DAG, design → implement ∥ document → test",
+    "capture": "devtools",
+    "consoleErrors": []
+  },
+  {
+    "name": "04-code.png",
+    "note": "Code panel (Monaco) with src/index.mjs",
+    "capture": "devtools",
+    "consoleErrors": []
+  },
+  {
+    "name": "05-terminal.png",
+    "note": "Terminal panel (maximized): agent command output",
+    "capture": "devtools",
+    "consoleErrors": []
+  },
+  {
+    "name": "06-git.png",
+    "note": "Git panel (maximized): agent worktrees",
+    "capture": "devtools",
+    "consoleErrors": []
+  },
+  {
+    "name": "07-settings-providers.png",
+    "note": "Settings → AI Providers",
+    "capture": "devtools",
+    "consoleErrors": []
+  },
+  {
+    "name": "08-onboarding.png",
+    "note": "Onboarding wizard",
+    "capture": "devtools",
+    "consoleErrors": []
+  }
+]

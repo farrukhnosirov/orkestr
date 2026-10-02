@@ -479,8 +479,35 @@ fn agent_steps(role: &str, title: &str, req: &ChatRequest) -> Vec<Step> {
     if role == "qa" {
         steps.push(Step { tool: "run_command", args: json!({"command": format!("node --test tests/{s}.test.mjs")}) });
     }
+    for command in requested_commands(req) {
+        steps.push(Step { tool: "run_command", args: json!({ "command": command }) });
+    }
     steps.retain(|st| has_tool(req, st.tool));
     steps
+}
+
+/// Commands the task explicitly asks for, one per line in the form
+/// ``Run: `<command>` `` in the task message (the first user message). They
+/// run after the role's own steps, so a demo task can exercise the command
+/// gate (e.g. a dangerous command that needs approval).
+fn requested_commands(req: &ChatRequest) -> Vec<String> {
+    let Some(task) = req.messages.iter().find(|m| m.role == Role::User) else {
+        return Vec::new();
+    };
+    let mut out: Vec<String> = Vec::new();
+    // The context bundle after the task repeats the task text: stop there.
+    for l in task.content.lines().map(str::trim).take_while(|l| !l.starts_with("# Context")) {
+        let Some(rest) = l.get(..4).filter(|p| p.eq_ignore_ascii_case("run:")).map(|_| l[4..].trim()) else {
+            continue;
+        };
+        let Some(cmd) = rest.strip_prefix('`').and_then(|r| r.strip_suffix('`')).map(str::trim) else {
+            continue;
+        };
+        if !cmd.is_empty() && !cmd.contains('`') && !out.iter().any(|c| c == cmd) && out.len() < 4 {
+            out.push(cmd.to_owned());
+        }
+    }
+    out
 }
 
 /// Whether a tool result reports a failure (error flag or non-zero exit).
@@ -897,6 +924,33 @@ failed",
         assert_eq!(name, "submit_result");
         assert_eq!(arguments["status"], "partial");
         assert_eq!(arguments["tests_run"][0]["passed"], false);
+    }
+
+    #[test]
+    fn task_requested_commands_run_after_the_role_steps() {
+        let tools = ["write_file", "run_command", "submit_result"];
+        let mut r = ChatRequest::new(
+            "mock-smart",
+            vec![ChatMessage::user(
+                "# Task: Clean the hello module\n\nTidy up.\nRun: `git clean -fd`\nrun: `echo ok`\nRun: `echo ok`\nRun: not quoted\n\n# Context (selected by Orkestr)\nRun: `git clean -fd`\nRun: `rm -rf ctx`\n",
+            )],
+        );
+        r.system = Some("You are agent \"A\" (role Backend) running inside Orkestr.".into());
+        r.tools = tools.iter().map(|t| tool(t, json!({"type": "object"}))).collect();
+        assert_eq!(requested_commands(&r), vec!["git clean -fd".to_owned(), "echo ok".to_owned()]);
+        let MockScript::Tool { name, .. } = script(&r) else { panic!() };
+        assert_eq!(name, "write_file");
+        r.messages.push(ChatMessage::tool_result("1", "wrote", false));
+        let MockScript::Tool { name, arguments } = script(&r) else { panic!() };
+        assert_eq!(name, "run_command");
+        assert_eq!(arguments["command"], "git clean -fd");
+        r.messages.push(ChatMessage::tool_result("2", "denied by the user", true));
+        r.messages.push(ChatMessage::tool_result("3", "exit code: 0", false));
+        let MockScript::Tool { name, arguments } = script(&r) else { panic!() };
+        assert_eq!(name, "submit_result");
+        assert_eq!(arguments["status"], "partial");
+        // No request in the task → no extra commands.
+        assert!(requested_commands(&agent_req("QA", "Test the hello module", &tools)).is_empty());
     }
 
     #[test]

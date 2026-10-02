@@ -86,7 +86,30 @@ export function VirtualList<T>({
     });
     observer.current = ro;
     const el = scroller.current;
-    const vo = new ResizeObserver(() => setViewport(el?.clientHeight ?? 0));
+    // The viewport changes when the panel is resized or shown again: re-pin
+    // to the bottom if the user was there and re-sync the scroll offset,
+    // otherwise the rendered window can miss the visible area.
+    const resync = () => {
+      if (!el) return;
+      if (atBottom.current) el.scrollTop = el.scrollHeight;
+      setViewport(el.clientHeight);
+      setScrollTop(el.scrollTop);
+    };
+    const vo = new ResizeObserver(resync);
+    // Docking re-parents a panel's DOM when tabs move or activate; the
+    // browser then drops the scroll offset without any scroll, resize or
+    // intersection event. A cheap periodic check catches that drift: the
+    // rendered window must match the real offset, and a pinned chat stays
+    // pinned.
+    let last = -1;
+    const drift = window.setInterval(() => {
+      if (!el || el.clientHeight === 0) return;
+      const pinnedButMoved = atBottom.current && el.scrollHeight - el.scrollTop - el.clientHeight >= 48;
+      if (pinnedButMoved || el.scrollTop !== last) {
+        resync();
+        last = el.scrollTop;
+      }
+    }, 400);
     if (el) {
       vo.observe(el);
       setViewport(el.clientHeight);
@@ -94,6 +117,7 @@ export function VirtualList<T>({
     return () => {
       ro.disconnect();
       vo.disconnect();
+      window.clearInterval(drift);
       observer.current = null;
     };
   }, []);
@@ -125,6 +149,7 @@ export function VirtualList<T>({
     const el = scroller.current;
     if (!el || !atBottom.current) return;
     el.scrollTop = el.scrollHeight;
+    setScrollTop(el.scrollTop);
   }, [total, items.length, tailVersion]);
 
   const onScroll = (e: UIEvent<HTMLDivElement>) => {

@@ -28,7 +28,7 @@ import { Route, Timer } from "lucide-react";
 import { memo, useEffect, useMemo } from "react";
 
 import { errorMessage, taskActions } from "./data";
-import { layoutDag } from "./layout";
+import { DEFAULT_LAYOUT, layoutDag } from "./layout";
 import { shortId, statusColor } from "./model";
 import { PriorityChip } from "./parts";
 import { useTasksUi } from "./store";
@@ -114,6 +114,10 @@ export function GraphView({ graph }: { graph: TaskGraph }) {
       id: n.id,
       type: "task",
       position: positions.get(n.id) ?? { x: 0, y: 0 },
+      // Controlled nodes never receive `measured` sizes back (no
+      // onNodesChange), so the MiniMap needs the layout size to draw them.
+      initialWidth: DEFAULT_LAYOUT.nodeWidth,
+      initialHeight: DEFAULT_LAYOUT.nodeHeight,
       data: { task: n, critical: critical.has(n.id), ready: ready.has(n.id) },
       selected: n.id === selected,
       deletable: false,
@@ -182,7 +186,11 @@ export function GraphView({ graph }: { graph: TaskGraph }) {
         onNodeClick={(_, n) => select(n.id)}
         onPaneClick={() => select(null)}
         isValidConnection={(c) => c.source !== c.target}
-        proOptions={{ hideAttribution: true }}
+        onError={(code, message) => {
+          // 004 = zero-sized container: expected while the dock hides this
+          // group (e.g. another panel is maximized); it redraws when shown.
+          if (code !== "004") console.warn(`[React Flow] ${message}`);
+        }}
       >
         <Background variant={BackgroundVariant.Dots} gap={22} size={1} className="tasks-graph__bg" />
         <MiniMap

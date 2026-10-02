@@ -2,6 +2,7 @@
 
 .tasks-panel {
   position: relative;
+  container-type: inline-size;
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -1042,4 +1043,29 @@
 
 .tasks-toast__close:hover {
   background: var(--ok-color-surface-hover);
+}
+
+/* Narrow dock column: keep task + status readable, drop secondary columns. */
+@container (max-width: 560px) {
+  .tasks-table .tasks-col--priority,
+  .tasks-table .tasks-col--updated {
+    display: none;
+  }
+}
+
+@container (max-width: 420px) {
+  .tasks-row__meta .tasks-tag {
+    display: none;
+  }
+}
+
+/* React Flow attribution, kept visible and toned to the theme. */
+.tasks-graph .react-flow__attribution {
+  background: transparent;
+  color: var(--ok-color-text-muted);
+  font-size: var(--ok-font-size-xs);
+}
+
+.tasks-graph .react-flow__attribution a {
+  color: var(--ok-color-text-muted);
 }

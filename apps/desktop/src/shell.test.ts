@@ -1,7 +1,7 @@
 import type { Event, Project } from "@orkestr/protocol";
 import { describe, expect, it } from "vitest";
 
-import { fuzzyScore } from "./components/CommandPalette";
+import { displayOrder, fuzzyScore, type PaletteItem } from "./components/CommandPalette";
 import { projectHue, projectInitials } from "./components/ProjectRail";
 import { describeEvent, formatTime, severityOf } from "./panels/Logs/describe";
 import { CODING_PRESET, getPanel, PANELS } from "./panels/registry";
@@ -93,5 +93,15 @@ describe("helpers", () => {
     expect(describeEvent(ev)).toBe("boom");
     expect(severityOf(ev)).toBe("error");
     expect(formatTime(ev.ts)).toMatch(/^\d\d:\d\d:\d\d\.345$/);
+  });
+});
+
+describe("command palette", () => {
+  it("selects in display (grouped) order, not ranking order", () => {
+    const item = (id: string, group: string): PaletteItem => ({ id, title: id, group, indices: [], run: () => undefined });
+    // Ranked A(g1), B(g2), C(g1) is displayed as g1: A, C — g2: B; the second
+    // row (index 1) must be C, the one the user sees highlighted.
+    const ordered = displayOrder([item("A", "g1"), item("B", "g2"), item("C", "g1")]);
+    expect(ordered.map((i) => i.id)).toEqual(["A", "C", "B"]);
   });
 });

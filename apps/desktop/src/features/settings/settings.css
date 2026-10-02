@@ -106,7 +106,10 @@
 
 .settings-main__body {
   flex: 1;
-  overflow: auto;
+  /* Vertical scroll only: sub-pixel card rounding produced a 2px phantom
+     horizontal scrollbar under the provider grid. */
+  overflow-x: hidden;
+  overflow-y: auto;
   padding: var(--ok-space-5) var(--ok-space-8) var(--ok-space-10);
 }
 

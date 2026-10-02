@@ -492,6 +492,11 @@ impl Supervisor {
             }
             if self.control.cancel.is_cancelled() {
                 // Emergency stop: agents were cancelled by the same controller.
+                // Let them record their own outcome (their tasks become
+                // Cancelled), then cancel what never started so the final
+                // run card shows no task as still running.
+                self.wait_agents_stopped(Duration::from_secs(10)).await;
+                self.cancel_tasks("emergency stop").await;
                 self.refresh().await;
                 self.finish(ManagerRunStatus::Cancelled, Some("emergency stop".into())).await;
                 return;
@@ -842,6 +847,14 @@ impl Supervisor {
         }
     }
 
+    /// Waits (bounded) until no agent of the run is live any more.
+    async fn wait_agents_stopped(&self, limit: Duration) {
+        let deadline = tokio::time::Instant::now() + limit;
+        while self.live_agents() > 0 && tokio::time::Instant::now() < deadline {
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+    }
+
     /// Cancels every unfinished task of the run.
     async fn cancel_tasks(&mut self, why: &str) {
         for t in &self.run.tasks {
@@ -1101,6 +1114,16 @@ impl Supervisor {
         for t in &mut self.run.tasks {
             t.awaiting_review = false;
         }
+        // The conversation notice is stored before the final status becomes
+        // visible, so a client reacting to "run finished" sees it in order.
+        let summary = self.run.report.as_ref().map(|r| r.summary.clone()).unwrap_or_default();
+        self.inner
+            .system_event(
+                self.project.id,
+                &summary,
+                MessageExtras { plan_id: Some(self.plan.id), run_id: Some(self.run.id), ..MessageExtras::default() },
+            )
+            .await;
         self.publish_if_changed().await;
         if let Ok(mut plan) = self.inner.store.plan(self.plan.id).await {
             plan.status = match status {
@@ -1113,14 +1136,6 @@ impl Supervisor {
                 tracing::warn!(error = %e, "could not update the plan status");
             }
         }
-        let summary = self.run.report.as_ref().map(|r| r.summary.clone()).unwrap_or_default();
-        self.inner
-            .system_event(
-                self.project.id,
-                &summary,
-                MessageExtras { plan_id: Some(self.plan.id), run_id: Some(self.run.id), ..MessageExtras::default() },
-            )
-            .await;
         tracing::info!(run_id = %self.run.id, ?status, ?reason, "manager run finished");
     }
 

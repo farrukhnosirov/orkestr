@@ -12,6 +12,36 @@ Every §68 item, the 50 numbered ones plus the additional list, is mapped to its
 
 **As built (Phase 0, 2026-10-02):** `apps/desktop/src/panels/registry.ts` registers 15 panels — `manager`, `code`, `files`, `terminal`, `git`, `agents`, `tasks`, `architecture`, `browser`, `database`, `logs`, `deployments`, `memory`, `costs`, `monitoring`. Only **Logs** is functional (live event stream); the others render `PhasePlaceholder` ("Arrives in Phase N"). The shell-level TitleBar, CommandPalette, ProjectRail, StatusBar and ConnectionScreen exist. Panels named above but not registered yet (TaskGraph, Approvals, Snapshots, Providers, Settings, MissionControl, Decisions, Replay, McpHub, Environments, ThemeEditor, LayoutEditor, RobotDesigner, Nodes) are added by their phase owners. The registry's placeholder phases disagree with this matrix for Architecture (registry 2, panel here P3), Browser (2 vs P3), Database (2 vs P4) and Deployments (2 vs P4); this matrix is the plan of record and the registry should be aligned (code-side follow-up).
 
+**As built at Phase 1 acceptance (2026-10-02):** the P1 column below is the
+plan of record; this list records where the delivered state differs or needs a
+qualifier (checked by `scripts/smoke/phase1-acceptance.mjs`, the Rust/TS test
+suites and the screenshot review in `docs/screenshots/phase1/`). Items not
+listed here are delivered at their P1 level. The panel registry now has
+Manager, Code, Files, Terminal, Git, Agents, Tasks, Logs, Memory and Costs
+functional; approvals live in the title bar/security layer, snapshots in the
+Git panel's Snapshots tab and providers in Settings → AI Providers rather than
+in separate panels.
+
+| # | Feature | Planned P1 | Delivered P1 | Difference |
+|---|---|---|---|---|
+| 2 | Dynamic Agent Spawn | Partial | Partial | As planned: the approved plan spawns one agent per ready task up to `maxParallelAgents`. |
+| 6 | Model fallback | Full | Full | Fallback + structured handoff work for API models; Claude Code / Codex CLI agents have no fallback chain. |
+| 10 | Git Worktrees per agent | Full | Full | Verified on disk (`git worktree list`). Startup reconciliation of orphaned worktrees is open. |
+| 11 | AI Merge Manager | Arch | Arch | `vcs.mergePreview`/`vcs.merge` exist for the user; runs only list merge proposals with diff stats. |
+| 12 | Automatic Code Review | Partial | Partial | A Reviewer agent can be spawned on a task; the Manager does not yet schedule reviews automatically. |
+| 15 | Auto Testing | Partial | Partial | QA agents run tests through `run_command` and results reach the run report. |
+| 19 | Terminal Workspace | Full | Partial | PTY sessions, gated runs and the agent command tab work; take-control handover and scrollback snapshots are open. |
+| 20 | Monaco | Partial | Partial | Tabs, quick open, search, agent change markers; "open in external IDE" and Git gutter decorations not verified in this pass. |
+| 23 | Visual Task Graph | Partial | Partial (above plan) | The graph is interactive already (drag to add a dependency, Delete removes one), with a MiniMap. |
+| 28 | Voice Command Center | Arch | — | No `voice.*` namespace or `Microphone` trait yet; the seam is still to be added. |
+| 31 | Approval Levels | Full | Full | "Remember this decision" is open. |
+| 34 | Rollback Everything | Partial | Partial | Task and workspace rollback work for every agent task (after-checkpoints are now always taken); HEAD/index restore is open. |
+| 35 | Snapshots | Full | Partial | Capture, diff, restore and task rollback work; snapshot GC and the 500-file timing benchmark are open. |
+| 37 | Smart Budgeting | Partial | Partial | Budgets are checked before each API model call; CLI agents are checked after the run only. |
+| 49 | Decision Log | Arch | Partial | Decisions are recorded through the Manager's `record_decision` tool and the Memory panel; plan approvals do not record one automatically. |
+| — | Background service | Partial | Partial | `orkestrd` + tray keep-running; no Job Object supervisor, so child processes of a hard-killed core are not reaped by the OS. |
+| — | Installer / CI | (M1.1, M1.8) | — | No signed installer, auto-update or CI matrix yet. |
+
 **Crate names** drop the `orkestr-` prefix. "client" means `@orkestr/client`, "ui" means `@orkestr/ui`.
 
 ## A. Numbered inventory (§68 #1–#50)

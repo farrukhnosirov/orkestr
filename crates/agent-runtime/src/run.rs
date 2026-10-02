@@ -1313,11 +1313,15 @@ impl Run {
         let cause = self.control.cause();
         tracing::info!(agent_id = %self.agent.id, outcome = ?outcome_label(&outcome), ?cause, "agent run finished");
 
-        // Snapshot the worktree when the agent stops with changes (§25).
-        if !matches!(outcome, Outcome::Submitted(_)) && !self.progress.lock().files_changed.is_empty() {
+        // Snapshot the worktree when the agent ends with changes (§25): the
+        // after-checkpoint that `snapshots.rollbackTask` pairs with the
+        // automatic before-checkpoint, so every task with changes can be
+        // rolled back — including tasks that finished successfully.
+        if !self.progress.lock().files_changed.is_empty() {
+            let label = if matches!(outcome, Outcome::Submitted(_)) { "finished" } else { "stopped" };
             match tools::memory::snapshot(
                 &self.env,
-                format!("{} stopped", self.agent.name),
+                format!("{} {label}", self.agent.name),
                 SnapshotReason::TaskCheckpoint,
                 Some(TaskSnapshotPhase::After),
             )

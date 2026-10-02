@@ -5,6 +5,7 @@
 import {
   Activity,
   BellOff,
+  Expand,
   FolderPlus,
   FolderSearch,
   Maximize,
@@ -109,6 +110,14 @@ export const coreCommands: AppCommand[] = [
     icon: ScrollText,
     keywords: ["events", "log", "debug", "stream"],
     run: () => workspaceActions.openPanel("logs"),
+  },
+  {
+    id: "view.toggleMaximize",
+    title: "Toggle Maximize Panel",
+    group: "Views",
+    icon: Expand,
+    keywords: ["maximize", "zoom", "focus", "panel", "restore"],
+    run: () => workspaceActions.toggleMaximize(),
   },
   {
     id: "window.fullscreen",

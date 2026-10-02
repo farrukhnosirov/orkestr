@@ -235,6 +235,7 @@ struct H {
     project: ProjectId,
     source: Arc<Source>,
     gateway: Arc<Gateway>,
+    snapshots: Arc<orkestr_snapshots::SnapshotService>,
 }
 
 fn model(p: &Scripted, m: &str) -> ModelRef {
@@ -300,7 +301,7 @@ async fn harness(mode: ApprovalMode) -> H {
         tasks: Arc::clone(&tasks),
         projects: meta as Arc<dyn ProjectRepository>,
         vcs: orkestr_vcs::Vcs::new(Arc::new(orkestr_vcs::GitCli::discover()), db.clone(), dir.path().join("worktrees")),
-        snapshots,
+        snapshots: Arc::clone(&snapshots),
         terminals,
         memory: orkestr_memory::MemoryEngine::new(db.clone()).with_events(events.clone()),
         cost: orkestr_cost::CostEngine::new(db.clone()).with_events(events.clone()),
@@ -309,7 +310,7 @@ async fn harness(mode: ApprovalMode) -> H {
     };
     let rt = AgentRuntime::new(deps);
     rt.init().await.unwrap();
-    H { root, outside, rt, sec, events, tasks, db, project: p.id, source, gateway, _dir: dir }
+    H { root, outside, rt, sec, events, tasks, db, project: p.id, source, gateway, snapshots, _dir: dir }
 }
 
 impl H {
@@ -474,6 +475,30 @@ async fn writes_a_file_in_its_worktree_and_completes() {
     }
     // Streaming deltas are emitted (ephemeral events).
     assert!(kinds.iter().any(|x| x == "AgentMessage"));
+}
+
+#[tokio::test]
+async fn completed_task_has_a_checkpoint_pair_and_rolls_back_alone() {
+    let h = harness(ApprovalMode::SemiAuto).await;
+    let tpl = h.template(&["write_file", "submit_result"], WorktreePolicy::SharedWorktree, None).await;
+    h.provider(vec![
+        tool("write_file", json!({"path": "src/hello.txt", "content": "hello"})),
+        submit("done", "Created src/hello.txt"),
+    ]);
+    let a = h.wait_done(h.spawn(tpl, None).await.id).await;
+    assert_eq!(a.state, AgentState::Completed, "{:?}", a.last_error);
+    let task_id = a.task_id.unwrap();
+    let snaps = h.snapshots.list(h.project, Some(task_id), None, 10).await.unwrap();
+    let phases: Vec<_> = snaps.iter().filter_map(|s| s.task_phase).collect();
+    let (before, after) = (orkestr_domain::TaskSnapshotPhase::Before, orkestr_domain::TaskSnapshotPhase::After);
+    assert!(phases.contains(&before) && phases.contains(&after), "{phases:?}");
+    // The user edits an unrelated file afterwards; rolling the task back
+    // removes only what the task did (§63 J).
+    std::fs::write(h.root.join("README.md"), "# Demo project\nuser edit\n").unwrap();
+    let rb = h.snapshots.rollback_task(h.project, task_id, None, None, false).await.unwrap();
+    assert!(rb.conflicts.is_empty(), "{rb:?}");
+    assert!(!h.root.join("src/hello.txt").exists());
+    assert!(std::fs::read_to_string(h.root.join("README.md")).unwrap().contains("user edit"));
 }
 
 #[tokio::test]

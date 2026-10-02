@@ -793,7 +793,12 @@ async fn cancel_stops_agents_and_cancels_unfinished_tasks() {
 async fn emergency_stop_cancels_the_run() {
     let h = harness(false, ApprovalMode::SemiAuto).await;
     h.mock("mock-slow");
-    let plan = h.custom_plan(vec![ptask("a", "Implement the alpha module", AgentRole::Backend, &[])]).await;
+    let plan = h
+        .custom_plan(vec![
+            ptask("a", "Implement the alpha module", AgentRole::Backend, &[]),
+            ptask("b", "Implement the beta module", AgentRole::Backend, &["a"]),
+        ])
+        .await;
     let r =
         h.mgr.approve_plan(ApprovePlanParams { plan_id: plan.id, edits: None, start_run: Some(true) }).await.unwrap();
     let run = r.run.unwrap();
@@ -802,6 +807,10 @@ async fn emergency_stop_cancels_the_run() {
     let done = h.mgr.wait_run(run.id, Duration::from_secs(20), |r| final_status(r.status)).await.unwrap();
     assert_eq!(done.status, ManagerRunStatus::Cancelled);
     assert_eq!(done.status_reason.as_deref(), Some("emergency stop"));
+    // The final run card shows no task as still running: the in-flight task
+    // was cancelled by its agent, the one that never started by the run.
+    let statuses: Vec<TaskStatus> = done.tasks.iter().map(|t| t.status).collect();
+    assert_eq!(statuses, vec![TaskStatus::Cancelled, TaskStatus::Cancelled], "{statuses:?}");
 }
 
 #[tokio::test]

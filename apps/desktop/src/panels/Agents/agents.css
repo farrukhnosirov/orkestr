@@ -2,6 +2,7 @@
 
 .agents-panel {
   position: relative;
+  container-type: inline-size;
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -80,6 +81,22 @@
   flex: 0 0 320px;
   max-width: 45%;
   border-right: 1px solid var(--ok-color-border);
+  overflow-y: auto;
+}
+
+/* Narrow dock column: list above the detail instead of side by side. */
+@container (max-width: 640px) {
+  .agents-split {
+    flex-direction: column;
+  }
+
+  .agents-split__list {
+    flex: 0 0 auto;
+    max-width: none;
+    max-height: 38%;
+    border-right: none;
+    border-bottom: 1px solid var(--ok-color-border);
+  }
 }
 
 .agents-list {

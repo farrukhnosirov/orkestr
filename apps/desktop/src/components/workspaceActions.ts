@@ -6,6 +6,8 @@
 export interface WorkspaceHandlers {
   openPanel: (panelId: string) => void;
   resetLayout: () => void;
+  /** Maximizes the active panel's group, or restores the layout if one is maximized. */
+  toggleMaximize: () => void;
 }
 
 let handlers: WorkspaceHandlers | null = null;
@@ -17,4 +19,5 @@ export function registerWorkspace(h: WorkspaceHandlers | null): void {
 export const workspaceActions: WorkspaceHandlers = {
   openPanel: (panelId) => handlers?.openPanel(panelId),
   resetLayout: () => handlers?.resetLayout(),
+  toggleMaximize: () => handlers?.toggleMaximize(),
 };

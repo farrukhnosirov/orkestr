@@ -4,7 +4,8 @@
   position: fixed;
   left: calc(var(--ok-rail-width) + var(--ok-space-5));
   bottom: calc(var(--ok-statusbar-height) + var(--ok-space-4));
-  z-index: var(--ok-z-overlay);
+  /* A floating, non-modal card: below Settings, dialogs and the palette. */
+  z-index: calc(var(--ok-z-overlay) - 10);
   width: 360px;
   border: 1px solid var(--ok-color-border-strong);
   border-radius: var(--ok-radius-lg);

@@ -109,33 +109,85 @@ Phase 1 delivers, per §61:
 
 The requirements review adds the security baseline (RR-C3), onboarding (RR-G7), the command palette (RR-G6), observability (RR-G8), the resume summary (RR-G9), tray mode (RR-C2) and the protocol prerequisites for later phases (RR-P1…P10).
 
-### Status: Phase 1 wave A (integrated 2026-10-02)
+### Status: Phase 1 complete (acceptance 2026-10-02)
 
-Wave A built eight areas in parallel and merged them into `main`
-(security, providers, tasks, vcs/snapshots, terminal, files/editor,
-memory/context/cost, platform/shell). The integration wired the areas
-together in the core composition root: provider API keys live in the security
-`SecretService` (keyring + encrypted vault, audited); every `terminal.run` /
-agent terminal line passes `SecurityCommandGate` (permission engine +
-dangerous-action guard + single-use approvals); agent-attributed `files.*`
-mutations are checked by the permission engine; `emergency.*` also stops agent
-terminals; `providers.test` usage is recorded by the cost engine; new projects
-start in the user's default approval mode; onboarding embeds the provider
-setup and Manager model; the palette, shortcuts and Settings view read the
-shared registries. Verified by `cargo test --workspace`, clippy `-D warnings`,
-`npm test`, `npm run build` and `scripts/smoke/phase1-smoke.mjs` (desktop app
-end to end).
+Phase 1 was built in two waves: wave A (security, providers, tasks,
+vcs/snapshots, terminal, files/editor, memory/context/cost, platform/shell),
+then wave B (agent runtime + templates + Agents panel, AI Manager +
+Manager panel). The acceptance pass ran the end-to-end script
+`scripts/smoke/phase1-acceptance.mjs` against the real desktop app (debug
+build, isolated `ORKESTR_HOME`, temp git repo, Mock provider) — **45/45
+checks pass** — and reviewed every main view in the running app
+(`scripts/smoke/phase1-screenshots.mjs`, screenshots in
+`docs/screenshots/phase1/`). `cargo test --workspace`, clippy `-D warnings`,
+`cargo fmt --check`, `npm run typecheck`, `npm test` and `npm run build` are
+green.
 
-| Milestone | Wave A state | Still open |
+**Acceptance scenario (what the script proves):**
+onboarding-equivalent setup (Mock as Manager + agent routing) →
+`manager.chat` "Create a hello module with a unit test" → plan card (4 tasks,
+dependencies) → `manager.approvePlan` → supervised run: every task
+`Ready → Running → (Review|Testing) → Completed`, the two middle tasks in
+parallel (`peakParallel 2`, overlapping windows), one git worktree per agent
+on `agent/<role>-<id>` (checked with `git worktree list`), files written and
+committed on the agent branches, the main checkout untouched, QA runs
+`node --test`, final report with merge proposals → a dangerous command
+(`git clean -fd`) parks the agent and its task in `Waiting` with
+`ApprovalRequested`; `approvals.resolve` lets it run and finish → each task
+has before/after checkpoints; `snapshots.rollbackTask` (confirm-gated)
+restores the pre-task state and leaves an unrelated file the user edited
+afterwards untouched (§63 J) → `emergency.stopAll` stops a live run (run and
+all its tasks `Cancelled`, no live agent) → the process is killed mid-run;
+after a restart the in-flight task and the run are `Interrupted`, no agent is
+left active and `manager.resumeSummary` reports the session.
+
+**§61 Phase 1 list — delivery state**
+
+| §61 item | State | Notes / remaining gaps |
 |---|---|---|
-| M1.1 Workspace & CI | — | CI matrix, dependency-boundary script, lint configs |
-| M1.2 Core runtime | settings store, seq high-water, retention, session history, recovery hook for tasks, `orkestrd --background` | Job Objects (`ProcessSupervisor`), `hello`/`sinceSeq`/idempotency keys, `core.lock`, log rotation |
-| M1.3 Desktop shell | title bar with Approvals + Emergency Stop, Settings view, 12-step onboarding, palette with fuzzy search, tray/close-to-tray/autostart/single instance, notifications, resume card | keep-running close dialog, native OS notifications, i18n; tray/autostart not exercised on a real desktop session by tests |
-| M1.4 Security baseline | permission engine, guard (~350 cases), confinement, approvals, secret vault, audit chain, emergency controls, WS hardening | "remember this decision", passphrase vault mode, `confine()` fuzz test, budget enforcement before calls, privacy routing |
-| M1.5 Provider hub | all Phase 1 adapters, registry, router, fallback, health loop, pricing estimates, settings UI | per-model concurrency, CLI per-call permission bridge, live checks against real providers/CLIs |
-| M1.6 Workspace tools | Files/Code (Monaco) panels, Terminal (PTY, gated), Git panel, agent worktrees | Take-control handover, scrollback snapshots, worktree reconciliation at startup, push/fetch |
-| M1.7 Agents, tasks, Manager | task engine + Tasks panel (list/board/graph) | agent runtime, Manager, Agents panel (wave B) |
-| M1.8 Memory, snapshots, cost | memory/decisions/knowledge + panel, snapshots + rollback, cost/budgets + panel, resume summary | HEAD/index restore on rollback, snapshot GC, usage from real agent runs, installer/signing |
+| Custom desktop shell | Done | Frameless window, title bar with Approvals + Stop, dockview workspace (Coding preset, maximize panel), palette, tray/close-to-tray, single instance, notifications. Keep-running close dialog, native OS notifications and i18n are open. |
+| Projects | Done | Create/import/switch/delete, per-project approval mode. Switch-time benchmark (< 300 ms) not automated. |
+| AI Manager | Done (basic) | Chat with tools, schema-checked plans, plan card (approve/edit/reject), supervised runs with limits, pause/resume/cancel, report, resume summary. No in-flight reply cancel; epic/feature/task only; no automatic review/test loops (Phase 2). |
+| Provider hub | Done | All Phase 1 adapters, registry, router, fallback + handoff, health loop, pricing, Settings → AI Providers. Live checks against real APIs/CLIs not part of CI. Per-model concurrency open. |
+| Manual agents | Done | 11 official templates + custom/import/export, spawn/stop/pause/resume, live transcript, inline approvals. |
+| Basic dynamic spawn | Done | The Manager spawns one agent per ready task within `maxParallelAgents`. |
+| Terminal | Done | PTY sessions, gated `terminal.run`, read-only agent command tab. Take-control handover and scrollback snapshots open. |
+| Files | Done | Tree, watch, CRUD via RPC, confinement, agent permission checks. |
+| Monaco | Done | Tabs, quick open, search, agent change markers. |
+| Git / worktrees | Done | Status, diff, log, branches, commit, worktrees list/add/remove; one worktree per agent. Push/fetch and startup worktree reconciliation open; merging is Phase 2. |
+| Tasks | Done | State machine, DAG, scheduler, list/board/graph views, crash recovery to `Interrupted`. |
+| Basic memory | Done | Project/global memory, FTS search, rules priority, Memory panel; used in agent context. |
+| Approvals | Done | Single-use approvals, dangerous-action guard (always Ask), agent waits in `Waiting`. "Remember this decision" open. |
+| Logs | Done | Live event stream panel with filters; tracing logs. Log rotation open. |
+| Snapshots | Done | Manual, before-change and after-task checkpoints; task and workspace rollback with conflict detection. HEAD/index restore and snapshot GC open. |
+| Background service | Partial | `orkestrd` headless/`--background`, discovery, desktop attach, tray. No Windows Job Object supervisor (child processes of a killed core are not reaped by the OS), no `core.lock`. |
+| Security engines | Done (baseline) | Permission engine, guard corpus, path confinement, secret vault, audit chain, emergency controls, WS hardening. Passphrase vault mode, `confine()` fuzz test and privacy routing open. |
+| Installer / signing (M1.8) | Not done | No signed NSIS/MSI, no auto-update channel. |
+| CI (M1.1) | Not done | No CI matrix or dependency-boundary script yet; verification is local. |
+
+| Milestone | State | Still open |
+|---|---|---|
+| M1.1 Workspace & CI | Not done | CI matrix, dependency-boundary script, lint configs |
+| M1.2 Core runtime | Partial | Job Objects (`ProcessSupervisor`), `hello`/`sinceSeq`/idempotency keys, `core.lock`, log rotation |
+| M1.3 Desktop shell | Done | keep-running close dialog, native OS notifications, i18n |
+| M1.4 Security baseline | Done (baseline) | "remember this decision", passphrase vault, `confine()` fuzz test, privacy routing |
+| M1.5 Provider hub | Done | per-model concurrency, CLI per-call permission bridge, live provider checks |
+| M1.6 Workspace tools | Done | Take-control handover, scrollback snapshots, worktree reconciliation, push/fetch |
+| M1.7 Agents, tasks, Manager | Done | Claude Code/Codex agents: no per-command approval, no pause, cost checked after the run; context compaction, stuck-loop detection |
+| M1.8 Memory, snapshots, cost | Partial | HEAD/index restore on rollback, snapshot GC, installer/signing, clean-VM install |
+
+**Fixed during acceptance** (each with a test or an acceptance check):
+successful agent tasks had no after-checkpoint, so `snapshots.rollbackTask`
+failed for them; an emergency stop left the run's tasks `Running`/`Planned`
+on the final run card; a "run completed" notice that raced a new request was
+sent to the model after the request (the Mock then planned the notice instead
+of the user's goal); the Manager conversation could be squeezed to zero
+height and lost its scroll position when the dock re-parented the panel; the
+command palette ran a different item than the highlighted one when results
+were grouped; finished agents still showed a Stop button; the resume card
+floated above Settings and the onboarding dialog; the Tasks/Agents panels
+overflowed in a narrow dock column; the task-graph MiniMap was empty; Settings
+showed a phantom horizontal scrollbar.
 
 ### M1.1 Workspace and CI hardening
 - **Scope:**

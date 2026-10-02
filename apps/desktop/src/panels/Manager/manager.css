@@ -167,6 +167,11 @@
   border-radius: var(--ok-radius-md);
   background: var(--ok-gradient-accent-soft);
   font-size: var(--ok-font-size-sm);
+  /* Never squeeze the conversation away in a short panel. */
+  flex-shrink: 0;
+  box-sizing: border-box;
+  max-height: 104px;
+  overflow-y: auto;
 }
 
 .mgr-resume__icon {
@@ -208,7 +213,9 @@
 /* ── conversation ────────────────────────────────────── */
 .mgr-body {
   flex: 1;
-  min-height: 0;
+  /* The conversation keeps a usable height even when the resume banner,
+     the run card and the composer share a short panel. */
+  min-height: 96px;
   display: flex;
   flex-direction: column;
 }
@@ -745,13 +752,18 @@
 /* ── chips, composer ─────────────────────────────────── */
 .mgr-chips {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
   gap: var(--ok-space-1);
   padding: 0 var(--ok-space-3) var(--ok-space-2);
 }
 
 .mgr-chip {
   display: inline-flex;
+  flex-shrink: 0;
+  white-space: nowrap;
   align-items: center;
   gap: var(--ok-space-1);
   padding: 2px var(--ok-space-2);

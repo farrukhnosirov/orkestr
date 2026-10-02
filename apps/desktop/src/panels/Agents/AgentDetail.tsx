@@ -134,7 +134,7 @@ export function AgentDetail({ agent, taskTitle, now }: { agent: AgentInstance; t
               {paused ? "Resume" : "Pause"}
             </Button>
           )}
-          {agent.state !== "Stopped" && (
+          {active && (
             <Button
               size="sm"
               variant="danger"

@@ -16,7 +16,7 @@ import { useAppStore } from "../store/app";
 import { registerWorkspace } from "./workspaceActions";
 
 // v2: the AI Manager became the default focused panel (Phase 1).
-const LAYOUT_KEY = "orkestr.layout.v2";
+const LAYOUT_KEY = "orkestr.layout.v3";
 
 /** dockview theme bound to the Orkestr tokens (see `.dockview-theme-nebula` in app.css). */
 const NEBULA_DOCK_THEME: DockviewTheme = {
@@ -104,6 +104,14 @@ function applyPreset(api: DockviewApi | null): void {
       ...(slot.position ? { position: slot.position } : {}),
     });
   }
+  // Proportions: the conversation/editor column gets the most room; the
+  // explorer and the agents/tasks column are side bars and the bottom dock
+  // (logs/terminal/git) a strip, so the Manager chat is never squeezed.
+  if (api.width > 0 && api.height > 0) {
+    api.getPanel("files")?.group.api.setSize({ width: Math.round(api.width * 0.2) });
+    api.getPanel("agents")?.group.api.setSize({ width: Math.round(api.width * 0.27) });
+    api.getPanel("logs")?.group.api.setSize({ height: Math.round(api.height * 0.3) });
+  }
   api.getPanel("logs")?.api.setActive();
   // Last: the focused group/tab of the default layout is the AI Manager.
   api.getPanel(DEFAULT_FOCUSED_PANEL)?.api.setActive();
@@ -147,10 +155,21 @@ export function Workspace() {
     applyPreset(apiRef.current);
   }, []);
 
+  const toggleMaximize = useCallback(() => {
+    const api = apiRef.current;
+    if (!api) return;
+    if (api.hasMaximizedGroup()) {
+      api.exitMaximizedGroup();
+      return;
+    }
+    const active = api.activePanel;
+    if (active) api.maximizeGroup(active);
+  }, []);
+
   useEffect(() => {
-    registerWorkspace({ openPanel, resetLayout });
+    registerWorkspace({ openPanel, resetLayout, toggleMaximize });
     return () => registerWorkspace(null);
-  }, [openPanel, resetLayout]);
+  }, [openPanel, resetLayout, toggleMaximize]);
 
   const onReady = (event: DockviewReadyEvent) => {
     apiRef.current = event.api;
