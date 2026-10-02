@@ -157,6 +157,12 @@ define_id!(/// Terminal session id.
     TerminalId, "terminal");
 define_id!(/// RPC client session id.
     SessionId, "session");
+define_id!(/// AI Manager plan id (§1 steps 2–4, §9).
+    ManagerPlanId, "managerPlan");
+define_id!(/// AI Manager supervised run id (§1 steps 5–13).
+    ManagerRunId, "managerRun");
+define_id!(/// AI Manager conversation id (one active conversation per project).
+    ConversationId, "conversation");
 
 #[cfg(test)]
 mod tests {

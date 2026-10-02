@@ -39,7 +39,7 @@ import TerminalPanel from "./Terminal";
 import type { PanelDefinition } from "./types";
 
 export const PANELS: readonly PanelDefinition[] = [
-  { id: "manager", title: "Manager", description: "AI Manager chat and plans", icon: Sparkles, phase: 1, component: ManagerPanel },
+  { id: "manager", title: "Manager", description: "AI Manager chat and plans", icon: Sparkles, phase: 0, component: ManagerPanel },
   { id: "code", title: "Code", description: "Monaco editor", icon: FileCode, phase: 0, component: CodePanel },
   { id: "files", title: "Files", description: "Project file explorer", icon: FolderTree, phase: 0, component: FilesPanel },
   { id: "terminal", title: "Terminal", description: "PTY terminal sessions", icon: SquareTerminal, phase: 0, component: TerminalPanel },
@@ -69,6 +69,9 @@ export interface PresetSlot {
   /** Group anchor: panel id already placed, with direction; omitted = first panel. */
   position?: { referencePanel: string; direction: "left" | "right" | "above" | "below" | "within" };
 }
+
+/** Panel focused when the default layout is applied: the AI Manager is the primary entry point (§1). */
+export const DEFAULT_FOCUSED_PANEL = "manager";
 
 /** Default "Coding" layout preset (§29). */
 export const CODING_PRESET: readonly PresetSlot[] = [

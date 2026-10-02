@@ -69,6 +69,8 @@ pub struct Services {
     pub node_sample_interval: std::time::Duration,
     /// Agent runtime: templates, instances, tool loop (§6).
     pub agents: orkestr_agent_runtime::AgentRuntime,
+    /// AI Manager: conversations, plans, supervised runs (§1, §5).
+    pub manager: orkestr_orchestrator::Manager,
     /// Persistent event seq reservation.
     pub seq_high_water: Arc<crate::housekeeping::SeqHighWater>,
 }

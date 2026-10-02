@@ -380,7 +380,7 @@ impl AgentRuntime {
                     role: Some(crate::prompt::role_name(&template.role)),
                     task_id: Some(task.id),
                     branch: None,
-                    base: None,
+                    base: p.base_branch.clone().filter(|b| !b.trim().is_empty()),
                 };
                 match self.deps.vcs.add_worktree(project.id, root, req).await {
                     Ok(w) => {
@@ -442,7 +442,7 @@ impl AgentRuntime {
             template_version: Some(template.version.clone()),
             worktree_policy: policy,
             max_turns,
-            budget: template.budget.clone(),
+            budget: tighten_budget(template.budget.clone(), p.budget.clone()),
             execution_id: None,
             execution_style: Some(if cli { "cli" } else { "chat" }.into()),
             cli_session: None,
@@ -490,6 +490,10 @@ impl AgentRuntime {
             .effective_mode(project_mode, Some(agent_id))
             .await
             .unwrap_or_else(|_| self.deps.security.engine.effective_mode(project_mode));
+        let approval_mode = match p.approval_mode {
+            Some(cap) => stricter_mode(approval_mode, cap),
+            None => approval_mode,
+        };
         let env = ToolEnv {
             agent_id,
             project_id: project.id,
@@ -601,5 +605,72 @@ impl AgentRuntime {
     /// Whether the agent's run has ended (persisted state).
     pub async fn is_finished(&self, id: AgentId) -> AgentResult<bool> {
         Ok(!self.is_live(id) && is_final(self.store.get(id).await?.state))
+    }
+}
+
+/// Permissiveness rank of an approval mode (`Ask` < `SemiAuto` < `FullAuto`).
+fn mode_rank(m: orkestr_domain::ApprovalMode) -> u8 {
+    match m {
+        orkestr_domain::ApprovalMode::Ask => 0,
+        orkestr_domain::ApprovalMode::SemiAuto => 1,
+        orkestr_domain::ApprovalMode::FullAuto => 2,
+    }
+}
+
+/// The stricter of two approval modes.
+#[must_use]
+pub fn stricter_mode(a: orkestr_domain::ApprovalMode, b: orkestr_domain::ApprovalMode) -> orkestr_domain::ApprovalMode {
+    if mode_rank(b) < mode_rank(a) {
+        b
+    } else {
+        a
+    }
+}
+
+/// Merges a caller budget cap into the template budget: every limit only
+/// tightens (the smaller value wins; a missing value never loosens).
+#[must_use]
+pub fn tighten_budget(
+    template: Option<orkestr_domain::Budget>,
+    cap: Option<orkestr_domain::Budget>,
+) -> Option<orkestr_domain::Budget> {
+    fn min_opt<T: PartialOrd + Copy>(a: Option<T>, b: Option<T>) -> Option<T> {
+        match (a, b) {
+            (Some(x), Some(y)) => Some(if y < x { y } else { x }),
+            (x, None) => x,
+            (None, y) => y,
+        }
+    }
+    match (template, cap) {
+        (t, None) => t,
+        (None, c) => c,
+        (Some(t), Some(c)) => Some(orkestr_domain::Budget {
+            max_cost_usd: min_opt(t.max_cost_usd, c.max_cost_usd),
+            max_tokens: min_opt(t.max_tokens, c.max_tokens),
+            max_duration_secs: min_opt(t.max_duration_secs, c.max_duration_secs),
+            period: t.period,
+            warn_at: t.warn_at.min(c.warn_at),
+        }),
+    }
+}
+
+#[cfg(test)]
+mod cap_tests {
+    use super::*;
+    use orkestr_domain::{ApprovalMode, Budget, BudgetPeriod};
+
+    #[test]
+    fn caps_only_tighten() {
+        assert_eq!(stricter_mode(ApprovalMode::FullAuto, ApprovalMode::Ask), ApprovalMode::Ask);
+        assert_eq!(stricter_mode(ApprovalMode::Ask, ApprovalMode::FullAuto), ApprovalMode::Ask);
+        assert_eq!(stricter_mode(ApprovalMode::SemiAuto, ApprovalMode::FullAuto), ApprovalMode::SemiAuto);
+        let t = Budget { max_cost_usd: Some(5.0), ..Budget::unrestricted(BudgetPeriod::PerTask) };
+        let c = Budget { max_cost_usd: Some(1.0), max_tokens: Some(10), ..Budget::unrestricted(BudgetPeriod::PerTask) };
+        let m = tighten_budget(Some(t.clone()), Some(c)).unwrap();
+        assert_eq!(m.max_cost_usd, Some(1.0));
+        assert_eq!(m.max_tokens, Some(10));
+        let loose = Budget { max_cost_usd: Some(50.0), ..Budget::unrestricted(BudgetPeriod::PerTask) };
+        assert_eq!(tighten_budget(Some(t.clone()), Some(loose)).unwrap().max_cost_usd, Some(5.0));
+        assert_eq!(tighten_budget(Some(t.clone()), None), Some(t));
     }
 }

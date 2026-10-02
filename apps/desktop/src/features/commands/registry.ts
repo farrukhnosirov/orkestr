@@ -8,6 +8,7 @@ import { coreCommands } from "./coreCommands";
 import { providerCommands } from "../providers";
 import { taskCommands } from "../../panels/Tasks/commands";
 import { agentCommands } from "../../panels/Agents/commands";
+import { managerCommands } from "../../panels/Manager/commands";
 import { GIT_COMMANDS } from "../../panels/Git/commands";
 import { terminalCommands } from "../../panels/Terminal/commands";
 import { FILE_COMMANDS } from "../files/commands";
@@ -36,6 +37,7 @@ export const commands: AppCommand[] = [...coreCommands];
 commands.push(...providerCommands);
 commands.push(...taskCommands);
 commands.push(...agentCommands);
+commands.push(...managerCommands);
 
 // Git / snapshots (Phase 1, vcs-snapshots)
 commands.push(...GIT_COMMANDS);

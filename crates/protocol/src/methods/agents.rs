@@ -13,8 +13,8 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use orkestr_domain::{
-    AgentId, AgentInstance, AgentRole, AgentState, AgentTemplateId, ExecutionId, ModelRef, ProjectId, SnapshotId, Task,
-    TaskId, TaskPriority, Timestamp, ToolCall, ToolCallId, UsageSummary, WorktreePolicy,
+    AgentId, AgentInstance, AgentRole, AgentState, AgentTemplateId, ApprovalMode, Budget, ExecutionId, ModelRef,
+    ProjectId, SnapshotId, Task, TaskId, TaskPriority, Timestamp, ToolCall, ToolCallId, UsageSummary, WorktreePolicy,
 };
 
 use super::method;
@@ -45,7 +45,7 @@ pub struct NewTaskSpec {
 }
 
 /// Params of `agents.spawn`. Exactly one of `taskId` / `newTask` is required.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export)]
 pub struct SpawnAgentParams {
@@ -77,6 +77,21 @@ pub struct SpawnAgentParams {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub max_turns: Option<u32>,
+    /// Base branch / commit of a dedicated worktree (default: the project's
+    /// current HEAD). The AI Manager bases dependent tasks on the branch of
+    /// their prerequisite so the agent sees its changes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub base_branch: Option<String>,
+    /// Approval-mode cap for this agent: it can only make the effective mode
+    /// stricter (`Ask` < `SemiAuto` < `FullAuto`), never looser.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub approval_mode: Option<ApprovalMode>,
+    /// Budget cap for this run; each limit only tightens the template budget.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub budget: Option<Budget>,
 }
 
 /// Result of `agents.spawn`.

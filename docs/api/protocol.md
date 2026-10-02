@@ -971,6 +971,21 @@ is refused while any `FinishToStart` dependency is not `Completed`.
 
 ### 8.12 `manager` (§1, §5, §9)
 
+> **Implemented in Phase 1 (2026-10, `orkestr-orchestrator`, `crates/core/src/rpc/manager.rs`).**
+> The shipped surface differs from the draft below; the generated types in
+> `orkestr-protocol::methods::manager` are authoritative:
+> `manager.chat` (returns at once; the reply streams as ephemeral
+> `ManagerMessage` deltas and is stored as `ManagerMessageAdded`),
+> `manager.history`, `manager.clear` (archives with an extractive summary),
+> `manager.plan`, `manager.approvePlan` (optional inline edits; creates tasks
+> + dependencies, starts a run by default), `manager.rejectPlan`,
+> `manager.run` / `pause` / `resume` / `cancel` / `status` (supervised,
+> bounded, restart-safe runs; `ManagerRunUpdated`), `manager.resumeSummary`
+> (§57 "Last session"). Plans emit `ManagerPlanUpdated`. The Manager config
+> stays in `providers.getManager` / `providers.setManager`. Not built yet:
+> a global (project-less) Manager, cancelling a reply in flight,
+> `manager.decompose` (§9 full hierarchy beyond epic/feature/task).
+
 | Method | Ph | Pol | Emits |
 |---|---|---|---|
 | `manager.send` | P1 | O | `ManagerMessage`, `PlanProposed`?, … |

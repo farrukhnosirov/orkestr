@@ -10,6 +10,8 @@ import type { AgentStopParams } from "./AgentStopParams";
 import type { AgentTranscriptResult } from "./AgentTranscriptResult";
 import type { ApprovalIdParams } from "./ApprovalIdParams";
 import type { ApprovalResult } from "./ApprovalResult";
+import type { ApprovePlanParams } from "./ApprovePlanParams";
+import type { ApprovePlanResult } from "./ApprovePlanResult";
 import type { BranchResult } from "./BranchResult";
 import type { BranchesResult } from "./BranchesResult";
 import type { BudgetIdParams } from "./BudgetIdParams";
@@ -113,7 +115,21 @@ import type { ListTrashParams } from "./ListTrashParams";
 import type { ListTrashResult } from "./ListTrashResult";
 import type { LogParams } from "./LogParams";
 import type { LogResult } from "./LogResult";
+import type { ManagerChatParams } from "./ManagerChatParams";
+import type { ManagerChatResult } from "./ManagerChatResult";
+import type { ManagerClearResult } from "./ManagerClearResult";
 import type { ManagerConfigPayload } from "./ManagerConfigPayload";
+import type { ManagerHistoryParams } from "./ManagerHistoryParams";
+import type { ManagerHistoryResult } from "./ManagerHistoryResult";
+import type { ManagerPlanParams } from "./ManagerPlanParams";
+import type { ManagerPlanResult } from "./ManagerPlanResult";
+import type { ManagerProjectParams } from "./ManagerProjectParams";
+import type { ManagerResumeSummary } from "./ManagerResumeSummary";
+import type { ManagerRunIdParams } from "./ManagerRunIdParams";
+import type { ManagerRunParams } from "./ManagerRunParams";
+import type { ManagerRunResult } from "./ManagerRunResult";
+import type { ManagerStatusParams } from "./ManagerStatusParams";
+import type { ManagerStatusResult } from "./ManagerStatusResult";
 import type { MemoryIdParams } from "./MemoryIdParams";
 import type { MemoryItemResult } from "./MemoryItemResult";
 import type { MemoryListResult } from "./MemoryListResult";
@@ -141,6 +157,7 @@ import type { ProviderStatusResult } from "./ProviderStatusResult";
 import type { ProviderViewResult } from "./ProviderViewResult";
 import type { ReadFileParams } from "./ReadFileParams";
 import type { ReadFileResult } from "./ReadFileResult";
+import type { RejectPlanParams } from "./RejectPlanParams";
 import type { RemoveDependencyParams } from "./RemoveDependencyParams";
 import type { RemoveKnowledgeResult } from "./RemoveKnowledgeResult";
 import type { RemoveWorktreeParams } from "./RemoveWorktreeParams";
@@ -388,6 +405,18 @@ export type Methods = {
   "agents.transcript": [TranscriptParams, AgentTranscriptResult];
   "agents.handoff": [AgentIdParams, AgentHandoffsResult];
   "agents.stats": [AgentStatsParams, AgentStats];
+  "manager.chat": [ManagerChatParams, ManagerChatResult];
+  "manager.history": [ManagerHistoryParams, ManagerHistoryResult];
+  "manager.clear": [ManagerProjectParams, ManagerClearResult];
+  "manager.plan": [ManagerPlanParams, ManagerPlanResult];
+  "manager.approvePlan": [ApprovePlanParams, ApprovePlanResult];
+  "manager.rejectPlan": [RejectPlanParams, ManagerPlanResult];
+  "manager.run": [ManagerRunParams, ManagerRunResult];
+  "manager.pause": [ManagerRunIdParams, ManagerRunResult];
+  "manager.resume": [ManagerRunIdParams, ManagerRunResult];
+  "manager.cancel": [ManagerRunIdParams, ManagerRunResult];
+  "manager.status": [ManagerStatusParams, ManagerStatusResult];
+  "manager.resumeSummary": [ManagerProjectParams, ManagerResumeSummary];
 };
 
 /** All implemented method names. */
@@ -551,6 +580,18 @@ export const METHOD_NAMES = [
   "agents.transcript",
   "agents.handoff",
   "agents.stats",
+  "manager.chat",
+  "manager.history",
+  "manager.clear",
+  "manager.plan",
+  "manager.approvePlan",
+  "manager.rejectPlan",
+  "manager.run",
+  "manager.pause",
+  "manager.resume",
+  "manager.cancel",
+  "manager.status",
+  "manager.resumeSummary",
 ] as const;
 
 /** Wire protocol version (see orkestr-protocol PROTOCOL_VERSION). */
@@ -600,6 +641,9 @@ export const EVENT_KINDS = [
   "TaskDeleted",
   "SettingsChanged",
   "AgentUpdated",
+  "ManagerMessageAdded",
+  "ManagerPlanUpdated",
+  "ManagerRunUpdated",
 ] as const;
 
 /** UI config schema version (see orkestr-protocol ui_config). */

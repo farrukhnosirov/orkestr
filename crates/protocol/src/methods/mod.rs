@@ -6,7 +6,7 @@
 //!
 //! Implemented areas: [`system`], [`projects`], [`events`], [`settings`]
 //! (`ui.*` still reserved), [`nodes`].
-//! Agent runtime: [`agents`], [`templates`].
+//! Agent runtime: [`agents`], [`templates`]. AI Manager: [`manager`].
 //! Placeholder areas (names reserved, types arrive with their phase):
 //! [`tasks`], [`providers`], [`terminal`], [`approvals`],
 //! [`emergency`], [`memory`], [`vcs`], [`files`], [`snapshots`], [`cost`].
@@ -22,6 +22,7 @@ pub mod cost;
 pub mod emergency;
 pub mod events;
 pub mod files;
+pub mod manager;
 pub mod memory;
 pub mod nodes;
 pub mod permissions;
@@ -274,6 +275,19 @@ pub fn registry() -> Vec<MethodDescriptor> {
         MethodDescriptor::of::<agents::Transcript>(),
         MethodDescriptor::of::<agents::HandoffList>(),
         MethodDescriptor::of::<agents::Stats>(),
+        // AI Manager (Phase 1)
+        MethodDescriptor::of::<manager::Chat>(),
+        MethodDescriptor::of::<manager::History>(),
+        MethodDescriptor::of::<manager::Clear>(),
+        MethodDescriptor::of::<manager::PlanMethod>(),
+        MethodDescriptor::of::<manager::ApprovePlan>(),
+        MethodDescriptor::of::<manager::RejectPlan>(),
+        MethodDescriptor::of::<manager::Run>(),
+        MethodDescriptor::of::<manager::Pause>(),
+        MethodDescriptor::of::<manager::Resume>(),
+        MethodDescriptor::of::<manager::Cancel>(),
+        MethodDescriptor::of::<manager::Status>(),
+        MethodDescriptor::of::<manager::ResumeSummaryMethod>(),
     ]
 }
 

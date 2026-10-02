@@ -1,6 +1,6 @@
 [package]
 name = "orkestr-orchestrator"
-description = "SKELETON — Orkestr AI Manager: plan, decompose, spawn, delegate, review/test/heal loops, consensus, merge (§1, §5, §8, §17)."
+description = "Orkestr AI Manager: per-project conversations over state tools, structured planning, plan approval into task-engine tasks, supervised bounded runs that spawn isolated agents, session resume (§1, §5, §9, §11, §57)."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -9,9 +9,34 @@ publish.workspace = true
 
 [dependencies]
 orkestr-domain.workspace = true
+orkestr-protocol.workspace = true
+orkestr-events.workspace = true
+orkestr-storage.workspace = true
+orkestr-security.workspace = true
+orkestr-providers.workspace = true
+orkestr-task-engine.workspace = true
+orkestr-agent-runtime.workspace = true
+orkestr-context.workspace = true
+orkestr-memory.workspace = true
+orkestr-vcs.workspace = true
+orkestr-snapshots.workspace = true
+orkestr-cost.workspace = true
 async-trait.workspace = true
+futures.workspace = true
 serde.workspace = true
+serde_json.workspace = true
 thiserror.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+tracing.workspace = true
+chrono.workspace = true
+parking_lot.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+orkestr-platform.workspace = true
+orkestr-terminal.workspace = true
 
 [lints]
 workspace = true

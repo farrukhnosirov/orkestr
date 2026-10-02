@@ -135,7 +135,8 @@ each ADR, the planned ADRs 0023–0035 and the decision map.
 | `orkestr-events` (bus, SQLite event log, replay), `orkestr-storage` (SQLite + migrations, object store, projects) | built |
 | `orkestr-platform` (paths, process, shells, keyring, autostart, power, resources; Windows/macOS/Linux branches) | built (core set) |
 | `orkestr-core` + `orkestrd` (RPC server, discovery, crash detection, logging bridge) | built |
-| `orkestr-task-engine` state machine; `orkestr-sync` `LocalOnlyBackend`; `orkestr-node` local node description; `orkestr-context` packing; `orkestr-orchestrator` plan validation; `orkestr-cost` budget check | pure logic built, unit-tested |
+| `orkestr-task-engine` state machine; `orkestr-sync` `LocalOnlyBackend`; `orkestr-node` local node description; `orkestr-context` packing; `orkestr-cost` budget check | pure logic built, unit-tested |
+| `orkestr-orchestrator` (AI Manager: conversations, state tools, structured planning, supervised runs, session resume) + `manager.*` RPC + Manager panel | built (Phase 1) |
 | `security`, `providers`, `agent-runtime`, `memory`, `vcs`, `terminal`, `snapshots` | skeleton traits only |
 | `apps/desktop` (Tauri 2 shell, dockview workspace, 15 panels, Logs live) | built (shell) |
 | `@orkestr/protocol`, `@orkestr/client`, `@orkestr/ui` | built |

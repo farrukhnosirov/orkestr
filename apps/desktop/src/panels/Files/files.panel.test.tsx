@@ -87,10 +87,13 @@ beforeEach(() => {
 
 afterEach(() => cleanup());
 
+// Imported once at module scope (after the mocks): transforming the panel
+// inside the first test can exceed the per-test timeout on a loaded machine.
+const { default: FilesPanel } = await import("./index");
+
 async function renderPanel(root: string | null = "C:\\work\\demo") {
   useAppStore.getState().setProjects([project(root)]);
   useAppStore.getState().setActiveProject(PID);
-  const { default: FilesPanel } = await import("./index");
   return render(<FilesPanel projectId={PID} />);
 }
 

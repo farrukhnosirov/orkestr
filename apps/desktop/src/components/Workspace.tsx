@@ -11,11 +11,12 @@ import {
 import { LayoutGrid, X } from "lucide-react";
 import { type FunctionComponent, useCallback, useEffect, useRef } from "react";
 
-import { CODING_PRESET, getPanel, PANELS } from "../panels/registry";
+import { CODING_PRESET, DEFAULT_FOCUSED_PANEL, getPanel, PANELS } from "../panels/registry";
 import { useAppStore } from "../store/app";
 import { registerWorkspace } from "./workspaceActions";
 
-const LAYOUT_KEY = "orkestr.layout.v1";
+// v2: the AI Manager became the default focused panel (Phase 1).
+const LAYOUT_KEY = "orkestr.layout.v2";
 
 /** dockview theme bound to the Orkestr tokens (see `.dockview-theme-nebula` in app.css). */
 const NEBULA_DOCK_THEME: DockviewTheme = {
@@ -103,8 +104,9 @@ function applyPreset(api: DockviewApi | null): void {
       ...(slot.position ? { position: slot.position } : {}),
     });
   }
-  api.getPanel("code")?.api.setActive();
   api.getPanel("logs")?.api.setActive();
+  // Last: the focused group/tab of the default layout is the AI Manager.
+  api.getPanel(DEFAULT_FOCUSED_PANEL)?.api.setActive();
 }
 
 /** Whether a serialized layout only references known panels. */

@@ -11,6 +11,7 @@ pub mod cost;
 pub mod emergency;
 pub mod events;
 pub mod files;
+pub mod manager;
 pub mod memory;
 pub mod nodes;
 pub mod permissions;
@@ -149,6 +150,7 @@ pub fn build_router() -> RpcRouter {
     router.register(memory::register).register(cost::register);
     router.register(settings::register).register(nodes::register);
     router.register(templates::register).register(agents::register);
+    router.register(manager::register);
     router
 }
 

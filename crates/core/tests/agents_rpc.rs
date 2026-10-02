@@ -180,7 +180,10 @@ async fn templates_and_agents_over_ws_with_the_mock_provider() {
     let listed = c.ok("agents.list", json!({"projectId": pid})).await["agents"].as_array().unwrap().len();
     assert_eq!(listed, 1);
     let task = c.ok("tasks.get", json!({"taskId": spawned["task"]["id"]})).await["task"].clone();
-    assert_eq!(task["status"], "Review", "mock-smart ends without submit_result → partial → review");
+    assert_eq!(
+        task["status"], "Completed",
+        "mock-smart writes the file, then submits a done result (no quality gates)"
+    );
 
     // Stop on a finished agent is idempotent; pause on a finished agent conflicts.
     let stopped = c.ok("agents.stop", json!({"agentId": aid})).await;

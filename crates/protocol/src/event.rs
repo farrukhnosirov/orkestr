@@ -608,6 +608,35 @@ pub struct LogPayload {
     pub fields: serde_json::Value,
 }
 
+/// `ManagerMessageAdded` — a complete Manager conversation message was stored.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct ManagerMessageAddedPayload {
+    /// The message.
+    pub message: crate::methods::manager::ManagerChatMessage,
+    /// Whether the Manager is still working on a reply for this project.
+    pub busy: bool,
+}
+
+/// `ManagerPlanUpdated`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct ManagerPlanPayload {
+    /// The plan after the change.
+    pub plan: crate::methods::manager::ManagerPlan,
+}
+
+/// `ManagerRunUpdated`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct ManagerRunPayload {
+    /// The run after the change.
+    pub run: crate::methods::manager::ManagerRun,
+}
+
 // ---------------------------------------------------------------------------
 // Kinds
 // ---------------------------------------------------------------------------
@@ -639,6 +668,7 @@ macro_rules! event_kinds {
                         | EventKind::ManagerMessage(_)
                         | EventKind::NodeStatus(_)
                         | EventKind::AgentUpdated(_)
+                        | EventKind::ManagerMessageAdded(_)
                 )
             }
 
@@ -738,6 +768,12 @@ event_kinds! {
     SettingsChanged(SettingsChangedPayload),
     /// An agent instance changed (usage, turns, model, activity). Phase 1, appended.
     AgentUpdated(AgentUpdatedPayload),
+    /// A Manager conversation message was stored (ephemeral; history via `manager.history`). Phase 1, appended.
+    ManagerMessageAdded(ManagerMessageAddedPayload),
+    /// A Manager plan was proposed or changed. Phase 1, appended.
+    ManagerPlanUpdated(ManagerPlanPayload),
+    /// A Manager run changed (progress, status, report). Phase 1, appended.
+    ManagerRunUpdated(ManagerRunPayload),
 }
 
 // ---------------------------------------------------------------------------
@@ -883,6 +919,9 @@ impl NewEvent {
                 self.task_id = d.deployment.task_id;
             }
             EventKind::DecisionRecorded(d) => self.project_id = Some(d.decision.project_id),
+            EventKind::ManagerMessageAdded(m) => self.project_id = Some(m.message.project_id),
+            EventKind::ManagerPlanUpdated(p) => self.project_id = Some(p.plan.project_id),
+            EventKind::ManagerRunUpdated(r) => self.project_id = Some(r.run.project_id),
             EventKind::Notification(n) => {
                 self.project_id = n.notification.project_id;
                 self.task_id = n.notification.task_id;

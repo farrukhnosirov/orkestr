@@ -94,7 +94,9 @@ impl CoreHandle {
 
     async fn shutdown_inner(&mut self) {
         self.shutdown.cancel();
-        // Stop agent runs first (their commands are killed with the terminals).
+        // Manager supervisors first (runs become Interrupted, resumable), then
+        // agent runs (their commands are killed with the terminals).
+        self.services.manager.shutdown().await;
         self.services.agents.shutdown().await;
         // Kill terminal process trees before the server goes away.
         self.services.terminals.shutdown().await;
@@ -256,6 +258,28 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
     if let Err(e) = agents.init().await {
         tracing::error!(error = %e, "agent runtime failed to initialise");
     }
+    let manager = orkestr_orchestrator::Manager::new(orkestr_orchestrator::OrchestratorDeps {
+        db: db.clone(),
+        events: events.clone(),
+        security: Arc::clone(&security),
+        tasks: Arc::clone(&tasks),
+        projects: Arc::clone(&metadata) as Arc<dyn orkestr_storage::ProjectRepository>,
+        vcs: vcs.clone(),
+        snapshots: Arc::clone(&snapshots),
+        memory: memory.clone(),
+        cost: cost.clone(),
+        agents: agents.clone(),
+        models: Arc::new(orkestr_agent_runtime::RegistryGateway(Arc::clone(&providers))),
+        hub: Arc::new(orkestr_orchestrator::RegistryHub(Arc::clone(&providers))),
+        resources: Arc::new(rpc::manager::NodeResourceProbe(Arc::clone(&nodes))),
+        config: orkestr_orchestrator::ManagerTunables {
+            state_root: paths.data_dir.clone(),
+            ..orkestr_orchestrator::ManagerTunables::default()
+        },
+    });
+    if let Err(e) = manager.init().await {
+        tracing::error!(error = %e, "AI Manager failed to initialise");
+    }
 
     let services = Arc::new(Services {
         version: VERSION.to_owned(),
@@ -285,6 +309,7 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
         node_sample_interval: config.node_sample_interval,
         seq_high_water,
         agents,
+        manager,
     });
     logging::attach_event_bus(services.events.clone());
 

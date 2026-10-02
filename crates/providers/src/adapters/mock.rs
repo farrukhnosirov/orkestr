@@ -4,9 +4,15 @@
 //! without keys or network.
 //!
 //! Scripted models:
-//! * `mock-smart` (default) — tool result → summary; JSON schema → a
-//!   schema-valid document; planning system prompt → plan JSON; a
-//!   `write_file` tool → calls it, then finishes; otherwise a short reply.
+//! * `mock-smart` (default) — planning request (schema `orkestr_plan` or a
+//!   planning system prompt) → a goal-aware 4-task plan with dependencies;
+//!   AI Manager chat (`propose_plan` tool) → plans build requests, reads
+//!   state for status questions; agent loop (`submit_result` tool) → writes
+//!   plausible role-specific files (design note, `src/<x>.mjs`, docs,
+//!   `node:test` tests), commits on its branch, QA runs `node --test`, then
+//!   `submit_result`; tool result → summary; JSON schema → a schema-valid
+//!   document; a `write_file` tool → calls it, then finishes; otherwise a
+//!   short reply.
 //! * `mock-echo` — echoes the last user message.
 //! * `mock-tool-roundtrip` — calls the first declared tool once with
 //!   schema-valid arguments, then finishes.
@@ -25,8 +31,8 @@ use crate::adapter::ProviderAdapter;
 use crate::catalog::{default_models, MOCK_DISPLAY_NAME};
 use crate::http::drive;
 use crate::types::{
-    AuthStatus, ChatEvent, ChatRequest, ChatStream, CostModelKind, HealthReport, Locality, ProviderDescriptor,
-    ProviderError, ResponseFormat, Role, StopReason, ToolSpec, Usage,
+    AuthStatus, ChatEvent, ChatMessage, ChatRequest, ChatStream, CostModelKind, HealthReport, Locality,
+    ProviderDescriptor, ProviderError, ResponseFormat, Role, StopReason, ToolSpec, Usage,
 };
 
 /// Mock tuning.
@@ -214,19 +220,419 @@ fn sample(schema: &Value, key: &str, hint: &str, index: usize, depth: usize) -> 
     }
 }
 
-/// The fixed plan returned for planning prompts without a schema.
+/// Words ignored when looking for the subject of a request.
+const STOP_WORDS: [&str; 34] = [
+    "a",
+    "an",
+    "the",
+    "create",
+    "build",
+    "implement",
+    "add",
+    "make",
+    "write",
+    "new",
+    "simple",
+    "small",
+    "with",
+    "and",
+    "for",
+    "of",
+    "to",
+    "please",
+    "some",
+    "tests",
+    "test",
+    "design",
+    "document",
+    "review",
+    "module",
+    "service",
+    "feature",
+    "plan",
+    "me",
+    "my",
+    "our",
+    "us",
+    "it",
+    "that",
+];
+
+/// Nouns after which the previous word names the thing to build
+/// ("a **hello** module").
+const KIND_WORDS: [&str; 10] =
+    ["module", "service", "component", "library", "feature", "endpoint", "page", "api", "function", "helper"];
+
+/// The subject of a request, e.g. `hello` for "Create a hello module with
+/// tests" (lowercase `[a-z0-9-]`, never empty).
+#[must_use]
+pub fn subject_of(text: &str) -> String {
+    let words: Vec<String> = text
+        .split(|c: char| !(c.is_ascii_alphanumeric() || c == '-' || c == '_'))
+        .filter(|w| !w.is_empty())
+        .map(str::to_ascii_lowercase)
+        .collect();
+    let clean = |w: &str| -> String {
+        let s: String = w.chars().filter(|c| c.is_ascii_alphanumeric() || *c == '-').take(24).collect();
+        s.trim_matches('-').to_owned()
+    };
+    for (i, w) in words.iter().enumerate() {
+        if KIND_WORDS.contains(&w.as_str()) && i > 0 {
+            let prev = &words[i - 1];
+            if !STOP_WORDS.contains(&prev.as_str()) {
+                let c = clean(prev);
+                if !c.is_empty() {
+                    return c;
+                }
+            }
+        }
+    }
+    words
+        .iter()
+        .find(|w| w.len() >= 3 && !STOP_WORDS.contains(&w.as_str()) && w.chars().any(|c| c.is_ascii_alphabetic()))
+        .map(|w| clean(w))
+        .filter(|w| !w.is_empty())
+        .unwrap_or_else(|| "demo".into())
+}
+
+/// A JavaScript identifier for the subject (`hello-world` → `helloWorld`).
+#[must_use]
+pub fn ident_of(subject: &str) -> String {
+    let mut out = String::new();
+    let mut upper = false;
+    for c in subject.chars() {
+        if c == '-' || c == '_' {
+            upper = !out.is_empty();
+        } else if upper {
+            out.push(c.to_ascii_uppercase());
+            upper = false;
+        } else {
+            out.push(c);
+        }
+    }
+    if out.is_empty() || out.starts_with(|c: char| c.is_ascii_digit()) {
+        out.insert(0, 'm');
+    }
+    out
+}
+
+fn title_case(s: &str) -> String {
+    let mut c = s.chars();
+    match c.next() {
+        Some(f) => f.to_ascii_uppercase().to_string() + c.as_str(),
+        None => String::new(),
+    }
+}
+
+/// The plan returned for planning requests (a JSON schema named
+/// `orkestr_plan`, or a planning system prompt). Four tasks with dependencies
+/// and a parallel branch: design → (implement ∥ document), implement → test.
+/// Every task names its role, acceptance criteria and expected files.
 #[must_use]
 pub fn demo_plan(goal: &str) -> Value {
     let g = short(goal, 120);
+    let s = subject_of(goal);
+    let name = title_case(&s);
+    let f = ident_of(&s);
     json!({
-        "summary": format!("Demo plan (Mock, offline) for: {g}"),
+        "goal": g,
+        "summary": format!("Demo plan (Mock, offline) for: {g}. An architect designs the {s} module first; then a backend agent implements it while a product manager writes the usage docs in parallel; finally QA adds tests and runs them."),
+        "assumptions": [
+            "The project is a JavaScript (ES module) code base or an empty folder.",
+            "Tests run with Node's built-in test runner (`node --test`)."
+        ],
+        "risks": ["Mock (offline demo) output is scripted — connect a real provider for real work."],
         "tasks": [
-            {"id": "t1", "title": "Design the approach", "description": format!("Outline the solution for: {g}"), "role": "Architect", "dependsOn": [], "priority": "High"},
-            {"id": "t2", "title": "Implement the change", "description": "Write the code in the agent worktree.", "role": "Backend", "dependsOn": ["t1"], "priority": "High"},
-            {"id": "t3", "title": "Write tests", "description": "Cover the change with unit tests.", "role": "QA", "dependsOn": ["t2"], "priority": "Normal"},
-            {"id": "t4", "title": "Review", "description": "Review the diff and summarize risks.", "role": "Reviewer", "dependsOn": ["t2", "t3"], "priority": "Normal"}
+            {
+                "key": "t1",
+                "title": format!("Design the {s} module API"),
+                "description": format!("Write a short design note for the {s} module: its public function `{f}(name)`, file layout and test strategy."),
+                "acceptanceCriteria": [format!("docs/{s}-design.md describes the API of `{f}`"), "The file layout and test strategy are listed".to_owned()],
+                "role": "Architect",
+                "dependsOn": [],
+                "priority": "High",
+                "epic": format!("{name} module"),
+                "feature": "Design",
+                "files": [format!("docs/{s}-design.md")],
+                "estimatedTokens": 6000
+            },
+            {
+                "key": "t2",
+                "title": format!("Implement the {s} module"),
+                "description": format!("Implement `{f}(name = \"world\")` in src/{s}.mjs returning `Hello, <name>!` and commit it."),
+                "acceptanceCriteria": [format!("src/{s}.mjs exports `{f}`"), format!("`{f}(\"Orkestr\")` returns \"Hello, Orkestr!\"")],
+                "role": "Backend",
+                "dependsOn": ["t1"],
+                "priority": "High",
+                "epic": format!("{name} module"),
+                "feature": "Implementation",
+                "files": [format!("src/{s}.mjs")],
+                "estimatedTokens": 12000
+            },
+            {
+                "key": "t3",
+                "title": format!("Document the {s} module"),
+                "description": format!("Write usage documentation for the {s} module in docs/{s}.md."),
+                "acceptanceCriteria": [format!("docs/{s}.md shows how to import and call `{f}`")],
+                "role": "Product Manager",
+                "dependsOn": ["t1"],
+                "priority": "Normal",
+                "epic": format!("{name} module"),
+                "feature": "Documentation",
+                "files": [format!("docs/{s}.md")],
+                "estimatedTokens": 4000
+            },
+            {
+                "key": "t4",
+                "title": format!("Test the {s} module"),
+                "description": format!("Add tests/{s}.test.mjs (node:test) for `{f}` and run them with `node --test`."),
+                "acceptanceCriteria": [format!("tests/{s}.test.mjs covers `{f}`"), "`node --test` passes".to_owned()],
+                "role": "QA",
+                "dependsOn": ["t2"],
+                "priority": "Normal",
+                "epic": format!("{name} module"),
+                "feature": "Quality",
+                "files": [format!("tests/{s}.test.mjs")],
+                "estimatedTokens": 8000
+            }
         ]
     })
+}
+
+fn has_tool(req: &ChatRequest, name: &str) -> bool {
+    req.tools.iter().any(|t| t.name == name)
+}
+
+/// Text between `(role ` and `)` in the agent system prompt.
+fn agent_role(system: &str) -> String {
+    system
+        .split_once("(role ")
+        .and_then(|(_, rest)| rest.split_once(')'))
+        .map(|(r, _)| r.trim().to_ascii_lowercase())
+        .unwrap_or_default()
+}
+
+/// The `# Task: …` line of the agent's first message.
+fn agent_task_title(req: &ChatRequest) -> String {
+    req.messages
+        .iter()
+        .filter(|m| m.role == Role::User)
+        .flat_map(|m| m.content.lines())
+        .find_map(|l| l.strip_prefix("# Task:"))
+        .map(|t| t.trim().to_owned())
+        .unwrap_or_else(|| short(&last_user(req), 80))
+}
+
+/// One scripted agent step.
+struct Step {
+    tool: &'static str,
+    args: Value,
+}
+
+fn write_step(path: String, content: String) -> Step {
+    Step { tool: "write_file", args: json!({"path": path, "content": content}) }
+}
+
+fn agent_steps(role: &str, title: &str, req: &ChatRequest) -> Vec<Step> {
+    let s = subject_of(title);
+    let f = ident_of(&s);
+    let name = title_case(&s);
+    let lower = title.to_ascii_lowercase();
+    let mut steps = Vec::new();
+    match role {
+        "qa" => {
+            steps.push(write_step(
+                format!("tests/{s}.test.mjs"),
+                format!(
+                    "// Tests for the {s} module — generated by Mock (offline demo).\nimport {{ test }} from \"node:test\";\nimport assert from \"node:assert/strict\";\n\nimport {{ {f} }} from \"../src/{s}.mjs\";\n\ntest(\"{f} greets by name\", () => {{\n  assert.equal({f}(\"Orkestr\"), \"Hello, Orkestr!\");\n}});\n\ntest(\"{f} has a default\", () => {{\n  assert.equal({f}(), \"Hello, world!\");\n}});\n"
+                ),
+            ));
+        }
+        "reviewer" | "security" | "researcher" => {
+            steps.push(Step { tool: "list_dir", args: json!({"path": ".", "depth": 2}) });
+            steps.push(Step { tool: "git_diff", args: json!({}) });
+        }
+        "architect" | "product manager" | "ui/ux" => {
+            if lower.contains("doc") {
+                steps.push(write_step(
+                    format!("docs/{s}.md"),
+                    format!("# {name}\n\nUsage of the {s} module.\n\n```js\nimport {{ {f} }} from \"../src/{s}.mjs\";\n\n{f}(\"Orkestr\"); // \"Hello, Orkestr!\"\n{f}();          // \"Hello, world!\"\n```\n\n_Generated by Mock (offline demo)._\n"),
+                ));
+            } else {
+                steps.push(write_step(
+                    format!("docs/{s}-design.md"),
+                    format!("# {name} module — design\n\nTask: {title}\n\n## API\n\n- `{f}(name = \"world\"): string` — returns `Hello, <name>!`.\n\n## Files\n\n- `src/{s}.mjs` — implementation (ES module)\n- `tests/{s}.test.mjs` — `node:test` suite\n- `docs/{s}.md` — usage\n\n## Test strategy\n\nUnit tests with Node's built-in runner: `node --test tests/{s}.test.mjs`.\n\n_Generated by Mock (offline demo)._\n"),
+                ));
+            }
+        }
+        _ => {
+            steps.push(write_step(
+                format!("src/{s}.mjs"),
+                format!("// {name} module — generated by Mock (offline demo).\n\n/**\n * Returns a greeting.\n * @param {{string}} [name]\n * @returns {{string}}\n */\nexport function {f}(name = \"world\") {{\n  return `Hello, ${{name}}!`;\n}}\n"),
+            ));
+        }
+    }
+    let writes = steps.iter().any(|st| st.tool == "write_file");
+    if writes && has_tool(req, "git_commit") {
+        steps.push(Step { tool: "git_commit", args: json!({"message": format!("{title} (Mock offline demo)")}) });
+    }
+    if role == "qa" {
+        steps.push(Step { tool: "run_command", args: json!({"command": format!("node --test tests/{s}.test.mjs")}) });
+    }
+    steps.retain(|st| has_tool(req, st.tool));
+    steps
+}
+
+/// Whether a tool result reports a failure (error flag or non-zero exit).
+fn result_failed(m: &ChatMessage) -> bool {
+    if m.is_error {
+        return true;
+    }
+    let c = m.content.to_ascii_lowercase();
+    ["exit code: ", "exit_code: ", "exit code ", "exited with "].iter().any(|p| {
+        c.split(p)
+            .skip(1)
+            .any(|rest| rest.trim_start().chars().next().is_some_and(|ch| ch.is_ascii_digit() && ch != '0'))
+    })
+}
+
+/// Scripted agent loop: the role's steps, one tool call per turn, then
+/// `submit_result` (status `partial` when a step failed).
+fn agent_script(req: &ChatRequest) -> MockScript {
+    let system = req.system_prompt().unwrap_or_default();
+    let role = agent_role(&system);
+    let title = agent_task_title(req);
+    let steps = agent_steps(&role, &title, req);
+    let results: Vec<&ChatMessage> = req.messages.iter().filter(|m| m.role == Role::Tool).collect();
+    if let Some(step) = steps.get(results.len()) {
+        return MockScript::Tool { name: step.tool.to_owned(), arguments: step.args.clone() };
+    }
+    let failed: Vec<(usize, String)> = results
+        .iter()
+        .enumerate()
+        .filter(|(_, m)| result_failed(m))
+        .map(|(i, m)| (i, short(&m.content, 160)))
+        .collect();
+    let files: Vec<String> = steps
+        .iter()
+        .filter(|s| s.tool == "write_file")
+        .filter_map(|s| s.args.get("path").and_then(Value::as_str).map(str::to_owned))
+        .collect();
+    let tests: Vec<Value> = steps
+        .iter()
+        .enumerate()
+        .filter(|(_, s)| s.tool == "run_command")
+        .map(|(i, s)| json!({ "command": s.args["command"], "passed": !failed.iter().any(|(j, _)| *j == i) }))
+        .collect();
+    let status = if failed.is_empty() { "done" } else { "partial" };
+    let summary = if files.is_empty() {
+        format!("{title}: reviewed the workspace ({} step(s)). Mock (offline demo).", steps.len())
+    } else {
+        format!("{title}: wrote {}. Mock (offline demo).", files.join(", "))
+    };
+    MockScript::Tool {
+        name: "submit_result".into(),
+        arguments: json!({
+            "status": status,
+            "summary": summary,
+            "files_changed": files,
+            "tests_run": tests,
+            "open_issues": failed.iter().map(|(_, m)| format!("step failed: {m}")).collect::<Vec<_>>(),
+        }),
+    }
+}
+
+const BUILD_WORDS: [&str; 18] = [
+    "create",
+    "build",
+    "implement",
+    "add ",
+    "make",
+    "write",
+    "fix",
+    "refactor",
+    "develop",
+    "generate",
+    "set up",
+    "setup",
+    "plan",
+    "создай",
+    "сделай",
+    "напиши",
+    "добавь",
+    "реализуй",
+];
+const STATUS_WORDS: [&str; 9] =
+    ["status", "progress", "how are", "what's going", "overview", "tasks", "agents", "статус", "прогресс"];
+
+/// Scripted AI Manager chat: build requests → `propose_plan`; status
+/// questions → `project_overview`; tool results → a short summary.
+fn manager_script(req: &ChatRequest) -> MockScript {
+    let last = req.messages.iter().rev().find(|m| m.role != Role::System);
+    if let Some(m) = last.filter(|m| m.role == Role::Tool) {
+        let tool = req
+            .messages
+            .iter()
+            .rev()
+            .find(|m| m.role == Role::Assistant && !m.tool_calls.is_empty())
+            .and_then(|m| m.tool_calls.first())
+            .map(|c| c.name.clone())
+            .unwrap_or_default();
+        let result = short(&m.content, 300);
+        return MockScript::Text(if m.is_error {
+            format!("I could not complete that: {result}\n\n_— Mock (offline demo)_")
+        } else if tool == "propose_plan" {
+            format!("I studied the project and drafted a plan: {result}\n\nReview the **plan card** below — approve it to start the agents (each works in its own worktree), edit task titles or remove tasks first, or reject it.\n\n_— Mock (offline demo)_")
+        } else {
+            format!("Here is the current state (`{tool}`):\n\n{result}\n\n_— Mock (offline demo)_")
+        });
+    }
+    let user = last_user(req);
+    let request = user.split("\n\n[Attached").next().unwrap_or_default().trim().to_owned();
+    let lower = request.to_lowercase();
+    if has_tool(req, "propose_plan") && BUILD_WORDS.iter().any(|w| lower.contains(w)) {
+        return MockScript::Tool { name: "propose_plan".into(), arguments: json!({ "goal": request }) };
+    }
+    if has_tool(req, "project_overview") && STATUS_WORDS.iter().any(|w| lower.contains(w)) {
+        return MockScript::Tool { name: "project_overview".into(), arguments: json!({}) };
+    }
+    MockScript::Text(format!(
+        "Hello from the AI Manager — **Mock (offline demo)**. You said: \"{}\".\n\nAsk me to build something (for example *\"Create a hello module with tests\"*) and I will plan it, create tasks and run agents. Connect a real provider in Settings → AI Providers for real answers.",
+        short(&request, 200)
+    ))
+}
+
+/// One visible sentence describing a scripted agent tool call.
+fn narrate(name: &str, args: &Value) -> String {
+    let arg = |k: &str| args.get(k).and_then(Value::as_str).unwrap_or_default().to_owned();
+    let what = match name {
+        "write_file" => format!("Writing `{}`", arg("path")),
+        "run_command" => format!("Running `{}`", arg("command")),
+        "git_commit" => "Committing my changes on my branch".to_owned(),
+        "list_dir" => "Looking at the files".to_owned(),
+        "git_diff" => "Reviewing the diff".to_owned(),
+        "submit_result" => format!("Submitting the result: {}", short(&arg("summary"), 160)),
+        other => format!("Calling `{other}`"),
+    };
+    format!("{what} — Mock (offline demo).")
+}
+
+fn is_plan_request(req: &ChatRequest) -> bool {
+    if let ResponseFormat::JsonSchema { name, .. } = &req.response_format {
+        return name == "orkestr_plan";
+    }
+    let system = req.system_prompt().unwrap_or_default().to_ascii_lowercase();
+    let planning = system.contains("plan") || system.contains("decompose");
+    planning && (req.response_format != ResponseFormat::Text || system.contains("json") || req.tools.is_empty())
+}
+
+/// The goal of a planning request: the `Goal:` line when present.
+fn plan_goal(req: &ChatRequest) -> String {
+    let user = last_user(req);
+    user.lines()
+        .find_map(|l| l.strip_prefix("Goal:").map(|g| g.trim().to_owned()))
+        .filter(|g| !g.is_empty())
+        .unwrap_or(user)
 }
 
 fn tool_args(tool: &ToolSpec, hint: &str) -> Value {
@@ -260,6 +666,15 @@ pub fn script(req: &ChatRequest) -> MockScript {
         return MockScript::Text("Tool round-trip complete.".into());
     }
     // mock-smart / mock-slow / anything else.
+    if is_plan_request(req) {
+        return MockScript::Text(demo_plan(&plan_goal(req)).to_string());
+    }
+    if has_tool(req, "propose_plan") {
+        return manager_script(req);
+    }
+    if has_tool(req, "submit_result") {
+        return agent_script(req);
+    }
     if after_tool {
         let result = last.map(|m| short(&m.content, 120)).unwrap_or_default();
         let failed = last.is_some_and(|m| m.is_error);
@@ -271,11 +686,6 @@ pub fn script(req: &ChatRequest) -> MockScript {
     }
     if let ResponseFormat::JsonSchema { schema, .. } = &req.response_format {
         return MockScript::Text(sample(schema, "", &user, 0, 0).to_string());
-    }
-    let system = req.system_prompt().unwrap_or_default().to_ascii_lowercase();
-    let planning = system.contains("plan") || system.contains("decompose");
-    if planning && (req.response_format != ResponseFormat::Text || system.contains("json") || req.tools.is_empty()) {
-        return MockScript::Text(demo_plan(&user).to_string());
     }
     if let Some(tool) = req.tools.iter().find(|t| t.name == "write_file") {
         return MockScript::Tool { name: tool.name.clone(), arguments: tool_args(tool, &user) };
@@ -289,6 +699,15 @@ pub fn script(req: &ChatRequest) -> MockScript {
         "Hello from Mock (offline demo). You said: \"{}\". I'm a scripted offline provider — connect a real provider in Settings → AI Providers for real answers.",
         short(&user, 200)
     ))
+}
+
+/// Upper bound on streamed chunks per reply.
+const MAX_CHUNKS: usize = 48;
+
+/// Chunk size: 12 characters, larger for long replies so that at most
+/// [`MAX_CHUNKS`] chunks are emitted.
+fn chunk_size(chars: usize) -> usize {
+    12.max(chars.div_ceil(MAX_CHUNKS))
 }
 
 fn chunks(text: &str, size: usize) -> Vec<String> {
@@ -342,6 +761,13 @@ impl ProviderAdapter for MockAdapter {
 
     async fn chat(&self, request: ChatRequest, cancel: CancellationToken) -> Result<ChatStream, ProviderError> {
         let plan = script(&request);
+        // Agents narrate their tool calls like real models do.
+        let narration = match &plan {
+            MockScript::Tool { name, arguments } if has_tool(&request, "submit_result") => {
+                Some(narrate(name, arguments))
+            }
+            _ => None,
+        };
         let delay = if request.model == "mock-slow" {
             Duration::from_millis(250).max(self.options.chunk_delay)
         } else {
@@ -354,7 +780,10 @@ impl ProviderAdapter for MockAdapter {
                 MockScript::Fail(e) => return Err(e),
                 MockScript::Text(text) => {
                     output_chars = text.len();
-                    for c in chunks(&text, 12) {
+                    // Chat-sized chunks, but never more than MAX_CHUNKS of
+                    // them: a long document (a plan, a JSON reply) streams
+                    // in about a second instead of tens of seconds.
+                    for c in chunks(&text, chunk_size(text.chars().count())) {
                         if !delay.is_zero() {
                             tokio::time::sleep(delay).await;
                         }
@@ -366,6 +795,9 @@ impl ProviderAdapter for MockAdapter {
                     output_chars = arguments.to_string().len();
                     if !delay.is_zero() {
                         tokio::time::sleep(delay).await;
+                    }
+                    if let Some(n) = narration {
+                        em.emit(ChatEvent::TextDelta(n)).await?;
                     }
                     em.emit(ChatEvent::ToolCall { id: format!("mock_call_{}", slug(&name)), name, arguments }).await?;
                     StopReason::ToolUse
@@ -380,8 +812,131 @@ impl ProviderAdapter for MockAdapter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::ChatMessage;
     use futures::StreamExt;
+
+    #[test]
+    fn long_replies_stream_in_a_bounded_number_of_chunks() {
+        assert_eq!(chunk_size(10), 12);
+        assert_eq!(chunk_size(12 * MAX_CHUNKS), 12);
+        let long = "x".repeat(5000);
+        assert!(chunks(&long, chunk_size(5000)).len() <= MAX_CHUNKS);
+        assert_eq!(chunks(&long, chunk_size(5000)).concat(), long);
+    }
+
+    #[test]
+    fn subject_and_identifier() {
+        assert_eq!(subject_of("Create a hello module with tests"), "hello");
+        assert_eq!(subject_of("Build the payroll service"), "payroll");
+        assert_eq!(subject_of("Add caching"), "caching");
+        assert_eq!(subject_of("!!!"), "demo");
+        assert_eq!(ident_of("hello-world"), "helloWorld");
+        assert_eq!(ident_of("2fa"), "m2fa");
+    }
+
+    #[test]
+    fn demo_plan_has_dependencies_and_a_parallel_branch() {
+        let v = demo_plan("Create a hello module with tests");
+        let tasks = v["tasks"].as_array().unwrap();
+        assert_eq!(tasks.len(), 4);
+        assert_eq!(tasks[0]["dependsOn"], json!([]));
+        assert_eq!(tasks[1]["dependsOn"], json!(["t1"]));
+        assert_eq!(tasks[2]["dependsOn"], json!(["t1"]));
+        assert_eq!(tasks[3]["dependsOn"], json!(["t2"]));
+        assert_eq!(tasks[1]["files"], json!(["src/hello.mjs"]));
+        assert_eq!(tasks[3]["role"], "QA");
+        let mut r = ChatRequest::new(
+            "mock-smart",
+            vec![ChatMessage::user(
+                "Goal: Create a hello module
+
+Context…",
+            )],
+        );
+        r.response_format =
+            ResponseFormat::JsonSchema { name: "orkestr_plan".into(), schema: json!({"type":"object"}) };
+        let MockScript::Text(t) = script(&r) else { panic!() };
+        assert_eq!(serde_json::from_str::<Value>(&t).unwrap()["tasks"][1]["title"], "Implement the hello module");
+    }
+
+    fn agent_req(role: &str, title: &str, tools: &[&str]) -> ChatRequest {
+        let mut r = ChatRequest::new(
+            "mock-smart",
+            vec![ChatMessage::user(format!(
+                "# Task: {title}
+
+Do it."
+            ))],
+        );
+        r.system = Some(format!("You are agent \"A\" (role {role}) running inside Orkestr."));
+        r.tools = tools.iter().map(|t| tool(t, json!({"type": "object"}))).collect();
+        r
+    }
+
+    #[test]
+    fn qa_agent_writes_tests_commits_runs_them_and_submits() {
+        let tools = ["write_file", "git_commit", "run_command", "submit_result"];
+        let mut r = agent_req("QA", "Test the hello module", &tools);
+        let MockScript::Tool { name, arguments } = script(&r) else { panic!() };
+        assert_eq!(name, "write_file");
+        assert_eq!(arguments["path"], "tests/hello.test.mjs");
+        assert!(arguments["content"].as_str().unwrap().contains("from \"../src/hello.mjs\""));
+        r.messages.push(ChatMessage::tool_result("1", "wrote", false));
+        let MockScript::Tool { name, .. } = script(&r) else { panic!() };
+        assert_eq!(name, "git_commit");
+        r.messages.push(ChatMessage::tool_result("2", "committed", false));
+        let MockScript::Tool { name, arguments } = script(&r) else { panic!() };
+        assert_eq!(name, "run_command");
+        assert_eq!(arguments["command"], "node --test tests/hello.test.mjs");
+        r.messages.push(ChatMessage::tool_result(
+            "3",
+            "exit code: 1
+failed",
+            false,
+        ));
+        let MockScript::Tool { name, arguments } = script(&r) else { panic!() };
+        assert_eq!(name, "submit_result");
+        assert_eq!(arguments["status"], "partial");
+        assert_eq!(arguments["tests_run"][0]["passed"], false);
+    }
+
+    #[test]
+    fn backend_and_reviewer_agents() {
+        let mut r = agent_req("Backend", "Implement the hello module", &["write_file", "submit_result"]);
+        let MockScript::Tool { arguments, .. } = script(&r) else { panic!() };
+        assert_eq!(arguments["path"], "src/hello.mjs");
+        assert!(arguments["content"].as_str().unwrap().contains("export function hello("));
+        r.messages.push(ChatMessage::tool_result("1", "wrote", false));
+        let MockScript::Tool { name, arguments } = script(&r) else { panic!() };
+        assert_eq!(name, "submit_result");
+        assert_eq!(arguments["status"], "done");
+        assert_eq!(arguments["files_changed"], json!(["src/hello.mjs"]));
+        let r = agent_req("Reviewer", "Review the hello module", &["list_dir", "git_diff", "submit_result"]);
+        let MockScript::Tool { name, .. } = script(&r) else { panic!() };
+        assert_eq!(name, "list_dir");
+    }
+
+    #[test]
+    fn manager_chat_plans_build_requests_and_reads_state() {
+        let tools = ["project_overview", "propose_plan", "answer_user"];
+        let mut r = ChatRequest::new("mock-smart", vec![ChatMessage::user("Create a hello module with tests")]);
+        r.system = Some("You are the Orkestr AI Manager.".into());
+        r.tools = tools.iter().map(|t| tool(t, json!({"type": "object"}))).collect();
+        let MockScript::Tool { name, arguments } = script(&r) else { panic!() };
+        assert_eq!(name, "propose_plan");
+        assert_eq!(arguments["goal"], "Create a hello module with tests");
+        r.messages.push(ChatMessage::assistant_tool_calls(
+            "",
+            vec![crate::types::ToolCallPart { id: "c".into(), name: "propose_plan".into(), arguments }],
+        ));
+        r.messages.push(ChatMessage::tool_result("c", "plan with 4 tasks", false));
+        assert!(matches!(script(&r), MockScript::Text(t) if t.contains("plan card")));
+        let mut s = ChatRequest::new("mock-smart", vec![ChatMessage::user("What's the status?")]);
+        s.tools = r.tools.clone();
+        assert!(matches!(script(&s), MockScript::Tool { name, .. } if name == "project_overview"));
+        let mut h = ChatRequest::new("mock-smart", vec![ChatMessage::user("hi")]);
+        h.tools = r.tools.clone();
+        assert!(matches!(script(&h), MockScript::Text(t) if t.contains("Mock (offline demo)")));
+    }
 
     fn tool(name: &str, schema: Value) -> ToolSpec {
         ToolSpec { name: name.into(), description: "d".into(), parameters: schema }

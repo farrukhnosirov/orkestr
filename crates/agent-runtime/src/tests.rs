@@ -348,6 +348,9 @@ impl H {
                 worktree_policy: None,
                 name: None,
                 max_turns,
+                base_branch: None,
+                approval_mode: None,
+                budget: None,
             })
             .await
             .unwrap();
@@ -569,6 +572,9 @@ async fn emergency_stop_cancels_the_agent() {
             worktree_policy: None,
             name: None,
             max_turns: None,
+            base_branch: None,
+            approval_mode: None,
+            budget: None,
         })
         .await
         .unwrap_err();
@@ -744,6 +750,9 @@ async fn no_model_and_bad_spawn_requests_fail_without_side_effects() {
         worktree_policy: None,
         name: None,
         max_turns: None,
+        base_branch: None,
+        approval_mode: None,
+        budget: None,
     };
     assert!(matches!(h.rt.spawn(base.clone()).await, Err(crate::AgentError::NoModel(_))));
     h.provider(vec![]);

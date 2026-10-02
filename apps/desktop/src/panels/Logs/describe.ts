@@ -164,6 +164,15 @@ export function describeEvent(event: Event): string {
       return `Settings changed: ${event.payload.changed.join(", ")}`;
     case "AgentUpdated":
       return `Agent “${event.payload.agent.name}” updated (${event.payload.agent.state}, ${event.payload.agent.turnsUsed} turns)`;
+    case "ManagerMessageAdded":
+      return `Manager conversation: ${event.payload.message.role === "User" ? "you" : event.payload.message.role === "Manager" ? "Manager reply" : "event"} — ${event.payload.message.text.slice(0, 120)}`;
+    case "ManagerPlanUpdated":
+      return `Manager plan “${event.payload.plan.goal}” ${event.payload.plan.status.toLowerCase()} (${event.payload.plan.tasks.length} tasks)`;
+    case "ManagerRunUpdated": {
+      const r = event.payload.run;
+      const done = r.tasks.filter((t) => t.status === "Completed").length;
+      return `Manager run ${r.status.toLowerCase()}: ${done}/${r.tasks.length} tasks done`;
+    }
   }
 }
 
