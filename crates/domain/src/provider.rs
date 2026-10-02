@@ -109,6 +109,10 @@ pub struct Provider {
     pub auth_method: AuthMethod,
     /// Credential reference (never the secret).
     pub credential_ref_id: Option<CredentialRefId>,
+    /// Secret reference holding this provider's API key in the vault (never the
+    /// secret itself). Resolved at call time by `orkestr-providers`.
+    #[serde(default)]
+    pub secret_ref_id: Option<SecretRefId>,
     /// Whether the endpoint is local (privacy policy §56).
     pub is_local: bool,
     /// Default model id.

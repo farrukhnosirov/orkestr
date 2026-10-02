@@ -138,6 +138,16 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
     let events = EventBus::with_log(event_log, config.event_capacity).await?;
     let node_id = migrations::load_or_create_node_id(&db).await?;
 
+    // Provider hub: first start registers the Mock and detects Ollama / CLIs.
+    let providers = Arc::new(orkestr_providers::ProviderRegistry::new(
+        db.clone(),
+        Arc::new(rpc::providers::PlatformCredentialBridge::new(Arc::clone(&platform))),
+        Arc::new(rpc::providers::BusProviderSink::new(events.clone())),
+    ));
+    if let Err(e) = providers.init().await {
+        tracing::error!(error = %e, "provider registry failed to initialise");
+    }
+
     let services = Arc::new(Services {
         version: VERSION.to_owned(),
         started_at: chrono::Utc::now(),
@@ -149,6 +159,7 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
         events,
         projects: metadata,
         objects,
+        providers,
         recovered_from_crash: previous_session.crashed,
     });
     logging::attach_event_bus(services.events.clone());
@@ -164,6 +175,7 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
     let url = format!("ws://{addr}/rpc");
     let http_url = format!("http://{addr}");
     let shutdown = CancellationToken::new();
+    services.providers.spawn_health_loop(shutdown.clone());
     let router = Arc::new(rpc::build_router());
     let app = server::app(server::AppState::new(Arc::clone(&services), token.clone(), router, shutdown.clone()));
     let server_shutdown = shutdown.clone();

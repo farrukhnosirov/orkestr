@@ -3,6 +3,7 @@ import type { AuthMethod } from "./AuthMethod";
 import type { CredentialRefId } from "./CredentialRefId";
 import type { ProviderId } from "./ProviderId";
 import type { ProviderKind } from "./ProviderKind";
+import type { SecretRefId } from "./SecretRefId";
 import type { JsonValue } from "./serde_json/JsonValue";
 
 /**
@@ -37,6 +38,11 @@ authMethod: AuthMethod,
  * Credential reference (never the secret).
  */
 credentialRefId: CredentialRefId | null, 
+/**
+ * Secret reference holding this provider's API key in the vault (never the
+ * secret itself). Resolved at call time by `orkestr-providers`.
+ */
+secretRefId: SecretRefId | null, 
 /**
  * Whether the endpoint is local (privacy policy §56).
  */

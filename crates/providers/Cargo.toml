@@ -1,6 +1,6 @@
 [package]
 name = "orkestr-providers"
-description = "SKELETON — Orkestr AI provider hub: ProviderAdapter trait, registry, router, fallback (§4, §7)."
+description = "Orkestr AI provider hub: ProviderAdapter trait, adapters (OpenAI, Anthropic, Gemini, DeepSeek, Ollama, OpenAI-compatible, Claude Code CLI, Codex CLI, Mock), registry, router, fallback (§4, §7)."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -9,12 +9,24 @@ publish.workspace = true
 
 [dependencies]
 orkestr-domain.workspace = true
+orkestr-storage.workspace = true
+orkestr-platform.workspace = true
 async-trait.workspace = true
 futures.workspace = true
+tokio.workspace = true
 tokio-util.workspace = true
+tokio-stream.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
+tracing.workspace = true
+reqwest.workspace = true
+chrono.workspace = true
+parking_lot.workspace = true
+
+[dev-dependencies]
+axum.workspace = true
+tempfile.workspace = true
 
 [lints]
 workspace = true

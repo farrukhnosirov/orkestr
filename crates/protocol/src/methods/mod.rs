@@ -111,6 +111,21 @@ pub fn registry() -> Vec<MethodDescriptor> {
         MethodDescriptor::of::<projects::Delete>(),
         MethodDescriptor::of::<projects::Open>(),
         MethodDescriptor::of::<events::Replay>(),
+        MethodDescriptor::of::<providers::List>(),
+        MethodDescriptor::of::<providers::Get>(),
+        MethodDescriptor::of::<providers::Create>(),
+        MethodDescriptor::of::<providers::Update>(),
+        MethodDescriptor::of::<providers::Delete>(),
+        MethodDescriptor::of::<providers::SetCredential>(),
+        MethodDescriptor::of::<providers::ClearCredential>(),
+        MethodDescriptor::of::<providers::Health>(),
+        MethodDescriptor::of::<providers::Models>(),
+        MethodDescriptor::of::<providers::Test>(),
+        MethodDescriptor::of::<providers::Kinds>(),
+        MethodDescriptor::of::<providers::GetManager>(),
+        MethodDescriptor::of::<providers::SetManager>(),
+        MethodDescriptor::of::<providers::GetRouting>(),
+        MethodDescriptor::of::<providers::SetRouting>(),
     ]
 }
 

@@ -6,6 +6,7 @@
 
 pub mod events;
 pub mod projects;
+pub mod providers;
 pub mod system;
 
 use std::collections::BTreeMap;
@@ -117,6 +118,7 @@ impl RpcRouter {
 pub fn build_router() -> RpcRouter {
     let mut router = RpcRouter::new();
     router.register(system::register).register(projects::register).register(events::register);
+    router.register(providers::register);
     router
 }
 
