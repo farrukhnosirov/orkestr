@@ -27,3 +27,6 @@ apps/desktop/src-tauri/target/
 Thumbs.db
 .idea/
 *.swp
+
+# Agent worktrees
+.claude/worktrees/
