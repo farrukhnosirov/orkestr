@@ -2,15 +2,30 @@
 import type { CreateProjectParams } from "./CreateProjectParams";
 import type { DeleteProjectResult } from "./DeleteProjectResult";
 import type { Empty } from "./Empty";
+import type { ExecLineParams } from "./ExecLineParams";
 import type { HealthResult } from "./HealthResult";
 import type { ListProjectsParams } from "./ListProjectsParams";
 import type { ListProjectsResult } from "./ListProjectsResult";
+import type { ListShellsParams } from "./ListShellsParams";
+import type { ListShellsResult } from "./ListShellsResult";
+import type { ListTerminalsParams } from "./ListTerminalsParams";
+import type { ListTerminalsResult } from "./ListTerminalsResult";
+import type { OpenTerminalParams } from "./OpenTerminalParams";
 import type { ProjectIdParams } from "./ProjectIdParams";
 import type { ProjectResult } from "./ProjectResult";
+import type { RenameTerminalParams } from "./RenameTerminalParams";
 import type { ReplayParams } from "./ReplayParams";
 import type { ReplayResult } from "./ReplayResult";
+import type { ResizeTerminalParams } from "./ResizeTerminalParams";
+import type { RunCommandParams } from "./RunCommandParams";
+import type { RunCommandResult } from "./RunCommandResult";
 import type { SystemInfo } from "./SystemInfo";
+import type { TerminalHistoryParams } from "./TerminalHistoryParams";
+import type { TerminalHistoryResult } from "./TerminalHistoryResult";
+import type { TerminalIdParams } from "./TerminalIdParams";
+import type { TerminalSessionResult } from "./TerminalSessionResult";
 import type { UpdateProjectParams } from "./UpdateProjectParams";
+import type { WriteTerminalParams } from "./WriteTerminalParams";
 
 /** Typed RPC method map: `"area.verb": [Params, Result]`. */
 export type Methods = {
@@ -23,6 +38,16 @@ export type Methods = {
   "projects.delete": [ProjectIdParams, DeleteProjectResult];
   "projects.open": [ProjectIdParams, ProjectResult];
   "events.replay": [ReplayParams, ReplayResult];
+  "terminal.shells": [ListShellsParams, ListShellsResult];
+  "terminal.open": [OpenTerminalParams, TerminalSessionResult];
+  "terminal.write": [WriteTerminalParams, Empty];
+  "terminal.execLine": [ExecLineParams, Empty];
+  "terminal.resize": [ResizeTerminalParams, Empty];
+  "terminal.rename": [RenameTerminalParams, TerminalSessionResult];
+  "terminal.close": [TerminalIdParams, Empty];
+  "terminal.list": [ListTerminalsParams, ListTerminalsResult];
+  "terminal.history": [TerminalHistoryParams, TerminalHistoryResult];
+  "terminal.run": [RunCommandParams, RunCommandResult];
 };
 
 /** All implemented method names. */
@@ -36,6 +61,16 @@ export const METHOD_NAMES = [
   "projects.delete",
   "projects.open",
   "events.replay",
+  "terminal.shells",
+  "terminal.open",
+  "terminal.write",
+  "terminal.execLine",
+  "terminal.resize",
+  "terminal.rename",
+  "terminal.close",
+  "terminal.list",
+  "terminal.history",
+  "terminal.run",
 ] as const;
 
 /** Wire protocol version (see orkestr-protocol PROTOCOL_VERSION). */

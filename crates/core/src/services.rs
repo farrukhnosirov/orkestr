@@ -37,6 +37,8 @@ pub struct Services {
     pub objects: Arc<FsObjectStore>,
     /// Whether the previous session ended uncleanly.
     pub recovered_from_crash: bool,
+    /// Terminal sessions and command execution.
+    pub terminals: orkestr_terminal::TerminalService,
 }
 
 impl std::fmt::Debug for Services {

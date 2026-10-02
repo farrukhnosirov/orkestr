@@ -46,12 +46,14 @@ const LIFECYCLE = new Set(["ProjectCreated", "ProjectUpdated", "ProjectDeleted"]
 /** Topics an event is published on (same rules as the server). */
 export function eventTopics(event: Event): string[] {
   const out: string[] = [];
+  // High-volume terminal output goes only to its terminal topic.
+  if (event.kind === "TerminalOutput") return [topic.terminal(event.payload.terminalId)];
   if (event.projectId == null || LIFECYCLE.has(event.kind)) out.push(TOPIC_GLOBAL);
   if (event.projectId != null) out.push(topic.project(event.projectId));
   if (event.taskId != null) out.push(topic.task(event.taskId));
   if (event.agentId != null) out.push(topic.agent(event.agentId));
   if (event.nodeId != null) out.push(topic.node(event.nodeId));
-  if (event.kind === "TerminalOutput" || event.kind === "TerminalExited") {
+  if (event.kind === "TerminalExited") {
     out.push(topic.terminal(event.payload.terminalId));
   }
   return out;

@@ -4,6 +4,8 @@
  */
 import type { LucideIcon } from "lucide-react";
 
+import { terminalCommands } from "../../panels/Terminal/commands";
+
 export interface CommandContext {
   projectId: string | null;
 }
@@ -17,11 +19,25 @@ export interface AppCommand {
   icon?: LucideIcon;
   /** Extra search terms (any language). */
   keywords?: string[];
-  /** Display-only shortcut, e.g. `Ctrl+Shift+T`. */
+  /** Shortcut, e.g. `Ctrl+Shift+T` (dispatched globally via `matchesShortcut`). */
   shortcut?: string;
   /** Whether the command can run now. */
   enabled?: (ctx: CommandContext) => boolean;
   run: (ctx: CommandContext) => void | Promise<void>;
 }
 
-export const commands: AppCommand[] = [];
+export const commands: AppCommand[] = [...terminalCommands];
+
+/**
+ * Whether a keyboard event matches a shortcut string like `Ctrl+Shift+T` or
+ * `Ctrl+\``. `Ctrl` also matches ⌘ on macOS. Modifiers must match exactly.
+ */
+export function matchesShortcut(e: Pick<KeyboardEvent, "key" | "code" | "ctrlKey" | "metaKey" | "shiftKey" | "altKey">, shortcut: string): boolean {
+  const parts = shortcut.split("+").map((p) => p.trim().toLowerCase());
+  const key = parts.pop();
+  if (!key) return false;
+  const want = { ctrl: parts.includes("ctrl"), shift: parts.includes("shift"), alt: parts.includes("alt") };
+  if (want.ctrl !== (e.ctrlKey || e.metaKey) || want.shift !== e.shiftKey || want.alt !== e.altKey) return false;
+  if (key === "`") return e.key === "`" || e.code === "Backquote";
+  return e.key.toLowerCase() === key;
+}

@@ -88,6 +88,8 @@ impl CoreHandle {
 
     async fn shutdown_inner(&mut self) {
         self.shutdown.cancel();
+        // Kill terminal process trees before the server goes away.
+        self.services.terminals.shutdown().await;
         if let Some(server) = self.server.take() {
             if tokio::time::timeout(std::time::Duration::from_secs(5), server).await.is_err() {
                 tracing::warn!("RPC server did not stop within 5s");
@@ -137,6 +139,11 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
     let event_log = Arc::new(SqliteEventLog::new(db.clone()));
     let events = EventBus::with_log(event_log, config.event_capacity).await?;
     let node_id = migrations::load_or_create_node_id(&db).await?;
+    // Terminal: UserOnlyGate until the security engine provides a CommandGate.
+    let terminals = orkestr_terminal::TerminalService::builder()
+        .sink(Arc::new(rpc::terminal::EventTerminalSink::new(events.clone())))
+        .log(Arc::new(orkestr_terminal::SqliteCommandLog::new(db.clone(), redact::redact)))
+        .build();
 
     let services = Arc::new(Services {
         version: VERSION.to_owned(),
@@ -150,6 +157,7 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
         projects: metadata,
         objects,
         recovered_from_crash: previous_session.crashed,
+        terminals,
     });
     logging::attach_event_bus(services.events.clone());
 
