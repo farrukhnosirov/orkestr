@@ -7,6 +7,8 @@ import { invoke, isTauri as tauriDetected } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
+import { t } from "../i18n";
+
 export interface CoreConnection {
   url: string;
   token: string;
@@ -33,10 +35,7 @@ export async function getCoreConnection(): Promise<CoreConnection> {
   const url = params.get("core") ?? (import.meta.env["VITE_ORKESTR_URL"] as string | undefined);
   const token = params.get("token") ?? (import.meta.env["VITE_ORKESTR_TOKEN"] as string | undefined);
   if (!url || !token) {
-    throw new Error(
-      "Not running inside the desktop shell. Start `orkestrd` and open this page with ?core=<ws url>&token=<token> " +
-        "(see <data dir>/core.json and core.token).",
-    );
+    throw new Error(t("shell:connection.notInShell"));
   }
   return { url, token, mode: "browser", startupMs: 0 };
 }
@@ -68,6 +67,10 @@ export const shellControls = {
       if (document.fullscreenElement) await document.exitFullscreen();
       else await document.documentElement.requestFullscreen();
     }
+  },
+  /** Localizes the native tray menu (and other shell-owned texts). */
+  async setUiLanguage(language: string): Promise<void> {
+    if (isTauri()) await invoke("set_ui_language", { language });
   },
   /** Subscribes to the tray's "Stop All AI" item. */
   async onTrayStopAll(handler: () => void): Promise<() => void> {

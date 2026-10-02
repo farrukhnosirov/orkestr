@@ -6,6 +6,7 @@ import { NotificationBell } from "../features/notifications/NotificationCenter";
 import { ApprovalsBadge } from "../features/security/ApprovalsInbox";
 import { EmergencyStopButton } from "../features/security/EmergencyStop";
 import { useSettingsStore } from "../features/settings/settingsStore";
+import { useT } from "../i18n";
 import { isTauri, windowControls } from "../lib/tauri";
 import { useActiveProject, useAppStore } from "../store/app";
 import { Logo } from "./Logo";
@@ -17,6 +18,7 @@ export function TitleBar() {
   const openSettings = useSettingsStore((s) => s.openSettings);
   const [maximized, setMaximized] = useState(false);
   const native = isTauri();
+  const { t } = useT("shell");
 
   useEffect(() => {
     if (!native) return;
@@ -53,7 +55,7 @@ export function TitleBar() {
 
       <button type="button" className="titlebar__search" onClick={() => setPaletteOpen(true)}>
         <Search size={14} />
-        <span>Search or run a command…</span>
+        <span>{t("titleBar.search")}</span>
         <span className="titlebar__search-keys">
           <Kbd>Ctrl</Kbd>
           <Kbd>K</Kbd>
@@ -69,20 +71,20 @@ export function TitleBar() {
 
       <div className="titlebar__controls">
         <NotificationBell />
-        <button type="button" className="titlebar__ctl" aria-label="Settings (Ctrl+,)" title="Settings (Ctrl+,)" onClick={() => openSettings()}>
+        <button type="button" className="titlebar__ctl" aria-label={t("titleBar.settings")} title={t("titleBar.settings")} onClick={() => openSettings()}>
           <Settings size={15} />
         </button>
       </div>
 
       {native && (
         <div className="titlebar__controls">
-          <button type="button" className="titlebar__ctl" aria-label="Minimize" onClick={() => void windowControls.minimize()}>
+          <button type="button" className="titlebar__ctl" aria-label={t("titleBar.minimize")} onClick={() => void windowControls.minimize()}>
             <Minus size={15} />
           </button>
           <button
             type="button"
             className="titlebar__ctl"
-            aria-label={maximized ? "Restore" : "Maximize"}
+            aria-label={maximized ? t("titleBar.restore") : t("titleBar.maximize")}
             onClick={() => void windowControls.toggleMaximize()}
           >
             {maximized ? <Copy size={13} style={{ transform: "scaleX(-1)" }} /> : <Square size={12} />}
@@ -90,7 +92,7 @@ export function TitleBar() {
           <button
             type="button"
             className="titlebar__ctl titlebar__ctl--close"
-            aria-label="Close"
+            aria-label={t("titleBar.close")}
             onClick={() => void windowControls.close()}
           >
             <X size={16} />

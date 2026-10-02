@@ -7,6 +7,7 @@ import type { AppSettings, AppSettingsPatch } from "@orkestr/protocol";
 import { create } from "zustand";
 
 import { getClient } from "../../core/client";
+import { describeError } from "../../i18n/errors";
 import { shellControls } from "../../lib/tauri";
 
 export interface SettingsState {
@@ -28,7 +29,7 @@ export interface SettingsState {
 }
 
 function errorText(e: unknown): string {
-  return e instanceof Error ? e.message : String(e);
+  return describeError(e);
 }
 
 function mirrorShell(s: AppSettings): void {

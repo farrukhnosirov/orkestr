@@ -1,0 +1,17 @@
+{
+  "rootFolder": {
+    "description": "Connect this project to a folder on disk. Orkestr only reads and writes inside it.",
+    "label": "Project folder",
+    "placeholder": "C:\\Users\\me\\code\\my-app",
+    "pathRequired": "Enter the absolute path of the project folder.",
+    "use": "Use folder"
+  },
+  "names": {
+    "required": "Enter a name.",
+    "reserved": "That name is reserved.",
+    "invalidChars": "Names cannot contain < > : \" | ? * or control characters.",
+    "dotDot": "Names cannot contain “..”.",
+    "trailingDot": "Names cannot end with a dot or a space.",
+    "reservedWindows": "That name is reserved on Windows."
+  }
+}

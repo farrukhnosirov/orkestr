@@ -3,57 +3,122 @@
  */
 import type { ModelRef, ProviderKind, ProviderKindInfo, ProviderStatus, ProviderView } from "@orkestr/protocol";
 import type { Status } from "@orkestr/ui";
+import i18n from "i18next";
+
+import { formatCurrency, formatDuration, formatNumber, intlLocale, t } from "../../i18n";
 
 /** Status dot + short label for a provider. */
 export function statusOf(view: Pick<ProviderView, "status" | "provider">): { dot: Status; label: string; pulse: boolean } {
   const s: ProviderStatus = view.status;
-  if (!view.provider.enabled) return { dot: "idle", label: "Disabled", pulse: false };
-  if (s.circuitOpen) return { dot: "error", label: "Circuit open", pulse: false };
+  if (!view.provider.enabled) return { dot: "idle", label: t("providers:status.disabled"), pulse: false };
+  if (s.circuitOpen) return { dot: "error", label: t("providers:status.circuitOpen"), pulse: false };
   if (s.authState === "Unconfigured") {
-    return { dot: "idle", label: s.authDetail?.startsWith("not installed") ? "Not installed" : "Not configured", pulse: false };
+    const notInstalled = s.authDetail?.startsWith("not installed");
+    return { dot: "idle", label: notInstalled ? t("providers:status.notInstalled") : t("providers:status.notConfigured"), pulse: false };
   }
-  if (s.authState === "Invalid") return { dot: "error", label: "Auth problem", pulse: false };
+  if (s.authState === "Invalid") return { dot: "error", label: t("providers:status.authProblem"), pulse: false };
   switch (s.health) {
     case "Healthy":
-      return { dot: "online", label: s.authState === "Authenticated" ? "Connected" : "Reachable", pulse: false };
+      return {
+        dot: "online",
+        label: s.authState === "Authenticated" ? t("providers:status.connected") : t("providers:status.reachable"),
+        pulse: false,
+      };
     case "RateLimited":
-      return { dot: "warning", label: "Rate limited", pulse: true };
+      return { dot: "warning", label: t("providers:status.rateLimited"), pulse: true };
     case "Degraded":
-      return { dot: "warning", label: s.quotaExhaustedUntil ? "Quota exhausted" : "Degraded", pulse: false };
+      return {
+        dot: "warning",
+        label: s.quotaExhaustedUntil ? t("providers:status.quotaExhausted") : t("providers:status.degraded"),
+        pulse: false,
+      };
     case "Down":
-      return { dot: "error", label: "Unreachable", pulse: false };
+      return { dot: "error", label: t("providers:status.unreachable"), pulse: false };
     default:
-      return { dot: "connecting", label: "Checking…", pulse: true };
+      return { dot: "connecting", label: t("providers:status.checking"), pulse: true };
   }
 }
 
-/** `123 ms`, `1.4 s` or `—`. */
-export function formatLatency(ms: number | null | undefined): string {
+/** Localized latency (`320 ms` / `320 мс`, `1.4 sec` / `1,4 с`) or `—`. */
+export function formatLatency(ms: number | null | undefined, lng?: string): string {
   if (ms == null) return "—";
-  if (ms < 1000) return `${Math.round(ms)} ms`;
-  return `${(ms / 1000).toFixed(1)} s`;
+  return formatDuration(ms, lng);
 }
 
-/** `$0.0042` style USD (estimated values are labelled by callers). */
-export function formatUsd(v: number | null | undefined): string {
+/** Localized USD amount (`$0.0042` / `0,0042 $`); estimated values are labelled by callers. */
+export function formatUsd(v: number | null | undefined, lng?: string): string {
   if (v == null) return "—";
-  if (v === 0) return "$0";
-  if (v < 0.01) return `$${v.toFixed(4)}`;
-  return `$${v.toFixed(2)}`;
+  return formatCurrency(v, "USD", lng);
 }
 
-/** Per-1M token price label, e.g. `$3 / $15 per 1M (est.)`. */
-export function formatPricing(p: { inputPerMtokUsd: number; outputPerMtokUsd: number } | null): string {
-  if (!p) return "no list price";
-  const f = (n: number) => (Number.isInteger(n) ? `$${n}` : `$${n.toFixed(n < 1 ? 3 : 2).replace(/0+$/, "")}`);
-  return `${f(p.inputPerMtokUsd)} / ${f(p.outputPerMtokUsd)} per 1M (est.)`;
+/** Per-1M token price label, e.g. `$3 / $15 per 1M tokens (est.)` / `3 $ / 15 $ за 1 млн токенов (оценка)`. */
+export function formatPricing(p: { inputPerMtokUsd: number; outputPerMtokUsd: number } | null, lng?: string): string {
+  const opts = lng ? { lng } : {};
+  if (!p) return t("providers:models.noPrice", opts);
+  const price = (n: number) =>
+    formatNumber(n, { style: "currency", currency: "USD", currencyDisplay: "narrowSymbol", minimumFractionDigits: 0, maximumFractionDigits: 3 }, lng);
+  return t("providers:models.pricing", { ...opts, input: price(p.inputPerMtokUsd), output: price(p.outputPerMtokUsd) });
 }
 
-/** Context window label (`128K`, `1M`). */
-export function formatContext(tokens: number): string {
-  if (tokens >= 1_000_000) return `${+(tokens / 1_000_000).toFixed(1)}M`;
-  if (tokens >= 1000) return `${Math.round(tokens / 1000)}K`;
-  return String(tokens);
+/** Context window label (`128K`, `1M` / `128 тыс.`, `1 млн`). */
+export function formatContext(tokens: number, lng?: string): string {
+  return new Intl.NumberFormat(intlLocale(lng), { notation: "compact", maximumFractionDigits: 1 }).format(tokens);
+}
+
+/** Localized name of a provider kind; brand names come from the core as is. */
+export function kindName(info: Pick<ProviderKindInfo, "kind" | "displayName">): string {
+  const key = `providers:kinds.${info.kind}.name`;
+  return i18n.exists(key) ? t(key as "providers:kinds.Mock.name") : info.displayName;
+}
+
+/**
+ * Display name of a provider instance: the core names new instances after
+ * their kind in English ("Mock (offline demo)"); such default names are
+ * shown localized, names the user chose are shown as is.
+ */
+export function instanceName(p: { kind: string; name: string }): string {
+  const key = `providers:kinds.${p.kind}.name`;
+  if (!i18n.exists(key)) return p.name;
+  return p.name === t(key as "providers:kinds.Mock.name", { lng: "en" }) ? t(key as "providers:kinds.Mock.name") : p.name;
+}
+
+/** Localized description / sign-in note / login instructions of a kind, falling back to the core's text. */
+export function kindText(
+  kind: ProviderKind,
+  field: "description" | "signInNote" | "loginInstructions",
+  fallback: string | null,
+): string | null {
+  if (fallback == null) return null;
+  const key = `providers:kinds.${kind}.${field}`;
+  return i18n.exists(key) ? t(key as "providers:kinds.Mock.description") : fallback;
+}
+
+/**
+ * Localized auth detail. The core sends a short English detail; known shapes
+ * are translated, anything else (a reason from the provider) is shown as is.
+ */
+export function authDetailText(status: Pick<ProviderStatus, "authDetail" | "authState">): string {
+  const d = status.authDetail;
+  if (!d) return t(`providers:auth.state.${status.authState}`);
+  let m: RegExpMatchArray | null;
+  if (d === "API key") return t("providers:auth.apiKey");
+  if (d === "no credentials needed (offline demo)") return t("providers:auth.noCredentials");
+  if (d === "no API key (endpoint without auth)") return t("providers:auth.noApiKey");
+  if (d === "not configured") return t("providers:auth.notConfigured");
+  if ((m = /^local endpoint \(Ollama (.*)\)$/.exec(d))) return t("providers:auth.localEndpoint", { version: m[1] ?? "" });
+  if ((m = /^cli session \(managed by (.*)\)$/.exec(d))) return t("providers:auth.cliSession", { cli: m[1] ?? "" });
+  if ((m = /^not installed \(`(.*)` not found on PATH\)$/.exec(d))) return t("providers:auth.notInstalled", { binary: m[1] ?? "" });
+  if ((m = /^invalid: (.*)$/s.exec(d))) return t("providers:auth.invalid", { reason: m[1] ?? "" });
+  if ((m = /^unreachable: (.*)$/s.exec(d))) return t("providers:auth.unreachable", { reason: m[1] ?? "" });
+  return d;
+}
+
+/** Localized label of a routing purpose; custom purposes are shown as typed. */
+export function purposeLabel(purpose: string): string {
+  const custom = /^Custom (\d+)$/.exec(purpose);
+  if (custom) return t("providers:purposes.custom", { index: Number(custom[1]) });
+  const key = `providers:purposes.${purpose}`;
+  return i18n.exists(key) ? t(key as "providers:purposes.Manager") : purpose;
 }
 
 /** Moves an item in a list (fallback chain editor). Out-of-range moves are no-ops. */
@@ -91,11 +156,13 @@ export function headersFromRows(rows: readonly HeaderRow[]): { headers: Record<s
   for (const row of rows) {
     const name = row.name.trim();
     if (!name && !row.value.trim()) continue;
-    if (!/^[A-Za-z0-9_-]+$/.test(name)) return { error: `Invalid header name “${name || "(empty)"}”.` };
-    if (SECRET_HEADERS.has(name.toLowerCase())) {
-      return { error: `“${name}” carries a credential — use the API key field (stored in the secret vault).` };
+    if (!/^[A-Za-z0-9_-]+$/.test(name)) {
+      return { error: t("providers:validation.headerName", { name: name || t("providers:validation.emptyName") }) };
     }
-    if (/[\r\n]/.test(row.value)) return { error: `Header “${name}” contains a line break.` };
+    if (SECRET_HEADERS.has(name.toLowerCase())) {
+      return { error: t("providers:validation.credentialHeader", { name }) };
+    }
+    if (/[\r\n]/.test(row.value)) return { error: t("providers:validation.headerLineBreak", { name }) };
     headers[name] = row.value;
   }
   return { headers };
@@ -105,7 +172,7 @@ export function headersFromRows(rows: readonly HeaderRow[]): { headers: Record<s
 export function validateBaseUrl(url: string): string | null {
   const u = url.trim();
   if (!u) return null;
-  if (!/^https?:\/\/[^/\s]+/.test(u) || /\s/.test(u)) return "Use a full http:// or https:// URL.";
+  if (!/^https?:\/\/[^/\s]+/.test(u) || /\s/.test(u)) return t("providers:validation.baseUrl");
   return null;
 }
 
@@ -120,7 +187,7 @@ export function groupByKind(
 /** Human label for a model ref given the known providers. */
 export function refLabel(ref: ModelRef, providers: readonly ProviderView[]): string {
   const p = providers.find((v) => v.provider.id === ref.providerId);
-  return `${p ? p.provider.name : "Unknown provider"} · ${ref.model}`;
+  return `${p ? instanceName(p.provider) : t("providers:unknownProvider")} · ${ref.model}`;
 }
 
 /** Whether the kind is an official CLI agent. */
@@ -136,16 +203,16 @@ export function validateManagerConfig(c: {
   timeLimitMins: number | null;
   fallbackChain: readonly ModelRef[];
 }): string | null {
-  if (c.model && !c.model.model.trim()) return "Choose a model for the Manager.";
+  if (c.model && !c.model.model.trim()) return t("providers:validation.managerModel");
   if (!Number.isInteger(c.maxParallelAgents) || c.maxParallelAgents < 1 || c.maxParallelAgents > 64) {
-    return "Max parallel agents must be a whole number between 1 and 64.";
+    return t("providers:validation.parallelAgents", { min: 1, max: 64 });
   }
-  if (c.budgetUsd != null && (!Number.isFinite(c.budgetUsd) || c.budgetUsd < 0)) return "Budget must be a positive amount.";
+  if (c.budgetUsd != null && (!Number.isFinite(c.budgetUsd) || c.budgetUsd < 0)) return t("providers:validation.budget");
   if (c.timeLimitMins != null && (!Number.isInteger(c.timeLimitMins) || c.timeLimitMins < 1 || c.timeLimitMins > 1440)) {
-    return "Time limit must be between 1 and 1440 minutes.";
+    return t("providers:validation.timeLimit");
   }
-  if (c.fallbackChain.some((r) => !r.model.trim())) return "Every fallback entry needs a model.";
-  if (c.fallbackChain.length > 16) return "The fallback chain is limited to 16 models.";
+  if (c.fallbackChain.some((r) => !r.model.trim())) return t("providers:validation.fallbackModel");
+  if (c.fallbackChain.length > 16) return t("providers:validation.fallbackLimit", { max: 16 });
   return null;
 }
 

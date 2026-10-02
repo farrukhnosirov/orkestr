@@ -7,6 +7,8 @@ import { Spinner } from "@orkestr/ui";
 import { clsx } from "clsx";
 import { type KeyboardEvent, type ReactNode, useId, useRef } from "react";
 
+import { formatBytes as i18nFormatBytes, formatDuration as i18nFormatDuration, useT } from "../../i18n";
+
 export interface SwitchProps {
   checked: boolean;
   onChange: (next: boolean) => void;
@@ -16,9 +18,10 @@ export interface SwitchProps {
 }
 
 export function Switch({ checked, onChange, label, disabled = false, busy = false }: SwitchProps) {
+  const { t } = useT("common");
   return (
     <span className="ok-switch-wrap">
-      {busy && <Spinner size={12} label="Saving" />}
+      {busy && <Spinner size={12} label={t("state.saving")} />}
       <button
         type="button"
         role="switch"
@@ -124,27 +127,13 @@ export function SettingGroup({ title, children }: { title: string; children: Rea
   );
 }
 
-/** Human-readable byte sizes (binary units). */
+/** Localized byte sizes (binary units); "—" for missing values. */
 export function formatBytes(bytes: number | null | undefined): string {
   if (bytes == null || !Number.isFinite(bytes) || bytes < 0) return "—";
-  const units = ["B", "KB", "MB", "GB", "TB", "PB"];
-  let v = bytes;
-  let i = 0;
-  while (v >= 1024 && i < units.length - 1) {
-    v /= 1024;
-    i++;
-  }
-  return `${v >= 100 || i === 0 ? v.toFixed(0) : v.toFixed(1)} ${units[i]}`;
+  return i18nFormatBytes(bytes);
 }
 
-/** `ms` → "3 h 12 min" style durations. */
+/** Localized durations (`3 h 12 min` / `3 ч 12 мин`). */
 export function formatDuration(ms: number): string {
-  const s = Math.max(0, Math.floor(ms / 1000));
-  const d = Math.floor(s / 86400);
-  const h = Math.floor((s % 86400) / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  if (d > 0) return `${d} d ${h} h`;
-  if (h > 0) return `${h} h ${m} min`;
-  if (m > 0) return `${m} min`;
-  return `${s} s`;
+  return i18nFormatDuration(ms);
 }

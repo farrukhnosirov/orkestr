@@ -173,8 +173,8 @@ describe("notifications", () => {
   it("formats relative times", () => {
     const now = Date.parse("2026-10-02T10:10:00Z");
     expect(relativeTime("2026-10-02T10:09:50Z", now)).toBe("just now");
-    expect(relativeTime("2026-10-02T10:00:00Z", now)).toBe("10 min ago");
-    expect(relativeTime("2026-10-02T07:00:00Z", now)).toBe("3 h ago");
+    expect(relativeTime("2026-10-02T10:00:00Z", now)).toBe("10 minutes ago");
+    expect(relativeTime("2026-10-02T07:00:00Z", now)).toBe("3 hours ago");
   });
 
   it("subscribes to global and every project", () => {
@@ -253,12 +253,14 @@ describe("settings", () => {
   });
 
   it("formats sizes and durations", () => {
-    expect(formatBytes(0)).toBe("0 B");
-    expect(formatBytes(1536)).toBe("1.5 KB");
-    expect(formatBytes(16 * 1024 ** 3)).toBe("16.0 GB");
+    // Units are separated by non-breaking spaces.
+    const sp = (s: string) => s.replace(/ /g, " ");
+    expect(sp(formatBytes(0))).toBe("0 B");
+    expect(sp(formatBytes(1536))).toBe("1.5 KB");
+    expect(sp(formatBytes(16 * 1024 ** 3))).toBe("16 GB");
     expect(formatBytes(null)).toBe("—");
-    expect(formatDuration(65_000)).toBe("1 min");
-    expect(formatDuration(3 * 3600_000 + 12 * 60_000)).toBe("3 h 12 min");
+    expect(sp(formatDuration(65_000))).toBe("1 min 5 sec");
+    expect(sp(formatDuration(3 * 3600_000 + 12 * 60_000))).toBe("3 hr 12 min");
   });
 
   it("switch and segmented are keyboard accessible", () => {

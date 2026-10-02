@@ -7,6 +7,7 @@ import { clsx } from "clsx";
 import { AlertTriangle, ChevronDown, ChevronRight, Columns2, FileDiff, FolderClosed, Rows2, X } from "lucide-react";
 import { type ReactNode, Suspense, lazy, useEffect, useId, useRef, useState } from "react";
 
+import { useT } from "../../i18n";
 import { type TreeNode, type Tone, languageForPath } from "./model";
 
 const MonacoDiff = lazy(() => import("./MonacoDiff"));
@@ -44,6 +45,7 @@ export interface DiffPaneProps {
 
 /** Side-by-side / inline diff of one file with loading/empty/error states. */
 export function DiffPane({ content, loading, error, emptyText, actions }: DiffPaneProps) {
+  const { t } = useT("git");
   const [sideBySide, setSideBySide] = useState(readSide);
   const toggle = () => {
     setSideBySide((v) => {
@@ -68,12 +70,12 @@ export function DiffPane({ content, loading, error, emptyText, actions }: DiffPa
             </span>
           </>
         ) : (
-          <span className="git-diff__path git-muted">Diff</span>
+          <span className="git-diff__path git-muted">{t("diff.title")}</span>
         )}
         <div className="git-spacer" />
         {actions}
         <IconButton
-          label={sideBySide ? "Inline view" : "Side-by-side view"}
+          label={sideBySide ? t("diff.inline") : t("diff.sideBySide")}
           icon={sideBySide ? <Rows2 size={15} /> : <Columns2 size={15} />}
           onClick={toggle}
           tooltip="bottom"
@@ -84,19 +86,19 @@ export function DiffPane({ content, loading, error, emptyText, actions }: DiffPa
           <Notice tone="danger">{error}</Notice>
         ) : loading && !content ? (
           <div className="git-center">
-            <Spinner size={18} /> Loading diff…
+            <Spinner size={18} /> {t("diff.loading")}
           </div>
         ) : !content ? (
-          <EmptyState icon={<FileDiff size={24} strokeWidth={1.6} />} title="No file selected" description={emptyText} />
+          <EmptyState icon={<FileDiff size={24} strokeWidth={1.6} />} title={t("diff.noFile")} description={emptyText} />
         ) : content.binary ? (
-          <EmptyState title="Binary file" description="Binary files cannot be shown as a text diff." />
+          <EmptyState title={t("diff.binary.title")} description={t("diff.binary.description")} />
         ) : content.truncated ? (
-          <EmptyState title="File too large" description="Files over 8 MiB are not shown in the diff viewer." />
+          <EmptyState title={t("diff.tooLarge.title")} description={t("diff.tooLarge.description")} />
         ) : (
           <Suspense
             fallback={
               <div className="git-center">
-                <Spinner size={18} /> Loading editor…
+                <Spinner size={18} /> {t("diff.loadingEditor")}
               </div>
             }
           >
@@ -143,6 +145,7 @@ export function ConfirmDialog({
   onCancel,
   children,
 }: ConfirmDialogProps) {
+  const { t } = useT("common");
   const titleId = useId();
   const cancelRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
@@ -175,7 +178,7 @@ export function ConfirmDialog({
             </h2>
             {description != null && <div className="dialog__subtitle">{description}</div>}
           </div>
-          <button type="button" className="dialog__close" aria-label="Close" onClick={cancel}>
+          <button type="button" className="dialog__close" aria-label={t("actions.close")} onClick={cancel}>
             <X size={16} />
           </button>
         </header>
@@ -187,7 +190,7 @@ export function ConfirmDialog({
         )}
         <footer className="dialog__footer">
           <Button ref={cancelRef} variant="ghost" onClick={cancel} disabled={busy}>
-            Cancel
+            {t("actions.cancel")}
           </Button>
           <Button variant={danger ? "danger" : "primary"} onClick={onConfirm} loading={busy} disabled={confirmDisabled}>
             {confirmLabel}

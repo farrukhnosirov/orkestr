@@ -1,7 +1,8 @@
 import type { ProviderKindInfo, ProviderView } from "@orkestr/protocol";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
+import { i18n } from "../../i18n";
 import { useAppStore } from "../../store/app";
 import { ProviderSetup } from "./ProviderSetup";
 import { useProvidersStore } from "./store";
@@ -91,7 +92,7 @@ describe("<ProviderSetup/>", () => {
     render(<ProviderSetup />);
     expect(screen.getByRole("heading", { name: "OpenAi" })).toBeTruthy();
     expect(screen.getByText("Not installed")).toBeTruthy();
-    expect(screen.getByText(/Login via the ClaudeCode CLI/)).toBeTruthy();
+    expect(screen.getByText(/Sign in via the ClaudeCode CLI/)).toBeTruthy();
     expect(screen.getByText("Connected")).toBeTruthy();
     expect(screen.getAllByText("Mock (offline demo)").length).toBeGreaterThan(0);
     // CLI not installed → connect disabled.
@@ -104,5 +105,36 @@ describe("<ProviderSetup/>", () => {
     cleanup();
     render(<ProviderSetup kinds={["Mock"]} compact />);
     expect(screen.queryByRole("heading", { name: "OpenAi" })).toBeNull();
+  });
+});
+
+describe("<ProviderSetup/> in Russian", () => {
+  afterEach(async () => {
+    await act(async () => {
+      await i18n.changeLanguage("en");
+    });
+  });
+
+  it("translates kind cards, badges, statuses and auth details", async () => {
+    await act(async () => {
+      await i18n.changeLanguage("ru");
+    });
+    useAppStore.getState().setConnection({ state: "open" });
+    useProvidersStore.getState().setAll(
+      [
+        kind("ClaudeCode", { authMethod: "CliSession", codingAgent: true, binary: "claude", detected: false, loginInstructions: "Run claude and /login." }),
+        kind("Mock", { authMethod: "None", isLocal: true }),
+      ],
+      [mock],
+      "2026-10-01",
+    );
+    render(<ProviderSetup />);
+    expect(screen.getByRole("heading", { name: "Mock (офлайн-демо)" })).toBeTruthy();
+    expect(screen.getAllByText("Не установлен").length).toBeGreaterThan(0);
+    expect(screen.getByText("Вход через CLI ClaudeCode:")).toBeTruthy();
+    expect(screen.getAllByText("Подключён").length).toBeGreaterThan(0);
+    expect(screen.getByText("учётные данные не нужны (офлайн-демо)")).toBeTruthy();
+    expect((screen.getByRole("button", { name: "Подключить ClaudeCode" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByRole("button", { name: "Проверить подключение" })).toBeTruthy();
   });
 });

@@ -4,19 +4,25 @@ import { Bot, Copy, Download, FileUp, LayoutTemplate, Lock, Pencil, Plus, Refres
 import { type FormEvent, useEffect, useState } from "react";
 
 import { ModelPicker } from "../../features/providers/ModelPicker";
+import { useFormat, useT } from "../../i18n";
 import { useProvidersLive } from "../../features/providers/store";
 import { downloadText, errorMessage, templateActions } from "./data";
 import { ALL_TOOLS, BUILTIN_ROLES, blankDraft, draftOf, duplicateDraft, isBuiltin, roleLabel, validateDraft } from "./model";
 import { RoleAvatar } from "./parts";
 import { useAgentsUi } from "./store";
+import { templateDescription, templateName } from "../../lib/coreText";
 
 const GATES: QualityGate[] = ["Build", "Lint", "Typecheck", "Tests", "Security", "Review", "AcceptanceCriteria"];
 const POLICIES: WorktreePolicy[] = ["DedicatedWorktree", "SharedWorktree", "ReadOnlyMain", "None"];
 const MEMORY: MemoryAccess[] = ["None", "ProjectOnly", "ProjectAndGlobal", "Full"];
+/** Variables available in system prompts (shown as is in every language). */
+const TEMPLATE_VARS = "{{project.name}} {{task.title}} {{agent.role}}";
 
-function TemplateCard({ t, onChanged }: { t: AgentTemplate; onChanged: () => void }) {
+function TemplateCard({ tpl, onChanged }: { tpl: AgentTemplate; onChanged: () => void }) {
+  const { t } = useT(["agents", "common"]);
+  const fmt = useFormat();
   const ui = useAgentsUi();
-  const builtin = isBuiltin(t);
+  const builtin = isBuiltin(tpl);
   const run = async (fn: () => Promise<void>) => {
     try {
       await fn();
@@ -26,57 +32,57 @@ function TemplateCard({ t, onChanged }: { t: AgentTemplate; onChanged: () => voi
   };
   return (
     <li className="agents-tpl">
-      <RoleAvatar role={t.role} />
+      <RoleAvatar role={tpl.role} />
       <div className="agents-tpl__main">
         <div className="agents-tpl__top">
-          <strong>{t.name}</strong>
+          <strong>{templateName(tpl.name)}</strong>
           <Badge tone={builtin ? "accent" : "neutral"} icon={builtin ? <Lock size={11} /> : undefined}>
-            {builtin ? "Official" : t.source}
+            {t(`source.${tpl.source}`)}
           </Badge>
-          <span className="agents-muted">v{t.version}</span>
+          <span className="agents-muted">{t("templates.version", { version: tpl.version })}</span>
         </div>
-        <p className="agents-tpl__desc">{t.description || "No description."}</p>
+        <p className="agents-tpl__desc">{templateDescription(tpl.name, tpl.description) || t("templates.noDescription")}</p>
         <div className="agents-tpl__meta">
-          <span>{roleLabel(t.role)}</span>
-          <span>{t.tools.length} tools</span>
-          <span>{t.maxTurns} turns</span>
-          <span>{t.worktreePolicy}</span>
-          {t.budget?.maxCostUsd != null && <span>${t.budget.maxCostUsd.toFixed(2)} budget</span>}
-          {t.preferredModel && <span>{t.preferredModel.model}</span>}
+          <span>{roleLabel(tpl.role)}</span>
+          <span>{t("templates.tools", { count: tpl.tools.length })}</span>
+          <span>{t("common:count.turns", { count: tpl.maxTurns })}</span>
+          <span>{t(`worktreePolicy.${tpl.worktreePolicy}`)}</span>
+          {tpl.budget?.maxCostUsd != null && <span>{t("templates.budget", { amount: fmt.currency(tpl.budget.maxCostUsd) })}</span>}
+          {tpl.preferredModel && <span>{tpl.preferredModel.model}</span>}
         </div>
       </div>
       <div className="agents-tpl__actions">
-        <IconButton label="Spawn from template" icon={<Bot size={15} />} onClick={() => ui.openSpawn(t.id)} tooltip="bottom" />
+        <IconButton label={t("templates.spawnFrom")} icon={<Bot size={15} />} onClick={() => ui.openSpawn(tpl.id)} tooltip="bottom" />
         {!builtin && (
-          <IconButton label="Edit template" icon={<Pencil size={15} />} onClick={() => ui.setEditor({ mode: "edit", template: t })} tooltip="bottom" />
+          <IconButton label={t("templates.edit")} icon={<Pencil size={15} />} onClick={() => ui.setEditor({ mode: "edit", template: tpl })} tooltip="bottom" />
         )}
         <IconButton
-          label="Duplicate template"
+          label={t("templates.duplicate")}
           icon={<Copy size={15} />}
-          onClick={() => ui.setEditor({ mode: "create", draft: duplicateDraft(t) })}
+          onClick={() => ui.setEditor({ mode: "create", draft: duplicateDraft(tpl) })}
           tooltip="bottom"
         />
         <IconButton
-          label="Export template"
+          label={t("templates.export")}
           icon={<Download size={15} />}
           onClick={() =>
             void run(async () => {
-              const r = await templateActions.exportJson(t.id);
+              const r = await templateActions.exportJson(tpl.id);
               downloadText(r.fileName, r.json);
-              ui.toast("success", `Exported ${r.fileName}.`);
+              ui.toast("success", t("templates.exported", { file: r.fileName }));
             })
           }
           tooltip="bottom"
         />
         {!builtin && (
           <IconButton
-            label="Delete template"
+            label={t("templates.delete")}
             icon={<Trash2 size={15} />}
             onClick={() =>
               void run(async () => {
-                if (!window.confirm(`Delete the template “${t.name}”? Running agents are not affected.`)) return;
-                await templateActions.remove(t.id);
-                ui.toast("info", `Template “${t.name}” deleted.`);
+                if (!window.confirm(t("templates.confirmDelete", { name: templateName(tpl.name) }))) return;
+                await templateActions.remove(tpl.id);
+                ui.toast("info", t("templates.deleted", { name: templateName(tpl.name) }));
                 onChanged();
               })
             }
@@ -93,6 +99,7 @@ function toggle<T>(list: readonly T[], item: T): T[] {
 }
 
 function TemplateEditor({ onSaved }: { onSaved: () => void }) {
+  const { t } = useT(["agents", "common"]);
   const editor = useAgentsUi((s) => s.editor);
   const setEditor = useAgentsUi((s) => s.setEditor);
   const toast = useAgentsUi((s) => s.toast);
@@ -126,8 +133,8 @@ function TemplateEditor({ onSaved }: { onSaved: () => void }) {
     setBusy(true);
     setError(null);
     try {
-      const t = editor.mode === "edit" ? await templateActions.update(editor.template.id, draft) : await templateActions.create(draft);
-      toast("success", `Template “${t.name}” saved.`);
+      const saved = editor.mode === "edit" ? await templateActions.update(editor.template.id, draft) : await templateActions.create(draft);
+      toast("success", t("templates.saved", { name: saved.name }));
       setEditor(null);
       onSaved();
     } catch (err) {
@@ -158,74 +165,94 @@ function TemplateEditor({ onSaved }: { onSaved: () => void }) {
           </div>
           <div>
             <h2 id="tpl-editor-title" className="dialog__title">
-              {editor.mode === "edit" ? "Edit template" : "New template"}
+              {editor.mode === "edit" ? t("editor.editTitle") : t("editor.newTitle")}
             </h2>
-            <p className="dialog__subtitle">Requested permissions become agent-scoped rules when the agent is spawned.</p>
+            <p className="dialog__subtitle">{t("editor.subtitle")}</p>
           </div>
-          <button type="button" className="dialog__close" aria-label="Close" onClick={close}>
+          <button type="button" className="dialog__close" aria-label={t("common:actions.close")} onClick={close}>
             <X size={16} />
           </button>
         </header>
         <div className="dialog__body agents-editor">
           <div className="agents-dialog__row">
-            <Input label="Name" value={d.name} maxLength={80} onChange={(e) => set({ name: e.target.value })} />
+            <Input label={t("editor.name")} value={d.name} maxLength={80} onChange={(e) => set({ name: e.target.value })} />
             <label className="ok-field">
-              <span className="ok-field__label">Role</span>
+              <span className="ok-field__label">{t("editor.role")}</span>
               <select
                 className="agents-select"
-                aria-label="Role"
+                aria-label={t("editor.role")}
                 value={roleValue}
-                onChange={(e) => set({ role: e.target.value === "__custom" ? { Custom: customRole || "Custom" } : (e.target.value as AgentRole) })}
+                onChange={(e) =>
+                  set({ role: e.target.value === "__custom" ? { Custom: customRole || t("editor.customDefault") } : (e.target.value as AgentRole) })
+                }
               >
                 {BUILTIN_ROLES.map((r) => (
                   <option key={r} value={r}>
                     {roleLabel(r)}
                   </option>
                 ))}
-                <option value="__custom">Custom…</option>
+                <option value="__custom">{t("editor.customOption")}</option>
               </select>
             </label>
-            {roleValue === "__custom" && <Input label="Custom role" value={customRole} maxLength={40} onChange={(e) => setCustomRole(e.target.value)} />}
-            <Input label="Version" value={d.version} onChange={(e) => set({ version: e.target.value })} />
+            {roleValue === "__custom" && (
+              <Input label={t("editor.customRole")} value={customRole} maxLength={40} onChange={(e) => setCustomRole(e.target.value)} />
+            )}
+            <Input label={t("editor.version")} value={d.version} onChange={(e) => set({ version: e.target.value })} />
           </div>
-          <Input label="Description" value={d.description} maxLength={500} onChange={(e) => set({ description: e.target.value })} />
+          <Input label={t("editor.description")} value={d.description} maxLength={500} onChange={(e) => set({ description: e.target.value })} />
           <label className="ok-field">
-            <span className="ok-field__label">System prompt — variables: {"{{project.name}} {{task.title}} {{agent.role}}"}</span>
+            <span className="ok-field__label">{t("editor.systemPrompt", { vars: TEMPLATE_VARS })}</span>
             <textarea className="agents-textarea agents-textarea--tall" rows={8} value={d.systemPrompt} onChange={(e) => set({ systemPrompt: e.target.value })} />
           </label>
           <fieldset className="ok-field agents-fieldset">
-            <legend className="ok-field__label">Tools (allow-list)</legend>
+            <legend className="ok-field__label">{t("editor.tools")}</legend>
             <div className="agents-checks">
-              {ALL_TOOLS.map((t) => (
-                <label key={t}>
-                  <input type="checkbox" checked={d.tools.includes(t)} disabled={t === "submit_result"} onChange={() => set({ tools: toggle(d.tools, t) })} /> {t}
+              {ALL_TOOLS.map((tool) => (
+                <label key={tool}>
+                  <input
+                    type="checkbox"
+                    checked={d.tools.includes(tool)}
+                    disabled={tool === "submit_result"}
+                    onChange={() => set({ tools: toggle(d.tools, tool) })}
+                  />{" "}
+                  {tool}
                 </label>
               ))}
             </div>
           </fieldset>
           <div className="agents-dialog__row">
             <label className="ok-field">
-              <span className="ok-field__label">Worktree policy</span>
-              <select className="agents-select" aria-label="Worktree policy" value={d.worktreePolicy} onChange={(e) => set({ worktreePolicy: e.target.value as WorktreePolicy })}>
+              <span className="ok-field__label">{t("editor.worktreePolicy")}</span>
+              <select
+                className="agents-select"
+                aria-label={t("editor.worktreePolicy")}
+                value={d.worktreePolicy}
+                onChange={(e) => set({ worktreePolicy: e.target.value as WorktreePolicy })}
+              >
                 {POLICIES.map((p) => (
-                  <option key={p} value={p}>
-                    {p}
+                  <option key={p} value={p} title={t(`worktreePolicyHint.${p}`)}>
+                    {t(`worktreePolicy.${p}`)}
                   </option>
                 ))}
               </select>
             </label>
             <label className="ok-field">
-              <span className="ok-field__label">Memory</span>
-              <select className="agents-select" aria-label="Memory access" value={d.memoryAccess} onChange={(e) => set({ memoryAccess: e.target.value as MemoryAccess })}>
+              <span className="ok-field__label">{t("editor.memory")}</span>
+              <select
+                className="agents-select"
+                aria-label={t("editor.memoryLabel")}
+                value={d.memoryAccess}
+                onChange={(e) => set({ memoryAccess: e.target.value as MemoryAccess })}
+              >
                 {MEMORY.map((m) => (
                   <option key={m} value={m}>
-                    {m}
+                    {t(`memoryAccess.${m}`)}
                   </option>
                 ))}
               </select>
             </label>
             <label className="ok-field">
-              <span className="ok-field__label">Max turns</span>
+              <span className="ok-field__label">{t("editor.maxTurns")}</span>
               <input
                 className="agents-input"
                 inputMode="numeric"
@@ -234,12 +261,12 @@ function TemplateEditor({ onSaved }: { onSaved: () => void }) {
               />
             </label>
             <label className="ok-field">
-              <span className="ok-field__label">Budget (USD / run)</span>
+              <span className="ok-field__label">{t("editor.budget")}</span>
               <input
                 className="agents-input"
                 inputMode="decimal"
                 value={budget.maxCostUsd ?? ""}
-                placeholder="unlimited"
+                placeholder={t("editor.budgetPlaceholder")}
                 onChange={(e) => {
                   const v = e.target.value.trim();
                   const n = v ? Number.parseFloat(v) : null;
@@ -248,7 +275,7 @@ function TemplateEditor({ onSaved }: { onSaved: () => void }) {
               />
             </label>
             <label className="ok-field">
-              <span className="ok-field__label">Time limit (min)</span>
+              <span className="ok-field__label">{t("editor.timeLimit")}</span>
               <input
                 className="agents-input"
                 inputMode="numeric"
@@ -263,30 +290,31 @@ function TemplateEditor({ onSaved }: { onSaved: () => void }) {
             </label>
           </div>
           <fieldset className="ok-field agents-fieldset">
-            <legend className="ok-field__label">Quality gates</legend>
+            <legend className="ok-field__label">{t("editor.qualityGates")}</legend>
             <div className="agents-checks">
               {GATES.map((g) => (
                 <label key={g}>
-                  <input type="checkbox" checked={d.qualityGates.includes(g)} onChange={() => set({ qualityGates: toggle(d.qualityGates, g) })} /> {g}
+                  <input type="checkbox" checked={d.qualityGates.includes(g)} onChange={() => set({ qualityGates: toggle(d.qualityGates, g) })} />{" "}
+                  {t(`qualityGate.${g}`)}
                 </label>
               ))}
             </div>
           </fieldset>
-          <ModelPicker label="Preferred model" value={d.preferredModel} onChange={(m: ModelRef | null) => set({ preferredModel: m })} providers={providers} allowNone />
+          <ModelPicker label={t("editor.preferredModel")} value={d.preferredModel} onChange={(m: ModelRef | null) => set({ preferredModel: m })} providers={providers} allowNone />
           <div className="agents-dialog__row">
             <Input
-              label="Robot / avatar id"
+              label={t("editor.avatar")}
               value={d.avatar?.robot ?? ""}
-              placeholder="orbit-backend"
+              placeholder={t("editor.avatarPlaceholder")}
               onChange={(e) => {
                 const robot = e.target.value;
                 set({ avatar: robot.trim() ? { robot, accent: d.avatar?.accent ?? null, scale: d.avatar?.scale ?? 1, floating: d.avatar?.floating ?? true } : null });
               }}
             />
             <Input
-              label="Voice (provider:voice)"
+              label={t("editor.voice")}
               value={d.voice ? `${d.voice.provider}:${d.voice.voice}` : ""}
-              placeholder="system:default"
+              placeholder={t("editor.voicePlaceholder")}
               onChange={(e) => {
                 const [provider, voice] = e.target.value.split(":");
                 set({ voice: provider && voice ? { provider, voice, language: d.voice?.language ?? "en-US", style: null } : null });
@@ -294,9 +322,7 @@ function TemplateEditor({ onSaved }: { onSaved: () => void }) {
             />
           </div>
           {d.permissions.length > 0 && (
-            <p className="agents-muted">
-              Requested permissions: {d.permissions.map((p) => `${p.capability} ${p.effect}`).join(", ")}
-            </p>
+            <p className="agents-muted">{t("editor.permissions", { list: d.permissions.map((p) => `${p.capability} ${p.effect}`).join(", ") })}</p>
           )}
           {error && (
             <p className="agents-error" role="alert">
@@ -306,10 +332,10 @@ function TemplateEditor({ onSaved }: { onSaved: () => void }) {
         </div>
         <footer className="dialog__footer">
           <Button variant="ghost" onClick={close} disabled={busy}>
-            Cancel
+            {t("common:actions.cancel")}
           </Button>
           <Button variant="primary" type="submit" loading={busy}>
-            Save template
+            {t("editor.save")}
           </Button>
         </footer>
       </form>
@@ -318,6 +344,7 @@ function TemplateEditor({ onSaved }: { onSaved: () => void }) {
 }
 
 function ImportDialog({ onImported }: { onImported: () => void }) {
+  const { t } = useT(["agents", "common"]);
   const open = useAgentsUi((s) => s.importOpen);
   const setOpen = useAgentsUi((s) => s.setImportOpen);
   const toast = useAgentsUi((s) => s.toast);
@@ -337,7 +364,7 @@ function ImportDialog({ onImported }: { onImported: () => void }) {
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (!json.trim()) {
-      setError("Paste a template file or choose one.");
+      setError(t("importDialog.empty"));
       return;
     }
     setBusy(true);
@@ -345,7 +372,10 @@ function ImportDialog({ onImported }: { onImported: () => void }) {
     try {
       const r = await templateActions.importJson(json, accept);
       const dropped = r.droppedPermissions.length;
-      toast("success", `Imported “${r.template.name}”${dropped ? ` (${dropped} requested permission(s) not accepted)` : ""}.`);
+      toast(
+        "success",
+        dropped ? t("importDialog.importedDropped", { name: r.template.name, count: dropped }) : t("importDialog.imported", { name: r.template.name }),
+      );
       setOpen(false);
       onImported();
     } catch (err) {
@@ -363,11 +393,11 @@ function ImportDialog({ onImported }: { onImported: () => void }) {
           </div>
           <div>
             <h2 id="tpl-import-title" className="dialog__title">
-              Import template
+              {t("importDialog.title")}
             </h2>
-            <p className="dialog__subtitle">Orkestr agent template (.agent.json). It is added as a custom template.</p>
+            <p className="dialog__subtitle">{t("importDialog.subtitle")}</p>
           </div>
-          <button type="button" className="dialog__close" aria-label="Close" onClick={close}>
+          <button type="button" className="dialog__close" aria-label={t("common:actions.close")} onClick={close}>
             <X size={16} />
           </button>
         </header>
@@ -375,18 +405,18 @@ function ImportDialog({ onImported }: { onImported: () => void }) {
           <input
             type="file"
             accept=".json,application/json"
-            aria-label="Template file"
+            aria-label={t("importDialog.file")}
             onChange={(e) => {
               const f = e.target.files?.[0];
               if (f) void f.text().then(setJson);
             }}
           />
           <label className="ok-field">
-            <span className="ok-field__label">Template JSON</span>
+            <span className="ok-field__label">{t("importDialog.json")}</span>
             <textarea className="agents-textarea agents-textarea--tall" rows={10} value={json} onChange={(e) => setJson(e.target.value)} />
           </label>
           <label className="agents-check">
-            <input type="checkbox" checked={accept} onChange={(e) => setAccept(e.target.checked)} /> Accept the permissions requested by this template
+            <input type="checkbox" checked={accept} onChange={(e) => setAccept(e.target.checked)} /> {t("importDialog.accept")}
           </label>
           {error && (
             <p className="agents-error" role="alert">
@@ -396,10 +426,10 @@ function ImportDialog({ onImported }: { onImported: () => void }) {
         </div>
         <footer className="dialog__footer">
           <Button variant="ghost" onClick={close} disabled={busy}>
-            Cancel
+            {t("common:actions.cancel")}
           </Button>
           <Button variant="primary" type="submit" loading={busy}>
-            Import
+            {t("importDialog.submit")}
           </Button>
         </footer>
       </form>
@@ -408,34 +438,35 @@ function ImportDialog({ onImported }: { onImported: () => void }) {
 }
 
 export function TemplatesTab({ templates, loading, error, reload }: { templates: AgentTemplate[]; loading: boolean; error: string | null; reload: () => void }) {
+  const { t } = useT(["agents", "common"]);
   const setEditor = useAgentsUi((s) => s.setEditor);
   const setImportOpen = useAgentsUi((s) => s.setImportOpen);
   let body: JSX.Element;
   if (loading && templates.length === 0) {
     body = (
       <div className="agents-loading">
-        <Spinner size={16} /> Loading templates…
+        <Spinner size={16} /> {t("templates.loading")}
       </div>
     );
   } else if (error) {
     body = (
       <EmptyState
-        title="Could not load templates"
+        title={t("templates.loadFailed")}
         description={error}
         action={
           <Button leftIcon={<RefreshCw size={14} />} onClick={reload}>
-            Retry
+            {t("common:actions.retry")}
           </Button>
         }
       />
     );
   } else if (templates.length === 0) {
-    body = <EmptyState title="No templates" description="Create or import an agent template." />;
+    body = <EmptyState title={t("templates.empty.title")} description={t("templates.empty.description")} />;
   } else {
     body = (
-      <ul className="agents-tpls" aria-label="Agent templates">
-        {templates.map((t) => (
-          <TemplateCard key={t.id} t={t} onChanged={reload} />
+      <ul className="agents-tpls" aria-label={t("templates.listLabel")}>
+        {templates.map((tpl) => (
+          <TemplateCard key={tpl.id} tpl={tpl} onChanged={reload} />
         ))}
       </ul>
     );
@@ -444,13 +475,13 @@ export function TemplatesTab({ templates, loading, error, reload }: { templates:
     <div className="agents-templates">
       <div className="agents-toolbar">
         <Button size="sm" variant="primary" leftIcon={<Plus size={14} />} onClick={() => setEditor({ mode: "create", draft: blankDraft() })}>
-          New template
+          {t("templates.new")}
         </Button>
         <Button size="sm" leftIcon={<FileUp size={14} />} onClick={() => setImportOpen(true)}>
-          Import
+          {t("templates.import")}
         </Button>
         <div className="agents-toolbar__spacer" />
-        <IconButton label="Reload templates" icon={<RefreshCw size={14} />} onClick={reload} tooltip="bottom" />
+        <IconButton label={t("templates.reload")} icon={<RefreshCw size={14} />} onClick={reload} tooltip="bottom" />
       </div>
       <div className="agents-scroll">{body}</div>
       <TemplateEditor onSaved={reload} />

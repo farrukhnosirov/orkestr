@@ -9,6 +9,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { getClient } from "../../core/client";
 import { type DirState, dirsToRefresh, pruneDirs, updateExpanded } from "../../features/files/tree";
 import { errorInfo } from "../../features/files/rpc";
+import { describeError } from "../../i18n/errors";
 
 const EXPANDED_KEY = (projectId: string) => `orkestr.files.expanded.${projectId}`;
 
@@ -83,7 +84,7 @@ export function useFileTree(projectId: string, showIgnored: boolean): FileTree {
           });
           return;
         }
-        setDirs((prev) => new Map(prev).set(dir, { status: "error", message: info.message, entries: prev.get(dir)?.entries }));
+        setDirs((prev) => new Map(prev).set(dir, { status: "error", message: describeError(e), entries: prev.get(dir)?.entries }));
       }
     },
     [projectId, showIgnored],

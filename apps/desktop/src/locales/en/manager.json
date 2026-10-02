@@ -1,0 +1,172 @@
+{
+  "title": "AI Manager",
+  "you": "You",
+  "noProject": {
+    "title": "No project open",
+    "description": "Open or create a project, then tell the AI Manager what to build. It plans the work, creates tasks and runs agents for you."
+  },
+  "loading": "Loading the conversation…",
+  "loadFailed": "Could not load the conversation",
+  "welcome": {
+    "title": "What should we build?",
+    "description": "Describe a goal in plain words. The Manager studies the project, proposes a plan with tasks and dependencies, and — once you approve — runs isolated agents in their own worktrees."
+  },
+  "conversation": "Conversation",
+  "modes": {
+    "label": "Manager mode",
+    "natural": "Natural",
+    "expert": "Expert"
+  },
+  "toolbar": {
+    "newConversation": "New conversation (the current one is summarized)",
+    "reload": "Reload"
+  },
+  "suggestionsLabel": "Suggestions",
+  "suggestions": {
+    "planRisks": "Explain the plan's risks",
+    "runProgress": "How is the run going?",
+    "projectStatus": "What's the status of the project?",
+    "helloModule": "Create a hello module with tests",
+    "approvals": "Show pending approvals",
+    "costs": "Summarize costs so far"
+  },
+  "explainCode": "Explain this code from {{path}}",
+  "composer": {
+    "expertGroup": "Expert options for this request",
+    "model": "Model for this request",
+    "budget": "Budget, $",
+    "budgetPlaceholder": "Manager default",
+    "parallel": "Parallel agents",
+    "parallelPlaceholder": "default",
+    "timeLimit": "Time limit (min)",
+    "timeLimitPlaceholder": "none",
+    "removeAttachment": "Remove attachment",
+    "inputLabel": "Message to the AI Manager",
+    "placeholder": "Ask the Manager to build, fix or explain something…",
+    "placeholderNoProject": "Open a project to talk to the Manager",
+    "send": "Send",
+    "answering": "The Manager is answering…",
+    "hint": "<kbd>Enter</kbd> send · <kbd>Shift</kbd>+<kbd>Enter</kbd> new line · <kbd>Ctrl</kbd>+<kbd>Enter</kbd> send"
+  },
+  "validation": {
+    "budget": "Budget must be a non-negative number of dollars.",
+    "parallel": "Parallel agents must be a whole number from 1 to 64.",
+    "timeLimit": "Time limit must be 1–1440 minutes.",
+    "keepOne": "Keep at least one task.",
+    "titleEmpty": "Task titles cannot be empty.",
+    "titleTooLong": "Task titles are at most 200 characters."
+  },
+  "message": {
+    "toolCalls_one": "{{count}} tool call",
+    "toolCalls_other": "{{count}} tool calls",
+    "planUnavailable": "The plan of this message is no longer available.",
+    "answering": "Answering",
+    "working": "Working",
+    "thinking": "The Manager is working (reading state, planning)…"
+  },
+  "resume": {
+    "label": "Last session",
+    "tasksCompleted": "Tasks completed",
+    "inProgress_one": "{{count}} in progress",
+    "inProgress_other": "{{count}} in progress",
+    "failed_one": "{{count}} failed",
+    "failed_other": "{{count}} failed",
+    "pendingApprovals_one": "{{count}} pending approval",
+    "pendingApprovals_other": "{{count}} pending approvals",
+    "lastSnapshot": "Last snapshot: {{label}}",
+    "resumeRun": "Resume the run",
+    "dismiss": "Dismiss",
+    "headlineEmpty": "No previous session in this project yet.",
+    "headlineIdle": "Last session: no open work.",
+    "headlineProgress": "Last session: {{completed}} of {{total}} tasks completed ({{percent}}).",
+    "goalDone": "{{goal}} — completed",
+    "goalProgress": "{{goal}} — {{percent}} ({{completed}}/{{total}})",
+    "runLine": "Manager run: {{status}}",
+    "runLineReason": "Manager run: {{status}} — {{reason}}",
+    "issueTask": "“{{title}}”: {{status}}",
+    "issueTaskDetail": "“{{title}}”: {{status}} — {{detail}}",
+    "issueReview_one": "{{count}} task waits for review",
+    "issueReview_other": "{{count}} tasks wait for review",
+    "issueRunInterrupted": "The run for “{{goal}}” was interrupted — resume it to continue"
+  },
+  "model": {
+    "label": "Manager model",
+    "button": "Manager model: {{model}}. Change",
+    "none": "No model",
+    "auto": "automatic routing",
+    "saved": "Manager model: {{model}}",
+    "help": "Applies to new messages and plans. Leave empty to use automatic routing."
+  },
+  "plan": {
+    "region": "Plan: {{goal}}",
+    "parallel": "up to {{n}} in parallel",
+    "costEstimate": "≈ {{cost}}",
+    "costUnknown": "cost unknown",
+    "extracted": "extracted from text",
+    "tasks": "Plan tasks",
+    "tasksGroup": "Tasks",
+    "titleOf": "Title of {{key}}",
+    "keep": "Keep {{key}}",
+    "remove": "Remove {{key}}",
+    "after": "after {{tasks}}",
+    "dependentsNote": "tasks that depended on it will no longer wait for it",
+    "criteria": "Acceptance criteria",
+    "criteriaAndFiles": "Acceptance criteria and files",
+    "rejected": "Rejected: {{reason}}",
+    "reasonPlaceholder": "Why? (optional — the Manager sees it)",
+    "reasonLabel": "Rejection reason",
+    "rejectPlan": "Reject plan",
+    "approveEdited": "Approve edited plan",
+    "approveEditedRemoved": "Approve edited plan (−{{n}})",
+    "discardEdits": "Discard edits",
+    "approvedRun": "Plan approved — the run started.",
+    "approvedTasks": "Plan approved — tasks created."
+  },
+  "planStatus": {
+    "Proposed": "Proposed",
+    "Approved": "Approved",
+    "Rejected": "Rejected",
+    "Superseded": "Superseded",
+    "Running": "Running",
+    "Completed": "Completed",
+    "Failed": "Failed",
+    "Cancelled": "Cancelled"
+  },
+  "run": {
+    "region": "Run: {{goal}}",
+    "inProgress": "Run in progress",
+    "done": "{{completed}}/{{total}} done",
+    "running_one": "{{count}} running",
+    "running_other": "{{count}} running",
+    "review_one": "{{count}} needs review",
+    "review_other": "{{count}} need review",
+    "failed_one": "{{count}} failed",
+    "failed_other": "{{count}} failed",
+    "costOfBudget": "{{cost}} of {{budget}}",
+    "pause": "Pause",
+    "resume": "Resume",
+    "progress": "Run progress",
+    "report": "Report",
+    "needsReview": "Needs review",
+    "openAgent": "Open the agent of {{task}}",
+    "agent": "agent",
+    "attempt": "attempt {{n}}",
+    "accept": "Accept",
+    "rejectRetry": "Reject and retry",
+    "acceptedReason": "accepted by the user in the Manager run card",
+    "rejectedReason": "rejected by the user in the Manager run card"
+  },
+  "runStatus": {
+    "Running": "Running",
+    "Paused": "Paused",
+    "Completed": "Completed",
+    "Failed": "Failed",
+    "Cancelled": "Cancelled",
+    "Interrupted": "Interrupted"
+  },
+  "commands": {
+    "group": "AI Manager",
+    "ask": "Ask Manager",
+    "approvePlan": "Approve Plan"
+  }
+}

@@ -5,6 +5,8 @@
  */
 import type { Task, TaskPriority, TaskStatus } from "@orkestr/protocol";
 
+import { formatCurrency } from "../../i18n";
+
 export type Tone = "neutral" | "accent" | "violet" | "success" | "warning" | "danger" | "info";
 
 export const ALL_STATUSES: readonly TaskStatus[] = [
@@ -80,43 +82,23 @@ export function statusColor(status: TaskStatus): string {
   }
 }
 
-/** Label of a transition button. */
-export const ACTION_LABEL: Readonly<Record<TaskStatus, string>> = {
-  Planned: "Back to plan",
-  Ready: "Mark ready",
-  Running: "Start",
-  Waiting: "Wait",
-  Blocked: "Block",
-  Review: "Send to review",
-  Testing: "Send to testing",
-  Completed: "Complete",
-  Failed: "Mark failed",
-  Cancelled: "Cancel",
-  Interrupted: "Interrupt",
-  Recovering: "Recover",
-};
+export type BoardColumnId = "backlog" | "ready" | "active" | "verify" | "done" | "attention";
 
-/** Kanban columns: groups of statuses, with the status a drop transitions to. */
+/** Kanban columns: groups of statuses, with the status a drop transitions to. Titles: `tasks:board.columns.<id>`. */
 export interface BoardColumn {
-  id: string;
-  title: string;
+  id: BoardColumnId;
   statuses: readonly TaskStatus[];
   /** Target statuses tried in order when a card is dropped here. */
   dropTargets: readonly TaskStatus[];
 }
 
 export const BOARD_COLUMNS: readonly BoardColumn[] = [
-  { id: "backlog", title: "Backlog", statuses: ["Planned", "Blocked"], dropTargets: ["Planned", "Blocked"] },
-  { id: "ready", title: "Ready", statuses: ["Ready"], dropTargets: ["Ready"] },
-  { id: "active", title: "In progress", statuses: ["Running", "Waiting", "Recovering"], dropTargets: ["Running", "Waiting"] },
-  { id: "verify", title: "Review & test", statuses: ["Review", "Testing"], dropTargets: ["Review", "Testing"] },
-  { id: "done", title: "Done", statuses: ["Completed"], dropTargets: ["Completed"] },
-  {
-    id: "attention",
-    title: "Needs attention",
-    statuses: ["Failed", "Interrupted", "Cancelled"],
-    dropTargets: ["Failed", "Cancelled"],
-  },
+  { id: "backlog", statuses: ["Planned", "Blocked"], dropTargets: ["Planned", "Blocked"] },
+  { id: "ready", statuses: ["Ready"], dropTargets: ["Ready"] },
+  { id: "active", statuses: ["Running", "Waiting", "Recovering"], dropTargets: ["Running", "Waiting"] },
+  { id: "verify", statuses: ["Review", "Testing"], dropTargets: ["Review", "Testing"] },
+  { id: "done", statuses: ["Completed"], dropTargets: ["Completed"] },
+  { id: "attention", statuses: ["Failed", "Interrupted", "Cancelled"], dropTargets: ["Failed", "Cancelled"] },
 ];
 
 export function columnOf(status: TaskStatus): BoardColumn | undefined {
@@ -198,21 +180,7 @@ export function shortId(id: string): string {
   return id.slice(-6);
 }
 
-export function formatRelative(iso: string, now: number = Date.now()): string {
-  const t = Date.parse(iso);
-  if (Number.isNaN(t)) return "";
-  const s = Math.round((now - t) / 1000);
-  if (s < 45) return "just now";
-  const m = Math.round(s / 60);
-  if (m < 60) return `${m}m ago`;
-  const h = Math.round(m / 60);
-  if (h < 24) return `${h}h ago`;
-  const d = Math.round(h / 24);
-  return `${d}d ago`;
-}
-
-export function formatCost(usd: number): string {
-  if (usd === 0) return "$0";
-  if (usd < 0.01) return "<$0.01";
-  return `$${usd.toFixed(2)}`;
+/** Money in the UI locale (`$1.23` / `1,23 $`). */
+export function formatCost(usd: number, lng?: string): string {
+  return formatCurrency(usd, "USD", lng);
 }

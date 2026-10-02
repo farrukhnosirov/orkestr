@@ -4,14 +4,18 @@ import { clsx } from "clsx";
 import { Check, ChevronRight, GitBranch, OctagonX, Pause, Play, ShieldAlert, TriangleAlert, Wrench, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { useFormat, useLanguage, useT } from "../../i18n";
 import { resolveApproval } from "../../features/security/store";
 import { useSecurityStore } from "../../features/security/store";
 import { agentActions, errorMessage, useAgentTranscript } from "./data";
 import { TOOL_TONE, elapsed, formatCost, formatTokens, isActive, roleLabel, timeline } from "./model";
 import { RoleAvatar, StateChip } from "./parts";
 import { useAgentsUi } from "./store";
+import { agentName, agentNote, agentToolSummary, PAUSED_ACTIVITY } from "../../lib/coreText";
 
 function ToolCallItem({ view }: { view: AgentToolCallView }) {
+  const { t } = useT("agents");
+  const fmt = useFormat();
   const c = view.toolCall;
   const args = useMemo(() => JSON.stringify(c.input, null, 2), [c.input]);
   return (
@@ -20,16 +24,16 @@ function ToolCallItem({ view }: { view: AgentToolCallView }) {
         <ChevronRight size={13} className="agents-tool__chevron" aria-hidden="true" />
         <Wrench size={13} aria-hidden="true" />
         <span className="agents-tool__name">{c.tool}</span>
-        <span className="agents-tool__summary">{c.outputSummary ?? ""}</span>
-        <Badge tone={TOOL_TONE[c.status]}>{c.status}</Badge>
-        {view.durationMs !== null && <span className="agents-muted">{view.durationMs} ms</span>}
+        <span className="agents-tool__summary">{c.outputSummary ? agentToolSummary(c.outputSummary) : ""}</span>
+        <Badge tone={TOOL_TONE[c.status]}>{t(`toolStatus.${c.status}`)}</Badge>
+        {view.durationMs !== null && <span className="agents-muted">{fmt.duration(view.durationMs)}</span>}
       </summary>
       <div className="agents-tool__body">
-        <div className="agents-tool__label">Arguments</div>
+        <div className="agents-tool__label">{t("detail.arguments")}</div>
         <pre className="agents-pre">{args}</pre>
         {view.result !== null && (
           <>
-            <div className="agents-tool__label">Result</div>
+            <div className="agents-tool__label">{t("detail.result")}</div>
             <pre className="agents-pre">{view.result}</pre>
           </>
         )}
@@ -39,6 +43,7 @@ function ToolCallItem({ view }: { view: AgentToolCallView }) {
 }
 
 function ApprovalCard({ approval }: { approval: Approval }) {
+  const { t } = useT(["agents", "common"]);
   const toast = useAgentsUi((s) => s.toast);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
@@ -53,27 +58,27 @@ function ApprovalCard({ approval }: { approval: Approval }) {
     }
   };
   return (
-    <div className="agents-approval" role="group" aria-label={`Approval: ${approval.actionSummary}`}>
+    <div className="agents-approval" role="group" aria-label={t("approval.group", { action: approval.actionSummary })}>
       <div className="agents-approval__head">
         <ShieldAlert size={15} aria-hidden="true" />
         <strong>{approval.actionSummary}</strong>
-        <Badge tone={approval.risk === "Low" ? "info" : approval.risk === "Medium" ? "warning" : "danger"}>{approval.risk}</Badge>
+        <Badge tone={approval.risk === "Low" ? "info" : approval.risk === "Medium" ? "warning" : "danger"}>{t(`risk.${approval.risk}`)}</Badge>
       </div>
       <p className="agents-approval__reason">{approval.reason}</p>
       {approval.commandPreview && <pre className="agents-pre">{approval.commandPreview}</pre>}
       <div className="agents-approval__actions">
         <input
           className="agents-input"
-          placeholder="Optional note / answer"
+          placeholder={t("approval.notePlaceholder")}
           value={note}
-          aria-label="Note"
+          aria-label={t("approval.noteLabel")}
           onChange={(e) => setNote(e.target.value)}
         />
         <Button size="sm" variant="primary" leftIcon={<Check size={14} />} loading={busy} onClick={() => void decide("Approve")}>
-          Approve
+          {t("common:actions.approve")}
         </Button>
         <Button size="sm" variant="danger" leftIcon={<X size={14} />} disabled={busy} onClick={() => void decide("Reject")}>
-          Reject
+          {t("common:actions.reject")}
         </Button>
       </div>
     </div>
@@ -81,6 +86,8 @@ function ApprovalCard({ approval }: { approval: Approval }) {
 }
 
 export function AgentDetail({ agent, taskTitle, now }: { agent: AgentInstance; taskTitle: string | null; now: number }) {
+  const { t } = useT("agents");
+  const lng = useLanguage();
   const { transcript, loading, error } = useAgentTranscript(agent.id);
   const pending = useSecurityStore((s) => s.pending);
   const approvals = pending.filter((a) => a.agentId === agent.id && a.status === "Pending");
@@ -89,7 +96,7 @@ export function AgentDetail({ agent, taskTitle, now }: { agent: AgentInstance; t
   const items = useMemo(() => timeline(transcript), [transcript]);
   const bottom = useRef<HTMLDivElement>(null);
   const active = isActive(agent.state);
-  const paused = agent.state === "Waiting" && agent.activity === "Paused by the user";
+  const paused = agent.state === "Waiting" && agent.activity === PAUSED_ACTIVITY;
 
   useEffect(() => {
     bottom.current?.scrollIntoView?.({ block: "end" });
@@ -99,7 +106,7 @@ export function AgentDetail({ agent, taskTitle, now }: { agent: AgentInstance; t
     setBusy(what);
     try {
       const a = await fn();
-      if (what === "stop") toast("info", `${a.name} stopped.`);
+      if (what === "stop") toast("info", t("stopped", { name: agentName(a.name) }));
     } catch (e) {
       toast("danger", errorMessage(e));
     } finally {
@@ -108,18 +115,18 @@ export function AgentDetail({ agent, taskTitle, now }: { agent: AgentInstance; t
   };
 
   return (
-    <section className="agents-detail" aria-label={`Agent ${agent.name}`}>
+    <section className="agents-detail" aria-label={t("detail.region", { name: agentName(agent.name) })}>
       <header className="agents-detail__head">
         <RoleAvatar role={agent.role} state={agent.state} size={40} />
         <div className="agents-detail__title">
           <div className="agents-detail__name">
-            <h3>{agent.name}</h3>
+            <h3>{agentName(agent.name)}</h3>
             <StateChip state={agent.state} />
           </div>
           <div className="agents-detail__sub">
             <span>{roleLabel(agent.role)}</span>
             <span>·</span>
-            <span>{taskTitle ?? "No task"}</span>
+            <span>{taskTitle ?? t("list.noTask")}</span>
           </div>
         </div>
         <div className="agents-detail__actions">
@@ -131,7 +138,7 @@ export function AgentDetail({ agent, taskTitle, now }: { agent: AgentInstance; t
               loading={busy === "pause"}
               onClick={() => void act("pause", () => (paused ? agentActions.resume(agent.id) : agentActions.pause(agent.id)))}
             >
-              {paused ? "Resume" : "Pause"}
+              {paused ? t("detail.resume") : t("detail.pause")}
             </Button>
           )}
           {active && (
@@ -142,48 +149,48 @@ export function AgentDetail({ agent, taskTitle, now }: { agent: AgentInstance; t
               loading={busy === "stop"}
               onClick={() => void act("stop", () => agentActions.stop(agent.id))}
             >
-              Stop
+              {t("detail.stop")}
             </Button>
           )}
         </div>
       </header>
       <dl className="agents-facts">
         <div>
-          <dt>Model</dt>
+          <dt>{t("detail.model")}</dt>
           <dd>{agent.model?.model ?? "—"}</dd>
         </div>
         <div>
-          <dt>Worktree</dt>
+          <dt>{t("detail.worktree")}</dt>
           <dd title={agent.worktree?.path}>
             {agent.worktree ? (
               <>
                 <GitBranch size={12} aria-hidden="true" /> {agent.worktree.branch || agent.worktreePolicy}
               </>
             ) : (
-              "none"
+              t("detail.none")
             )}
           </dd>
         </div>
         <div>
-          <dt>Turns</dt>
+          <dt>{t("detail.turns")}</dt>
           <dd>
             {agent.turnsUsed} / {agent.maxTurns || "—"}
           </dd>
         </div>
         <div>
-          <dt>Tokens</dt>
-          <dd>{formatTokens(agent.usage.inputTokens + agent.usage.outputTokens)}</dd>
+          <dt>{t("detail.tokens")}</dt>
+          <dd>{formatTokens(agent.usage.inputTokens + agent.usage.outputTokens, lng)}</dd>
         </div>
         <div>
-          <dt>Cost</dt>
+          <dt>{t("detail.cost")}</dt>
           <dd>
-            {formatCost(agent.usage.costUsd)}
-            {agent.budget?.maxCostUsd != null && ` / ${formatCost(agent.budget.maxCostUsd)}`}
+            {formatCost(agent.usage.costUsd, lng)}
+            {agent.budget?.maxCostUsd != null && ` / ${formatCost(agent.budget.maxCostUsd, lng)}`}
           </dd>
         </div>
         <div>
-          <dt>Elapsed</dt>
-          <dd>{elapsed(agent, now)}</dd>
+          <dt>{t("detail.elapsed")}</dt>
+          <dd>{elapsed(agent, now, lng)}</dd>
         </div>
       </dl>
       {agent.lastError && (
@@ -198,23 +205,23 @@ export function AgentDetail({ agent, taskTitle, now }: { agent: AgentInstance; t
           ))}
         </div>
       )}
-      <div className="agents-transcript" aria-label="Transcript" role="log">
+      <div className="agents-transcript" aria-label={t("detail.transcript")} role="log">
         {loading && items.length === 0 ? (
           <div className="agents-loading">
-            <Spinner size={16} /> Loading transcript…
+            <Spinner size={16} /> {t("detail.loadingTranscript")}
           </div>
         ) : error ? (
           <p className="agents-error">{error}</p>
         ) : items.length === 0 ? (
-          <EmptyState title="No activity yet" description="Messages and tool calls appear here live." />
+          <EmptyState title={t("detail.noActivity.title")} description={t("detail.noActivity.description")} />
         ) : (
           items.map((it) =>
             it.kind === "tool" ? (
               <ToolCallItem key={it.id} view={it.call} />
             ) : (
               <div key={it.id} className={clsx("agents-msg", `agents-msg--${it.role.toLowerCase()}`, it.streaming && "agents-msg--streaming")}>
-                <div className="agents-msg__role">{it.role === "Assistant" ? agent.name : it.role === "User" ? "Task" : "Orkestr"}</div>
-                <div className="agents-msg__text">{it.text}</div>
+                <div className="agents-msg__role">{it.role === "Assistant" ? agentName(agent.name) : it.role === "User" ? t("detail.roleTask") : "Orkestr"}</div>
+                <div className="agents-msg__text">{it.role === "System" ? agentNote(it.text) : it.role === "User" ? it.text.replace(/^# Task: /, `# ${t("detail.roleTask")}: `) : it.text}</div>
               </div>
             ),
           )

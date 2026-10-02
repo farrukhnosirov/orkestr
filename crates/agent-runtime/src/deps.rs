@@ -27,6 +27,9 @@ pub struct RuntimeConfig {
     pub max_output_tokens: u32,
     /// Max concurrently running agents (all projects).
     pub max_running_agents: usize,
+    /// The user's UI language: agents write messages for the user in it
+    /// (shared with the core, which updates it from settings / the UI).
+    pub ui_language: crate::language::UiLanguage,
 }
 
 impl Default for RuntimeConfig {
@@ -39,6 +42,7 @@ impl Default for RuntimeConfig {
             command_timeout: Duration::from_secs(10 * 60),
             max_output_tokens: 8_192,
             max_running_agents: 16,
+            ui_language: crate::language::UiLanguage::default(),
         }
     }
 }

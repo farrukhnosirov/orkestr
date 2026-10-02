@@ -21,8 +21,12 @@ import {
   X,
 } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { Trans } from "react-i18next";
 
+import { LanguageSelect } from "../../components/LanguageSelect";
 import { Logo } from "../../components/Logo";
+import { t, useT } from "../../i18n";
+import { describeError } from "../../i18n/errors";
 import { getClient, openProject } from "../../core/client";
 import { useAppStore } from "../../store/app";
 import { ManagerSettings, ProviderSetup } from "../providers";
@@ -44,23 +48,11 @@ import {
 
 const STEP_ICONS = [UserRound, HardDrive, KeyRound, Bot, ShieldCheck, FolderPlus, GitBranch, SquareTerminal, Mic, Wifi, Cloud, Smartphone];
 
-export const PERMISSION_MODES: ReadonlyArray<{ mode: ApprovalMode; title: string; body: string; badge?: string }> = [
-  {
-    mode: "Ask",
-    title: "Ask",
-    body: "Agents ask before every change, command or network call. Maximum control — recommended to start.",
-    badge: "Recommended",
-  },
-  {
-    mode: "SemiAuto",
-    title: "Semi-Auto",
-    body: "Routine work inside the project sandbox runs on its own; anything risky (deletes, installs, pushes) asks first.",
-  },
-  {
-    mode: "FullAuto",
-    title: "Full Auto",
-    body: "Everything your policies allow runs without asking. Dangerous actions (force-push, DROP, prod deploys) still always ask.",
-  },
+/** Permission modes offered on the permissions step (texts are localized at render time). */
+export const PERMISSION_MODES: ReadonlyArray<{ mode: ApprovalMode; recommended?: boolean }> = [
+  { mode: "Ask", recommended: true },
+  { mode: "SemiAuto" },
+  { mode: "FullAuto" },
 ];
 
 function Choice({
@@ -103,19 +95,21 @@ function Choice({
 }
 
 function LaterCard({ icon, phase, title, body }: { icon: ReactNode; phase: number; title: string; body: string }) {
+  const { t } = useT(["onboarding", "common"]);
   return (
     <div className="onb-later">
       <div className="onb-later__icon">{icon}</div>
-      <Badge tone="violet">Phase {phase}</Badge>
+      <Badge tone="violet">{t("common:phase", { phase })}</Badge>
       <h3 className="onb-later__title">{title}</h3>
       <p className="onb-later__body">{body}</p>
-      <p className="onb-later__note">Nothing to set up yet — this step unlocks automatically when the feature ships.</p>
+      <p className="onb-later__note">{t("wizard.laterNote")}</p>
     </div>
   );
 }
 
 function ChecksFor({ ids }: { ids: readonly string[] }) {
   const { checks, checksLoading, checksError, runChecks } = useSystemStore();
+  const { t } = useT("onboarding");
   useEffect(() => {
     if (!useSystemStore.getState().checks) void runChecks();
   }, [runChecks]);
@@ -128,13 +122,13 @@ function ChecksFor({ ids }: { ids: readonly string[] }) {
         </div>
       ) : !checks ? (
         <div className="set-loading">
-          <Spinner size={16} /> Checking your system…
+          <Spinner size={16} /> {t("wizard.checking")}
         </div>
       ) : (
         <SystemChecksList checks={subset} />
       )}
       <Button size="sm" variant="ghost" leftIcon={<RefreshCw size={13} />} loading={checksLoading} onClick={() => void runChecks()}>
-        Check again
+        {t("wizard.checkAgain")}
       </Button>
     </div>
   );
@@ -162,6 +156,7 @@ export function OnboardingWizard() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
+  const { t: tr } = useT(["onboarding", "common"]); // also re-renders on language change
 
   useEffect(() => {
     if (!open) return;
@@ -194,7 +189,7 @@ export function OnboardingWizard() {
     const ok = await updateSettings({ onboardingCompleted: true });
     setBusy(false);
     if (ok) closeWizard();
-    else setError(useSettingsStore.getState().error ?? "Could not save your setup.");
+    else setError(useSettingsStore.getState().error ?? t("onboarding:errors.saveSetup"));
   };
 
   /** Persists the current step (if it has data) and advances. */
@@ -207,26 +202,26 @@ export function OnboardingWizard() {
       setBusy(true);
       const ok = await updateSettings({ profileName: name.trim() });
       setBusy(false);
-      if (!ok) return setError(useSettingsStore.getState().error ?? "Could not save your profile.");
+      if (!ok) return setError(useSettingsStore.getState().error ?? t("onboarding:errors.saveProfile"));
     } else if (current.id === "storage") {
       setBusy(true);
       const ok = await updateSettings({ storageMode: "LocalOnly" });
       setBusy(false);
-      if (!ok) return setError(useSettingsStore.getState().error ?? "Could not save the storage mode.");
+      if (!ok) return setError(useSettingsStore.getState().error ?? t("onboarding:errors.saveStorage"));
     } else if (current.id === "permissions") {
       setBusy(true);
       try {
         // The default applies to new projects; the open project switches now.
         const projectId = useAppStore.getState().activeProjectId;
         if (projectId) await getClient().call("permissions.setMode", { projectId, mode });
-        setModeNote(projectId ? null : "Saved as your default; new projects start in this mode.");
+        setModeNote(projectId ? null : t("onboarding:permissions.savedAsDefault"));
       } catch (e) {
         setBusy(false);
-        return setError(e instanceof Error ? e.message : String(e));
+        return setError(describeError(e));
       }
       const ok = await updateSettings({ defaultApprovalMode: mode });
       setBusy(false);
-      if (!ok) return setError(useSettingsStore.getState().error ?? "Could not save the permission mode.");
+      if (!ok) return setError(useSettingsStore.getState().error ?? t("onboarding:errors.saveMode"));
     }
     if (canFinishAt(step) && step === ONBOARDING_STEPS.length - 1) return finish();
     go(step + 1);
@@ -235,7 +230,7 @@ export function OnboardingWizard() {
   const createProject = async () => {
     const trimmed = projectName.trim();
     const pathProblem = validateFolderPath(projectPath);
-    if (!trimmed) return setProjectError("Give the project a name.");
+    if (!trimmed) return setProjectError(t("onboarding:validation.projectNameRequired"));
     if (pathProblem) return setProjectError(pathProblem);
     setProjectError(null);
     setBusy(true);
@@ -247,7 +242,7 @@ export function OnboardingWizard() {
       await openProject(project.id);
       setCreatedProject(project.name);
     } catch (e) {
-      setProjectError(e instanceof OrkestrError ? e.message : "Could not create the project.");
+      setProjectError(e instanceof OrkestrError ? describeError(e) : t("onboarding:errors.createProject"));
     } finally {
       setBusy(false);
     }
@@ -258,10 +253,16 @@ export function OnboardingWizard() {
     case "profile":
       body = (
         <>
-          <p className="onb-lead">Orkestr runs locally. Your profile never leaves this machine — no sign-up, no account.</p>
+          <div className="ok-field">
+            <label className="ok-field__label" htmlFor="onb-language">
+              {t("common:language.label")}
+            </label>
+            <LanguageSelect id="onb-language" />
+          </div>
+          <p className="onb-lead">{t("onboarding:profile.lead")}</p>
           <Input
-            label="What should agents call you?"
-            placeholder="e.g. Ada"
+            label={t("onboarding:profile.nameLabel")}
+            placeholder={t("onboarding:profile.namePlaceholder")}
             value={name}
             maxLength={80}
             error={nameError ?? undefined}
@@ -273,32 +274,32 @@ export function OnboardingWizard() {
       break;
     case "storage":
       body = (
-        <div role="radiogroup" aria-label="Storage mode" className="onb-choices">
+        <div role="radiogroup" aria-label={t("onboarding:storage.label")} className="onb-choices">
           <Choice
             selected
             onSelect={() => {}}
             icon={<HardDrive size={18} />}
-            title="Local only"
-            body="Projects, history, memory and secrets stay on this computer. You can add sync later."
-            badge={<Badge tone="success">Available</Badge>}
+            title={t("onboarding:storage.local.title")}
+            body={t("onboarding:storage.local.body")}
+            badge={<Badge tone="success">{t("onboarding:storage.available")}</Badge>}
           />
           <Choice
             selected={false}
             disabled
             onSelect={() => {}}
             icon={<Server size={18} />}
-            title="Self-hosted"
-            body="Sync through your own Orkestr server."
-            badge={<Badge tone="violet">Phase 4</Badge>}
+            title={t("onboarding:storage.selfHosted.title")}
+            body={t("onboarding:storage.selfHosted.body")}
+            badge={<Badge tone="violet">{t("common:phase", { phase: 4 })}</Badge>}
           />
           <Choice
             selected={false}
             disabled
             onSelect={() => {}}
             icon={<Cloud size={18} />}
-            title="Orkestr Cloud"
-            body="End-to-end encrypted sync across your devices."
-            badge={<Badge tone="violet">Phase 4</Badge>}
+            title={t("onboarding:storage.cloud.title")}
+            body={t("onboarding:storage.cloud.body")}
+            badge={<Badge tone="violet">{t("common:phase", { phase: 4 })}</Badge>}
           />
         </div>
       );
@@ -307,8 +308,7 @@ export function OnboardingWizard() {
       body = (
         <div className="onb-embed">
           <p className="onb-hint">
-            <KeyRound size={14} /> Use your own API keys or the official CLIs you are already signed in to (Claude Code, Codex). Keys are
-            stored in the OS secret vault, never in plain text. You can skip this and connect providers later in Settings.
+            <KeyRound size={14} /> {t("onboarding:providers.hint")}
           </p>
           <ProviderSetup compact />
         </div>
@@ -318,7 +318,7 @@ export function OnboardingWizard() {
       body = (
         <div className="onb-embed">
           <p className="onb-hint">
-            <Bot size={14} /> The Manager plans work, splits it into tasks and delegates to agents. A strong reasoning model works best.
+            <Bot size={14} /> {t("onboarding:manager.hint")}
           </p>
           <ManagerSettings />
         </div>
@@ -327,20 +327,20 @@ export function OnboardingWizard() {
     case "permissions":
       body = (
         <>
-          <div role="radiogroup" aria-label="Permission mode" className="onb-choices">
+          <div role="radiogroup" aria-label={t("onboarding:permissions.label")} className="onb-choices">
             {PERMISSION_MODES.map((p) => (
               <Choice
                 key={p.mode}
                 selected={mode === p.mode}
                 onSelect={() => setMode(p.mode)}
                 icon={<ShieldCheck size={18} />}
-                title={p.title}
-                body={p.body}
-                badge={p.badge ? <Badge tone="accent">{p.badge}</Badge> : undefined}
+                title={t(`common:status.approvalMode.${p.mode}`)}
+                body={t(`onboarding:modes.${p.mode}`)}
+                badge={p.recommended ? <Badge tone="accent">{t("onboarding:modes.recommended")}</Badge> : undefined}
               />
             ))}
           </div>
-          <p className="onb-hint">You can change this per project at any time. The emergency stop always works.</p>
+          <p className="onb-hint">{t("onboarding:permissions.hint")}</p>
           {modeNote && <p className="onb-hint">{modeNote}</p>}
         </>
       );
@@ -348,23 +348,29 @@ export function OnboardingWizard() {
     case "project":
       body = createdProject ? (
         <div className="onb-success">
-          <Check size={20} /> <strong>{createdProject}</strong> is ready and open.
+          <Check size={20} />{" "}
+          <span>
+            <Trans t={tr} i18nKey="onboarding:project.created" values={{ name: createdProject }} components={{ strong: <strong /> }} />
+          </span>
         </div>
       ) : (
         <>
-          <p className="onb-lead">Point Orkestr at an existing folder (a git repository works best) or create an empty project.</p>
-          <Input label="Project name" placeholder="e.g. Payroll Platform" value={projectName} onChange={(e) => setProjectName(e.target.value)} />
+          <p className="onb-lead">{t("onboarding:project.lead")}</p>
           <Input
-            label="Folder (optional)"
-            placeholder="C:\Code\my-app"
+            label={t("onboarding:project.nameLabel")}
+            placeholder={t("onboarding:project.namePlaceholder")}
+            value={projectName} onChange={(e) => setProjectName(e.target.value)} />
+          <Input
+            label={t("onboarding:project.folderLabel")}
+            placeholder={t("onboarding:project.folderPlaceholder")}
             value={projectPath}
-            hint="Absolute path of an existing folder. Leave empty to start without files."
+            hint={t("onboarding:project.folderHint")}
             onChange={(e) => setProjectPath(e.target.value)}
             error={projectError ?? undefined}
           />
           <div>
             <Button variant="primary" leftIcon={<FolderPlus size={14} />} loading={busy} disabled={!connected} onClick={() => void createProject()}>
-              Create project
+              {t("onboarding:project.create")}
             </Button>
           </div>
         </>
@@ -373,7 +379,7 @@ export function OnboardingWizard() {
     case "git":
       body = (
         <>
-          <p className="onb-lead">Agents work on git branches and worktrees so every change can be reviewed and rolled back.</p>
+          <p className="onb-lead">{t("onboarding:git.lead")}</p>
           <ChecksFor ids={["git"]} />
         </>
       );
@@ -381,7 +387,7 @@ export function OnboardingWizard() {
     case "terminal":
       body = (
         <>
-          <p className="onb-lead">Agents run commands in real terminals. Here is what Orkestr found on this machine.</p>
+          <p className="onb-lead">{t("onboarding:terminal.lead")}</p>
           <ChecksFor ids={["shell", "dataDir", "webview", "keyring"]} />
         </>
       );
@@ -391,8 +397,8 @@ export function OnboardingWizard() {
         <LaterCard
           icon={<Mic size={26} />}
           phase={current.phase}
-          title="Voice control"
-          body="Wake word, push-to-talk and spoken notifications for the Manager — processed locally where possible."
+          title={t("onboarding:later.voice.title")}
+          body={t("onboarding:later.voice.body")}
         />
       );
       break;
@@ -401,8 +407,8 @@ export function OnboardingWizard() {
         <LaterCard
           icon={<Wifi size={26} />}
           phase={current.phase}
-          title="Remote access"
-          body="Reach this machine's agents securely through the Orkestr gateway — the core never opens ports."
+          title={t("onboarding:later.remote.title")}
+          body={t("onboarding:later.remote.body")}
         />
       );
       break;
@@ -411,8 +417,8 @@ export function OnboardingWizard() {
         <LaterCard
           icon={<Cloud size={26} />}
           phase={current.phase}
-          title="Cloud sync"
-          body="Encrypted sync of projects, memory and settings between your devices."
+          title={t("onboarding:later.sync.title")}
+          body={t("onboarding:later.sync.body")}
         />
       );
       break;
@@ -421,8 +427,8 @@ export function OnboardingWizard() {
         <LaterCard
           icon={<Smartphone size={26} />}
           phase={current.phase}
-          title="Mobile pairing"
-          body="Approve actions, watch progress and stop agents from your phone."
+          title={t("onboarding:later.mobile.title")}
+          body={t("onboarding:later.mobile.body")}
         />
       );
       break;
@@ -434,9 +440,9 @@ export function OnboardingWizard() {
   return (
     <div className="overlay onb-overlay" role="presentation">
       <div className="onb" role="dialog" aria-modal="true" aria-labelledby="onb-title" onKeyDown={(e) => e.key === "Escape" && closeWizard()}>
-        <aside className="onb-steps" aria-label="Setup steps">
+        <aside className="onb-steps" aria-label={t("onboarding:wizard.stepsLabel")}>
           <div className="onb-steps__brand">
-            <Logo size={26} /> <span>Welcome to Orkestr</span>
+            <Logo size={26} /> <span>{t("onboarding:wizard.welcome")}</span>
           </div>
           <ol className="onb-steps__list">
             {ONBOARDING_STEPS.map((s, i) => {
@@ -452,7 +458,11 @@ export function OnboardingWizard() {
                   >
                     <span className="onb-step__dot">{state === "done" ? <Check size={12} /> : <Icon size={12} />}</span>
                     <span className="onb-step__label">{s.title}</span>
-                    {s.phase > CURRENT_PHASE && <span className="onb-step__phase">P{s.phase}</span>}
+                    {s.phase > CURRENT_PHASE && (
+                      <span className="onb-step__phase" title={t("onboarding:wizard.comingIn", { phase: s.phase })}>
+                        {t("onboarding:wizard.phaseShort", { phase: s.phase })}
+                      </span>
+                    )}
                   </button>
                 </li>
               );
@@ -466,16 +476,16 @@ export function OnboardingWizard() {
           <header className="onb-main__head">
             <div>
               <div className="onb-main__count">
-                Step {step + 1} of {ONBOARDING_STEPS.length}
-                {current.optional && !later && <Badge>Optional</Badge>}
-                {later && <Badge tone="violet">Coming in Phase {current.phase}</Badge>}
+                {t("onboarding:wizard.stepCount", { current: step + 1, total: ONBOARDING_STEPS.length })}
+                {current.optional && !later && <Badge>{t("common:state.optional")}</Badge>}
+                {later && <Badge tone="violet">{t("onboarding:wizard.comingIn", { phase: current.phase })}</Badge>}
               </div>
               <h2 id="onb-title" className="onb-main__title">
                 {current.title}
               </h2>
               <p className="onb-main__subtitle">{current.subtitle}</p>
             </div>
-            <button type="button" className="dialog__close" aria-label="Close setup" onClick={closeWizard}>
+            <button type="button" className="dialog__close" aria-label={t("onboarding:wizard.close")} onClick={closeWizard}>
               <X size={16} />
             </button>
           </header>
@@ -489,19 +499,23 @@ export function OnboardingWizard() {
           </div>
           <footer className="onb-main__foot">
             <Button variant="ghost" onClick={() => void finish()} disabled={busy}>
-              Skip setup
+              {t("onboarding:wizard.skipSetup")}
             </Button>
             <div className="onb-main__spacer" />
             <Button variant="secondary" onClick={() => go(step - 1)} disabled={step === 0 || busy}>
-              Back
+              {t("common:actions.back")}
             </Button>
             {canFinishAt(step) && !isLast && (
               <Button variant="secondary" onClick={() => void finish()} loading={busy}>
-                Finish
+                {t("common:actions.finish")}
               </Button>
             )}
             <Button variant="primary" onClick={() => void next()} loading={busy} disabled={!connected && !later}>
-              {isLast ? "Finish setup" : current.optional && !later && current.id !== "permissions" ? "Next / Skip" : "Next"}
+              {isLast
+                ? t("onboarding:wizard.finishSetup")
+                : current.optional && !later && current.id !== "permissions"
+                  ? t("onboarding:wizard.nextOrSkip")
+                  : t("common:actions.next")}
             </Button>
           </footer>
         </section>

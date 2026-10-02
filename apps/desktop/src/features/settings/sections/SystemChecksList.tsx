@@ -2,14 +2,16 @@ import type { CheckStatus, SystemCheck } from "@orkestr/protocol";
 import { Badge, type Tone } from "@orkestr/ui";
 import { CheckCircle2, CircleSlash, XCircle, AlertTriangle } from "lucide-react";
 
+import { useT } from "../../../i18n";
+
+import { checkTexts } from "./checkText";
+
 export const CHECK_TONE: Record<CheckStatus, Tone> = {
   ok: "success",
   warning: "warning",
   error: "danger",
   skipped: "neutral",
 };
-
-const LABEL: Record<CheckStatus, string> = { ok: "Ready", warning: "Warning", error: "Action needed", skipped: "Skipped" };
 
 export function CheckIcon({ status, size = 16 }: { status: CheckStatus; size?: number }) {
   switch (status) {
@@ -26,21 +28,25 @@ export function CheckIcon({ status, size = 16 }: { status: CheckStatus; size?: n
 
 /** Renders `system.checks` results. */
 export function SystemChecksList({ checks }: { checks: readonly SystemCheck[] }) {
+  const { t } = useT("settings");
   return (
     <ul className="chk-list">
-      {checks.map((c) => (
+      {checks.map((c) => {
+        const text = checkTexts(c);
+        return (
         <li key={c.id} className="chk-item">
           <CheckIcon status={c.status} />
           <div className="chk-item__text">
             <div className="chk-item__title">
-              {c.title}
-              <Badge tone={CHECK_TONE[c.status]}>{LABEL[c.status]}</Badge>
+              {text.title}
+              <Badge tone={CHECK_TONE[c.status]}>{t(`checkStatus.${c.status}`)}</Badge>
             </div>
-            <div className="chk-item__detail">{c.detail}</div>
-            {c.hint && <div className="chk-item__hint">{c.hint}</div>}
+            <div className="chk-item__detail">{text.detail}</div>
+            {text.hint && <div className="chk-item__hint">{text.hint}</div>}
           </div>
         </li>
-      ))}
+        );
+      })}
     </ul>
   );
 }

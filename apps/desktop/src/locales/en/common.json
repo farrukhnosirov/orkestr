@@ -1,0 +1,167 @@
+{
+  "brand": "Orkestr",
+  "tagline": "AI Development OS",
+  "actions": {
+    "apply": "Apply",
+    "approve": "Approve",
+    "back": "Back",
+    "cancel": "Cancel",
+    "close": "Close",
+    "confirm": "Confirm",
+    "copy": "Copy",
+    "create": "Create",
+    "delete": "Delete",
+    "edit": "Edit",
+    "finish": "Finish",
+    "next": "Next",
+    "open": "Open",
+    "refresh": "Refresh",
+    "reject": "Reject",
+    "retry": "Retry",
+    "rollback": "Roll back",
+    "save": "Save",
+    "search": "Search",
+    "skip": "Skip"
+  },
+  "state": {
+    "loading": "Loading…",
+    "saving": "Saving…",
+    "empty": "Nothing here yet",
+    "optional": "Optional",
+    "unknown": "Unknown",
+    "on": "On",
+    "off": "Off",
+    "yes": "Yes",
+    "no": "No",
+    "none": "None"
+  },
+  "language": {
+    "label": "Language",
+    "description": "Interface language. AI Manager and agents reply in this language too.",
+    "system": "System default ({{language}})",
+    "names": {
+      "en": "English",
+      "ru": "Русский"
+    }
+  },
+  "phase": "Phase {{phase}}",
+  "errors": {
+    "generic": "Something went wrong.",
+    "withDetail": "{{message}}: {{detail}}",
+    "codes": {
+      "unauthorized": "Access denied: the session token was not accepted",
+      "bad_request": "Invalid request",
+      "not_found": "Not found",
+      "conflict": "Conflict with the current state",
+      "forbidden": "Not allowed",
+      "approval_required": "Your approval is required",
+      "rate_limited": "Too many requests — try again shortly",
+      "budget_exceeded": "Budget exceeded",
+      "provider_error": "AI provider error",
+      "internal": "Internal core error",
+      "timeout": "The core did not respond in time",
+      "disconnected": "No connection to the Orkestr core",
+      "closed": "The connection is closed",
+      "aborted": "The request was cancelled",
+      "protocol": "Unexpected response from the core"
+    },
+    "notConnected": "Not connected to the Orkestr core.",
+    "notInitialised": "The core connection is not initialized yet."
+  },
+  "status": {
+    "task": {
+      "Planned": "Planned",
+      "Ready": "Ready",
+      "Running": "Running",
+      "Waiting": "Waiting",
+      "Blocked": "Blocked",
+      "Review": "In review",
+      "Testing": "Testing",
+      "Completed": "Completed",
+      "Failed": "Failed",
+      "Cancelled": "Cancelled",
+      "Interrupted": "Interrupted",
+      "Recovering": "Recovering"
+    },
+    "agent": {
+      "Idle": "Idle",
+      "Listening": "Listening",
+      "Thinking": "Thinking",
+      "Coding": "Coding",
+      "Testing": "Testing",
+      "Reviewing": "Reviewing",
+      "Waiting": "Waiting",
+      "Error": "Error",
+      "Completed": "Completed",
+      "Stopped": "Stopped"
+    },
+    "approval": {
+      "Pending": "Pending",
+      "Approved": "Approved",
+      "Rejected": "Rejected",
+      "Expired": "Expired",
+      "Cancelled": "Cancelled"
+    },
+    "health": {
+      "Unknown": "Unknown",
+      "Healthy": "Healthy",
+      "Degraded": "Degraded",
+      "RateLimited": "Rate limited",
+      "Down": "Unavailable"
+    },
+    "approvalMode": {
+      "Ask": "Ask",
+      "SemiAuto": "Semi-Auto",
+      "FullAuto": "Full Auto"
+    },
+    "notification": {
+      "Info": "Info",
+      "Success": "Success",
+      "Warning": "Warning",
+      "Error": "Error",
+      "Critical": "Critical"
+    }
+  },
+  "count": {
+    "agents_one": "{{count}} agent",
+    "agents_other": "{{count}} agents",
+    "tasks_one": "{{count}} task",
+    "tasks_other": "{{count}} tasks",
+    "files_one": "{{count}} file",
+    "files_other": "{{count}} files",
+    "projects_one": "{{count}} project",
+    "projects_other": "{{count}} projects",
+    "approvals_one": "{{count}} approval",
+    "approvals_other": "{{count}} approvals",
+    "items_one": "{{count}} item",
+    "items_other": "{{count}} items",
+    "turns_one": "{{count}} turn",
+    "turns_other": "{{count}} turns",
+    "steps_one": "{{count}} step",
+    "steps_other": "{{count}} steps",
+    "days_one": "{{count}} day",
+    "days_other": "{{count}} days",
+    "tokens_one": "{{count}} token",
+    "tokens_other": "{{count}} tokens"
+  },
+  "time": {
+    "justNow": "just now",
+    "never": "never"
+  },
+  "keys": {
+    "ctrl": "Ctrl",
+    "shift": "Shift",
+    "alt": "Alt",
+    "enter": "Enter",
+    "esc": "Esc"
+  },
+  "units": {
+    "bytes": {
+      "b": "B",
+      "kb": "KB",
+      "mb": "MB",
+      "gb": "GB",
+      "tb": "TB"
+    }
+  }
+}

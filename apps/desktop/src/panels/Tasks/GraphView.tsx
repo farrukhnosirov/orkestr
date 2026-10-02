@@ -27,6 +27,7 @@ import { clsx } from "clsx";
 import { Route, Timer } from "lucide-react";
 import { memo, useEffect, useMemo } from "react";
 
+import { useFormat, useT } from "../../i18n";
 import { errorMessage, taskActions } from "./data";
 import { DEFAULT_LAYOUT, layoutDag } from "./layout";
 import { shortId, statusColor } from "./model";
@@ -42,25 +43,28 @@ interface TaskNodeData extends Record<string, unknown> {
 type TaskFlowNode = Node<TaskNodeData, "task">;
 
 const TaskNodeView = memo(function TaskNodeView({ data, selected }: NodeProps<TaskFlowNode>) {
-  const t = data.task;
+  const { t } = useT(["tasks", "common"]);
+  const fmt = useFormat();
+  const task = data.task;
+  const status = t(`common:status.task.${task.status}`);
   return (
     <div
       className={clsx("tasks-node", selected && "tasks-node--selected", data.critical && "tasks-node--critical")}
-      style={{ ["--status-color" as string]: statusColor(t.status) }}
-      title={`${t.title} — ${t.status}`}
+      style={{ ["--status-color" as string]: statusColor(task.status) }}
+      title={t("graph.nodeTitle", { title: task.title, status })}
     >
       <Handle type="target" position={Position.Left} className="tasks-node__handle" />
       <div className="tasks-node__head">
-        <span className="tasks-node__status">{t.status}</span>
-        {data.ready && t.status !== "Ready" && <span className="tasks-node__ready">deps met</span>}
-        <PriorityChip priority={t.priority} compact />
+        <span className="tasks-node__status">{status}</span>
+        {data.ready && task.status !== "Ready" && <span className="tasks-node__ready">{t("list.depsMet")}</span>}
+        <PriorityChip priority={task.priority} compact />
       </div>
-      <div className="tasks-node__title">{t.title}</div>
+      <div className="tasks-node__title">{task.title}</div>
       <div className="tasks-node__foot">
-        <span className="tasks-mono">#{shortId(t.id)}</span>
-        {t.estimateMinutes !== null && (
+        <span className="tasks-mono">#{shortId(task.id)}</span>
+        {task.estimateMinutes !== null && (
           <span>
-            <Timer size={10} /> {t.estimateMinutes}m
+            <Timer size={10} /> {fmt.duration(task.estimateMinutes * 60_000)}
           </span>
         )}
       </div>
@@ -81,6 +85,8 @@ function FitOnChange({ layoutKey }: { layoutKey: string }) {
 }
 
 export function GraphView({ graph }: { graph: TaskGraph }) {
+  const { t } = useT(["tasks", "common"]);
+  const fmt = useFormat();
   const select = useTasksUi((s) => s.select);
   const selected = useTasksUi((s) => s.selectedTaskId);
   const toast = useTasksUi((s) => s.toast);
@@ -136,17 +142,17 @@ export function GraphView({ graph }: { graph: TaskGraph }) {
           animated: critical,
           className: clsx("tasks-edge", critical && "tasks-edge--critical", e.kind === "Soft" && "tasks-edge--soft"),
           markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16 },
-          ariaLabel: `Dependency ${shortId(e.dependsOn)} to ${shortId(e.taskId)}`,
+          ariaLabel: t("graph.edge", { from: shortId(e.dependsOn), to: shortId(e.taskId) }),
         };
       }),
-    [graph.edges, criticalEdges],
+    [graph.edges, criticalEdges, t],
   );
 
   const onConnect = async (c: Connection) => {
     if (!c.source || !c.target || c.source === c.target) return;
     try {
       await taskActions.addDependency(c.target, c.source);
-      toast("success", "Dependency added.");
+      toast("success", t("dependencyAdded"));
     } catch (err) {
       toast("danger", errorMessage(err));
     }
@@ -163,12 +169,20 @@ export function GraphView({ graph }: { graph: TaskGraph }) {
   };
 
   return (
-    <div className="tasks-graph" role="region" aria-label="Task dependency graph">
+    <div className="tasks-graph" role="region" aria-label={t("graph.label")}>
       <div className="tasks-graph__legend" aria-hidden="true">
         <span>
-          <Route size={12} /> Critical path: {graph.criticalPathLength}m · {graph.criticalPath.length} tasks
+          <Route size={12} />{" "}
+          {graph.criticalPath.length === 0
+            ? t("graph.noCriticalPath")
+            : graph.criticalPathLength > 0
+              ? t("graph.criticalPath", {
+                  duration: fmt.duration(graph.criticalPathLength * 60_000),
+                  tasks: t("common:count.tasks", { count: graph.criticalPath.length }),
+                })
+              : t("graph.criticalPathTasks", { tasks: t("common:count.tasks", { count: graph.criticalPath.length }) })}
         </span>
-        <span>Drag ● → ● to add a dependency · select an edge + Delete to remove</span>
+        <span>{t("graph.hint")}</span>
       </div>
       <ReactFlow<TaskFlowNode, Edge>
         nodes={nodes}

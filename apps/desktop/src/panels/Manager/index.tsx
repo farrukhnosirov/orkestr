@@ -14,6 +14,7 @@ import { Button, EmptyState, IconButton, Spinner, Tabs } from "@orkestr/ui";
 import { Eraser, FolderOpen, RefreshCw, Sparkles, TriangleAlert } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { t as translate, useT } from "../../i18n";
 import type { PanelProps } from "../types";
 import { Composer } from "./Composer";
 import { errorMessage, managerActions, useManagerChat, useResumeSummary } from "./data";
@@ -23,16 +24,14 @@ import { RunCard } from "./RunCard";
 import { type ManagerMode, useManagerUi } from "./store";
 import { VirtualList } from "./VirtualList";
 
-const MODES: { id: ManagerMode; label: string }[] = [
-  { id: "natural", label: "Natural" },
-  { id: "expert", label: "Expert" },
-];
+const MODE_IDS: readonly ManagerMode[] = ["natural", "expert"];
 
 type Row = ChatItem | { kind: "thinking"; id: string };
 
 const rowKey = (r: Row) => r.id;
 
 export default function ManagerPanel({ projectId }: PanelProps) {
+  const { t } = useT(["manager", "common"]);
   const { state, loading, error, reload, setConfig } = useManagerChat(projectId);
   const summary = useResumeSummary(projectId);
   const mode = useManagerUi((s) => s.mode);
@@ -48,6 +47,7 @@ export default function ManagerPanel({ projectId }: PanelProps) {
   const [attachment, setAttachment] = useState<ChatAttachment | null>(null);
   const [pending, setPending] = useState(false);
   const [clearing, setClearing] = useState(false);
+  const modes = MODE_IDS.map((id) => ({ id, label: t(`modes.${id}`) }));
 
   // Consume a request from the Code panel ("Ask Manager about selection").
   useEffect(() => {
@@ -55,8 +55,8 @@ export default function ManagerPanel({ projectId }: PanelProps) {
     if (prefill.projectId && prefill.projectId !== projectId) return;
     const a = attachmentOf(prefill);
     setAttachment(a);
-    if (!a && prefill.text.trim()) setText((t) => (t.trim() ? `${t}\n${prefill.text}` : prefill.text));
-    else if (a && !text.trim()) setText(`Explain this code from ${a.path}`);
+    if (!a && prefill.text.trim()) setText((cur) => (cur.trim() ? `${cur}\n${prefill.text}` : prefill.text));
+    else if (a && !text.trim()) setText(translate("manager:explainCode", { path: a.path }));
     setPrefill(null);
     requestFocus();
   }, [prefill, projectId, setPrefill, requestFocus, text]);
@@ -131,8 +131,8 @@ export default function ManagerPanel({ projectId }: PanelProps) {
       <div className="mgr-panel mgr-panel--center">
         <EmptyState
           icon={<FolderOpen size={26} strokeWidth={1.6} />}
-          title="No project open"
-          description="Open or create a project, then tell the AI Manager what to build. It plans the work, creates tasks and runs agents for you."
+          title={t("noProject.title")}
+          description={t("noProject.description")}
         />
       </div>
     );
@@ -145,7 +145,7 @@ export default function ManagerPanel({ projectId }: PanelProps) {
   if (loading && state.messages.length === 0) {
     body = (
       <div className="mgr-loading">
-        <Spinner size={18} /> Loading the conversation…
+        <Spinner size={18} /> {t("loading")}
       </div>
     );
   } else if (error) {
@@ -153,11 +153,11 @@ export default function ManagerPanel({ projectId }: PanelProps) {
       <div className="mgr-panel--center">
         <EmptyState
           icon={<TriangleAlert size={26} strokeWidth={1.6} />}
-          title="Could not load the conversation"
+          title={t("loadFailed")}
           description={error}
           action={
             <Button leftIcon={<RefreshCw size={14} />} onClick={reload}>
-              Retry
+              {t("common:actions.retry")}
             </Button>
           }
         />
@@ -168,37 +168,37 @@ export default function ManagerPanel({ projectId }: PanelProps) {
       <div className="mgr-panel--center mgr-welcome">
         <EmptyState
           icon={<Sparkles size={26} strokeWidth={1.6} />}
-          title="What should we build?"
-          description="Describe a goal in plain words. The Manager studies the project, proposes a plan with tasks and dependencies, and — once you approve — runs isolated agents in their own worktrees."
+          title={t("welcome.title")}
+          description={t("welcome.description")}
         />
       </div>
     );
   } else {
-    body = <VirtualList className="mgr-list" aria-label="Conversation" items={rows} getKey={rowKey} render={renderRow} tailVersion={tail} />;
+    body = <VirtualList className="mgr-list" aria-label={t("conversation")} items={rows} getKey={rowKey} render={renderRow} tailVersion={tail} />;
   }
 
   return (
     <div className="mgr-panel">
       <div className="mgr-toolbar">
         <Sparkles size={15} className="mgr-toolbar__icon" aria-hidden="true" />
-        <strong className="mgr-toolbar__title">AI Manager</strong>
+        <strong className="mgr-toolbar__title">{t("title")}</strong>
         <ModelIndicator config={state.config} onSaved={setConfig} />
         <div className="mgr-toolbar__spacer" />
-        <Tabs aria-label="Manager mode" items={MODES} value={mode} onChange={setMode} />
+        <Tabs aria-label={t("modes.label")} items={modes} value={mode} onChange={setMode} />
         <IconButton
-          label="New conversation (the current one is summarised)"
+          label={t("toolbar.newConversation")}
           icon={clearing ? <Spinner size={14} /> : <Eraser size={14} />}
           disabled={clearing || state.busy || state.messages.length === 0}
           onClick={() => void clear()}
           tooltip="bottom"
         />
-        <IconButton label="Reload" icon={<RefreshCw size={14} />} onClick={reload} tooltip="bottom" />
+        <IconButton label={t("toolbar.reload")} icon={<RefreshCw size={14} />} onClick={reload} tooltip="bottom" />
       </div>
       {showResume && summary && <ResumeBanner summary={summary} onResumeRun={(id) => void resumeRun(id)} />}
       <div className="mgr-body">{body}</div>
       {run && <RunCard run={run} compact />}
       {!state.busy && !pending && (
-        <div className="mgr-chips" role="group" aria-label="Suggestions">
+        <div className="mgr-chips" role="group" aria-label={t("suggestionsLabel")}>
           {suggestions(state).map((s) => (
             <button
               key={s}

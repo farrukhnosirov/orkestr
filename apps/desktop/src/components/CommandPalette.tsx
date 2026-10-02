@@ -15,6 +15,7 @@ import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { openProject } from "../core/client";
 import { type AppCommand, commands as registryCommands } from "../features/commands/registry";
 import { fuzzyMatch, highlightSegments } from "../features/search/fuzzy";
+import { t, useLanguage, useT } from "../i18n";
 import { SEARCH_PREFIX, usePaletteStore } from "../features/search/paletteStore";
 import "../features/search/palette.css";
 import { projectsProvider, searchAll, type SearchGroup, type SearchResult } from "../features/search/providers";
@@ -45,19 +46,21 @@ function builtinItems(setThemeId: (id: string) => void): PaletteItem[] {
   for (const panel of PANELS) {
     list.push({
       id: `panel.open.${panel.id}`,
-      title: `Open Panel: ${panel.title}`,
-      group: "Panels",
+      title: t("shell:palette.openPanel", { title: panel.title }),
+      group: t("shell:palette.groups.panels"),
       icon: panel.icon,
-      hint: panel.phase > 0 ? `Phase ${panel.phase}` : undefined,
-      keywords: panel.description,
+      hint: panel.phase > 0 ? t("common:phase", { phase: panel.phase }) : undefined,
+      // Both languages stay searchable: the English id plus the localized description.
+      keywords: `${panel.id} ${panel.description}`,
       indices: [],
       run: () => workspaceActions.openPanel(panel.id),
     });
   }
   list.push({
     id: "layout.reset",
-    title: "Reset Layout (Coding preset)",
-    group: "Layout",
+    title: t("shell:palette.resetLayout"),
+    group: t("shell:palette.groups.layout"),
+    keywords: "reset layout coding раскладка сбросить",
     icon: LayoutGrid,
     indices: [],
     run: () => workspaceActions.resetLayout(),
@@ -65,10 +68,10 @@ function builtinItems(setThemeId: (id: string) => void): PaletteItem[] {
   for (const theme of Object.values(BUILTIN_THEMES)) {
     list.push({
       id: `theme.${theme.id}`,
-      title: `Theme: ${theme.name}`,
-      group: "Appearance",
+      title: t("shell:palette.theme", { name: theme.name }),
+      group: t("shell:palette.groups.appearance"),
       icon: Palette,
-      keywords: theme.mode,
+      keywords: `theme тема ${theme.mode} ${t(`shell:palette.themeModes.${theme.mode}`)}`,
       indices: [],
       run: () => setThemeId(theme.id),
     });
@@ -163,6 +166,9 @@ export function CommandPalette() {
   const [searching, setSearching] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const { t: ts } = useT(["shell", "common"]);
+  const language = useLanguage();
+  const recentGroup = ts("shell:palette.groups.recent");
 
   useEffect(() => {
     if (open) {
@@ -204,7 +210,9 @@ export function CommandPalette() {
 
   const allItems = useMemo<PaletteItem[]>(
     () => [...registryCommands.map((c) => fromCommand(c, projectId)), ...builtinItems(setThemeId)],
-    [projectId, setThemeId],
+    // `language`: titles and groups are re-read when the UI language changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [projectId, setThemeId, language],
   );
 
   const results = useMemo<PaletteItem[]>(() => {
@@ -229,12 +237,12 @@ export function CommandPalette() {
       const recentItems = recent
         .map((id) => byId.get(id))
         .filter((i): i is PaletteItem => i !== undefined)
-        .map((i) => ({ ...i, group: "Recent" }));
+        .map((i) => ({ ...i, group: recentGroup }));
       const recentIds = new Set(recentItems.map((i) => i.id));
       return [...recentItems, ...allItems.filter((i) => !recentIds.has(i.id))];
     }
     return rankItems(allItems, query);
-  }, [searchMode, searchGroups, query, allItems, recent]);
+  }, [searchMode, searchGroups, query, allItems, recent, recentGroup]);
 
   // Rows are displayed grouped; keyboard selection and Enter must address
   // the same (display) order, not the ranking order.
@@ -287,32 +295,32 @@ export function CommandPalette() {
   const empty: ReactNode = searchMode ? (
     searching ? (
       <>
-        <Spinner size={14} /> Searching…
+        <Spinner size={14} /> {ts("shell:palette.searching")}
       </>
     ) : searchQuery.trim() ? (
       <>
-        <Search size={18} /> Nothing found for “{searchQuery.trim()}”
+        <Search size={18} /> {ts("shell:palette.nothingFound", { query: searchQuery.trim() })}
       </>
     ) : (
       <>
-        <PanelsTopLeft size={18} /> No projects yet — create one with “Create Project”
+        <PanelsTopLeft size={18} /> {ts("shell:palette.noProjects")}
       </>
     )
   ) : (
     <>
-      <PanelsTopLeft size={18} /> No matching commands
+      <PanelsTopLeft size={18} /> {ts("shell:palette.noCommands")}
     </>
   );
 
   return (
     <div className="overlay overlay--top" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && setOpen(false)}>
-      <div className="palette" role="dialog" aria-modal="true" aria-label="Command palette" onKeyDown={onKeyDown}>
+      <div className="palette" role="dialog" aria-modal="true" aria-label={ts("shell:palette.label")} onKeyDown={onKeyDown}>
         <div className="palette__search">
-          {searchMode ? <span className="palette__mode">Search</span> : <Search size={16} />}
+          {searchMode ? <span className="palette__mode">{ts("shell:palette.searchMode")}</span> : <Search size={16} />}
           <input
             ref={inputRef}
             className="palette__input"
-            placeholder={searchMode ? "Search projects…" : "Type a command, or / to search…"}
+            placeholder={searchMode ? ts("shell:palette.searchPlaceholder") : ts("shell:palette.placeholder")}
             value={searchMode ? searchQuery : query}
             onChange={(e) => {
               setQuery(searchMode ? SEARCH_PREFIX + e.target.value : e.target.value);
@@ -327,12 +335,12 @@ export function CommandPalette() {
           {searching && <Spinner size={14} />}
           <Kbd>Esc</Kbd>
         </div>
-        <div className="palette__list" id="palette-list" role="listbox" ref={listRef} aria-label="Results">
+        <div className="palette__list" id="palette-list" role="listbox" ref={listRef} aria-label={ts("shell:palette.results")}>
           {results.length === 0 && <div className="palette__empty">{empty}</div>}
           {groupItems(results).map(({ group, items }) => (
             <div key={group} role="group" aria-label={group}>
               <div className="palette__group" aria-hidden="true">
-                {group === "Recent" && <Clock size={10} />} {group}
+                {group === recentGroup && <Clock size={10} />} {group}
               </div>
               {items.map((item) => {
                 flatIndex += 1;
@@ -370,15 +378,15 @@ export function CommandPalette() {
         <div className="palette__footer">
           <span>
             <Kbd>↑</Kbd>
-            <Kbd>↓</Kbd> navigate
+            <Kbd>↓</Kbd> {ts("shell:palette.navigate")}
           </span>
           <span>
-            <Kbd>Enter</Kbd> run
+            <Kbd>Enter</Kbd> {ts("shell:palette.run")}
           </span>
           <span>
-            <Kbd>/</Kbd> search projects
+            <Kbd>/</Kbd> {ts("shell:palette.searchProjects")}
           </span>
-          <span className="palette__footer-panels">{searchMode ? "Global search" : `${allItems.length} commands`}</span>
+          <span className="palette__footer-panels">{searchMode ? ts("shell:palette.globalSearch") : ts("shell:palette.commandCount", { count: allItems.length })}</span>
         </div>
       </div>
     </div>

@@ -4,9 +4,10 @@ import { Eye, EyeOff, KeyRound, Lock, LockOpen, Plus, Trash2 } from "lucide-reac
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 
 import { maybeClient } from "../../core/client";
+import { useFormat, useT } from "../../i18n";
 import { useAppStore } from "../../store/app";
 import type { SettingsSectionProps } from "../settings/sections";
-import { relativeTime, secretScopeLabel, validateSecretName } from "./logic";
+import { secretScopeLabel, validateSecretName } from "./logic";
 import { errorMessage, refreshFlags } from "./store";
 
 function AddSecretForm({ projectId, disabled, onSaved }: { projectId: string | null; disabled: boolean; onSaved: () => void }) {
@@ -16,6 +17,7 @@ function AddSecretForm({ projectId, disabled, onSaved }: { projectId: string | n
   const [scopeKind, setScopeKind] = useState<"Global" | "Project">("Global");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { t } = useT("security");
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -25,7 +27,7 @@ function AddSecretForm({ projectId, disabled, onSaved }: { projectId: string | n
       return;
     }
     if (!value) {
-      setError("Enter the secret value.");
+      setError(t("secrets.valueRequired"));
       return;
     }
     const c = maybeClient();
@@ -47,11 +49,11 @@ function AddSecretForm({ projectId, disabled, onSaved }: { projectId: string | n
   };
 
   return (
-    <form className="sec-rule-form" onSubmit={(e) => void submit(e)} aria-label="Add or rotate a secret" autoComplete="off">
+    <form className="sec-rule-form" onSubmit={(e) => void submit(e)} aria-label={t("secrets.formAria")} autoComplete="off">
       <Input
         className="sec-rule-form__grow"
-        label="Name"
-        placeholder="OPENAI_API_KEY"
+        label={t("secrets.name")}
+        placeholder={t("secrets.namePlaceholder")}
         value={name}
         maxLength={128}
         onChange={(e) => setName(e.target.value)}
@@ -59,18 +61,18 @@ function AddSecretForm({ projectId, disabled, onSaved }: { projectId: string | n
       />
       <Input
         className="sec-rule-form__grow"
-        label="Value"
+        label={t("secrets.value")}
         type={reveal ? "text" : "password"}
         autoComplete="new-password"
         value={value}
         onChange={(e) => setValue(e.target.value)}
         spellCheck={false}
-        hint="Stored in the OS keyring or the encrypted vault. Never shown again."
+        hint={t("secrets.valueHint")}
         rightSlot={
           <button
             type="button"
             className="sec-icon-btn"
-            aria-label={reveal ? "Hide value" : "Show value while typing"}
+            aria-label={reveal ? t("secrets.hideValue") : t("secrets.showValue")}
             onClick={() => setReveal((r) => !r)}
           >
             {reveal ? <EyeOff size={14} /> : <Eye size={14} />}
@@ -78,16 +80,16 @@ function AddSecretForm({ projectId, disabled, onSaved }: { projectId: string | n
         }
       />
       <label className="sec-select">
-        <span>Scope</span>
+        <span>{t("permissions.scope")}</span>
         <select value={scopeKind} onChange={(e) => setScopeKind(e.target.value as "Global" | "Project")}>
-          <option value="Global">Global</option>
+          <option value="Global">{t("scope.global")}</option>
           <option value="Project" disabled={!projectId}>
-            This project
+            {t("scope.thisProject")}
           </option>
         </select>
       </label>
       <Button type="submit" variant="primary" leftIcon={<Plus size={14} />} loading={busy} disabled={disabled}>
-        Save secret
+        {t("secrets.save")}
       </Button>
       {error && (
         <p className="sec-error sec-rule-form__full" role="alert">
@@ -106,6 +108,8 @@ export function SecretsSettings({ projectId }: SettingsSectionProps) {
   const [status, setStatus] = useState<VaultStatusResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const { t } = useT(["security", "common"]);
+  const fmt = useFormat();
 
   const load = useCallback(async () => {
     const c = maybeClient();
@@ -141,7 +145,7 @@ export function SecretsSettings({ projectId }: SettingsSectionProps) {
   const remove = async (s: SecretReference) => {
     const c = maybeClient();
     if (!c) return;
-    if (!window.confirm(`Delete secret "${s.name}"? Anything using it will stop working.`)) return;
+    if (!window.confirm(t("secrets.confirmDelete", { name: s.name }))) return;
     setBusy(s.id);
     try {
       await c.call("secrets.delete", { secretId: s.id });
@@ -157,21 +161,21 @@ export function SecretsSettings({ projectId }: SettingsSectionProps) {
 
   return (
     <div className="sec-section">
-      <section className="sec-vault-head" aria-label="Vault status">
+      <section className="sec-vault-head" aria-label={t("secrets.statusAria")}>
         <div className="dialog__icon">
           <KeyRound size={18} />
         </div>
         <div>
-          <h3 className="sec-h">Secrets Vault</h3>
+          <h3 className="sec-h">{t("secrets.title")}</h3>
           <p className="sec-muted">
             {status
-              ? `${status.secretCount} secret(s) · backend ${status.backend === "Auto" ? "OS keyring + encrypted vault" : status.backend}`
-              : "Loading…"}
+              ? t("secrets.summary", { count: status.secretCount, backend: t(`secrets.preference.${status.backend}`) })
+              : t("common:state.loading")}
           </p>
         </div>
         {status && (
           <Badge tone={status.locked ? "danger" : "success"} icon={status.locked ? <Lock size={12} /> : <LockOpen size={12} />}>
-            {status.locked ? "Locked" : "Unlocked"}
+            {status.locked ? t("secrets.locked") : t("secrets.unlocked")}
           </Badge>
         )}
         <Button
@@ -182,7 +186,7 @@ export function SecretsSettings({ projectId }: SettingsSectionProps) {
           disabled={!status}
           onClick={() => void lockToggle()}
         >
-          {status?.locked ? "Unlock vault" : "Lock vault"}
+          {status?.locked ? t("secrets.unlock") : t("secrets.lock")}
         </Button>
       </section>
       <AddSecretForm projectId={projectId} disabled={!status || status.locked} onSaved={() => void load()} />
@@ -192,24 +196,24 @@ export function SecretsSettings({ projectId }: SettingsSectionProps) {
         </p>
       )}
       {secrets === null && !error ? (
-        <Spinner label="Loading secrets" />
+        <Spinner label={t("secrets.loading")} />
       ) : secrets && secrets.length === 0 ? (
         <EmptyState
           icon={<KeyRound size={22} />}
-          title="No secrets yet"
-          description="Provider API keys and environment credentials live here. Agents never see values unless a task explicitly binds them."
+          title={t("secrets.emptyTitle")}
+          description={t("secrets.emptyDescription")}
         />
       ) : secrets ? (
         <table className="sec-table">
           <thead>
             <tr>
-              <th scope="col">Name</th>
-              <th scope="col">Scope</th>
-              <th scope="col">Stored in</th>
-              <th scope="col">Created</th>
-              <th scope="col">Last used</th>
+              <th scope="col">{t("secrets.name")}</th>
+              <th scope="col">{t("permissions.scope")}</th>
+              <th scope="col">{t("secrets.storedIn")}</th>
+              <th scope="col">{t("secrets.created")}</th>
+              <th scope="col">{t("secrets.lastUsed")}</th>
               <th scope="col">
-                <span className="sr-only">Actions</span>
+                <span className="sr-only">{t("permissions.actions")}</span>
               </th>
             </tr>
           </thead>
@@ -222,21 +226,23 @@ export function SecretsSettings({ projectId }: SettingsSectionProps) {
                 <td>{secretScopeLabel(s.scope, projectName)}</td>
                 <td>
                   <Badge tone={s.backend === "OsKeyring" ? "accent" : "violet"}>
-                    {s.backend === "OsKeyring" ? "OS keyring" : "Encrypted vault"}
+                    {t(`secrets.backend.${s.backend}`)}
                   </Badge>
                 </td>
-                <td className="sec-muted">{relativeTime(s.rotatedAt ?? s.createdAt)}</td>
-                <td className="sec-muted">{s.lastAccessedAt ? relativeTime(s.lastAccessedAt) : "never"}</td>
+                <td className="sec-muted" title={fmt.date(s.rotatedAt ?? s.createdAt, "dateTime")}>
+                  {fmt.relative(s.rotatedAt ?? s.createdAt)}
+                </td>
+                <td className="sec-muted">{s.lastAccessedAt ? fmt.relative(s.lastAccessedAt) : t("common:time.never")}</td>
                 <td>
                   <Button
                     variant="ghost"
                     size="sm"
-                    aria-label={`Delete secret ${s.name}`}
+                    aria-label={t("secrets.delete", { name: s.name })}
                     leftIcon={<Trash2 size={13} />}
                     loading={busy === s.id}
                     onClick={() => void remove(s)}
                   >
-                    Delete
+                    {t("common:actions.delete")}
                   </Button>
                 </td>
               </tr>

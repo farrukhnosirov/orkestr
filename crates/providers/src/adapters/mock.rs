@@ -83,6 +83,38 @@ pub enum MockScript {
     Fail(ProviderError),
 }
 
+/// Language of the Mock's own sentences: Russian when the UI language is
+/// Russian (system prompt marker) or the user writes in Cyrillic.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MockLang {
+    /// English.
+    En,
+    /// Russian.
+    Ru,
+}
+
+impl MockLang {
+    fn pick(self, en: String, ru: String) -> String {
+        match self {
+            Self::En => en,
+            Self::Ru => ru,
+        }
+    }
+}
+
+/// Reply language of a request (see [`MockLang`]).
+#[must_use]
+pub fn reply_lang(req: &ChatRequest) -> MockLang {
+    let marker = format!("{} ru", crate::UI_LANGUAGE_MARKER);
+    let ui_ru = req.system_prompt().is_some_and(|s| s.contains(&marker));
+    let cyrillic = last_user(req).chars().any(|c| matches!(c, '\u{0400}'..='\u{04FF}'));
+    if ui_ru || cyrillic {
+        MockLang::Ru
+    } else {
+        MockLang::En
+    }
+}
+
 fn last_user(req: &ChatRequest) -> String {
     req.messages.iter().rev().find(|m| m.role == Role::User).map(|m| m.content.clone()).unwrap_or_default()
 }
@@ -325,73 +357,113 @@ fn title_case(s: &str) -> String {
 }
 
 /// The plan returned for planning requests (a JSON schema named
-/// `orkestr_plan`, or a planning system prompt). Four tasks with dependencies
-/// and a parallel branch: design → (implement ∥ document), implement → test.
-/// Every task names its role, acceptance criteria and expected files.
+/// `orkestr_plan`, or a planning system prompt), in English. See [`demo_plan_in`].
 #[must_use]
 pub fn demo_plan(goal: &str) -> Value {
+    demo_plan_in(goal, MockLang::En)
+}
+
+/// The demo plan in the reply language. Four tasks with dependencies and a
+/// parallel branch: design → (implement ∥ document), implement → test.
+/// Every task names its role, acceptance criteria and expected files; roles,
+/// keys, priorities and file paths do not depend on the language.
+#[must_use]
+pub fn demo_plan_in(goal: &str, lang: MockLang) -> Value {
     let g = short(goal, 120);
     let s = subject_of(goal);
     let name = title_case(&s);
     let f = ident_of(&s);
+    let ru = lang == MockLang::Ru;
+    let tr = |en: String, ru_text: String| if ru { ru_text } else { en };
+    let epic = tr(format!("{name} module"), format!("Модуль {s}"));
     json!({
         "goal": g,
-        "summary": format!("Demo plan (Mock, offline) for: {g}. An architect designs the {s} module first; then a backend agent implements it while a product manager writes the usage docs in parallel; finally QA adds tests and runs them."),
+        "summary": tr(
+            format!("Demo plan (Mock, offline) for: {g}. An architect designs the {s} module first; then a backend agent implements it while a product manager writes the usage docs in parallel; finally QA adds tests and runs them."),
+            format!("Демо-план (Mock, офлайн) для цели: {g}. Сначала архитектор проектирует модуль {s}, затем бэкенд-разработчик реализует его, а продакт-менеджер параллельно пишет документацию; в конце тестировщик добавляет и запускает тесты."),
+        ),
         "assumptions": [
-            "The project is a JavaScript (ES module) code base or an empty folder.",
-            "Tests run with Node's built-in test runner (`node --test`)."
+            tr("The project is a JavaScript (ES module) code base or an empty folder.".into(), "Проект — кодовая база на JavaScript (ES-модули) или пустая папка.".into()),
+            tr("Tests run with Node's built-in test runner (`node --test`).".into(), "Тесты запускаются встроенным средством Node (`node --test`).".into())
         ],
-        "risks": ["Mock (offline demo) output is scripted — connect a real provider for real work."],
+        "risks": [tr(
+            "Mock (offline demo) output is scripted — connect a real provider for real work.".into(),
+            "Ответы Mock (офлайн-демо) заранее заданы — для настоящей работы подключите реального провайдера.".into(),
+        )],
         "tasks": [
             {
                 "key": "t1",
-                "title": format!("Design the {s} module API"),
-                "description": format!("Write a short design note for the {s} module: its public function `{f}(name)`, file layout and test strategy."),
-                "acceptanceCriteria": [format!("docs/{s}-design.md describes the API of `{f}`"), "The file layout and test strategy are listed".to_owned()],
+                "title": tr(format!("Design the {s} module API"), format!("Спроектировать API модуля {s}")),
+                "description": tr(
+                    format!("Write a short design note for the {s} module: its public function `{f}(name)`, file layout and test strategy."),
+                    format!("Написать краткую проектную заметку о модуле {s}: публичная функция `{f}(name)`, структура файлов и стратегия тестирования."),
+                ),
+                "acceptanceCriteria": [
+                    tr(format!("docs/{s}-design.md describes the API of `{f}`"), format!("В docs/{s}-design.md описан API `{f}`")),
+                    tr("The file layout and test strategy are listed".to_owned(), "Перечислены структура файлов и стратегия тестирования".to_owned())
+                ],
                 "role": "Architect",
                 "dependsOn": [],
                 "priority": "High",
-                "epic": format!("{name} module"),
-                "feature": "Design",
+                "epic": epic,
+                "feature": tr("Design".into(), "Проектирование".into()),
                 "files": [format!("docs/{s}-design.md")],
                 "estimatedTokens": 6000
             },
             {
                 "key": "t2",
-                "title": format!("Implement the {s} module"),
-                "description": format!("Implement `{f}(name = \"world\")` in src/{s}.mjs returning `Hello, <name>!` and commit it."),
-                "acceptanceCriteria": [format!("src/{s}.mjs exports `{f}`"), format!("`{f}(\"Orkestr\")` returns \"Hello, Orkestr!\"")],
+                "title": tr(format!("Implement the {s} module"), format!("Реализовать модуль {s}")),
+                "description": tr(
+                    format!("Implement `{f}(name = \"world\")` in src/{s}.mjs returning `Hello, <name>!` and commit it."),
+                    format!("Реализовать в src/{s}.mjs функцию `{f}(name = \"world\")`, которая возвращает `Hello, <name>!`, и закоммитить её."),
+                ),
+                "acceptanceCriteria": [
+                    tr(format!("src/{s}.mjs exports `{f}`"), format!("src/{s}.mjs экспортирует `{f}`")),
+                    tr(format!("`{f}(\"Orkestr\")` returns \"Hello, Orkestr!\""), format!("`{f}(\"Orkestr\")` возвращает \"Hello, Orkestr!\""))
+                ],
                 "role": "Backend",
                 "dependsOn": ["t1"],
                 "priority": "High",
-                "epic": format!("{name} module"),
-                "feature": "Implementation",
+                "epic": epic,
+                "feature": tr("Implementation".into(), "Реализация".into()),
                 "files": [format!("src/{s}.mjs")],
                 "estimatedTokens": 12000
             },
             {
                 "key": "t3",
-                "title": format!("Document the {s} module"),
-                "description": format!("Write usage documentation for the {s} module in docs/{s}.md."),
-                "acceptanceCriteria": [format!("docs/{s}.md shows how to import and call `{f}`")],
+                "title": tr(format!("Document the {s} module"), format!("Задокументировать модуль {s}")),
+                "description": tr(
+                    format!("Write usage documentation for the {s} module in docs/{s}.md."),
+                    format!("Написать документацию по использованию модуля {s} в docs/{s}.md."),
+                ),
+                "acceptanceCriteria": [tr(
+                    format!("docs/{s}.md shows how to import and call `{f}`"),
+                    format!("В docs/{s}.md показано, как импортировать и вызвать `{f}`"),
+                )],
                 "role": "Product Manager",
                 "dependsOn": ["t1"],
                 "priority": "Normal",
-                "epic": format!("{name} module"),
-                "feature": "Documentation",
+                "epic": epic,
+                "feature": tr("Documentation".into(), "Документация".into()),
                 "files": [format!("docs/{s}.md")],
                 "estimatedTokens": 4000
             },
             {
                 "key": "t4",
-                "title": format!("Test the {s} module"),
-                "description": format!("Add tests/{s}.test.mjs (node:test) for `{f}` and run them with `node --test`."),
-                "acceptanceCriteria": [format!("tests/{s}.test.mjs covers `{f}`"), "`node --test` passes".to_owned()],
+                "title": tr(format!("Test the {s} module"), format!("Протестировать модуль {s}")),
+                "description": tr(
+                    format!("Add tests/{s}.test.mjs (node:test) for `{f}` and run them with `node --test`."),
+                    format!("Добавить tests/{s}.test.mjs (node:test) для `{f}` и запустить их командой `node --test`."),
+                ),
+                "acceptanceCriteria": [
+                    tr(format!("tests/{s}.test.mjs covers `{f}`"), format!("tests/{s}.test.mjs покрывает `{f}`")),
+                    tr("`node --test` passes".to_owned(), "`node --test` проходит без ошибок".to_owned())
+                ],
                 "role": "QA",
                 "dependsOn": ["t2"],
                 "priority": "Normal",
-                "epic": format!("{name} module"),
-                "feature": "Quality",
+                "epic": epic,
+                "feature": tr("Quality".into(), "Качество".into()),
                 "files": [format!("tests/{s}.test.mjs")],
                 "estimatedTokens": 8000
             }
@@ -453,7 +525,7 @@ fn agent_steps(role: &str, title: &str, req: &ChatRequest) -> Vec<Step> {
             steps.push(Step { tool: "git_diff", args: json!({}) });
         }
         "architect" | "product manager" | "ui/ux" => {
-            if lower.contains("doc") {
+            if lower.contains("doc") || title.to_lowercase().contains("документ") {
                 steps.push(write_step(
                     format!("docs/{s}.md"),
                     format!("# {name}\n\nUsage of the {s} module.\n\n```js\nimport {{ {f} }} from \"../src/{s}.mjs\";\n\n{f}(\"Orkestr\"); // \"Hello, Orkestr!\"\n{f}();          // \"Hello, world!\"\n```\n\n_Generated by Mock (offline demo)._\n"),
@@ -552,10 +624,17 @@ fn agent_script(req: &ChatRequest) -> MockScript {
         .map(|(i, s)| json!({ "command": s.args["command"], "passed": !failed.iter().any(|(j, _)| *j == i) }))
         .collect();
     let status = if failed.is_empty() { "done" } else { "partial" };
+    let lang = reply_lang(req);
     let summary = if files.is_empty() {
-        format!("{title}: reviewed the workspace ({} step(s)). Mock (offline demo).", steps.len())
+        lang.pick(
+            format!("{title}: reviewed the workspace ({} step(s)). Mock (offline demo).", steps.len()),
+            format!("{title}: рабочая копия проверена (шагов: {}). Mock (офлайн-демо).", steps.len()),
+        )
     } else {
-        format!("{title}: wrote {}. Mock (offline demo).", files.join(", "))
+        lang.pick(
+            format!("{title}: wrote {}. Mock (offline demo).", files.join(", ")),
+            format!("{title}: записаны файлы {}. Mock (офлайн-демо).", files.join(", ")),
+        )
     };
     MockScript::Tool {
         name: "submit_result".into(),
@@ -606,12 +685,22 @@ fn manager_script(req: &ChatRequest) -> MockScript {
             .map(|c| c.name.clone())
             .unwrap_or_default();
         let result = short(&m.content, 300);
+        let lang = reply_lang(req);
         return MockScript::Text(if m.is_error {
-            format!("I could not complete that: {result}\n\n_— Mock (offline demo)_")
+            lang.pick(
+                format!("I could not complete that: {result}\n\n_— Mock (offline demo)_"),
+                format!("Не получилось это выполнить: {result}\n\n_— Mock (офлайн-демо)_"),
+            )
         } else if tool == "propose_plan" {
-            format!("I studied the project and drafted a plan: {result}\n\nReview the **plan card** below — approve it to start the agents (each works in its own worktree), edit task titles or remove tasks first, or reject it.\n\n_— Mock (offline demo)_")
+            lang.pick(
+                format!("I studied the project and drafted a plan: {result}\n\nReview the **plan card** below — approve it to start the agents (each works in its own worktree), edit task titles or remove tasks first, or reject it.\n\n_— Mock (offline demo)_"),
+                format!("Я изучил проект и подготовил план: {result}\n\nПосмотрите **карточку плана** ниже: подтвердите её, чтобы запустить агентов (каждый работает в своей рабочей копии), при необходимости сначала измените названия задач или уберите лишние — или отклоните план.\n\n_— Mock (офлайн-демо)_"),
+            )
         } else {
-            format!("Here is the current state (`{tool}`):\n\n{result}\n\n_— Mock (offline demo)_")
+            lang.pick(
+                format!("Here is the current state (`{tool}`):\n\n{result}\n\n_— Mock (offline demo)_"),
+                format!("Текущее состояние (`{tool}`):\n\n{result}\n\n_— Mock (офлайн-демо)_"),
+            )
         });
     }
     let user = last_user(req);
@@ -623,25 +712,42 @@ fn manager_script(req: &ChatRequest) -> MockScript {
     if has_tool(req, "project_overview") && STATUS_WORDS.iter().any(|w| lower.contains(w)) {
         return MockScript::Tool { name: "project_overview".into(), arguments: json!({}) };
     }
-    MockScript::Text(format!(
-        "Hello from the AI Manager — **Mock (offline demo)**. You said: \"{}\".\n\nAsk me to build something (for example *\"Create a hello module with tests\"*) and I will plan it, create tasks and run agents. Connect a real provider in Settings → AI Providers for real answers.",
-        short(&request, 200)
+    let quoted = short(&request, 200);
+    MockScript::Text(reply_lang(req).pick(
+        format!(
+            "Hello from the AI Manager — **Mock (offline demo)**. You said: \"{quoted}\".\n\nAsk me to build something (for example *\"Create a hello module with tests\"*) and I will plan it, create tasks and run agents. Connect a real provider in Settings → AI Providers for real answers."
+        ),
+        format!(
+            "Здравствуйте! Это AI-менеджер — **Mock (офлайн-демо)**. Вы написали: «{quoted}».\n\nПопросите меня что-нибудь сделать (например, *«Создай модуль hello с тестами»*) — я составлю план, создам задачи и запущу агентов. Чтобы получать настоящие ответы, подключите реального провайдера в разделе «Настройки → AI-провайдеры»."
+        ),
     ))
 }
 
 /// One visible sentence describing a scripted agent tool call.
-fn narrate(name: &str, args: &Value) -> String {
+fn narrate(name: &str, args: &Value, lang: MockLang) -> String {
     let arg = |k: &str| args.get(k).and_then(Value::as_str).unwrap_or_default().to_owned();
-    let what = match name {
-        "write_file" => format!("Writing `{}`", arg("path")),
-        "run_command" => format!("Running `{}`", arg("command")),
-        "git_commit" => "Committing my changes on my branch".to_owned(),
-        "list_dir" => "Looking at the files".to_owned(),
-        "git_diff" => "Reviewing the diff".to_owned(),
-        "submit_result" => format!("Submitting the result: {}", short(&arg("summary"), 160)),
-        other => format!("Calling `{other}`"),
+    let ru = lang == MockLang::Ru;
+    let what = match (name, ru) {
+        ("write_file", false) => format!("Writing `{}`", arg("path")),
+        ("write_file", true) => format!("Записываю `{}`", arg("path")),
+        ("run_command", false) => format!("Running `{}`", arg("command")),
+        ("run_command", true) => format!("Выполняю `{}`", arg("command")),
+        ("git_commit", false) => "Committing my changes on my branch".to_owned(),
+        ("git_commit", true) => "Делаю коммит изменений в своей ветке".to_owned(),
+        ("list_dir", false) => "Looking at the files".to_owned(),
+        ("list_dir", true) => "Просматриваю файлы".to_owned(),
+        ("git_diff", false) => "Reviewing the diff".to_owned(),
+        ("git_diff", true) => "Проверяю изменения".to_owned(),
+        ("submit_result", false) => format!("Submitting the result: {}", short(&arg("summary"), 160)),
+        ("submit_result", true) => format!("Сдаю результат: {}", short(&arg("summary"), 160)),
+        (other, false) => format!("Calling `{other}`"),
+        (other, true) => format!("Вызываю `{other}`"),
     };
-    format!("{what} — Mock (offline demo).")
+    if ru {
+        format!("{what} — Mock (офлайн-демо).")
+    } else {
+        format!("{what} — Mock (offline demo).")
+    }
 }
 
 fn is_plan_request(req: &ChatRequest) -> bool {
@@ -694,7 +800,7 @@ pub fn script(req: &ChatRequest) -> MockScript {
     }
     // mock-smart / mock-slow / anything else.
     if is_plan_request(req) {
-        return MockScript::Text(demo_plan(&plan_goal(req)).to_string());
+        return MockScript::Text(demo_plan_in(&plan_goal(req), reply_lang(req)).to_string());
     }
     if has_tool(req, "propose_plan") {
         return manager_script(req);
@@ -705,10 +811,17 @@ pub fn script(req: &ChatRequest) -> MockScript {
     if after_tool {
         let result = last.map(|m| short(&m.content, 120)).unwrap_or_default();
         let failed = last.is_some_and(|m| m.is_error);
+        let lang = reply_lang(req);
         return MockScript::Text(if failed {
-            format!("The tool reported an error ({result}). Stopping here — Mock (offline demo).")
+            lang.pick(
+                format!("The tool reported an error ({result}). Stopping here — Mock (offline demo)."),
+                format!("Инструмент сообщил об ошибке ({result}). Останавливаюсь — Mock (офлайн-демо)."),
+            )
         } else {
-            format!("Done. The tool returned: {result}\n\nTask complete — Mock (offline demo).")
+            lang.pick(
+                format!("Done. The tool returned: {result}\n\nTask complete — Mock (offline demo)."),
+                format!("Готово. Инструмент вернул: {result}\n\nЗадача выполнена — Mock (офлайн-демо)."),
+            )
         });
     }
     if let ResponseFormat::JsonSchema { schema, .. } = &req.response_format {
@@ -722,9 +835,14 @@ pub fn script(req: &ChatRequest) -> MockScript {
             json!({"answer": format!("Mock (offline demo) answer to: {}", short(&user, 120))}).to_string(),
         );
     }
-    MockScript::Text(format!(
-        "Hello from Mock (offline demo). You said: \"{}\". I'm a scripted offline provider — connect a real provider in Settings → AI Providers for real answers.",
-        short(&user, 200)
+    let quoted = short(&user, 200);
+    MockScript::Text(reply_lang(req).pick(
+        format!(
+            "Hello from Mock (offline demo). You said: \"{quoted}\". I'm a scripted offline provider — connect a real provider in Settings → AI Providers for real answers."
+        ),
+        format!(
+            "Здравствуйте! Это Mock (офлайн-демо). Вы написали: «{quoted}». Я офлайн-провайдер с заранее заданными ответами — чтобы получать настоящие ответы, подключите реального провайдера в разделе «Настройки → AI-провайдеры»."
+        ),
     ))
 }
 
@@ -791,7 +909,7 @@ impl ProviderAdapter for MockAdapter {
         // Agents narrate their tool calls like real models do.
         let narration = match &plan {
             MockScript::Tool { name, arguments } if has_tool(&request, "submit_result") => {
-                Some(narrate(name, arguments))
+                Some(narrate(name, arguments, reply_lang(&request)))
             }
             _ => None,
         };
@@ -858,6 +976,20 @@ mod tests {
         assert_eq!(subject_of("!!!"), "demo");
         assert_eq!(ident_of("hello-world"), "helloWorld");
         assert_eq!(ident_of("2fa"), "m2fa");
+    }
+
+    #[test]
+    fn demo_plan_follows_the_reply_language() {
+        let ru = demo_plan_in("Создай модуль hello с тестами", MockLang::Ru);
+        let en = demo_plan_in("Create a hello module with tests", MockLang::En);
+        assert_eq!(ru["tasks"][1]["title"], "Реализовать модуль hello");
+        assert_eq!(en["tasks"][1]["title"], "Implement the hello module");
+        // Structure is language-independent.
+        for i in 0..4 {
+            assert_eq!(ru["tasks"][i]["role"], en["tasks"][i]["role"]);
+            assert_eq!(ru["tasks"][i]["dependsOn"], en["tasks"][i]["dependsOn"]);
+            assert_eq!(ru["tasks"][i]["files"], en["tasks"][i]["files"]);
+        }
     }
 
     #[test]
@@ -990,6 +1122,36 @@ failed",
         let mut h = ChatRequest::new("mock-smart", vec![ChatMessage::user("hi")]);
         h.tools = r.tools.clone();
         assert!(matches!(script(&h), MockScript::Text(t) if t.contains("Mock (offline demo)")));
+    }
+
+    #[test]
+    fn replies_in_russian_for_cyrillic_input_or_russian_ui() {
+        let tools: Vec<ToolSpec> =
+            ["project_overview", "propose_plan"].iter().map(|t| tool(t, json!({"type": "object"}))).collect();
+        // Cyrillic input → Russian reply, plan requests still recognised.
+        let mut ru = ChatRequest::new("mock-smart", vec![ChatMessage::user("привет")]);
+        ru.tools = tools.clone();
+        assert_eq!(reply_lang(&ru), MockLang::Ru);
+        assert!(matches!(script(&ru), MockScript::Text(t) if t.contains("Здравствуйте") && t.contains("офлайн-демо")));
+        let mut build = ChatRequest::new("mock-smart", vec![ChatMessage::user("Создай модуль hello с тестами")]);
+        build.tools = tools.clone();
+        assert!(matches!(script(&build), MockScript::Tool { name, .. } if name == "propose_plan"));
+        // Russian UI (system-prompt marker) → Russian even for Latin input.
+        let mut ui = ChatRequest::new("mock-smart", vec![ChatMessage::user("hi")]);
+        ui.tools = tools.clone();
+        ui.system = Some(format!("You are the AI Manager.\n{} ru (Russian).", crate::UI_LANGUAGE_MARKER));
+        assert_eq!(reply_lang(&ui), MockLang::Ru);
+        assert!(matches!(script(&ui), MockScript::Text(t) if t.contains("Вы написали: «hi»")));
+        // English UI and Latin input → English.
+        let mut en = ChatRequest::new("mock-smart", vec![ChatMessage::user("hi")]);
+        en.tools = tools;
+        en.system = Some(format!("{} en (English).", crate::UI_LANGUAGE_MARKER));
+        assert_eq!(reply_lang(&en), MockLang::En);
+        assert!(matches!(script(&en), MockScript::Text(t) if t.contains("You said")));
+        // Plain chat without tools follows the same rule.
+        let plain = ChatRequest::new("mock-smart", vec![ChatMessage::user("как дела?")]);
+        assert!(matches!(script(&plain), MockScript::Text(t) if t.starts_with("Здравствуйте")));
+        assert_eq!(narrate("list_dir", &json!({}), MockLang::Ru), "Просматриваю файлы — Mock (офлайн-демо).");
     }
 
     fn tool(name: &str, schema: Value) -> ToolSpec {

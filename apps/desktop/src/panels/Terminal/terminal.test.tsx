@@ -1,8 +1,9 @@
 import type { TerminalSession } from "@orkestr/protocol";
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { commands, matchesShortcut } from "../../features/commands/registry";
+import { applyLanguagePreference } from "../../i18n";
 import { getPanel } from "../registry";
 import TerminalPanel from "./index";
 import {
@@ -143,5 +144,22 @@ describe("terminal wiring", () => {
   it("shows a waiting state without a core connection", () => {
     render(<TerminalPanel projectId={null} />);
     expect(screen.getByText("Waiting for the core")).toBeTruthy();
+  });
+
+  it("speaks Russian after a language switch", async () => {
+    await act(async () => {
+      await applyLanguagePreference("ru");
+    });
+    try {
+      render(<TerminalPanel projectId={null} />);
+      expect(screen.getAllByText("Ожидание ядра").length).toBeGreaterThan(0);
+      expect(commands.find((c) => c.id === "terminal.open")?.title).toBe("Открыть терминал");
+      expect(sessionSubtitle(session({ status: "exited", exitCode: 3 }))).toBe("завершён с кодом 3");
+      expect(sessionSubtitle(session())).toBe("pwsh · PID 42");
+    } finally {
+      await act(async () => {
+        await applyLanguagePreference("en");
+      });
+    }
   });
 });

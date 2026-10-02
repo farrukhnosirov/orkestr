@@ -13,11 +13,27 @@ import { Badge, Button, EmptyState, Input, Spinner } from "@orkestr/ui";
 import { clsx } from "clsx";
 import { FlaskConical, Plus, ShieldAlert, Trash2 } from "lucide-react";
 import { type FormEvent, useCallback, useEffect, useState } from "react";
+import { Trans } from "react-i18next";
 
 import { maybeClient } from "../../core/client";
+import { useT } from "../../i18n";
 import { useAppStore } from "../../store/app";
 import type { SettingsSectionProps } from "../settings/sections";
-import { APPROVAL_MODES, CAPABILITIES, EFFECTS, dangerLabel, effectTone, riskTone, scopeLabel, sortRules } from "./logic";
+import {
+  APPROVAL_MODE_IDS,
+  approvalModeDescription,
+  approvalModeLabel,
+  CAPABILITIES,
+  capabilityLabel,
+  dangerLabel,
+  EFFECTS,
+  effectLabel,
+  effectTone,
+  riskLabel,
+  riskTone,
+  scopeLabel,
+  sortRules,
+} from "./logic";
 import { errorMessage, refreshFlags, useSecurityStore } from "./store";
 
 function useClientReady(): boolean {
@@ -29,6 +45,7 @@ function ModePicker({ projectId }: { projectId: string }) {
   const [mode, setMode] = useState<ModeResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<ApprovalMode | null>(null);
+  const { t } = useT("security");
 
   const load = useCallback(async () => {
     const c = maybeClient();
@@ -59,33 +76,39 @@ function ModePicker({ projectId }: { projectId: string }) {
     }
   };
 
-  if (!mode && !error) return <Spinner label="Loading approval mode" />;
+  if (!mode && !error) return <Spinner label={t("permissions.modeLoading")} />;
   return (
     <div className="sec-modes">
-      <div role="radiogroup" aria-label="Approval mode" className="sec-modes__group">
-        {APPROVAL_MODES.map((m) => {
-          const selected = mode?.projectMode === m.id;
+      <div role="radiogroup" aria-label={t("permissions.modeTitle")} className="sec-modes__group">
+        {APPROVAL_MODE_IDS.map((id) => {
+          const selected = mode?.projectMode === id;
           return (
             <button
-              key={m.id}
+              key={id}
               type="button"
               role="radio"
               aria-checked={selected}
               className={clsx("sec-mode", selected && "sec-mode--selected")}
               disabled={busy !== null}
-              onClick={() => void choose(m.id)}
+              onClick={() => void choose(id)}
             >
               <span className="sec-mode__label">
-                {m.label} {busy === m.id && <Spinner size={12} />}
+                {approvalModeLabel(id)} {busy === id && <Spinner size={12} />}
               </span>
-              <span className="sec-mode__desc">{m.description}</span>
+              <span className="sec-mode__desc">{approvalModeDescription(id)}</span>
             </button>
           );
         })}
       </div>
       {mode && mode.effectiveMode !== mode.projectMode && (
         <p className="sec-hint">
-          <ShieldAlert size={13} /> Effective mode is <strong>{mode.effectiveMode}</strong> — Full Auto is disabled by an emergency control.
+          <ShieldAlert size={13} />{" "}
+          <Trans
+            t={t}
+            i18nKey="permissions.effectiveMode"
+            values={{ mode: approvalModeLabel(mode.effectiveMode) }}
+            components={{ strong: <strong /> }}
+          />
         </p>
       )}
       {error && (
@@ -101,6 +124,7 @@ function EmergencyToggles() {
   const flags = useSecurityStore((s) => s.flags);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { t } = useT("security");
   const toggle = async (which: "emergency.disableFullAuto" | "emergency.disableNetworkTools", disabled: boolean) => {
     const c = maybeClient();
     if (!c) return;
@@ -126,8 +150,8 @@ function EmergencyToggles() {
           onChange={(e) => void toggle("emergency.disableFullAuto", e.target.checked)}
         />
         <span>
-          <strong>Disable Full Auto everywhere</strong>
-          <small>Caps every project at Semi-auto.</small>
+          <strong>{t("permissions.disableFullAuto")}</strong>
+          <small>{t("permissions.disableFullAutoHint")}</small>
         </span>
       </label>
       <label className="sec-toggle">
@@ -138,8 +162,8 @@ function EmergencyToggles() {
           onChange={(e) => void toggle("emergency.disableNetworkTools", e.target.checked)}
         />
         <span>
-          <strong>Disable network tools</strong>
-          <small>Agents get no Network / Browser access.</small>
+          <strong>{t("permissions.disableNetwork")}</strong>
+          <small>{t("permissions.disableNetworkHint")}</small>
         </span>
       </label>
       {error && (
@@ -159,6 +183,7 @@ function RuleForm({ projectId, onSaved }: { projectId: string | null; onSaved: (
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { t } = useT("security");
 
   useEffect(() => {
     if (!projectId) setScopeKind("Global");
@@ -188,48 +213,48 @@ function RuleForm({ projectId, onSaved }: { projectId: string | null; onSaved: (
   };
 
   return (
-    <form className="sec-rule-form" onSubmit={(e) => void submit(e)} aria-label="Add permission rule">
+    <form className="sec-rule-form" onSubmit={(e) => void submit(e)} aria-label={t("permissions.addRuleAria")}>
       <label className="sec-select">
-        <span>Capability</span>
+        <span>{t("permissions.capability")}</span>
         <select value={capability} onChange={(e) => setCapability(e.target.value as Capability)}>
           {CAPABILITIES.map((c) => (
             <option key={c} value={c}>
-              {c}
+              {capabilityLabel(c)}
             </option>
           ))}
         </select>
       </label>
       <label className="sec-select">
-        <span>Effect</span>
+        <span>{t("permissions.effect")}</span>
         <select value={effect} onChange={(e) => setEffect(e.target.value as PermissionEffect)}>
           {EFFECTS.map((x) => (
             <option key={x} value={x}>
-              {x}
+              {effectLabel(x)}
             </option>
           ))}
         </select>
       </label>
       <label className="sec-select">
-        <span>Scope</span>
+        <span>{t("permissions.scope")}</span>
         <select value={scopeKind} onChange={(e) => setScopeKind(e.target.value as "Global" | "Project")}>
-          <option value="Global">Global</option>
+          <option value="Global">{t("scope.global")}</option>
           <option value="Project" disabled={!projectId}>
-            This project
+            {t("scope.thisProject")}
           </option>
         </select>
       </label>
       <Input
         className="sec-rule-form__grow"
-        label="Resource pattern"
-        placeholder="e.g. cargo *, src/**, https://api.example.com/*"
+        label={t("permissions.resourcePattern")}
+        placeholder={t("permissions.resourcePlaceholder")}
         value={resource}
         maxLength={1024}
         onChange={(e) => setResource(e.target.value)}
-        hint="Glob. Empty = any resource."
+        hint={t("permissions.resourceHint")}
       />
-      <Input className="sec-rule-form__grow" label="Note" value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} />
+      <Input className="sec-rule-form__grow" label={t("permissions.note")} value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} />
       <Button type="submit" variant="primary" leftIcon={<Plus size={14} />} loading={busy}>
-        Add rule
+        {t("permissions.addRule")}
       </Button>
       {error && (
         <p className="sec-error sec-rule-form__full" role="alert">
@@ -246,6 +271,7 @@ function RulesTable({ projectId }: { projectId: string | null }) {
   const [rules, setRules] = useState<PermissionRuleRecord[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const { t } = useT(["security", "common"]);
 
   const load = useCallback(async () => {
     const c = maybeClient();
@@ -288,23 +314,23 @@ function RulesTable({ projectId }: { projectId: string | null }) {
         </p>
       )}
       {rules === null && !error ? (
-        <Spinner label="Loading rules" />
+        <Spinner label={t("permissions.rulesLoading")} />
       ) : rules && rules.length === 0 ? (
         <EmptyState
-          title="No custom rules"
-          description="Approval-mode defaults apply. Dangerous actions always ask; forbidden ones are always denied."
+          title={t("permissions.noRulesTitle")}
+          description={t("permissions.noRulesDescription")}
         />
       ) : rules ? (
         <table className="sec-table">
           <thead>
             <tr>
-              <th scope="col">Scope</th>
-              <th scope="col">Capability</th>
-              <th scope="col">Effect</th>
-              <th scope="col">Resource</th>
-              <th scope="col">Note</th>
+              <th scope="col">{t("permissions.scope")}</th>
+              <th scope="col">{t("permissions.capability")}</th>
+              <th scope="col">{t("permissions.effect")}</th>
+              <th scope="col">{t("permissions.resource")}</th>
+              <th scope="col">{t("permissions.note")}</th>
               <th scope="col">
-                <span className="sr-only">Actions</span>
+                <span className="sr-only">{t("permissions.actions")}</span>
               </th>
             </tr>
           </thead>
@@ -312,9 +338,9 @@ function RulesTable({ projectId }: { projectId: string | null }) {
             {rules.map((r) => (
               <tr key={r.id}>
                 <td>{scopeLabel(r.rule.scope, projectName)}</td>
-                <td>{r.rule.capability}</td>
+                <td>{capabilityLabel(r.rule.capability)}</td>
                 <td>
-                  <Badge tone={effectTone(r.rule.effect)}>{r.rule.effect}</Badge>
+                  <Badge tone={effectTone(r.rule.effect)}>{effectLabel(r.rule.effect)}</Badge>
                 </td>
                 <td>
                   <code>{r.rule.resource ?? "*"}</code>
@@ -324,12 +350,15 @@ function RulesTable({ projectId }: { projectId: string | null }) {
                   <Button
                     variant="ghost"
                     size="sm"
-                    aria-label={`Delete rule ${r.rule.capability} ${r.rule.effect}`}
+                    aria-label={t("permissions.deleteRule", {
+                      capability: capabilityLabel(r.rule.capability),
+                      effect: effectLabel(r.rule.effect),
+                    })}
                     loading={deleting === r.id}
                     leftIcon={<Trash2 size={13} />}
                     onClick={() => void remove(r.id)}
                   >
-                    Delete
+                    {t("common:actions.delete")}
                   </Button>
                 </td>
               </tr>
@@ -345,6 +374,7 @@ function CheckTool({ projectId }: { projectId: string | null }) {
   const [command, setCommand] = useState("");
   const [shell, setShell] = useState<CommandShell>("PowerShell");
   const [result, setResult] = useState<DecisionView | null>(null);
+  const { t } = useT("security");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -369,16 +399,16 @@ function CheckTool({ projectId }: { projectId: string | null }) {
   };
 
   return (
-    <form className="sec-check" onSubmit={(e) => void run(e)} aria-label="Test a command against the policy">
+    <form className="sec-check" onSubmit={(e) => void run(e)} aria-label={t("permissions.checkAria")}>
       <Input
         className="sec-rule-form__grow"
-        label="Test a command"
-        placeholder="git push --force"
+        label={t("permissions.checkLabel")}
+        placeholder={t("permissions.checkPlaceholder")}
         value={command}
         onChange={(e) => setCommand(e.target.value)}
       />
       <label className="sec-select">
-        <span>Shell</span>
+        <span>{t("permissions.shell")}</span>
         <select value={shell} onChange={(e) => setShell(e.target.value as CommandShell)}>
           {(["PowerShell", "Cmd", "Bash", "Sh"] as const).map((s) => (
             <option key={s} value={s}>
@@ -388,17 +418,17 @@ function CheckTool({ projectId }: { projectId: string | null }) {
         </select>
       </label>
       <Button type="submit" leftIcon={<FlaskConical size={14} />} loading={busy} disabled={!command.trim()}>
-        Check
+        {t("permissions.check")}
       </Button>
       {result && (
         <div className="sec-check__result sec-rule-form__full" role="status">
           <Badge tone={result.decision === "Allow" ? "success" : result.decision === "Ask" ? "warning" : "danger"}>
-            {result.decision}
+            {t(`decision.${result.decision}`)}
           </Badge>
-          {result.risk && <Badge tone={riskTone(result.risk)}>{result.risk}</Badge>}
+          {result.risk && <Badge tone={riskTone(result.risk)}>{riskLabel(result.risk)}</Badge>}
           {result.danger && <Badge tone="danger">{dangerLabel(result.danger)}</Badge>}
           <span className="sec-muted">
-            {result.message} · mode {result.effectiveMode}
+            {t("permissions.checkResult", { message: result.message, mode: approvalModeLabel(result.effectiveMode) })}
           </span>
         </div>
       )}
@@ -414,32 +444,31 @@ function CheckTool({ projectId }: { projectId: string | null }) {
 /** Settings section "Security & Permissions". */
 export function PermissionsSettings({ projectId }: SettingsSectionProps) {
   const project = useAppStore((s) => s.projects.find((p) => p.id === projectId));
+  const { t } = useT("security");
   return (
     <div className="sec-section">
       <section aria-labelledby="sec-mode-h">
         <h3 id="sec-mode-h" className="sec-h">
-          Approval mode {project ? <span className="sec-muted">· {project.name}</span> : null}
+          {t("permissions.modeTitle")} {project ? <span className="sec-muted">· {project.name}</span> : null}
         </h3>
-        {projectId ? <ModePicker projectId={projectId} /> : <p className="sec-muted">Open a project to set its approval mode.</p>}
+        {projectId ? <ModePicker projectId={projectId} /> : <p className="sec-muted">{t("permissions.openProject")}</p>}
       </section>
       <section aria-labelledby="sec-em-h">
         <h3 id="sec-em-h" className="sec-h">
-          Emergency controls
+          {t("permissions.emergencyTitle")}
         </h3>
         <EmergencyToggles />
       </section>
       <section aria-labelledby="sec-rules-h">
         <h3 id="sec-rules-h" className="sec-h">
-          Permission rules
+          {t("permissions.rulesTitle")}
         </h3>
-        <p className="sec-muted">
-          Narrowest scope wins (Task › Agent › Project › Global); at equal scope Deny beats Ask beats Allow.
-        </p>
+        <p className="sec-muted">{t("permissions.rulesHint")}</p>
         <RulesTable projectId={projectId} />
       </section>
       <section aria-labelledby="sec-check-h">
         <h3 id="sec-check-h" className="sec-h">
-          Dangerous-action guard
+          {t("permissions.guardTitle")}
         </h3>
         <CheckTool projectId={projectId} />
       </section>

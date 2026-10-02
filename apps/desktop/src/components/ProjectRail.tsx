@@ -4,6 +4,7 @@ import { clsx } from "clsx";
 import { Command, Plus } from "lucide-react";
 
 import { openProject } from "../core/client";
+import { useT } from "../i18n";
 import { useAppStore } from "../store/app";
 
 /** Up to two initials for a project tile. */
@@ -43,9 +44,10 @@ export function ProjectRail() {
   const loaded = useAppStore((s) => s.projectsLoaded);
   const setCreateOpen = useAppStore((s) => s.setCreateProjectOpen);
   const setPaletteOpen = useAppStore((s) => s.setPaletteOpen);
+  const { t } = useT("shell");
 
   return (
-    <nav className="rail" aria-label="Projects">
+    <nav className="rail" aria-label={t("rail.label")}>
       <div className="rail__list" role="list">
         {projects.map((p) => {
           const active = p.id === activeId;
@@ -56,7 +58,7 @@ export function ProjectRail() {
                   type="button"
                   className={clsx("rail__tile", active && "rail__tile--active")}
                   style={tileStyle(p)}
-                  aria-label={`Open project ${p.name}`}
+                  aria-label={t("rail.openProject", { name: p.name })}
                   aria-current={active ? "true" : undefined}
                   onClick={() => {
                     if (!active) void openProject(p.id);
@@ -68,15 +70,15 @@ export function ProjectRail() {
             </div>
           );
         })}
-        {loaded && projects.length === 0 && <div className="rail__hint">No projects</div>}
+        {loaded && projects.length === 0 && <div className="rail__hint">{t("rail.empty")}</div>}
       </div>
       <div className="rail__footer">
-        <Tooltip content="New project" side="right">
-          <button type="button" className="rail__add" aria-label="Create project" onClick={() => setCreateOpen(true)}>
+        <Tooltip content={t("rail.newProject")} side="right">
+          <button type="button" className="rail__add" aria-label={t("rail.createProject")} onClick={() => setCreateOpen(true)}>
             <Plus size={18} />
           </button>
         </Tooltip>
-        <IconButton label="Command palette (Ctrl+K)" icon={<Command size={16} />} onClick={() => setPaletteOpen(true)} tooltip="right" />
+        <IconButton label={t("rail.palette")} icon={<Command size={16} />} onClick={() => setPaletteOpen(true)} tooltip="right" />
       </div>
     </nav>
   );

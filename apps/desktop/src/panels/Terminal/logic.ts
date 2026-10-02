@@ -3,6 +3,9 @@
  */
 import type { ShellDescriptor, TerminalSession } from "@orkestr/protocol";
 
+import { t } from "../../i18n";
+import { describeError } from "../../i18n/errors";
+
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
@@ -129,10 +132,10 @@ export function sessionsForProject(all: readonly TerminalSession[], projectId: s
 /** Short label for the tab tooltip / status line. */
 export function sessionSubtitle(s: TerminalSession): string {
   if (s.status === "exited") {
-    return s.exitCode === null ? "exited" : `exited with code ${s.exitCode}`;
+    return s.exitCode === null ? t("terminal:subtitle.exited") : t("terminal:subtitle.exitedCode", { code: s.exitCode });
   }
-  if (s.kind === "commandView") return "agent command output";
-  return s.pid === null ? s.shellId : `${s.shellId} · pid ${s.pid}`;
+  if (s.kind === "commandView") return t("terminal:subtitle.commandView");
+  return s.pid === null ? s.shellId : t("terminal:subtitle.pid", { shell: s.shellId, pid: s.pid });
 }
 
 /** Default shell first, then by name. */
@@ -147,12 +150,16 @@ export function normalizeTitle(input: string): string | null {
   return t;
 }
 
-/** User-facing message for an RPC/client error. */
+/** User-facing message for an RPC/client error (localized code label + core detail). */
 export function errorMessage(e: unknown): string {
-  if (e && typeof e === "object" && "message" in e && typeof (e as { message: unknown }).message === "string") {
-    return (e as { message: string }).message;
-  }
-  return String(e);
+  return describeError(e);
+}
+
+/** Whether an error means "the session is already gone" (closing it then is fine). */
+export function isNotFound(e: unknown): boolean {
+  if (e && typeof e === "object" && "code" in e && (e as { code: unknown }).code === "not_found") return true;
+  const raw = e && typeof e === "object" && "message" in e ? (e as { message: unknown }).message : null;
+  return typeof raw === "string" && /not found/i.test(raw);
 }
 
 /** Next tab to activate after closing `closingId`. */

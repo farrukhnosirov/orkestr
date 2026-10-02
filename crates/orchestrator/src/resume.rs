@@ -190,6 +190,7 @@ impl Manager {
             tasks_in_progress: in_progress,
             tasks_failed: failed,
             tasks_blocked: blocked,
+            tasks_cancelled: cancelled,
             percent_complete: pct,
             goals,
             issues,

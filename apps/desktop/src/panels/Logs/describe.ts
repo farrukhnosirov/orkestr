@@ -1,5 +1,8 @@
 import type { Event, EventKindName } from "@orkestr/protocol";
 
+import { formatCurrency, formatDuration, t } from "../../i18n";
+import { agentActivity, agentName, snapshotLabel } from "../../lib/coreText";
+
 export type EventCategory = "project" | "task" | "agent" | "tool" | "build" | "approval" | "provider" | "system" | "log";
 export type EventSeverity = "info" | "success" | "warning" | "error";
 
@@ -78,100 +81,170 @@ export function severityOf(event: Event): EventSeverity {
 
 const short = (id: string | null | undefined) => (id ? id.slice(-6) : "—");
 
-/** One-line human description of an event. */
+/** Localized task status (falls back to the raw value). */
+function taskStatus(status: string): string {
+  return t(`common:status.task.${status}` as "common:status.task.Running", { defaultValue: status });
+}
+
+/** Localized agent state (falls back to the raw value). */
+function agentState(state: string): string {
+  return t(`common:status.agent.${state}` as "common:status.agent.Idle", { defaultValue: state });
+}
+
+/** Localized label of a budget scope string sent by the core ("project", "task", …; falls back to the raw value). */
+function budgetScope(scope: string): string {
+  return t(`logs:enums.budgetScope.${scope.toLowerCase()}` as "logs:enums.budgetScope.project", { defaultValue: scope });
+}
+
+const FILE_CHANGE_KEY = {
+  Created: "events:fileCreated",
+  Modified: "events:fileModified",
+  Deleted: "events:fileDeleted",
+  Renamed: "events:fileRenamed",
+} as const;
+
+/** One-line human description of an event, in the current UI language. */
 export function describeEvent(event: Event): string {
   switch (event.kind) {
     case "ProjectCreated":
-      return `Project “${event.payload.project.name}” created`;
+      return t("events:projectCreated", { name: event.payload.project.name });
     case "ProjectUpdated":
-      return `Project “${event.payload.project.name}” updated`;
+      return t("events:projectUpdated", { name: event.payload.project.name });
     case "ProjectDeleted":
-      return `Project …${short(event.payload.projectId)} deleted`;
+      return t("events:projectDeleted", { id: short(event.payload.projectId) });
     case "TaskCreated":
-      return `Task “${event.payload.task.title}” created`;
+      return t("events:taskCreated", { title: event.payload.task.title });
     case "TaskUpdated":
-      return `Task “${event.payload.task.title}” updated`;
+      return t("events:taskUpdated", { title: event.payload.task.title });
     case "TaskStatusChanged":
-      return `Task …${short(event.payload.taskId)}: ${event.payload.from} → ${event.payload.to}`;
+      return t("events:taskStatusChanged", {
+        id: short(event.payload.taskId),
+        from: taskStatus(event.payload.from),
+        to: taskStatus(event.payload.to),
+      });
     case "TaskDeleted":
-      return `Task …${short(event.payload.taskId)} deleted`;
+      return t("events:taskDeleted", { id: short(event.payload.taskId) });
     case "AgentSpawned":
-      return `Agent “${event.payload.agent.name}” spawned`;
+      return t("events:agentSpawned", { name: agentName(event.payload.agent.name) });
     case "AgentStarted":
-      return `Agent …${short(event.payload.agentId)} started`;
-    case "AgentStateChanged":
-      return `Agent …${short(event.payload.agentId)}: ${event.payload.from} → ${event.payload.to}${event.payload.activity ? ` (${event.payload.activity})` : ""}`;
+      return t("events:agentStarted", { id: short(event.payload.agentId) });
+    case "AgentStateChanged": {
+      const vars = { id: short(event.payload.agentId), from: agentState(event.payload.from), to: agentState(event.payload.to) };
+      return event.payload.activity
+        ? t("events:agentStateChangedActivity", { ...vars, activity: agentActivity(event.payload.activity) })
+        : t("events:agentStateChanged", vars);
+    }
     case "AgentStopped":
-      return `Agent …${short(event.payload.agentId)} stopped (${event.payload.reason})`;
+      return t("events:agentStopped", { id: short(event.payload.agentId), reason: t(`logs:enums.stopReason.${event.payload.reason}`) });
     case "AgentMessage":
     case "ManagerMessage":
-      return event.payload.delta.trim() || "(message)";
+      return event.payload.delta.trim() || t("events:message");
     case "ToolCallStarted":
-      return `Tool ${event.payload.toolCall.tool} started`;
+      return t("events:toolStarted", { tool: event.payload.toolCall.tool });
     case "ToolCallFinished":
-      return `Tool call …${short(event.payload.toolCallId)} ${event.payload.status} in ${event.payload.durationMs} ms`;
+      return t("events:toolFinished", {
+        id: short(event.payload.toolCallId),
+        status: t(`logs:enums.toolStatus.${event.payload.status}`),
+        duration: formatDuration(event.payload.durationMs),
+      });
     case "FileChanged":
-      return `${event.payload.change}: ${event.payload.path}`;
+      return t(FILE_CHANGE_KEY[event.payload.change], { path: event.payload.path, oldPath: event.payload.oldPath ?? "?" });
     case "BuildStarted":
-      return `Build started: ${event.payload.command}`;
+      return t("events:buildStarted", { command: event.payload.command });
     case "BuildFailed":
-      return `Build failed: ${event.payload.summary}`;
+      return t("events:buildFailed", { summary: event.payload.summary });
     case "BuildSucceeded":
-      return `Build succeeded in ${event.payload.durationMs} ms`;
+      return t("events:buildSucceeded", { duration: formatDuration(event.payload.durationMs) });
     case "TestRunFinished":
-      return `Tests: ${event.payload.passed} passed, ${event.payload.failed} failed, ${event.payload.skipped} skipped`;
+      return t("events:testsFinished", {
+        passed: event.payload.passed,
+        failed: event.payload.failed,
+        skipped: event.payload.skipped,
+      });
     case "ReviewFinished":
-      return `Review ${event.payload.verdict}: ${event.payload.summary}`;
+      return t("events:reviewFinished", { verdict: t(`logs:enums.reviewVerdict.${event.payload.verdict}`), summary: event.payload.summary });
     case "ApprovalRequested":
-      return `Approval requested: ${event.payload.approval.actionSummary}`;
+      return t("events:approvalRequested", { summary: event.payload.approval.actionSummary });
     case "ApprovalResolved":
-      return `Approval …${short(event.payload.approvalId)} ${event.payload.status}`;
+      return t("events:approvalResolved", {
+        id: short(event.payload.approvalId),
+        status: t(`common:status.approval.${event.payload.status}`),
+      });
     case "ProviderStatusChanged":
-      return `Provider …${short(event.payload.providerId)} ${event.payload.health}`;
+      return t("events:providerStatus", {
+        id: short(event.payload.providerId),
+        health: t(`common:status.health.${event.payload.health}`),
+      });
     case "ProviderRateLimited":
-      return `Provider …${short(event.payload.providerId)} rate limited${event.payload.retryAfterSecs != null ? ` (retry in ${event.payload.retryAfterSecs}s)` : ""}`;
+      return event.payload.retryAfterSecs != null
+        ? t("events:providerRateLimitedRetry", { id: short(event.payload.providerId), seconds: event.payload.retryAfterSecs })
+        : t("events:providerRateLimited", { id: short(event.payload.providerId) });
     case "ProviderFallback":
-      return `Fallback ${event.payload.from.model} → ${event.payload.to.model}: ${event.payload.reason}`;
+      return t("events:providerFallback", {
+        from: event.payload.from.model,
+        to: event.payload.to.model,
+        reason: event.payload.reason,
+      });
     case "BudgetThreshold":
-      return `Budget ${event.payload.scope}: $${event.payload.spentUsd.toFixed(2)} of $${event.payload.limitUsd.toFixed(2)}`;
+      return t("events:budgetThreshold", {
+        scope: budgetScope(event.payload.scope),
+        spent: formatCurrency(event.payload.spentUsd),
+        limit: formatCurrency(event.payload.limitUsd),
+      });
     case "SnapshotCreated":
-      return `Snapshot “${event.payload.snapshot.label}” created`;
+      return t("events:snapshotCreated", { label: snapshotLabel(event.payload.snapshot.label) });
     case "RollbackPerformed":
-      return `Rollback (${event.payload.scope}): ${event.payload.filesRestored} files restored`;
+      return t("events:rollbackPerformed", { scope: t(`logs:enums.rollbackScope.${event.payload.scope}`), count: event.payload.filesRestored });
     case "TerminalOutput":
-      return event.payload.data.replace(/\s+/g, " ").trim().slice(0, 200) || "(output)";
+      return event.payload.data.replace(/\s+/g, " ").trim().slice(0, 200) || t("events:output");
     case "TerminalExited":
-      return `Terminal …${short(event.payload.terminalId)} exited (${event.payload.exitCode ?? "?"})`;
+      return t("events:terminalExited", { id: short(event.payload.terminalId), code: event.payload.exitCode ?? "?" });
     case "NodeStatus":
-      return `Node ${event.payload.node.name}: ${event.payload.node.status}`;
+      return t("events:nodeStatus", { name: event.payload.node.name, status: t(`logs:enums.nodeStatus.${event.payload.node.status}`) });
     case "NodeOffline":
-      return `Node …${short(event.payload.nodeId)} offline`;
+      return t("events:nodeOffline", { id: short(event.payload.nodeId) });
     case "SyncCompleted":
-      return `Sync (${event.payload.backend}): ${event.payload.items} items`;
+      return t("events:syncCompleted", { backend: event.payload.backend, count: event.payload.items });
     case "DeploymentFinished":
-      return `Deployment ${event.payload.deployment.status}`;
+      return t("events:deploymentFinished", { status: t(`logs:enums.deploymentStatus.${event.payload.deployment.status}`) });
     case "MemoryUpdated":
-      return `Memory “${event.payload.item.title}” ${event.payload.deleted ? "deleted" : "updated"}`;
+      return event.payload.deleted
+        ? t("events:memoryDeleted", { title: event.payload.item.title })
+        : t("events:memoryUpdated", { title: event.payload.item.title });
     case "DecisionRecorded":
-      return `Decision: ${event.payload.decision.title}`;
+      return t("events:decisionRecorded", { title: event.payload.decision.title });
     case "EmergencyStop":
-      return `EMERGENCY STOP (${event.payload.scope.scope}): ${event.payload.agentsStopped} agents stopped`;
+      return t("events:emergencyStop", { scope: t(`logs:enums.emergencyScope.${event.payload.scope.scope}`), count: event.payload.agentsStopped });
     case "Notification":
-      return `${event.payload.notification.title}: ${event.payload.notification.body}`;
+      return t("events:notification", { title: event.payload.notification.title, body: event.payload.notification.body });
     case "Log":
       return event.payload.message || event.payload.target;
     case "SettingsChanged":
-      return `Settings changed: ${event.payload.changed.join(", ")}`;
+      return t("events:settingsChanged", { keys: event.payload.changed.join(", ") });
     case "AgentUpdated":
-      return `Agent “${event.payload.agent.name}” updated (${event.payload.agent.state}, ${event.payload.agent.turnsUsed} turns)`;
-    case "ManagerMessageAdded":
-      return `Manager conversation: ${event.payload.message.role === "User" ? "you" : event.payload.message.role === "Manager" ? "Manager reply" : "event"} — ${event.payload.message.text.slice(0, 120)}`;
+      return t("events:agentUpdated", {
+        name: agentName(event.payload.agent.name),
+        state: agentState(event.payload.agent.state),
+        count: event.payload.agent.turnsUsed,
+      });
+    case "ManagerMessageAdded": {
+      const role = event.payload.message.role;
+      const who = role === "User" ? "user" : role === "Manager" ? "manager" : "event";
+      return t("events:managerMessage", {
+        who: t(`events:managerWho.${who}`),
+        text: event.payload.message.text.slice(0, 120),
+      });
+    }
     case "ManagerPlanUpdated":
-      return `Manager plan “${event.payload.plan.goal}” ${event.payload.plan.status.toLowerCase()} (${event.payload.plan.tasks.length} tasks)`;
+      return t("events:managerPlan", {
+        goal: event.payload.plan.goal,
+        status: t(`logs:enums.planStatus.${event.payload.plan.status}`),
+        count: event.payload.plan.tasks.length,
+      });
     case "ManagerRunUpdated": {
       const r = event.payload.run;
-      const done = r.tasks.filter((t) => t.status === "Completed").length;
-      return `Manager run ${r.status.toLowerCase()}: ${done}/${r.tasks.length} tasks done`;
+      const done = r.tasks.filter((x) => x.status === "Completed").length;
+      return t("events:managerRun", { status: t(`logs:enums.runStatus.${r.status}`), done, total: r.tasks.length });
     }
   }
 }

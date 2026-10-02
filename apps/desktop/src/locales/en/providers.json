@@ -1,0 +1,267 @@
+{
+  "sections": {
+    "providers": "AI Providers",
+    "manager": "AI Manager"
+  },
+  "commands": {
+    "group": "AI Providers",
+    "open": "Open AI Providers settings",
+    "manager": "Open AI Manager settings",
+    "checkAll": "Check health of all AI providers"
+  },
+  "intro": "Connect AI services through official mechanisms only: API keys (kept in the OS secret vault), the official Claude Code and Codex CLIs with your own login, or local endpoints such as Ollama. Prices shown are estimates.",
+  "connecting": "Connecting to the Orkestr core…",
+  "connectingHint": "Provider settings load once the core is reachable.",
+  "loadFailed": "Could not load providers",
+  "loading": "Loading providers",
+  "noKinds": "No provider kinds available",
+  "status": {
+    "disabled": "Disabled",
+    "circuitOpen": "Paused after failures",
+    "notInstalled": "Not installed",
+    "notConfigured": "Not configured",
+    "authProblem": "Sign-in problem",
+    "connected": "Connected",
+    "reachable": "Reachable",
+    "rateLimited": "Rate limited",
+    "quotaExhausted": "Quota exhausted",
+    "degraded": "Degraded",
+    "unreachable": "Unreachable",
+    "checking": "Checking…"
+  },
+  "auth": {
+    "state": {
+      "Authenticated": "Signed in",
+      "Unverified": "Not verified yet",
+      "Unconfigured": "Not configured",
+      "Invalid": "Invalid"
+    },
+    "apiKey": "API key",
+    "noCredentials": "no credentials needed (offline demo)",
+    "noApiKey": "no API key (endpoint without authentication)",
+    "localEndpoint": "local endpoint (Ollama {{version}})",
+    "cliSession": "CLI session (managed by {{cli}})",
+    "notConfigured": "not configured",
+    "notInstalled": "not installed (`{{binary}}` was not found on PATH)",
+    "invalid": "invalid: {{reason}}",
+    "unreachable": "unreachable: {{reason}}"
+  },
+  "kinds": {
+    "OpenAi": {
+      "description": "OpenAI API (Chat Completions, streaming, tools, structured output).",
+      "signInNote": "ChatGPT account sign-in is not offered to third-party apps. Use an API key, or the Codex CLI for subscription access."
+    },
+    "Anthropic": {
+      "description": "Anthropic Messages API (streaming, tool use).",
+      "signInNote": "Claude subscription access goes through the official Claude Code CLI provider."
+    },
+    "Gemini": {
+      "description": "Gemini API (streamGenerateContent, function calling)."
+    },
+    "DeepSeek": {
+      "description": "DeepSeek API (OpenAI-compatible)."
+    },
+    "Ollama": {
+      "description": "Local models via Ollama — nothing leaves this machine."
+    },
+    "OpenAiCompatible": {
+      "name": "OpenAI-compatible",
+      "description": "Any OpenAI-compatible endpoint (LM Studio, vLLM, gateways) with an optional key and headers."
+    },
+    "Custom": {
+      "name": "OpenAI-compatible",
+      "description": "Any OpenAI-compatible endpoint (LM Studio, vLLM, gateways) with an optional key and headers."
+    },
+    "ClaudeCode": {
+      "description": "The official Claude Code CLI with your own signed-in session (subscription or API).",
+      "loginInstructions": "Install the official CLI (npm install -g @anthropic-ai/claude-code), run `claude` in a terminal and complete its login (/login). Orkestr never reads the CLI's credentials."
+    },
+    "Codex": {
+      "description": "The official Codex CLI with your own signed-in session (ChatGPT plan or API key login).",
+      "loginInstructions": "Install the official CLI (npm install -g @openai/codex), then run `codex login` in a terminal. Orkestr never reads the CLI's credentials."
+    },
+    "Mock": {
+      "name": "Mock (offline demo)",
+      "description": "Deterministic offline demo provider: scripted plans, tool calls and structured output. No network, no keys."
+    }
+  },
+  "badges": {
+    "local": "Local",
+    "apiKey": "API key",
+    "keyOptional": "Key optional",
+    "officialCli": "Official CLI",
+    "codingAgent": "Coding agent",
+    "offlineDemo": "Offline demo",
+    "detected": "Detected",
+    "notInstalled": "Not installed"
+  },
+  "card": {
+    "loginVia": "Sign in via the {{name}} CLI:",
+    "connectKind": "Connect {{name}}",
+    "addKind": "Add {{name}}",
+    "addAnother": "Add another"
+  },
+  "form": {
+    "name": "Name",
+    "apiKey": "API key",
+    "apiKeyOptional": "API key (optional)",
+    "apiKeyHint": "Stored in the OS secret vault. Never shown again and never logged.",
+    "apiKeyRequired": "Paste your API key. It is stored in the OS secret vault, never in the database.",
+    "baseUrl": "Base URL",
+    "baseUrlPlaceholder": "https://…",
+    "baseUrlDefault": "Default: {{url}}",
+    "defaultModel": "Default model",
+    "modelPlaceholder": "model id",
+    "cliNote": "Orkestr runs the official <code>{{binary}}</code> CLI with your own signed-in session. Credentials stay with the CLI.",
+    "connect": "Connect",
+    "addProvider": "Add provider",
+    "headers": "Custom headers (non-secret)",
+    "headerName": "Header {{index}} name",
+    "headerValue": "Header {{index}} value",
+    "headerNamePlaceholder": "X-Team",
+    "headerValuePlaceholder": "value",
+    "removeHeader": "Remove header {{index}}",
+    "addHeader": "Add header"
+  },
+  "instance": {
+    "hideDetails": "Hide details",
+    "showDetails": "Show details",
+    "auth": "Auth:",
+    "latency": "Latency:",
+    "model": "Model:",
+    "version": "Version:",
+    "subscription": "Subscription (usage is tracked, cost is not metered)",
+    "test": "Test connection",
+    "recheck": "Check health again",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "deleteWithKey": "Delete with its key",
+    "keep": "Keep",
+    "deleteNamed": "Delete {{name}}",
+    "testOk": "✓ {{model}} answered in {{latency}}",
+    "testSample": " — “{{sample}}”",
+    "testCost": " · ≈ {{cost}}",
+    "testFailed": "✗ {{errorClass}}: {{message}}",
+    "errorFallback": "error"
+  },
+  "settings": {
+    "replaceKey": "Replace API key",
+    "storedPlaceholder": "•••••••• (stored)",
+    "pastePlaceholder": "paste the key",
+    "saveKey": "Save key",
+    "removeKey": "Remove key",
+    "keySaved": "API key saved to the secret vault.",
+    "keyRemoved": "API key removed.",
+    "baseUrlUpdated": "Base URL updated.",
+    "modelUpdated": "Default model updated."
+  },
+  "models": {
+    "title": "Models",
+    "refresh": "Refresh models",
+    "loading": "Loading models",
+    "empty": "The provider did not report any models. Type a model id into “Default model”.",
+    "listLabel": "Available models",
+    "meta": "{{window}} context · {{price}}",
+    "local": "local",
+    "pricing": "{{input}} / {{output}} per 1M tokens (est.)",
+    "noPrice": "no list price"
+  },
+  "picker": {
+    "provider": "{{label}} — provider",
+    "model": "{{label}} — model",
+    "none": "— none —",
+    "chooseProvider": "Choose a provider…",
+    "disabledOption": "{{name}} (disabled)",
+    "modelPlaceholder": "model id",
+    "pickProviderFirst": "pick a provider first"
+  },
+  "validation": {
+    "headerName": "Invalid header name “{{name}}”.",
+    "emptyName": "(empty)",
+    "credentialHeader": "“{{name}}” carries a credential. Use the API key field instead (it is stored in the secret vault).",
+    "headerLineBreak": "Header “{{name}}” contains a line break.",
+    "baseUrl": "Use a full http:// or https:// URL.",
+    "managerModel": "Choose a model for the Manager.",
+    "parallelAgents": "Max parallel agents must be a whole number from {{min}} to {{max}}.",
+    "budget": "The budget cannot be negative.",
+    "timeLimit": "The time limit must be from 1 to 1440 minutes.",
+    "fallbackModel": "Every fallback entry needs a model.",
+    "fallbackLimit": "The fallback chain can hold at most {{max}} models.",
+    "routingModel": "Every routing rule needs a model."
+  },
+  "unknownProvider": "Unknown provider",
+  "purposes": {
+    "Manager": "Manager",
+    "Architect": "Architect",
+    "Backend": "Backend",
+    "Frontend": "Frontend",
+    "Database": "Database",
+    "QA": "QA",
+    "Security": "Security",
+    "DevOps": "DevOps",
+    "Reviewer": "Reviewer",
+    "Classification": "Classification",
+    "Summarization": "Summarization",
+    "custom": "Custom role {{index}}"
+  },
+  "manager": {
+    "loadFailed": "Could not load Manager settings",
+    "loading": "Loading Manager settings",
+    "saved": "Saved.",
+    "intro": "The AI Manager plans the work, spawns agents and reviews their results. Choose its model, its limits and what happens when a provider is rate-limited or out of quota. Every model switch is announced.",
+    "noProviders": "No providers yet. Add one under “AI Providers” first.",
+    "modelTitle": "Orchestration model",
+    "managerLabel": "Manager",
+    "reasoning": "Reasoning level",
+    "reasoningLevels": {
+      "Low": "Low — fastest",
+      "Medium": "Medium",
+      "High": "High — most thorough"
+    },
+    "contextPolicy": "Context policy",
+    "contextPolicies": {
+      "Minimal": "Minimal",
+      "Balanced": "Balanced",
+      "Full": "Full"
+    },
+    "approvalPolicy": "Approval policy",
+    "approvalHint": "Dangerous actions always ask.",
+    "maxParallel": "Max parallel agents",
+    "budget": "Budget per run (USD)",
+    "budgetPlaceholder": "unlimited",
+    "timeLimit": "Time limit (minutes)",
+    "timeLimitPlaceholder": "none",
+    "instructions": "System instructions",
+    "instructionsPlaceholder": "Extra guidance for the Manager, e.g. “Prefer small PRs and always add tests.”",
+    "fallbackTitle": "Fallback chain",
+    "fallbackHint": "Tried in order, with a structured handoff, when the main model is rate-limited, out of quota or failing.",
+    "noFallbacks": "No fallbacks: a failure stops the run and asks you what to do.",
+    "fallbackOrder": "Fallback order",
+    "moveUp": "Move {{model}} up",
+    "moveDown": "Move {{model}} down",
+    "remove": "Remove {{model}}",
+    "addFallback": "Add fallback",
+    "addToChain": "Add to chain",
+    "routingTitle": "Routing",
+    "routingMode": "Mode",
+    "routingModes": {
+      "Manual": "Manual",
+      "Auto": "Automatic"
+    },
+    "routingAutoHint": "Scores capability, cost, latency and limits; rules get a boost.",
+    "routingManualHint": "Uses the table below exactly.",
+    "maxWait": "Max rate-limit wait (s)",
+    "preferLocal": "Prefer local models",
+    "noRules": "No routing rules: every role uses the Manager’s choices.",
+    "noRulesAuto": "No routing rules: every role uses the Manager’s choices and automatic scoring.",
+    "colPurpose": "Role / task",
+    "colModel": "Model",
+    "colActions": "Actions",
+    "rulePurpose": "Purpose of rule {{index}}",
+    "rule": "Rule {{index}}",
+    "removeRule": "Remove rule “{{purpose}}”",
+    "addRule": "Add routing rule",
+    "unsaved": "Unsaved changes",
+    "revert": "Revert"
+  }
+}

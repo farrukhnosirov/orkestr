@@ -8,6 +8,7 @@ import { topic } from "@orkestr/protocol";
 import { create } from "zustand";
 
 import { getClient } from "../../core/client";
+import { describeError } from "../../i18n/errors";
 
 export interface SystemState {
   system: SystemInfo | null;
@@ -25,7 +26,7 @@ export interface SystemState {
   watchResources: () => () => void;
 }
 
-const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
+const msg = (e: unknown) => describeError(e);
 
 export const useSystemStore = create<SystemState>()((set, get) => ({
   system: null,

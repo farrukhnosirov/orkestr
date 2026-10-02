@@ -8,6 +8,7 @@ import { Camera, GitCommitHorizontal, RotateCcw } from "lucide-react";
 import { getClient } from "../../core/client";
 import { workspaceActions } from "../../components/workspaceActions";
 import type { AppCommand, CommandContext } from "../../features/commands/registry";
+import { formatDate, t } from "../../i18n";
 import { useAppStore } from "../../store/app";
 import { useGitUi } from "./state";
 
@@ -27,18 +28,20 @@ function openGit(tab: "changes" | "snapshots", intent: "commit" | "rollback" | n
 export const GIT_COMMANDS: AppCommand[] = [
   {
     id: "snapshots.create",
-    title: "Create Snapshot",
+    get title() {
+      return t("git:commands.createSnapshot");
+    },
     group: "Git",
     icon: Camera,
-    keywords: ["checkpoint", "backup", "save state", "снимок"],
+    keywords: ["snapshot", "checkpoint", "backup", "save state", "снимок", "сделать снимок", "резервная копия"],
     enabled: hasRepoProject,
     run: async (ctx) => {
       if (!ctx.projectId) return;
       const worktree = useGitUi.getState().worktrees[ctx.projectId] ?? null;
-      const stamp = new Date().toLocaleString();
+      const stamp = formatDate(new Date(), "dateTime");
       await getClient().call("snapshots.create", {
         projectId: ctx.projectId,
-        label: `Snapshot ${stamp}`,
+        label: t("git:commands.snapshotLabel", { date: stamp }),
         ...(worktree ? { workspacePath: worktree } : {}),
       });
       openGit("snapshots", null);
@@ -46,19 +49,23 @@ export const GIT_COMMANDS: AppCommand[] = [
   },
   {
     id: "snapshots.rollbackWorkspace",
-    title: "Rollback Workspace…",
+    get title() {
+      return t("git:commands.rollback");
+    },
     group: "Git",
     icon: RotateCcw,
-    keywords: ["restore", "undo", "revert", "откат"],
+    keywords: ["rollback", "roll back", "restore", "undo", "revert", "откат", "откатить", "восстановить"],
     enabled: hasRepoProject,
     run: () => openGit("snapshots", "rollback"),
   },
   {
     id: "vcs.commit",
-    title: "Commit…",
+    get title() {
+      return t("git:commands.commit");
+    },
     group: "Git",
     icon: GitCommitHorizontal,
-    keywords: ["git", "save", "коммит"],
+    keywords: ["git", "commit", "save", "коммит", "закоммитить", "сделать коммит"],
     enabled: hasRepoProject,
     run: () => openGit("changes", "commit"),
   },

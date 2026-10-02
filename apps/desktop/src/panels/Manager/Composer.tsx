@@ -8,8 +8,10 @@ import type { ChatAttachment, ManagerRequestOptions, ModelRef } from "@orkestr/p
 import { Button, IconButton, Kbd } from "@orkestr/ui";
 import { FileCode, SendHorizontal, X } from "lucide-react";
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
+import { Trans } from "react-i18next";
 
 import { ModelPicker, useProvidersLive } from "../../features/providers";
+import { useT } from "../../i18n";
 import { EMPTY_EXPERT, type ExpertFields, attachmentLabel, buildOptions, composerKeyAction } from "./model";
 
 export interface ComposerProps {
@@ -27,6 +29,7 @@ export interface ComposerProps {
 const MAX = 20_000;
 
 export function Composer({ disabled, busy, expert, focusNonce, text, onText, attachment, onClearAttachment, onSend }: ComposerProps) {
+  const { t } = useT("manager");
   const area = useRef<HTMLTextAreaElement>(null);
   const [fields, setFields] = useState<ExpertFields>(EMPTY_EXPERT);
   const [model, setModel] = useState<ModelRef | null>(null);
@@ -93,18 +96,18 @@ export function Composer({ disabled, busy, expert, focusNonce, text, onText, att
   return (
     <div className="mgr-composer">
       {expert && (
-        <div className="mgr-expert" role="group" aria-label="Expert options for this request">
-          <ModelPicker label="Model for this request" value={model} onChange={setModel} providers={providers} allowNone />
-          {field("budgetUsd", "Budget $", "Manager default")}
-          {field("maxParallelAgents", "Parallel agents", "default")}
-          {field("timeLimitMins", "Time limit (min)", "none")}
+        <div className="mgr-expert" role="group" aria-label={t("composer.expertGroup")}>
+          <ModelPicker label={t("composer.model")} value={model} onChange={setModel} providers={providers} allowNone />
+          {field("budgetUsd", t("composer.budget"), t("composer.budgetPlaceholder"))}
+          {field("maxParallelAgents", t("composer.parallel"), t("composer.parallelPlaceholder"))}
+          {field("timeLimitMins", t("composer.timeLimit"), t("composer.timeLimitPlaceholder"))}
         </div>
       )}
       {attachment && (
         <div className="mgr-attachment">
           <FileCode size={13} aria-hidden="true" />
           <span title={attachment.text.slice(0, 400)}>{attachmentLabel(attachment)}</span>
-          <IconButton size="sm" label="Remove attachment" icon={<X size={12} />} onClick={onClearAttachment} />
+          <IconButton size="sm" label={t("composer.removeAttachment")} icon={<X size={12} />} onClick={onClearAttachment} />
         </div>
       )}
       <div className="mgr-composer__row">
@@ -115,13 +118,13 @@ export function Composer({ disabled, busy, expert, focusNonce, text, onText, att
           value={text}
           maxLength={MAX}
           disabled={disabled}
-          aria-label="Message to the AI Manager"
-          placeholder={disabled ? "Open a project to talk to the Manager" : "Ask the Manager to build, fix or explain something…"}
+          aria-label={t("composer.inputLabel")}
+          placeholder={disabled ? t("composer.placeholderNoProject") : t("composer.placeholder")}
           onChange={(e) => onText(e.target.value)}
           onKeyDown={onKeyDown}
         />
-        <Button variant="primary" leftIcon={<SendHorizontal size={14} />} disabled={!canSend} loading={sending} onClick={() => void send()} aria-label="Send">
-          Send
+        <Button variant="primary" leftIcon={<SendHorizontal size={14} />} disabled={!canSend} loading={sending} onClick={() => void send()} aria-label={t("composer.send")}>
+          {t("composer.send")}
         </Button>
       </div>
       <div className="mgr-composer__hint">
@@ -130,10 +133,10 @@ export function Composer({ disabled, busy, expert, focusNonce, text, onText, att
             {error}
           </span>
         ) : busy ? (
-          <span className="mgr-muted">The Manager is answering…</span>
+          <span className="mgr-muted">{t("composer.answering")}</span>
         ) : (
           <span className="mgr-muted">
-            <Kbd>Enter</Kbd> send · <Kbd>Shift</Kbd>+<Kbd>Enter</Kbd> new line · <Kbd>Ctrl</Kbd>+<Kbd>Enter</Kbd> send
+            <Trans t={t} i18nKey="composer.hint" components={{ kbd: <Kbd /> }} />
           </span>
         )}
       </div>

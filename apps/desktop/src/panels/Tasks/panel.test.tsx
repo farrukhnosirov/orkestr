@@ -2,6 +2,7 @@ import type { Event, Task, TaskGraph } from "@orkestr/protocol";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { applyLanguagePreference } from "../../i18n";
 import { useAppStore } from "../../store/app";
 import { useTasksUi } from "./store";
 
@@ -163,7 +164,7 @@ describe("TasksPanel", () => {
     useTasksUi.setState({ view: "graph" });
     render(<TasksPanel projectId={PROJECT} />);
     await screen.findByRole("region", { name: "Task dependency graph" });
-    expect(screen.getByText(/Critical path: 2m · 2 tasks/)).toBeTruthy();
+    expect(screen.getByText(/Critical path: 2\smin · 2 tasks/)).toBeTruthy();
     await screen.findByText("Design schema");
     vi.unstubAllGlobals();
   });
@@ -173,7 +174,46 @@ describe("TasksPanel", () => {
     render(<TasksPanel projectId={PROJECT} />);
     await screen.findByText("Design schema");
     expect(screen.getByRole("region", { name: "Task board" })).toBeTruthy();
-    expect(screen.getByLabelText("Ready, 1 tasks")).toBeTruthy();
-    expect(screen.getByLabelText("Backlog, 1 tasks")).toBeTruthy();
+    expect(screen.getByLabelText("Ready, 1 task")).toBeTruthy();
+    expect(screen.getByLabelText("Backlog, 1 task")).toBeTruthy();
+  });
+});
+
+describe("TasksPanel in Russian", () => {
+  beforeEach(async () => {
+    calls.length = 0;
+    useAppStore.getState().setConnection({ state: "open" });
+    useTasksUi.setState({ view: "list", selectedTaskId: null, createOpen: false, toasts: [] });
+    await act(async () => {
+      await applyLanguagePreference("ru");
+    });
+  });
+  afterEach(async () => {
+    cleanup();
+    await act(async () => {
+      await applyLanguagePreference("en");
+    });
+  });
+
+  it("renders the list, statuses, plurals and transitions in Russian", async () => {
+    render(<TasksPanel projectId={PROJECT} />);
+    await screen.findByText("Design schema");
+    expect(screen.getByText("2 задачи")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Новая задача" })).toBeTruthy();
+    expect(screen.getByText("Готова к работе")).toBeTruthy();
+    expect(screen.getByText("Высокий")).toBeTruthy();
+    fireEvent.click(screen.getByText("Design schema"));
+    await screen.findByRole("complementary", { name: "Задача Design schema" });
+    expect(screen.getByRole("button", { name: "Запустить" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Завершить" })).toBeNull();
+  });
+
+  it("names board columns with the right case after numerals", async () => {
+    useTasksUi.setState({ view: "board" });
+    render(<TasksPanel projectId={PROJECT} />);
+    await screen.findByText("Design schema");
+    expect(screen.getByLabelText("Готовы к работе, 1 задача")).toBeTruthy();
+    expect(screen.getByLabelText("Бэклог, 1 задача")).toBeTruthy();
+    expect(screen.getByLabelText("В работе, 0 задач")).toBeTruthy();
   });
 });

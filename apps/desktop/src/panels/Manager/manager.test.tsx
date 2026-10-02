@@ -2,6 +2,7 @@ import type { Event, ManagerChatMessage, ManagerConfig, ManagerPlan, ManagerRun,
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { applyLanguagePreference } from "../../i18n";
 import { useAppStore } from "../../store/app";
 import {
   EMPTY_CHAT,
@@ -265,6 +266,7 @@ const fakeClient = {
           tasksInProgress: 1,
           tasksFailed: 0,
           tasksBlocked: 2,
+          tasksCancelled: 0,
           percentComplete: 25,
           goals: [],
           issues: [],
@@ -341,7 +343,11 @@ describe("ManagerPanel", () => {
     fireEvent.change(box, { target: { value: "What's the status?" } });
     fireEvent.keyDown(box, { key: "Enter" });
     await waitFor(() => expect(calls.some((c) => c.method === "manager.chat")).toBe(true));
-    expect(calls.find((c) => c.method === "manager.chat")?.params).toEqual({ projectId: PROJECT, text: "What's the status?" });
+    expect(calls.find((c) => c.method === "manager.chat")?.params).toEqual({
+      projectId: PROJECT,
+      text: "What's the status?",
+      options: { language: "en" },
+    });
     await screen.findByText(/The Manager is working/);
     emit(ev("ManagerMessage", { agentId: null, messageId: "r2", role: "Assistant", delta: "All good so far", done: false }));
     await screen.findByText("All good so far");
@@ -400,7 +406,7 @@ describe("ManagerPanel", () => {
       projectId: PROJECT,
       text: "Explain this code from src/a.rs",
       attachment: { path: "src/a.rs", text: "fn a() {}", startLine: 3, endLine: 5, language: "rust" },
-      options: { budgetUsd: 1.5, maxParallelAgents: 3 },
+      options: { budgetUsd: 1.5, maxParallelAgents: 3, language: "en" },
     });
   });
 
@@ -420,5 +426,54 @@ describe("ManagerPanel", () => {
     const before = useManagerUi.getState().focusNonce;
     void ask?.run({ projectId: PROJECT });
     expect(useManagerUi.getState().focusNonce).toBe(before + 1);
+  });
+});
+
+describe("ManagerPanel in Russian", () => {
+  beforeEach(async () => {
+    calls.length = 0;
+    history = { ...history, busy: false, activeRun: null, plans: [plan()] };
+    useAppStore.getState().setConnection({ state: "open" });
+    useManagerUi.setState({ mode: "natural", prefill: null, focusNonce: 0, proposedPlan: null, dismissedResume: [], toasts: [] });
+    await act(async () => {
+      await applyLanguagePreference("ru");
+    });
+  });
+  afterEach(async () => {
+    cleanup();
+    await act(async () => {
+      await applyLanguagePreference("en");
+    });
+  });
+
+  it("renders the plan card, resume banner and composer in Russian and asks for Russian replies", async () => {
+    render(<ManagerPanel projectId={PROJECT} />);
+    const card = await screen.findByRole("region", { name: "План: Create a hello module with tests" });
+    expect(within(card).getByText("Предложен")).toBeTruthy();
+    expect(within(card).getByText(/^4 задачи · до 2 параллельно/)).toBeTruthy();
+    expect(within(card).getByRole("button", { name: "Подтвердить" })).toBeTruthy();
+    expect(within(card).getByRole("button", { name: "Отклонить" })).toBeTruthy();
+    expect(within(card).getAllByText("Бэкенд-разработчик").length).toBeGreaterThan(0);
+    const banner = screen.getByRole("region", { name: "Прошлый сеанс" });
+    expect(within(banner).getByText("1 запрос на подтверждение")).toBeTruthy();
+    expect(within(banner).getByRole("button", { name: "Возобновить запуск" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Какой статус у проекта?" })).toBeTruthy();
+
+    const box = screen.getByLabelText("Сообщение AI-менеджеру");
+    fireEvent.change(box, { target: { value: "Какой статус?" } });
+    fireEvent.keyDown(box, { key: "Enter" });
+    await waitFor(() => expect(calls.some((c) => c.method === "manager.chat")).toBe(true));
+    expect(calls.find((c) => c.method === "manager.chat")?.params).toEqual({
+      projectId: PROJECT,
+      text: "Какой статус?",
+      options: { language: "ru" },
+    });
+    await screen.findByText(/Менеджер работает/);
+  });
+
+  it("validates plan edits and expert options in Russian", () => {
+    expect(validateDraft(plan(), { titles: {}, removed: ["t1", "t2", "t3", "t4"] })).toBe("Оставьте хотя бы одну задачу.");
+    expect(buildOptions({ ...EMPTY_EXPERT, maxParallelAgents: "0" }, null).error).toMatch(/от 1 до 64/);
+    expect(runProgress(run()).percent).toBe(25);
   });
 });

@@ -19,6 +19,8 @@ import type {
   TaskStatus,
 } from "@orkestr/protocol";
 
+import { formatCurrency, formatDuration as formatMs, t } from "../../i18n";
+
 type Tone = "neutral" | "accent" | "violet" | "success" | "warning" | "danger" | "info";
 
 // ── conversation ──────────────────────────────────────────
@@ -236,12 +238,12 @@ export const EMPTY_DRAFT: PlanDraft = { titles: {}, removed: [] };
 
 /** Validation error of a draft, or null. */
 export function validateDraft(plan: ManagerPlan, d: PlanDraft): string | null {
-  const kept = plan.tasks.filter((t) => !d.removed.includes(t.key));
-  if (kept.length === 0) return "Keep at least one task.";
-  for (const t of kept) {
-    const title = (d.titles[t.key] ?? t.title).trim();
-    if (!title) return "Task titles cannot be empty.";
-    if (title.length > 200) return "Task titles are at most 200 characters.";
+  const kept = plan.tasks.filter((task) => !d.removed.includes(task.key));
+  if (kept.length === 0) return t("manager:validation.keepOne");
+  for (const task of kept) {
+    const title = (d.titles[task.key] ?? task.title).trim();
+    if (!title) return t("manager:validation.titleEmpty");
+    if (title.length > 200) return t("manager:validation.titleTooLong");
   }
   return null;
 }
@@ -263,10 +265,10 @@ export function dependentsOf(key: string, tasks: readonly PlanTask[]): PlanTask[
   return tasks.filter((t) => t.dependsOn.includes(key));
 }
 
-/** Estimated cost of a plan for display ("≈ $0.12" / "unknown"). */
+/** Estimated cost of a plan for display ("≈ $0.12" / "cost unknown"). */
 export function planCost(plan: ManagerPlan): string {
-  if (plan.estimatedCostUsd === null) return "cost unknown";
-  return `≈ ${formatUsd(plan.estimatedCostUsd)}`;
+  if (plan.estimatedCostUsd === null) return t("manager:plan.costUnknown");
+  return t("manager:plan.costEstimate", { cost: formatUsd(plan.estimatedCostUsd) });
 }
 
 // ── runs ─────────────────────────────────────────────────
@@ -306,18 +308,14 @@ export function runProgress(run: ManagerRun): RunProgress {
   return { total, completed, running, failed, review, percent };
 }
 
-/** "1m 05s" style duration. */
-export function formatDuration(secs: number): string {
-  const s = Math.max(0, Math.floor(secs));
-  if (s < 60) return `${s}s`;
-  if (s < 3600) return `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, "0")}s`;
-  return `${Math.floor(s / 3600)}h ${String(Math.floor((s % 3600) / 60)).padStart(2, "0")}m`;
+/** Duration of whole seconds in the UI locale (`1 min 5 sec` / `1 мин 5 с`). */
+export function formatDuration(secs: number, lng?: string): string {
+  return formatMs(Math.max(0, Math.floor(secs)) * 1000, lng);
 }
 
-export function formatUsd(usd: number): string {
-  if (usd === 0) return "$0";
-  if (usd < 0.01) return "<$0.01";
-  return `$${usd.toFixed(2)}`;
+/** Money in the UI locale (`$1.23` / `1,23 $`). */
+export function formatUsd(usd: number, lng?: string): string {
+  return formatCurrency(usd, "USD", lng);
 }
 
 // ── composer / expert mode ───────────────────────────────
@@ -343,17 +341,17 @@ export function buildOptions(
   if (model && model.providerId && model.model.trim()) options.model = { providerId: model.providerId, model: model.model.trim() };
   if (f.budgetUsd.trim()) {
     const v = Number(f.budgetUsd);
-    if (!Number.isFinite(v) || v < 0) return { error: "Budget must be a non-negative number of dollars." };
+    if (!Number.isFinite(v) || v < 0) return { error: t("manager:validation.budget") };
     options.budgetUsd = v;
   }
   if (f.maxParallelAgents.trim()) {
     const v = Number(f.maxParallelAgents);
-    if (!Number.isInteger(v) || v < 1 || v > 64) return { error: "Parallel agents must be a whole number from 1 to 64." };
+    if (!Number.isInteger(v) || v < 1 || v > 64) return { error: t("manager:validation.parallel") };
     options.maxParallelAgents = v;
   }
   if (f.timeLimitMins.trim()) {
     const v = Number(f.timeLimitMins);
-    if (!Number.isInteger(v) || v < 1 || v > 1440) return { error: "Time limit must be 1–1440 minutes." };
+    if (!Number.isInteger(v) || v < 1 || v > 1440) return { error: t("manager:validation.timeLimit") };
     options.timeLimitMins = v;
   }
   return Object.keys(options).length > 0 ? { options } : {};
@@ -386,16 +384,16 @@ export function attachmentLabel(a: ChatAttachment): string {
   return a.path;
 }
 
-/** Quick suggestions, depending on what is going on. */
+/** Quick suggestions, depending on what is going on (sent to the Manager as typed, in the UI language). */
 export function suggestions(s: ChatState): string[] {
   const out: string[] = [];
   const run = pinnedRun(s);
-  if (latestProposedPlan(s)) out.push("Explain the plan's risks");
-  if (run) out.push("How is the run going?");
-  out.push("What's the status of the project?");
-  if (!run) out.push("Create a hello module with tests");
-  out.push("Show pending approvals");
-  out.push("Summarize costs so far");
+  if (latestProposedPlan(s)) out.push(t("manager:suggestions.planRisks"));
+  if (run) out.push(t("manager:suggestions.runProgress"));
+  out.push(t("manager:suggestions.projectStatus"));
+  if (!run) out.push(t("manager:suggestions.helloModule"));
+  out.push(t("manager:suggestions.approvals"));
+  out.push(t("manager:suggestions.costs"));
   return out.slice(0, 4);
 }
 
@@ -410,7 +408,7 @@ export function composerKeyAction(e: { key: string; shiftKey: boolean; ctrlKey: 
 /** Model label for the indicator ("mock-smart · Mock (offline demo)"). */
 export function modelLabel(config: ManagerConfig | null, providerName: (id: string) => string | null): string {
   const m = config?.model;
-  if (!m) return "No model";
+  if (!m) return t("manager:model.none");
   const p = providerName(m.providerId);
   return p ? `${m.model} · ${p}` : m.model;
 }

@@ -18,6 +18,8 @@ import { topic } from "@orkestr/protocol";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { getClient, maybeClient } from "../../core/client";
+import { t } from "../../i18n";
+import { describeError } from "../../i18n/errors";
 import { useAppStore } from "../../store/app";
 import { upsertTask } from "./model";
 
@@ -29,15 +31,12 @@ export interface ProjectTasks {
   reload: () => void;
 }
 
-/** Human message for a failed call. */
+/** Localized message for a failed call. */
 export function errorMessage(e: unknown): string {
-  if (e instanceof OrkestrError) {
-    if (e.code === "conflict" && e.data && typeof e.data === "object" && "cycle" in e.data) {
-      return "That dependency would create a cycle.";
-    }
-    return e.message;
+  if (e instanceof OrkestrError && e.code === "conflict" && e.data && typeof e.data === "object" && "cycle" in e.data) {
+    return t("tasks:cycle");
   }
-  return e instanceof Error ? e.message : String(e);
+  return describeError(e);
 }
 
 /** Applies one event to a task list. Returns the same array when nothing changed. */

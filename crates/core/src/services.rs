@@ -71,6 +71,11 @@ pub struct Services {
     pub agents: orkestr_agent_runtime::AgentRuntime,
     /// AI Manager: conversations, plans, supervised runs (§1, §5).
     pub manager: orkestr_orchestrator::Manager,
+    /// The user's UI language, shared with the Manager and the agent runtime
+    /// (they reply in it). Seeded from `AppSettings.language` unless it is
+    /// `system` (then the UI reports the resolved language with each Manager
+    /// request).
+    pub ui_language: orkestr_agent_runtime::UiLanguage,
     /// Persistent event seq reservation.
     pub seq_high_water: Arc<crate::housekeeping::SeqHighWater>,
 }

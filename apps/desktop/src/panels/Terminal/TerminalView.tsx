@@ -16,6 +16,8 @@ import type { FitAddon } from "@xterm/addon-fit";
 import type { Terminal } from "@xterm/xterm";
 import { useEffect, useRef, useState } from "react";
 
+import { t as i18nT, useT } from "../../i18n";
+import { terminalTitle } from "../../lib/coreText";
 import { useAppStore } from "../../store/app";
 import { dedupeChunk, errorMessage, isReadOnly, terminalFontFamily, themeFromTokens } from "./logic";
 
@@ -31,6 +33,7 @@ export interface TerminalViewProps {
 const RESIZE_DEBOUNCE_MS = 60;
 
 export function TerminalView({ client, session, active, onExited }: TerminalViewProps) {
+  const { t } = useT("terminal");
   const hostRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
@@ -108,7 +111,7 @@ export function TerminalView({ client, session, active, onExited }: TerminalView
       const inputSub = term.onData((data) => {
         if (readOnly || !runningRef.current) return;
         client.call("terminal.write", { terminalId, data }).catch((e: unknown) => {
-          term.write(`\r\n\x1b[31m[input failed: ${errorMessage(e)}]\x1b[0m\r\n`);
+          term.write(`\r\n\x1b[31m[${i18nT("terminal:view.inputFailed", { error: errorMessage(e) })}]\x1b[0m\r\n`);
         });
       });
       cleanups.push(() => inputSub.dispose());
@@ -222,16 +225,16 @@ export function TerminalView({ client, session, active, onExited }: TerminalView
         ref={hostRef}
         className="term-view__host"
         role="application"
-        aria-label={`Terminal ${session.title}${readOnly ? " (read-only)" : ""}`}
+        aria-label={readOnly ? t("view.labelReadOnly", { title: terminalTitle(session.title) }) : t("view.label", { title: terminalTitle(session.title) })}
       />
       {!ready && !error && (
         <div className="term-view__overlay">
-          <Spinner size={18} /> Connecting to session…
+          <Spinner size={18} /> {t("view.connecting")}
         </div>
       )}
       {error && (
         <div className="term-view__overlay term-view__overlay--error" role="alert">
-          Could not attach to the session: {error}
+          {t("view.attachFailed", { error })}
         </div>
       )}
     </div>

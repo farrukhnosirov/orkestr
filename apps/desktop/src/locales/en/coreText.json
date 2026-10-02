@@ -1,0 +1,125 @@
+{
+  "templates": {
+    "architect": {
+      "name": "Software Architect",
+      "description": "Designs system structure, module boundaries and contracts; writes ADRs and design notes, never ships features."
+    },
+    "backend": {
+      "name": "Backend Engineer",
+      "description": "Implements server-side features, APIs and business logic with tests, inside its own git worktree."
+    },
+    "frontend": {
+      "name": "Frontend Engineer",
+      "description": "Builds accessible, responsive UI components and client logic with typed state and tests."
+    },
+    "database": {
+      "name": "Database Engineer",
+      "description": "Designs schemas, migrations, indexes and queries; reversible migrations with tests, never touches live data."
+    },
+    "qa": {
+      "name": "QA Engineer",
+      "description": "Writes and runs tests, reproduces bugs, reports failures precisely; fixes tests, not product code."
+    },
+    "security": {
+      "name": "Security Reviewer",
+      "description": "Audits code for vulnerabilities (injection, authz, secrets, unsafe deps) and reports findings; read-only."
+    },
+    "devops": {
+      "name": "DevOps Engineer",
+      "description": "Maintains build scripts, CI pipelines, containers and developer tooling; never deploys on its own."
+    },
+    "uiux": {
+      "name": "UI/UX Designer",
+      "description": "Improves usability, layout, visual consistency and accessibility using the design system tokens."
+    },
+    "productManager": {
+      "name": "Product Manager",
+      "description": "Turns goals into clear requirements, user stories and acceptance criteria; writes specs, not code."
+    },
+    "reviewer": {
+      "name": "Code Reviewer",
+      "description": "Reviews changes for correctness, clarity, tests and maintainability; read-only, gives actionable findings."
+    },
+    "researcher": {
+      "name": "Researcher",
+      "description": "Investigates the codebase and documentation to answer questions and compare options; read-only."
+    }
+  },
+  "activity": {
+    "readingTask": "Reading the task",
+    "paused": "Paused by the user",
+    "resumed": "Resumed",
+    "waitingModel": "Waiting for the model",
+    "finished": "Finished",
+    "waitingUser": "Waiting for the user's answer",
+    "waitingCodex": "Waiting for approval to start Codex",
+    "waitingApproval": "Waiting for approval: {{action}}"
+  },
+  "snapshot": {
+    "manual": "Manual snapshot",
+    "beforeRisky": "Before risky action",
+    "taskCheckpoint": "Task checkpoint",
+    "beforeRollback": "Before rollback",
+    "periodic": "Periodic snapshot",
+    "beforeAgent": "Before {{agent}} changes",
+    "agentFinished": "{{agent}} finished",
+    "agentStopped": "{{agent}} stopped",
+    "beforeRemoveWorktree": "Before removing worktree {{path}}",
+    "beforeRollbackTo": "Before rollback to “{{label}}”",
+    "beforeRestore": "Before restoring {{path}}",
+    "beforeTaskRollback": "Before rolling back task {{id}}",
+    "beforeDiscard_one": "Before discarding {{count}} path",
+    "beforeDiscard_other": "Before discarding {{count}} paths"
+  },
+  "terminal": {
+    "agentCommands": "Agent commands",
+    "commands": "Commands"
+  },
+  "tool": {
+    "plan_one": "plan with {{count}} task",
+    "plan_other": "plan with {{count}} tasks",
+    "graph": "{{nodes}} nodes, {{edges}} edges",
+    "providers": "providers: {{count}}",
+    "approvals": "pending approvals: {{count}}",
+    "changedFiles": "changed files: {{count}}",
+    "hits": "matches: {{count}}",
+    "snapshots": "snapshots: {{count}}",
+    "overview": "tasks: {{tasks}}, running agents: {{agents}}"
+  },
+  "note": {
+    "started": "Started on “{{task}}” with {{model}} — {{place}}.",
+    "checkpoint": "Checkpoint {{id}} taken before the first change.",
+    "commandApproved": "Command approved: {{command}}",
+    "fallback": "Provider fallback: {{from}} → {{to}} ({{reason}}). A structured handoff was created.",
+    "result": "Result ({{status}}): {{summary}}",
+    "stopped": "Stopped: {{detail}}"
+  },
+  "tag": {
+    "manager": "by Manager",
+    "epic": "epic: {{name}}"
+  },
+  "warning": {
+    "noCost": "Cost estimate unavailable: the model's price is unknown (local, subscription or mock).",
+    "repaired": "The first answer was invalid and was repaired.",
+    "duplicateKey": "Duplicate task key `{{key}}` renamed to `{{renamed}}`.",
+    "noTitle": "Task {{key}} had no title.",
+    "unknownRole": "Task {{key}}: unknown role `{{role}}` mapped to Backend.",
+    "noRole": "Task {{key}}: no role given, using Backend.",
+    "selfDependency": "Task {{key}}: dependency on itself dropped.",
+    "unknownDependency": "Task {{key}}: unknown dependency `{{dep}}` dropped.",
+    "badFile": "Task {{key}}: file `{{file}}` ignored (not a relative path)."
+  },
+  "agentTool": {
+    "noChanges": "no changes",
+    "read": "read {{path}} ({{count}} lines)",
+    "created": "created {{path}}",
+    "updated": "updated {{path}}",
+    "edited": "edited {{path}} ({{count}} changes)",
+    "diff": "files: {{count}}, +{{added}} −{{removed}}",
+    "commit": "commit {{id}} on {{branch}}",
+    "memory": "memory: {{title}}",
+    "decision": "decision: {{title}}",
+    "snapshot": "snapshot {{label}}",
+    "exit": "`{{command}}` → exit {{code}}"
+  }
+}

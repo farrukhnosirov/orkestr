@@ -1,0 +1,175 @@
+{
+  "loadingSettings": "Загрузка настроек…",
+  "unavailable": {
+    "title": "Настройки недоступны",
+    "noData": "Ядро не вернуло настройки."
+  },
+  "general": {
+    "profile": "Профиль",
+    "displayName": "Отображаемое имя",
+    "displayNameDesc": "Показывается в чате с Менеджером и в запросах на подтверждение. Хранится только на этом компьютере.",
+    "displayNamePlaceholder": "Ваше имя",
+    "background": "Работа в фоне",
+    "closeToTray": "Сворачивать в трей при закрытии",
+    "closeToTrayDesc": "При закрытии окна Orkestr сворачивается в системный трей, и агенты продолжают работу. Чтобы выйти, воспользуйтесь меню в трее.",
+    "closeToTrayLabel": "Сворачивать в трей",
+    "autostart": "Запускать вместе с системой",
+    "autostartDesc": "Orkestr запускается свёрнутым в трей при входе в систему. По умолчанию выключено.",
+    "autostartUnsupported": "Автозапуск не поддерживается в этой операционной системе.",
+    "autostartLabel": "Запуск при входе в систему",
+    "appearance": "Оформление и производительность",
+    "theme": "Тема",
+    "performanceMode": "Режим производительности",
+    "performanceModeDesc": "Меньше визуальных эффектов — больше ресурсов для агентов.",
+    "performance": {
+      "UltraVisual": {
+        "label": "Максимум",
+        "title": "Все эффекты включены"
+      },
+      "Balanced": {
+        "label": "Баланс",
+        "title": "По умолчанию"
+      },
+      "Performance": {
+        "label": "Производительность",
+        "title": "Минимум эффектов, больше ресурсов для агентов"
+      },
+      "BatterySaver": {
+        "label": "Экономия заряда",
+        "title": "Минимальное энергопотребление"
+      }
+    },
+    "notifications": "Уведомления",
+    "dnd": "Не беспокоить",
+    "dndDesc": "Всплывающие уведомления не показываются, но по-прежнему собираются в центре уведомлений.",
+    "data": "Данные и конфиденциальность",
+    "retention": "Хранение истории событий",
+    "retentionDesc": "Старые события удаляются автоматически. Подтверждения, решения, экстренные остановки и откаты хранятся всегда.",
+    "retentionLabel": "Срок хранения событий",
+    "retentionYear": "1 год",
+    "retentionForever": "Бессрочно",
+    "telemetry": "Телеметрия использования",
+    "telemetryDesc": "В этой сборке Orkestr не собирает телеметрию. Все данные остаются на этом компьютере.",
+    "telemetryLabel": "Телеметрия",
+    "setup": "Начало работы",
+    "wizard": "Мастер настройки",
+    "wizardDesc": "Ещё раз пройти все шаги: профиль, хранилище, провайдеры, разрешения и проверка системы.",
+    "runWizard": "Запустить мастер ещё раз"
+  },
+  "system": {
+    "liveResources": "Текущая нагрузка",
+    "sampling": "Сбор данных о нагрузке…",
+    "cpu": "ЦП",
+    "memory": "Оперативная память",
+    "dataDisk": "Диск с данными",
+    "free": "свободно {{size}}",
+    "usedOfTotal": "{{used}} из {{total}}",
+    "perCore": "Загрузка ядер ЦП",
+    "coreLoad": "Ядро ЦП {{index}}: {{percent}}",
+    "coreProcess_one": "Ядро Orkestr: {{cores}} ядро ЦП · {{memory}}",
+    "coreProcess_few": "Ядро Orkestr: {{cores}} ядра ЦП · {{memory}}",
+    "coreProcess_many": "Ядро Orkestr: {{cores}} ядер ЦП · {{memory}}",
+    "coreProcess_other": "Ядро Orkestr: {{cores}} ядра ЦП · {{memory}}",
+    "busiest": "Самые активные процессы",
+    "process": "Процесс",
+    "thisMachine": "Этот компьютер",
+    "redetect": "Определить заново",
+    "inspectFailed": "Не удалось получить сведения о компьютере",
+    "detecting": "Определение оборудования, сред выполнения и локальных моделей… (при первом запуске это может занять несколько секунд)",
+    "host": "{{host}} · {{arch}}",
+    "hostKernel": "{{host}} · {{arch}} · ядро ОС {{kernel}}",
+    "cpuCores": "Ядер: {{cores}} · потоков: {{threads}}",
+    "frequency": "{{value}} ГГц",
+    "ram": "ОЗУ: {{size}}",
+    "swap": "Подкачка: {{size}}",
+    "graphics": "Видеокарты",
+    "noGpu": "Видеокарта не обнаружена.",
+    "vramUnknown": "объём видеопамяти неизвестен",
+    "driver": "драйвер {{version}}",
+    "disks": "Диски",
+    "orkestrData": "Данные Orkestr",
+    "diskFree": "свободно {{free}} из {{total}}",
+    "runtimes": "Среды разработки",
+    "runtime": "Среда",
+    "version": "Версия",
+    "location": "Расположение",
+    "found": "найдена",
+    "missing": "не найдена",
+    "notFound": "не найдена",
+    "localModels": "Локальные модели",
+    "ollamaEmpty": "Сервер Ollama запущен по адресу {{endpoint}}, но в нём нет загруженных моделей.",
+    "ollamaUnreachable": "Сервер Ollama недоступен по адресу {{endpoint}}. Установите и запустите Ollama, чтобы работать с локальными моделями.",
+    "detectedAt": "Данные собраны {{date}} за {{duration}}.",
+    "checks": "Проверка окружения",
+    "runAgain": "Проверить снова",
+    "checking": "Проверка Git, оболочек, каталога данных, WebView и системного хранилища ключей…"
+  },
+  "checkStatus": {
+    "ok": "Готово",
+    "warning": "Внимание",
+    "error": "Требует действий",
+    "skipped": "Пропущено"
+  },
+  "about": {
+    "tagline": "Операционная система для AI-разработки · всё локально: ваши ключи, ваш компьютер",
+    "recovered": "Восстановлено после аварийного завершения",
+    "coreVersion": "Версия ядра",
+    "protocolVersion": "Версия протокола",
+    "coreMode": "Режим ядра",
+    "modes": {
+      "embedded": "Встроено в приложение",
+      "external": "Служба orkestrd",
+      "browser": "Браузер"
+    },
+    "uptime": "Время работы",
+    "nodeId": "Идентификатор узла",
+    "dataDir": "Каталог данных",
+    "pid": "Идентификатор процесса",
+    "shells": "Оболочки",
+    "openLogs": "Открыть журнал",
+    "license": "Лицензия: MIT или Apache-2.0. Телеметрия не собирается: данные не покидают этот компьютер, пока вы не подключите провайдера."
+  },
+  "checks": {
+    "title": {
+      "git": "Git",
+      "shell": "Оболочка терминала",
+      "dataDir": "Каталог данных",
+      "webview": "Среда WebView",
+      "keyring": "Хранилище учётных данных"
+    },
+    "store": {
+      "windows": "Диспетчер учётных данных Windows",
+      "macos": "Связка ключей macOS",
+      "linux": "Связка ключей ядра Linux",
+      "other": "Системное хранилище ключей"
+    },
+    "detail": {
+      "panicked": "Проверка завершилась аварийно",
+      "gitMissing": "git не найден в PATH",
+      "gitFound": "git {{version}} — {{path}}",
+      "gitFailed": "Команда `git --version` завершилась с ошибкой: {{error}}",
+      "gitNoAnswer": "git не отвечает: {{error}}",
+      "noShell": "Поддерживаемая оболочка не найдена",
+      "defaultShell": "по умолчанию",
+      "notWritable": "Нет прав на запись в {{dir}}: {{error}}",
+      "free": "{{dir}} — свободно {{free}}",
+      "noWebview": "Среда WebView не найдена",
+      "systemWebview": "системная",
+      "storeOk": "{{store}}: доступно",
+      "storeUnsupported": "{{store}}: не поддерживается",
+      "storeFailed": "{{store}}: ошибка — {{error}}"
+    },
+    "hint": {
+      "gitWindows": "Установите Git для Windows (https://git-scm.com/download/win) или выполните `winget install Git.Git`, затем перезапустите Orkestr.",
+      "gitMac": "Выполните `xcode-select --install` или `brew install git`, затем перезапустите Orkestr.",
+      "gitLinux": "Установите git через менеджер пакетов (например, `sudo apt install git`), затем перезапустите Orkestr.",
+      "shell": "Установите PowerShell 7 (`winget install Microsoft.PowerShell`) или убедитесь, что доступны cmd или bash.",
+      "dataDirWritable": "Проверьте права доступа к папке или укажите в ORKESTR_HOME папку, доступную для записи.",
+      "dataDirSpace": "Освободите место на диске: снимкам и рабочим копиям нужно свободное пространство.",
+      "webviewWindows": "Установите Microsoft Edge WebView2 Runtime (https://go.microsoft.com/fwlink/p/?LinkId=2124703).",
+      "webviewLinux": "Для настольного приложения установите WebKitGTK 4.1 (`libwebkit2gtk-4.1-0`).",
+      "webviewHeadless": "Для ядра без интерфейса не требуется.",
+      "keyringFailed": "Пока хранилище учётных данных не работает, API-ключи нельзя сохранить надёжно — вместо него используется зашифрованное файловое хранилище."
+    }
+  }
+}

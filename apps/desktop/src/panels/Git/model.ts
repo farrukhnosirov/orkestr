@@ -10,6 +10,8 @@ import type {
   WorkspaceSnapshot,
 } from "@orkestr/protocol";
 
+import { formatBytes as formatBytesIntl, formatRelativeTime, t } from "../../i18n";
+
 export type Tone = "neutral" | "accent" | "violet" | "success" | "warning" | "danger" | "info";
 
 /** Which list of the Changes tab an entry is shown in. */
@@ -52,25 +54,25 @@ export function groupStatus(entries: readonly StatusEntry[]): GroupedStatus {
 export function statusBadge(s: FileChangeStatus | SnapshotChangeKind): { letter: string; tone: Tone; label: string } {
   switch (s) {
     case "Modified":
-      return { letter: "M", tone: "warning", label: "Modified" };
+      return { letter: "M", tone: "warning", label: t("git:fileStatus.Modified") };
     case "Added":
-      return { letter: "A", tone: "success", label: "Added" };
+      return { letter: "A", tone: "success", label: t("git:fileStatus.Added") };
     case "Deleted":
-      return { letter: "D", tone: "danger", label: "Deleted" };
+      return { letter: "D", tone: "danger", label: t("git:fileStatus.Deleted") };
     case "Renamed":
-      return { letter: "R", tone: "info", label: "Renamed" };
+      return { letter: "R", tone: "info", label: t("git:fileStatus.Renamed") };
     case "Copied":
-      return { letter: "C", tone: "info", label: "Copied" };
+      return { letter: "C", tone: "info", label: t("git:fileStatus.Copied") };
     case "TypeChanged":
-      return { letter: "T", tone: "violet", label: "Type changed" };
+      return { letter: "T", tone: "violet", label: t("git:fileStatus.TypeChanged") };
     case "Unmerged":
-      return { letter: "!", tone: "danger", label: "Conflict" };
+      return { letter: "!", tone: "danger", label: t("git:fileStatus.Unmerged") };
     case "Untracked":
-      return { letter: "U", tone: "success", label: "Untracked" };
+      return { letter: "U", tone: "success", label: t("git:fileStatus.Untracked") };
     case "Ignored":
-      return { letter: "I", tone: "neutral", label: "Ignored" };
+      return { letter: "I", tone: "neutral", label: t("git:fileStatus.Ignored") };
     default:
-      return { letter: "·", tone: "neutral", label: "Unchanged" };
+      return { letter: "·", tone: "neutral", label: t("git:fileStatus.Unchanged") };
   }
 }
 
@@ -191,32 +193,14 @@ export function languageForPath(path: string): string {
   return LANGUAGES[ext] ?? "plaintext";
 }
 
-/** `1.2 KB`, `3.4 MB`. */
-export function formatBytes(n: number): string {
-  if (n < 1024) return `${n} B`;
-  const units = ["KB", "MB", "GB", "TB"];
-  let v = n / 1024;
-  let i = 0;
-  while (v >= 1024 && i < units.length - 1) {
-    v /= 1024;
-    i++;
-  }
-  return `${v >= 10 ? v.toFixed(0) : v.toFixed(1)} ${units[i]}`;
+/** Size in the UI locale: `1.5 KB` / `1,5 КБ`. */
+export function formatBytes(n: number, lng?: string): string {
+  return formatBytesIntl(n, lng);
 }
 
-/** `just now`, `5 min ago`, `3 h ago`, `2 d ago`, else a date. */
-export function relativeTime(iso: string, now: number = Date.now()): string {
-  const t = Date.parse(iso);
-  if (Number.isNaN(t)) return iso;
-  const s = Math.max(0, Math.round((now - t) / 1000));
-  if (s < 45) return "just now";
-  const m = Math.round(s / 60);
-  if (m < 60) return `${m} min ago`;
-  const h = Math.round(m / 60);
-  if (h < 24) return `${h} h ago`;
-  const d = Math.round(h / 24);
-  if (d < 30) return `${d} d ago`;
-  return new Date(t).toLocaleDateString();
+/** Relative time in the UI locale: `just now`, `5 minutes ago` / `5 минут назад`. */
+export function relativeTime(iso: string, now: number = Date.now(), lng?: string): string {
+  return formatRelativeTime(iso, now, lng);
 }
 
 /** Short commit id. */
@@ -240,15 +224,19 @@ export function summarizePlan(plan: RollbackPlan): { restore: number; recreate: 
 export function reasonLabel(s: WorkspaceSnapshot): string {
   switch (s.reason) {
     case "Manual":
-      return "Manual";
+      return t("git:reason.Manual");
     case "BeforeRiskyAction":
-      return "Safety";
+      return t("git:reason.BeforeRiskyAction");
     case "TaskCheckpoint":
-      return s.taskPhase === "After" ? "Task · after" : s.taskPhase === "Before" ? "Task · before" : "Task";
+      return s.taskPhase === "After"
+        ? t("git:reason.taskAfter")
+        : s.taskPhase === "Before"
+          ? t("git:reason.taskBefore")
+          : t("git:reason.TaskCheckpoint");
     case "PreRollback":
-      return "Pre-rollback";
+      return t("git:reason.PreRollback");
     case "Periodic":
-      return "Periodic";
+      return t("git:reason.Periodic");
   }
 }
 
@@ -256,19 +244,19 @@ export function reasonLabel(s: WorkspaceSnapshot): string {
 export function statusSummary(st: RepoStatus): string {
   const g = groupStatus(st.entries);
   const parts: string[] = [];
-  if (g.conflicts.length) parts.push(`${g.conflicts.length} conflicted`);
-  if (g.staged.length) parts.push(`${g.staged.length} staged`);
-  if (g.unstaged.length) parts.push(`${g.unstaged.length} changed`);
-  if (g.untracked.length) parts.push(`${g.untracked.length} untracked`);
-  return parts.length ? parts.join(" · ") : "Working tree clean";
+  if (g.conflicts.length) parts.push(t("git:summary.conflicted", { count: g.conflicts.length }));
+  if (g.staged.length) parts.push(t("git:summary.staged", { count: g.staged.length }));
+  if (g.unstaged.length) parts.push(t("git:summary.changed", { count: g.unstaged.length }));
+  if (g.untracked.length) parts.push(t("git:summary.untracked", { count: g.untracked.length }));
+  return parts.length ? parts.join(" · ") : t("git:summary.clean");
 }
 
 /** Validates a branch name client-side (the core re-validates with git). */
 export function branchNameError(name: string): string | null {
   const n = name.trim();
-  if (!n) return "Enter a branch name.";
-  if (n.startsWith("-") || n.startsWith("/") || n.endsWith("/") || n.endsWith(".")) return "Invalid start or end character.";
-  if (/[\s~^:?*[\\]|\.\.|@\{|\/\//.test(n) || n.endsWith(".lock")) return "Contains characters git does not allow.";
+  if (!n) return t("git:branchName.empty");
+  if (n.startsWith("-") || n.startsWith("/") || n.endsWith("/") || n.endsWith(".")) return t("git:branchName.edge");
+  if (/[\s~^:?*[\\]|\.\.|@\{|\/\//.test(n) || n.endsWith(".lock")) return t("git:branchName.chars");
   return null;
 }
 

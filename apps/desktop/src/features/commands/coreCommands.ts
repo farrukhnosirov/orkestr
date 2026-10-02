@@ -5,6 +5,7 @@
 import {
   Activity,
   BellOff,
+  Languages,
   Expand,
   FolderPlus,
   FolderSearch,
@@ -16,6 +17,9 @@ import {
 } from "lucide-react";
 
 import { workspaceActions } from "../../components/workspaceActions";
+import { t } from "../../i18n";
+import { describeError } from "../../i18n/errors";
+import { nextLanguage, switchLanguage } from "../../lib/language";
 import { shellControls } from "../../lib/tauri";
 import { useAppStore } from "../../store/app";
 import { useNotificationsStore } from "../notifications/notificationsStore";
@@ -37,12 +41,15 @@ export async function stopAllAi(): Promise<boolean> {
     const r = await stopAllAiNow();
     notify(
       "Critical",
-      "All AI activity stopped",
-      `Emergency stop executed by you: ${r.agentsStopped} agent(s) stopped, ${r.approvalsCancelled} pending approval(s) cancelled.`,
+      t("shell:stopAll.doneTitle"),
+      t("shell:stopAll.doneBody", {
+        agents: t("shell:stopAll.agents", { count: r.agentsStopped }),
+        approvals: t("shell:stopAll.approvals", { count: r.approvalsCancelled }),
+      }),
     );
     return true;
   } catch (e) {
-    notify("Error", "Emergency stop failed", e instanceof Error ? e.message : String(e));
+    notify("Error", t("shell:stopAll.failedTitle"), describeError(e));
     return false;
   }
 }
@@ -50,45 +57,65 @@ export async function stopAllAi(): Promise<boolean> {
 export const coreCommands: AppCommand[] = [
   {
     id: "project.create",
-    title: "Create Project",
-    group: "Projects",
+    get title() {
+      return t("shell:commands.projectCreate");
+    },
+    get group() {
+      return t("shell:commandGroups.projects");
+    },
     icon: FolderPlus,
-    keywords: ["new", "add", "import", "folder"],
+    keywords: ["new", "add", "import", "folder", "создать", "новый", "проект", "папка"],
     run: () => useAppStore.getState().setCreateProjectOpen(true),
   },
   {
     id: "project.switch",
-    title: "Switch Project…",
-    group: "Projects",
+    get title() {
+      return t("shell:commands.projectSwitch");
+    },
+    get group() {
+      return t("shell:commandGroups.projects");
+    },
     icon: FolderSearch,
-    keywords: ["open", "go to", "search", "find"],
+    keywords: ["open", "go to", "search", "find", "открыть", "перейти", "проект", "найти"],
     // Ctrl+P is "Go to File…" (files area), as in common editors.
     shortcut: "Ctrl+Alt+P",
     run: () => usePaletteStore.getState().openPalette(SEARCH_PREFIX),
   },
   {
     id: "settings.open",
-    title: "Open Settings",
-    group: "General",
+    get title() {
+      return t("shell:commands.settingsOpen");
+    },
+    get group() {
+      return t("shell:commandGroups.general");
+    },
     icon: Settings,
-    keywords: ["preferences", "options", "configure", "tray", "autostart"],
+    keywords: ["preferences", "options", "configure", "tray", "autostart", "настройки", "параметры", "трей", "автозапуск"],
     shortcut: "Ctrl+,",
     run: () => useSettingsStore.getState().openSettings(),
   },
   {
     id: "onboarding.open",
-    title: "Run Setup Wizard",
-    group: "General",
+    get title() {
+      return t("shell:commands.onboardingOpen");
+    },
+    get group() {
+      return t("shell:commandGroups.general");
+    },
     icon: Wand2,
-    keywords: ["onboarding", "welcome", "first run", "checks"],
+    keywords: ["onboarding", "welcome", "first run", "checks", "мастер", "настройка", "приветствие", "проверки"],
     run: () => useOnboardingStore.getState().openWizard(0),
   },
   {
     id: "notifications.toggleDnd",
-    title: "Toggle Do Not Disturb",
-    group: "General",
+    get title() {
+      return t("shell:commands.toggleDnd");
+    },
+    get group() {
+      return t("shell:commandGroups.general");
+    },
     icon: BellOff,
-    keywords: ["notifications", "quiet", "mute", "dnd"],
+    keywords: ["notifications", "quiet", "mute", "dnd", "не беспокоить", "уведомления", "тишина"],
     enabled: () => useSettingsStore.getState().settings !== null,
     run: async () => {
       const s = useSettingsStore.getState().settings;
@@ -97,45 +124,81 @@ export const coreCommands: AppCommand[] = [
   },
   {
     id: "view.missionControl",
-    title: "Mission Control",
-    group: "Views",
+    get title() {
+      return t("shell:commands.missionControl");
+    },
+    get group() {
+      return t("shell:commandGroups.views");
+    },
     icon: Activity,
-    keywords: ["monitoring", "overview", "dashboard", "phase 3"],
+    keywords: ["monitoring", "overview", "dashboard", "phase 3", "центр управления", "мониторинг", "обзор"],
     run: () => workspaceActions.openPanel("monitoring"),
   },
   {
     id: "view.logs",
-    title: "Open Logs",
-    group: "Views",
+    get title() {
+      return t("shell:commands.openLogs");
+    },
+    get group() {
+      return t("shell:commandGroups.views");
+    },
     icon: ScrollText,
-    keywords: ["events", "log", "debug", "stream"],
+    keywords: ["events", "log", "debug", "stream", "журнал", "события", "логи"],
     run: () => workspaceActions.openPanel("logs"),
   },
   {
     id: "view.toggleMaximize",
-    title: "Toggle Maximize Panel",
-    group: "Views",
+    get title() {
+      return t("shell:commands.toggleMaximize");
+    },
+    get group() {
+      return t("shell:commandGroups.views");
+    },
     icon: Expand,
-    keywords: ["maximize", "zoom", "focus", "panel", "restore"],
+    keywords: ["maximize", "zoom", "focus", "panel", "restore", "развернуть", "панель", "восстановить"],
     run: () => workspaceActions.toggleMaximize(),
   },
   {
     id: "window.fullscreen",
-    title: "Toggle Fullscreen",
-    group: "Window",
+    get title() {
+      return t("shell:commands.toggleFullscreen");
+    },
+    get group() {
+      return t("shell:commandGroups.window");
+    },
     icon: Maximize,
-    keywords: ["full screen", "maximize", "zen"],
+    keywords: ["full screen", "maximize", "zen", "полный экран", "полноэкранный"],
     shortcut: "F11",
     run: () => shellControls.toggleFullscreen(),
   },
   {
     id: "ai.stopAll",
-    title: "Stop All AI",
-    group: "Safety",
+    get title() {
+      return t("shell:commands.stopAll");
+    },
+    get group() {
+      return t("shell:commandGroups.safety");
+    },
     icon: OctagonX,
-    keywords: ["emergency", "kill", "halt", "panic", "stop agents"],
+    keywords: ["emergency", "kill", "halt", "panic", "stop agents", "экстренная остановка", "остановить", "стоп", "агенты"],
     shortcut: "Ctrl+Shift+Backspace",
     // Opens the security confirmation dialog (stop + re-arm live there).
     run: () => useSecurityStore.getState().setConfirmStopOpen(true),
+  },
+  {
+    id: "language.switch",
+    // Bilingual on purpose: whoever cannot read the current language still finds the switch.
+    get title() {
+      const target = nextLanguage();
+      return `${t("shell:commands.switchLanguage")} / ${t("shell:commands.switchLanguage", { lng: target })}`;
+    },
+    get group() {
+      return t("shell:commandGroups.general");
+    },
+    icon: Languages,
+    keywords: ["language", "locale", "english", "russian", "translate", "язык", "русский", "английский", "локализация"],
+    run: async () => {
+      await switchLanguage(nextLanguage());
+    },
   },
 ];

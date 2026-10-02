@@ -2,9 +2,12 @@
  * Maps core events to in-app notifications (§33 notification center).
  * `Notification` events are shown as-is; a few important event kinds are
  * turned into notifications so the user notices them even when the
- * relevant panel is closed. Pure and unit-tested.
+ * relevant panel is closed. Texts are localized in the language active when
+ * the event arrives. Pure and unit-tested.
  */
 import type { Event, NotificationLevel } from "@orkestr/protocol";
+
+import { formatCurrency, formatDuration, formatPercent, t } from "../../i18n";
 
 export interface AppNotification {
   /** Stable id (event id, or `local-…` for UI-originated notices). */
@@ -32,38 +35,62 @@ export function notificationFromEvent(ev: Event): AppNotification | null {
     }
     case "ApprovalRequested": {
       const a = ev.payload.approval;
-      return base(ev, a.risk === "Critical" || a.risk === "High" ? "Warning" : "Info", "Approval needed", a.actionSummary);
+      return base(ev, a.risk === "Critical" || a.risk === "High" ? "Warning" : "Info", t("notifications:events.approvalNeeded"), a.actionSummary);
     }
     case "BuildFailed":
-      return base(ev, "Error", "Build failed", ev.payload.summary || `Exit code ${ev.payload.exitCode ?? "?"}`);
+      return base(
+        ev,
+        "Error",
+        t("notifications:events.buildFailed"),
+        ev.payload.summary || t("notifications:events.exitCode", { code: ev.payload.exitCode ?? "?" }),
+      );
     case "TaskStatusChanged": {
       const { to, reason } = ev.payload;
-      if (to === "Failed") return base(ev, "Error", "Task failed", reason ?? "A task failed.");
-      if (to === "Blocked") return base(ev, "Warning", "Task blocked", reason ?? "A task is blocked.");
-      if (to === "Completed") return base(ev, "Success", "Task completed", reason ?? "A task finished successfully.");
+      if (to === "Failed") return base(ev, "Error", t("notifications:events.taskFailed"), reason ?? t("notifications:events.taskFailedBody"));
+      if (to === "Blocked") return base(ev, "Warning", t("notifications:events.taskBlocked"), reason ?? t("notifications:events.taskBlockedBody"));
+      if (to === "Completed") {
+        return base(ev, "Success", t("notifications:events.taskCompleted"), reason ?? t("notifications:events.taskCompletedBody"));
+      }
       return null;
     }
     case "BudgetThreshold": {
       const p = ev.payload;
-      const pct = Math.round(p.fraction * 100);
       return base(
         ev,
         p.fraction >= 1 ? "Error" : "Warning",
-        `Budget ${pct}% used`,
-        `${p.scope}: $${p.spentUsd.toFixed(2)} of $${p.limitUsd.toFixed(2)}`,
+        t("notifications:events.budget", { percent: formatPercent(p.fraction) }),
+        t("notifications:events.budgetBody", {
+          scope: p.scope,
+          spent: formatCurrency(p.spentUsd),
+          limit: formatCurrency(p.limitUsd),
+        }),
       );
     }
     case "EmergencyStop":
-      return base(ev, "Critical", "Emergency stop", `${ev.payload.agentsStopped} agent(s) stopped.`);
+      return base(
+        ev,
+        "Critical",
+        t("notifications:events.emergencyStop"),
+        t("notifications:events.agentsStopped", { count: ev.payload.agentsStopped }),
+      );
     case "ProviderRateLimited": {
       const p = ev.payload;
-      const retry = p.retryAfterSecs != null ? ` Retrying in ${p.retryAfterSecs}s.` : "";
-      return base(ev, "Warning", "Provider rate limited", `${p.model ?? "A model"} hit its rate limit.${retry}`);
+      const what = p.model
+        ? t("notifications:events.rateLimitedModel", { model: p.model })
+        : t("notifications:events.rateLimitedUnknown");
+      const retry =
+        p.retryAfterSecs != null ? ` ${t("notifications:events.retryIn", { delay: formatDuration(p.retryAfterSecs * 1000) })}` : "";
+      return base(ev, "Warning", t("notifications:events.rateLimited"), `${what}${retry}`);
     }
     case "RollbackPerformed":
-      return base(ev, "Info", "Rollback performed", `${ev.payload.filesRestored} file(s) restored.`);
+      return base(
+        ev,
+        "Info",
+        t("notifications:events.rollback"),
+        t("notifications:events.filesRestored", { count: ev.payload.filesRestored }),
+      );
     case "NodeOffline":
-      return base(ev, "Warning", "Node offline", "A node stopped sending heartbeats.");
+      return base(ev, "Warning", t("notifications:events.nodeOffline"), t("notifications:events.nodeOfflineBody"));
     default:
       return null;
   }

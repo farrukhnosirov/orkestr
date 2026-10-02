@@ -4,8 +4,8 @@ import { useEffect } from "react";
 
 import { Logo } from "../../../components/Logo";
 import { workspaceActions } from "../../../components/workspaceActions";
+import { useFormat, useT } from "../../../i18n";
 import { useAppStore } from "../../../store/app";
-import { formatDuration } from "../controls";
 import type { SettingsSectionProps } from "../sections";
 import { useSettingsStore } from "../settingsStore";
 import { useSystemStore } from "../systemStore";
@@ -16,24 +16,32 @@ export function AboutSection(_props: SettingsSectionProps) {
   const loadSystem = useSystemStore((s) => s.loadSystem);
   const connection = useAppStore((s) => s.connection);
   const closeSettings = useSettingsStore((s) => s.closeSettings);
+  const { t } = useT(["settings", "common"]);
+  const fmt = useFormat();
 
   useEffect(() => {
     void loadSystem();
   }, [loadSystem]);
 
-  const rows: Array<[string, string]> = system
+  /** `[id, label, value]`; ids mark monospaced values. */
+  const rows: Array<[string, string, string]> = system
     ? [
-        ["Core version", system.version],
-        ["Protocol version", String(system.protocolVersion)],
+        ["version", t("about.coreVersion"), system.version],
+        ["protocol", t("about.protocolVersion"), String(system.protocolVersion)],
         [
-          "Core mode",
-          connection.mode === "embedded" ? "Embedded in the desktop app" : connection.mode === "external" ? "orkestrd daemon" : "Browser",
+          "mode",
+          t("about.coreMode"),
+          connection.mode === "embedded"
+            ? t("about.modes.embedded")
+            : connection.mode === "external"
+              ? t("about.modes.external")
+              : t("about.modes.browser"),
         ],
-        ["Uptime", formatDuration(Date.now() - new Date(system.startedAt).getTime())],
-        ["Node id", system.nodeId],
-        ["Data directory", system.dataDir],
-        ["Process id", String(system.pid)],
-        ["Shells", system.shells.join(", ") || "—"],
+        ["uptime", t("about.uptime"), fmt.duration(Date.now() - new Date(system.startedAt).getTime())],
+        ["nodeId", t("about.nodeId"), system.nodeId],
+        ["dataDir", t("about.dataDir"), system.dataDir],
+        ["pid", t("about.pid"), String(system.pid)],
+        ["shells", t("about.shells"), system.shells.join(", ") || "—"],
       ]
     : [];
 
@@ -43,20 +51,20 @@ export function AboutSection(_props: SettingsSectionProps) {
         <Logo size={48} />
         <div>
           <h2 className="about-hero__title">Orkestr</h2>
-          <p className="about-hero__sub">AI Development OS · local-first, your keys, your machine</p>
-          {system?.recoveredFromCrash && <Badge tone="warning">Recovered from an unclean shutdown</Badge>}
+          <p className="about-hero__sub">{t("about.tagline")}</p>
+          {system?.recoveredFromCrash && <Badge tone="warning">{t("about.recovered")}</Badge>}
         </div>
       </div>
       {!system ? (
         <div className="set-loading">
-          <Spinner size={16} /> Loading…
+          <Spinner size={16} /> {t("common:state.loading")}
         </div>
       ) : (
         <dl className="about-grid">
-          {rows.map(([k, v]) => (
-            <div key={k} className="about-grid__row">
+          {rows.map(([id, k, v]) => (
+            <div key={id} className="about-grid__row">
               <dt>{k}</dt>
-              <dd className={k === "Node id" || k === "Data directory" ? "about-grid__mono" : undefined}>{v}</dd>
+              <dd className={id === "nodeId" || id === "dataDir" ? "about-grid__mono" : undefined}>{v}</dd>
             </div>
           ))}
         </dl>
@@ -69,12 +77,11 @@ export function AboutSection(_props: SettingsSectionProps) {
             workspaceActions.openPanel("logs");
           }}
         >
-          Open logs
+          {t("about.openLogs")}
         </Button>
       </div>
       <p className="set-muted set-muted--small">
-        Licensed MIT OR Apache-2.0. No telemetry is collected; nothing leaves this machine unless you configure a
-        provider.
+        {t("about.license")}
       </p>
     </div>
   );

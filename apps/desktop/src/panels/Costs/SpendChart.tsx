@@ -1,6 +1,7 @@
 import type { CostPoint } from "@orkestr/protocol";
 import { useState } from "react";
 
+import { useLanguage, useT } from "../../i18n";
 import { dayLabel, formatUsd, niceMax } from "./format";
 
 const W = 640;
@@ -50,6 +51,10 @@ function topRounded(x: number, y: number, w: number, h: number): string {
 
 /** Daily spend bar chart: reported vs estimated cost (stacked), with hover/focus tooltip. */
 export function SpendChart({ points }: { points: CostPoint[] }) {
+  const { t } = useT("costs");
+  const lng = useLanguage();
+  const usd = (v: number) => formatUsd(v, lng);
+  const day = (key: string) => dayLabel(key, lng);
   const [active, setActive] = useState<number | null>(null);
   const maxValue = niceMax(Math.max(0, ...points.map((p) => p.totals.costUsd)));
   const bars = layoutBars(points, maxValue);
@@ -63,29 +68,34 @@ export function SpendChart({ points }: { points: CostPoint[] }) {
     <figure className="cost-chart">
       <div className="cost-chart__legend" aria-hidden="true">
         <span>
-          <i className="cost-swatch cost-swatch--reported" /> Reported
+          <i className="cost-swatch cost-swatch--reported" /> {t("chart.reported")}
         </span>
         <span>
-          <i className="cost-swatch cost-swatch--estimated" /> Estimated
+          <i className="cost-swatch cost-swatch--estimated" /> {t("chart.estimated")}
         </span>
         <span className="cost-chart__readout">
           {activePoint
-            ? `${dayLabel(activePoint.bucket)} · ${formatUsd(activePoint.totals.costUsd)} (${formatUsd(activePoint.totals.estimatedCostUsd)} est.) · ${activePoint.totals.requests} calls`
-            : `${points.length} days · ${formatUsd(total)}`}
+            ? t("chart.readout", {
+                day: day(activePoint.bucket),
+                cost: usd(activePoint.totals.costUsd),
+                estimated: usd(activePoint.totals.estimatedCostUsd),
+                count: activePoint.totals.requests,
+              })
+            : t("chart.total", { count: points.length, total: usd(total) })}
         </span>
       </div>
       <svg
         viewBox={`0 0 ${W} ${H}`}
         className="cost-chart__svg"
         role="img"
-        aria-label={`Daily spend over the last ${points.length} days, total ${formatUsd(total)}`}
+        aria-label={t("chart.aria", { count: points.length, total: usd(total) })}
         onMouseLeave={() => setActive(null)}
       >
-        {ticks.map((t) => (
-          <g key={t.v}>
-            <line x1={PAD.left} x2={W - PAD.right} y1={t.y} y2={t.y} className="cost-chart__grid" />
-            <text x={PAD.left - 6} y={t.y + 3} className="cost-chart__axis" textAnchor="end">
-              {formatUsd(t.v)}
+        {ticks.map((tick) => (
+          <g key={tick.v}>
+            <line x1={PAD.left} x2={W - PAD.right} y1={tick.y} y2={tick.y} className="cost-chart__grid" />
+            <text x={PAD.left - 6} y={tick.y + 3} className="cost-chart__axis" textAnchor="end">
+              {usd(tick.v)}
             </text>
           </g>
         ))}
@@ -98,7 +108,7 @@ export function SpendChart({ points }: { points: CostPoint[] }) {
               key={p.bucket}
               tabIndex={0}
               className="cost-chart__bar"
-              aria-label={`${dayLabel(p.bucket)}: ${formatUsd(p.totals.costUsd)}, of which ${formatUsd(p.totals.estimatedCostUsd)} estimated`}
+              aria-label={t("chart.bar", { day: day(p.bucket), cost: usd(p.totals.costUsd), estimated: usd(p.totals.estimatedCostUsd) })}
               onMouseEnter={() => setActive(i)}
               onFocus={() => setActive(i)}
               onBlur={() => setActive(null)}
@@ -111,7 +121,7 @@ export function SpendChart({ points }: { points: CostPoint[] }) {
               <path d={topRounded(b.x, b.estimatedY, b.width, b.estimatedH)} className="cost-chart__estimated" />
               {i % labelEvery === 0 && (
                 <text x={b.x + b.width / 2} y={H - 6} className="cost-chart__axis" textAnchor="middle">
-                  {dayLabel(p.bucket)}
+                  {day(p.bucket)}
                 </text>
               )}
             </g>

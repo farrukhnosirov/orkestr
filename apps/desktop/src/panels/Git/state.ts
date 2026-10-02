@@ -9,6 +9,7 @@ import { type DependencyList, useCallback, useEffect, useRef, useState } from "r
 import { create } from "zustand";
 
 import { maybeClient } from "../../core/client";
+import { describeError } from "../../i18n/errors";
 import { useAppStore } from "../../store/app";
 
 export type GitTab = "changes" | "branches" | "worktrees" | "history" | "snapshots";
@@ -35,9 +36,13 @@ export const useGitUi = create<GitUiState>()((set) => ({
   setIntent: (intent) => set({ intent }),
 }));
 
-/** User-facing message of an RPC/client error. */
+/** User-facing message of an RPC/client error (localized code label + core detail). */
 export function errorMessage(e: unknown): string {
-  if (e instanceof OrkestrError) return e.message;
+  return describeError(e);
+}
+
+/** The core's raw (English, untranslated) message — for matching, never for display. */
+export function rawMessage(e: unknown): string {
   if (e instanceof Error) return e.message;
   return String(e);
 }

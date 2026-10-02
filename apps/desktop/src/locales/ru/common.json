@@ -1,0 +1,187 @@
+{
+  "brand": "Orkestr",
+  "tagline": "Операционная система для AI-разработки",
+  "actions": {
+    "apply": "Применить",
+    "approve": "Подтвердить",
+    "back": "Назад",
+    "cancel": "Отмена",
+    "close": "Закрыть",
+    "confirm": "Подтвердить",
+    "copy": "Копировать",
+    "create": "Создать",
+    "delete": "Удалить",
+    "edit": "Изменить",
+    "finish": "Готово",
+    "next": "Далее",
+    "open": "Открыть",
+    "refresh": "Обновить",
+    "reject": "Отклонить",
+    "retry": "Повторить",
+    "rollback": "Откатить",
+    "save": "Сохранить",
+    "search": "Найти",
+    "skip": "Пропустить"
+  },
+  "state": {
+    "loading": "Загрузка…",
+    "saving": "Сохранение…",
+    "empty": "Здесь пока пусто",
+    "optional": "Необязательно",
+    "unknown": "Неизвестно",
+    "on": "Вкл.",
+    "off": "Выкл.",
+    "yes": "Да",
+    "no": "Нет",
+    "none": "Нет"
+  },
+  "language": {
+    "label": "Язык",
+    "description": "Язык интерфейса. На нём же отвечают AI-менеджер и агенты.",
+    "system": "Как в системе ({{language}})",
+    "names": {
+      "en": "English",
+      "ru": "Русский"
+    }
+  },
+  "phase": "Этап {{phase}}",
+  "errors": {
+    "generic": "Что-то пошло не так.",
+    "withDetail": "{{message}}: {{detail}}",
+    "codes": {
+      "unauthorized": "Доступ запрещён: токен сеанса не принят",
+      "bad_request": "Некорректный запрос",
+      "not_found": "Не найдено",
+      "conflict": "Конфликт с текущим состоянием",
+      "forbidden": "Действие запрещено",
+      "approval_required": "Требуется ваше подтверждение",
+      "rate_limited": "Слишком много запросов — повторите чуть позже",
+      "budget_exceeded": "Бюджет исчерпан",
+      "provider_error": "Ошибка AI-провайдера",
+      "internal": "Внутренняя ошибка ядра",
+      "timeout": "Ядро не ответило вовремя",
+      "disconnected": "Нет связи с ядром Orkestr",
+      "closed": "Соединение закрыто",
+      "aborted": "Запрос отменён",
+      "protocol": "Неожиданный ответ ядра"
+    },
+    "notConnected": "Нет подключения к ядру Orkestr.",
+    "notInitialised": "Подключение к ядру ещё не установлено."
+  },
+  "status": {
+    "task": {
+      "Planned": "Запланирована",
+      "Ready": "Готова к работе",
+      "Running": "Выполняется",
+      "Waiting": "Ожидает",
+      "Blocked": "Заблокирована",
+      "Review": "На ревью",
+      "Testing": "Тестируется",
+      "Completed": "Выполнена",
+      "Failed": "Сбой",
+      "Cancelled": "Отменена",
+      "Interrupted": "Прервана",
+      "Recovering": "Восстанавливается"
+    },
+    "agent": {
+      "Idle": "Свободен",
+      "Listening": "Слушает",
+      "Thinking": "Думает",
+      "Coding": "Пишет код",
+      "Testing": "Тестирует",
+      "Reviewing": "Проводит ревью",
+      "Waiting": "Ожидает",
+      "Error": "Ошибка",
+      "Completed": "Завершил работу",
+      "Stopped": "Остановлен"
+    },
+    "approval": {
+      "Pending": "Ожидает решения",
+      "Approved": "Подтверждено",
+      "Rejected": "Отклонено",
+      "Expired": "Истекло",
+      "Cancelled": "Отменено"
+    },
+    "health": {
+      "Unknown": "Неизвестно",
+      "Healthy": "Работает",
+      "Degraded": "Работает с перебоями",
+      "RateLimited": "Превышен лимит запросов",
+      "Down": "Недоступен"
+    },
+    "approvalMode": {
+      "Ask": "Спрашивать",
+      "SemiAuto": "Полуавтомат",
+      "FullAuto": "Полный автомат"
+    },
+    "notification": {
+      "Info": "Информация",
+      "Success": "Успешно",
+      "Warning": "Предупреждение",
+      "Error": "Ошибка",
+      "Critical": "Критично"
+    }
+  },
+  "count": {
+    "agents_one": "{{count}} агент",
+    "agents_few": "{{count}} агента",
+    "agents_many": "{{count}} агентов",
+    "agents_other": "{{count}} агента",
+    "tasks_one": "{{count}} задача",
+    "tasks_few": "{{count}} задачи",
+    "tasks_many": "{{count}} задач",
+    "tasks_other": "{{count}} задачи",
+    "files_one": "{{count}} файл",
+    "files_few": "{{count}} файла",
+    "files_many": "{{count}} файлов",
+    "files_other": "{{count}} файла",
+    "projects_one": "{{count}} проект",
+    "projects_few": "{{count}} проекта",
+    "projects_many": "{{count}} проектов",
+    "projects_other": "{{count}} проекта",
+    "approvals_one": "{{count}} подтверждение",
+    "approvals_few": "{{count}} подтверждения",
+    "approvals_many": "{{count}} подтверждений",
+    "approvals_other": "{{count}} подтверждения",
+    "items_one": "{{count}} элемент",
+    "items_few": "{{count}} элемента",
+    "items_many": "{{count}} элементов",
+    "items_other": "{{count}} элемента",
+    "turns_one": "{{count}} ход",
+    "turns_few": "{{count}} хода",
+    "turns_many": "{{count}} ходов",
+    "turns_other": "{{count}} хода",
+    "steps_one": "{{count}} шаг",
+    "steps_few": "{{count}} шага",
+    "steps_many": "{{count}} шагов",
+    "steps_other": "{{count}} шага",
+    "days_one": "{{count}} день",
+    "days_few": "{{count}} дня",
+    "days_many": "{{count}} дней",
+    "days_other": "{{count}} дня",
+    "tokens_one": "{{count}} токен",
+    "tokens_few": "{{count}} токена",
+    "tokens_many": "{{count}} токенов",
+    "tokens_other": "{{count}} токена"
+  },
+  "time": {
+    "justNow": "только что",
+    "never": "никогда"
+  },
+  "keys": {
+    "ctrl": "Ctrl",
+    "shift": "Shift",
+    "alt": "Alt",
+    "enter": "Enter",
+    "esc": "Esc"
+  },
+  "units": {
+    "bytes": {
+      "b": "Б",
+      "kb": "КБ",
+      "mb": "МБ",
+      "gb": "ГБ",
+      "tb": "ТБ"
+    }
+  }
+}

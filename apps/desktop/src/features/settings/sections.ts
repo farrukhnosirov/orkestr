@@ -5,6 +5,7 @@
 import { Info, MonitorCog, SlidersHorizontal, type LucideIcon } from "lucide-react";
 import type { ComponentType } from "react";
 
+import { t } from "../../i18n";
 import { managerSettingsSection, providersSettingsSection } from "../providers";
 import { AboutSection } from "./sections/AboutSection";
 import { GeneralSection } from "./sections/GeneralSection";
@@ -18,7 +19,8 @@ export interface SettingsSectionProps {
 export interface SettingsSection {
   /** Stable id (used in deep links, e.g. `settings:providers`). */
   id: string;
-  title: string;
+  /** Localized title — define it as a getter over `t()` so it follows language switches. */
+  readonly title: string;
   icon: LucideIcon;
   /** Lower comes first. */
   order: number;
@@ -26,9 +28,33 @@ export interface SettingsSection {
 }
 
 export const settingsSections: SettingsSection[] = [
-  { id: "general", title: "General", icon: SlidersHorizontal, order: 0, component: GeneralSection },
-  { id: "system", title: "System", icon: MonitorCog, order: 900, component: SystemSection },
-  { id: "about", title: "About", icon: Info, order: 1000, component: AboutSection },
+  {
+    id: "general",
+    get title() {
+      return t("shell:settings.sectionTitles.general");
+    },
+    icon: SlidersHorizontal,
+    order: 0,
+    component: GeneralSection,
+  },
+  {
+    id: "system",
+    get title() {
+      return t("shell:settings.sectionTitles.system");
+    },
+    icon: MonitorCog,
+    order: 900,
+    component: SystemSection,
+  },
+  {
+    id: "about",
+    get title() {
+      return t("shell:settings.sectionTitles.about");
+    },
+    icon: Info,
+    order: 1000,
+    component: AboutSection,
+  },
 ];
 settingsSections.push(providersSettingsSection, managerSettingsSection);
 

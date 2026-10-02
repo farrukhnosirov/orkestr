@@ -19,6 +19,25 @@ pub fn redact(text: &str) -> String {
     orkestr_security::redact::redact(text)
 }
 
+/// Whether user-facing Manager notices should be written in Russian.
+#[must_use]
+pub fn is_ru(lang: &str) -> bool {
+    lang == "ru"
+}
+
+/// Russian plural form: `ru_plural(n, "задача", "задачи", "задач")`.
+#[must_use]
+pub fn ru_plural<'a>(n: usize, one: &'a str, few: &'a str, many: &'a str) -> &'a str {
+    let (m10, m100) = (n % 10, n % 100);
+    if m10 == 1 && m100 != 11 {
+        one
+    } else if (2..=4).contains(&m10) && !(12..=14).contains(&m100) {
+        few
+    } else {
+        many
+    }
+}
+
 /// Collapses whitespace and caps to `n` characters.
 #[must_use]
 pub fn one_line(s: &str, n: usize) -> String {

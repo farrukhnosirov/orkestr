@@ -5,17 +5,14 @@ import { type FormEvent, useEffect, useState } from "react";
 
 import { ModelPicker } from "../../features/providers/ModelPicker";
 import { useProvidersLive } from "../../features/providers/store";
+import { useT } from "../../i18n";
 import { useAppStore } from "../../store/app";
 import { agentActions, errorMessage } from "./data";
 import { roleLabel } from "./model";
 import { useAgentsUi } from "./store";
+import { agentName, templateDescription, templateName } from "../../lib/coreText";
 
-const POLICIES: { id: WorktreePolicy; label: string; hint: string }[] = [
-  { id: "DedicatedWorktree", label: "Dedicated worktree", hint: "Own branch agent/<role>-<id> (needs a git repo with a commit)" },
-  { id: "SharedWorktree", label: "Shared checkout", hint: "Works directly in the project folder" },
-  { id: "ReadOnlyMain", label: "Read-only", hint: "Reads the project, cannot change files" },
-  { id: "None", label: "No files", hint: "Chat-only, no filesystem access" },
-];
+const POLICIES: readonly WorktreePolicy[] = ["DedicatedWorktree", "SharedWorktree", "ReadOnlyMain", "None"];
 
 const ASSIGNABLE = new Set(["Planned", "Ready", "Failed", "Interrupted"]);
 
@@ -29,6 +26,7 @@ export function SpawnDialog({
   templates: AgentTemplate[];
   tasks: Task[];
 }) {
+  const { t } = useT(["agents", "common"]);
   const open = useAgentsUi((s) => s.spawnOpen);
   const preselected = useAgentsUi((s) => s.spawnTemplateId);
   const close = useAgentsUi((s) => s.closeSpawn);
@@ -46,7 +44,7 @@ export function SpawnDialog({
   const [maxTurns, setMaxTurns] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const assignable = tasks.filter((t) => ASSIGNABLE.has(t.status));
+  const assignable = tasks.filter((x) => ASSIGNABLE.has(x.status));
 
   useEffect(() => {
     if (!open) return;
@@ -64,24 +62,24 @@ export function SpawnDialog({
   }, [open]);
 
   if (!open) return null;
-  const template = templates.find((t) => t.id === templateId);
+  const template = templates.find((x) => x.id === templateId);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (!template) {
-      setError("Choose a template.");
+      setError(t("spawnDialog.chooseTemplate"));
       return;
     }
     const params: SpawnAgentParams = { projectId, templateId: template.id };
     if (taskMode === "existing") {
       if (!taskId) {
-        setError("Choose a task, or create a new one.");
+        setError(t("spawnDialog.chooseTask"));
         return;
       }
       params.taskId = taskId;
     } else {
       if (!title.trim()) {
-        setError("Give the new task a title.");
+        setError(t("spawnDialog.needTitle"));
         return;
       }
       params.newTask = description.trim() ? { title: title.trim(), description: description.trim() } : { title: title.trim() };
@@ -91,7 +89,7 @@ export function SpawnDialog({
     if (maxTurns.trim()) {
       const n = Number.parseInt(maxTurns, 10);
       if (!Number.isInteger(n) || n < 1 || n > 500) {
-        setError("Max turns must be 1–500.");
+        setError(t("spawnDialog.maxTurnsRange"));
         return;
       }
       params.maxTurns = n;
@@ -102,7 +100,7 @@ export function SpawnDialog({
       const r = await agentActions.spawn(params);
       select(r.agent.id);
       close();
-      toast("success", `${r.agent.name} is working on “${r.task.title}”.`);
+      toast("success", t("spawnDialog.started", { name: agentName(r.agent.name), task: r.task.title }));
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -130,74 +128,91 @@ export function SpawnDialog({
           </div>
           <div>
             <h2 id="spawn-agent-title" className="dialog__title">
-              Spawn agent
+              {t("spawn")}
             </h2>
-            <p className="dialog__subtitle">The agent runs in isolation with its own worktree, budget and stop button.</p>
+            <p className="dialog__subtitle">{t("spawnDialog.subtitle")}</p>
           </div>
-          <button type="button" className="dialog__close" aria-label="Close" onClick={dismiss}>
+          <button type="button" className="dialog__close" aria-label={t("common:actions.close")} onClick={dismiss}>
             <X size={16} />
           </button>
         </header>
         <div className="dialog__body">
           <label className="ok-field">
-            <span className="ok-field__label">Template</span>
-            <select className="agents-select" value={templateId} onChange={(e) => setTemplateId(e.target.value)} aria-label="Template">
-              {templates.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name} — {roleLabel(t.role)}
-                  {t.source === "Builtin" ? " (official)" : ""}
+            <span className="ok-field__label">{t("spawnDialog.template")}</span>
+            <select className="agents-select" value={templateId} onChange={(e) => setTemplateId(e.target.value)} aria-label={t("spawnDialog.template")}>
+              {templates.map((x) => (
+                <option key={x.id} value={x.id}>
+                  {t(x.source === "Builtin" ? "spawnDialog.templateOptionOfficial" : "spawnDialog.templateOption", {
+                    name: templateName(x.name),
+                    role: roleLabel(x.role),
+                  })}
                 </option>
               ))}
             </select>
           </label>
-          {template && <p className="agents-muted">{template.description}</p>}
+          {template && <p className="agents-muted">{templateDescription(template.name, template.description)}</p>}
 
           <fieldset className="ok-field agents-fieldset">
-            <legend className="ok-field__label">Task</legend>
+            <legend className="ok-field__label">{t("spawnDialog.task")}</legend>
             <div className="agents-radio-row">
               <label>
                 <input type="radio" checked={taskMode === "existing"} disabled={assignable.length === 0} onChange={() => setTaskMode("existing")} />{" "}
-                Existing task
+                {t("spawnDialog.existingTask")}
               </label>
               <label>
-                <input type="radio" checked={taskMode === "new"} onChange={() => setTaskMode("new")} /> New task
+                <input type="radio" checked={taskMode === "new"} onChange={() => setTaskMode("new")} /> {t("spawnDialog.newTask")}
               </label>
             </div>
             {taskMode === "existing" ? (
-              <select className="agents-select" value={taskId} onChange={(e) => setTaskId(e.target.value)} aria-label="Existing task">
-                {assignable.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.title} ({t.status})
+              <select className="agents-select" value={taskId} onChange={(e) => setTaskId(e.target.value)} aria-label={t("spawnDialog.existingTask")}>
+                {assignable.map((x) => (
+                  <option key={x.id} value={x.id}>
+                    {t("spawnDialog.taskOption", { title: x.title, status: t(`common:status.task.${x.status}`) })}
                   </option>
                 ))}
               </select>
             ) : (
               <>
-                <Input label="Title" placeholder="e.g. Add CSV export endpoint" value={title} maxLength={200} onChange={(e) => setTitle(e.target.value)} />
+                <Input
+                  label={t("spawnDialog.title")}
+                  placeholder={t("spawnDialog.titlePlaceholder")}
+                  value={title}
+                  maxLength={200}
+                  onChange={(e) => setTitle(e.target.value)}
+                />
                 <label className="ok-field">
-                  <span className="ok-field__label">Description</span>
+                  <span className="ok-field__label">{t("spawnDialog.description")}</span>
                   <textarea className="agents-textarea" rows={3} value={description} onChange={(e) => setDescription(e.target.value)} />
                 </label>
               </>
             )}
           </fieldset>
 
-          <ModelPicker label="Model override (optional)" value={model} onChange={setModel} providers={providers} allowNone />
+          <ModelPicker label={t("spawnDialog.model")} value={model} onChange={setModel} providers={providers} allowNone />
 
           <div className="agents-dialog__row">
             <label className="ok-field">
-              <span className="ok-field__label">Worktree</span>
-              <select className="agents-select" value={policy} onChange={(e) => setPolicy(e.target.value as WorktreePolicy | "")} aria-label="Worktree policy">
-                <option value="">Template default{template ? ` (${POLICIES.find((p) => p.id === template.worktreePolicy)?.label ?? ""})` : ""}</option>
+              <span className="ok-field__label">{t("spawnDialog.worktree")}</span>
+              <select
+                className="agents-select"
+                value={policy}
+                onChange={(e) => setPolicy(e.target.value as WorktreePolicy | "")}
+                aria-label={t("spawnDialog.worktreeLabel")}
+              >
+                <option value="">
+                  {template
+                    ? t("spawnDialog.templateDefaultWith", { policy: t(`worktreePolicy.${template.worktreePolicy}`) })
+                    : t("spawnDialog.templateDefault")}
+                </option>
                 {POLICIES.map((p) => (
-                  <option key={p.id} value={p.id} title={p.hint}>
-                    {p.label}
+                  <option key={p} value={p} title={t(`worktreePolicyHint.${p}`)}>
+                    {t(`worktreePolicy.${p}`)}
                   </option>
                 ))}
               </select>
             </label>
             <label className="ok-field">
-              <span className="ok-field__label">Max turns</span>
+              <span className="ok-field__label">{t("spawnDialog.maxTurns")}</span>
               <input
                 className="agents-input"
                 inputMode="numeric"
@@ -215,10 +230,10 @@ export function SpawnDialog({
         </div>
         <footer className="dialog__footer">
           <Button variant="ghost" onClick={dismiss} disabled={busy}>
-            Cancel
+            {t("common:actions.cancel")}
           </Button>
           <Button variant="primary" type="submit" loading={busy} disabled={!connected || templates.length === 0}>
-            Spawn agent
+            {t("spawn")}
           </Button>
         </footer>
       </form>

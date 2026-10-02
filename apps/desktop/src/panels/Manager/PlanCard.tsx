@@ -10,6 +10,8 @@ import { clsx } from "clsx";
 import { Check, ClipboardList, CornerDownRight, Pencil, RotateCcw, Trash2, TriangleAlert, X } from "lucide-react";
 import { useState } from "react";
 
+import { useFormat, useT } from "../../i18n";
+import { planWarning } from "../../lib/coreText";
 import { roleLabel } from "../Agents/model";
 import { errorMessage, managerActions } from "./data";
 import {
@@ -27,6 +29,8 @@ import {
 import { useManagerUi } from "./store";
 
 export function PlanCard({ plan }: { plan: ManagerPlan }) {
+  const { t } = useT(["manager", "tasks", "common"]);
+  const fmt = useFormat();
   const toast = useManagerUi((s) => s.toast);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<PlanDraft>(EMPTY_DRAFT);
@@ -45,7 +49,7 @@ export function PlanCard({ plan }: { plan: ManagerPlan }) {
       const r = await managerActions.approvePlan(plan.id, editing ? draftToEdits(plan, draft) : undefined);
       setEditing(false);
       setDraft(EMPTY_DRAFT);
-      toast("success", r.run ? "Plan approved — the run started." : "Plan approved — tasks created.");
+      toast("success", r.run ? t("plan.approvedRun") : t("plan.approvedTasks"));
     } catch (e) {
       toast("danger", errorMessage(e));
     } finally {
@@ -70,17 +74,21 @@ export function PlanCard({ plan }: { plan: ManagerPlan }) {
     setDraft((d) => ({ ...d, removed: d.removed.includes(key) ? d.removed.filter((k) => k !== key) : [...d.removed, key] }));
 
   return (
-    <section className={clsx("mgr-plan", `mgr-plan--${plan.status.toLowerCase()}`)} aria-label={`Plan: ${plan.goal}`}>
+    <section className={clsx("mgr-plan", `mgr-plan--${plan.status.toLowerCase()}`)} aria-label={t("plan.region", { goal: plan.goal })}>
       <header className="mgr-plan__head">
         <ClipboardList size={16} aria-hidden="true" />
         <div className="mgr-plan__title">
           <strong>{plan.goal}</strong>
           <span className="mgr-muted">
-            {plan.tasks.length} task{plan.tasks.length === 1 ? "" : "s"} · up to {plan.maxParallelism} in parallel · {planCost(plan)}
-            {plan.source === "Extracted" ? " · extracted from text" : ""}
+            {[
+              t("common:count.tasks", { count: plan.tasks.length }),
+              t("plan.parallel", { n: plan.maxParallelism }),
+              planCost(plan),
+              ...(plan.source === "Extracted" ? [t("plan.extracted")] : []),
+            ].join(" · ")}
           </span>
         </div>
-        <Badge tone={PLAN_STATUS_TONE[plan.status]}>{plan.status}</Badge>
+        <Badge tone={PLAN_STATUS_TONE[plan.status]}>{t(`planStatus.${plan.status}`)}</Badge>
       </header>
       {plan.summary && <p className="mgr-plan__summary">{plan.summary}</p>}
       {(plan.warnings.length > 0 || plan.risks.length > 0) && (
@@ -92,14 +100,14 @@ export function PlanCard({ plan }: { plan: ManagerPlan }) {
           ))}
           {plan.warnings.map((w, i) => (
             <li key={`w${i}`} className="mgr-muted">
-              {w}
+              {planWarning(w)}
             </li>
           ))}
         </ul>
       )}
-      <div className="mgr-plan__tree" role="tree" aria-label="Plan tasks">
+      <div className="mgr-plan__tree" role="tree" aria-label={t("plan.tasks")}>
         {groups.map((g, gi) => (
-          <div key={`${g.epic ?? ""}/${g.feature ?? ""}/${gi}`} className="mgr-plan__group" role="group" aria-label={g.feature ?? g.epic ?? "Tasks"}>
+          <div key={`${g.epic ?? ""}/${g.feature ?? ""}/${gi}`} className="mgr-plan__group" role="group" aria-label={g.feature ?? g.epic ?? t("plan.tasksGroup")}>
             {(g.epic || g.feature) && (
               <div className="mgr-plan__group-head">
                 {g.epic && <span className="mgr-plan__epic">{g.epic}</span>}
@@ -127,7 +135,7 @@ export function PlanCard({ plan }: { plan: ManagerPlan }) {
                       <input
                         className="mgr-input mgr-ptask__title-input"
                         value={title}
-                        aria-label={`Title of ${task.key}`}
+                        aria-label={t("plan.titleOf", { key: task.key })}
                         maxLength={200}
                         onChange={(e) => setDraft((d) => ({ ...d, titles: { ...d.titles, [task.key]: e.target.value } }))}
                       />
@@ -135,24 +143,26 @@ export function PlanCard({ plan }: { plan: ManagerPlan }) {
                       <span className="mgr-ptask__title">{title}</span>
                     )}
                     <Badge tone="violet">{roleLabel(task.role)}</Badge>
-                    {task.priority !== "Normal" && <Badge tone={task.priority === "Critical" || task.priority === "High" ? "warning" : "neutral"}>{task.priority}</Badge>}
+                    {task.priority !== "Normal" && (
+                      <Badge tone={task.priority === "Critical" || task.priority === "High" ? "warning" : "neutral"}>{t(`tasks:priority.${task.priority}`)}</Badge>
+                    )}
                     {task.estimatedCostUsd !== null && <span className="mgr-muted">{formatUsd(task.estimatedCostUsd)}</span>}
                     {editing && (
                       <IconButton
                         size="sm"
-                        label={removed ? `Keep ${task.key}` : `Remove ${task.key}`}
+                        label={removed ? t("plan.keep", { key: task.key }) : t("plan.remove", { key: task.key })}
                         icon={removed ? <RotateCcw size={13} /> : <Trash2 size={13} />}
                         onClick={() => toggleRemove(task.key)}
                       />
                     )}
                   </div>
-                  {deps.length > 0 && <div className="mgr-ptask__deps">after {deps.join(", ")}</div>}
+                  {deps.length > 0 && <div className="mgr-ptask__deps">{t("plan.after", { tasks: fmt.list(deps) })}</div>}
                   {editing && removed && dependentsOf(task.key, plan.tasks).length > 0 && (
-                    <div className="mgr-ptask__deps">tasks that depended on it will no longer wait for it</div>
+                    <div className="mgr-ptask__deps">{t("plan.dependentsNote")}</div>
                   )}
                   {!editing && task.acceptanceCriteria.length > 0 && (
                     <details className="mgr-ptask__details">
-                      <summary>Acceptance criteria{task.files.length > 0 ? " & files" : ""}</summary>
+                      <summary>{task.files.length > 0 ? t("plan.criteriaAndFiles") : t("plan.criteria")}</summary>
                       <ul>
                         {task.acceptanceCriteria.map((c, i) => (
                           <li key={i}>{c}</li>
@@ -173,7 +183,7 @@ export function PlanCard({ plan }: { plan: ManagerPlan }) {
           </div>
         ))}
       </div>
-      {plan.rejectionReason && <p className="mgr-muted">Rejected: {plan.rejectionReason}</p>}
+      {plan.rejectionReason && <p className="mgr-muted">{t("plan.rejected", { reason: plan.rejectionReason })}</p>}
       {proposed && (
         <footer className="mgr-plan__actions">
           {draftError && (
@@ -185,16 +195,16 @@ export function PlanCard({ plan }: { plan: ManagerPlan }) {
             <>
               <input
                 className="mgr-input"
-                placeholder="Why? (optional — the Manager sees it)"
-                aria-label="Rejection reason"
+                placeholder={t("plan.reasonPlaceholder")}
+                aria-label={t("plan.reasonLabel")}
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
               />
               <Button size="sm" variant="danger" loading={busy === "reject"} onClick={() => void reject()}>
-                Reject plan
+                {t("plan.rejectPlan")}
               </Button>
               <Button size="sm" variant="ghost" onClick={() => setRejecting(false)}>
-                Back
+                {t("common:actions.back")}
               </Button>
             </>
           ) : (
@@ -207,7 +217,11 @@ export function PlanCard({ plan }: { plan: ManagerPlan }) {
                 disabled={busy !== null || draftError !== null}
                 onClick={() => void approve()}
               >
-                {editing ? `Approve edited plan${removedCount ? ` (−${removedCount})` : ""}` : "Approve"}
+                {editing
+                  ? removedCount
+                    ? t("plan.approveEditedRemoved", { n: removedCount })
+                    : t("plan.approveEdited")
+                  : t("common:actions.approve")}
               </Button>
               {editing ? (
                 <Button
@@ -218,15 +232,15 @@ export function PlanCard({ plan }: { plan: ManagerPlan }) {
                     setDraft(EMPTY_DRAFT);
                   }}
                 >
-                  Discard edits
+                  {t("plan.discardEdits")}
                 </Button>
               ) : (
                 <Button size="sm" variant="ghost" leftIcon={<Pencil size={14} />} onClick={() => setEditing(true)}>
-                  Edit
+                  {t("common:actions.edit")}
                 </Button>
               )}
               <Button size="sm" variant="ghost" leftIcon={<X size={14} />} disabled={busy !== null} onClick={() => setRejecting(true)}>
-                Reject
+                {t("common:actions.reject")}
               </Button>
             </>
           )}

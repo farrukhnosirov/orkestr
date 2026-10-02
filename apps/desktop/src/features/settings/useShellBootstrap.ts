@@ -9,6 +9,7 @@ import { TOPIC_GLOBAL, topic } from "@orkestr/protocol";
 import { useEffect } from "react";
 
 import { getClient } from "../../core/client";
+import { applyLanguagePreference, languagePreference } from "../../i18n";
 import { shellControls } from "../../lib/tauri";
 import { useAppStore } from "../../store/app";
 import { stopAllAi } from "../commands/coreCommands";
@@ -41,6 +42,8 @@ export function useShellBootstrap(ready: boolean): void {
       const s = useSettingsStore.getState().settings;
       if (!s) return;
       useNotificationsStore.getState().setDoNotDisturb(s.doNotDisturb);
+      // Language: live switch whenever the stored preference changes (any client may change it).
+      if (s.language !== languagePreference()) void applyLanguagePreference(s.language);
       const app = useAppStore.getState();
       if (s.themeId && s.themeId !== app.themeId) app.setThemeId(s.themeId);
       if (!onboardingChecked) {

@@ -1,0 +1,47 @@
+{
+  "architecture": {
+    "summary": "Architecture map and decision log.",
+    "features": {
+      "components": "Modules, services, databases, APIs",
+      "decisions": "ADR-style decision log",
+      "replay": "Execution replay",
+      "links": "Links to tasks and files"
+    }
+  },
+  "browser": {
+    "summary": "Browser agent for UI checks and user-flow tests.",
+    "features": {
+      "record": "Open URLs and record flows",
+      "screenshots": "Screenshots and responsive checks",
+      "errors": "Console and network errors",
+      "e2e": "Agent-driven E2E testing"
+    }
+  },
+  "database": {
+    "summary": "Database explorer with approval-gated writes.",
+    "features": {
+      "connections": "Connections per environment",
+      "schema": "Schema browser and queries",
+      "approval": "DROP/TRUNCATE always require approval",
+      "readOnly": "Read-only by default"
+    }
+  },
+  "deployments": {
+    "summary": "Environments and deployments with an audit trail.",
+    "features": {
+      "environments": "Local, Dev, Test, Staging, Production",
+      "targets": "Docker, Compose, SSH, Vercel, Cloudflare, clouds",
+      "approval": "Production always requires approval",
+      "rollback": "Rollback history"
+    }
+  },
+  "monitoring": {
+    "summary": "Mission Control and infrastructure monitor.",
+    "features": {
+      "resources": "CPU, RAM, GPU, disk per node",
+      "providers": "Provider health and limits",
+      "builds": "Builds, deployments and alerts",
+      "detective": "Bug Detective"
+    }
+  }
+}

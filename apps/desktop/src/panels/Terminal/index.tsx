@@ -9,11 +9,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 
 import { maybeClient } from "../../core/client";
+import { useT } from "../../i18n";
 import { useAppStore } from "../../store/app";
 import type { PanelProps } from "../types";
 import {
   errorMessage,
   isAgentSession,
+  isNotFound,
   isReadOnly,
   nextActiveAfterClose,
   normalizeTitle,
@@ -23,11 +25,13 @@ import {
 } from "./logic";
 import { scopeKey, useTerminalUi } from "./store";
 import { TerminalView } from "./TerminalView";
+import { terminalTitle } from "../../lib/coreText";
 
 const POLL_MS = 4000;
 
 /** Terminal panel: PTY sessions from the core, one xterm.js view per tab. */
 export default function TerminalPanel({ projectId }: PanelProps) {
+  const { t } = useT(["terminal", "common"]);
   const connectionState = useAppStore((s) => s.connection.state);
   const project = useAppStore((s) => s.projects.find((p) => p.id === projectId) ?? null);
   const client = connectionState === "open" ? maybeClient() : null;
@@ -106,8 +110,7 @@ export default function TerminalPanel({ projectId }: PanelProps) {
         await client.call("terminal.close", { terminalId });
       } catch (e) {
         // Already gone on the core side is fine; anything else is shown.
-        const msg = errorMessage(e);
-        if (!/not found/i.test(msg)) setActionError(msg);
+        if (!isNotFound(e)) setActionError(errorMessage(e));
       }
       setSessions((prev) => (prev ?? []).filter((s) => s.terminalId !== terminalId));
       if (activeId === terminalId) setActive(projectId, nextActiveAfterClose(ids, terminalId));
@@ -147,8 +150,8 @@ export default function TerminalPanel({ projectId }: PanelProps) {
       <div className="term-panel term-panel--center">
         <EmptyState
           icon={<SquareTerminal size={26} strokeWidth={1.6} />}
-          title="Waiting for the core"
-          description="Terminals run inside the Orkestr core. They appear here as soon as the connection is up."
+          title={t("waiting.title")}
+          description={t("waiting.description")}
           action={<Spinner size={18} />}
         />
       </div>
@@ -160,7 +163,7 @@ export default function TerminalPanel({ projectId }: PanelProps) {
       <div className="term-panel term-panel--center">
         <EmptyState
           icon={<SquareTerminal size={26} strokeWidth={1.6} />}
-          title="Terminals unavailable"
+          title={t("unavailable")}
           description={loadError}
           action={
             <Button
@@ -171,7 +174,7 @@ export default function TerminalPanel({ projectId }: PanelProps) {
                 refresh(client).catch((e: unknown) => setLoadError(errorMessage(e)));
               }}
             >
-              Retry
+              {t("common:actions.retry")}
             </Button>
           }
         />
@@ -183,7 +186,7 @@ export default function TerminalPanel({ projectId }: PanelProps) {
     return (
       <div className="term-panel term-panel--center">
         <div className="term-loading">
-          <Spinner size={18} /> Loading terminals…
+          <Spinner size={18} /> {t("loading")}
         </div>
       </div>
     );
@@ -208,17 +211,14 @@ export default function TerminalPanel({ projectId }: PanelProps) {
       {actionError && (
         <div className="term-alert" role="alert">
           <span>{actionError}</span>
-          <IconButton label="Dismiss" size="sm" icon={<X size={13} />} onClick={() => setActionError(null)} />
+          <IconButton label={t("dismiss")} size="sm" icon={<X size={13} />} onClick={() => setActionError(null)} />
         </div>
       )}
 
       {active && isAgentSession(active) && (
         <div className="term-banner">
           <Bot size={14} />
-          <span>
-            {active.kind === "commandView" ? "Agent command output" : "Agent terminal"} · read-only — commands are
-            checked by the security gate before they run.
-          </span>
+          <span>{active.kind === "commandView" ? t("banner.commandView") : t("banner.agent")}</span>
         </div>
       )}
 
@@ -226,17 +226,17 @@ export default function TerminalPanel({ projectId }: PanelProps) {
         {visible.length === 0 ? (
           <EmptyState
             icon={<SquareTerminal size={26} strokeWidth={1.6} />}
-            title="No terminals yet"
+            title={t("empty.title")}
             description={
               noRoot
-                ? "This project has no root folder, so the terminal opens in your home folder."
+                ? t("empty.noRoot")
                 : projectId
-                  ? "Open a shell in the project folder. Sessions keep running when you switch panels or reload."
-                  : "Open a shell in your home folder. Sessions keep running when you switch panels or reload."
+                  ? t("empty.project")
+                  : t("empty.home")
             }
             action={
               <Button variant="primary" leftIcon={<Plus size={14} />} loading={opening} onClick={() => void openTerminal()}>
-                New terminal
+                {t("new")}
               </Button>
             }
           />
@@ -247,7 +247,7 @@ export default function TerminalPanel({ projectId }: PanelProps) {
         )}
         {active && active.status === "exited" && active.kind === "pty" && (
           <div className="term-exit" role="status">
-            <span>Process {sessionSubtitle(active)}.</span>
+            <span>{active.exitCode === null ? t("exit.plain") : t("exit.code", { code: active.exitCode })}</span>
             {!isAgentSession(active) && (
               <Button
                 size="sm"
@@ -259,11 +259,11 @@ export default function TerminalPanel({ projectId }: PanelProps) {
                   );
                 }}
               >
-                Restart
+                {t("exit.restart")}
               </Button>
             )}
             <Button size="sm" variant="ghost" onClick={() => void closeTerminal(active.terminalId)}>
-              Close
+              {t("common:actions.close")}
             </Button>
           </div>
         )}
@@ -283,6 +283,7 @@ interface TabStripProps {
 }
 
 function TabStrip({ sessions, activeId, onSelect, onClose, onRename }: TabStripProps) {
+  const { t } = useT("terminal");
   const [editing, setEditing] = useState<string | null>(null);
   const tabRefs = useRef(new Map<string, HTMLDivElement>());
 
@@ -330,7 +331,7 @@ function TabStrip({ sessions, activeId, onSelect, onClose, onRename }: TabStripP
   };
 
   return (
-    <div className="term-tabs" role="tablist" aria-label="Terminal sessions">
+    <div className="term-tabs" role="tablist" aria-label={t("tabs.label")}>
       {sessions.map((s, idx) => {
         const selected = s.terminalId === activeId;
         const agent = isAgentSession(s);
@@ -344,7 +345,7 @@ function TabStrip({ sessions, activeId, onSelect, onClose, onRename }: TabStripP
             role="tab"
             aria-selected={selected}
             tabIndex={selected ? 0 : -1}
-            title={`${s.title} — ${sessionSubtitle(s)}${editing ? "" : " (F2 to rename)"}`}
+            title={t(editing ? "tabs.tooltip" : "tabs.tooltipRename", { title: terminalTitle(s.title), subtitle: sessionSubtitle(s) })}
             className={clsx("term-tab", selected && "term-tab--active", s.status === "exited" && "term-tab--exited")}
             onClick={() => onSelect(s.terminalId)}
             onDoubleClick={() => !agent && setEditing(s.terminalId)}
@@ -356,7 +357,7 @@ function TabStrip({ sessions, activeId, onSelect, onClose, onRename }: TabStripP
             />
             {agent && (
               <Badge tone="violet" icon={<Bot size={11} />} className="term-tab__badge">
-                agent
+                {t("tabs.agent")}
               </Badge>
             )}
             {editing === s.terminalId ? (
@@ -369,12 +370,12 @@ function TabStrip({ sessions, activeId, onSelect, onClose, onRename }: TabStripP
                 }}
               />
             ) : (
-              <span className="term-tab__title">{s.title}</span>
+              <span className="term-tab__title">{terminalTitle(s.title)}</span>
             )}
             <button
               type="button"
               className="term-tab__close"
-              aria-label={`Close ${s.title}`}
+              aria-label={t("tabs.close", { title: terminalTitle(s.title) })}
               tabIndex={-1}
               onClick={(e) => {
                 e.stopPropagation();
@@ -391,6 +392,7 @@ function TabStrip({ sessions, activeId, onSelect, onClose, onRename }: TabStripP
 }
 
 function RenameInput({ initial, onDone }: { initial: string; onDone: (title: string | null) => void }) {
+  const { t } = useT("terminal");
   const [value, setValue] = useState(initial);
   const ref = useRef<HTMLInputElement>(null);
   const done = useRef(false);
@@ -410,7 +412,7 @@ function RenameInput({ initial, onDone }: { initial: string; onDone: (title: str
       className={clsx("term-tab__rename", !valid && "term-tab__rename--invalid")}
       value={value}
       maxLength={80}
-      aria-label="Terminal name"
+      aria-label={t("tabs.rename")}
       aria-invalid={!valid}
       onChange={(e) => setValue(e.target.value)}
       onClick={(e) => e.stopPropagation()}
@@ -433,6 +435,7 @@ interface NewTerminalButtonProps {
 }
 
 function NewTerminalButton({ shells, busy, onOpen }: NewTerminalButtonProps) {
+  const { t } = useT("terminal");
   const [open, setOpen] = useState(false);
   const [index, setIndex] = useState(0);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -481,7 +484,7 @@ function NewTerminalButton({ shells, busy, onOpen }: NewTerminalButtonProps) {
   return (
     <div className="term-new" ref={rootRef}>
       <IconButton
-        label={defaultShell ? `New terminal (${defaultShell.name})` : "New terminal"}
+        label={defaultShell ? t("newWithShell", { shell: defaultShell.name }) : t("new")}
         icon={busy ? <Spinner size={13} /> : <Plus size={15} />}
         size="sm"
         disabled={busy}
@@ -490,7 +493,7 @@ function NewTerminalButton({ shells, busy, onOpen }: NewTerminalButtonProps) {
       />
       <IconButton
         ref={toggleRef}
-        label="Choose shell"
+        label={t("chooseShell")}
         icon={<ChevronDown size={14} />}
         size="sm"
         disabled={busy || shells.length === 0}
@@ -510,7 +513,7 @@ function NewTerminalButton({ shells, busy, onOpen }: NewTerminalButtonProps) {
         tooltip="bottom"
       />
       {open && (
-        <div className="term-menu" role="menu" aria-label="Shells" onKeyDown={onMenuKey}>
+        <div className="term-menu" role="menu" aria-label={t("shells")} onKeyDown={onMenuKey}>
           {shells.map((s, i) => (
             <button
               key={s.id}
@@ -526,7 +529,7 @@ function NewTerminalButton({ shells, busy, onOpen }: NewTerminalButtonProps) {
             >
               <SquareTerminal size={14} />
               <span className="term-menu__name">{s.name}</span>
-              {s.isDefault && <Badge tone="accent">default</Badge>}
+              {s.isDefault && <Badge tone="accent">{t("defaultShell")}</Badge>}
               <span className="term-menu__path" title={s.path}>
                 {s.path}
               </span>

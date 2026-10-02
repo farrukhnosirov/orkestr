@@ -2,6 +2,7 @@ import { Button, EmptyState } from "@orkestr/ui";
 import {
   type DockviewApi,
   DockviewReact,
+  type DockviewMessages,
   type DockviewReadyEvent,
   type DockviewTheme,
   type IDockviewPanelHeaderProps,
@@ -11,6 +12,7 @@ import {
 import { LayoutGrid, X } from "lucide-react";
 import { type FunctionComponent, useCallback, useEffect, useRef } from "react";
 
+import { t as translate, useLanguage, useT } from "../i18n";
 import { CODING_PRESET, DEFAULT_FOCUSED_PANEL, getPanel, PANELS } from "../panels/registry";
 import { useAppStore } from "../store/app";
 import { registerWorkspace } from "./workspaceActions";
@@ -18,6 +20,36 @@ import { registerWorkspace } from "./workspaceActions";
 // v2: the AI Manager became the default focused panel (Phase 1).
 const LAYOUT_KEY = "orkestr.layout.v3";
 
+type DockPosition = "top" | "bottom" | "left" | "right" | "center";
+const dockSide = (p: DockPosition) => (p === "center" ? "" : translate(`shell:dock.position.${p}`));
+
+/** Screen-reader announcements of dockview, localized (read on every announcement, so they follow a live switch). */
+const DOCK_MESSAGES: DockviewMessages = {
+  panelOpened: (title) => translate("shell:dock.panelOpened", { title }),
+  panelClosed: (title) => translate("shell:dock.panelClosed", { title }),
+  groupMaximized: (title) => translate("shell:dock.groupMaximized", { title }),
+  groupRestored: (title) => translate("shell:dock.groupRestored", { title }),
+  groupFloated: (title) => translate("shell:dock.groupFloated", { title }),
+  groupDocked: (title) => translate("shell:dock.groupDocked", { title }),
+  groupPoppedOut: (title) => translate("shell:dock.groupPoppedOut", { title }),
+  closeTab: (title) => translate("shell:dock.closeTab", { title }),
+  closeTabPlain: () => translate("shell:dock.closeTabPlain"),
+  movePickTarget: (source, target, current, total) => translate("shell:dock.movePickTarget", { source, target, current, total }),
+  movePickEdge: (position, target) =>
+    translate("shell:dock.movePickEdge", {
+      where:
+        position === "center"
+          ? translate("shell:dock.edgeCenter", { target })
+          : translate("shell:dock.edgeSplit", { position: dockSide(position), target }),
+    }),
+  moveCommitted: (source, target, position) =>
+    position === "center"
+      ? translate("shell:dock.committedCenter", { source, target })
+      : translate("shell:dock.committedSplit", { source, target, position: dockSide(position) }),
+  moveCancelled: () => translate("shell:dock.moveCancelled"),
+  moveNotAllowed: () => translate("shell:dock.moveNotAllowed"),
+  moveFloated: (source) => translate("shell:dock.moveFloated", { source }),
+};
 /** dockview theme bound to the Orkestr tokens (see `.dockview-theme-nebula` in app.css). */
 const NEBULA_DOCK_THEME: DockviewTheme = {
   name: "nebula",
@@ -30,7 +62,8 @@ const NEBULA_DOCK_THEME: DockviewTheme = {
 function PanelHost({ panelId }: { panelId: string }) {
   const projectId = useAppStore((s) => s.activeProjectId);
   const def = getPanel(panelId);
-  if (!def) return <EmptyState title="Unknown panel" description={panelId} />;
+  const { t } = useT("shell");
+  if (!def) return <EmptyState title={t("workspace.unknownPanel")} description={panelId} />;
   const Component = def.component;
   return (
     <div className="panel-host">
@@ -52,14 +85,17 @@ const COMPONENTS: Record<string, FunctionComponent<IDockviewPanelProps>> = Objec
 function PanelTab({ api, params }: IDockviewPanelHeaderProps) {
   const def = getPanel((params as { panelId?: string } | undefined)?.panelId ?? api.id);
   const Icon = def?.icon;
+  const { t } = useT("shell");
+  // Registry titles are localized getters: prefer them over the title saved in the layout.
+  const title = def?.title ?? api.title ?? api.id;
   return (
     <div className="dock-tab" onMouseDown={(e) => e.button === 1 && api.close()}>
       {Icon && <Icon size={13} strokeWidth={2} className="dock-tab__icon" />}
-      <span className="dock-tab__title">{api.title ?? def?.title ?? api.id}</span>
+      <span className="dock-tab__title">{title}</span>
       <button
         type="button"
         className="dock-tab__close"
-        aria-label={`Close ${api.title ?? api.id}`}
+        aria-label={t("workspace.closeTab", { title })}
         onMouseDown={(e) => e.stopPropagation()}
         onClick={(e) => {
           e.stopPropagation();
@@ -73,14 +109,15 @@ function PanelTab({ api, params }: IDockviewPanelHeaderProps) {
 }
 
 function Watermark(_props: IWatermarkPanelProps) {
+  const { t } = useT("shell");
   return (
     <EmptyState
       icon={<LayoutGrid size={26} strokeWidth={1.6} />}
-      title="Empty workspace"
-      description="Open panels from the command palette (Ctrl+K) or restore the default layout."
+      title={t("workspace.emptyTitle")}
+      description={t("workspace.emptyDescription")}
       action={
         <Button variant="primary" onClick={() => applyPreset(currentApi)}>
-          Restore Coding layout
+          {t("workspace.restoreLayout")}
         </Button>
       }
     />
@@ -166,6 +203,15 @@ export function Workspace() {
     if (active) api.maximizeGroup(active);
   }, []);
 
+  // Live language switch: refresh the titles dockview keeps for each panel.
+  const language = useLanguage();
+  useEffect(() => {
+    for (const panel of apiRef.current?.panels ?? []) {
+      const def = getPanel(panel.id);
+      if (def && panel.title !== def.title) panel.api.setTitle(def.title);
+    }
+  }, [language]);
+
   useEffect(() => {
     registerWorkspace({ openPanel, resetLayout, toggleMaximize });
     return () => registerWorkspace(null);
@@ -206,6 +252,7 @@ export function Workspace() {
         tabComponents={{ ok: PanelTab }}
         defaultTabComponent={PanelTab}
         watermarkComponent={Watermark}
+        messages={DOCK_MESSAGES}
         onReady={onReady}
       />
     </div>

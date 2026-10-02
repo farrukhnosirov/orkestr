@@ -6,7 +6,9 @@ import type { Model, ModelRef, ProviderView } from "@orkestr/protocol";
 import { Input } from "@orkestr/ui";
 import { useEffect, useId, useState } from "react";
 
+import { useT } from "../../i18n";
 import { Select } from "./controls";
+import { instanceName } from "./logic";
 import { listModels } from "./store";
 
 const cache = new Map<string, Promise<Model[]>>();
@@ -34,6 +36,7 @@ export interface ModelPickerProps {
 
 export function ModelPicker({ label, value, onChange, providers, allowNone = false }: ModelPickerProps) {
   const listId = useId();
+  const { t } = useT("providers");
   const [models, setModels] = useState<Model[]>([]);
   const providerId = value?.providerId ?? "";
 
@@ -62,21 +65,20 @@ export function ModelPicker({ label, value, onChange, providers, allowNone = fal
 
   return (
     <div className="pv-picker" role="group" aria-label={label}>
-      <Select label={`${label} — provider`} value={providerId} onChange={(e) => pickProvider(e.target.value)}>
-        {(allowNone || !providerId) && <option value="">{allowNone ? "— none —" : "Choose a provider…"}</option>}
+      <Select label={t("picker.provider", { label })} value={providerId} onChange={(e) => pickProvider(e.target.value)}>
+        {(allowNone || !providerId) && <option value="">{allowNone ? t("picker.none") : t("picker.chooseProvider")}</option>}
         {providers.map((p) => (
           <option key={p.provider.id} value={p.provider.id} disabled={!p.provider.enabled}>
-            {p.provider.name}
-            {p.provider.enabled ? "" : " (disabled)"}
+            {p.provider.enabled ? instanceName(p.provider) : t("picker.disabledOption", { name: instanceName(p.provider) })}
           </option>
         ))}
       </Select>
       <Input
-        label={`${label} — model`}
+        label={t("picker.model", { label })}
         list={listId}
         value={value?.model ?? ""}
         disabled={!providerId}
-        placeholder={providerId ? "model id" : "pick a provider first"}
+        placeholder={providerId ? t("picker.modelPlaceholder") : t("picker.pickProviderFirst")}
         spellCheck={false}
         onChange={(e) => providerId && onChange({ providerId, model: e.target.value })}
       />

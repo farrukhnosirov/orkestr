@@ -7,6 +7,7 @@ import { OrkestrClient, OrkestrError } from "@orkestr/client";
 import type { Event, Project } from "@orkestr/protocol";
 import { TOPIC_GLOBAL } from "@orkestr/protocol";
 
+import { t } from "../i18n";
 import { getCoreConnection } from "../lib/tauri";
 import { useAppStore } from "../store/app";
 
@@ -15,7 +16,7 @@ let booting: Promise<OrkestrClient> | null = null;
 
 /** Returns the connected client (throws before `bootstrapCore` succeeded). */
 export function getClient(): OrkestrClient {
-  if (!client) throw new OrkestrError("disconnected", "core connection not initialised yet");
+  if (!client) throw new OrkestrError("disconnected", t("common:errors.notInitialised"));
   return client;
 }
 

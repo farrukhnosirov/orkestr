@@ -3,12 +3,15 @@ import { Badge, Button, EmptyState, IconButton, Input, Spinner } from "@orkestr/
 import { BookOpen, FolderPlus, RefreshCw, Search, Trash2 } from "lucide-react";
 import { type FormEvent, useEffect, useState } from "react";
 
+import { useFormat, useT } from "../../i18n";
 import { errorMessage, requireClient, useRpcQuery } from "../../lib/rpcQuery";
-import { INDEX_STATUS_TONE, relativeTime } from "./kinds";
+import { INDEX_STATUS_TONE } from "./kinds";
 import { Highlighted } from "./markdown";
 
 /** Knowledge sources (folders/files ingested into FTS) and search over their chunks. */
 export function KnowledgeBase({ projectId }: { projectId: string | null }) {
+  const { t } = useT(["memory", "common"]);
+  const fmt = useFormat();
   const [location, setLocation] = useState("");
   const [adding, setAdding] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -18,8 +21,8 @@ export function KnowledgeBase({ projectId }: { projectId: string | null }) {
   const scopeKey = projectId ?? "global";
 
   useEffect(() => {
-    const t = setTimeout(() => setDebounced(query.trim()), 250);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setDebounced(query.trim()), 250);
+    return () => clearTimeout(timer);
   }, [query]);
 
   const sources = useRpcQuery<KnowledgeSource[]>(
@@ -42,7 +45,7 @@ export function KnowledgeBase({ projectId }: { projectId: string | null }) {
     setActionError(null);
     try {
       const res = await requireClient().call("knowledge.add", { location: loc, ...(projectId ? { projectId } : {}) });
-      if (res.source.status === "Failed") setActionError(res.source.error ?? "Indexing failed.");
+      if (res.source.status === "Failed") setActionError(res.source.error ?? t("knowledge.indexingFailed"));
       setLocation("");
       sources.reload();
     } catch (err) {
@@ -73,14 +76,14 @@ export function KnowledgeBase({ projectId }: { projectId: string | null }) {
       <form className="mem-toolbar" onSubmit={(e) => void add(e)}>
         <Input
           className="mem-search mem-search--wide"
-          placeholder="Absolute path of a docs folder or a .md / .txt / code file"
+          placeholder={t("knowledge.pathPlaceholder")}
           value={location}
           onChange={(e) => setLocation(e.target.value)}
           leftIcon={<FolderPlus size={14} />}
-          aria-label="Knowledge source path"
+          aria-label={t("knowledge.pathLabel")}
         />
         <Button variant="primary" size="sm" type="submit" loading={adding} disabled={!location.trim()}>
-          Add source
+          {t("knowledge.add")}
         </Button>
       </form>
       {(actionError || sources.error) && (
@@ -91,52 +94,52 @@ export function KnowledgeBase({ projectId }: { projectId: string | null }) {
       <div className="mem-scroll">
         {sources.loading && sources.data === null ? (
           <div className="mem-loading">
-            <Spinner size={18} /> Loading knowledge sources…
+            <Spinner size={18} /> {t("knowledge.loading")}
           </div>
         ) : list.length === 0 ? (
           <EmptyState
             icon={<BookOpen size={26} strokeWidth={1.6} />}
-            title="No knowledge sources"
-            description="Add a docs folder or Markdown / text / code files. They are split by headings into searchable chunks that agents can cite. PDF and URL sources are not supported yet."
+            title={t("knowledge.emptyTitle")}
+            description={t("knowledge.emptyDescription")}
           />
         ) : (
-          <ul className="kb-sources" aria-label="Knowledge sources">
+          <ul className="kb-sources" aria-label={t("knowledge.sources")}>
             {list.map((s) => (
               <li key={s.id} className="kb-source">
                 <div className="kb-source__main">
                   <div className="kb-source__title">
                     <strong>{s.name}</strong>
-                    <Badge tone={INDEX_STATUS_TONE[s.status]}>{s.status}</Badge>
-                    <Badge tone="neutral">{s.kind}</Badge>
-                    {s.projectId === null && <Badge tone="violet">Global</Badge>}
+                    <Badge tone={INDEX_STATUS_TONE[s.status]}>{t(`knowledge.status.${s.status}`)}</Badge>
+                    <Badge tone="neutral">{t(`knowledge.kind.${s.kind}`)}</Badge>
+                    {s.projectId === null && <Badge tone="violet">{t("knowledge.global")}</Badge>}
                   </div>
                   <code className="kb-source__loc" title={s.location}>
                     {s.location}
                   </code>
                   <div className="mem-card__meta">
                     <span>
-                      {s.fileCount} file(s) · {s.chunkCount} chunk(s)
+                      {t("knowledge.files", { count: s.fileCount })} · {t("knowledge.chunks", { count: s.chunkCount })}
                     </span>
-                    {s.indexedAt && <span>indexed {relativeTime(s.indexedAt)}</span>}
+                    {s.indexedAt && <span title={fmt.date(s.indexedAt)}>{t("knowledge.indexed", { time: fmt.relative(s.indexedAt) })}</span>}
                   </div>
                   {s.error && <p className={s.status === "Failed" ? "kb-source__error" : "kb-source__note"}>{s.error}</p>}
                 </div>
                 <div className="mem-card__actions">
                   <IconButton
                     size="sm"
-                    label="Reindex"
+                    label={t("knowledge.reindex")}
                     icon={busyId === s.id ? <Spinner size={13} /> : <RefreshCw size={14} />}
                     disabled={busyId !== null}
                     onClick={() => void run(s.id, () => requireClient().call("knowledge.reindex", { id: s.id }))}
                   />
                   <IconButton
                     size="sm"
-                    label="Remove"
+                    label={t("knowledge.remove")}
                     variant="danger"
                     icon={<Trash2 size={14} />}
                     disabled={busyId !== null}
                     onClick={() => {
-                      if (window.confirm(`Remove "${s.name}" from the knowledge base? Files on disk are not touched.`)) {
+                      if (window.confirm(t("knowledge.confirmRemove", { name: s.name }))) {
                         void run(s.id, () => requireClient().call("knowledge.remove", { id: s.id }));
                       }
                     }}
@@ -147,25 +150,25 @@ export function KnowledgeBase({ projectId }: { projectId: string | null }) {
           </ul>
         )}
         {list.length > 0 && (
-          <section className="kb-search" aria-label="Search knowledge">
+          <section className="kb-search" aria-label={t("knowledge.searchLabel")}>
             <Input
-              placeholder="Search the knowledge base…"
+              placeholder={t("knowledge.searchPlaceholder")}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               leftIcon={<Search size={14} />}
-              aria-label="Search knowledge"
+              aria-label={t("knowledge.searchLabel")}
             />
             {debounced &&
               (hits.loading && hits.data === null ? (
                 <div className="mem-loading">
-                  <Spinner size={16} /> Searching…
+                  <Spinner size={16} /> {t("knowledge.searching")}
                 </div>
               ) : hits.error ? (
                 <div className="mem-error" role="alert">
                   {hits.error}
                 </div>
               ) : (hits.data ?? []).length === 0 ? (
-                <p className="mem-muted">No matches.</p>
+                <p className="mem-muted">{t("knowledge.noMatches")}</p>
               ) : (
                 <ul className="kb-hits">
                   {(hits.data ?? []).map((h) => (

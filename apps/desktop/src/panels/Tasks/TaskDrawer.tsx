@@ -4,26 +4,17 @@ import { clsx } from "clsx";
 import { Check, Coins, FileCode2, GitFork, History, Plus, RotateCcw, Trash2, X } from "lucide-react";
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 
+import { t as translate, useFormat, useT } from "../../i18n";
 import { errorMessage, taskActions } from "./data";
-import { ACTION_LABEL, PRIORITIES, TRANSITIONS, formatCost, formatRelative, shortId, statusColor } from "./model";
+import { PRIORITIES, TRANSITIONS, shortId, statusColor } from "./model";
 import { PriorityChip, StatusBadge } from "./parts";
 import { useTasksUi } from "./store";
 
 const DANGER: ReadonlySet<TaskStatus> = new Set<TaskStatus>(["Cancelled", "Failed", "Interrupted"]);
 
 function actorLabel(h: TaskHistoryEntry): string {
-  switch (h.actor.type) {
-    case "User":
-      return "You";
-    case "Agent":
-      return `Agent #${shortId(h.actor.id)}`;
-    case "Manager":
-      return "AI Manager";
-    case "System":
-      return "Engine";
-    case "SystemRecovery":
-      return "Crash recovery";
-  }
+  if (h.actor.type === "Agent") return translate("tasks:actor.Agent", { id: shortId(h.actor.id) });
+  return translate(`tasks:actor.${h.actor.type}`);
 }
 
 function useHistory(taskId: string, version: number) {
@@ -51,6 +42,9 @@ function useHistory(taskId: string, version: number) {
 }
 
 export function TaskDrawer({ task, tasks }: { task: Task; tasks: Task[] }) {
+  const { t } = useT(["tasks", "common"]);
+  const fmt = useFormat();
+  const statusLabel = (s: TaskStatus) => t(`common:status.task.${s}`);
   const select = useTasksUi((s) => s.select);
   const toast = useTasksUi((s) => s.toast);
   const [busy, setBusy] = useState<string | null>(null);
@@ -86,12 +80,12 @@ export function TaskDrawer({ task, tasks }: { task: Task; tasks: Task[] }) {
   };
 
   const saveTitle = () => {
-    const t = title.trim();
-    if (!t || t === task.title) {
+    const next = title.trim();
+    if (!next || next === task.title) {
       setTitle(task.title);
       return;
     }
-    void run("title", () => taskActions.update(task.id, { title: t }));
+    void run("title", () => taskActions.update(task.id, { title: next }));
   };
   const saveDescription = () => {
     if (description !== task.description) void run("description", () => taskActions.update(task.id, { description }));
@@ -100,10 +94,10 @@ export function TaskDrawer({ task, tasks }: { task: Task; tasks: Task[] }) {
     void run("criteria", () => taskActions.update(task.id, { acceptanceCriteria: criteria }));
   const setPriority = (priority: TaskPriority) => void run("priority", () => taskActions.update(task.id, { priority }));
 
-  const byId = new Map(tasks.map((t) => [t.id, t]));
+  const byId = new Map(tasks.map((x) => [x.id, x]));
   const prereqs = task.dependencies.map((id) => ({ id, task: byId.get(id) }));
-  const dependents = tasks.filter((t) => t.dependencies.includes(task.id));
-  const candidates = tasks.filter((t) => t.id !== task.id && !task.dependencies.includes(t.id));
+  const dependents = tasks.filter((x) => x.dependencies.includes(task.id));
+  const candidates = tasks.filter((x) => x.id !== task.id && !task.dependencies.includes(x.id));
   const actions = TRANSITIONS[task.status];
   const met = task.acceptanceCriteria.filter((c) => c.met).length;
 
@@ -115,18 +109,18 @@ export function TaskDrawer({ task, tasks }: { task: Task; tasks: Task[] }) {
   };
 
   return (
-    <aside className="tasks-drawer" aria-label={`Task ${task.title}`} onKeyDown={onKeyDown}>
+    <aside className="tasks-drawer" aria-label={t("drawer.label", { title: task.title })} onKeyDown={onKeyDown}>
       <header className="tasks-drawer__header" style={{ ["--status-color" as string]: statusColor(task.status) }}>
         <div className="tasks-drawer__eyebrow">
           <StatusBadge status={task.status} />
           <span className="tasks-mono">#{shortId(task.id)}</span>
           <span className="tasks-drawer__spacer" />
-          <IconButton ref={closeRef} label="Close task details" icon={<X size={15} />} onClick={() => select(null)} />
+          <IconButton ref={closeRef} label={t("drawer.close")} icon={<X size={15} />} onClick={() => select(null)} />
         </div>
         <input
           className="tasks-drawer__title"
           value={title}
-          aria-label="Task title"
+          aria-label={t("drawer.titleLabel")}
           maxLength={200}
           onChange={(e) => setTitle(e.target.value)}
           onBlur={saveTitle}
@@ -138,10 +132,10 @@ export function TaskDrawer({ task, tasks }: { task: Task; tasks: Task[] }) {
       </header>
 
       <div className="tasks-drawer__body">
-        <section className="tasks-section" aria-label="Status actions">
-          <h4 className="tasks-section__title">Status</h4>
+        <section className="tasks-section" aria-label={t("drawer.statusActions")}>
+          <h4 className="tasks-section__title">{t("drawer.status")}</h4>
           {actions.length === 0 ? (
-            <p className="tasks-muted">{task.status} is final.</p>
+            <p className="tasks-muted">{t("drawer.final", { status: statusLabel(task.status) })}</p>
           ) : (
             <div className="tasks-actions">
               {actions.map((to) => (
@@ -153,7 +147,7 @@ export function TaskDrawer({ task, tasks }: { task: Task; tasks: Task[] }) {
                   disabled={busy !== null}
                   onClick={() => void run(`t:${to}`, () => taskActions.transition(task.id, to))}
                 >
-                  {ACTION_LABEL[to]}
+                  {t(`actions.${to}`)}
                 </Button>
               ))}
             </div>
@@ -165,9 +159,9 @@ export function TaskDrawer({ task, tasks }: { task: Task; tasks: Task[] }) {
                 leftIcon={<RotateCcw size={13} />}
                 loading={busy === "retry"}
                 disabled={busy !== null}
-                onClick={() => void run("retry", () => taskActions.retry(task.id), "Task queued again.")}
+                onClick={() => void run("retry", () => taskActions.retry(task.id), t("drawer.requeued"))}
               >
-                Retry
+                {t("common:actions.retry")}
               </Button>
             )}
             {(task.status === "Planned" || task.status === "Cancelled") &&
@@ -181,26 +175,26 @@ export function TaskDrawer({ task, tasks }: { task: Task; tasks: Task[] }) {
                       void run("delete", async () => {
                         await taskActions.remove(task.id);
                         select(null);
-                      }, "Task deleted.")
+                      }, t("drawer.deleted"))
                     }
                   >
-                    Confirm delete
+                    {t("drawer.confirmDelete")}
                   </Button>
                   <Button size="sm" variant="ghost" onClick={() => setConfirmDelete(false)}>
-                    Keep
+                    {t("drawer.keep")}
                   </Button>
                 </>
               ) : (
                 <Button size="sm" variant="ghost" leftIcon={<Trash2 size={13} />} onClick={() => setConfirmDelete(true)}>
-                  Delete
+                  {t("common:actions.delete")}
                 </Button>
               ))}
           </div>
         </section>
 
         <section className="tasks-section">
-          <h4 className="tasks-section__title">Priority</h4>
-          <div className="tasks-priority-picker" role="radiogroup" aria-label="Priority">
+          <h4 className="tasks-section__title">{t("drawer.priority")}</h4>
+          <div className="tasks-priority-picker" role="radiogroup" aria-label={t("drawer.priority")}>
             {PRIORITIES.map((p) => (
               <button
                 key={p}
@@ -218,13 +212,13 @@ export function TaskDrawer({ task, tasks }: { task: Task; tasks: Task[] }) {
         </section>
 
         <section className="tasks-section">
-          <h4 className="tasks-section__title">Description</h4>
+          <h4 className="tasks-section__title">{t("drawer.description")}</h4>
           <textarea
             className="tasks-textarea"
             value={description}
-            placeholder="What needs to be done? Markdown supported."
+            placeholder={t("drawer.descriptionPlaceholder")}
             rows={4}
-            aria-label="Description"
+            aria-label={t("drawer.description")}
             onChange={(e) => setDescription(e.target.value)}
             onBlur={saveDescription}
           />
@@ -232,7 +226,7 @@ export function TaskDrawer({ task, tasks }: { task: Task; tasks: Task[] }) {
 
         <section className="tasks-section">
           <h4 className="tasks-section__title">
-            Acceptance criteria
+            {t("drawer.criteria")}
             {task.acceptanceCriteria.length > 0 && (
               <span className="tasks-section__count">
                 {met}/{task.acceptanceCriteria.length}
@@ -258,7 +252,7 @@ export function TaskDrawer({ task, tasks }: { task: Task; tasks: Task[] }) {
                 </label>
                 <IconButton
                   size="sm"
-                  label={`Remove criterion ${c.text}`}
+                  label={t("drawer.removeCriterion", { text: c.text })}
                   icon={<X size={12} />}
                   onClick={() => setCriteria(task.acceptanceCriteria.filter((_, j) => j !== i))}
                 />
@@ -278,21 +272,21 @@ export function TaskDrawer({ task, tasks }: { task: Task; tasks: Task[] }) {
             <input
               className="tasks-input"
               value={newCriterion}
-              placeholder="Add a criterion…"
-              aria-label="New acceptance criterion"
+              placeholder={t("drawer.criterionPlaceholder")}
+              aria-label={t("drawer.newCriterion")}
               maxLength={500}
               onChange={(e) => setNewCriterion(e.target.value)}
             />
-            <IconButton type="submit" size="sm" label="Add criterion" icon={<Plus size={13} />} disabled={!newCriterion.trim()} />
+            <IconButton type="submit" size="sm" label={t("drawer.addCriterion")} icon={<Plus size={13} />} disabled={!newCriterion.trim()} />
           </form>
         </section>
 
         <section className="tasks-section">
           <h4 className="tasks-section__title">
-            <GitFork size={13} /> Depends on
+            <GitFork size={13} /> {t("drawer.dependsOn")}
           </h4>
           {prereqs.length === 0 ? (
-            <p className="tasks-muted">No dependencies.</p>
+            <p className="tasks-muted">{t("drawer.noDependencies")}</p>
           ) : (
             <ul className="tasks-links">
               {prereqs.map(({ id, task: dep }) => (
@@ -303,7 +297,7 @@ export function TaskDrawer({ task, tasks }: { task: Task; tasks: Task[] }) {
                   </button>
                   <IconButton
                     size="sm"
-                    label="Remove dependency"
+                    label={t("drawer.removeDependency")}
                     icon={<X size={12} />}
                     disabled={busy !== null}
                     onClick={() => void run(`rm:${id}`, () => taskActions.removeDependency(task.id, id))}
@@ -320,28 +314,28 @@ export function TaskDrawer({ task, tasks }: { task: Task; tasks: Task[] }) {
                 if (!depPick) return;
                 const pick = depPick;
                 setDepPick("");
-                void run("dep", () => taskActions.addDependency(task.id, pick), "Dependency added.");
+                void run("dep", () => taskActions.addDependency(task.id, pick), t("dependencyAdded"));
               }}
             >
               <select
                 className="tasks-select"
                 value={depPick}
-                aria-label="Add dependency"
+                aria-label={t("drawer.addDependency")}
                 onChange={(e) => setDepPick(e.target.value)}
               >
-                <option value="">Add dependency…</option>
+                <option value="">{t("drawer.addDependencyOption")}</option>
                 {candidates.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.title} ({c.status})
+                    {t("drawer.dependencyOption", { title: c.title, status: statusLabel(c.status) })}
                   </option>
                 ))}
               </select>
-              <IconButton type="submit" size="sm" label="Add dependency" icon={<Plus size={13} />} disabled={!depPick || busy !== null} />
+              <IconButton type="submit" size="sm" label={t("drawer.addDependency")} icon={<Plus size={13} />} disabled={!depPick || busy !== null} />
             </form>
           )}
           {dependents.length > 0 && (
             <>
-              <h5 className="tasks-subtitle">Blocks</h5>
+              <h5 className="tasks-subtitle">{t("drawer.blocks")}</h5>
               <ul className="tasks-links">
                 {dependents.map((d) => (
                   <li key={d.id}>
@@ -358,24 +352,24 @@ export function TaskDrawer({ task, tasks }: { task: Task; tasks: Task[] }) {
 
         <section className="tasks-section">
           <h4 className="tasks-section__title">
-            <Coins size={13} /> Cost & attempts
+            <Coins size={13} /> {t("drawer.costAttempts")}
           </h4>
           <dl className="tasks-stats">
             <div>
-              <dt>Cost</dt>
-              <dd>{formatCost(task.usage.costUsd)}</dd>
+              <dt>{t("drawer.cost")}</dt>
+              <dd>{fmt.currency(task.usage.costUsd)}</dd>
             </div>
             <div>
-              <dt>Tokens</dt>
-              <dd>{(task.usage.inputTokens + task.usage.outputTokens).toLocaleString()}</dd>
+              <dt>{t("drawer.tokens")}</dt>
+              <dd>{fmt.integer(task.usage.inputTokens + task.usage.outputTokens)}</dd>
             </div>
             <div>
-              <dt>Attempts</dt>
-              <dd>{task.attempts}</dd>
+              <dt>{t("drawer.attempts")}</dt>
+              <dd>{fmt.integer(task.attempts)}</dd>
             </div>
             <div>
-              <dt>Estimate</dt>
-              <dd>{task.estimateMinutes !== null ? `${task.estimateMinutes}m` : "—"}</dd>
+              <dt>{t("drawer.estimate")}</dt>
+              <dd>{task.estimateMinutes !== null ? fmt.duration(task.estimateMinutes * 60_000) : "—"}</dd>
             </div>
           </dl>
           {history.executions.length > 0 && (
@@ -383,8 +377,8 @@ export function TaskDrawer({ task, tasks }: { task: Task; tasks: Task[] }) {
               {history.executions.map((x) => (
                 <li key={x.id}>
                   <span className="tasks-mono">#{x.attempt}</span>
-                  <span className={clsx("tasks-exec", `tasks-exec--${x.status.toLowerCase()}`)}>{x.status}</span>
-                  <span className="tasks-muted">{formatRelative(x.startedAt)}</span>
+                  <span className={clsx("tasks-exec", `tasks-exec--${x.status.toLowerCase()}`)}>{t(`executionStatus.${x.status}`)}</span>
+                  <span className="tasks-muted">{fmt.relative(x.startedAt)}</span>
                   {x.summary && <span className="tasks-exec__summary">{x.summary}</span>}
                 </li>
               ))}
@@ -394,10 +388,10 @@ export function TaskDrawer({ task, tasks }: { task: Task; tasks: Task[] }) {
 
         <section className="tasks-section">
           <h4 className="tasks-section__title">
-            <FileCode2 size={13} /> Files touched
+            <FileCode2 size={13} /> {t("drawer.filesTouched")}
           </h4>
           {task.filesTouched.length === 0 ? (
-            <p className="tasks-muted">No files recorded yet.</p>
+            <p className="tasks-muted">{t("drawer.noFiles")}</p>
           ) : (
             <ul className="tasks-files">
               {task.filesTouched.map((f) => (
@@ -411,13 +405,13 @@ export function TaskDrawer({ task, tasks }: { task: Task; tasks: Task[] }) {
 
         <section className="tasks-section">
           <h4 className="tasks-section__title">
-            <History size={13} /> History
+            <History size={13} /> {t("drawer.history")}
           </h4>
           {history.error ? (
             <p className="tasks-error">{history.error}</p>
           ) : history.entries === null ? (
             <div className="tasks-muted">
-              <Spinner size={14} /> Loading history…
+              <Spinner size={14} /> {t("drawer.loadingHistory")}
             </div>
           ) : (
             <ol className="tasks-timeline">
@@ -426,15 +420,17 @@ export function TaskDrawer({ task, tasks }: { task: Task; tasks: Task[] }) {
                   <div className="tasks-timeline__line">
                     {h.from ? (
                       <>
-                        <span>{h.from}</span> → <strong>{h.to}</strong>
+                        <span>{statusLabel(h.from)}</span> → <strong>{statusLabel(h.to)}</strong>
                       </>
                     ) : (
-                      <strong>Created</strong>
+                      <strong>{t("drawer.created")}</strong>
                     )}
-                    {h.forced && <span className="tasks-forced">system</span>}
+                    {h.forced && <span className="tasks-forced">{t("drawer.forced")}</span>}
                   </div>
                   <div className="tasks-timeline__meta">
-                    {actorLabel(h)} · <time dateTime={h.at}>{formatRelative(h.at)}</time>
+                    {actorLabel(h)} · <time dateTime={h.at} title={fmt.date(h.at)}>
+                      {fmt.relative(h.at)}
+                    </time>
                     {h.reason && h.reason !== "created" && <> · {h.reason}</>}
                   </div>
                 </li>

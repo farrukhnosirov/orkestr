@@ -1,0 +1,54 @@
+{
+  "commands": {
+    "group": "Terminal",
+    "open": "Open Terminal"
+  },
+  "waiting": {
+    "title": "Waiting for the core",
+    "description": "Terminals run inside the Orkestr core. They appear here as soon as the connection is up."
+  },
+  "unavailable": "Terminals unavailable",
+  "loading": "Loading terminals…",
+  "dismiss": "Dismiss",
+  "banner": {
+    "commandView": "Agent command output · read-only — commands are checked by the security gate before they run.",
+    "agent": "Agent terminal · read-only — commands are checked by the security gate before they run."
+  },
+  "empty": {
+    "title": "No terminals yet",
+    "noRoot": "This project has no root folder, so the terminal opens in your home folder.",
+    "project": "Open a shell in the project folder. Sessions keep running when you switch panels or reload.",
+    "home": "Open a shell in your home folder. Sessions keep running when you switch panels or reload."
+  },
+  "new": "New terminal",
+  "newWithShell": "New terminal ({{shell}})",
+  "chooseShell": "Choose shell",
+  "shells": "Shells",
+  "defaultShell": "default",
+  "exit": {
+    "plain": "Process exited.",
+    "code": "Process exited with code {{code}}.",
+    "restart": "Restart"
+  },
+  "tabs": {
+    "label": "Terminal sessions",
+    "tooltip": "{{title}} — {{subtitle}}",
+    "tooltipRename": "{{title}} — {{subtitle}} (F2 to rename)",
+    "agent": "agent",
+    "close": "Close {{title}}",
+    "rename": "Terminal name"
+  },
+  "subtitle": {
+    "exited": "exited",
+    "exitedCode": "exited with code {{code}}",
+    "commandView": "agent command output",
+    "pid": "{{shell}} · pid {{pid}}"
+  },
+  "view": {
+    "label": "Terminal {{title}}",
+    "labelReadOnly": "Terminal {{title}} (read-only)",
+    "connecting": "Connecting to session…",
+    "attachFailed": "Could not attach to the session: {{error}}",
+    "inputFailed": "input failed: {{error}}"
+  }
+}

@@ -3,6 +3,7 @@ import { Button, Input } from "@orkestr/ui";
 import { ListPlus, X } from "lucide-react";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 
+import { useT } from "../../i18n";
 import { useAppStore } from "../../store/app";
 import { errorMessage, taskActions } from "./data";
 import { PRIORITIES } from "./model";
@@ -10,6 +11,7 @@ import { useTasksUi } from "./store";
 
 /** Modal to create a task via `tasks.create`. */
 export function CreateTaskDialog({ projectId, tasks }: { projectId: string; tasks: Task[] }) {
+  const { t } = useT(["tasks", "common"]);
   const open = useTasksUi((s) => s.createOpen);
   const setOpen = useTasksUi((s) => s.setCreateOpen);
   const select = useTasksUi((s) => s.select);
@@ -49,17 +51,17 @@ export function CreateTaskDialog({ projectId, tasks }: { projectId: string; task
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    const t = title.trim();
-    if (!t) {
-      setError("Give the task a title.");
+    const name = title.trim();
+    if (!name) {
+      setError(t("createDialog.needTitle"));
       return;
     }
     const minutes = estimate.trim() ? Number.parseInt(estimate, 10) : undefined;
     if (minutes !== undefined && (!Number.isFinite(minutes) || minutes <= 0)) {
-      setError("Estimate must be a positive number of minutes.");
+      setError(t("createDialog.estimateInvalid"));
       return;
     }
-    const params: CreateTaskParams = { projectId, title: t, priority };
+    const params: CreateTaskParams = { projectId, title: name, priority };
     if (description.trim()) params.description = description.trim();
     const lines = criteria
       .split("\n")
@@ -75,7 +77,7 @@ export function CreateTaskDialog({ projectId, tasks }: { projectId: string; task
       const task = await taskActions.create(params);
       setOpen(false);
       select(task.id);
-      toast("success", `Task “${task.title}” created.`);
+      toast("success", t("createDialog.created", { title: task.title }));
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -99,57 +101,57 @@ export function CreateTaskDialog({ projectId, tasks }: { projectId: string; task
           </div>
           <div>
             <h2 id="create-task-title" className="dialog__title">
-              New task
+              {t("new")}
             </h2>
-            <p className="dialog__subtitle">Tasks start Planned; they become Ready once approved and unblocked.</p>
+            <p className="dialog__subtitle">{t("createDialog.subtitle")}</p>
           </div>
-          <button type="button" className="dialog__close" aria-label="Close" onClick={close}>
+          <button type="button" className="dialog__close" aria-label={t("common:actions.close")} onClick={close}>
             <X size={16} />
           </button>
         </header>
         <div className="dialog__body">
           <Input
             ref={titleRef}
-            label="Title"
-            placeholder="e.g. Add payroll export endpoint"
+            label={t("createDialog.title")}
+            placeholder={t("createDialog.titlePlaceholder")}
             value={title}
             maxLength={200}
             onChange={(e) => setTitle(e.target.value)}
             error={error ?? undefined}
           />
           <label className="ok-field">
-            <span className="ok-field__label">Description</span>
+            <span className="ok-field__label">{t("createDialog.description")}</span>
             <textarea
               className="tasks-textarea"
               rows={3}
               value={description}
-              placeholder="Optional — context, constraints, links"
+              placeholder={t("createDialog.descriptionPlaceholder")}
               onChange={(e) => setDescription(e.target.value)}
             />
           </label>
           <label className="ok-field">
-            <span className="ok-field__label">Acceptance criteria (one per line)</span>
+            <span className="ok-field__label">{t("createDialog.criteria")}</span>
             <textarea
               className="tasks-textarea"
               rows={3}
               value={criteria}
-              placeholder={"Returns 201 with the export id\nCovered by integration tests"}
+              placeholder={t("createDialog.criteriaPlaceholder")}
               onChange={(e) => setCriteria(e.target.value)}
             />
           </label>
           <div className="tasks-dialog__row">
             <label className="ok-field">
-              <span className="ok-field__label">Priority</span>
+              <span className="ok-field__label">{t("createDialog.priority")}</span>
               <select className="tasks-select" value={priority} onChange={(e) => setPriority(e.target.value as TaskPriority)}>
                 {PRIORITIES.map((p) => (
                   <option key={p} value={p}>
-                    {p}
+                    {t(`priority.${p}`)}
                   </option>
                 ))}
               </select>
             </label>
             <label className="ok-field">
-              <span className="ok-field__label">Estimate (min)</span>
+              <span className="ok-field__label">{t("createDialog.estimate")}</span>
               <input
                 className="tasks-input"
                 inputMode="numeric"
@@ -159,12 +161,12 @@ export function CreateTaskDialog({ projectId, tasks }: { projectId: string; task
               />
             </label>
             <label className="ok-field">
-              <span className="ok-field__label">Parent (epic)</span>
+              <span className="ok-field__label">{t("createDialog.parent")}</span>
               <select className="tasks-select" value={parentId} onChange={(e) => setParentId(e.target.value)}>
-                <option value="">None</option>
-                {tasks.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.title}
+                <option value="">{t("common:state.none")}</option>
+                {tasks.map((x) => (
+                  <option key={x.id} value={x.id}>
+                    {x.title}
                   </option>
                 ))}
               </select>
@@ -172,17 +174,17 @@ export function CreateTaskDialog({ projectId, tasks }: { projectId: string; task
           </div>
           {tasks.length > 0 && (
             <fieldset className="ok-field tasks-dialog__deps">
-              <legend className="ok-field__label">Depends on</legend>
+              <legend className="ok-field__label">{t("createDialog.dependsOn")}</legend>
               <div className="tasks-dialog__deplist">
-                {tasks.map((t) => (
-                  <label key={t.id} className="tasks-dialog__dep">
+                {tasks.map((x) => (
+                  <label key={x.id} className="tasks-dialog__dep">
                     <input
                       type="checkbox"
-                      checked={deps.includes(t.id)}
-                      onChange={(e) => setDeps((d) => (e.target.checked ? [...d, t.id] : d.filter((x) => x !== t.id)))}
+                      checked={deps.includes(x.id)}
+                      onChange={(e) => setDeps((d) => (e.target.checked ? [...d, x.id] : d.filter((id) => id !== x.id)))}
                     />
-                    <span>{t.title}</span>
-                    <span className="tasks-muted">{t.status}</span>
+                    <span>{x.title}</span>
+                    <span className="tasks-muted">{t(`common:status.task.${x.status}`)}</span>
                   </label>
                 ))}
               </div>
@@ -191,10 +193,10 @@ export function CreateTaskDialog({ projectId, tasks }: { projectId: string; task
         </div>
         <footer className="dialog__footer">
           <Button variant="ghost" onClick={close} disabled={busy}>
-            Cancel
+            {t("common:actions.cancel")}
           </Button>
           <Button variant="primary" type="submit" loading={busy} disabled={!connected}>
-            Create task
+            {t("create")}
           </Button>
         </footer>
       </form>

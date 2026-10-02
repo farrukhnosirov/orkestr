@@ -194,6 +194,7 @@ HTTP via `reqwest` (rustls). Keys via `SecretStore` references.
   work; ask the integrator): monaco-editor, @xterm/xterm, @xterm/addon-fit,
   @xyflow/react, dockview, zustand, lucide-react, motion, lottie-react,
   @rive-app/react-canvas, three, @react-three/fiber, @react-three/drei, clsx,
+  i18next, react-i18next,
   vitest, @testing-library/react, jsdom.
 - Panels live in `apps/desktop/src/panels/<PanelName>/index.tsx`, each default-
   exporting a component `({ projectId }: PanelProps)` and registered in
@@ -202,6 +203,15 @@ HTTP via `reqwest` (rustls). Keys via `SecretStore` references.
   hardcode colors in panels. Frameless window + custom title bar (§28).
 - UI config (themes/layouts, AI-editable §29) is a validated JSON schema
   (`orkestr-protocol::ui_config`), applied by the theme engine — never eval'd code.
+- **i18n (binding):** every user-visible string (JSX text, `title`,
+  `placeholder`, `aria-label`, labels, notifications, command/panel/section
+  titles, tray) goes through `t()` from `apps/desktop/src/i18n` — never
+  hardcoded. Every key exists in **both** `locales/en` and `locales/ru`
+  (English is the key source; Russian plurals need `_one/_few/_many/_other`).
+  Russian wording follows `docs/i18n/glossary.md`. Numbers, money, dates,
+  sizes and durations use the i18n formatters; core errors are shown via
+  their codes (`describeError`). Guard tests (`src/i18n/*.test.ts`) must
+  pass. How-to: `docs/i18n/README.md`.
 
 ## 9. Parallel-work rules (for agents building this repo)
 

@@ -36,24 +36,44 @@ import MemoryPanel from "./Memory";
 import MonitoringPanel from "./Monitoring";
 import TasksPanel from "./Tasks";
 import TerminalPanel from "./Terminal";
-import type { PanelDefinition } from "./types";
+import { t } from "../i18n";
+import type shellEn from "../locales/en/shell.json";
+import type { PanelComponent, PanelDefinition, PanelIcon } from "./types";
+
+type PanelKey = keyof (typeof shellEn)["panels"];
+
+/** Registry entry whose title/description are localized getters (re-read on every render). */
+function panel(id: PanelKey, icon: PanelIcon, phase: number, component: PanelComponent): PanelDefinition {
+  return {
+    id,
+    icon,
+    phase,
+    component,
+    get title() {
+      return t(`shell:panels.${id}.title`);
+    },
+    get description() {
+      return t(`shell:panels.${id}.description`);
+    },
+  };
+}
 
 export const PANELS: readonly PanelDefinition[] = [
-  { id: "manager", title: "Manager", description: "AI Manager chat and plans", icon: Sparkles, phase: 0, component: ManagerPanel },
-  { id: "code", title: "Code", description: "Monaco editor", icon: FileCode, phase: 0, component: CodePanel },
-  { id: "files", title: "Files", description: "Project file explorer", icon: FolderTree, phase: 0, component: FilesPanel },
-  { id: "terminal", title: "Terminal", description: "PTY terminal sessions", icon: SquareTerminal, phase: 0, component: TerminalPanel },
-  { id: "git", title: "Git", description: "Status, diffs, branches, worktrees", icon: GitBranch, phase: 0, component: GitPanel },
-  { id: "agents", title: "Agents", description: "Agent templates and instances", icon: Bot, phase: 0, component: AgentsPanel },
-  { id: "tasks", title: "Tasks", description: "Task board and DAG", icon: ListTodo, phase: 0, component: TasksPanel },
-  { id: "architecture", title: "Architecture", description: "Architecture map and decisions", icon: Network, phase: 2, component: ArchitecturePanel },
-  { id: "browser", title: "Browser", description: "Browser agent", icon: Globe, phase: 2, component: BrowserPanel },
-  { id: "database", title: "Database", description: "Database explorer", icon: Database, phase: 2, component: DatabasePanel },
-  { id: "logs", title: "Logs", description: "Live event stream", icon: ScrollText, phase: 0, component: LogsPanel },
-  { id: "deployments", title: "Deployments", description: "Environments and deployments", icon: Rocket, phase: 2, component: DeploymentsPanel },
-  { id: "memory", title: "Memory", description: "Project memory and knowledge", icon: BrainCircuit, phase: 0, component: MemoryPanel },
-  { id: "costs", title: "Costs", description: "Usage, budgets and limits", icon: Coins, phase: 0, component: CostsPanel },
-  { id: "monitoring", title: "Monitoring", description: "Mission Control and infrastructure", icon: Activity, phase: 3, component: MonitoringPanel },
+  panel("manager", Sparkles, 0, ManagerPanel),
+  panel("code", FileCode, 0, CodePanel),
+  panel("files", FolderTree, 0, FilesPanel),
+  panel("terminal", SquareTerminal, 0, TerminalPanel),
+  panel("git", GitBranch, 0, GitPanel),
+  panel("agents", Bot, 0, AgentsPanel),
+  panel("tasks", ListTodo, 0, TasksPanel),
+  panel("architecture", Network, 2, ArchitecturePanel),
+  panel("browser", Globe, 2, BrowserPanel),
+  panel("database", Database, 2, DatabasePanel),
+  panel("logs", ScrollText, 0, LogsPanel),
+  panel("deployments", Rocket, 2, DeploymentsPanel),
+  panel("memory", BrainCircuit, 0, MemoryPanel),
+  panel("costs", Coins, 0, CostsPanel),
+  panel("monitoring", Activity, 3, MonitoringPanel),
 ];
 
 const BY_ID = new Map(PANELS.map((p) => [p.id, p]));

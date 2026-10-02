@@ -1,8 +1,19 @@
 import type { CostPoint, Project } from "@orkestr/protocol";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { i18n } from "../../i18n";
 import { buildScope } from "./BudgetEditor";
-import { dayLabel, formatPct, formatTokens, formatUsd, niceMax, scopeLabel } from "./format";
+import { dayLabel, formatPct, formatTokens, formatUsd, levelLabel, limitLabel, niceMax, scopeLabel } from "./format";
+
+const NBSP = "\u00a0";
+
+beforeEach(async () => {
+  await i18n.changeLanguage("en");
+});
+
+afterEach(async () => {
+  await i18n.changeLanguage("en");
+});
 import { layoutBars } from "./SpendChart";
 
 const ID = "0190f0b0-0000-7000-8000-000000000001";
@@ -21,10 +32,18 @@ describe("cost formatting", () => {
     expect(formatUsd(0)).toBe("$0.00");
     expect(formatUsd(Number.NaN)).toBe("—");
     expect(formatTokens(950)).toBe("950");
-    expect(formatTokens(1500)).toBe("1.5k");
+    expect(formatTokens(1500)).toBe("1.5K");
     expect(formatTokens(2_500_000)).toBe("2.5M");
     expect(formatPct(0.856)).toBe("86%");
     expect(formatPct(null)).toBe("—");
+  });
+
+  it("formats money, tokens and percent in Russian", () => {
+    expect(formatUsd(1234.5, "ru")).toBe(`1${NBSP}234,50${NBSP}$`);
+    expect(formatTokens(1500, "ru")).toBe(`1,5${NBSP}тыс.`);
+    expect(formatTokens(2_500_000, "ru")).toBe(`2,5${NBSP}млн`);
+    expect(formatPct(0.856, "ru")).toBe(`86${NBSP}%`);
+    expect(dayLabel("2026-10-02", "ru")).toBe("2 окт.");
   });
 
   it("computes nice axis maxima", () => {
@@ -51,7 +70,19 @@ describe("budget scope form", () => {
     expect(buildScope("Global", "")).toEqual({ scope: "Global" });
     expect(buildScope("Project", ID)).toEqual({ scope: "Project", projectId: ID });
     expect(buildScope("Agent", ` ${ID} `)).toEqual({ scope: "Agent", agentId: ID });
-    expect(typeof buildScope("Task", "nope")).toBe("string");
+    expect(buildScope("Task", "nope")).toBe("Enter a valid task id.");
+  });
+
+  it("localizes budget labels in Russian", async () => {
+    await i18n.changeLanguage("ru");
+    expect(buildScope("Provider", "nope")).toBe("Введите корректный ID провайдера.");
+    expect(scopeLabel({ scope: "Global" }, [])).toBe("Весь расход");
+    expect(scopeLabel({ scope: "Task", taskId: ID }, [])).toBe("Задача · …000001");
+    expect(levelLabel("Warn")).toBe("Предупреждение");
+    expect(limitLabel(100, "Monthly")).toBe(`100,00${NBSP}$ в месяц`);
+    expect(i18n.t("costs:chart.total", { count: 21, total: "x" })).toBe("21 день · x");
+    expect(i18n.t("costs:chart.total", { count: 3, total: "x" })).toBe("3 дня · x");
+    expect(i18n.t("costs:chart.total", { count: 30, total: "x" })).toBe("30 дней · x");
   });
 });
 

@@ -3,15 +3,20 @@ import { ListPlus, Network } from "lucide-react";
 
 import { workspaceActions } from "../../components/workspaceActions";
 import type { AppCommand } from "../../features/commands/registry";
+import { t } from "../../i18n";
 import { useTasksUi } from "./store";
 
 export const taskCommands: AppCommand[] = [
   {
     id: "tasks.create",
-    title: "Create Task",
-    group: "Tasks",
+    get title() {
+      return t("tasks:commands.create");
+    },
+    get group() {
+      return t("tasks:commands.group");
+    },
     icon: ListPlus,
-    keywords: ["new", "add", "todo", "задача"],
+    keywords: ["task", "new", "add", "todo", "задача", "создать", "новая"],
     enabled: (ctx) => ctx.projectId !== null,
     run: () => {
       workspaceActions.openPanel("tasks");
@@ -20,10 +25,14 @@ export const taskCommands: AppCommand[] = [
   },
   {
     id: "tasks.openGraph",
-    title: "Open Task Graph",
-    group: "Tasks",
+    get title() {
+      return t("tasks:commands.openGraph");
+    },
+    get group() {
+      return t("tasks:commands.group");
+    },
     icon: Network,
-    keywords: ["dag", "dependencies", "critical path", "граф"],
+    keywords: ["dag", "dependencies", "critical path", "граф", "зависимости", "критический путь"],
     enabled: (ctx) => ctx.projectId !== null,
     run: () => {
       useTasksUi.getState().setView("graph");

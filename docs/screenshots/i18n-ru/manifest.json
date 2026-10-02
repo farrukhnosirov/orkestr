@@ -1,0 +1,687 @@
+[
+  {
+    "name": "01-manager.png",
+    "note": "Менеджер: сводка сеанса, завершённый запуск и карточка плана",
+    "consoleErrors": [],
+    "clipped": [
+      "Изменена задача «Протестировать модуль hello»",
+      "Запуск Менеджера (выполняется): выполнено задач — 3 из 4",
+      "Агент …078651: Думает → Завершил работу (Работа завершена)",
+      "Агент …078651 остановлен (работа завершена)",
+      "Задача …67e674: Тестируется → Выполнена",
+      "Запуск Менеджера (завершён): выполнено задач — 4 из 4",
+      "План Менеджера «Создай модуль hello с юнит-тестом»: выполнен (4 задачи)",
+      "План Менеджера «Создай модуль greeter с тестами»: предложен (4 задачи)",
+      "Обновлена запись памяти «Только ES-модули»",
+      "Решение: SQLite для метаданных",
+      "Создан снимок «Перед рефакторингом»",
+      "Открыта панель «Git»"
+    ],
+    "latin": [
+      "task transition",
+      "manager run finished",
+      "node inventory detected",
+      "manager plan proposed",
+      "memory item created",
+      "decision recorded",
+      "budget saved",
+      "snapshot created"
+    ],
+    "hscroll": false
+  },
+  {
+    "name": "02-manager-maximized.png",
+    "note": "Менеджер (развёрнут)",
+    "consoleErrors": [],
+    "clipped": [
+      "Панель «Менеджер» развёрнута"
+    ],
+    "latin": [
+      "memory item created",
+      "decision recorded",
+      "budget saved",
+      "snapshot created"
+    ],
+    "hscroll": false
+  },
+  {
+    "name": "03-agents.png",
+    "note": "Агенты (развёрнуто)",
+    "consoleErrors": [],
+    "clipped": [
+      "Панель «Агенты» развёрнута"
+    ],
+    "latin": [],
+    "hscroll": false
+  },
+  {
+    "name": "04-agents-templates.png",
+    "note": "Шаблоны агентов",
+    "consoleErrors": [],
+    "clipped": [
+      "Панель «Агенты» развёрнута"
+    ],
+    "latin": [],
+    "hscroll": false
+  },
+  {
+    "name": "05-agents-template-editor.png",
+    "note": "Редактор шаблона",
+    "consoleErrors": [],
+    "clipped": [
+      "Панель «Агенты» развёрнута"
+    ],
+    "latin": [],
+    "hscroll": false
+  },
+  {
+    "name": "06-agents-spawn-dialog.png",
+    "note": "Диалог запуска агента",
+    "consoleErrors": [],
+    "clipped": [
+      "Протестировать модуль hello: записаны файлы tests/hello.test.mjs. Mock (офлайн-д",
+      "Панель «Агенты» развёрнута"
+    ],
+    "latin": [],
+    "hscroll": false
+  },
+  {
+    "name": "07-tasks-list.png",
+    "note": "Задачи: список",
+    "consoleErrors": [],
+    "clipped": [
+      "Панель «Задачи» развёрнута"
+    ],
+    "latin": [],
+    "hscroll": false
+  },
+  {
+    "name": "08-tasks-board.png",
+    "note": "Задачи: доска",
+    "consoleErrors": [],
+    "clipped": [
+      "Панель «Задачи» развёрнута"
+    ],
+    "latin": [],
+    "hscroll": false
+  },
+  {
+    "name": "09-tasks-graph.png",
+    "note": "Задачи: граф зависимостей",
+    "consoleErrors": [],
+    "clipped": [
+      "Высокий",
+      "Обычный",
+      "Панель «Задачи» развёрнута"
+    ],
+    "latin": [
+      "React Flow"
+    ],
+    "hscroll": false
+  },
+  {
+    "name": "10-tasks-drawer.png",
+    "note": "Сведения о задаче",
+    "consoleErrors": [],
+    "clipped": [
+      "Панель «Задачи» развёрнута"
+    ],
+    "latin": [],
+    "hscroll": false
+  },
+  {
+    "name": "11-tasks-create.png",
+    "note": "Диалог создания задачи",
+    "consoleErrors": [],
+    "clipped": [
+      "Панель «Задачи» развёрнута"
+    ],
+    "latin": [],
+    "hscroll": false
+  },
+  {
+    "name": "12-code-quick-open.png",
+    "note": "Переход к файлу",
+    "consoleErrors": [],
+    "clipped": [
+      "Изменена задача «Протестировать модуль hello»",
+      "Запуск Менеджера (выполняется): выполнено задач — 3 из 4",
+      "Агент …078651: Думает → Завершил работу (Работа завершена)",
+      "Агент …078651 остановлен (работа завершена)",
+      "Задача …67e674: Тестируется → Выполнена",
+      "Запуск Менеджера (завершён): выполнено задач — 4 из 4",
+      "План Менеджера «Создай модуль hello с юнит-тестом»: выполнен (4 задачи)",
+      "План Менеджера «Создай модуль greeter с тестами»: предложен (4 задачи)",
+      "Обновлена запись памяти «Только ES-модули»",
+      "Панель «Задачи» восстановлена"
+    ],
+    "latin": [
+      "task transition",
+      "manager run finished",
+      "node inventory detected",
+      "manager plan proposed",
+      "memory item created",
+      "decision recorded",
+      "budget saved",
+      "snapshot created"
+    ],
+    "hscroll": false
+  },
+  {
+    "name": "13-code.png",
+    "note": "Редактор кода",
+    "consoleErrors": [],
+    "clipped": [
+      "Изменена задача «Протестировать модуль hello»",
+      "Запуск Менеджера (выполняется): выполнено задач — 3 из 4",
+      "Агент …078651: Думает → Завершил работу (Работа завершена)",
+      "Агент …078651 остановлен (работа завершена)",
+      "Задача …67e674: Тестируется → Выполнена",
+      "Запуск Менеджера (завершён): выполнено задач — 4 из 4",
+      "План Менеджера «Создай модуль hello с юнит-тестом»: выполнен (4 задачи)",
+      "План Менеджера «Создай модуль greeter с тестами»: предложен (4 задачи)",
+      "Обновлена запись памяти «Только ES-модули»",
+      "Панель «Задачи» восстановлена"
+    ],
+    "latin": [
+      "task transition",
+      "manager run finished",
+      "node inventory detected",
+      "manager plan proposed",
+      "memory item created",
+      "decision recorded",
+      "budget saved",
+      "snapshot created"
+    ],
+    "hscroll": false
+  },
+  {
+    "name": "14-code-search.png",
+    "note": "Поиск по проекту",
+    "consoleErrors": [],
+    "clipped": [
+      "Изменена задача «Протестировать модуль hello»",
+      "Запуск Менеджера (выполняется): выполнено задач — 3 из 4",
+      "Агент …078651: Думает → Завершил работу (Работа завершена)",
+      "Агент …078651 остановлен (работа завершена)",
+      "Задача …67e674: Тестируется → Выполнена",
+      "Запуск Менеджера (завершён): выполнено задач — 4 из 4",
+      "План Менеджера «Создай модуль hello с юнит-тестом»: выполнен (4 задачи)",
+      "План Менеджера «Создай модуль greeter с тестами»: предложен (4 задачи)",
+      "Обновлена запись памяти «Только ES-модули»",
+      "Панель «Задачи» восстановлена"
+    ],
+    "latin": [
+      "task transition",
+      "manager run finished",
+      "node inventory detected",
+      "manager plan proposed",
+      "memory item created",
+      "decision recorded",
+      "budget saved",
+      "snapshot created"
+    ],
+    "hscroll": false
+  },
+  {
+    "name": "15-files.png",
+    "note": "Файлы проекта",
+    "consoleErrors": [],
+    "clipped": [
+      "Изменена задача «Протестировать модуль hello»",
+      "Запуск Менеджера (выполняется): выполнено задач — 3 из 4",
+      "Агент …078651: Думает → Завершил работу (Работа завершена)",
+      "Агент …078651 остановлен (работа завершена)",
+      "Задача …67e674: Тестируется → Выполнена",
+      "Запуск Менеджера (завершён): выполнено задач — 4 из 4",
+      "План Менеджера «Создай модуль hello с юнит-тестом»: выполнен (4 задачи)",
+      "План Менеджера «Создай модуль greeter с тестами»: предложен (4 задачи)",
+      "Обновлена запись памяти «Только ES-модули»",
+      "Панель «Задачи» восстановлена"
+    ],
+    "latin": [
+      "task transition",
+      "manager run finished",
+      "node inventory detected",
+      "manager plan proposed",
+      "memory item created",
+      "decision recorded",
+      "budget saved",
+      "snapshot created"
+    ],
+    "hscroll": false
+  },
+  {
+    "name": "16-terminal.png",
+    "note": "Терминал (развёрнут)",
+    "consoleErrors": [],
+    "clipped": [
+      "Панель «Терминал» развёрнута"
+    ],
+    "latin": [],
+    "hscroll": false
+  },
+  {
+    "name": "17-git-changes.png",
+    "note": "Git: Изменения",
+    "consoleErrors": [],
+    "clipped": [
+      "Панель «Git» развёрнута"
+    ],
+    "latin": [],
+    "hscroll": false
+  },
+  {
+    "name": "18-git-history.png",
+    "note": "Git: История",
+    "consoleErrors": [],
+    "clipped": [
+      "Панель «Git» развёрнута"
+    ],
+    "latin": [
+      "Orkestr Demo"
+    ],
+    "hscroll": false
+  },
+  {
+    "name": "19-git-branches.png",
+    "note": "Git: Ветки",
+    "consoleErrors": [],
+    "clipped": [
+      "Панель «Git» развёрнута"
+    ],
+    "latin": [],
+    "hscroll": false
+  },
+  {
+    "name": "20-git-worktrees.png",
+    "note": "Git: Рабочие копии",
+    "consoleErrors": [],
+    "clipped": [
+      "Панель «Git» развёрнута"
+    ],
+    "latin": [],
+    "hscroll": false
+  },
+  {
+    "name": "21-git-snapshots.png",
+    "note": "Git: Снимки",
+    "consoleErrors": [],
+    "clipped": [
+      "1 минуту назад · 4 файла · 308 Б · main @",
+      "1 минуту назад · 6 файлов · 1,3 КБ · agent/qa-7a078651 @",
+      "1 минуту назад · 5 файлов · 931 Б · agent/qa-7a078651 @",
+      "Панель «Git» развёрнута"
+    ],
+    "latin": [],
+    "hscroll": false
+  },
+  {
+    "name": "22-git-rollback-dialog.png",
+    "note": "Откат рабочей области",
+    "consoleErrors": [],
+    "clipped": [
+      "1 минуту назад · 4 файла · 308 Б · main @",
+      "1 минуту назад · 6 файлов · 1,3 КБ · agent/qa-7a078651 @",
+      "1 минуту назад · 5 файлов · 931 Б · agent/qa-7a078651 @",
+      "Панель «Git» развёрнута"
+    ],
+    "latin": [],
+    "hscroll": false
+  },
+  {
+    "name": "23-memory.png",
+    "note": "Память проекта",
+    "consoleErrors": [],
+    "clipped": [
+      "Панель «Память» развёрнута"
+    ],
+    "latin": [],
+    "hscroll": false
+  },
+  {
+    "name": "24-memory-editor.png",
+    "note": "Новая запись памяти",
+    "consoleErrors": [],
+    "clipped": [
+      "Панель «Память» развёрнута"
+    ],
+    "latin": [],
+    "hscroll": false
+  },
+  {
+    "name": "25-memory-decisions.png",
+    "note": "Журнал решений",
+    "consoleErrors": [],
+    "clipped": [
+      "Панель «Память» развёрнута"
+    ],
+    "latin": [],
+    "hscroll": false
+  },
+  {
+    "name": "26-memory-knowledge.png",
+    "note": "База знаний",
+    "consoleErrors": [],
+    "clipped": [
+      "Панель «Память» развёрнута"
+    ],
+    "latin": [],
+    "hscroll": false
+  },
+  {
+    "name": "27-costs.png",
+    "note": "Расходы",
+    "consoleErrors": [],
+    "clipped": [
+      "Панель «Расходы» развёрнута"
+    ],
+    "latin": [],
+    "hscroll": false
+  },
+  {
+    "name": "28-costs-budget-editor.png",
+    "note": "Новый бюджет",
+    "consoleErrors": [],
+    "clipped": [
+      "Панель «Расходы» развёрнута"
+    ],
+    "latin": [],
+    "hscroll": false
+  },
+  {
+    "name": "29-logs.png",
+    "note": "Журнал событий",
+    "consoleErrors": [],
+    "clipped": [
+      "Панель «Журнал» развёрнута"
+    ],
+    "latin": [
+      "file watcher started",
+      "file watcher stopping",
+      "manager plan approved",
+      "manager run started",
+      "task transition",
+      "worktree created",
+      "agent spawned",
+      "run agent spawned"
+    ],
+    "hscroll": false
+  },
+  {
+    "name": "30-placeholder-monitoring.png",
+    "note": "Мониторинг (появится на этапе N)",
+    "consoleErrors": [],
+    "clipped": [
+      "Открыта панель «Мониторинг»"
+    ],
+    "latin": [],
+    "hscroll": false
+  },
+  {
+    "name": "31-command-palette.png",
+    "note": "Палитра команд",
+    "consoleErrors": [],
+    "clipped": [
+      "Открыта панель «Мониторинг»"
+    ],
+    "latin": [],
+    "hscroll": false
+  },
+  {
+    "name": "32-command-palette-search.png",
+    "note": "Палитра: поиск проектов",
+    "consoleErrors": [],
+    "clipped": [
+      "Открыта панель «Мониторинг»"
+    ],
+    "latin": [],
+    "hscroll": false
+  },
+  {
+    "name": "33-create-project.png",
+    "note": "Новый проект",
+    "consoleErrors": [],
+    "clipped": [
+      "Открыта панель «Мониторинг»"
+    ],
+    "latin": [],
+    "hscroll": false
+  },
+  {
+    "name": "34-notifications.png",
+    "note": "Центр уведомлений",
+    "consoleErrors": [],
+    "clipped": [
+      "Открыта панель «Мониторинг»"
+    ],
+    "latin": [],
+    "hscroll": false
+  },
+  {
+    "name": "35-approvals.png",
+    "note": "Запросы на подтверждение",
+    "consoleErrors": [],
+    "clipped": [
+      "Открыта панель «Мониторинг»"
+    ],
+    "latin": [],
+    "hscroll": false
+  },
+  {
+    "name": "36-emergency-stop.png",
+    "note": "Экстренная остановка (диалог)",
+    "consoleErrors": [],
+    "clipped": [
+      "Открыта панель «Мониторинг»"
+    ],
+    "latin": [],
+    "hscroll": false
+  },
+  {
+    "name": "37-settings-general.png",
+    "note": "Настройки → Общие",
+    "consoleErrors": [],
+    "clipped": [
+      "Открыта панель «Мониторинг»"
+    ],
+    "latin": [],
+    "hscroll": false
+  },
+  {
+    "name": "38-settings-system.png",
+    "note": "Настройки → Система",
+    "consoleErrors": [],
+    "clipped": [
+      "Открыта панель «Мониторинг»",
+      "Самые активные процессы"
+    ],
+    "latin": [],
+    "hscroll": false
+  },
+  {
+    "name": "39-settings-providers.png",
+    "note": "Настройки → AI-провайдеры",
+    "consoleErrors": [],
+    "clipped": [
+      "Открыта панель «Мониторинг»"
+    ],
+    "latin": [],
+    "hscroll": false
+  },
+  {
+    "name": "40-settings-manager.png",
+    "note": "Настройки → AI-менеджер",
+    "consoleErrors": [],
+    "clipped": [
+      "Открыта панель «Мониторинг»"
+    ],
+    "latin": [],
+    "hscroll": false
+  },
+  {
+    "name": "41-settings-permissions.png",
+    "note": "Настройки → Безопасность и разрешения",
+    "consoleErrors": [],
+    "clipped": [
+      "Открыта панель «Мониторинг»"
+    ],
+    "latin": [],
+    "hscroll": false
+  },
+  {
+    "name": "42-settings-secrets.png",
+    "note": "Настройки → Хранилище секретов",
+    "consoleErrors": [],
+    "clipped": [
+      "Открыта панель «Мониторинг»"
+    ],
+    "latin": [],
+    "hscroll": false
+  },
+  {
+    "name": "43-settings-about.png",
+    "note": "Настройки → О программе",
+    "consoleErrors": [],
+    "clipped": [
+      "Открыта панель «Мониторинг»"
+    ],
+    "latin": [
+      "Windows PowerShell, Command Prompt, Git Bash, WSL"
+    ],
+    "hscroll": false
+  },
+  {
+    "name": "44-onboarding-step-1.png",
+    "note": "Мастер настройки, шаг 1",
+    "consoleErrors": [],
+    "clipped": [
+      "Открыта панель «Мониторинг»"
+    ],
+    "latin": [],
+    "hscroll": false
+  },
+  {
+    "name": "45-onboarding-step-2.png",
+    "note": "Мастер настройки, шаг 2",
+    "consoleErrors": [],
+    "clipped": [
+      "Открыта панель «Мониторинг»"
+    ],
+    "latin": [
+      "Orkestr Cloud"
+    ],
+    "hscroll": false
+  },
+  {
+    "name": "46-onboarding-step-3.png",
+    "note": "Мастер настройки, шаг 3",
+    "consoleErrors": [],
+    "clipped": [
+      "Открыта панель «Мониторинг»"
+    ],
+    "latin": [
+      "Claude Code",
+      "OpenAI Codex"
+    ],
+    "hscroll": false
+  },
+  {
+    "name": "47-onboarding-step-4.png",
+    "note": "Мастер настройки, шаг 4",
+    "consoleErrors": [],
+    "clipped": [
+      "Открыта панель «Мониторинг»"
+    ],
+    "latin": [],
+    "hscroll": false
+  },
+  {
+    "name": "48-onboarding-step-5.png",
+    "note": "Мастер настройки, шаг 5",
+    "consoleErrors": [],
+    "clipped": [
+      "Открыта панель «Мониторинг»"
+    ],
+    "latin": [],
+    "hscroll": false
+  },
+  {
+    "name": "49-onboarding-step-6.png",
+    "note": "Мастер настройки, шаг 6",
+    "consoleErrors": [],
+    "clipped": [
+      "Открыта панель «Мониторинг»"
+    ],
+    "latin": [],
+    "hscroll": false
+  },
+  {
+    "name": "50-onboarding-step-7.png",
+    "note": "Мастер настройки, шаг 7",
+    "consoleErrors": [],
+    "clipped": [
+      "Открыта панель «Мониторинг»"
+    ],
+    "latin": [
+      "git 2.55.0 — C:\\Program Files\\Git\\mingw64\\bin\\git.exe"
+    ],
+    "hscroll": false
+  },
+  {
+    "name": "51-onboarding-step-8.png",
+    "note": "Мастер настройки, шаг 8",
+    "consoleErrors": [],
+    "clipped": [
+      "Открыта панель «Мониторинг»"
+    ],
+    "latin": [],
+    "hscroll": false
+  },
+  {
+    "name": "52-switched-to-english.png",
+    "note": "Live switch to English (lang=en, page reloaded: false)",
+    "consoleErrors": [],
+    "clipped": [
+      "Открыта панель «Мониторинг»"
+    ],
+    "latin": [
+      "Do not disturb",
+      "All caught up",
+      "Approvals, failures, budget alerts and agent notices appear here.",
+      "New project",
+      "Command palette (Ctrl+K)",
+      "New file",
+      "New folder",
+      "Collapse all",
+      "Show ignored files",
+      "Open folder in external IDE",
+      "mock-smart · Mock (offline demo)",
+      "New conversation (the current one is summarized)",
+      "Last session: 4 of 4 tasks completed (100%).",
+      "Acceptance criteria and files",
+      "Product Manager",
+      "Explain the plan's risks",
+      "What's the status of the project?",
+      "Create a hello module with tests",
+      "Show pending approvals",
+      "new line ·",
+      "New task",
+      "Show filters",
+      "Reload tasks",
+      "Core connected",
+      "Embedded core"
+    ],
+    "hscroll": false
+  },
+  {
+    "name": "53-switched-back-to-russian.png",
+    "note": "Back to Russian (lang=ru)",
+    "consoleErrors": [],
+    "clipped": [
+      "Открыта панель «Мониторинг»"
+    ],
+    "latin": [],
+    "hscroll": false
+  }
+]

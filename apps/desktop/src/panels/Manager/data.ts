@@ -5,7 +5,6 @@
  * `ManagerRunUpdated`, settings changes). Mutations go through
  * `managerActions`; their results also arrive as events.
  */
-import { OrkestrError } from "@orkestr/client";
 import type {
   ApprovePlanResult,
   ChatAttachment,
@@ -23,12 +22,14 @@ import { topic } from "@orkestr/protocol";
 import { useCallback, useEffect, useState } from "react";
 
 import { getClient, maybeClient } from "../../core/client";
+import { currentLanguage, t } from "../../i18n";
+import { describeError } from "../../i18n/errors";
 import { useAppStore } from "../../store/app";
 import { EMPTY_CHAT, applyManagerEvent, indexById, type ChatState } from "./model";
 
+/** Localized message for a failed call (see `i18n/errors.ts`). */
 export function errorMessage(e: unknown): string {
-  if (e instanceof OrkestrError) return e.message;
-  return e instanceof Error ? e.message : String(e);
+  return describeError(e);
 }
 
 const RELEVANT = new Set(["ManagerMessage", "ManagerMessageAdded", "ManagerPlanUpdated", "ManagerRunUpdated"]);
@@ -131,7 +132,8 @@ export const managerActions = {
       projectId,
       text,
       ...(attachment ? { attachment } : {}),
-      ...(options ? { options } : {}),
+      // The Manager (and the agents it starts) reply in the UI language.
+      options: { ...options, language: currentLanguage() },
     }),
   clear: (projectId: string): Promise<ManagerClearResult> => getClient().call("manager.clear", { projectId }),
   approvePlan: (planId: string, edits?: PlanEdits): Promise<ApprovePlanResult> =>
@@ -150,6 +152,6 @@ export const managerActions = {
     getClient().call("tasks.transition", {
       taskId,
       to: accept ? "Completed" : "Failed",
-      reason: accept ? "accepted by the user in the Manager run card" : "rejected by the user in the Manager run card",
+      reason: accept ? t("manager:run.acceptedReason") : t("manager:run.rejectedReason"),
     }),
 };

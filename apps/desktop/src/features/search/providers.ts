@@ -6,6 +6,7 @@
 import { FolderOpen, type LucideIcon } from "lucide-react";
 
 import { openProject } from "../../core/client";
+import { t } from "../../i18n";
 import { useAppStore } from "../../store/app";
 import { fuzzyMatch } from "./fuzzy";
 
@@ -23,8 +24,8 @@ export interface SearchResult {
 
 export interface SearchProvider {
   id: string;
-  /** Group heading in the palette. */
-  title: string;
+  /** Group heading in the palette (localized; define it as a getter over `t()`). */
+  readonly title: string;
   /** Results for a non-empty query, best first. May be async (RPC-backed providers). */
   search: (query: string, signal: AbortSignal) => SearchResult[] | Promise<SearchResult[]>;
 }
@@ -33,7 +34,9 @@ export const MAX_RESULTS_PER_PROVIDER = 8;
 
 export const projectsProvider: SearchProvider = {
   id: "projects",
-  title: "Projects",
+  get title() {
+    return t("search:providers.projects");
+  },
   search: (query) => {
     const { projects } = useAppStore.getState();
     const results: SearchResult[] = [];

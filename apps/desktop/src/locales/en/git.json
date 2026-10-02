@@ -1,0 +1,285 @@
+{
+  "commands": {
+    "createSnapshot": "Create Snapshot",
+    "rollback": "Roll Back Workspace…",
+    "commit": "Commit…",
+    "snapshotLabel": "Snapshot {{date}}"
+  },
+  "tabs": {
+    "label": "Git views",
+    "changes": "Changes",
+    "history": "History",
+    "branches": "Branches",
+    "worktrees": "Worktrees",
+    "snapshots": "Snapshots"
+  },
+  "panel": {
+    "noProject": {
+      "title": "No project open",
+      "description": "Open or create a project to see its repository."
+    },
+    "noFolder": {
+      "title": "No project folder",
+      "description": "This project is not linked to a folder on disk yet. Set its root folder to use Git and snapshots."
+    },
+    "connecting": "Connecting to the core…",
+    "reading": "Reading repository…",
+    "unavailable": "Git is unavailable",
+    "readFailed": "Could not read the repository.",
+    "notRepo": {
+      "title": "Not a Git repository",
+      "description": "{{path}} is not under version control yet. Initialize a repository to track changes, branches and agent worktrees.",
+      "init": "Initialize repository"
+    },
+    "gitVersion": "git {{version}}",
+    "detached": "detached @ {{commit}}",
+    "noCommits": "no commits yet",
+    "upstream": "Upstream {{name}}",
+    "worktree": "worktree",
+    "backToMain": "Back to the main checkout",
+    "refresh": "Refresh"
+  },
+  "summary": {
+    "conflicted_one": "{{count}} conflicted",
+    "conflicted_other": "{{count}} conflicted",
+    "staged_one": "{{count}} staged",
+    "staged_other": "{{count}} staged",
+    "changed_one": "{{count}} changed",
+    "changed_other": "{{count}} changed",
+    "untracked_one": "{{count}} untracked",
+    "untracked_other": "{{count}} untracked",
+    "clean": "Working tree clean"
+  },
+  "fileStatus": {
+    "Modified": "Modified",
+    "Added": "Added",
+    "Deleted": "Deleted",
+    "Renamed": "Renamed",
+    "Copied": "Copied",
+    "TypeChanged": "Type changed",
+    "Unmerged": "Conflict",
+    "Untracked": "Untracked",
+    "Ignored": "Ignored",
+    "Unchanged": "Unchanged"
+  },
+  "reason": {
+    "Manual": "Manual",
+    "BeforeRiskyAction": "Safety",
+    "TaskCheckpoint": "Task",
+    "taskAfter": "Task · after",
+    "taskBefore": "Task · before",
+    "PreRollback": "Pre-rollback",
+    "Periodic": "Periodic"
+  },
+  "branchName": {
+    "empty": "Enter a branch name.",
+    "edge": "Invalid start or end character.",
+    "chars": "Contains characters Git does not allow."
+  },
+  "diff": {
+    "title": "Diff",
+    "inline": "Inline view",
+    "sideBySide": "Side-by-side view",
+    "loading": "Loading diff…",
+    "noFile": "No file selected",
+    "binary": {
+      "title": "Binary file",
+      "description": "Binary files cannot be shown as a text diff."
+    },
+    "tooLarge": {
+      "title": "File too large",
+      "description": "Files over 8 MiB are not shown in the diff viewer."
+    },
+    "loadingEditor": "Loading editor…"
+  },
+  "changes": {
+    "groups": {
+      "conflicts": "Merge conflicts",
+      "staged": "Staged",
+      "unstaged": "Changes",
+      "untracked": "Untracked"
+    },
+    "sides": {
+      "staged": "Staged",
+      "worktree": "Working tree",
+      "markers": "Working tree (markers)"
+    },
+    "discarded_one": "Discarded {{count}} file. A safety snapshot was taken — restore it from the Snapshots tab.",
+    "discarded_other": "Discarded {{count}} files. A safety snapshot was taken — restore it from the Snapshots tab.",
+    "committed": "Committed {{id}} — {{subject}}",
+    "unstage": "Unstage",
+    "discard": "Discard changes…",
+    "stage": "Stage",
+    "resolve": "Mark resolved (stage)",
+    "abortMerge": "Abort merge",
+    "mergeInProgress": "A merge is in progress. Resolve conflicts and commit, or abort.",
+    "messagePlaceholder": "Commit message (Ctrl+Enter to commit)",
+    "messagePlaceholderEmpty": "Stage changes, then write a commit message",
+    "message": "Commit message",
+    "stagedInfo": "{{count}} staged · author from git config",
+    "stageAll": "Stage all",
+    "commit": "Commit",
+    "unstageAll": "Unstage all",
+    "clean": "Clean",
+    "cleanText": "Nothing to commit — the working tree matches HEAD.",
+    "emptyDiff": "Select a changed file to compare it side by side.",
+    "discardTitle": "Discard changes in {{path}}?",
+    "discardTitleMany_one": "Discard changes in {{count}} file?",
+    "discardTitleMany_other": "Discard changes in {{count}} files?",
+    "discardDescription": "Unstaged edits are reverted and untracked files are deleted. Orkestr takes a safety snapshot first, so this can be undone from the Snapshots tab.",
+    "discardConfirm": "Discard"
+  },
+  "history": {
+    "loading": "Loading history…",
+    "empty": {
+      "title": "No commits yet",
+      "description": "Commit your first changes from the Changes tab."
+    },
+    "commits": "Commits",
+    "noMessage": "(no message)",
+    "merge": "merge",
+    "loadingFiles": "Loading files…",
+    "binary": "bin",
+    "loadMore": "Load more",
+    "emptyDiff": "Pick a commit, then a file, to see what changed.",
+    "root": "(root)"
+  },
+  "branches": {
+    "switchedNew": "Switched to new branch {{branch}}",
+    "created": "Created {{branch}} at {{commit}}",
+    "switched": "Switched to {{branch}}",
+    "deleted": "Deleted {{branch}} (was {{commit}})",
+    "upToDate": "Already up to date with {{branch}}",
+    "mergeConflicts_one": "Merge stopped with conflicts in {{count}} file",
+    "mergeConflicts_other": "Merge stopped with conflicts in {{count}} files",
+    "merged": "Merged {{branch}} ({{commit}})",
+    "current": "current",
+    "currentTarget": "the current branch",
+    "agent": "agent",
+    "gone": "upstream gone",
+    "inWorktree": "checked out in a worktree",
+    "merge": "Merge {{branch}} into {{target}}…",
+    "switch": "Switch to {{branch}}",
+    "delete": "Delete {{branch}}…",
+    "namePlaceholder": "new-branch-name",
+    "name": "New branch name",
+    "switchToIt": "Switch to it",
+    "loading": "Loading branches…",
+    "empty": {
+      "title": "No branches yet",
+      "description": "Branches appear after the first commit."
+    },
+    "local": "Local",
+    "remote": "Remote",
+    "forceTitle": "Force-delete {{branch}}?",
+    "deleteTitle": "Delete {{branch}}?",
+    "forceDescription": "This branch has commits that are not merged anywhere. Deleting it may lose them (its last commit id is shown after deletion).",
+    "deleteDescription": "Only merged branches can be deleted safely.",
+    "forceConfirm": "Force delete",
+    "mergeTitle": "Merge {{branch}} into {{target}}?",
+    "mergeDescription": "A merge commit is always created (--no-ff).",
+    "mergeConfirm": "Merge",
+    "checking": "Checking for conflicts…",
+    "previewUpToDate": "Already up to date — nothing to merge.",
+    "previewClean_one": "No conflicts. {{count}} commit will be merged.",
+    "previewClean_other": "No conflicts. {{count}} commits will be merged.",
+    "previewConflicts": "Conflicts predicted in: {{files}}. Resolve them on the branch first."
+  },
+  "worktrees": {
+    "created": "Created a worktree for {{branch}}",
+    "createdNoBranch": "Created a worktree",
+    "removedSnapshot": "Worktree removed. Its uncommitted changes were saved in a safety snapshot.",
+    "removed": "Worktree removed (its branch is kept).",
+    "branchPlaceholder": "branch for a new worktree",
+    "branch": "Branch for a new worktree",
+    "add": "Add worktree",
+    "hint": "Agents automatically get their own worktree on <code>{{pattern}}</code>; they never write into your checkout.",
+    "loading": "Loading worktrees…",
+    "empty": {
+      "title": "No worktrees",
+      "description": "Create one above."
+    },
+    "main": "main checkout",
+    "agent": "agent",
+    "agentRole": "agent · {{role}}",
+    "dirty": "uncommitted",
+    "locked": "locked",
+    "missing": "missing",
+    "open": "open",
+    "createdAt": "created {{time}}",
+    "openInPanel": "Open in Git panel",
+    "remove": "Remove worktree…",
+    "removeTitle": "Remove worktree {{branch}}?",
+    "removeTitleNoBranch": "Remove this worktree?",
+    "dirtyDescription": "This worktree has uncommitted changes. They will be saved in a safety snapshot, then the worktree is force-removed. The branch is kept.",
+    "cleanDescription": "The directory is removed; the branch and its commits are kept.",
+    "snapshotRemove": "Snapshot & remove",
+    "removeConfirm": "Remove"
+  },
+  "snapshots": {
+    "noTarget": "There is no snapshot to roll back to yet — create one first.",
+    "snapshotSide": "Snapshot · {{label}}",
+    "currentSide": "Current",
+    "defaultLabel": "Manual snapshot",
+    "saved": "Snapshot “{{label}}” saved: {{files}}, {{size}}.",
+    "alreadyMatches": "{{path}} already matches the snapshot.",
+    "restored": "Restored {{path}}. A safety snapshot was taken first.",
+    "labelPlaceholder": "Snapshot label",
+    "create": "Snapshot",
+    "hint": "Snapshots include uncommitted and untracked files and never touch Git history.",
+    "loading": "Loading snapshots…",
+    "empty": {
+      "title": "No snapshots yet",
+      "description": "Take one before risky changes — Orkestr also snapshots automatically before discards and rollbacks."
+    },
+    "list": "Snapshots",
+    "dirty": "uncommitted",
+    "meta": "{{time}} · {{files}} · {{size}}",
+    "rollbackTo": "Roll back workspace to this snapshot…",
+    "delete": "Delete snapshot…",
+    "changesSince": "Changes since “{{label}}”",
+    "rollback": "Roll back…",
+    "comparing": "Comparing with the workspace…",
+    "matches": "The workspace matches this snapshot.",
+    "restoreFile": "Restore {{path}} from snapshot…",
+    "emptyDiffSelected": "Pick a changed file to compare the snapshot with the current version.",
+    "emptyDiff": "Select a snapshot to preview it.",
+    "restoreTitle": "Restore {{path}}?",
+    "restoreDescription": "The current file is replaced with its version from “{{label}}”. A safety snapshot is taken first.",
+    "restoreConfirm": "Restore file",
+    "deleteTitle": "Delete snapshot “{{label}}”?",
+    "deleteDescription": "The snapshot record is removed; files in your workspace are not touched.",
+    "deleteConfirm": "Delete snapshot"
+  },
+  "rollback": {
+    "done": "Rolled back to “{{label}}”: {{restored}} restored, {{deleted}} deleted. Undo by rolling back to the pre-rollback snapshot.",
+    "doneSkipped": "Rolled back to “{{label}}”: {{restored}} restored, {{deleted}} deleted, {{skipped}} skipped (changed meanwhile). Undo by rolling back to the pre-rollback snapshot.",
+    "title": "Roll back workspace to “{{label}}”?",
+    "description": "{{time}} · {{files}}. Orkestr takes a safety snapshot first, so this can be undone.",
+    "confirm_one": "Roll back {{count}} file",
+    "confirm_other": "Roll back {{count}} files",
+    "deleteCreated": "Also delete files created after the snapshot",
+    "planning": "Planning rollback…",
+    "alreadyMatches": "The workspace already matches this snapshot.",
+    "plan": "Rollback plan",
+    "summary": {
+      "restore": "{{count}} restore",
+      "recreate": "{{count}} re-create",
+      "delete": "{{count}} delete",
+      "keep": "{{count}} keep"
+    },
+    "action": {
+      "Restore": "Restore",
+      "Recreate": "Re-create",
+      "Delete": "Delete",
+      "Keep": "Keep"
+    },
+    "reason": {
+      "deleted": "deleted since the snapshot",
+      "modeChanged": "mode changed since the snapshot",
+      "modified": "modified since the snapshot",
+      "created": "created after the snapshot",
+      "createdKept": "created after the snapshot — kept (turn on “Also delete files created after the snapshot” to remove it)"
+    }
+  }
+}

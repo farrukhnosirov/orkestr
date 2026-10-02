@@ -1,0 +1,38 @@
+{
+  "center": {
+    "title": "Notifications",
+    "unread_one": "Notifications ({{count}} unread)",
+    "unread_other": "Notifications ({{count}} unread)",
+    "dnd": "Do not disturb",
+    "emptyTitle": "All caught up",
+    "emptyDescription": "Approvals, failures, budget alerts and agent notices appear here.",
+    "markAllRead": "Mark all read",
+    "clear": "Clear",
+    "dismiss": "Dismiss notification"
+  },
+  "events": {
+    "approvalNeeded": "Approval needed",
+    "buildFailed": "Build failed",
+    "exitCode": "Exit code {{code}}",
+    "taskFailed": "Task failed",
+    "taskFailedBody": "A task failed.",
+    "taskBlocked": "Task blocked",
+    "taskBlockedBody": "A task is blocked.",
+    "taskCompleted": "Task completed",
+    "taskCompletedBody": "A task finished successfully.",
+    "budget": "Budget {{percent}} used",
+    "budgetBody": "{{scope}}: {{spent}} of {{limit}}",
+    "emergencyStop": "Emergency stop",
+    "agentsStopped_one": "{{count}} agent stopped.",
+    "agentsStopped_other": "{{count}} agents stopped.",
+    "rateLimited": "Provider rate limited",
+    "rateLimitedModel": "{{model}} hit its rate limit.",
+    "rateLimitedUnknown": "A model hit its rate limit.",
+    "retryIn": "Retrying in {{delay}}.",
+    "rollback": "Rollback performed",
+    "filesRestored_one": "{{count}} file restored.",
+    "filesRestored_other": "{{count}} files restored.",
+    "nodeOffline": "Node offline",
+    "nodeOfflineBody": "A node stopped sending heartbeats."
+  }
+}

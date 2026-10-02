@@ -13,7 +13,8 @@ import { getClient } from "../../core/client";
 import { segmentsFromRange } from "../../features/files/highlight";
 import { fileIcon } from "../../features/files/icons";
 import { basename, dirname } from "../../features/files/paths";
-import { errorMessage } from "../../features/files/rpc";
+import { useT } from "../../i18n";
+import { describeError } from "../../i18n/errors";
 import { type RevealTarget, useEditorStore } from "../../store/editor";
 
 interface Group {
@@ -29,6 +30,7 @@ function splitGlobs(s: string): string[] {
 }
 
 export function SearchView({ projectId, onOpen }: { projectId: string; onOpen: (path: string, at: RevealTarget) => void }) {
+  const { t } = useT("code");
   const setSearchOpen = useEditorStore((s) => s.setSearchOpen);
   const [query, setQuery] = useState("");
   const [isRegex, setRegex] = useState(false);
@@ -75,7 +77,7 @@ export function SearchView({ projectId, onOpen }: { projectId: string; onOpen: (
           setError(null);
           setCollapsed(new Set());
         })
-        .catch((e: unknown) => id === seq.current && setError(errorMessage(e)))
+        .catch((e: unknown) => id === seq.current && setError(describeError(e)))
         .finally(() => id === seq.current && setLoading(false));
     }, 250);
     return () => window.clearTimeout(timer);
@@ -100,49 +102,49 @@ export function SearchView({ projectId, onOpen }: { projectId: string; onOpen: (
     });
 
   return (
-    <aside className="code-search" aria-label="Search in project">
+    <aside className="code-search" aria-label={t("search.label")}>
       <div className="code-search__header">
-        <span className="code-search__title">Search</span>
-        <IconButton label="Close search" icon={<X size={14} />} size="sm" onClick={() => setSearchOpen(false)} />
+        <span className="code-search__title">{t("search.title")}</span>
+        <IconButton label={t("search.close")} icon={<X size={14} />} size="sm" onClick={() => setSearchOpen(false)} />
       </div>
       <div className="code-search__form">
         <Input
           ref={inputRef}
-          placeholder="Search"
-          aria-label="Search text"
+          placeholder={t("search.placeholder")}
+          aria-label={t("search.input")}
           value={query}
           leftIcon={<Search size={14} />}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => e.key === "Escape" && setSearchOpen(false)}
           rightSlot={
             <span className="code-search__toggles">
-              <IconButton label="Match case" icon={<CaseSensitive size={14} />} size="sm" active={caseSensitive} aria-pressed={caseSensitive} onClick={() => setCase((v) => !v)} />
-              <IconButton label="Match whole word" icon={<WholeWord size={14} />} size="sm" active={wholeWord} aria-pressed={wholeWord} onClick={() => setWord((v) => !v)} />
-              <IconButton label="Use regular expression" icon={<Regex size={14} />} size="sm" active={isRegex} aria-pressed={isRegex} onClick={() => setRegex((v) => !v)} />
+              <IconButton label={t("search.matchCase")} icon={<CaseSensitive size={14} />} size="sm" active={caseSensitive} aria-pressed={caseSensitive} onClick={() => setCase((v) => !v)} />
+              <IconButton label={t("search.wholeWord")} icon={<WholeWord size={14} />} size="sm" active={wholeWord} aria-pressed={wholeWord} onClick={() => setWord((v) => !v)} />
+              <IconButton label={t("search.regex")} icon={<Regex size={14} />} size="sm" active={isRegex} aria-pressed={isRegex} onClick={() => setRegex((v) => !v)} />
             </span>
           }
         />
         <button type="button" className="code-search__globs-toggle" aria-expanded={showGlobs} onClick={() => setShowGlobs((v) => !v)}>
-          <SlidersHorizontal size={12} /> Files to include / exclude
+          <SlidersHorizontal size={12} /> {t("search.globs")}
         </button>
         {showGlobs && (
           <>
-            <Input placeholder="e.g. src/**, *.ts" aria-label="Files to include" value={include} onChange={(e) => setInclude(e.target.value)} />
-            <Input placeholder="e.g. **/*.test.ts, dist/**" aria-label="Files to exclude" value={exclude} onChange={(e) => setExclude(e.target.value)} />
+            <Input placeholder={t("search.includePlaceholder")} aria-label={t("search.include")} value={include} onChange={(e) => setInclude(e.target.value)} />
+            <Input placeholder={t("search.excludePlaceholder")} aria-label={t("search.exclude")} value={exclude} onChange={(e) => setExclude(e.target.value)} />
           </>
         )}
       </div>
       <div className="code-search__summary" aria-live="polite">
         {loading ? (
           <>
-            <Spinner size={12} /> Searching…
+            <Spinner size={12} /> {t("search.searching")}
           </>
         ) : result ? (
-          <>
-            {result.matches.length} result{result.matches.length === 1 ? "" : "s"} in {groups.length} file
-            {groups.length === 1 ? "" : "s"}
-            {result.truncated ? " (limited)" : ""} · {result.elapsedMs} ms
-          </>
+          t(result.truncated ? "search.summaryLimited" : "search.summary", {
+            results: t("search.results", { count: result.matches.length }),
+            inFiles: t("search.inFiles", { count: groups.length }),
+            ms: result.elapsedMs,
+          })
         ) : null}
       </div>
       <div className="code-search__results">
@@ -151,9 +153,9 @@ export function SearchView({ projectId, onOpen }: { projectId: string; onOpen: (
             {error}
           </div>
         ) : !query.trim() ? (
-          <EmptyState icon={<Search size={22} strokeWidth={1.6} />} title="Search the project" description="Respects .gitignore. Use globs to narrow the files." />
+          <EmptyState icon={<Search size={22} strokeWidth={1.6} />} title={t("search.empty.title")} description={t("search.empty.description")} />
         ) : result && groups.length === 0 && !loading ? (
-          <EmptyState icon={<Search size={22} strokeWidth={1.6} />} title="No results" description="Try a different query or fewer filters." />
+          <EmptyState icon={<Search size={22} strokeWidth={1.6} />} title={t("search.noResults.title")} description={t("search.noResults.description")} />
         ) : (
           groups.map((g) => {
             const open = !collapsed.has(g.path);

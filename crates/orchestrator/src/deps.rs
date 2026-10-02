@@ -148,6 +148,9 @@ pub struct ManagerTunables {
     pub tool_result_chars: usize,
     /// Files listed in the planning context.
     pub planning_files: usize,
+    /// The user's UI language (shared with the agent runtime and the core):
+    /// the Manager writes for the user in it.
+    pub ui_language: orkestr_agent_runtime::UiLanguage,
 }
 
 impl Default for ManagerTunables {
@@ -164,6 +167,7 @@ impl Default for ManagerTunables {
             max_output_tokens: 8_192,
             tool_result_chars: 12_000,
             planning_files: 60,
+            ui_language: orkestr_agent_runtime::UiLanguage::default(),
         }
     }
 }

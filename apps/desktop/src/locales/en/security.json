@@ -1,0 +1,223 @@
+{
+  "sections": {
+    "permissions": "Security & Permissions",
+    "secrets": "Secrets Vault"
+  },
+  "commands": {
+    "openApprovals": "Open Approvals",
+    "openSettings": "Security & Permissions…",
+    "openSecrets": "Secrets Vault…",
+    "lockVault": "Lock Vault"
+  },
+  "inbox": {
+    "badgeEmpty": "Approvals inbox (empty)",
+    "badgePending_one": "Approvals inbox: {{count}} pending",
+    "badgePending_other": "Approvals inbox: {{count}} pending",
+    "title": "Approvals",
+    "subtitleEmpty": "Nothing is waiting for you.",
+    "subtitlePending_one": "{{count}} action is waiting for your decision",
+    "subtitlePending_other": "{{count}} actions are waiting for your decision",
+    "close": "Close approvals",
+    "loading": "Loading approvals",
+    "loadFailed": "Could not load approvals",
+    "emptyTitle": "All clear",
+    "emptyDescription": "Agents ask here before risky actions: dangerous commands, network access, secrets and deployments."
+  },
+  "approval": {
+    "ariaLabel": "Approval: {{summary}}",
+    "agent": "Agent {{id}}",
+    "managerOrSystem": "Manager / system",
+    "commandPreview": "Command preview",
+    "note": "Note",
+    "notePlaceholder": "Optional note for the agent…"
+  },
+  "toast": {
+    "approvalRequested": "Approval requested",
+    "review": "Review",
+    "dismiss": "Dismiss notification",
+    "stoppedTitle": "All AI stopped",
+    "stoppedBody": "{{agents}}, {{approvals}}.",
+    "agentsStopped_one": "{{count}} agent stopped",
+    "agentsStopped_other": "{{count}} agents stopped",
+    "approvalsCancelled_one": "{{count}} pending approval cancelled",
+    "approvalsCancelled_other": "{{count}} pending approvals cancelled",
+    "rearmedTitle": "Emergency stop lifted",
+    "rearmedBody": "Agents can start again.",
+    "vaultLockedTitle": "Vault locked",
+    "vaultLockedBody": "Access to secrets is denied until you unlock the vault."
+  },
+  "emergency": {
+    "buttonEngagedAria": "Emergency stop engaged — manage",
+    "buttonAria": "Emergency stop: stop all AI",
+    "buttonEngagedTitle": "All AI is stopped (click to lift the stop)",
+    "buttonTitle": "Stop all AI ({{shortcut}})",
+    "buttonEngaged": "Stopped",
+    "button": "Stop",
+    "titleEngaged": "All AI is stopped",
+    "title": "Stop all AI?",
+    "descriptionEngaged": "Agents and the Manager stay blocked until you lift the stop.",
+    "description": "Immediately stops every agent and the Manager and cancels their pending approvals. Works offline.",
+    "activeControls": "Active emergency controls",
+    "rearm": "Lift the stop",
+    "stopAll": "Stop all AI"
+  },
+  "flags": {
+    "allStopped": "All AI stopped",
+    "fullAutoDisabled": "Full Auto disabled",
+    "networkToolsDisabled": "Network tools disabled",
+    "vaultLocked": "Vault locked"
+  },
+  "risk": {
+    "Low": "Low risk",
+    "Medium": "Medium risk",
+    "High": "High risk",
+    "Critical": "Critical risk"
+  },
+  "capability": {
+    "Read": "Read",
+    "Write": "Write",
+    "Delete": "Delete",
+    "Terminal": "Terminal",
+    "Git": "Git",
+    "Network": "Network",
+    "Browser": "Browser",
+    "DbRead": "Database read",
+    "DbWrite": "Database write",
+    "Docker": "Docker",
+    "Ssh": "SSH",
+    "Deploy": "Deploy",
+    "ComputerControl": "Computer control",
+    "Secrets": "Secrets"
+  },
+  "effect": {
+    "Allow": "Allow",
+    "Ask": "Ask",
+    "Deny": "Deny"
+  },
+  "decision": {
+    "Allow": "Allowed",
+    "Ask": "Needs approval",
+    "Deny": "Denied"
+  },
+  "danger": {
+    "RecursiveDelete": "Recursive delete",
+    "ProtectedPathDelete": "Deletes a protected path",
+    "DiskDestruction": "Disk destruction",
+    "BackupDestruction": "Backup destruction",
+    "ResourceExhaustion": "Fork bomb",
+    "SecurityToolingDisable": "Disables security tooling",
+    "LogWipe": "Log wipe",
+    "CredentialAccess": "Credential access",
+    "SelfTamper": "Tampers with Orkestr",
+    "UnsafeAgentMode": "Unsafe agent mode",
+    "PortExposure": "Port exposure",
+    "GitDestructive": "Destructive git",
+    "GitInternals": ".git internals",
+    "DataDestruction": "Data destruction",
+    "ProductionChange": "Production change",
+    "SecretChange": "Secret change",
+    "PrivilegeEscalation": "Privilege escalation",
+    "SystemConfig": "System configuration",
+    "NetworkConfig": "Network configuration",
+    "RemoteCodeExecution": "Download & execute",
+    "ContainerDestruction": "Container destruction",
+    "Obfuscation": "Obfuscated command",
+    "Unparseable": "Unparseable command",
+    "OutsideWorktree": "Outside the worktree"
+  },
+  "scope": {
+    "global": "Global",
+    "thisProject": "This project",
+    "project": "Project · {{name}}",
+    "agent": "Agent · {{id}}",
+    "task": "Task · {{id}}",
+    "projectId": "Project {{id}}",
+    "environment": "{{project}} · environment {{env}}"
+  },
+  "modes": {
+    "descriptions": {
+      "Ask": "Every write, command and git action asks first.",
+      "SemiAuto": "Routine work inside the worktree runs on its own; risky actions ask.",
+      "FullAuto": "Everything the policy allows runs. Dangerous actions still ask."
+    }
+  },
+  "permissions": {
+    "modeTitle": "Approval mode",
+    "modeLoading": "Loading approval mode",
+    "openProject": "Open a project to set its approval mode.",
+    "effectiveMode": "The effective mode is <strong>{{mode}}</strong>: Full Auto is disabled by an emergency control.",
+    "emergencyTitle": "Emergency controls",
+    "disableFullAuto": "Disable Full Auto everywhere",
+    "disableFullAutoHint": "No project can run above Semi-Auto.",
+    "disableNetwork": "Disable network tools",
+    "disableNetworkHint": "Agents lose network and browser access.",
+    "rulesTitle": "Permission rules",
+    "rulesHint": "The narrowest scope wins (task › agent › project › global); at equal scope Deny beats Ask, and Ask beats Allow.",
+    "guardTitle": "Dangerous-action guard",
+    "addRuleAria": "Add a permission rule",
+    "capability": "Capability",
+    "effect": "Effect",
+    "scope": "Scope",
+    "resource": "Resource",
+    "resourcePattern": "Resource pattern",
+    "resourcePlaceholder": "e.g. cargo *, src/**, https://api.example.com/*",
+    "resourceHint": "Glob pattern. Leave empty for any resource.",
+    "note": "Note",
+    "addRule": "Add rule",
+    "rulesLoading": "Loading rules",
+    "noRulesTitle": "No custom rules",
+    "noRulesDescription": "Approval-mode defaults apply. Dangerous actions always ask; forbidden ones are always denied.",
+    "actions": "Actions",
+    "deleteRule": "Delete rule “{{capability}}: {{effect}}”",
+    "checkAria": "Test a command against the policy",
+    "checkLabel": "Test a command",
+    "checkPlaceholder": "git push --force",
+    "shell": "Shell",
+    "check": "Check",
+    "checkResult": "{{message}} · mode: {{mode}}"
+  },
+  "secrets": {
+    "title": "Secrets Vault",
+    "statusAria": "Vault status",
+    "summary_one": "{{count}} secret · storage: {{backend}}",
+    "summary_other": "{{count}} secrets · storage: {{backend}}",
+    "locked": "Locked",
+    "unlocked": "Unlocked",
+    "lock": "Lock vault",
+    "unlock": "Unlock vault",
+    "formAria": "Add or rotate a secret",
+    "name": "Name",
+    "namePlaceholder": "OPENAI_API_KEY",
+    "value": "Value",
+    "valueHint": "Stored in the OS keyring or the encrypted vault. The value is never shown again.",
+    "hideValue": "Hide value",
+    "showValue": "Show value while typing",
+    "save": "Save secret",
+    "valueRequired": "Enter the secret value.",
+    "loading": "Loading secrets",
+    "emptyTitle": "No secrets yet",
+    "emptyDescription": "Provider API keys and environment credentials live here. Agents never see the values unless a task explicitly binds them.",
+    "storedIn": "Stored in",
+    "created": "Created",
+    "lastUsed": "Last used",
+    "delete": "Delete secret {{name}}",
+    "confirmDelete": "Delete the secret “{{name}}”? Anything that uses it will stop working.",
+    "backend": {
+      "OsKeyring": "OS keyring",
+      "EncryptedVault": "Encrypted vault",
+      "SelfHostedVault": "Self-hosted vault",
+      "CloudSecretManager": "Cloud secret manager"
+    },
+    "preference": {
+      "Auto": "OS keyring + encrypted vault",
+      "Vault": "Encrypted vault",
+      "VaultFileKey": "Encrypted vault (file key)",
+      "Memory": "In memory (not saved)"
+    },
+    "validation": {
+      "nameRequired": "Give the secret a name.",
+      "nameTooLong": "Use at most {{max}} characters.",
+      "nameInvalid": "Use Latin letters, digits and _ . -, and start with a letter or _."
+    }
+  }
+}

@@ -10,6 +10,7 @@ import { Camera, FolderGit2, GitBranch, GitCommitHorizontal, History, ListTree, 
 import { type ReactNode, useEffect, useState } from "react";
 
 import { getClient } from "../../core/client";
+import { useT } from "../../i18n";
 import { useAppStore } from "../../store/app";
 import type { PanelProps } from "../types";
 import { BranchesTab } from "./BranchesTab";
@@ -21,22 +22,23 @@ import { SnapshotsTab } from "./SnapshotsTab";
 import { type GitTab, errorMessage, useGitUi, useProjectRefresh } from "./state";
 import { WorktreesTab } from "./WorktreesTab";
 
-const TABS: { id: GitTab; label: string; icon: ReactNode }[] = [
-  { id: "changes", label: "Changes", icon: <ListTree size={14} /> },
-  { id: "history", label: "History", icon: <History size={14} /> },
-  { id: "branches", label: "Branches", icon: <GitBranch size={14} /> },
-  { id: "worktrees", label: "Worktrees", icon: <FolderGit2 size={14} /> },
-  { id: "snapshots", label: "Snapshots", icon: <Camera size={14} /> },
+const TABS: { id: GitTab; icon: ReactNode }[] = [
+  { id: "changes", icon: <ListTree size={14} /> },
+  { id: "history", icon: <History size={14} /> },
+  { id: "branches", icon: <GitBranch size={14} /> },
+  { id: "worktrees", icon: <FolderGit2 size={14} /> },
+  { id: "snapshots", icon: <Camera size={14} /> },
 ];
 
 export default function GitPanel({ projectId }: PanelProps) {
+  const { t } = useT("git");
   const project = useAppStore((s) => s.projects.find((p) => p.id === projectId) ?? null);
   const connected = useAppStore((s) => s.connection.state === "open");
 
   if (!projectId || !project) {
     return (
       <div className="git-panel">
-        <EmptyState icon={<GitBranch size={26} strokeWidth={1.6} />} title="No project open" description="Open or create a project to see its repository." />
+        <EmptyState icon={<GitBranch size={26} strokeWidth={1.6} />} title={t("panel.noProject.title")} description={t("panel.noProject.description")} />
       </div>
     );
   }
@@ -45,8 +47,8 @@ export default function GitPanel({ projectId }: PanelProps) {
       <div className="git-panel">
         <EmptyState
           icon={<FolderGit2 size={26} strokeWidth={1.6} />}
-          title="No project folder"
-          description="This project is not linked to a folder on disk yet. Set its root folder to use Git and snapshots."
+          title={t("panel.noFolder.title")}
+          description={t("panel.noFolder.description")}
         />
       </div>
     );
@@ -54,7 +56,7 @@ export default function GitPanel({ projectId }: PanelProps) {
   if (!connected) {
     return (
       <div className="git-panel git-center">
-        <Spinner size={18} /> Connecting to the core…
+        <Spinner size={18} /> {t("panel.connecting")}
       </div>
     );
   }
@@ -62,6 +64,7 @@ export default function GitPanel({ projectId }: PanelProps) {
 }
 
 function GitWorkspace({ projectId, rootPath }: { projectId: string; rootPath: string }) {
+  const { t } = useT(["git", "common"]);
   const tab = useGitUi((s) => s.tab);
   const setTab = useGitUi((s) => s.setTab);
   const worktree = useGitUi((s) => s.worktrees[projectId] ?? null);
@@ -115,16 +118,16 @@ function GitWorkspace({ projectId, rootPath }: { projectId: string; rootPath: st
       <div className="git-panel">
         {loading ? (
           <div className="git-center">
-            <Spinner size={18} /> Reading repository…
+            <Spinner size={18} /> {t("panel.reading")}
           </div>
         ) : (
           <EmptyState
             icon={<GitBranch size={26} strokeWidth={1.6} />}
-            title="Git is unavailable"
-            description={error ?? "Could not read the repository."}
+            title={t("panel.unavailable")}
+            description={error ?? t("panel.readFailed")}
             action={
               <Button variant="secondary" leftIcon={<RefreshCw size={14} />} onClick={reload}>
-                Retry
+                {t("common:actions.retry")}
               </Button>
             }
           />
@@ -138,12 +141,12 @@ function GitWorkspace({ projectId, rootPath }: { projectId: string; rootPath: st
       <div className="git-panel">
         <EmptyState
           icon={<GitBranch size={26} strokeWidth={1.6} />}
-          title="Not a git repository"
-          description={`${rootPath} is not under version control yet. Initialise a repository to track changes, branches and agent worktrees.`}
-          badge={status.gitVersion ? <Badge>git {status.gitVersion}</Badge> : undefined}
+          title={t("panel.notRepo.title")}
+          description={t("panel.notRepo.description", { path: rootPath })}
+          badge={status.gitVersion ? <Badge>{t("panel.gitVersion", { version: status.gitVersion })}</Badge> : undefined}
           action={
             <Button variant="primary" leftIcon={<GitCommitHorizontal size={14} />} onClick={() => void init()} loading={initBusy}>
-              Initialise repository
+              {t("panel.notRepo.init")}
             </Button>
           }
         />
@@ -157,16 +160,16 @@ function GitWorkspace({ projectId, rootPath }: { projectId: string; rootPath: st
       <header className="git-header">
         <div className="git-header__repo">
           <GitBranch size={15} className="git-accent" />
-          <span className="git-header__branch">{status.branch ?? (status.detached ? `detached @ ${status.head?.slice(0, 8) ?? ""}` : "no commits yet")}</span>
+          <span className="git-header__branch">{status.branch ?? (status.detached ? t("panel.detached", { commit: status.head?.slice(0, 8) ?? "" }) : t("panel.noCommits"))}</span>
           {status.upstream && (
-            <Badge tone={status.ahead || status.behind ? "warning" : "neutral"} title={`Upstream ${status.upstream}`}>
+            <Badge tone={status.ahead || status.behind ? "warning" : "neutral"} title={t("panel.upstream", { name: status.upstream })}>
               ↑{status.ahead} ↓{status.behind}
             </Badge>
           )}
           {worktree && (
             <Badge tone="violet" title={worktree}>
-              worktree
-              <button type="button" className="git-chip-x" aria-label="Back to the main checkout" onClick={() => setWorktree(projectId, null)}>
+              {t("panel.worktree")}
+              <button type="button" className="git-chip-x" aria-label={t("panel.backToMain")} onClick={() => setWorktree(projectId, null)}>
                 <X size={11} />
               </button>
             </Badge>
@@ -175,9 +178,9 @@ function GitWorkspace({ projectId, rootPath }: { projectId: string; rootPath: st
         </div>
         <div className="git-spacer" />
         {loading && <Spinner size={14} />}
-        <IconButton label="Refresh" icon={<RefreshCw size={15} />} onClick={reload} tooltip="bottom" />
+        <IconButton label={t("panel.refresh")} icon={<RefreshCw size={15} />} onClick={reload} tooltip="bottom" />
       </header>
-      <Tabs aria-label="Git views" items={TABS} value={tab} onChange={setTab} className="git-tabs" />
+      <Tabs aria-label={t("tabs.label")} items={TABS.map((x) => ({ ...x, label: t(`tabs.${x.id}`) }))} value={tab} onChange={setTab} className="git-tabs" />
       {error && <Notice tone="danger">{error}</Notice>}
       <div className="git-body" role="tabpanel">
         {tab === "changes" && <ChangesTab projectId={projectId} worktree={worktree} status={status} onStatus={setStatus} reload={reload} />}

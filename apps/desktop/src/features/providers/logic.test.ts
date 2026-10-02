@@ -68,7 +68,7 @@ describe("statusOf", () => {
     expect(statusOf(view("1", "OpenAi", { health: "Degraded", quotaExhaustedUntil: "2026-10-02T00:00:00Z" })).label).toBe("Quota exhausted");
     expect(statusOf(view("1", "OpenAi", { authState: "Invalid" })).dot).toBe("error");
     expect(statusOf(view("1", "ClaudeCode", { authState: "Unconfigured", authDetail: "not installed (`claude` not found on PATH)" })).label).toBe("Not installed");
-    expect(statusOf(view("1", "OpenAi", { health: "Healthy", circuitOpen: true })).label).toBe("Circuit open");
+    expect(statusOf(view("1", "OpenAi", { health: "Healthy", circuitOpen: true })).label).toBe("Paused after failures");
     expect(statusOf(view("1", "OpenAi", { health: "Healthy" }, false)).label).toBe("Disabled");
     expect(statusOf(view("1", "OpenAi")).dot).toBe("connecting");
   });
@@ -77,12 +77,12 @@ describe("statusOf", () => {
 describe("formatters", () => {
   it("formats latency, usd, pricing and context", () => {
     expect(formatLatency(null)).toBe("—");
-    expect(formatLatency(320.4)).toBe("320 ms");
-    expect(formatLatency(1450)).toBe("1.4 s");
+    expect(formatLatency(320.4)).toMatch(/^320\sms$/);
+    expect(formatLatency(1450)).toMatch(/^1\.5\ssec$/);
     expect(formatUsd(0.00123)).toBe("$0.0012");
     expect(formatUsd(2.5)).toBe("$2.50");
-    expect(formatPricing({ inputPerMtokUsd: 3, outputPerMtokUsd: 15 })).toBe("$3 / $15 per 1M (est.)");
-    expect(formatPricing({ inputPerMtokUsd: 0.15, outputPerMtokUsd: 0.6 })).toBe("$0.15 / $0.6 per 1M (est.)");
+    expect(formatPricing({ inputPerMtokUsd: 3, outputPerMtokUsd: 15 })).toBe("$3 / $15 per 1M tokens (est.)");
+    expect(formatPricing({ inputPerMtokUsd: 0.15, outputPerMtokUsd: 0.6 })).toBe("$0.15 / $0.6 per 1M tokens (est.)");
     expect(formatPricing(null)).toBe("no list price");
     expect(formatContext(128000)).toBe("128K");
     expect(formatContext(1048576)).toBe("1M");
@@ -139,5 +139,15 @@ describe("grouping and registration", () => {
     expect(settingsSections.map((s) => s.id)).toEqual(expect.arrayContaining(["providers", "manager"]));
     expect(settingsSections.find((s) => s.id === "providers")?.title).toBe("AI Providers");
     expect(commands.some((c) => c.id === "providers.open")).toBe(true);
+  });
+});
+
+describe("Russian formatting", () => {
+  it("localizes statuses, prices, context windows and validation", () => {
+        expect(formatPricing({ inputPerMtokUsd: 3, outputPerMtokUsd: 15 }, "ru")).toMatch(/^3\s\$ \/ 15\s\$ за 1 млн токенов \(оценка\)$/);
+    expect(formatPricing(null, "ru")).toBe("цена не указана");
+    expect(formatContext(128000, "ru")).toMatch(/^128\sтыс\.$/);
+    expect(formatUsd(2.5, "ru")).toMatch(/^2,50\s\$$/);
+    expect(formatLatency(1450, "ru")).toMatch(/^1,5\sс$/);
   });
 });

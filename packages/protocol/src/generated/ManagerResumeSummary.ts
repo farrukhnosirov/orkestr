@@ -41,6 +41,10 @@ tasksFailed: number,
  */
 tasksBlocked: number, 
 /**
+ * Cancelled (not counted in `percent_complete`).
+ */
+tasksCancelled: number, 
+/**
  * Completed in percent.
  */
 percentComplete: number, 

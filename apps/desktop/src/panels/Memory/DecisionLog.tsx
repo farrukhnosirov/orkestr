@@ -5,8 +5,9 @@ import { clsx } from "clsx";
 import { Plus, Scale, X } from "lucide-react";
 import { type FormEvent, useState } from "react";
 
+import { useFormat, useT } from "../../i18n";
 import { errorMessage, requireClient, useRpcQuery } from "../../lib/rpcQuery";
-import { DECISION_STATUS_TONE, relativeTime } from "./kinds";
+import { DECISION_STATUS_TONE } from "./kinds";
 import { Markdown } from "./markdown";
 
 const STATUSES: DecisionStatus[] = ["Proposed", "Accepted", "Rejected", "Superseded"];
@@ -26,6 +27,7 @@ export function parseAlternatives(text: string): DecisionAlternative[] {
 }
 
 function DecisionDialog({ projectId, onClose, onSaved }: { projectId: string; onClose: () => void; onSaved: () => void }) {
+  const { t } = useT(["memory", "common"]);
   const [title, setTitle] = useState("");
   const [decision, setDecision] = useState("");
   const [context, setContext] = useState("");
@@ -43,7 +45,7 @@ function DecisionDialog({ projectId, onClose, onSaved }: { projectId: string; on
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !decision.trim()) {
-      setError("Title and decision are required.");
+      setError(t("decisions.dialog.required"));
       return;
     }
     setBusy(true);
@@ -96,34 +98,34 @@ function DecisionDialog({ projectId, onClose, onSaved }: { projectId: string; on
           </div>
           <div>
             <h2 id="decision-title" className="dialog__title">
-              Record decision
+              {t("decisions.dialog.title")}
             </h2>
-            <p className="dialog__subtitle">ADR-style entry. Keep the reasoning a summary — never a hidden chain of thought.</p>
+            <p className="dialog__subtitle">{t("decisions.dialog.subtitle")}</p>
           </div>
-          <button type="button" className="dialog__close" aria-label="Close" onClick={close}>
+          <button type="button" className="dialog__close" aria-label={t("common:actions.close")} onClick={close}>
             <X size={16} />
           </button>
         </header>
         <div className="dialog__body mem-dialog__scroll">
           <div className="mem-form-row">
-            <Input className="mem-field--grow" label="Title" value={title} maxLength={200} onChange={(e) => setTitle(e.target.value)} autoFocus />
+            <Input className="mem-field--grow" label={t("decisions.dialog.titleField")} value={title} maxLength={200} onChange={(e) => setTitle(e.target.value)} autoFocus />
             <label className="ok-field mem-field--kind">
-              <span className="ok-field__label">Status</span>
+              <span className="ok-field__label">{t("decisions.dialog.status")}</span>
               <select className="mem-select" value={status} onChange={(e) => setStatus(e.target.value as DecisionStatus)}>
                 {STATUSES.map((s) => (
                   <option key={s} value={s}>
-                    {s}
+                    {t(`decisions.status.${s}`)}
                   </option>
                 ))}
               </select>
             </label>
           </div>
-          {area("dec-decision", "Decision", decision, setDecision, "What was decided?", 2)}
-          {area("dec-context", "Context", context, setContext, "Problem and constraints")}
-          {area("dec-alts", "Alternatives (one per line, “Name: why not”)", alternatives, setAlternatives, "Tantivy: extra index to keep in sync")}
-          {area("dec-reason", "Reasoning summary", reasoning, setReasoning, "Why this option won")}
-          {area("dec-cons", "Consequences", consequences, setConsequences, "Trade-offs, follow-ups", 2)}
-          <Input label="Related files" placeholder="crates/memory/src/lib.rs, docs/adr/0007.md" value={files} onChange={(e) => setFiles(e.target.value)} />
+          {area("dec-decision", t("decisions.dialog.decision"), decision, setDecision, t("decisions.dialog.decisionPlaceholder"), 2)}
+          {area("dec-context", t("decisions.dialog.context"), context, setContext, t("decisions.dialog.contextPlaceholder"))}
+          {area("dec-alts", t("decisions.dialog.alternatives"), alternatives, setAlternatives, t("decisions.dialog.alternativesPlaceholder"))}
+          {area("dec-reason", t("decisions.dialog.reasoning"), reasoning, setReasoning, t("decisions.dialog.reasoningPlaceholder"))}
+          {area("dec-cons", t("decisions.dialog.consequences"), consequences, setConsequences, t("decisions.dialog.consequencesPlaceholder"), 2)}
+          <Input label={t("decisions.dialog.files")} placeholder={t("decisions.dialog.filesPlaceholder")} value={files} onChange={(e) => setFiles(e.target.value)} />
           {error && (
             <div className="ok-field__error" role="alert">
               {error}
@@ -132,10 +134,10 @@ function DecisionDialog({ projectId, onClose, onSaved }: { projectId: string; on
         </div>
         <footer className="dialog__footer">
           <Button variant="ghost" onClick={close} disabled={busy}>
-            Cancel
+            {t("common:actions.cancel")}
           </Button>
           <Button variant="primary" type="submit" loading={busy}>
-            Record
+            {t("decisions.dialog.submit")}
           </Button>
         </footer>
       </form>
@@ -145,6 +147,8 @@ function DecisionDialog({ projectId, onClose, onSaved }: { projectId: string; on
 
 /** Decision log timeline (§21). */
 export function DecisionLog({ projectId }: { projectId: string }) {
+  const { t } = useT(["memory", "common"]);
+  const fmt = useFormat();
   const [creating, setCreating] = useState(false);
   const [statusFilter, setStatusFilter] = useState<DecisionStatus | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -169,9 +173,9 @@ export function DecisionLog({ projectId }: { projectId: string }) {
   return (
     <div className="mem-view">
       <div className="mem-toolbar">
-        <div className="mem-chips mem-chips--inline" role="group" aria-label="Filter by status">
+        <div className="mem-chips mem-chips--inline" role="group" aria-label={t("decisions.filterByStatus")}>
           <button type="button" className={clsx("mem-chip", statusFilter === null && "mem-chip--active")} aria-pressed={statusFilter === null} onClick={() => setStatusFilter(null)}>
-            All
+            {t("decisions.all")}
           </button>
           {STATUSES.map((s) => (
             <button
@@ -181,14 +185,14 @@ export function DecisionLog({ projectId }: { projectId: string }) {
               aria-pressed={statusFilter === s}
               onClick={() => setStatusFilter(statusFilter === s ? null : s)}
             >
-              {s}
+              {t(`decisions.status.${s}`)}
             </button>
           ))}
         </div>
         <div className="mem-toolbar__spacer" />
         {loading && <Spinner size={14} />}
         <Button variant="primary" size="sm" leftIcon={<Plus size={14} />} onClick={() => setCreating(true)}>
-          Record decision
+          {t("decisions.record")}
         </Button>
       </div>
       {(error || actionError) && (
@@ -196,7 +200,7 @@ export function DecisionLog({ projectId }: { projectId: string }) {
           {actionError ?? error}
           {error && (
             <Button size="sm" variant="ghost" onClick={reload}>
-              Retry
+              {t("common:actions.retry")}
             </Button>
           )}
         </div>
@@ -204,49 +208,49 @@ export function DecisionLog({ projectId }: { projectId: string }) {
       <div className="mem-scroll">
         {loading && data === null ? (
           <div className="mem-loading">
-            <Spinner size={18} /> Loading decisions…
+            <Spinner size={18} /> {t("decisions.loading")}
           </div>
         ) : decisions.length === 0 && !error ? (
           <EmptyState
             icon={<Scale size={26} strokeWidth={1.6} />}
-            title={statusFilter ? `No ${statusFilter.toLowerCase()} decisions` : "No decisions recorded"}
-            description="Architecture and product decisions — with alternatives, reasoning summary and consequences — appear here as a timeline."
+            title={statusFilter ? t(`decisions.emptyByStatus.${statusFilter}`) : t("decisions.emptyTitle")}
+            description={t("decisions.emptyDescription")}
             action={
               <Button variant="primary" leftIcon={<Plus size={14} />} onClick={() => setCreating(true)}>
-                Record decision
+                {t("decisions.record")}
               </Button>
             }
           />
         ) : (
-          <ol className="dec-timeline" aria-label="Decision timeline">
+          <ol className="dec-timeline" aria-label={t("decisions.timeline")}>
             {decisions.map((d) => (
               <li key={d.id} className={clsx("dec-entry", `dec-entry--${d.status.toLowerCase()}`)}>
                 <div className="dec-entry__dot" aria-hidden="true" />
                 <div className="dec-entry__card">
                   <div className="dec-entry__head">
-                    <span className="dec-entry__num">#{d.number}</span>
+                    <span className="dec-entry__num">{t("decisions.number", { number: d.number })}</span>
                     <h3 className="dec-entry__title">{d.title}</h3>
-                    <Badge tone={DECISION_STATUS_TONE[d.status]}>{d.status}</Badge>
-                    <span className="dec-entry__time" title={d.createdAt}>
-                      {relativeTime(d.createdAt)}
+                    <Badge tone={DECISION_STATUS_TONE[d.status]}>{t(`decisions.status.${d.status}`)}</Badge>
+                    <span className="dec-entry__time" title={fmt.date(d.createdAt)}>
+                      {fmt.relative(d.createdAt)}
                     </span>
                   </div>
                   <Markdown source={d.decision} className="md dec-entry__decision" />
                   {d.context && (
                     <section>
-                      <h4>Context</h4>
+                      <h4>{t("decisions.context")}</h4>
                       <Markdown source={d.context} />
                     </section>
                   )}
                   {d.alternatives.length > 0 && (
                     <section>
-                      <h4>Alternatives</h4>
+                      <h4>{t("decisions.alternatives")}</h4>
                       <ul className="dec-alts">
                         {d.alternatives.map((a, i) => (
                           <li key={i}>
                             <strong>{a.title}</strong>
                             {a.summary && ` — ${a.summary}`}
-                            {a.rejectedReason && <span className="mem-muted"> (not chosen: {a.rejectedReason})</span>}
+                            {a.rejectedReason && <span className="mem-muted"> {t("decisions.notChosen", { reason: a.rejectedReason })}</span>}
                           </li>
                         ))}
                       </ul>
@@ -254,13 +258,13 @@ export function DecisionLog({ projectId }: { projectId: string }) {
                   )}
                   {d.reasoningSummary && (
                     <section>
-                      <h4>Reasoning summary</h4>
+                      <h4>{t("decisions.reasoning")}</h4>
                       <Markdown source={d.reasoningSummary} />
                     </section>
                   )}
                   {d.consequences && (
                     <section>
-                      <h4>Consequences</h4>
+                      <h4>{t("decisions.consequences")}</h4>
                       <Markdown source={d.consequences} />
                     </section>
                   )}
@@ -271,16 +275,16 @@ export function DecisionLog({ projectId }: { projectId: string }) {
                           {f}
                         </code>
                       ))}
-                      {d.taskIds.length > 0 && <span>{d.taskIds.length} related task(s)</span>}
+                      {d.taskIds.length > 0 && <span>{t("decisions.relatedTasks", { count: d.taskIds.length })}</span>}
                     </div>
                   )}
                   {d.status === "Proposed" && (
                     <div className="dec-entry__actions">
                       <Button size="sm" variant="secondary" onClick={() => void setStatus(d, "Accepted")}>
-                        Accept
+                        {t("decisions.accept")}
                       </Button>
                       <Button size="sm" variant="ghost" onClick={() => void setStatus(d, "Rejected")}>
-                        Reject
+                        {t("decisions.reject")}
                       </Button>
                     </div>
                   )}

@@ -3,6 +3,7 @@ import { Bot, OctagonX } from "lucide-react";
 
 import { workspaceActions } from "../../components/workspaceActions";
 import type { AppCommand } from "../../features/commands/registry";
+import { t } from "../../i18n";
 import { agentActions, errorMessage } from "./data";
 import { useAgentsUi } from "./store";
 
@@ -16,10 +17,14 @@ export function stopTarget(): string | null {
 export const agentCommands: AppCommand[] = [
   {
     id: "agents.spawn",
-    title: "Spawn Agent",
-    group: "Agents",
+    get title() {
+      return t("agents:commands.spawn");
+    },
+    get group() {
+      return t("agents:commands.group");
+    },
     icon: Bot,
-    keywords: ["agent", "new", "start", "run", "агент"],
+    keywords: ["agent", "spawn", "new", "start", "run", "агент", "запустить", "новый"],
     enabled: (ctx) => ctx.projectId !== null,
     run: () => {
       workspaceActions.openPanel("agents");
@@ -28,10 +33,14 @@ export const agentCommands: AppCommand[] = [
   },
   {
     id: "agents.stop",
-    title: "Stop Agent",
-    group: "Agents",
+    get title() {
+      return t("agents:commands.stop");
+    },
+    get group() {
+      return t("agents:commands.group");
+    },
     icon: OctagonX,
-    keywords: ["agent", "cancel", "halt", "остановить"],
+    keywords: ["agent", "stop", "cancel", "halt", "агент", "остановить"],
     enabled: () => stopTarget() !== null,
     run: async () => {
       const id = stopTarget();
@@ -39,7 +48,7 @@ export const agentCommands: AppCommand[] = [
       const ui = useAgentsUi.getState();
       try {
         const a = await agentActions.stop(id);
-        ui.toast("info", `${a.name} stopped.`);
+        ui.toast("info", t("agents:stopped", { name: a.name }));
       } catch (e) {
         ui.toast("danger", errorMessage(e));
       }

@@ -30,14 +30,17 @@ import { getClient } from "../../core/client";
 import { openInEditor } from "../../features/files/actions";
 import { ActionDialog } from "../../features/files/Dialog";
 import { fileIcon } from "../../features/files/icons";
-import { basename, dirname, isWithin, joinPath, validateName } from "../../features/files/paths";
+import { basename, dirname, isWithin, joinPath } from "../../features/files/paths";
 import { RootFolderForm } from "../../features/files/RootFolderForm";
-import { errorInfo, errorMessage, useFileEvents } from "../../features/files/rpc";
+import { errorInfo, useFileEvents } from "../../features/files/rpc";
 import { flattenTree, type TreeRow } from "../../features/files/tree";
+import { useT } from "../../i18n";
+import { describeError } from "../../i18n/errors";
 import { useActiveProject } from "../../store/app";
 import { useEditorStore } from "../../store/editor";
 import type { PanelProps } from "../types";
 import { ContextMenu, type MenuItem } from "./ContextMenu";
+import { nameError } from "./nameError";
 import { useFileTree } from "./useFileTree";
 
 const ROW_H = 24;
@@ -50,16 +53,17 @@ type Row = TreeRow | { type: "edit"; depth: number; dir: string; kind: "file" | 
 
 /** Files panel (§14): lazy, virtualized, live-updating project tree. */
 export default function FilesPanel({ projectId }: PanelProps) {
+  const { t } = useT("files");
   const project = useActiveProject();
   useEffect(() => {
     useEditorStore.getState().setProject(projectId);
   }, [projectId]);
   if (!projectId) {
     return (
-      <EmptyState icon={<FolderTree size={26} strokeWidth={1.6} />} title="No project open" description="Open or create a project to browse its files." />
+      <EmptyState icon={<FolderTree size={26} strokeWidth={1.6} />} title={t("noProject.title")} description={t("noProject.description")} />
     );
   }
-  if (!project?.rootPath) return <RootFolderForm projectId={projectId} title="Connect a project folder" />;
+  if (!project?.rootPath) return <RootFolderForm projectId={projectId} title={t("connectFolder")} />;
   return <FileExplorer key={projectId} projectId={projectId} rootPath={project.rootPath} />;
 }
 
@@ -74,6 +78,7 @@ function copyText(text: string): void {
 }
 
 function FileExplorer({ projectId, rootPath }: { projectId: string; rootPath: string }) {
+  const { t } = useT(["files", "common"]);
   const [showIgnored, setShowIgnored] = useState(false);
   const tree = useFileTree(projectId, showIgnored);
   const [filter, setFilter] = useState("");
@@ -142,7 +147,7 @@ function FileExplorer({ projectId, rootPath }: { projectId: string; rootPath: st
   }, [selected, ensureVisible]);
 
   // ── Actions ─────────────────────────────────────────────
-  const fail = (e: unknown) => setNotice(errorMessage(e));
+  const fail = (e: unknown) => setNotice(describeError(e));
 
   const activate = (entry: FileEntry) => {
     setSelected(entry.path);
@@ -169,7 +174,7 @@ function FileExplorer({ projectId, rootPath }: { projectId: string; rootPath: st
       setEditing(null);
       return;
     }
-    const invalid = validateName(name);
+    const invalid = nameError(name);
     if (invalid) {
       setNotice(invalid);
       return;
@@ -197,7 +202,7 @@ function FileExplorer({ projectId, rootPath }: { projectId: string; rootPath: st
       setNotice(null);
     } catch (e) {
       const info = errorInfo(e);
-      setNotice(info.reason === "exists" ? `“${name}” already exists here.` : info.message);
+      setNotice(info.reason === "exists" ? t("errors.exists", { name }) : describeError(e));
     }
   };
 
@@ -211,7 +216,7 @@ function FileExplorer({ projectId, rootPath }: { projectId: string; rootPath: st
       if (selected && isWithin(selected, confirmDelete.path)) setSelected(null);
       setConfirmDelete(null);
     } catch (e) {
-      setDeleteError(errorMessage(e));
+      setDeleteError(describeError(e));
     } finally {
       setDeleting(false);
     }
@@ -232,36 +237,36 @@ function FileExplorer({ projectId, rootPath }: { projectId: string; rootPath: st
       if (targetDir) tree.expand(targetDir);
     } catch (e) {
       const info = errorInfo(e);
-      setNotice(info.reason === "exists" ? `“${basename(from)}” already exists in the target folder.` : info.message);
+      setNotice(info.reason === "exists" ? t("errors.existsInTarget", { name: basename(from) }) : describeError(e));
     }
   };
 
   const menuItems = (entry: FileEntry | null): MenuItem[] => {
     const items: MenuItem[] = [];
     if (entry?.kind === "file") {
-      items.push({ type: "item", id: "open", label: "Open", icon: <SquareCode size={14} />, shortcut: "Enter", onSelect: () => openInEditor(entry.path) });
+      items.push({ type: "item", id: "open", label: t("menu.open"), icon: <SquareCode size={14} />, shortcut: "Enter", onSelect: () => openInEditor(entry.path) });
       items.push({ type: "separator", id: "s0" });
     }
     items.push(
-      { type: "item", id: "new-file", label: "New File…", icon: <FilePlus size={14} />, onSelect: () => startCreate("file", entry) },
-      { type: "item", id: "new-folder", label: "New Folder…", icon: <FolderPlus size={14} />, onSelect: () => startCreate("dir", entry) },
+      { type: "item", id: "new-file", label: t("menu.newFile"), icon: <FilePlus size={14} />, onSelect: () => startCreate("file", entry) },
+      { type: "item", id: "new-folder", label: t("menu.newFolder"), icon: <FolderPlus size={14} />, onSelect: () => startCreate("dir", entry) },
     );
     if (entry) {
       items.push(
         { type: "separator", id: "s1" },
-        { type: "item", id: "rename", label: "Rename…", icon: <Pencil size={14} />, shortcut: "F2", onSelect: () => setEditing({ mode: "rename", path: entry.path }) },
-        { type: "item", id: "delete", label: "Delete…", icon: <Trash2 size={14} />, shortcut: "Del", danger: true, onSelect: () => setConfirmDelete(entry) },
+        { type: "item", id: "rename", label: t("menu.rename"), icon: <Pencil size={14} />, shortcut: "F2", onSelect: () => setEditing({ mode: "rename", path: entry.path }) },
+        { type: "item", id: "delete", label: t("menu.delete"), icon: <Trash2 size={14} />, shortcut: "Del", danger: true, onSelect: () => setConfirmDelete(entry) },
       );
     } else {
-      items.push({ type: "item", id: "refresh", label: "Refresh", icon: <RefreshCw size={14} />, onSelect: () => tree.refreshAll() });
+      items.push({ type: "item", id: "refresh", label: t("menu.refresh"), icon: <RefreshCw size={14} />, onSelect: () => tree.refreshAll() });
     }
     const path = entry?.path ?? "";
     items.push(
       { type: "separator", id: "s2" },
-      { type: "item", id: "copy-path", label: "Copy Path", icon: <Copy size={14} />, onSelect: () => copyText(absolutePath(rootPath, path)) },
-      { type: "item", id: "copy-rel", label: "Copy Relative Path", icon: <Copy size={14} />, disabled: !entry, onSelect: () => copyText(path) },
-      { type: "item", id: "reveal", label: "Reveal in File Explorer", icon: <FolderOpen size={14} />, onSelect: () => openExternal(path, "reveal") },
-      { type: "item", id: "ide", label: "Open in External IDE", icon: <ExternalLink size={14} />, onSelect: () => openExternal(path, "ide") },
+      { type: "item", id: "copy-path", label: t("menu.copyPath"), icon: <Copy size={14} />, onSelect: () => copyText(absolutePath(rootPath, path)) },
+      { type: "item", id: "copy-rel", label: t("menu.copyRelative"), icon: <Copy size={14} />, disabled: !entry, onSelect: () => copyText(path) },
+      { type: "item", id: "reveal", label: t("menu.reveal"), icon: <FolderOpen size={14} />, onSelect: () => openExternal(path, "reveal") },
+      { type: "item", id: "ide", label: t("menu.openIde"), icon: <ExternalLink size={14} />, onSelect: () => openExternal(path, "ide") },
     );
     return items;
   };
@@ -376,20 +381,20 @@ function FileExplorer({ projectId, rootPath }: { projectId: string; rootPath: st
       <div className="fx-toolbar">
         <Input
           className="fx-filter"
-          placeholder="Filter files…"
-          aria-label="Filter files"
+          placeholder={t("toolbar.filterPlaceholder")}
+          aria-label={t("toolbar.filter")}
           value={filter}
           leftIcon={<Search size={13} />}
           onChange={(e) => setFilter(e.target.value)}
           onKeyDown={(e) => e.key === "Escape" && setFilter("")}
-          rightSlot={filter ? <IconButton label="Clear filter" icon={<X size={12} />} size="sm" onClick={() => setFilter("")} /> : undefined}
+          rightSlot={filter ? <IconButton label={t("toolbar.clearFilter")} icon={<X size={12} />} size="sm" onClick={() => setFilter("")} /> : undefined}
         />
-        <IconButton label="New file" icon={<FilePlus size={15} />} size="sm" tooltip="bottom" onClick={() => startCreate("file", entryRows.find((r) => r.entry.path === selected)?.entry ?? null)} />
-        <IconButton label="New folder" icon={<FolderPlus size={15} />} size="sm" tooltip="bottom" onClick={() => startCreate("dir", entryRows.find((r) => r.entry.path === selected)?.entry ?? null)} />
-        <IconButton label="Refresh" icon={<RefreshCw size={15} />} size="sm" tooltip="bottom" onClick={() => tree.refreshAll()} />
-        <IconButton label="Collapse all" icon={<ChevronsDownUp size={15} />} size="sm" tooltip="bottom" onClick={() => tree.collapseAll()} />
+        <IconButton label={t("toolbar.newFile")} icon={<FilePlus size={15} />} size="sm" tooltip="bottom" onClick={() => startCreate("file", entryRows.find((r) => r.entry.path === selected)?.entry ?? null)} />
+        <IconButton label={t("toolbar.newFolder")} icon={<FolderPlus size={15} />} size="sm" tooltip="bottom" onClick={() => startCreate("dir", entryRows.find((r) => r.entry.path === selected)?.entry ?? null)} />
+        <IconButton label={t("toolbar.refresh")} icon={<RefreshCw size={15} />} size="sm" tooltip="bottom" onClick={() => tree.refreshAll()} />
+        <IconButton label={t("toolbar.collapseAll")} icon={<ChevronsDownUp size={15} />} size="sm" tooltip="bottom" onClick={() => tree.collapseAll()} />
         <IconButton
-          label={showIgnored ? "Hide ignored files" : "Show ignored files"}
+          label={showIgnored ? t("toolbar.hideIgnored") : t("toolbar.showIgnored")}
           icon={showIgnored ? <Eye size={15} /> : <EyeOff size={15} />}
           size="sm"
           tooltip="bottom"
@@ -397,42 +402,42 @@ function FileExplorer({ projectId, rootPath }: { projectId: string; rootPath: st
           aria-pressed={showIgnored}
           onClick={() => setShowIgnored((v) => !v)}
         />
-        <IconButton label="Open folder in external IDE" icon={<ExternalLink size={15} />} size="sm" tooltip="bottom" onClick={() => openExternal("", "ide")} />
+        <IconButton label={t("toolbar.openFolderIde")} icon={<ExternalLink size={15} />} size="sm" tooltip="bottom" onClick={() => openExternal("", "ide")} />
       </div>
 
       {notice && (
         <div className="fx-notice" role="alert">
           <TriangleAlert size={13} />
           <span>{notice}</span>
-          <IconButton label="Dismiss" icon={<X size={12} />} size="sm" onClick={() => setNotice(null)} />
+          <IconButton label={t("toolbar.dismiss")} icon={<X size={12} />} size="sm" onClick={() => setNotice(null)} />
         </div>
       )}
 
       {!root || (root.status === "loading" && !root.entries) ? (
         <div className="fx-loading">
-          <Spinner size={16} /> Loading files…
+          <Spinner size={16} /> {t("loading")}
         </div>
       ) : root.status === "error" && !root.entries ? (
         <EmptyState
           icon={<TriangleAlert size={24} strokeWidth={1.6} />}
-          title="Could not read the project folder"
+          title={t("readError")}
           description={root.message}
           action={
             <Button size="sm" onClick={() => void tree.load("")}>
-              Retry
+              {t("common:actions.retry")}
             </Button>
           }
         />
       ) : rows.length === 0 ? (
         filter ? (
-          <EmptyState icon={<Search size={24} strokeWidth={1.6} />} title="No matching files" description="Only loaded folders are filtered. Use Ctrl+P to search every file." />
+          <EmptyState icon={<Search size={24} strokeWidth={1.6} />} title={t("noMatches.title")} description={t("noMatches.description")} />
         ) : (
           <EmptyState
             icon={<FolderTree size={24} strokeWidth={1.6} />}
-            title="This folder is empty"
+            title={t("emptyFolder.title")}
             action={
               <Button size="sm" variant="primary" leftIcon={<FilePlus size={14} />} onClick={() => startCreate("file", null)}>
-                New file
+                {t("emptyFolder.action")}
               </Button>
             }
           />
@@ -442,7 +447,7 @@ function FileExplorer({ projectId, rootPath }: { projectId: string; rootPath: st
           ref={listRef}
           className={clsx("fx-tree", dropTarget === "" && "fx-tree--drop")}
           role="tree"
-          aria-label="Project files"
+          aria-label={t("tree.label")}
           tabIndex={0}
           aria-activedescendant={activeId}
           onKeyDown={onKeyDown}
@@ -467,7 +472,7 @@ function FileExplorer({ projectId, rootPath }: { projectId: string; rootPath: st
                       const { icon: Icon, color } = fileIcon("", row.kind);
                       return <Icon size={14} style={{ color }} />;
                     })()}
-                    <InlineInput initial="" onCommit={(v) => void commitEdit(v)} onCancel={() => setEditing(null)} label={row.kind === "file" ? "New file name" : "New folder name"} />
+                    <InlineInput initial="" onCommit={(v) => void commitEdit(v)} onCancel={() => setEditing(null)} label={row.kind === "file" ? t("tree.newFileName") : t("tree.newFolderName")} />
                   </div>
                 );
               }
@@ -476,14 +481,14 @@ function FileExplorer({ projectId, rootPath }: { projectId: string; rootPath: st
                   <div key={`status-${row.path}-${row.status}`} className={clsx("fx-row fx-row--status", row.status === "error" && "fx-row--error")} style={{ top, paddingLeft: 8 + row.depth * 14 + 16 }}>
                     {row.status === "loading" ? (
                       <>
-                        <Spinner size={11} /> Loading…
+                        <Spinner size={11} /> {t("tree.loading")}
                       </>
                     ) : row.status === "error" ? (
-                      row.message ?? "Could not load"
+                      row.message ?? t("tree.loadFailed")
                     ) : row.status === "truncated" ? (
-                      "Too many entries — showing the first ones"
+                      t("tree.truncated")
                     ) : (
-                      "Empty folder"
+                      t("tree.empty")
                     )}
                   </div>
                 );
@@ -542,12 +547,12 @@ function FileExplorer({ projectId, rootPath }: { projectId: string; rootPath: st
                   </span>
                   <Icon size={14} style={{ color }} className="fx-row__icon" />
                   {renaming ? (
-                    <InlineInput initial={entry.name} onCommit={(v) => void commitEdit(v)} onCancel={() => setEditing(null)} label={`Rename ${entry.name}`} />
+                    <InlineInput initial={entry.name} onCommit={(v) => void commitEdit(v)} onCancel={() => setEditing(null)} label={t("tree.rename", { name: entry.name })} />
                   ) : (
                     <span className="fx-row__name">{entry.name}</span>
                   )}
                   {agent && (
-                    <span className="fx-row__agent" title={isDir ? "Contains files changed by agents" : "Changed by an agent"}>
+                    <span className="fx-row__agent" title={isDir ? t("tree.agentDir") : t("tree.agentFile")}>
                       <Bot size={11} />
                     </span>
                   )}
@@ -558,26 +563,26 @@ function FileExplorer({ projectId, rootPath }: { projectId: string; rootPath: st
         </div>
       )}
 
-      {menu && <ContextMenu x={menu.x} y={menu.y} items={menuItems(menu.entry)} onClose={() => setMenu(null)} label="File actions" />}
+      {menu && <ContextMenu x={menu.x} y={menu.y} items={menuItems(menu.entry)} onClose={() => setMenu(null)} label={t("menu.label")} />}
 
       {confirmDelete && (
         <ActionDialog
-          title={`Delete “${confirmDelete.name}”?`}
+          title={t("delete.title", { name: confirmDelete.name })}
           subtitle={
             confirmDelete.kind === "dir"
-              ? "The folder and everything inside it will be deleted."
-              : "The file will be deleted from disk."
+              ? t("delete.folder")
+              : t("delete.file")
           }
           icon={<Trash2 size={18} />}
           tone="danger"
           error={deleteError}
           onCancel={() => !deleting && setConfirmDelete(null)}
           actions={[
-            { id: "cancel", label: "Cancel", variant: "ghost", autoFocus: true, onSelect: () => setConfirmDelete(null) },
-            { id: "delete", label: "Delete", variant: "danger", icon: <Trash2 size={14} />, busy: deleting, onSelect: () => void doDelete() },
+            { id: "cancel", label: t("common:actions.cancel"), variant: "ghost", autoFocus: true, onSelect: () => setConfirmDelete(null) },
+            { id: "delete", label: t("common:actions.delete"), variant: "danger", icon: <Trash2 size={14} />, busy: deleting, onSelect: () => void doDelete() },
           ]}
         >
-          <p className="fx-dialog__text">A copy is kept in Orkestr’s trash so it can be restored.</p>
+          <p className="fx-dialog__text">{t("delete.trash")}</p>
         </ActionDialog>
       )}
     </div>
@@ -588,7 +593,7 @@ function InlineInput({ initial, onCommit, onCancel, label }: { initial: string; 
   const ref = useRef<HTMLInputElement>(null);
   const done = useRef(false);
   const [value, setValue] = useState(initial);
-  const error = value.trim() ? validateName(value) : null;
+  const error = value.trim() ? nameError(value) : null;
   useEffect(() => {
     const el = ref.current;
     if (!el) return;

@@ -20,10 +20,10 @@ use crate::plan::{
     estimate_costs, extract_json, max_parallelism, normalize, plan_schema, PLAN_ROLES, PLAN_SCHEMA_NAME,
 };
 use crate::service::{Inner, Manager, MessageExtras};
-use crate::util::{cap, manager_chain, one_line, record_usage, stream_chat};
+use crate::util::{cap, is_ru, manager_chain, one_line, record_usage, ru_plural, stream_chat};
 
-/// The planning system prompt.
-fn system_prompt(structured: bool, extra: &str) -> String {
+/// The planning system prompt (`language`: the user's UI language).
+fn system_prompt(structured: bool, extra: &str, language: &str) -> String {
     let mut s = String::from(
         "You are the planning module of the Orkestr AI Manager. Decompose the user's goal into a plan of tasks \
          for specialised AI agents. Each task is done by ONE agent working alone in its own git worktree, so make \
@@ -48,6 +48,9 @@ fn system_prompt(structured: bool, extra: &str) -> String {
     if !extra.trim().is_empty() {
         s.push_str(&format!("\nInstructions from the user's AI Manager settings:\n{}\n", extra.trim()));
     }
+    s.push('\n');
+    s.push_str(&orkestr_agent_runtime::reply_language_instruction(language));
+    s.push_str("- Field names and the task keys stay in English.\n");
     s
 }
 
@@ -176,6 +179,10 @@ impl Inner {
             ));
         }
         let cfg = self.config().await;
+        if let Some(lang) = options.language.as_deref() {
+            self.deps.config.ui_language.set(lang);
+        }
+        let language = self.deps.config.ui_language.get();
         let head = options.model.clone().or_else(|| cfg.model.clone());
         let structured = head.as_ref().is_some_and(|m| self.deps.hub.supports_structured_output(m));
         let chain = manager_chain(&self.deps, project, &cfg, options.model.as_ref(), true).await?;
@@ -187,7 +194,7 @@ impl Inner {
         let mut last_err = String::new();
         for attempt in 0..2 {
             let mut req = ChatRequest::new(chain[0].model.clone(), messages.clone());
-            req.system = Some(system_prompt(structured, &cfg.system_instructions));
+            req.system = Some(system_prompt(structured, &cfg.system_instructions, &language));
             req.response_format = if structured {
                 ResponseFormat::JsonSchema { name: PLAN_SCHEMA_NAME.into(), schema: plan_schema() }
             } else {
@@ -279,12 +286,13 @@ impl Inner {
         let cfg = self.config().await;
         if self.policy(&cfg) == ApprovalMode::FullAuto {
             let mgr = Manager { inner: std::sync::Arc::clone(self) };
-            self.system_event(
-                project.id,
-                "Approval policy is Full Auto — the plan is approved and started automatically.",
-                MessageExtras { plan_id: Some(plan.id), ..MessageExtras::default() },
-            )
-            .await;
+            let text = if is_ru(&self.deps.config.ui_language.get()) {
+                "Режим подтверждений — «Полный автомат»: план подтверждён и запущен автоматически."
+            } else {
+                "Approval policy is Full Auto — the plan is approved and started automatically."
+            };
+            self.system_event(project.id, text, MessageExtras { plan_id: Some(plan.id), ..MessageExtras::default() })
+                .await;
             let r = mgr
                 .approve_plan(orkestr_protocol::methods::manager::ApprovePlanParams {
                     plan_id: plan.id,
@@ -322,11 +330,20 @@ impl Manager {
                         project.id,
                         Some(conv),
                         orkestr_protocol::methods::manager::ManagerMessageRole::Manager,
-                        &format!(
-                            "I studied the project and drafted a plan with {} task(s): {}",
-                            plan.tasks.len(),
-                            one_line(&plan.summary, 400)
-                        ),
+                        &if is_ru(&self.inner.deps.config.ui_language.get()) {
+                            let n = plan.tasks.len();
+                            format!(
+                                "Я изучил проект и подготовил план: {n} {}. {}",
+                                ru_plural(n, "задача", "задачи", "задач"),
+                                one_line(&plan.summary, 400)
+                            )
+                        } else {
+                            format!(
+                                "I studied the project and drafted a plan with {} task(s): {}",
+                                plan.tasks.len(),
+                                one_line(&plan.summary, 400)
+                            )
+                        },
                         MessageExtras {
                             plan_id: Some(plan.id),
                             model: plan.model.clone(),
@@ -338,7 +355,12 @@ impl Manager {
                 Ok(plan)
             }
             Err(e) => {
-                self.inner.system_event(project.id, &format!("Planning failed: {e}"), MessageExtras::default()).await;
+                let text = if is_ru(&self.inner.deps.config.ui_language.get()) {
+                    format!("Не удалось составить план: {e}")
+                } else {
+                    format!("Planning failed: {e}")
+                };
+                self.inner.system_event(project.id, &text, MessageExtras::default()).await;
                 Err(e)
             }
         }

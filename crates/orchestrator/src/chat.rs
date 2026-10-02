@@ -21,9 +21,14 @@ use crate::service::{summarize_messages, Inner, Manager, MessageExtras};
 use crate::tools::{tool_specs, TurnCtx};
 use crate::util::{cap, manager_chain, one_line, record_usage, redact, stream_chat, DeltaSink};
 
-/// The Manager's system prompt.
+/// The Manager's system prompt (`language`: the user's UI language, e.g. `ru`).
 #[must_use]
-pub fn system_prompt(project: &Project, cfg: &ManagerConfig, policy: orkestr_domain::ApprovalMode) -> String {
+pub fn system_prompt(
+    project: &Project,
+    cfg: &ManagerConfig,
+    policy: orkestr_domain::ApprovalMode,
+    language: &str,
+) -> String {
     let mut s = format!(
         "You are the AI Manager of Orkestr, an AI Development OS. You coordinate specialised AI agents for the project \"{}\".\n\n\
          How you work:\n\
@@ -42,6 +47,8 @@ pub fn system_prompt(project: &Project, cfg: &ManagerConfig, policy: orkestr_dom
         }
     );
     s.push_str(&format!("Max parallel agents: {}.\n", cfg.max_parallel_agents));
+    s.push('\n');
+    s.push_str(&orkestr_agent_runtime::reply_language_instruction(language));
     if !cfg.system_instructions.trim().is_empty() {
         s.push_str(&format!("\nInstructions from the user:\n{}\n", cfg.system_instructions.trim()));
     }
@@ -262,7 +269,10 @@ impl Inner {
         let chain = manager_chain(&self.deps, project, &cfg, options.model.as_ref(), false).await?;
         let history = self.store.messages(conv, 400).await?;
         let mut messages = history_messages(&history, self.deps.config.history_messages);
-        let system = system_prompt(project, &cfg, policy);
+        if let Some(lang) = options.language.as_deref() {
+            self.deps.config.ui_language.set(lang);
+        }
+        let system = system_prompt(project, &cfg, policy, &self.deps.config.ui_language.get());
         let specs = tool_specs();
         let ctx = TurnCtx { project: project.clone(), conversation: conv, options, policy, cancel: cancel.clone() };
         let sink = DeltaSink { project_id: project.id, message_id: reply_id.to_owned() };

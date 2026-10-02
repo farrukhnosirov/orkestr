@@ -9,6 +9,8 @@ import { Button } from "@orkestr/ui";
 import { X } from "lucide-react";
 import { type KeyboardEvent, type ReactNode, useEffect, useId, useRef } from "react";
 
+import { t } from "../../i18n";
+
 export interface DialogAction {
   id: string;
   label: string;
@@ -80,7 +82,7 @@ export function ActionDialog({ title, subtitle, icon, tone = "accent", children,
             </h2>
             {subtitle && <p className="dialog__subtitle">{subtitle}</p>}
           </div>
-          <button type="button" className="dialog__close" aria-label="Close" onClick={onCancel}>
+          <button type="button" className="dialog__close" aria-label={t("common:actions.close")} onClick={onCancel}>
             <X size={16} />
           </button>
         </header>

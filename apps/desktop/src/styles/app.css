@@ -160,7 +160,25 @@ body {
 
 .titlebar__search > span:first-of-type {
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   text-align: left;
+}
+
+/* Narrow windows (down to the 960 px minimum): the centred search box would
+   overlap the approvals / emergency-stop group (longer in Russian), so it
+   joins the flex flow and shrinks instead. */
+@media (max-width: 1240px) {
+  .titlebar__search {
+    position: static;
+    transform: none;
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 120px;
+    max-width: 440px;
+  }
 }
 
 .titlebar__search-keys {

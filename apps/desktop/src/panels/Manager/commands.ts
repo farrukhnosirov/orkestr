@@ -3,6 +3,7 @@ import { ClipboardCheck, Sparkles } from "lucide-react";
 
 import { workspaceActions } from "../../components/workspaceActions";
 import type { AppCommand } from "../../features/commands/registry";
+import { t } from "../../i18n";
 import { errorMessage, managerActions } from "./data";
 import { useManagerUi } from "./store";
 
@@ -15,10 +16,14 @@ export function approveTarget(projectId: string | null): string | null {
 export const managerCommands: AppCommand[] = [
   {
     id: "manager.ask",
-    title: "Ask Manager",
-    group: "AI Manager",
+    get title() {
+      return t("manager:commands.ask");
+    },
+    get group() {
+      return t("manager:commands.group");
+    },
     icon: Sparkles,
-    keywords: ["manager", "chat", "ai", "plan", "build", "менеджер", "спросить"],
+    keywords: ["manager", "chat", "ai", "plan", "build", "ask", "менеджер", "спросить", "чат"],
     shortcut: "Ctrl+Shift+M",
     run: () => {
       workspaceActions.openPanel("manager");
@@ -27,10 +32,14 @@ export const managerCommands: AppCommand[] = [
   },
   {
     id: "manager.approvePlan",
-    title: "Approve Plan",
-    group: "AI Manager",
+    get title() {
+      return t("manager:commands.approvePlan");
+    },
+    get group() {
+      return t("manager:commands.group");
+    },
     icon: ClipboardCheck,
-    keywords: ["plan", "approve", "run", "start", "одобрить", "план"],
+    keywords: ["plan", "approve", "run", "start", "одобрить", "подтвердить", "план"],
     enabled: (ctx) => approveTarget(ctx.projectId) !== null,
     run: async (ctx) => {
       const planId = approveTarget(ctx.projectId);
@@ -39,7 +48,7 @@ export const managerCommands: AppCommand[] = [
       const ui = useManagerUi.getState();
       try {
         const r = await managerActions.approvePlan(planId);
-        ui.toast("success", r.run ? "Plan approved — the run started." : "Plan approved — tasks created.");
+        ui.toast("success", r.run ? t("manager:plan.approvedRun") : t("manager:plan.approvedTasks"));
       } catch (e) {
         ui.toast("danger", errorMessage(e));
       }

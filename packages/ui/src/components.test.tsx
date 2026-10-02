@@ -3,11 +3,21 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { Button, EmptyState, IconButton, Input, StatusDot, Tabs } from "./components";
+import { Button, EmptyState, IconButton, Input, setUiStrings, Spinner, StatusDot, Tabs } from "./components";
 
 afterEach(cleanup);
 
 describe("primitives", () => {
+  it("default strings are localizable (setUiStrings)", () => {
+    render(<Spinner />);
+    expect(screen.getByRole("status").getAttribute("aria-label")).toBe("Loading");
+    cleanup();
+    setUiStrings({ loading: "Загрузка…" });
+    render(<Spinner />);
+    expect(screen.getByRole("status").getAttribute("aria-label")).toBe("Загрузка…");
+    setUiStrings({ loading: "Loading" });
+  });
+
   it("Button handles clicks and loading state", () => {
     const onClick = vi.fn();
     const { rerender } = render(<Button onClick={onClick}>Create</Button>);

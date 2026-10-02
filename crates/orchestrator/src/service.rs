@@ -244,9 +244,12 @@ impl Manager {
         plan.rejection_reason = reason.clone();
         plan.updated_at = now();
         self.inner.save_plan(&plan).await?;
-        let text = match &reason {
-            Some(r) => format!("Plan rejected by the user: {r}"),
-            None => "Plan rejected by the user.".to_owned(),
+        let ru = crate::util::is_ru(&self.inner.deps.config.ui_language.get());
+        let text = match (&reason, ru) {
+            (Some(r), false) => format!("Plan rejected by the user: {r}"),
+            (None, false) => "Plan rejected by the user.".to_owned(),
+            (Some(r), true) => format!("Вы отклонили план: {r}"),
+            (None, true) => "Вы отклонили план.".to_owned(),
         };
         self.inner
             .system_event(plan.project_id, &text, MessageExtras { plan_id: Some(plan.id), ..MessageExtras::default() })
@@ -443,7 +446,10 @@ impl Inner {
             }
             let mut description = t.description.clone();
             if let Some(f) = &t.feature {
-                description = format!("{description}\n\n_Feature: {f}_").trim().to_owned();
+                // Stored text: written in the UI language of the moment (like the Manager's notices).
+                let label =
+                    if crate::util::is_ru(&self.deps.config.ui_language.get()) { "Функция" } else { "Feature" };
+                description = format!("{description}\n\n_{label}: {f}_").trim().to_owned();
             }
             let params = CreateTaskParams {
                 project_id: plan.project_id,
@@ -482,11 +488,19 @@ impl Inner {
         self.save_plan(&plan).await?;
         self.system_event(
             plan.project_id,
-            &format!(
-                "Plan approved — {} task(s) created with their dependencies: {}",
-                plan.tasks.len(),
-                one_line(&plan.tasks.iter().map(|t| t.title.as_str()).collect::<Vec<_>>().join("; "), 400)
-            ),
+            &{
+                let titles = one_line(&plan.tasks.iter().map(|t| t.title.as_str()).collect::<Vec<_>>().join("; "), 400);
+                if crate::util::is_ru(&self.deps.config.ui_language.get()) {
+                    let n = plan.tasks.len();
+                    format!(
+                        "План подтверждён: {} {n} {} с зависимостями — {titles}",
+                        crate::util::ru_plural(n, "создана", "созданы", "создано"),
+                        crate::util::ru_plural(n, "задача", "задачи", "задач"),
+                    )
+                } else {
+                    format!("Plan approved — {} task(s) created with their dependencies: {titles}", plan.tasks.len())
+                }
+            },
             MessageExtras { plan_id: Some(plan.id), ..MessageExtras::default() },
         )
         .await;

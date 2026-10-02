@@ -8,6 +8,7 @@ import { topic } from "@orkestr/protocol";
 import { useEffect, useRef } from "react";
 
 import { maybeClient } from "../../core/client";
+import { describeError } from "../../i18n/errors";
 import { useAppStore } from "../../store/app";
 
 /** Decoded RPC error for UI branching. */
@@ -29,9 +30,9 @@ export function errorInfo(e: unknown): ErrorInfo {
   return { code: "internal", message: e instanceof Error ? e.message : String(e), reason: null, data: null };
 }
 
-/** Human message for an error. */
+/** Localized message for an error (code label + core detail, see `describeError`). */
 export function errorMessage(e: unknown): string {
-  return errorInfo(e).message;
+  return describeError(e);
 }
 
 // ── Ref-counted watchers ──────────────────────────────────

@@ -16,6 +16,9 @@ import type {
 } from "@orkestr/protocol";
 import type { Tone } from "@orkestr/ui";
 
+import { formatCurrency, formatDuration, formatNumber, t } from "../../i18n";
+import { templateName } from "../../lib/coreText";
+
 export const AGENT_STATES: readonly AgentState[] = [
   "Idle",
   "Listening",
@@ -52,20 +55,20 @@ export function isBusy(state: AgentState): boolean {
   return state === "Thinking" || state === "Coding" || state === "Testing" || state === "Reviewing" || state === "Listening";
 }
 
-const ROLE_LABEL: Record<string, string> = {
-  Manager: "Manager",
-  Architect: "Architect",
-  Backend: "Backend",
-  Frontend: "Frontend",
-  Database: "Database",
-  Qa: "QA",
-  Security: "Security",
-  DevOps: "DevOps",
-  UiUx: "UI/UX",
-  ProductManager: "Product Manager",
-  Reviewer: "Reviewer",
-  Researcher: "Researcher",
-};
+const KNOWN_ROLES: ReadonlySet<string> = new Set([
+  "Manager",
+  "Architect",
+  "Backend",
+  "Frontend",
+  "Database",
+  "Qa",
+  "Security",
+  "DevOps",
+  "UiUx",
+  "ProductManager",
+  "Reviewer",
+  "Researcher",
+]);
 
 export const BUILTIN_ROLES: readonly Exclude<AgentRole, { Custom: string }>[] = [
   "Architect",
@@ -81,15 +84,16 @@ export const BUILTIN_ROLES: readonly Exclude<AgentRole, { Custom: string }>[] = 
   "Researcher",
 ];
 
+/** Localized role name (`agents:roles.*`); custom roles are shown as typed. */
 export function roleLabel(role: AgentRole): string {
   if (typeof role === "object") return role.Custom;
-  return ROLE_LABEL[role] ?? role;
+  return KNOWN_ROLES.has(role) ? t(`agents:roles.${role as "Backend"}`) : role;
 }
 
 /** Two-letter monogram for the role avatar. */
 export function roleInitials(role: AgentRole): string {
-  const label = roleLabel(role).replace(/[^A-Za-z/ ]/g, "");
-  const parts = label.split(/[ /]+/).filter(Boolean);
+  const label = roleLabel(role).replace(/[^\p{L}/ -]/gu, "");
+  const parts = label.split(/[ /-]+/).filter(Boolean);
   if (parts.length >= 2) return `${parts[0]?.[0] ?? ""}${parts[1]?.[0] ?? ""}`.toUpperCase();
   return label.slice(0, 2).toUpperCase();
 }
@@ -218,31 +222,32 @@ export const TOOL_TONE: Record<ToolCallStatus, Tone> = {
   Cancelled: "neutral",
 };
 
-export function formatTokens(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 10_000) return `${Math.round(n / 1000)}k`;
-  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
-  return String(n);
+/** Compact token count in the UI locale (`1.5K` / `1,5 тыс.`). */
+export function formatTokens(n: number, lng?: string): string {
+  return formatNumber(n, { notation: "compact", maximumFractionDigits: 1 }, lng);
 }
 
-export function formatCost(usd: number): string {
-  if (usd === 0) return "$0";
-  if (usd < 0.01) return "<$0.01";
-  return `$${usd.toFixed(2)}`;
+/**
+ * Count for the plural of a token label next to `formatTokens`: once the
+ * value is compact («6,6 тыс.», «1,2 млн») the noun agrees with «тысяча» /
+ * «миллион», i.e. the genitive plural («токенов»), whatever the last digits.
+ */
+export function tokenPluralCount(n: number): number {
+  return n >= 1000 ? 1000 : n;
 }
 
-/** Elapsed time of an agent run ("2m 05s"). */
-export function elapsed(agent: Pick<AgentInstance, "startedAt" | "stoppedAt" | "createdAt">, now: number): string {
+/** Money in the UI locale (`$1.50` / `1,50 $`). */
+export function formatCost(usd: number, lng?: string): string {
+  return formatCurrency(usd, "USD", lng);
+}
+
+/** Elapsed time of an agent run (`2 min 5 sec` / `2 мин 5 с`). */
+export function elapsed(agent: Pick<AgentInstance, "startedAt" | "stoppedAt" | "createdAt">, now: number, lng?: string): string {
   const start = Date.parse(agent.startedAt ?? agent.createdAt);
   const end = agent.stoppedAt ? Date.parse(agent.stoppedAt) : now;
   if (!Number.isFinite(start) || !Number.isFinite(end)) return "—";
-  const s = Math.max(0, Math.floor((end - start) / 1000));
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const sec = s % 60;
-  if (h > 0) return `${h}h ${String(m).padStart(2, "0")}m`;
-  if (m > 0) return `${m}m ${String(sec).padStart(2, "0")}s`;
-  return `${sec}s`;
+  // Whole seconds: a live counter should not flicker through milliseconds.
+  return formatDuration(Math.max(1000, Math.floor((end - start) / 1000) * 1000), lng);
 }
 
 export const ALL_TOOLS: readonly string[] = [
@@ -263,35 +268,36 @@ export const ALL_TOOLS: readonly string[] = [
 ];
 
 /** The editable fields of a template. */
-export function draftOf(t: AgentTemplate): TemplateDraft {
+export function draftOf(tpl: AgentTemplate): TemplateDraft {
   return {
-    name: t.name,
-    role: t.role,
-    description: t.description,
-    systemPrompt: t.systemPrompt,
-    preferredModel: t.preferredModel,
-    fallbackModels: t.fallbackModels,
-    tools: t.tools,
-    permissions: t.permissions,
-    memoryAccess: t.memoryAccess,
-    budget: t.budget,
-    maxTurns: t.maxTurns,
-    worktreePolicy: t.worktreePolicy,
-    qualityGates: t.qualityGates,
-    voice: t.voice,
-    avatar: t.avatar,
-    visualState: t.visualState,
-    version: t.version,
+    name: tpl.name,
+    role: tpl.role,
+    description: tpl.description,
+    systemPrompt: tpl.systemPrompt,
+    preferredModel: tpl.preferredModel,
+    fallbackModels: tpl.fallbackModels,
+    tools: tpl.tools,
+    permissions: tpl.permissions,
+    memoryAccess: tpl.memoryAccess,
+    budget: tpl.budget,
+    maxTurns: tpl.maxTurns,
+    worktreePolicy: tpl.worktreePolicy,
+    qualityGates: tpl.qualityGates,
+    voice: tpl.voice,
+    avatar: tpl.avatar,
+    visualState: tpl.visualState,
+    version: tpl.version,
   };
 }
 
 /** A blank custom template. */
 export function blankDraft(): TemplateDraft {
   return {
-    name: "New agent",
+    name: t("agents:templates.defaultName"),
     role: "Backend",
     description: "",
-    systemPrompt: "You are a careful senior engineer working on {{project.name}}. Task: {{task.title}}.",
+    // The template variables are passed as values so i18next does not interpolate them.
+    systemPrompt: t("agents:templates.defaultPrompt", { project: "{{project.name}}", task: "{{task.title}}" }),
     preferredModel: null,
     fallbackModels: [],
     tools: ["read_file", "list_dir", "search_files", "write_file", "edit_file", "submit_result"],
@@ -309,20 +315,20 @@ export function blankDraft(): TemplateDraft {
 }
 
 /** Draft for "Duplicate": `(copy)` name, version reset. */
-export function duplicateDraft(t: AgentTemplate): TemplateDraft {
-  return { ...draftOf(t), name: `${t.name} (copy)`.slice(0, 80), version: "1.0.0" };
+export function duplicateDraft(tpl: AgentTemplate): TemplateDraft {
+  return { ...draftOf(tpl), name: t("agents:templates.copyName", { name: templateName(tpl.name) }).slice(0, 80), version: "1.0.0" };
 }
 
 /** Client-side validation mirroring the core (the core re-validates). */
 export function validateDraft(d: TemplateDraft): string | null {
-  if (!d.name.trim() || d.name.trim().length > 80) return "Name must be 1–80 characters.";
-  if (!d.systemPrompt.trim()) return "The system prompt must not be empty.";
-  if (!Number.isInteger(d.maxTurns) || d.maxTurns < 1 || d.maxTurns > 500) return "Max turns must be 1–500.";
-  if (!/^\d+\.\d+\.\d+$/.test(d.version.trim())) return "Version must look like 1.0.0.";
-  if (d.budget?.maxCostUsd != null && !(d.budget.maxCostUsd >= 0)) return "Budget must be a positive amount.";
+  if (!d.name.trim() || d.name.trim().length > 80) return t("agents:validation.name");
+  if (!d.systemPrompt.trim()) return t("agents:validation.prompt");
+  if (!Number.isInteger(d.maxTurns) || d.maxTurns < 1 || d.maxTurns > 500) return t("agents:validation.maxTurns");
+  if (!/^\d+\.\d+\.\d+$/.test(d.version.trim())) return t("agents:validation.version");
+  if (d.budget?.maxCostUsd != null && !(d.budget.maxCostUsd >= 0)) return t("agents:validation.budget");
   return null;
 }
 
-export function isBuiltin(t: AgentTemplate): boolean {
-  return t.source === "Builtin" || t.source === "Official";
+export function isBuiltin(tpl: AgentTemplate): boolean {
+  return tpl.source === "Builtin" || tpl.source === "Official";
 }

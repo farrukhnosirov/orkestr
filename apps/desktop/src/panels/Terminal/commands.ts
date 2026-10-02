@@ -3,15 +3,20 @@ import { SquareTerminal } from "lucide-react";
 
 import { workspaceActions } from "../../components/workspaceActions";
 import type { AppCommand } from "../../features/commands/registry";
+import { t } from "../../i18n";
 import { useTerminalUi } from "./store";
 
 export const terminalCommands: AppCommand[] = [
   {
     id: "terminal.open",
-    title: "Open Terminal",
-    group: "Terminal",
+    get title() {
+      return t("terminal:commands.open");
+    },
+    get group() {
+      return t("terminal:commands.group");
+    },
     icon: SquareTerminal,
-    keywords: ["shell", "console", "pty", "powershell", "cmd", "bash", "терминал", "консоль"],
+    keywords: ["terminal", "shell", "console", "pty", "powershell", "cmd", "bash", "терминал", "консоль", "оболочка", "открыть"],
     shortcut: "Ctrl+`",
     run: () => {
       workspaceActions.openPanel("terminal");

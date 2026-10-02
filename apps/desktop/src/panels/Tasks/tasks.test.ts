@@ -1,6 +1,7 @@
 import type { Event, Task, TaskStatus } from "@orkestr/protocol";
 import { describe, expect, it } from "vitest";
 
+import { i18n } from "../../i18n";
 import { applyTaskEvent } from "./data";
 import { assignLayers, countCrossings, layoutDag } from "./layout";
 import {
@@ -118,9 +119,10 @@ describe("sorting, filtering and upserts", () => {
   });
 
   it("formats cost", () => {
-    expect(formatCost(0)).toBe("$0");
-    expect(formatCost(0.004)).toBe("<$0.01");
+    expect(formatCost(0)).toBe("$0.00");
+    expect(formatCost(0.004)).toBe("$0.004");
     expect(formatCost(1.234)).toBe("$1.23");
+    expect(formatCost(1.234, "ru")).toBe("1,23 $");
   });
 });
 
@@ -165,5 +167,18 @@ describe("layered DAG layout", () => {
 
   it("handles an empty graph", () => {
     expect(layoutDag([], []).layers).toEqual([]);
+  });
+});
+
+describe("tasks translations", () => {
+  it("uses Russian plural forms after numerals", () => {
+    const ru = (key: "tasks:summary.attention" | "tasks:list.dependencies", count: number) => i18n.t(key, { count, lng: "ru" });
+    expect(ru("tasks:summary.attention", 1)).toBe("1 требует внимания");
+    expect(ru("tasks:summary.attention", 3)).toBe("3 требуют внимания");
+    expect(ru("tasks:summary.attention", 21)).toBe("21 требует внимания");
+    expect(ru("tasks:list.dependencies", 1)).toBe("1 зависимость");
+    expect(ru("tasks:list.dependencies", 2)).toBe("2 зависимости");
+    expect(ru("tasks:list.dependencies", 5)).toBe("5 зависимостей");
+    expect(ru("tasks:list.dependencies", 11)).toBe("11 зависимостей");
   });
 });

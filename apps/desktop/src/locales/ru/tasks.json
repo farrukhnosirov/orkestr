@@ -1,0 +1,187 @@
+{
+  "noProject": {
+    "title": "Проект не открыт",
+    "description": "Откройте или создайте проект, чтобы планировать его задачи и следить за ними."
+  },
+  "loading": "Загрузка задач…",
+  "loadFailed": "Не удалось загрузить задачи",
+  "empty": {
+    "title": "Задач пока нет",
+    "description": "Разбейте работу на задачи с критериями приёмки и зависимостями. Движок отслеживает каждую смену статуса и автоматически разблокирует зависимые задачи."
+  },
+  "noMatches": {
+    "title": "Подходящих задач нет",
+    "description": "Измените или сбросьте фильтры."
+  },
+  "clearFilters": "Сбросить фильтры",
+  "clear": "Сбросить",
+  "buildingGraph": "Построение графа…",
+  "create": "Создать задачу",
+  "new": "Новая задача",
+  "views": {
+    "label": "Вид задач",
+    "list": "Список",
+    "board": "Доска",
+    "graph": "Граф"
+  },
+  "search": {
+    "placeholder": "Поиск задач…",
+    "label": "Поиск задач"
+  },
+  "filters": {
+    "label": "Фильтры",
+    "show": "Показать фильтры",
+    "hide": "Скрыть фильтры",
+    "status": "Статус",
+    "priority": "Приоритет"
+  },
+  "summary": {
+    "label": "Сводка по задачам",
+    "running_one": "{{count}} выполняется",
+    "running_few": "{{count}} выполняются",
+    "running_many": "{{count}} выполняются",
+    "running_other": "{{count}} выполняются",
+    "ready_one": "{{count}} готова к работе",
+    "ready_few": "{{count}} готовы к работе",
+    "ready_many": "{{count}} готовы к работе",
+    "ready_other": "{{count}} готовы к работе",
+    "attention_one": "{{count}} требует внимания",
+    "attention_few": "{{count}} требуют внимания",
+    "attention_many": "{{count}} требуют внимания",
+    "attention_other": "{{count}} требуют внимания"
+  },
+  "reload": "Обновить список задач",
+  "priority": {
+    "Critical": "Критический",
+    "High": "Высокий",
+    "Normal": "Обычный",
+    "Low": "Низкий",
+    "Background": "Фоновый"
+  },
+  "priorityTitle": "{{priority}} приоритет",
+  "actions": {
+    "Planned": "Вернуть в план",
+    "Ready": "Отметить готовой",
+    "Running": "Запустить",
+    "Waiting": "Поставить на ожидание",
+    "Blocked": "Заблокировать",
+    "Review": "Отправить на ревью",
+    "Testing": "Отправить на тестирование",
+    "Completed": "Завершить",
+    "Failed": "Отметить сбой",
+    "Cancelled": "Отменить",
+    "Interrupted": "Прервать",
+    "Recovering": "Восстановить"
+  },
+  "board": {
+    "label": "Доска задач",
+    "column": "{{title}}, {{tasks}}",
+    "noTasks": "Задач нет",
+    "notAllowed": "Переход из «{{from}}» в «{{to}}» недопустим.",
+    "card": "{{title}}, {{status}}, {{priority}}",
+    "columns": {
+      "backlog": "Бэклог",
+      "ready": "Готовы к работе",
+      "active": "В работе",
+      "verify": "Ревью и тесты",
+      "done": "Готово",
+      "attention": "Требуют внимания"
+    }
+  },
+  "list": {
+    "label": "Список задач",
+    "task": "Задача",
+    "status": "Статус",
+    "priority": "Приоритет",
+    "updated": "Обновлена",
+    "depsMet": "зависимости выполнены",
+    "dependencies_one": "{{count}} зависимость",
+    "dependencies_few": "{{count}} зависимости",
+    "dependencies_many": "{{count}} зависимостей",
+    "dependencies_other": "{{count}} зависимости"
+  },
+  "graph": {
+    "label": "Граф зависимостей задач",
+    "criticalPath": "Критический путь: {{duration}} · {{tasks}}",
+    "hint": "Перетащите ● → ●, чтобы добавить зависимость · выберите связь и нажмите Delete, чтобы удалить её",
+    "edge": "Зависимость {{from}} → {{to}}",
+    "nodeTitle": "{{title}} — {{status}}",
+    "noCriticalPath": "Критического пути нет",
+    "criticalPathTasks": "Критический путь: {{tasks}} (без оценки времени)"
+  },
+  "dependencyAdded": "Зависимость добавлена.",
+  "cycle": "Эта зависимость создаст цикл.",
+  "createDialog": {
+    "subtitle": "Новая задача получает статус «Запланирована» и становится «Готова к работе», когда её подтвердят и снимут блокировки.",
+    "title": "Название",
+    "titlePlaceholder": "Например, добавить эндпоинт выгрузки зарплатной ведомости",
+    "description": "Описание",
+    "descriptionPlaceholder": "Необязательно — контекст, ограничения, ссылки",
+    "criteria": "Критерии приёмки (по одному в строке)",
+    "criteriaPlaceholder": "Возвращает 201 с ID выгрузки\nПокрыто интеграционными тестами",
+    "priority": "Приоритет",
+    "estimate": "Оценка (мин)",
+    "parent": "Родительская задача (эпик)",
+    "dependsOn": "Зависит от",
+    "needTitle": "Укажите название задачи.",
+    "estimateInvalid": "Оценка должна быть положительным числом минут.",
+    "created": "Задача «{{title}}» создана."
+  },
+  "drawer": {
+    "label": "Задача {{title}}",
+    "close": "Закрыть сведения о задаче",
+    "titleLabel": "Название задачи",
+    "statusActions": "Смена статуса",
+    "status": "Статус",
+    "final": "«{{status}}» — конечный статус.",
+    "requeued": "Задача снова поставлена в очередь.",
+    "deleted": "Задача удалена.",
+    "confirmDelete": "Подтвердить удаление",
+    "keep": "Оставить",
+    "priority": "Приоритет",
+    "description": "Описание",
+    "descriptionPlaceholder": "Что нужно сделать? Поддерживается Markdown.",
+    "criteria": "Критерии приёмки",
+    "removeCriterion": "Удалить критерий «{{text}}»",
+    "criterionPlaceholder": "Новый критерий…",
+    "newCriterion": "Новый критерий приёмки",
+    "addCriterion": "Добавить критерий",
+    "dependsOn": "Зависит от",
+    "noDependencies": "Зависимостей нет.",
+    "removeDependency": "Удалить зависимость",
+    "addDependency": "Добавить зависимость",
+    "addDependencyOption": "Добавить зависимость…",
+    "dependencyOption": "{{title}} ({{status}})",
+    "blocks": "Блокирует",
+    "costAttempts": "Стоимость и попытки",
+    "cost": "Стоимость",
+    "tokens": "Токены",
+    "attempts": "Попытки",
+    "estimate": "Оценка",
+    "filesTouched": "Изменённые файлы",
+    "noFiles": "Изменённых файлов пока нет.",
+    "history": "История",
+    "loadingHistory": "Загрузка истории…",
+    "created": "Создана",
+    "forced": "система"
+  },
+  "executionStatus": {
+    "Running": "Выполняется",
+    "Succeeded": "Успешно",
+    "Failed": "Сбой",
+    "Cancelled": "Отменено",
+    "Interrupted": "Прервано"
+  },
+  "actor": {
+    "User": "Вы",
+    "Agent": "Агент #{{id}}",
+    "Manager": "AI-менеджер",
+    "System": "Движок задач",
+    "SystemRecovery": "Восстановление после сбоя"
+  },
+  "commands": {
+    "group": "Задачи",
+    "create": "Создать задачу",
+    "openGraph": "Открыть граф задач"
+  }
+}

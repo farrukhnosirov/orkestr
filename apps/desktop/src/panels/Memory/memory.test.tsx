@@ -1,9 +1,22 @@
-import { render } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { act, cleanup, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { applyLanguagePreference, i18n } from "../../i18n";
 import { parseAlternatives } from "./DecisionLog";
-import { ALL_KINDS, GLOBAL_KINDS, KIND_INFO, parseTags, PROJECT_KINDS, relativeTime } from "./kinds";
+import MemoryPanel from "./index";
+import { ALL_KINDS, GLOBAL_KINDS, KIND_INFO, kindLabel, parseTags, PROJECT_KINDS, relativeTime } from "./kinds";
 import { isSafeUrl, Markdown, parseBlocks, splitHighlights } from "./markdown";
+
+beforeEach(async () => {
+  await i18n.changeLanguage("en");
+});
+
+afterEach(async () => {
+  cleanup();
+  await act(async () => {
+    await applyLanguagePreference("en");
+  });
+});
 
 describe("markdown", () => {
   it("parses blocks", () => {
@@ -56,10 +69,19 @@ describe("memory helpers", () => {
 
   it("formats relative time", () => {
     const now = Date.parse("2026-10-02T12:00:00Z");
-    expect(relativeTime("2026-10-02T11:59:30Z", now)).toBe("just now");
-    expect(relativeTime("2026-10-02T11:00:00Z", now)).toBe("1h ago");
-    expect(relativeTime("2026-09-30T12:00:00Z", now)).toBe("2d ago");
+    expect(relativeTime("2026-10-02T11:59:30Z", now, "en")).toBe("just now");
+    expect(relativeTime("2026-10-02T11:00:00Z", now, "en")).toBe("1 hour ago");
+    expect(relativeTime("2026-09-30T12:00:00Z", now, "en")).toBe("2 days ago");
+    expect(relativeTime("2026-10-02T11:55:00Z", now, "ru")).toBe("5 минут назад");
+    expect(relativeTime("2026-09-30T12:00:00Z", now, "ru")).toBe("позавчера");
     expect(relativeTime("nope", now)).toBe("");
+  });
+
+  it("labels kinds in the UI language", async () => {
+    expect(kindLabel("KnownIssue")).toBe("Known issue");
+    await i18n.changeLanguage("ru");
+    expect(kindLabel("KnownIssue")).toBe("Известная проблема");
+    expect(kindLabel("BusinessLogic")).toBe("Бизнес-логика");
   });
 
   it("parses decision alternatives", () => {
@@ -67,5 +89,18 @@ describe("memory helpers", () => {
       { title: "Tantivy", summary: "", proposedBy: null, rejectedReason: "extra index" },
       { title: "Postgres", summary: "", proposedBy: null, rejectedReason: null },
     ]);
+  });
+});
+
+describe("memory panel (ru)", () => {
+  it("renders tabs and the offline state in Russian", async () => {
+    await act(async () => {
+      await applyLanguagePreference("ru");
+    });
+    render(<MemoryPanel projectId={null} />);
+    expect(screen.getByRole("tab", { name: /Память проекта/ })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: /Журнал решений/ })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: /База знаний/ })).toBeTruthy();
+    expect(screen.getByText("Нет подключения")).toBeTruthy();
   });
 });

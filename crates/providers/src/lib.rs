@@ -38,6 +38,12 @@ pub mod store;
 pub mod types;
 
 pub use adapter::ProviderAdapter;
+
+/// First words of the system-prompt line that states the user's interface
+/// language (`User interface language: ru (Russian).`), written by the agent
+/// runtime and the AI Manager. The Mock provider reads it to answer in that
+/// language; real models simply follow the instruction.
+pub const UI_LANGUAGE_MARKER: &str = "User interface language:";
 pub use catalog::{kind_info, kind_slug, parse_kind, KindInfo, MOCK_DISPLAY_NAME, PHASE1_KINDS};
 pub use credentials::{CredentialError, CredentialResolver, MemoryCredentials};
 pub use factory::AdapterDeps;

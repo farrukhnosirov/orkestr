@@ -25,10 +25,13 @@ import {
   X,
 } from "lucide-react";
 import { type FormEvent, type ReactNode, useEffect, useState } from "react";
+import { Trans } from "react-i18next";
 
+import { useT } from "../../i18n";
 import { useAppStore } from "../../store/app";
 import { Switch } from "./controls";
 import {
+  authDetailText,
   formatContext,
   formatLatency,
   formatPricing,
@@ -36,7 +39,10 @@ import {
   groupByKind,
   type HeaderRow,
   headersFromRows,
+  instanceName,
   isCliKind,
+  kindName,
+  kindText,
   statusOf,
   validateBaseUrl,
 } from "./logic";
@@ -81,19 +87,20 @@ const KIND_ICON: Record<ProviderKind, ReactNode> = {
 export function ProviderSetup({ kinds: only, compact = false, onConfigured }: ProviderSetupProps) {
   const connection = useAppStore((s) => s.connection.state);
   const { kinds, providers, loaded, loading, error } = useProvidersLive();
+  const { t } = useT(["providers", "common"]);
 
   if (connection !== "open" && !loaded) {
-    return <EmptyState icon={<Plug size={22} />} title="Connecting to the Orkestr core…" description="Provider settings load once the core is reachable." />;
+    return <EmptyState icon={<Plug size={22} />} title={t("connecting")} description={t("connectingHint")} />;
   }
   if (error && !loaded) {
     return (
       <EmptyState
         icon={<X size={22} />}
-        title="Could not load providers"
+        title={t("loadFailed")}
         description={error}
         action={
           <Button variant="primary" leftIcon={<RefreshCw size={14} />} onClick={() => void loadProviders()}>
-            Retry
+            {t("common:actions.retry")}
           </Button>
         }
       />
@@ -102,14 +109,14 @@ export function ProviderSetup({ kinds: only, compact = false, onConfigured }: Pr
   if (!loaded) {
     return (
       <div className="pv" aria-busy={loading}>
-        <Spinner label="Loading providers" />
+        <Spinner label={t("loading")} />
       </div>
     );
   }
   const visible = only ? kinds.filter((k) => only.includes(k.kind)) : kinds;
   const groups = groupByKind(visible, providers);
   if (groups.length === 0) {
-    return <EmptyState icon={<Plug size={22} />} title="No provider kinds available" />;
+    return <EmptyState icon={<Plug size={22} />} title={t("noKinds")} />;
   }
   return (
     <div className="pv">
@@ -130,7 +137,11 @@ interface KindCardProps {
 
 function KindCard({ info, instances, onConfigured }: KindCardProps) {
   const [adding, setAdding] = useState(false);
+  const { t } = useT("providers");
   const cli = isCliKind(info.kind);
+  const name = kindName(info);
+  const signInNote = kindText(info.kind, "signInNote", info.signInNote);
+  const loginInstructions = kindText(info.kind, "loginInstructions", info.loginInstructions);
   const titleId = `pv-kind-${info.kind}`;
   const canAddMore = info.kind === "OpenAiCompatible" || info.kind === "Ollama" || instances.length === 0;
   return (
@@ -141,27 +152,27 @@ function KindCard({ info, instances, onConfigured }: KindCardProps) {
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <h3 id={titleId} className="pv-card__title">
-            {info.displayName}
+            {name}
           </h3>
-          <p className="pv-card__desc">{info.description}</p>
+          <p className="pv-card__desc">{kindText(info.kind, "description", info.description)}</p>
           <div className="pv-card__badges">
-            {info.isLocal && <Badge tone="success">Local</Badge>}
-            {info.requiresApiKey && <Badge tone="info">API key</Badge>}
-            {info.apiKeyOptional && <Badge tone="info">Key optional</Badge>}
-            {cli && <Badge tone="violet">Official CLI</Badge>}
-            {info.codingAgent && <Badge tone="violet">Coding agent</Badge>}
-            {info.kind === "Mock" && <Badge tone="warning">Offline demo</Badge>}
+            {info.isLocal && <Badge tone="success">{t("badges.local")}</Badge>}
+            {info.requiresApiKey && <Badge tone="info">{t("badges.apiKey")}</Badge>}
+            {info.apiKeyOptional && <Badge tone="info">{t("badges.keyOptional")}</Badge>}
+            {cli && <Badge tone="violet">{t("badges.officialCli")}</Badge>}
+            {info.codingAgent && <Badge tone="violet">{t("badges.codingAgent")}</Badge>}
+            {info.kind === "Mock" && <Badge tone="warning">{t("badges.offlineDemo")}</Badge>}
             {cli && info.detected != null && (
-              <Badge tone={info.detected ? "success" : "neutral"}>{info.detected ? "Detected" : "Not installed"}</Badge>
+              <Badge tone={info.detected ? "success" : "neutral"}>{info.detected ? t("badges.detected") : t("badges.notInstalled")}</Badge>
             )}
           </div>
         </div>
       </header>
 
-      {info.signInNote && <p className="pv-note">{info.signInNote}</p>}
-      {cli && info.loginInstructions && (
+      {signInNote && <p className="pv-note">{signInNote}</p>}
+      {cli && loginInstructions && (
         <p className={clsx("pv-note", info.detected === false && "pv-note--warn")}>
-          <strong>Login via the {info.displayName} CLI:</strong> {info.loginInstructions}
+          <strong>{t("card.loginVia", { name })}</strong> {loginInstructions}
         </p>
       )}
 
@@ -189,7 +200,7 @@ function KindCard({ info, instances, onConfigured }: KindCardProps) {
               onClick={() => setAdding(true)}
               disabled={cli && info.detected === false}
             >
-              {instances.length === 0 ? (cli ? `Connect ${info.displayName}` : `Add ${info.displayName}`) : "Add another"}
+              {instances.length === 0 ? (cli ? t("card.connectKind", { name }) : t("card.addKind", { name })) : t("card.addAnother")}
             </Button>
           </div>
         )
@@ -213,12 +224,14 @@ function AddProviderForm({ info, existing, onCancel, onDone }: AddProviderFormPr
   const [rows, setRows] = useState<HeaderRow[]>([{ name: "", value: "" }]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { t } = useT(["providers", "common"]);
+  const kindLabel = kindName(info);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
     if (info.requiresApiKey && !apiKey.trim()) {
-      setError("Paste your API key — it is stored in the OS secret vault, never in the database.");
+      setError(t("form.apiKeyRequired"));
       return;
     }
     const urlError = info.supportsBaseUrl ? validateBaseUrl(baseUrl) : null;
@@ -252,37 +265,49 @@ function AddProviderForm({ info, existing, onCancel, onDone }: AddProviderFormPr
 
   const simple = isCliKind(info.kind) || info.kind === "Mock";
   return (
-    <form className="pv-form" onSubmit={(e) => void submit(e)} aria-label={`Add ${info.displayName}`} onKeyDown={(e) => e.key === "Escape" && onCancel()}>
-      <Input label="Name" placeholder={existing > 0 ? `${info.displayName} ${existing + 1}` : info.displayName} value={name} onChange={(e) => setName(e.target.value)} maxLength={80} />
+    <form className="pv-form" onSubmit={(e) => void submit(e)} aria-label={t("card.addKind", { name: kindLabel })} onKeyDown={(e) => e.key === "Escape" && onCancel()}>
+      <Input
+        label={t("form.name")}
+        placeholder={existing > 0 ? `${kindLabel} ${existing + 1}` : kindLabel}
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        maxLength={80}
+      />
       {(info.requiresApiKey || info.apiKeyOptional) && (
         <Input
-          label={info.apiKeyOptional ? "API key (optional)" : "API key"}
+          label={info.apiKeyOptional ? t("form.apiKeyOptional") : t("form.apiKey")}
           type="password"
           autoComplete="off"
           spellCheck={false}
           value={apiKey}
           onChange={(e) => setApiKey(e.target.value)}
-          hint="Stored in the OS secret vault. Never shown again, never logged."
+          hint={t("form.apiKeyHint")}
           leftIcon={<KeyRound size={14} />}
         />
       )}
       {info.supportsBaseUrl && (
         <Input
-          label="Base URL"
-          placeholder={info.defaultBaseUrl ?? "https://…"}
+          label={t("form.baseUrl")}
+          placeholder={info.defaultBaseUrl ?? t("form.baseUrlPlaceholder")}
           value={baseUrl}
           onChange={(e) => setBaseUrl(e.target.value)}
-          hint={info.defaultBaseUrl ? `Default: ${info.defaultBaseUrl}` : undefined}
+          hint={info.defaultBaseUrl ? t("form.baseUrlDefault", { url: info.defaultBaseUrl }) : undefined}
           spellCheck={false}
         />
       )}
       {!simple && (
-        <Input label="Default model" placeholder={info.defaultModel ?? "model id"} value={model} onChange={(e) => setModel(e.target.value)} spellCheck={false} />
+        <Input
+          label={t("form.defaultModel")}
+          placeholder={info.defaultModel ?? t("form.modelPlaceholder")}
+          value={model}
+          onChange={(e) => setModel(e.target.value)}
+          spellCheck={false}
+        />
       )}
       {info.supportsCustomHeaders && <HeaderEditor rows={rows} onChange={setRows} />}
       {isCliKind(info.kind) && (
         <p className="pv-note">
-          Orkestr runs the official <code>{info.binary}</code> CLI with your own logged-in session. Credentials stay with the CLI.
+          <Trans t={t} i18nKey="form.cliNote" values={{ binary: info.binary ?? "" }} components={{ code: <code /> }} />
         </p>
       )}
       {error && (
@@ -292,10 +317,10 @@ function AddProviderForm({ info, existing, onCancel, onDone }: AddProviderFormPr
       )}
       <div className="pv-form__actions">
         <Button variant="ghost" size="sm" onClick={onCancel} disabled={busy}>
-          Cancel
+          {t("common:actions.cancel")}
         </Button>
         <Button variant="primary" size="sm" type="submit" loading={busy}>
-          {isCliKind(info.kind) ? "Connect" : "Add provider"}
+          {isCliKind(info.kind) ? t("form.connect") : t("form.addProvider")}
         </Button>
       </div>
     </form>
@@ -304,19 +329,32 @@ function AddProviderForm({ info, existing, onCancel, onDone }: AddProviderFormPr
 
 function HeaderEditor({ rows, onChange }: { rows: HeaderRow[]; onChange: (rows: HeaderRow[]) => void }) {
   const set = (i: number, patch: Partial<HeaderRow>) => onChange(rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+  const { t } = useT("providers");
   return (
     <fieldset className="pv-form" style={{ border: 0, padding: 0, margin: 0 }}>
-      <legend className="ok-field__label">Custom headers (non-secret)</legend>
+      <legend className="ok-field__label">{t("form.headers")}</legend>
       {rows.map((r, i) => (
         <div className="pv-form__row" key={i}>
-          <Input aria-label={`Header ${i + 1} name`} placeholder="X-Team" value={r.name} onChange={(e) => set(i, { name: e.target.value })} spellCheck={false} />
-          <Input aria-label={`Header ${i + 1} value`} placeholder="value" value={r.value} onChange={(e) => set(i, { value: e.target.value })} spellCheck={false} />
-          <IconButton label={`Remove header ${i + 1}`} icon={<X size={14} />} size="sm" onClick={() => onChange(rows.filter((_, j) => j !== i))} />
+          <Input
+            aria-label={t("form.headerName", { index: i + 1 })}
+            placeholder={t("form.headerNamePlaceholder")}
+            value={r.name}
+            onChange={(e) => set(i, { name: e.target.value })}
+            spellCheck={false}
+          />
+          <Input
+            aria-label={t("form.headerValue", { index: i + 1 })}
+            placeholder={t("form.headerValuePlaceholder")}
+            value={r.value}
+            onChange={(e) => set(i, { value: e.target.value })}
+            spellCheck={false}
+          />
+          <IconButton label={t("form.removeHeader", { index: i + 1 })} icon={<X size={14} />} size="sm" onClick={() => onChange(rows.filter((_, j) => j !== i))} />
         </div>
       ))}
       <div>
         <Button variant="ghost" size="sm" leftIcon={<Plus size={14} />} onClick={() => onChange([...rows, { name: "", value: "" }])}>
-          Add header
+          {t("form.addHeader")}
         </Button>
       </div>
     </fieldset>
@@ -331,6 +369,7 @@ function ProviderInstance({ view, info }: { view: ProviderView; info: ProviderKi
   const [test, setTest] = useState<TestProviderResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const { t } = useT(["providers", "common"]);
 
   const run = async (kind: NonNullable<typeof busy>, fn: () => Promise<unknown>) => {
     setBusy(kind);
@@ -350,12 +389,12 @@ function ProviderInstance({ view, info }: { view: ProviderView; info: ProviderKi
     <div className="pv-inst">
       <div className="pv-inst__row">
         <StatusDot status={st.dot} pulse={st.pulse} label={st.label} />
-        <span className="pv-inst__name" title={p.name}>
-          {p.name}
+        <span className="pv-inst__name" title={instanceName(p)}>
+          {instanceName(p)}
         </span>
         <Badge tone={st.dot === "online" ? "success" : st.dot === "error" ? "danger" : st.dot === "warning" ? "warning" : "neutral"}>{st.label}</Badge>
         <IconButton
-          label={open ? "Hide details" : "Show details"}
+          label={open ? t("instance.hideDetails") : t("instance.showDetails")}
           icon={open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
           size="sm"
           aria-expanded={open}
@@ -365,56 +404,54 @@ function ProviderInstance({ view, info }: { view: ProviderView; info: ProviderKi
       </div>
       <div className="pv-inst__meta">
         <span>
-          <strong>Auth:</strong> {status.authDetail ?? status.authState}
+          <strong>{t("instance.auth")}</strong> {authDetailText(status)}
         </span>
         <span>
-          <strong>Latency:</strong> {formatLatency(status.avgLatencyMs ?? status.latencyMs)}
+          <strong>{t("instance.latency")}</strong> {formatLatency(status.avgLatencyMs ?? status.latencyMs)}
         </span>
         {p.defaultModel && (
           <span>
-            <strong>Model:</strong> {p.defaultModel}
+            <strong>{t("instance.model")}</strong> {p.defaultModel}
           </span>
         )}
         {status.version && (
           <span>
-            <strong>Version:</strong> {status.version}
+            <strong>{t("instance.version")}</strong> {status.version}
           </span>
         )}
-        {view.costModel === "Subscription" && <span>Subscription (usage tracked, $ not metered)</span>}
+        {view.costModel === "Subscription" && <span>{t("instance.subscription")}</span>}
       </div>
       {status.healthDetail && st.dot !== "online" && <p className="pv-note pv-note--warn">{status.healthDetail}</p>}
       <div className="pv-inst__actions">
         <Button size="sm" variant="secondary" leftIcon={<Plug size={14} />} loading={busy === "test"} disabled={busy !== null} onClick={() => void run("test", async () => setTest(await testProvider(p.id)))}>
-          Test connection
+          {t("instance.test")}
         </Button>
-        <IconButton label="Re-check health" tooltip icon={<RefreshCw size={14} />} size="sm" disabled={busy !== null} onClick={() => void run("health", () => checkHealth(p.id))} />
-        <Switch checked={p.enabled} label={p.enabled ? "Enabled" : "Disabled"} disabled={busy !== null} onChange={(enabled) => void run("toggle", () => updateProvider(p.id, { enabled }))} />
+        <IconButton label={t("instance.recheck")} tooltip icon={<RefreshCw size={14} />} size="sm" disabled={busy !== null} onClick={() => void run("health", () => checkHealth(p.id))} />
+        <Switch checked={p.enabled} label={p.enabled ? t("instance.enabled") : t("instance.disabled")} disabled={busy !== null} onChange={(enabled) => void run("toggle", () => updateProvider(p.id, { enabled }))} />
         <span style={{ flex: 1 }} />
         {confirmDelete ? (
           <>
             <Button size="sm" variant="danger" loading={busy === "delete"} onClick={() => void run("delete", () => deleteProvider(p.id))}>
-              Delete {info.requiresApiKey || info.apiKeyOptional ? "and its key" : ""}
+              {info.requiresApiKey || info.apiKeyOptional ? t("instance.deleteWithKey") : t("common:actions.delete")}
             </Button>
             <Button size="sm" variant="ghost" onClick={() => setConfirmDelete(false)}>
-              Keep
+              {t("instance.keep")}
             </Button>
           </>
         ) : (
-          <IconButton label={`Delete ${p.name}`} tooltip variant="danger" icon={<Trash2 size={14} />} size="sm" disabled={busy !== null} onClick={() => setConfirmDelete(true)} />
+          <IconButton label={t("instance.deleteNamed", { name: instanceName(p) })} tooltip variant="danger" icon={<Trash2 size={14} />} size="sm" disabled={busy !== null} onClick={() => setConfirmDelete(true)} />
         )}
       </div>
       {test && (
         <div className={clsx("pv-result", test.ok ? "pv-result--ok" : "pv-result--fail")} role="status">
           {test.ok ? (
             <>
-              ✓ {test.model} answered in {formatLatency(test.latencyMs)}
-              {test.sample ? ` — “${test.sample.slice(0, 120)}”` : ""}
-              {test.costUsd != null ? ` · ${formatUsd(test.costUsd)} (est.)` : ""}
+              {t("instance.testOk", { model: test.model, latency: formatLatency(test.latencyMs) })}
+              {test.sample ? t("instance.testSample", { sample: test.sample.slice(0, 120) }) : null}
+              {test.costUsd != null ? t("instance.testCost", { cost: formatUsd(test.costUsd) }) : null}
             </>
           ) : (
-            <>
-              ✗ {test.errorClass ?? "error"}: {test.errorMessage}
-            </>
+            t("instance.testFailed", { errorClass: test.errorClass ?? t("instance.errorFallback"), message: test.errorMessage ?? "" })
           )}
         </div>
       )}
@@ -440,6 +477,7 @@ function ProviderSettings({ view, info }: { view: ProviderView; info: ProviderKi
   const [model, setModel] = useState(p.defaultModel ?? "");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const { t } = useT(["providers", "common"]);
 
   const save = async (fn: () => Promise<unknown>, ok: string) => {
     setBusy(true);
@@ -466,26 +504,26 @@ function ProviderSettings({ view, info }: { view: ProviderView; info: ProviderKi
             void save(async () => {
               await setCredential(p.id, key.trim());
               setKey("");
-            }, "API key saved to the secret vault.");
+            }, t("settings.keySaved"));
           }}
         >
           <Input
-            label={view.hasCredential ? "Replace API key" : "API key"}
+            label={view.hasCredential ? t("settings.replaceKey") : t("form.apiKey")}
             type="password"
             autoComplete="off"
             spellCheck={false}
-            placeholder={view.hasCredential ? "•••••••• (stored)" : "paste key"}
+            placeholder={view.hasCredential ? t("settings.storedPlaceholder") : t("settings.pastePlaceholder")}
             value={key}
             onChange={(e) => setKey(e.target.value)}
             leftIcon={<KeyRound size={14} />}
           />
           <div style={{ flex: "none", display: "flex", gap: 8 }}>
             <Button size="sm" type="submit" variant="primary" disabled={busy || !key.trim()}>
-              Save key
+              {t("settings.saveKey")}
             </Button>
             {view.hasCredential && (
-              <Button size="sm" variant="ghost" disabled={busy} onClick={() => void save(() => clearCredential(p.id), "API key removed.")}>
-                Remove key
+              <Button size="sm" variant="ghost" disabled={busy} onClick={() => void save(() => clearCredential(p.id), t("settings.keyRemoved"))}>
+                {t("settings.removeKey")}
               </Button>
             )}
           </div>
@@ -493,7 +531,7 @@ function ProviderSettings({ view, info }: { view: ProviderView; info: ProviderKi
       )}
       {info.supportsBaseUrl && (
         <div className="pv-form__row">
-          <Input label="Base URL" value={baseUrl} placeholder={info.defaultBaseUrl ?? ""} onChange={(e) => setBaseUrl(e.target.value)} spellCheck={false} />
+          <Input label={t("form.baseUrl")} value={baseUrl} placeholder={info.defaultBaseUrl ?? ""} onChange={(e) => setBaseUrl(e.target.value)} spellCheck={false} />
           <div style={{ flex: "none" }}>
             <Button
               size="sm"
@@ -501,19 +539,29 @@ function ProviderSettings({ view, info }: { view: ProviderView; info: ProviderKi
               onClick={() => {
                 const err = validateBaseUrl(baseUrl);
                 if (err) setMsg({ ok: false, text: err });
-                else void save(() => updateProvider(p.id, { baseUrl: baseUrl.trim() }), "Base URL updated.");
+                else void save(() => updateProvider(p.id, { baseUrl: baseUrl.trim() }), t("settings.baseUrlUpdated"));
               }}
             >
-              Save
+              {t("common:actions.save")}
             </Button>
           </div>
         </div>
       )}
       <div className="pv-form__row">
-        <Input label="Default model" value={model} placeholder={info.defaultModel ?? "model id"} onChange={(e) => setModel(e.target.value)} spellCheck={false} />
+        <Input
+          label={t("form.defaultModel")}
+          value={model}
+          placeholder={info.defaultModel ?? t("form.modelPlaceholder")}
+          onChange={(e) => setModel(e.target.value)}
+          spellCheck={false}
+        />
         <div style={{ flex: "none" }}>
-          <Button size="sm" disabled={busy || model === (p.defaultModel ?? "")} onClick={() => void save(() => updateProvider(p.id, { defaultModel: model.trim() }), "Default model updated.")}>
-            Save
+          <Button
+            size="sm"
+            disabled={busy || model === (p.defaultModel ?? "")}
+            onClick={() => void save(() => updateProvider(p.id, { defaultModel: model.trim() }), t("settings.modelUpdated"))}
+          >
+            {t("common:actions.save")}
           </Button>
         </div>
       </div>
@@ -530,6 +578,7 @@ function ModelList({ providerId }: { providerId: string }) {
   const [models, setModels] = useState<Model[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { t } = useT("providers");
   const load = async (refresh: boolean) => {
     setLoading(true);
     setError(null);
@@ -556,26 +605,26 @@ function ModelList({ providerId }: { providerId: string }) {
     <div className="pv-form">
       <div className="pv-inst__row">
         <span className="ok-field__label" style={{ flex: 1 }}>
-          Models
+          {t("models.title")}
         </span>
-        <IconButton label="Refresh models" tooltip size="sm" icon={<RefreshCw size={14} />} disabled={loading} onClick={() => void load(true)} />
+        <IconButton label={t("models.refresh")} tooltip size="sm" icon={<RefreshCw size={14} />} disabled={loading} onClick={() => void load(true)} />
       </div>
-      {loading && <Spinner label="Loading models" />}
+      {loading && <Spinner label={t("models.loading")} />}
       {error && (
         <p className="pv-note pv-note--danger" role="alert">
           {error}
         </p>
       )}
-      {models && models.length === 0 && <p className="pv-note">No models reported. Type a model id as the default model.</p>}
+      {models && models.length === 0 && <p className="pv-note">{t("models.empty")}</p>}
       {models && models.length > 0 && (
-        <ul className="pv-models" aria-label="Available models">
+        <ul className="pv-models" aria-label={t("models.listLabel")}>
           {models.map((m) => (
             <li key={m.id}>
               <span className="pv-models__id" title={m.displayName}>
                 {m.id}
               </span>
               <span className="pv-models__meta">
-                {formatContext(m.contextWindow)} ctx · {m.isLocal ? "local" : formatPricing(m.pricing)}
+                {t("models.meta", { window: formatContext(m.contextWindow), price: m.isLocal ? t("models.local") : formatPricing(m.pricing) })}
               </span>
             </li>
           ))}

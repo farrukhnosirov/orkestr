@@ -20,11 +20,15 @@ export interface CommandContext {
 export interface AppCommand {
   /** Stable id, e.g. `project.create`. */
   id: string;
-  title: string;
-  /** Grouping in the palette. */
-  group: string;
+  /**
+   * Localized title. Define it as a getter so it follows live language
+   * switches: `get title() { return t("shell:commands.projectCreate"); }`.
+   */
+  readonly title: string;
+  /** Localized grouping in the palette (getter, like `title`). */
+  readonly group: string;
   icon?: LucideIcon;
-  /** Extra search terms (any language). */
+  /** Extra search terms: include both English and Russian words so either finds the command. */
   keywords?: string[];
   /** Shortcut, e.g. `Ctrl+Shift+T` (dispatched globally via `matchesShortcut`). */
   shortcut?: string;

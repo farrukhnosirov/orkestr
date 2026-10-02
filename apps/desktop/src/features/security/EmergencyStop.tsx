@@ -3,23 +3,27 @@ import { clsx } from "clsx";
 import { OctagonX, RotateCcw, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
+import { useT } from "../../i18n";
 import { activeFlags } from "./logic";
 import { errorMessage, resetEmergency, stopAllAi, useSecurityStore } from "./store";
+
+const STOP_SHORTCUT = "Ctrl+Shift+Esc";
 
 /** Always-visible red Emergency Stop button (title bar). */
 export function EmergencyStopButton() {
   const setConfirm = useSecurityStore((s) => s.setConfirmStopOpen);
   const stopped = useSecurityStore((s) => s.flags.allStopped);
+  const { t } = useT("security");
   return (
     <button
       type="button"
       className={clsx("sec-estop", stopped && "sec-estop--engaged")}
-      aria-label={stopped ? "Emergency stop engaged — manage" : "Emergency stop: stop all AI"}
-      title={stopped ? "All AI is stopped (click to re-arm)" : "Stop All AI (Ctrl+Shift+Esc)"}
+      aria-label={stopped ? t("emergency.buttonEngagedAria") : t("emergency.buttonAria")}
+      title={stopped ? t("emergency.buttonEngagedTitle") : t("emergency.buttonTitle", { shortcut: STOP_SHORTCUT })}
       onClick={() => setConfirm(true)}
     >
       <OctagonX size={15} />
-      <span>{stopped ? "Stopped" : "Stop"}</span>
+      <span>{stopped ? t("emergency.buttonEngaged") : t("emergency.button")}</span>
     </button>
   );
 }
@@ -30,6 +34,7 @@ export function EmergencyConfirmDialog() {
   const setOpen = useSecurityStore((s) => s.setConfirmStopOpen);
   const flags = useSecurityStore((s) => s.flags);
   const pushToast = useSecurityStore((s) => s.pushToast);
+  const { t } = useT(["security", "common"]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const confirmRef = useRef<HTMLButtonElement>(null);
@@ -52,8 +57,11 @@ export function EmergencyConfirmDialog() {
     try {
       const r = await stopAllAi();
       pushToast({
-        title: "All AI stopped",
-        body: `${r.agentsStopped} agent(s) stopped, ${r.approvalsCancelled} pending approval(s) cancelled.`,
+        title: t("toast.stoppedTitle"),
+        body: t("toast.stoppedBody", {
+          agents: t("toast.agentsStopped", { count: r.agentsStopped }),
+          approvals: t("toast.approvalsCancelled", { count: r.approvalsCancelled }),
+        }),
         tone: "danger",
       });
       setOpen(false);
@@ -69,7 +77,7 @@ export function EmergencyConfirmDialog() {
     setError(null);
     try {
       await resetEmergency();
-      pushToast({ title: "Emergency controls re-armed", body: "Agents may start again.", tone: "success" });
+      pushToast({ title: t("toast.rearmedTitle"), body: t("toast.rearmedBody"), tone: "success" });
       setOpen(false);
     } catch (e) {
       setError(errorMessage(e));
@@ -94,21 +102,19 @@ export function EmergencyConfirmDialog() {
           </div>
           <div>
             <h2 id="sec-estop-title" className="dialog__title">
-              {flags.allStopped ? "All AI is stopped" : "Stop all AI?"}
+              {flags.allStopped ? t("emergency.titleEngaged") : t("emergency.title")}
             </h2>
             <p id="sec-estop-desc" className="dialog__subtitle">
-              {flags.allStopped
-                ? "Agents and the Manager are blocked until you re-arm."
-                : "Immediately cancels every agent, the Manager and their pending approvals. Works offline."}
+              {flags.allStopped ? t("emergency.descriptionEngaged") : t("emergency.description")}
             </p>
           </div>
-          <button type="button" className="dialog__close" aria-label="Close" onClick={close}>
+          <button type="button" className="dialog__close" aria-label={t("common:actions.close")} onClick={close}>
             <X size={16} />
           </button>
         </header>
         <div className="dialog__body">
           {active.length > 0 && (
-            <ul className="sec-flag-list" aria-label="Active emergency controls">
+            <ul className="sec-flag-list" aria-label={t("emergency.activeControls")}>
               {active.map((f) => (
                 <li key={f}>{f}</li>
               ))}
@@ -122,15 +128,15 @@ export function EmergencyConfirmDialog() {
         </div>
         <footer className="dialog__footer">
           <Button variant="ghost" onClick={close} disabled={busy}>
-            Cancel
+            {t("common:actions.cancel")}
           </Button>
           {flags.allStopped ? (
             <Button ref={confirmRef} variant="primary" leftIcon={<RotateCcw size={14} />} loading={busy} onClick={() => void rearm()}>
-              Re-arm
+              {t("emergency.rearm")}
             </Button>
           ) : (
             <Button ref={confirmRef} variant="danger" leftIcon={<OctagonX size={14} />} loading={busy} onClick={() => void stop()}>
-              Stop all AI <Kbd>Enter</Kbd>
+              {t("emergency.stopAll")} <Kbd>Enter</Kbd>
             </Button>
           )}
         </footer>

@@ -27,12 +27,30 @@ import { askManager } from "../../features/files/actions";
 import { ActionDialog } from "../../features/files/Dialog";
 import { fileIcon } from "../../features/files/icons";
 import { ancestry, basename } from "../../features/files/paths";
-import { errorMessage, useFileEvents } from "../../features/files/rpc";
+import { useFileEvents } from "../../features/files/rpc";
+import { useT } from "../../i18n";
+import { describeError } from "../../i18n/errors";
 import { type EditorTab, useEditorStore } from "../../store/editor";
 import { type Doc, registryFor, SaveConflictError } from "./documents";
 import { CodeEditor, DiffEditor, type EditorCallbacks } from "./EditorHost";
 import { applyTokensTheme, getMonaco } from "./monaco";
 import { useAppStore } from "../../store/app";
+
+const ENCODINGS: Record<string, string> = {
+  utf8: "UTF-8",
+  utf8Bom: "UTF-8 BOM",
+  utf16Le: "UTF-16 LE",
+  utf16Be: "UTF-16 BE",
+};
+
+/** Encoding names are technical identifiers, identical in every language. */
+function encodingLabel(encoding: string): string {
+  return ENCODINGS[encoding] ?? "Latin-1";
+}
+
+function eolLabel(eol: string): string {
+  return eol === "\r\n" ? "CRLF" : "LF";
+}
 
 interface Cursor {
   line: number;
@@ -47,6 +65,7 @@ interface Compare {
 }
 
 export default function Workbench({ projectId }: { projectId: string }) {
+  const { t } = useT(["code", "common"]);
   const monaco = useMemo(() => getMonaco(), []);
   const registry = useMemo(() => registryFor(monaco, projectId), [monaco, projectId]);
   const tabs = useEditorStore((s) => s.tabs);
@@ -72,10 +91,10 @@ export default function Workbench({ projectId }: { projectId: string }) {
 
   // Load documents for new tabs.
   useEffect(() => {
-    for (const t of tabs) if (t.status === "loading") void registry.load(t.path);
+    for (const tab of tabs) if (tab.status === "loading") void registry.load(tab.path);
   }, [tabs, registry]);
 
-  const active: EditorTab | null = tabs.find((t) => t.path === activePath) ?? null;
+  const active: EditorTab | null = tabs.find((tab) => tab.path === activePath) ?? null;
   const doc: Doc | undefined = active ? registry.get(active.path) : undefined;
 
   // Problems (diagnostics markers) of the active model.
@@ -112,7 +131,7 @@ export default function Workbench({ projectId }: { projectId: string }) {
         store.markDeleted(change.path);
         return;
       }
-      const paths = change.path === "" ? store.tabs.map((t) => t.path) : [change.path];
+      const paths = change.path === "" ? store.tabs.map((tab) => tab.path) : [change.path];
       for (const p of paths) {
         const d = registry.get(p);
         if (!d) continue;
@@ -143,12 +162,12 @@ export default function Workbench({ projectId }: { projectId: string }) {
         if (compare?.path === path) setCompare(null);
       } catch (e) {
         if (e instanceof SaveConflictError) setConflict({ path: e.path, actualHash: e.actualHash });
-        else setNotice(`Could not save ${basename(path)}: ${errorMessage(e)}`);
+        else setNotice(t("notice.saveFailed", { name: basename(path), error: describeError(e) }));
       } finally {
         setBusy(false);
       }
     },
-    [registry, compare],
+    [registry, compare, t],
   );
 
   const doClose = useCallback(
@@ -180,7 +199,7 @@ export default function Workbench({ projectId }: { projectId: string }) {
   const openCompare = async (path: string) => {
     const disk = await registry.diskText(path);
     if (disk) setCompare({ path, ...disk });
-    else setNotice("The file no longer exists on disk.");
+    else setNotice(t("notice.gone"));
   };
 
   const reload = async (path: string) => {
@@ -188,14 +207,14 @@ export default function Workbench({ projectId }: { projectId: string }) {
       await registry.reloadFromDisk(path);
       if (compare?.path === path) setCompare(null);
     } catch (e) {
-      setNotice(errorMessage(e));
+      setNotice(describeError(e));
     }
   };
 
   const openExternal = (path: string) => {
     getClient()
       .call("files.openExternal", { projectId, path, target: "ide" })
-      .catch((e: unknown) => setNotice(errorMessage(e)));
+      .catch((e: unknown) => setNotice(describeError(e)));
   };
 
   // ── Render ────────────────────────────────────────────
@@ -208,8 +227,8 @@ export default function Workbench({ projectId }: { projectId: string }) {
       requestAnimationFrame(() => document.getElementById(`code-tab-${target.path}`)?.focus());
     } else if (e.key === "Delete" || (e.key.toLowerCase() === "w" && (e.ctrlKey || e.metaKey))) {
       e.preventDefault();
-      const t = tabs[index];
-      if (t) requestClose(t.path);
+      const tab = tabs[index];
+      if (tab) requestClose(tab.path);
     }
   };
 
@@ -217,38 +236,38 @@ export default function Workbench({ projectId }: { projectId: string }) {
 
   return (
     <div className="code-wb">
-      <div className="code-tabs" role="tablist" aria-label="Open files">
-        {tabs.map((t, i) => {
-          const { icon: Icon, color } = fileIcon(basename(t.path), "file");
-          const selected = t.path === activePath;
+      <div className="code-tabs" role="tablist" aria-label={t("tabs.label")}>
+        {tabs.map((tab, i) => {
+          const { icon: Icon, color } = fileIcon(basename(tab.path), "file");
+          const selected = tab.path === activePath;
           return (
             <div
-              key={t.path}
-              id={`code-tab-${t.path}`}
+              key={tab.path}
+              id={`code-tab-${tab.path}`}
               role="tab"
               tabIndex={selected ? 0 : -1}
               aria-selected={selected}
-              title={t.path}
-              className={clsx("code-tab", selected && "code-tab--active", t.deleted && "code-tab--deleted")}
-              onClick={() => useEditorStore.getState().activate(t.path)}
-              onAuxClick={(e) => e.button === 1 && requestClose(t.path)}
+              title={tab.path}
+              className={clsx("code-tab", selected && "code-tab--active", tab.deleted && "code-tab--deleted")}
+              onClick={() => useEditorStore.getState().activate(tab.path)}
+              onAuxClick={(e) => e.button === 1 && requestClose(tab.path)}
               onKeyDown={(e) => onTabKey(e, i)}
             >
               <Icon size={14} style={{ color }} />
-              <span className="code-tab__name">{basename(t.path)}</span>
-              {t.agentLines.length > 0 && <Bot size={12} className="code-tab__agent" aria-label="Changed by an agent" />}
-              {t.stale && <TriangleAlert size={12} className="code-tab__stale" aria-label="Changed on disk" />}
+              <span className="code-tab__name">{basename(tab.path)}</span>
+              {tab.agentLines.length > 0 && <Bot size={12} className="code-tab__agent" aria-label={t("tabs.agentChanged")} />}
+              {tab.stale && <TriangleAlert size={12} className="code-tab__stale" aria-label={t("tabs.stale")} />}
               <button
                 type="button"
-                className={clsx("code-tab__close", t.dirty && "code-tab__close--dirty")}
-                aria-label={t.dirty ? `Close ${basename(t.path)} (unsaved changes)` : `Close ${basename(t.path)}`}
+                className={clsx("code-tab__close", tab.dirty && "code-tab__close--dirty")}
+                aria-label={tab.dirty ? t("tabs.closeDirty", { name: basename(tab.path) }) : t("tabs.close", { name: basename(tab.path) })}
                 tabIndex={-1}
                 onClick={(e) => {
                   e.stopPropagation();
-                  requestClose(t.path);
+                  requestClose(tab.path);
                 }}
               >
-                {t.dirty ? <Circle size={9} className="code-tab__dot" fill="currentColor" /> : null}
+                {tab.dirty ? <Circle size={9} className="code-tab__dot" fill="currentColor" /> : null}
                 <X size={13} className="code-tab__x" />
               </button>
             </div>
@@ -258,7 +277,7 @@ export default function Workbench({ projectId }: { projectId: string }) {
 
       {active && (
         <div className="code-bar">
-          <nav className="code-crumbs" aria-label="Breadcrumbs">
+          <nav className="code-crumbs" aria-label={t("bar.breadcrumbs")}>
             {ancestry(active.path).map((part, i, all) => {
               const last = i === all.length - 1;
               const { icon: Icon, color } = fileIcon(part.name, last ? "file" : "dir");
@@ -270,8 +289,8 @@ export default function Workbench({ projectId }: { projectId: string }) {
                 </span>
               );
             })}
-            {active.deleted && <Badge tone="danger">deleted on disk</Badge>}
-            {active.stale && <Badge tone="warning">changed on disk</Badge>}
+            {active.deleted && <Badge tone="danger">{t("bar.deletedOnDisk")}</Badge>}
+            {active.stale && <Badge tone="warning">{t("bar.changedOnDisk")}</Badge>}
           </nav>
           <div className="code-bar__actions">
             {active.agentLines.length > 0 && (
@@ -280,16 +299,16 @@ export default function Workbench({ projectId }: { projectId: string }) {
                 variant="ghost"
                 leftIcon={<Bot size={13} />}
                 onClick={() => useEditorStore.getState().clearAgentMarks(active.path)}
-                title="Clear agent change markers"
+                title={t("bar.clearAgentMarks")}
               >
-                {active.agentLines.length} agent line{active.agentLines.length === 1 ? "" : "s"}
+                {t("bar.agentLines", { count: active.agentLines.length })}
               </Button>
             )}
             {active.stale && (
-              <IconButton label="Reload from disk (discard my changes)" icon={<RotateCcw size={14} />} size="sm" tooltip="bottom" onClick={() => void reload(active.path)} />
+              <IconButton label={t("bar.reloadDiscard")} icon={<RotateCcw size={14} />} size="sm" tooltip="bottom" onClick={() => void reload(active.path)} />
             )}
             <IconButton
-              label={diff ? "Close diff" : "Compare with last saved"}
+              label={diff ? t("bar.closeDiff") : t("bar.compareSaved")}
               icon={<GitCompare size={14} />}
               size="sm"
               tooltip="bottom"
@@ -301,9 +320,9 @@ export default function Workbench({ projectId }: { projectId: string }) {
                 useEditorStore.getState().setDiff(!diff);
               }}
             />
-            <IconButton label="Open in external IDE" icon={<ExternalLink size={14} />} size="sm" tooltip="bottom" onClick={() => openExternal(active.path)} />
+            <IconButton label={t("bar.openExternal")} icon={<ExternalLink size={14} />} size="sm" tooltip="bottom" onClick={() => openExternal(active.path)} />
             <IconButton
-              label="Save (Ctrl+S)"
+              label={t("bar.save")}
               icon={busy ? <Spinner size={13} /> : <Save size={14} />}
               size="sm"
               tooltip="bottom"
@@ -316,22 +335,20 @@ export default function Workbench({ projectId }: { projectId: string }) {
 
       {showCompare && (
         <div className="code-compare" role="status">
-          <span>
-            Comparing the version on disk (left) with your unsaved changes (right).
-          </span>
+          <span>{t("compare.banner")}</span>
           <Button size="sm" variant="primary" leftIcon={<Upload size={13} />} onClick={() => void save(compare.path, compare.hash)}>
-            Overwrite with mine
+            {t("compare.overwrite")}
           </Button>
           <Button size="sm" leftIcon={<RotateCcw size={13} />} onClick={() => void reload(compare.path)}>
-            Use disk version
+            {t("compare.useDisk")}
           </Button>
-          <IconButton label="Close comparison" icon={<X size={14} />} size="sm" onClick={() => setCompare(null)} />
+          <IconButton label={t("compare.close")} icon={<X size={14} />} size="sm" onClick={() => setCompare(null)} />
         </div>
       )}
       {notice && (
         <div className="code-notice" role="alert">
           <TriangleAlert size={14} /> <span>{notice}</span>
-          <IconButton label="Dismiss" icon={<X size={13} />} size="sm" onClick={() => setNotice(null)} />
+          <IconButton label={t("notice.dismiss")} icon={<X size={13} />} size="sm" onClick={() => setNotice(null)} />
         </div>
       )}
 
@@ -339,30 +356,30 @@ export default function Workbench({ projectId }: { projectId: string }) {
         {!active ? (
           <EmptyState
             icon={<FileCode size={26} strokeWidth={1.6} />}
-            title="No file open"
-            description="Open a file from the Files panel, or press Ctrl+P to jump to any file. Ctrl+Shift+F searches the whole project."
+            title={t("empty.title")}
+            description={t("empty.description")}
             action={
               <Button size="sm" variant="primary" onClick={() => useEditorStore.getState().setQuickOpen(true)}>
-                Go to file…
+                {t("empty.goToFile")}
               </Button>
             }
           />
         ) : active.status === "loading" ? (
           <div className="code-loading">
-            <Spinner size={18} /> Opening {basename(active.path)}…
+            <Spinner size={18} /> {t("opening", { name: basename(active.path) })}
           </div>
         ) : active.status === "binary" ? (
-          <EmptyState icon={<FileWarning size={26} strokeWidth={1.6} />} title="Binary file" description="This file is not text and cannot be edited here." action={<Button size="sm" onClick={() => openExternal(active.path)}>Open externally</Button>} />
+          <EmptyState icon={<FileWarning size={26} strokeWidth={1.6} />} title={t("binary.title")} description={t("binary.description")} action={<Button size="sm" onClick={() => openExternal(active.path)}>{t("binary.openExternal")}</Button>} />
         ) : active.status === "tooLarge" || active.status === "error" ? (
           <EmptyState
             icon={<TriangleAlert size={26} strokeWidth={1.6} />}
-            title={active.status === "tooLarge" ? "File too large" : "Could not open the file"}
+            title={active.status === "tooLarge" ? t("tooLarge") : t("openFailed")}
             description={active.error}
             action={
               <Button size="sm" onClick={() => {
                 useEditorStore.getState().updateTab(active.path, { status: "loading", error: undefined });
               }}>
-                Retry
+                {t("common:actions.retry")}
               </Button>
             }
           />
@@ -380,36 +397,37 @@ export default function Workbench({ projectId }: { projectId: string }) {
       </div>
 
       {active && doc && (
-        <footer className="code-status" aria-label="Editor status">
+        <footer className="code-status" aria-label={t("status.label")}>
           {cursor && (
             <span>
-              Ln {cursor.line}, Col {cursor.column}
-              {cursor.selected > 0 ? ` (${cursor.selected} selected)` : ""}
+              {cursor.selected > 0
+                ? t("status.cursorSelected", { line: cursor.line, column: cursor.column, count: cursor.selected })
+                : t("status.cursor", { line: cursor.line, column: cursor.column })}
             </span>
           )}
           <span className={clsx(problems.errors > 0 && "code-status--error", problems.warnings > 0 && problems.errors === 0 && "code-status--warning")}>
-            {problems.errors} error{problems.errors === 1 ? "" : "s"}, {problems.warnings} warning{problems.warnings === 1 ? "" : "s"}
+            {t("status.problems", { errors: t("status.errors", { count: problems.errors }), warnings: t("status.warnings", { count: problems.warnings }) })}
           </span>
           <span className="code-status__spacer" />
-          {doc.readonly && <span>read-only</span>}
-          <span>{doc.encoding === "utf8" ? "UTF-8" : doc.encoding === "utf8Bom" ? "UTF-8 BOM" : doc.encoding === "utf16Le" ? "UTF-16 LE" : doc.encoding === "utf16Be" ? "UTF-16 BE" : "Latin-1"}</span>
-          <span>{doc.model.getEOL() === "\r\n" ? "CRLF" : "LF"}</span>
+          {doc.readonly && <span>{t("status.readOnly")}</span>}
+          <span>{encodingLabel(doc.encoding)}</span>
+          <span>{eolLabel(doc.model.getEOL())}</span>
           <span>{doc.model.getLanguageId()}</span>
         </footer>
       )}
 
       {conflict && (
         <ActionDialog
-          title="File changed on disk"
-          subtitle={`${basename(conflict.path)} was modified outside this editor since you opened it.`}
+          title={t("conflict.title")}
+          subtitle={t("conflict.subtitle", { name: basename(conflict.path) })}
           icon={<TriangleAlert size={18} />}
           tone="warning"
           onCancel={() => setConflict(null)}
           actions={[
-            { id: "cancel", label: "Cancel", variant: "ghost", onSelect: () => setConflict(null) },
+            { id: "cancel", label: t("common:actions.cancel"), variant: "ghost", onSelect: () => setConflict(null) },
             {
               id: "reload",
-              label: "Reload (discard mine)",
+              label: t("conflict.reload"),
               icon: <RotateCcw size={14} />,
               onSelect: () => {
                 const p = conflict.path;
@@ -419,7 +437,7 @@ export default function Workbench({ projectId }: { projectId: string }) {
             },
             {
               id: "compare",
-              label: "Compare",
+              label: t("conflict.compare"),
               icon: <GitCompare size={14} />,
               autoFocus: true,
               onSelect: () => {
@@ -431,7 +449,7 @@ export default function Workbench({ projectId }: { projectId: string }) {
             },
             {
               id: "overwrite",
-              label: "Overwrite",
+              label: t("conflict.overwrite"),
               variant: "danger",
               icon: <Upload size={14} />,
               onSelect: () => {
@@ -442,23 +460,21 @@ export default function Workbench({ projectId }: { projectId: string }) {
             },
           ]}
         >
-          <p className="fx-dialog__text">
-            Overwriting replaces the newer version on disk with your changes. Compare opens a side-by-side diff first.
-          </p>
+          <p className="fx-dialog__text">{t("conflict.text")}</p>
         </ActionDialog>
       )}
 
       {confirmClose && (
         <ActionDialog
-          title={`Save changes to ${basename(confirmClose)}?`}
-          subtitle="Your changes will be lost if you don't save them."
+          title={t("closeDirty.title", { name: basename(confirmClose) })}
+          subtitle={t("closeDirty.subtitle")}
           icon={<Save size={18} />}
           onCancel={() => setConfirmClose(null)}
           actions={[
-            { id: "cancel", label: "Cancel", variant: "ghost", onSelect: () => setConfirmClose(null) },
+            { id: "cancel", label: t("common:actions.cancel"), variant: "ghost", onSelect: () => setConfirmClose(null) },
             {
               id: "discard",
-              label: "Don't save",
+              label: t("closeDirty.discard"),
               variant: "danger",
               onSelect: () => {
                 const p = confirmClose;
@@ -468,7 +484,7 @@ export default function Workbench({ projectId }: { projectId: string }) {
             },
             {
               id: "save",
-              label: "Save",
+              label: t("common:actions.save"),
               variant: "primary",
               autoFocus: true,
               onSelect: () => {

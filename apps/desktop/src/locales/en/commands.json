@@ -1,0 +1,12 @@
+{
+  "groups": {
+    "files": "Files",
+    "editor": "Editor"
+  },
+  "files": {
+    "quickOpen": "Go to File…",
+    "searchProject": "Search in Project",
+    "showExplorer": "Show File Explorer",
+    "clearAgentMarkers": "Clear Agent Change Markers"
+  }
+}

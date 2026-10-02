@@ -1,0 +1,225 @@
+{
+  "titleBar": {
+    "search": "Search or run a command…",
+    "settings": "Settings (Ctrl+,)",
+    "minimize": "Minimize",
+    "maximize": "Maximize",
+    "restore": "Restore",
+    "close": "Close"
+  },
+  "connection": {
+    "failed": "Could not connect to the Orkestr core.",
+    "authenticating": "Authenticating…",
+    "starting": "Starting the core…",
+    "notInShell": "Not running inside the desktop shell. Start orkestrd and open this page with ?core=WS_URL&token=TOKEN (see core.json and core.token in the data directory).",
+    "states": {
+      "idle": "Starting",
+      "connecting": "Connecting to the core…",
+      "authenticating": "Authenticating…",
+      "open": "Core connected",
+      "reconnecting": "Reconnecting…",
+      "closed": "Disconnected"
+    }
+  },
+  "statusBar": {
+    "modeEmbedded": "Embedded core",
+    "modeExternal": "orkestrd",
+    "modeBrowser": "Browser",
+    "version": "v{{version}}",
+    "startup": "{{ms}} ms start",
+    "seq": "seq {{seq}}",
+    "seqTitle": "Last event sequence number",
+    "commands": "Commands"
+  },
+  "rail": {
+    "label": "Projects",
+    "openProject": "Open project {{name}}",
+    "empty": "No projects",
+    "newProject": "New project",
+    "createProject": "Create project",
+    "palette": "Command palette (Ctrl+K)"
+  },
+  "createProject": {
+    "title": "New project",
+    "subtitle": "Projects hold repositories, agents, tasks, memory and budgets.",
+    "name": "Name",
+    "namePlaceholder": "e.g. Payroll Platform",
+    "description": "Description",
+    "descriptionPlaceholder": "Optional — what is this project about?",
+    "accent": "Accent",
+    "accentGroup": "Project accent color",
+    "nameRequired": "Give the project a name.",
+    "failed": "Could not create the project.",
+    "submit": "Create project"
+  },
+  "workspace": {
+    "unknownPanel": "Unknown panel",
+    "closeTab": "Close {{title}}",
+    "emptyTitle": "Empty workspace",
+    "emptyDescription": "Open panels from the command palette (Ctrl+K) or restore the default layout.",
+    "restoreLayout": "Restore Coding layout"
+  },
+  "palette": {
+    "label": "Command palette",
+    "results": "Results",
+    "searchMode": "Search",
+    "placeholder": "Type a command, or / to search…",
+    "searchPlaceholder": "Search projects…",
+    "searching": "Searching…",
+    "nothingFound": "Nothing found for “{{query}}”",
+    "noProjects": "No projects yet — create one with “Create Project”",
+    "noCommands": "No matching commands",
+    "navigate": "navigate",
+    "run": "run",
+    "searchProjects": "search projects",
+    "globalSearch": "Global search",
+    "commandCount_one": "{{count}} command",
+    "commandCount_other": "{{count}} commands",
+    "groups": {
+      "recent": "Recent",
+      "panels": "Panels",
+      "layout": "Layout",
+      "appearance": "Appearance"
+    },
+    "openPanel": "Open Panel: {{title}}",
+    "resetLayout": "Reset Layout (Coding preset)",
+    "theme": "Theme: {{name}}",
+    "themeModes": {
+      "Dark": "dark",
+      "Light": "light"
+    }
+  },
+  "panels": {
+    "manager": {
+      "title": "Manager",
+      "description": "AI Manager chat and plans"
+    },
+    "code": {
+      "title": "Code",
+      "description": "Monaco editor"
+    },
+    "files": {
+      "title": "Files",
+      "description": "Project file explorer"
+    },
+    "terminal": {
+      "title": "Terminal",
+      "description": "PTY terminal sessions"
+    },
+    "git": {
+      "title": "Git",
+      "description": "Status, diffs, branches, worktrees"
+    },
+    "agents": {
+      "title": "Agents",
+      "description": "Agent templates and instances"
+    },
+    "tasks": {
+      "title": "Tasks",
+      "description": "Task board and DAG"
+    },
+    "architecture": {
+      "title": "Architecture",
+      "description": "Architecture map and decisions"
+    },
+    "browser": {
+      "title": "Browser",
+      "description": "Browser agent"
+    },
+    "database": {
+      "title": "Database",
+      "description": "Database explorer"
+    },
+    "logs": {
+      "title": "Logs",
+      "description": "Live event stream"
+    },
+    "deployments": {
+      "title": "Deployments",
+      "description": "Environments and deployments"
+    },
+    "memory": {
+      "title": "Memory",
+      "description": "Project memory and knowledge"
+    },
+    "costs": {
+      "title": "Costs",
+      "description": "Usage, budgets and limits"
+    },
+    "monitoring": {
+      "title": "Monitoring",
+      "description": "Mission Control and infrastructure"
+    }
+  },
+  "phasePlaceholder": {
+    "badge": "Arrives in Phase {{phase}}",
+    "project": "Will operate on <strong>{{name}}</strong>.",
+    "features": "{{title}}: planned features"
+  },
+  "commandGroups": {
+    "projects": "Projects",
+    "general": "General",
+    "views": "Views",
+    "window": "Window",
+    "safety": "Safety"
+  },
+  "commands": {
+    "projectCreate": "Create Project",
+    "projectSwitch": "Switch Project…",
+    "settingsOpen": "Open Settings",
+    "onboardingOpen": "Run Setup Wizard",
+    "toggleDnd": "Toggle Do Not Disturb",
+    "missionControl": "Mission Control",
+    "openLogs": "Open Logs",
+    "toggleMaximize": "Toggle Maximize Panel",
+    "toggleFullscreen": "Toggle Fullscreen",
+    "stopAll": "Stop All AI",
+    "switchLanguage": "Switch Language",
+    "switchLanguageTo": "Switch to {{language}}"
+  },
+  "stopAll": {
+    "doneTitle": "All AI activity stopped",
+    "doneBody": "Emergency stop executed by you: {{agents}}, {{approvals}}.",
+    "agents_one": "{{count}} agent stopped",
+    "agents_other": "{{count}} agents stopped",
+    "approvals_one": "{{count}} pending approval cancelled",
+    "approvals_other": "{{count}} pending approvals cancelled",
+    "failedTitle": "Emergency stop failed"
+  },
+  "settings": {
+    "title": "Settings",
+    "sections": "Settings sections",
+    "close": "Close settings (Esc)",
+    "sectionTitles": {
+      "general": "General",
+      "system": "System",
+      "about": "About"
+    }
+  },
+  "dock": {
+    "panelOpened": "{{title}} opened",
+    "panelClosed": "{{title}} closed",
+    "groupMaximized": "{{title}} maximized",
+    "groupRestored": "{{title}} restored",
+    "groupFloated": "{{title}} floated",
+    "groupDocked": "{{title}} docked",
+    "groupPoppedOut": "{{title}} opened in a new window",
+    "closeTab": "Close {{title}}",
+    "closeTabPlain": "Close",
+    "movePickTarget": "Moving {{source}}. Target {{target}}, {{current}} of {{total}}. Enter to choose where, Escape to cancel.",
+    "movePickEdge": "{{where}}. Arrows to change, Enter to confirm, Escape to go back.",
+    "edgeCenter": "Tab into {{target}}",
+    "edgeSplit": "Split {{position}} of {{target}}",
+    "committedCenter": "{{source}} docked into {{target}}.",
+    "committedSplit": "{{source}} split {{position}} of {{target}}.",
+    "moveCancelled": "Move cancelled.",
+    "moveNotAllowed": "That move is not allowed.",
+    "moveFloated": "{{source}} floated.",
+    "position": {
+      "top": "top",
+      "bottom": "bottom",
+      "left": "left",
+      "right": "right"
+    }
+  }
+}

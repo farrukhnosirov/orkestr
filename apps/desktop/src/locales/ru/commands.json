@@ -1,0 +1,12 @@
+{
+  "groups": {
+    "files": "Файлы",
+    "editor": "Редактор"
+  },
+  "files": {
+    "quickOpen": "Перейти к файлу…",
+    "searchProject": "Найти в проекте",
+    "showExplorer": "Показать проводник по файлам",
+    "clearAgentMarkers": "Убрать отметки изменений агентов"
+  }
+}

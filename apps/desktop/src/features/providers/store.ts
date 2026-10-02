@@ -19,6 +19,7 @@ import { useEffect } from "react";
 import { create } from "zustand";
 
 import { getClient, maybeClient } from "../../core/client";
+import { describeError } from "../../i18n/errors";
 import { useAppStore } from "../../store/app";
 
 export interface ProvidersState {
@@ -54,11 +55,9 @@ export const useProvidersStore = create<ProvidersState>((set) => ({
   setLoading: (loading, error = null) => set({ loading, error }),
 }));
 
-/** Human message for any thrown value. */
+/** Localized message for any thrown value. */
 export function errorMessage(e: unknown): string {
-  if (e instanceof OrkestrError) return e.message;
-  if (e instanceof Error) return e.message;
-  return String(e);
+  return describeError(e);
 }
 
 /** Loads kinds + providers. */

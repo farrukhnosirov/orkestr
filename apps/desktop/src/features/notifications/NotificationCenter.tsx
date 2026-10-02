@@ -4,6 +4,7 @@ import { clsx } from "clsx";
 import { AlertOctagon, AlertTriangle, Bell, BellOff, CheckCircle2, Info, X, XCircle } from "lucide-react";
 import { type ReactNode, useEffect, useRef } from "react";
 
+import { formatDate, formatRelativeTime, t as translate, useLanguage, useT } from "../../i18n";
 import { useSettingsStore } from "../settings/settingsStore";
 import { Switch } from "../settings/controls";
 import type { AppNotification } from "./fromEvent";
@@ -18,18 +19,16 @@ const ICON: Record<NotificationLevel, (size: number) => ReactNode> = {
   Critical: (s) => <AlertOctagon size={s} />,
 };
 
+/** "just now" / "10 minutes ago" / "3 hours ago", then the date (current language). */
 export function relativeTime(iso: string, now = Date.now()): string {
   const diff = Math.max(0, now - new Date(iso).getTime());
-  const s = Math.floor(diff / 1000);
-  if (s < 45) return "just now";
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${Math.max(1, m)} min ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h} h ago`;
-  return new Date(iso).toLocaleDateString();
+  if (diff < 45_000) return translate("common:time.justNow");
+  if (diff < 24 * 3600_000) return formatRelativeTime(iso, now);
+  return formatDate(iso, "date");
 }
 
 function Row({ n }: { n: AppNotification }) {
+  useLanguage(); // re-render times on language change
   return (
     <li className={clsx("ntf-row", `ntf-row--${n.level.toLowerCase()}`, !n.read && "ntf-row--unread")}>
       <span className="ntf-row__icon">{ICON[n.level](15)}</span>
@@ -56,6 +55,7 @@ export function NotificationBell() {
   const settingsLoaded = useSettingsStore((s) => s.settings !== null);
   const rootRef = useRef<HTMLDivElement>(null);
   const unread = unreadCount(items);
+  const { t } = useT("notifications");
 
   useEffect(() => {
     if (!open) return;
@@ -76,7 +76,7 @@ export function NotificationBell() {
       <button
         type="button"
         className={clsx("titlebar__ctl ntf-bell__button", open && "ntf-bell__button--open")}
-        aria-label={unread > 0 ? `Notifications (${unread} unread)` : "Notifications"}
+        aria-label={unread > 0 ? t("center.unread", { count: unread }) : t("center.title")}
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={toggle}
@@ -88,7 +88,7 @@ export function NotificationBell() {
         <div
           className="ntf-popover"
           role="dialog"
-          aria-label="Notifications"
+          aria-label={t("center.title")}
           onKeyDown={(e) => {
             if (e.key === "Escape") {
               markAllRead();
@@ -97,11 +97,11 @@ export function NotificationBell() {
           }}
         >
           <header className="ntf-popover__head">
-            <span className="ntf-popover__title">Notifications</span>
+            <span className="ntf-popover__title">{t("center.title")}</span>
             <label className="ntf-popover__dnd">
-              <span>Do not disturb</span>
+              <span>{t("center.dnd")}</span>
               <Switch
-                label="Do not disturb"
+                label={t("center.dnd")}
                 checked={dnd}
                 disabled={!settingsLoaded}
                 onChange={(v) => void updateSettings({ doNotDisturb: v })}
@@ -112,8 +112,8 @@ export function NotificationBell() {
             <EmptyState
               className="ntf-popover__empty"
               icon={<Bell size={20} />}
-              title="All caught up"
-              description="Approvals, failures, budget alerts and agent notices appear here."
+              title={t("center.emptyTitle")}
+              description={t("center.emptyDescription")}
             />
           ) : (
             <ul className="ntf-popover__list">
@@ -125,10 +125,10 @@ export function NotificationBell() {
           {items.length > 0 && (
             <footer className="ntf-popover__foot">
               <Button size="sm" variant="ghost" onClick={markAllRead}>
-                Mark all read
+                {t("center.markAllRead")}
               </Button>
               <Button size="sm" variant="ghost" onClick={clear}>
-                Clear
+                {t("center.clear")}
               </Button>
             </footer>
           )}
@@ -140,11 +140,12 @@ export function NotificationBell() {
 
 function Toast({ n }: { n: AppNotification }) {
   const dismiss = useNotificationsStore((s) => s.dismissToast);
+  const { t } = useT("notifications");
   useEffect(() => {
     const ttl = TOAST_TTL[n.level];
     if (ttl == null) return;
-    const t = setTimeout(() => dismiss(n.id), ttl);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => dismiss(n.id), ttl);
+    return () => clearTimeout(timer);
   }, [n.id, n.level, dismiss]);
   return (
     <div
@@ -156,7 +157,7 @@ function Toast({ n }: { n: AppNotification }) {
         <div className="ntf-toast__title">{n.title}</div>
         {n.body && <div className="ntf-toast__body">{n.body}</div>}
       </div>
-      <button type="button" className="ntf-toast__close" aria-label="Dismiss notification" onClick={() => dismiss(n.id)}>
+      <button type="button" className="ntf-toast__close" aria-label={t("center.dismiss")} onClick={() => dismiss(n.id)}>
         <X size={14} />
       </button>
     </div>
@@ -169,8 +170,8 @@ export function Toasts() {
   if (toasts.length === 0) return null;
   return (
     <div className="ntf-toasts" aria-live="polite">
-      {toasts.map((t) => (
-        <Toast key={t.id} n={t} />
+      {toasts.map((n) => (
+        <Toast key={n.id} n={n} />
       ))}
     </div>
   );

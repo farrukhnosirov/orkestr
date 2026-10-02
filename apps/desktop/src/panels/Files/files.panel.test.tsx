@@ -2,6 +2,7 @@ import type { Event, FileEntry, Project } from "@orkestr/protocol";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { applyLanguagePreference } from "../../i18n";
 import { useAppStore } from "../../store/app";
 import { useEditorStore } from "../../store/editor";
 
@@ -167,5 +168,25 @@ describe("Files panel", () => {
     fireEvent.change(input, { target: { value: "GUIDE.md" } });
     fireEvent.keyDown(input, { key: "Enter" });
     await waitFor(() => expect(calls.some((c) => c.method === "files.rename" && c.params.to === "GUIDE.md")).toBe(true));
+  });
+
+  it("renders in Russian", async () => {
+    await act(async () => {
+      await applyLanguagePreference("ru");
+    });
+    try {
+      await renderPanel();
+      await screen.findByText("README.md");
+      expect(screen.getByRole("tree", { name: "Файлы проекта" })).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Свернуть всё" })).toBeTruthy();
+      fireEvent.contextMenu(screen.getByText("README.md"));
+      const items = [...screen.getByRole("menu").querySelectorAll("[role='menuitem']")].map((b) => b.textContent);
+      expect(items).toContain("Переименовать…F2");
+      expect(items).toContain("Копировать относительный путь");
+    } finally {
+      await act(async () => {
+        await applyLanguagePreference("en");
+      });
+    }
   });
 });

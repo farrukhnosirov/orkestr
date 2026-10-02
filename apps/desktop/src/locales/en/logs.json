@@ -1,0 +1,103 @@
+{
+  "filter": {
+    "label": "Event filter",
+    "all": "All",
+    "project": "This project",
+    "logs": "Core logs",
+    "problems": "Problems"
+  },
+  "search": {
+    "placeholder": "Filter events…",
+    "label": "Filter events"
+  },
+  "live": "Live",
+  "paused": "Paused · {{queued}} queued",
+  "resume": "Resume stream",
+  "pause": "Pause stream",
+  "jumpToLatest": "Jump to latest",
+  "clear": "Clear view",
+  "loading": "Loading event history…",
+  "empty": {
+    "title": "No events yet",
+    "description": "Everything the core does — projects, tasks, agents, tools, builds — streams here live. Create a project to see the first events.",
+    "noMatchTitle": "No matching events",
+    "noMatchDescription": "Try another filter or search term."
+  },
+  "seq": "#{{seq}}",
+  "local": "local",
+  "enums": {
+    "toolStatus": {
+      "Pending": "pending",
+      "AwaitingApproval": "awaiting approval",
+      "Running": "running",
+      "Succeeded": "succeeded",
+      "Failed": "failed",
+      "Denied": "denied",
+      "Cancelled": "cancelled"
+    },
+    "reviewVerdict": {
+      "NotRequired": "not required",
+      "Pending": "pending",
+      "ChangesRequested": "changes requested",
+      "Approved": "approved",
+      "Rejected": "rejected"
+    },
+    "rollbackScope": {
+      "Task": "task",
+      "Workspace": "workspace"
+    },
+    "emergencyScope": {
+      "All": "all AI",
+      "Project": "project",
+      "Agent": "agent"
+    },
+    "stopReason": {
+      "Completed": "completed",
+      "UserRequested": "stopped by user",
+      "LimitReached": "limit reached",
+      "EmergencyStop": "emergency stop",
+      "Error": "error",
+      "Shutdown": "shutdown"
+    },
+    "nodeStatus": {
+      "Online": "online",
+      "Busy": "busy",
+      "Degraded": "degraded",
+      "Offline": "offline"
+    },
+    "deploymentStatus": {
+      "Pending": "pending",
+      "AwaitingApproval": "awaiting approval",
+      "Running": "running",
+      "Succeeded": "succeeded",
+      "Failed": "failed",
+      "RolledBack": "rolled back",
+      "Cancelled": "cancelled"
+    },
+    "planStatus": {
+      "Proposed": "proposed",
+      "Approved": "approved",
+      "Rejected": "rejected",
+      "Superseded": "superseded",
+      "Running": "running",
+      "Completed": "completed",
+      "Failed": "failed",
+      "Cancelled": "cancelled"
+    },
+    "runStatus": {
+      "Running": "running",
+      "Paused": "paused",
+      "Completed": "completed",
+      "Failed": "failed",
+      "Cancelled": "cancelled",
+      "Interrupted": "interrupted"
+    },
+    "budgetScope": {
+      "global": "global",
+      "project": "project",
+      "task": "task",
+      "provider": "provider",
+      "agent": "agent"
+    }
+  }
+}

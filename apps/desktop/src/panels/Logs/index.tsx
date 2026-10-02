@@ -6,6 +6,7 @@ import { ArrowDownToLine, Pause, Play, ScrollText, Search, Trash2 } from "lucide
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { maybeClient } from "../../core/client";
+import { useT } from "../../i18n";
 import { useAppStore } from "../../store/app";
 import type { PanelProps } from "../types";
 import { type EventCategory, categoryOf, describeEvent, formatTime, severityOf } from "./describe";
@@ -15,12 +16,7 @@ const HISTORY = 200;
 
 type Filter = "all" | "project" | "logs" | "problems";
 
-const FILTERS: { id: Filter; label: string }[] = [
-  { id: "all", label: "All" },
-  { id: "project", label: "This project" },
-  { id: "logs", label: "Core logs" },
-  { id: "problems", label: "Problems" },
-];
+const FILTERS: Filter[] = ["all", "project", "logs", "problems"];
 
 const CATEGORY_TONE: Record<EventCategory, "accent" | "violet" | "success" | "warning" | "danger" | "info" | "neutral"> = {
   project: "accent",
@@ -36,6 +32,7 @@ const CATEGORY_TONE: Record<EventCategory, "accent" | "violet" | "success" | "wa
 
 /** Live event stream from the core (all topics), with history, filters and pause. */
 export default function LogsPanel({ projectId }: PanelProps) {
+  const { t, i18n } = useT("logs");
   const connectionState = useAppStore((s) => s.connection.state);
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
@@ -111,7 +108,8 @@ export default function LogsPanel({ projectId }: PanelProps) {
       if (!q) return true;
       return ev.kind.toLowerCase().includes(q) || describeEvent(ev).toLowerCase().includes(q);
     });
-  }, [events, filter, query, projectId]);
+    // describeEvent() output depends on the UI language.
+  }, [events, filter, query, projectId, i18n.language]);
 
   // Auto-scroll to the newest entry while following.
   useEffect(() => {
@@ -129,32 +127,32 @@ export default function LogsPanel({ projectId }: PanelProps) {
   return (
     <div className="logs-panel">
       <div className="logs-toolbar">
-        <Tabs aria-label="Event filter" items={FILTERS} value={filter} onChange={setFilter} />
+        <Tabs aria-label={t("filter.label")} items={FILTERS.map((id) => ({ id, label: t(`filter.${id}`) }))} value={filter} onChange={setFilter} />
         <Input
           className="logs-search"
-          placeholder="Filter events…"
+          placeholder={t("search.placeholder")}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           leftIcon={<Search size={14} />}
-          aria-label="Filter events"
+          aria-label={t("search.label")}
         />
         <div className="logs-toolbar__spacer" />
-        <Badge tone={paused ? "warning" : "success"}>{paused ? `Paused · ${queued} queued` : "Live"}</Badge>
+        <Badge tone={paused ? "warning" : "success"}>{paused ? t("paused", { queued }) : t("live")}</Badge>
         <IconButton
-          label={paused ? "Resume stream" : "Pause stream"}
+          label={paused ? t("resume") : t("pause")}
           icon={paused ? <Play size={15} /> : <Pause size={15} />}
           onClick={() => setPaused((p) => !p)}
           tooltip="bottom"
         />
         <IconButton
-          label="Jump to latest"
+          label={t("jumpToLatest")}
           icon={<ArrowDownToLine size={15} />}
           active={follow}
           onClick={() => setFollow(true)}
           tooltip="bottom"
         />
         <IconButton
-          label="Clear view"
+          label={t("clear")}
           icon={<Trash2 size={15} />}
           onClick={() => {
             setEvents([]);
@@ -168,17 +166,13 @@ export default function LogsPanel({ projectId }: PanelProps) {
       <div className="logs-list" ref={listRef} onScroll={onScroll} role="log" aria-live="polite" aria-relevant="additions">
         {loading && events.length === 0 ? (
           <div className="logs-loading">
-            <Spinner size={18} /> Loading event history…
+            <Spinner size={18} /> {t("loading")}
           </div>
         ) : visible.length === 0 ? (
           <EmptyState
             icon={<ScrollText size={26} strokeWidth={1.6} />}
-            title={events.length === 0 ? "No events yet" : "No matching events"}
-            description={
-              events.length === 0
-                ? "Everything the core does — projects, tasks, agents, tools, builds — streams here live. Create a project to see the first events."
-                : "Try another filter or search term."
-            }
+            title={events.length === 0 ? t("empty.title") : t("empty.noMatchTitle")}
+            description={events.length === 0 ? t("empty.description") : t("empty.noMatchDescription")}
           />
         ) : (
           visible.map((ev) => {
@@ -189,7 +183,7 @@ export default function LogsPanel({ projectId }: PanelProps) {
               <div key={ev.id} className={clsx("logs-row", `logs-row--${sev}`, open && "logs-row--open")}>
                 <button type="button" className="logs-row__main" onClick={() => setExpanded(open ? null : ev.id)} aria-expanded={open}>
                   <span className="logs-row__time">{formatTime(ev.ts)}</span>
-                  <span className="logs-row__seq">{ev.seq > 0 ? `#${ev.seq}` : "local"}</span>
+                  <span className="logs-row__seq">{ev.seq > 0 ? t("seq", { seq: ev.seq }) : t("local")}</span>
                   <Badge tone={sev === "error" ? "danger" : sev === "warning" ? "warning" : CATEGORY_TONE[cat]} className="logs-row__kind">
                     {ev.kind}
                   </Badge>

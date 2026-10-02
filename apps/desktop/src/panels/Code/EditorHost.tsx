@@ -6,6 +6,7 @@ import type * as Monaco from "monaco-editor";
 import { useEffect, useRef } from "react";
 
 import { toRanges } from "../../features/files/lineDiff";
+import { t, useLanguage } from "../../i18n";
 import { useEditorStore } from "../../store/editor";
 import type { Doc } from "./documents";
 import { MONACO_THEME, tokenHex } from "./theme";
@@ -54,7 +55,7 @@ function registerCommands(monaco: MonacoApi, editor: Monaco.editor.IStandaloneCo
   editor.addCommand(KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyF, () => cb.current.onSearch());
   editor.addAction({
     id: "orkestr.askManager",
-    label: "Ask Manager about selection",
+    label: t("code:editor.askManager"),
     contextMenuGroupId: "navigation",
     contextMenuOrder: 0,
     precondition: "editorHasSelection",
@@ -86,6 +87,7 @@ export function CodeEditor({
   const cb = useRef(callbacks);
   cb.current = callbacks;
   const reveal = useEditorStore((s) => s.reveal);
+  const lng = useLanguage();
 
   useEffect(() => {
     if (!el.current) return;
@@ -146,13 +148,14 @@ export function CodeEditor({
           isWholeLine: true,
           className: "code-agent-line",
           linesDecorationsClassName: "code-agent-gutter",
-          linesDecorationsTooltip: "Changed by an agent",
+          linesDecorationsTooltip: t("code:editor.agentChanged"),
           overviewRuler: { color: violet, position: monaco.editor.OverviewRulerLane.Left },
           minimap: { color: violet, position: monaco.editor.MinimapPosition.Gutter },
         },
       })),
     );
-  }, [agentLines, doc, monaco]);
+    // `lng`: the gutter tooltip follows a live language switch.
+  }, [agentLines, doc, monaco, lng]);
 
   return <div className="code-editor" ref={el} />;
 }

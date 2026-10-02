@@ -88,6 +88,10 @@ async fn update(ctx: RpcContext, p: UpdateSettingsParams) -> Result<SettingsResu
         set_autostart(services, next.autostart).await?;
     }
     services.settings.save(next.clone(), &changed).await.map_err(storage_to_rpc)?;
+    if changed.contains(&"language") {
+        // `system` keeps the last language the UI reported (it resolves the OS language).
+        services.ui_language.set(&next.language);
+    }
     if !changed.is_empty() {
         tracing::info!(changed = ?changed, "settings updated");
         let payload = SettingsChangedPayload {

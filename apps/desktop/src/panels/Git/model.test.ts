@@ -1,7 +1,8 @@
 import type { RepoStatus, RollbackPlan, StatusEntry, WorkspaceSnapshot } from "@orkestr/protocol";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { commands } from "../../features/commands/registry";
+import { applyLanguagePreference } from "../../i18n";
 import { getPanel } from "../registry";
 import {
   branchNameError,
@@ -80,14 +81,15 @@ describe("helpers", () => {
   });
 
   it("formats bytes and times", () => {
-    expect(formatBytes(512)).toBe("512 B");
-    expect(formatBytes(1536)).toBe("1.5 KB");
-    expect(formatBytes(50 * 1024 * 1024)).toBe("50 MB");
+    // Units are separated by a non-breaking space.
+    expect(formatBytes(512)).toBe("512 B");
+    expect(formatBytes(1536)).toBe("1.5 KB");
+    expect(formatBytes(50 * 1024 * 1024)).toBe("50 MB");
     const now = Date.parse("2026-10-02T12:00:00Z");
     expect(relativeTime("2026-10-02T11:59:50Z", now)).toBe("just now");
-    expect(relativeTime("2026-10-02T11:30:00Z", now)).toBe("30 min ago");
-    expect(relativeTime("2026-10-02T09:00:00Z", now)).toBe("3 h ago");
-    expect(relativeTime("2026-09-30T12:00:00Z", now)).toBe("2 d ago");
+    expect(relativeTime("2026-10-02T11:30:00Z", now)).toBe("30 minutes ago");
+    expect(relativeTime("2026-10-02T09:00:00Z", now)).toBe("3 hours ago");
+    expect(relativeTime("2026-09-30T12:00:00Z", now)).toBe("2 days ago");
   });
 
   it("validates branch names like git", () => {
@@ -121,6 +123,43 @@ describe("helpers", () => {
     expect(summarizePlan(plan)).toEqual({ restore: 2, recreate: 1, delete: 0, keep: 1 });
     expect(reasonLabel({ reason: "TaskCheckpoint", taskPhase: "After" } as WorkspaceSnapshot)).toBe("Task · after");
     expect(reasonLabel({ reason: "PreRollback" } as WorkspaceSnapshot)).toBe("Pre-rollback");
+  });
+});
+
+describe("Russian", () => {
+  afterEach(async () => {
+    await applyLanguagePreference("en");
+  });
+
+  it("formats, pluralizes and labels in Russian", async () => {
+    await applyLanguagePreference("ru");
+    expect(formatBytes(1536)).toBe("1,5 КБ");
+    const now = Date.parse("2026-10-02T12:00:00Z");
+    expect(relativeTime("2026-10-02T11:30:00Z", now)).toBe("30 минут назад");
+    expect(relativeTime("2026-10-02T09:00:00Z", now)).toBe("3 часа назад");
+    const st = (entries: StatusEntry[]) => ({ entries }) as RepoStatus;
+    expect(statusSummary(st([entry("a.ts", "Added", "Unmodified"), entry("n.ts", "Untracked", "Untracked")]))).toBe(
+      "1 к коммиту · 1 неотслеживаемый",
+    );
+    expect(
+      statusSummary(
+        st([
+          entry("a", "Unmodified", "Modified"),
+          entry("b", "Unmodified", "Modified"),
+          entry("c", "Unmodified", "Untracked"),
+          entry("d", "Unmodified", "Untracked"),
+          entry("e", "Unmodified", "Untracked"),
+          entry("f", "Unmodified", "Untracked"),
+          entry("g", "Unmodified", "Untracked"),
+        ]),
+      ),
+    ).toBe("2 изменённых · 5 неотслеживаемых");
+    expect(statusSummary(st([]))).toBe("Изменений нет");
+    expect(statusBadge("Deleted").label).toBe("Удалён");
+    expect(reasonLabel({ reason: "PreRollback" } as WorkspaceSnapshot)).toBe("Перед откатом");
+    expect(branchNameError("")).toBe("Введите имя ветки.");
+    expect(commands.find((c) => c.id === "snapshots.create")?.title).toBe("Сделать снимок");
+    expect(commands.find((c) => c.id === "snapshots.rollbackWorkspace")?.title).toBe("Откатить рабочую область…");
   });
 });
 

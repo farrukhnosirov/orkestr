@@ -9,6 +9,7 @@ import { History } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { getClient } from "../../core/client";
+import { useT } from "../../i18n";
 import { type DiffContent, DiffPane, Notice } from "./components";
 import { relativeTime, statusBadge } from "./model";
 import { errorMessage } from "./state";
@@ -22,6 +23,7 @@ interface Props {
 }
 
 export function HistoryTab({ projectId, worktree, refresh }: Props) {
+  const { t } = useT("git");
   const base = worktree ? { projectId, worktree } : { projectId };
   const [commits, setCommits] = useState<CommitInfo[]>([]);
   const [hasMore, setHasMore] = useState(false);
@@ -95,7 +97,7 @@ export function HistoryTab({ projectId, worktree, refresh }: Props) {
           modified: m?.content ?? "",
           binary: file.binary || (o?.binary ?? false) || (m?.binary ?? false),
           truncated: (o?.truncated ?? false) || (m?.truncated ?? false),
-          originalLabel: parent ? parent.slice(0, 8) : "(root)",
+          originalLabel: parent ? parent.slice(0, 8) : t("history.root"),
           modifiedLabel: selected.shortId,
         });
       })
@@ -113,12 +115,12 @@ export function HistoryTab({ projectId, worktree, refresh }: Props) {
         {error && <Notice tone="danger">{error}</Notice>}
         {loading && commits.length === 0 ? (
           <div className="git-center">
-            <Spinner size={18} /> Loading history…
+            <Spinner size={18} /> {t("history.loading")}
           </div>
         ) : commits.length === 0 && !error ? (
-          <EmptyState icon={<History size={24} strokeWidth={1.6} />} title="No commits yet" description="Commit your first changes from the Changes tab." />
+          <EmptyState icon={<History size={24} strokeWidth={1.6} />} title={t("history.empty.title")} description={t("history.empty.description")} />
         ) : (
-          <ul className="git-list" aria-label="Commits">
+          <ul className="git-list" aria-label={t("history.commits")}>
             {commits.map((c) => (
               <li key={c.id}>
                 <button
@@ -127,10 +129,10 @@ export function HistoryTab({ projectId, worktree, refresh }: Props) {
                   onClick={() => setSelected(c)}
                   aria-pressed={selected?.id === c.id}
                 >
-                  <span className="git-commit-row__subject">{c.subject || "(no message)"}</span>
+                  <span className="git-commit-row__subject">{c.subject || t("history.noMessage")}</span>
                   <span className="git-commit-row__meta">
                     <code>{c.shortId}</code> · {c.authorName} · {relativeTime(c.authorDate)}
-                    {c.parents.length > 1 && <Badge tone="violet">merge</Badge>}
+                    {c.parents.length > 1 && <Badge tone="violet">{t("history.merge")}</Badge>}
                     {c.refs.slice(0, 2).map((r) => (
                       <Badge key={r} tone="accent">
                         {r.replace("HEAD -> ", "")}
@@ -143,7 +145,7 @@ export function HistoryTab({ projectId, worktree, refresh }: Props) {
                     {c.body && <pre className="git-commit-body">{c.body}</pre>}
                     {filesLoading ? (
                       <div className="git-center git-small">
-                        <Spinner size={14} /> Loading files…
+                        <Spinner size={14} /> {t("history.loadingFiles")}
                       </div>
                     ) : (
                       files?.files.map((f) => {
@@ -160,7 +162,7 @@ export function HistoryTab({ projectId, worktree, refresh }: Props) {
                             </span>
                             <span className="git-row__name">{f.oldPath ? `${f.oldPath} → ${f.path}` : f.path}</span>
                             <span className="git-stat">
-                              {f.binary ? "bin" : (
+                              {f.binary ? t("history.binary") : (
                                 <>
                                   <span className="git-add">+{f.additions}</span> <span className="git-del">−{f.deletions}</span>
                                 </>
@@ -179,12 +181,12 @@ export function HistoryTab({ projectId, worktree, refresh }: Props) {
         {hasMore && (
           <div className="git-more">
             <Button size="sm" variant="ghost" onClick={() => void load(commits.length)} loading={loading}>
-              Load more
+              {t("history.loadMore")}
             </Button>
           </div>
         )}
       </div>
-      <DiffPane content={diff} loading={diffLoading} error={diffError} emptyText="Pick a commit, then a file, to see what changed." />
+      <DiffPane content={diff} loading={diffLoading} error={diffError} emptyText={t("history.emptyDiff")} />
     </div>
   );
 }

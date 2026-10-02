@@ -1,0 +1,173 @@
+{
+  "loadingSettings": "Loading settings…",
+  "unavailable": {
+    "title": "Settings unavailable",
+    "noData": "The core did not return settings."
+  },
+  "general": {
+    "profile": "Profile",
+    "displayName": "Display name",
+    "displayNameDesc": "Shown in the Manager chat and on approvals. Stored locally.",
+    "displayNamePlaceholder": "Your name",
+    "background": "Background",
+    "closeToTray": "Keep running in the tray when closed",
+    "closeToTrayDesc": "Closing the window hides Orkestr to the system tray so agents keep working. Quit from the tray menu.",
+    "closeToTrayLabel": "Close to tray",
+    "autostart": "Start with your computer",
+    "autostartDesc": "Starts Orkestr hidden in the tray when you sign in. Off by default.",
+    "autostartUnsupported": "Autostart is not supported on this operating system.",
+    "autostartLabel": "Start at login",
+    "appearance": "Appearance & performance",
+    "theme": "Theme",
+    "performanceMode": "Performance mode",
+    "performanceModeDesc": "Trades visual effects for headroom for agents.",
+    "performance": {
+      "UltraVisual": {
+        "label": "Ultra",
+        "title": "All effects on"
+      },
+      "Balanced": {
+        "label": "Balanced",
+        "title": "Default"
+      },
+      "Performance": {
+        "label": "Performance",
+        "title": "Minimal effects, more room for agents"
+      },
+      "BatterySaver": {
+        "label": "Battery",
+        "title": "Lowest power"
+      }
+    },
+    "notifications": "Notifications",
+    "dnd": "Do not disturb",
+    "dndDesc": "No pop-up toasts. Notifications are still collected in the bell.",
+    "data": "Data & privacy",
+    "retention": "Event history retention",
+    "retentionDesc": "Older events are pruned automatically. Approvals, decisions, emergency stops and rollbacks are always kept.",
+    "retentionLabel": "Event retention",
+    "retentionYear": "1 year",
+    "retentionForever": "Forever",
+    "telemetry": "Usage telemetry",
+    "telemetryDesc": "Orkestr collects no telemetry in this build. Everything stays on this machine.",
+    "telemetryLabel": "Telemetry",
+    "setup": "Setup",
+    "wizard": "Setup wizard",
+    "wizardDesc": "Walk through profile, storage, providers, permissions and system checks again.",
+    "runWizard": "Run setup again"
+  },
+  "system": {
+    "liveResources": "Live resources",
+    "sampling": "Sampling resources…",
+    "cpu": "CPU",
+    "memory": "Memory",
+    "dataDisk": "Data disk",
+    "free": "{{size}} free",
+    "usedOfTotal": "{{used}} / {{total}}",
+    "perCore": "Per-core CPU usage",
+    "coreLoad": "CPU core {{index}}: {{percent}}",
+    "coreProcess_one": "Orkestr core: {{cores}} CPU core · {{memory}}",
+    "coreProcess_other": "Orkestr core: {{cores}} CPU cores · {{memory}}",
+    "busiest": "Busiest processes",
+    "process": "Process",
+    "thisMachine": "This machine",
+    "redetect": "Re-detect",
+    "inspectFailed": "Could not inspect this machine",
+    "detecting": "Detecting hardware, runtimes and local models… (the first run can take a few seconds)",
+    "host": "{{host}} · {{arch}}",
+    "hostKernel": "{{host}} · {{arch}} · kernel {{kernel}}",
+    "cpuCores": "Cores: {{cores}} · threads: {{threads}}",
+    "frequency": "{{value}} GHz",
+    "ram": "{{size}} RAM",
+    "swap": "{{size}} swap",
+    "graphics": "Graphics",
+    "noGpu": "No GPU detected.",
+    "vramUnknown": "VRAM unknown",
+    "driver": "driver {{version}}",
+    "disks": "Disks",
+    "orkestrData": "Orkestr data",
+    "diskFree": "{{free}} free of {{total}}",
+    "runtimes": "Developer runtimes",
+    "runtime": "Runtime",
+    "version": "Version",
+    "location": "Location",
+    "found": "found",
+    "missing": "missing",
+    "notFound": "not found",
+    "localModels": "Local models",
+    "ollamaEmpty": "Ollama is running at {{endpoint}} but has no models pulled.",
+    "ollamaUnreachable": "Ollama is not reachable at {{endpoint}}. Install and start Ollama to use local models.",
+    "detectedAt": "Detected {{date}} in {{duration}}.",
+    "checks": "Environment checks",
+    "runAgain": "Run again",
+    "checking": "Checking Git, shells, data directory, web view and keyring…"
+  },
+  "checkStatus": {
+    "ok": "Ready",
+    "warning": "Warning",
+    "error": "Action needed",
+    "skipped": "Skipped"
+  },
+  "about": {
+    "tagline": "AI Development OS · local-first, your keys, your machine",
+    "recovered": "Recovered from an unclean shutdown",
+    "coreVersion": "Core version",
+    "protocolVersion": "Protocol version",
+    "coreMode": "Core mode",
+    "modes": {
+      "embedded": "Embedded in the desktop app",
+      "external": "orkestrd daemon",
+      "browser": "Browser"
+    },
+    "uptime": "Uptime",
+    "nodeId": "Node ID",
+    "dataDir": "Data directory",
+    "pid": "Process ID",
+    "shells": "Shells",
+    "openLogs": "Open logs",
+    "license": "Licensed MIT OR Apache-2.0. No telemetry is collected; nothing leaves this machine unless you configure a provider."
+  },
+  "checks": {
+    "title": {
+      "git": "Git",
+      "shell": "Terminal shell",
+      "dataDir": "Data directory",
+      "webview": "Web view runtime",
+      "keyring": "Secure credential store"
+    },
+    "store": {
+      "windows": "Windows Credential Manager",
+      "macos": "macOS Keychain",
+      "linux": "Linux kernel keyring",
+      "other": "OS keyring"
+    },
+    "detail": {
+      "panicked": "check panicked",
+      "gitMissing": "git was not found on PATH",
+      "gitFound": "git {{version}} at {{path}}",
+      "gitFailed": "`git --version` failed: {{error}}",
+      "gitNoAnswer": "git did not answer: {{error}}",
+      "noShell": "no supported shell was found",
+      "defaultShell": "default",
+      "notWritable": "{{dir}} is not writable: {{error}}",
+      "free": "{{dir}} — {{free}} free",
+      "noWebview": "no web view runtime detected",
+      "systemWebview": "system",
+      "storeOk": "{{store}} is available",
+      "storeUnsupported": "{{store}} is not supported",
+      "storeFailed": "{{store}} failed: {{error}}"
+    },
+    "hint": {
+      "gitWindows": "Install Git for Windows (https://git-scm.com/download/win) or `winget install Git.Git`, then restart Orkestr.",
+      "gitMac": "Run `xcode-select --install` or `brew install git`, then restart Orkestr.",
+      "gitLinux": "Install git with your package manager (e.g. `sudo apt install git`), then restart Orkestr.",
+      "shell": "Install PowerShell 7 (`winget install Microsoft.PowerShell`) or make sure cmd/bash is available.",
+      "dataDirWritable": "Check folder permissions or set ORKESTR_HOME to a writable folder.",
+      "dataDirSpace": "Free up disk space: snapshots and worktrees need room.",
+      "webviewWindows": "Install the Microsoft Edge WebView2 Runtime (https://go.microsoft.com/fwlink/p/?LinkId=2124703).",
+      "webviewLinux": "Install WebKitGTK 4.1 (`libwebkit2gtk-4.1-0`) for the desktop app.",
+      "webviewHeadless": "Not required for a headless core.",
+      "keyringFailed": "API keys cannot be stored securely until the credential store works; an encrypted file vault is used as fallback."
+    }
+  }
+}

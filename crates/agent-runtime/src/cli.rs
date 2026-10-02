@@ -135,7 +135,14 @@ pub(crate) async fn run_cli(run: &mut Run) -> Outcome {
          {\"status\": \"done|partial|blocked|failed\", \"summary\": \"…\", \"files_changed\": [], \"tests_run\": \
          [{\"command\": \"…\", \"passed\": true}], \"open_issues\": []}.\n",
     );
-    let system = crate::prompt::system_prompt(&run.template, &run.project, &run.task, &run.agent, &run.tools);
+    let system = crate::prompt::system_prompt(
+        &run.template,
+        &run.project,
+        &run.task,
+        &run.agent,
+        &run.tools,
+        &run.deps.config.ui_language.get(),
+    );
     run.agent.execution_style = Some("cli".into());
     let req = CodingAgentRequest {
         prompt: prompt.clone(),

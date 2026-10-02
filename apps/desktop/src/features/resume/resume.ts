@@ -1,34 +1,13 @@
 /**
  * Session Resume (§57) presentation logic: turns `system.resumeSummary`
- * counts into readable lines. Generic — unknown kinds get a readable label
- * derived from the kind name, so new engines need no changes here.
+ * counts into readable, localized lines. Generic — unknown kinds get a
+ * readable label derived from the kind name, so new engines need no changes
+ * here (add a `resume:kinds.<Kind>` plural set to give them a proper label).
  */
 import type { EventKindCount, ResumeSummary } from "@orkestr/protocol";
+import i18n from "i18next";
 
-const LABELS: Record<string, [string, string]> = {
-  ProjectCreated: ["project created", "projects created"],
-  ProjectUpdated: ["project update", "project updates"],
-  TaskCreated: ["task created", "tasks created"],
-  TaskUpdated: ["task update", "task updates"],
-  TaskStatusChanged: ["task status change", "task status changes"],
-  AgentSpawned: ["agent spawned", "agents spawned"],
-  AgentStopped: ["agent stopped", "agents stopped"],
-  ToolCallFinished: ["tool call", "tool calls"],
-  FileChanged: ["file change", "file changes"],
-  BuildFailed: ["failed build", "failed builds"],
-  BuildSucceeded: ["successful build", "successful builds"],
-  TestRunFinished: ["test run", "test runs"],
-  ReviewFinished: ["review", "reviews"],
-  ApprovalRequested: ["approval request", "approval requests"],
-  ApprovalResolved: ["approval resolved", "approvals resolved"],
-  SnapshotCreated: ["snapshot", "snapshots"],
-  RollbackPerformed: ["rollback", "rollbacks"],
-  DecisionRecorded: ["decision recorded", "decisions recorded"],
-  MemoryUpdated: ["memory update", "memory updates"],
-  Notification: ["notification", "notifications"],
-  EmergencyStop: ["emergency stop", "emergency stops"],
-  BudgetThreshold: ["budget alert", "budget alerts"],
-};
+import { t } from "../../i18n";
 
 /** "BuildSucceeded" → "build succeeded". */
 export function humanizeKind(kind: string): string {
@@ -39,25 +18,31 @@ export function humanizeKind(kind: string): string {
 }
 
 export function describeCount(c: EventKindCount): string {
-  const label = LABELS[c.kind];
-  if (label) return `${c.count} ${c.count === 1 ? label[0] : label[1]}`;
-  return `${c.count} × ${humanizeKind(c.kind)}`;
+  // Plural keys exist as `<Kind>_one` / `_other` (+ `_few` / `_many` in Russian).
+  if (i18n.exists(`resume:kinds.${c.kind}_other`)) {
+    return t(`resume:kinds.${c.kind}` as "resume:kinds.Notification", { count: c.count });
+  }
+  return t("resume:other", { count: c.count, kind: humanizeKind(c.kind) });
 }
 
 /** Up to `max` lines, most frequent first; the rest folded into "+N more". */
 export function summaryLines(summary: ResumeSummary, max = 6): string[] {
   const lines = summary.counts.slice(0, max).map(describeCount);
   const rest = summary.counts.slice(max).reduce((n, c) => n + c.count, 0);
-  if (rest > 0) lines.push(`+${rest} more event${rest === 1 ? "" : "s"}`);
+  if (rest > 0) lines.push(t("resume:more", { count: rest }));
   return lines;
 }
 
 /** Headline for the card. */
 export function headline(summary: ResumeSummary, projectName: string | null): string {
-  const where = projectName ? ` in ${projectName}` : "";
+  const project = projectName ?? undefined;
   if (summary.totalEvents === 0) {
-    return summary.since ? `All quiet${where} since your last session` : `Welcome${where}`;
+    if (summary.since) return project ? t("resume:headline.quietIn", { project }) : t("resume:headline.quiet");
+    return project ? t("resume:headline.welcomeIn", { project }) : t("resume:headline.welcome");
   }
-  const n = summary.totalEvents;
-  return `${n} event${n === 1 ? "" : "s"}${where} since ${summary.since ? "your last session" : "the beginning"}`;
+  const count = summary.totalEvents;
+  if (summary.since) {
+    return project ? t("resume:headline.sinceLastIn", { count, project }) : t("resume:headline.sinceLast", { count });
+  }
+  return project ? t("resume:headline.sinceStartIn", { count, project }) : t("resume:headline.sinceStart", { count });
 }

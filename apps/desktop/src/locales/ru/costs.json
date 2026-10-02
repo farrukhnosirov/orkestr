@@ -1,0 +1,159 @@
+{
+  "notConnected": {
+    "title": "Нет подключения",
+    "description": "Ожидание ядра Orkestr…"
+  },
+  "scope": {
+    "label": "Охват расходов",
+    "project": "Этот проект",
+    "all": "Все проекты"
+  },
+  "estimates": {
+    "badge": "С учётом оценок",
+    "tooltip": "Расход по подпискам и через CLI рассчитывается по прайс-листам провайдеров"
+  },
+  "dimension": {
+    "label": "Разбивка по",
+    "Provider": "Провайдер",
+    "Model": "Модель",
+    "Agent": "Агент",
+    "Project": "Проект",
+    "Task": "Задача"
+  },
+  "window": {
+    "label": "Период",
+    "Today": "Сегодня",
+    "Month": "Месяц",
+    "Last30Days": "30 дней",
+    "All": "Всё время"
+  },
+  "kpi": {
+    "label": "Ключевые показатели",
+    "today": "Сегодня",
+    "todaySub_one": "оценка — {{estimated}} · {{count, number}} вызов",
+    "todaySub_few": "оценка — {{estimated}} · {{count, number}} вызова",
+    "todaySub_many": "оценка — {{estimated}} · {{count, number}} вызовов",
+    "todaySub_other": "оценка — {{estimated}} · {{count, number}} вызова",
+    "month": "В этом месяце",
+    "monthSub": "токенов: {{tokens}} · оценка — {{estimated}}",
+    "budgetUsed": "Использовано бюджета",
+    "noBudget": "Нет бюджетов с лимитом",
+    "limitReached": "Лимит исчерпан",
+    "highestBudget": "По самому загруженному бюджету",
+    "allTime": "За всё время",
+    "allTimeSub_one": "{{count, number}} вызов · неудачных: {{failed}}",
+    "allTimeSub_few": "{{count, number}} вызова · неудачных: {{failed}}",
+    "allTimeSub_many": "{{count, number}} вызовов · неудачных: {{failed}}",
+    "allTimeSub_other": "{{count, number}} вызова · неудачных: {{failed}}"
+  },
+  "daily": {
+    "title": "Расходы по дням · последние 30 дней",
+    "empty": "За последние 30 дней модели не использовались. Расход появится здесь, когда агенты и Менеджер начнут обращаться к провайдерам."
+  },
+  "breakdown": {
+    "title": "Структура расходов",
+    "empty": "За этот период расходов нет.",
+    "unattributed": "Без привязки",
+    "cost": "Стоимость",
+    "estimated": "Оценка",
+    "input": "Вход",
+    "output": "Выход",
+    "calls": "Вызовы",
+    "latency": "Ср. задержка",
+    "failed": "(неудачных: {{count}})"
+  },
+  "budgets": {
+    "title": "Бюджеты и лимиты",
+    "new": "Добавить бюджет",
+    "empty": "Бюджетов пока нет. Например: проект — 100 $ в месяц, задача — не больше 5 $, локальные модели — без ограничений.",
+    "used": "Использовано бюджета",
+    "edit": "Изменить бюджет",
+    "delete": "Удалить бюджет",
+    "confirmDelete": "Удалить бюджет «{{name}}»?",
+    "unrestricted": "без ограничений",
+    "limit": {
+      "Daily": "{{amount}} в день",
+      "Monthly": "{{amount}} в месяц",
+      "Total": "{{amount}} за всё время",
+      "PerTask": "{{amount}} на задачу"
+    },
+    "spent": "потрачено {{amount}}",
+    "spentTopTask": "потрачено {{amount}} (самая дорогая задача)"
+  },
+  "level": {
+    "Ok": "В норме",
+    "Warn": "Предупреждение",
+    "Exceeded": "Превышен",
+    "Unrestricted": "Без ограничений",
+    "Disabled": "Отключён"
+  },
+  "period": {
+    "Monthly": "В месяц",
+    "Daily": "В день",
+    "PerTask": "На задачу",
+    "Total": "За всё время"
+  },
+  "scopeLabel": {
+    "Global": "Весь расход",
+    "Project": "Проект · {{name}}",
+    "ProjectId": "Проект · …{{id}}",
+    "Task": "Задача · …{{id}}",
+    "Provider": "Провайдер · …{{id}}",
+    "Agent": "Агент · …{{id}}"
+  },
+  "editor": {
+    "titleEdit": "Изменение бюджета",
+    "titleNew": "Новый бюджет",
+    "subtitle": "Уведомления приходят при 50 %, при достижении вашего порога предупреждения и при 100 %. Расход, попадающий под бюджет без ограничений, не учитывается в более общих лимитах.",
+    "scope": "Применяется к",
+    "scopeKind": {
+      "Global": "Весь расход (глобально)",
+      "Project": "Проект",
+      "Provider": "Провайдер (ID)",
+      "Agent": "Агент (ID)",
+      "Task": "Задача (ID)"
+    },
+    "project": "Проект",
+    "idLabel": {
+      "Project": "ID проекта",
+      "Provider": "ID провайдера",
+      "Agent": "ID агента",
+      "Task": "ID задачи"
+    },
+    "invalidId": {
+      "Project": "Введите корректный ID проекта.",
+      "Provider": "Введите корректный ID провайдера.",
+      "Agent": "Введите корректный ID агента.",
+      "Task": "Введите корректный ID задачи."
+    },
+    "idPlaceholder": "UUID",
+    "period": "Период",
+    "limit": "Лимит (USD)",
+    "unrestrictedPlaceholder": "Без ограничений",
+    "warnAt": "Предупреждать при (%)",
+    "name": "Название",
+    "namePlaceholder": "Необязательно, например «Зарплатный проект — месяц»",
+    "unrestricted": "Без ограничений (например, локальная Ollama или агент безопасности)",
+    "enabled": "Включён",
+    "limitRequired": "Укажите лимит в долларах США или отметьте бюджет как неограниченный.",
+    "warnRange": "Порог предупреждения должен быть от 1 до 99 %.",
+    "create": "Создать бюджет"
+  },
+  "chart": {
+    "reported": "Фактические",
+    "estimated": "Оценочные",
+    "readout_one": "{{day}} · {{cost}} (оценка — {{estimated}}) · {{count, number}} вызов",
+    "readout_few": "{{day}} · {{cost}} (оценка — {{estimated}}) · {{count, number}} вызова",
+    "readout_many": "{{day}} · {{cost}} (оценка — {{estimated}}) · {{count, number}} вызовов",
+    "readout_other": "{{day}} · {{cost}} (оценка — {{estimated}}) · {{count, number}} вызова",
+    "total_one": "{{count}} день · {{total}}",
+    "total_few": "{{count}} дня · {{total}}",
+    "total_many": "{{count}} дней · {{total}}",
+    "total_other": "{{count}} дня · {{total}}",
+    "aria_one": "Расходы по дням за последний {{count}} день, всего {{total}}",
+    "aria_few": "Расходы по дням за последние {{count}} дня, всего {{total}}",
+    "aria_many": "Расходы по дням за последние {{count}} дней, всего {{total}}",
+    "aria_other": "Расходы по дням за последние {{count}} дня, всего {{total}}",
+    "bar": "{{day}}: {{cost}}, из них оценочно {{estimated}}"
+  }
+}

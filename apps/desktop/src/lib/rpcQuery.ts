@@ -9,6 +9,8 @@ import type { Event, EventKindName } from "@orkestr/protocol";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { maybeClient } from "../core/client";
+import { describeError } from "../i18n/errors";
+import { t } from "../i18n";
 import { useAppStore } from "../store/app";
 
 export interface RpcQuery<T> {
@@ -27,11 +29,9 @@ export interface RpcQueryOptions {
   enabled?: boolean;
 }
 
-/** Human-readable message for any thrown value. */
+/** Human-readable, localized message for any thrown value (see `i18n/errors.ts`). */
 export function errorMessage(e: unknown): string {
-  if (e instanceof OrkestrError) return e.message;
-  if (e instanceof Error) return e.message;
-  return String(e);
+  return describeError(e);
 }
 
 /**
@@ -108,6 +108,6 @@ export function useRpcQuery<T>(
 /** The connected client, or an error suitable for UI display. */
 export function requireClient(): OrkestrClient {
   const c = maybeClient();
-  if (!c) throw new OrkestrError("disconnected", "Not connected to the Orkestr core.");
+  if (!c) throw new OrkestrError("disconnected", t("common:errors.notConnected"));
   return c;
 }

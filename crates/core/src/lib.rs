@@ -241,6 +241,8 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
         orkestr_node::DetectOptions::default(),
     ));
 
+    let ui_language = orkestr_agent_runtime::UiLanguage::default();
+    ui_language.set(&settings.get().language);
     let agents = orkestr_agent_runtime::AgentRuntime::new(orkestr_agent_runtime::RuntimeDeps {
         db: db.clone(),
         events: events.clone(),
@@ -253,7 +255,10 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
         memory: memory.clone(),
         cost: cost.clone(),
         models: Arc::new(orkestr_agent_runtime::RegistryGateway(Arc::clone(&providers))),
-        config: orkestr_agent_runtime::RuntimeConfig::default(),
+        config: orkestr_agent_runtime::RuntimeConfig {
+            ui_language: ui_language.clone(),
+            ..orkestr_agent_runtime::RuntimeConfig::default()
+        },
     });
     if let Err(e) = agents.init().await {
         tracing::error!(error = %e, "agent runtime failed to initialise");
@@ -274,6 +279,7 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
         resources: Arc::new(rpc::manager::NodeResourceProbe(Arc::clone(&nodes))),
         config: orkestr_orchestrator::ManagerTunables {
             state_root: paths.data_dir.clone(),
+            ui_language: ui_language.clone(),
             ..orkestr_orchestrator::ManagerTunables::default()
         },
     });
@@ -310,6 +316,7 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
         seq_high_water,
         agents,
         manager,
+        ui_language,
     });
     logging::attach_event_bus(services.events.clone());
 

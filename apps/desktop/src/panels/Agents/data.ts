@@ -3,7 +3,6 @@
  * events (`project:<id>` for the list, `agent:<id>` for the transcript).
  * No business data is stored outside these hooks.
  */
-import { OrkestrError } from "@orkestr/client";
 import type {
   AgentInstance,
   AgentStopMode,
@@ -16,12 +15,13 @@ import { topic } from "@orkestr/protocol";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { getClient, maybeClient } from "../../core/client";
+import { describeError } from "../../i18n/errors";
 import { useAppStore } from "../../store/app";
 import { EMPTY_TRANSCRIPT, applyAgentEvent, applyTranscriptEvent, mergeTranscript, type TranscriptState } from "./model";
 
+/** Localized message for a failed call (see `i18n/errors.ts`). */
 export function errorMessage(e: unknown): string {
-  if (e instanceof OrkestrError) return e.message;
-  return e instanceof Error ? e.message : String(e);
+  return describeError(e);
 }
 
 const AGENT_EVENTS = new Set(["AgentSpawned", "AgentUpdated", "AgentStateChanged", "AgentStopped"]);

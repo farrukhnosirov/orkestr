@@ -648,7 +648,14 @@ impl Run {
 
     #[allow(clippy::too_many_lines)]
     async fn chat_loop(&mut self) -> Outcome {
-        let system = crate::prompt::system_prompt(&self.template, &self.project, &self.task, &self.agent, &self.tools);
+        let system = crate::prompt::system_prompt(
+            &self.template,
+            &self.project,
+            &self.task,
+            &self.agent,
+            &self.tools,
+            &self.deps.config.ui_language.get(),
+        );
         let previous = self.store.latest_task_handoff(self.task.id).await.ok().flatten().map(|h| handoff::render(&h));
         let initial = crate::prompt::initial_message(
             &self.deps,

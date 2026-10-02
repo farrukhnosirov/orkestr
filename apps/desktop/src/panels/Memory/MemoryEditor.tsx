@@ -3,8 +3,9 @@ import { Button, Input } from "@orkestr/ui";
 import { BrainCircuit, X } from "lucide-react";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 
+import { useT } from "../../i18n";
 import { errorMessage, requireClient } from "../../lib/rpcQuery";
-import { KIND_INFO } from "./kinds";
+import { kindLabel } from "./kinds";
 import { Markdown } from "./markdown";
 
 export interface MemoryEditorProps {
@@ -18,6 +19,7 @@ export interface MemoryEditorProps {
 
 /** Create / edit dialog for a memory item (`memory.create` / `memory.update`). */
 export function MemoryEditor({ item, scope, kinds, onClose, onSaved }: MemoryEditorProps) {
+  const { t } = useT(["memory", "common"]);
   const [kind, setKind] = useState<MemoryKind>(item?.kind ?? kinds[0] ?? "Note");
   const [title, setTitle] = useState(item?.title ?? "");
   const [content, setContent] = useState(item?.content ?? "");
@@ -42,14 +44,14 @@ export function MemoryEditor({ item, scope, kinds, onClose, onSaved }: MemoryEdi
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (!title.trim()) {
-      setError("Give the memory a title.");
+      setError(t("editor.titleRequired"));
       return;
     }
     setBusy(true);
     setError(null);
     const tagList = tags
       .split(/[,\n]/)
-      .map((t) => t.trim())
+      .map((tag) => tag.trim())
       .filter(Boolean);
     try {
       const client = requireClient();
@@ -90,22 +92,22 @@ export function MemoryEditor({ item, scope, kinds, onClose, onSaved }: MemoryEdi
           </div>
           <div>
             <h2 id="mem-editor-title" className="dialog__title">
-              {item ? "Edit memory" : scope.scope === "Global" ? "New global memory" : "New project memory"}
+              {item ? t("editor.titleEdit") : scope.scope === "Global" ? t("editor.titleNewGlobal") : t("editor.titleNewProject")}
             </h2>
-            <p className="dialog__subtitle">Markdown is supported. Pinned items are always included in agent context.</p>
+            <p className="dialog__subtitle">{t("editor.subtitle")}</p>
           </div>
-          <button type="button" className="dialog__close" aria-label="Close" onClick={close}>
+          <button type="button" className="dialog__close" aria-label={t("common:actions.close")} onClick={close}>
             <X size={16} />
           </button>
         </header>
         <div className="dialog__body">
           <div className="mem-form-row">
             <label className="ok-field mem-field--kind">
-              <span className="ok-field__label">Kind</span>
+              <span className="ok-field__label">{t("editor.kind")}</span>
               <select className="mem-select" value={kind} onChange={(e) => setKind(e.target.value as MemoryKind)}>
                 {kindOptions.map((k) => (
                   <option key={k} value={k}>
-                    {KIND_INFO[k].label}
+                    {kindLabel(k)}
                   </option>
                 ))}
               </select>
@@ -113,8 +115,8 @@ export function MemoryEditor({ item, scope, kinds, onClose, onSaved }: MemoryEdi
             <Input
               ref={titleRef}
               className="mem-field--grow"
-              label="Title"
-              placeholder="e.g. Money is stored in integer cents"
+              label={t("editor.title")}
+              placeholder={t("editor.titlePlaceholder")}
               value={title}
               maxLength={200}
               onChange={(e) => setTitle(e.target.value)}
@@ -123,32 +125,32 @@ export function MemoryEditor({ item, scope, kinds, onClose, onSaved }: MemoryEdi
           <div className="ok-field">
             <div className="mem-field-head">
               <label className="ok-field__label" htmlFor="mem-content">
-                Content
+                {t("editor.content")}
               </label>
               <button type="button" className="mem-link" onClick={() => setPreview((p) => !p)} aria-pressed={preview}>
-                {preview ? "Edit" : "Preview"}
+                {preview ? t("editor.edit") : t("editor.preview")}
               </button>
             </div>
             {preview ? (
-              <div className="mem-preview">{content.trim() ? <Markdown source={content} /> : <span className="mem-muted">Nothing to preview.</span>}</div>
+              <div className="mem-preview">{content.trim() ? <Markdown source={content} /> : <span className="mem-muted">{t("editor.nothingToPreview")}</span>}</div>
             ) : (
               <textarea
                 id="mem-content"
                 className="mem-textarea"
                 rows={8}
                 value={content}
-                placeholder="Details, rationale, examples…"
+                placeholder={t("editor.contentPlaceholder")}
                 onChange={(e) => setContent(e.target.value)}
               />
             )}
           </div>
           <div className="mem-form-row">
-            <Input className="mem-field--grow" label="Tags" placeholder="money, rust" value={tags} onChange={(e) => setTags(e.target.value)} />
+            <Input className="mem-field--grow" label={t("editor.tags")} placeholder={t("editor.tagsPlaceholder")} value={tags} onChange={(e) => setTags(e.target.value)} />
             <Input
               className="mem-field--grow"
-              label="Rule key"
-              hint="Project items override global items with the same key."
-              placeholder="optional, e.g. indent"
+              label={t("editor.ruleKey")}
+              hint={t("editor.ruleKeyHint")}
+              placeholder={t("editor.ruleKeyPlaceholder")}
               value={key}
               maxLength={120}
               onChange={(e) => setKey(e.target.value)}
@@ -156,7 +158,7 @@ export function MemoryEditor({ item, scope, kinds, onClose, onSaved }: MemoryEdi
           </div>
           <label className="mem-check">
             <input type="checkbox" checked={pinned} onChange={(e) => setPinned(e.target.checked)} />
-            Pin (always include in agent context)
+            {t("editor.pin")}
           </label>
           {error && (
             <div className="ok-field__error" role="alert">
@@ -166,10 +168,10 @@ export function MemoryEditor({ item, scope, kinds, onClose, onSaved }: MemoryEdi
         </div>
         <footer className="dialog__footer">
           <Button variant="ghost" onClick={close} disabled={busy}>
-            Cancel
+            {t("common:actions.cancel")}
           </Button>
           <Button variant="primary" type="submit" loading={busy}>
-            {item ? "Save" : "Create"}
+            {item ? t("common:actions.save") : t("common:actions.create")}
           </Button>
         </footer>
       </form>

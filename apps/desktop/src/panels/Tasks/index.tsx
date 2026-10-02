@@ -10,6 +10,7 @@ import { clsx } from "clsx";
 import { Filter, FolderOpen, KanbanSquare, List, ListTodo, Network, Plus, RefreshCw, Search, TriangleAlert } from "lucide-react";
 import { useMemo, useState } from "react";
 
+import { useT } from "../../i18n";
 import type { PanelProps } from "../types";
 import { BoardView } from "./BoardView";
 import { CreateTaskDialog } from "./CreateTaskDialog";
@@ -21,17 +22,19 @@ import { PriorityChip, StatusBadge, Toasts } from "./parts";
 import { type TasksView, useTasksUi } from "./store";
 import { TaskDrawer } from "./TaskDrawer";
 
-const VIEWS: { id: TasksView; label: string; icon: JSX.Element }[] = [
-  { id: "list", label: "List", icon: <List size={14} /> },
-  { id: "board", label: "Board", icon: <KanbanSquare size={14} /> },
-  { id: "graph", label: "Graph", icon: <Network size={14} /> },
-];
+const VIEW_ICONS: Record<TasksView, JSX.Element> = {
+  list: <List size={14} />,
+  board: <KanbanSquare size={14} />,
+  graph: <Network size={14} />,
+};
+const VIEW_IDS: readonly TasksView[] = ["list", "board", "graph"];
 
 function toggle<T>(list: readonly T[], item: T): T[] {
   return list.includes(item) ? list.filter((x) => x !== item) : [...list, item];
 }
 
 export default function TasksPanel({ projectId }: PanelProps) {
+  const { t } = useT(["tasks", "common"]);
   const { tasks, graph, loading, error, reload } = useProjectTasks(projectId);
   const view = useTasksUi((s) => s.view);
   const setView = useTasksUi((s) => s.setView);
@@ -41,6 +44,7 @@ export default function TasksPanel({ projectId }: PanelProps) {
   const setFilter = useTasksUi((s) => s.setFilter);
   const resetFilter = useTasksUi((s) => s.resetFilter);
   const [showFilters, setShowFilters] = useState(false);
+  const views = VIEW_IDS.map((id) => ({ id, label: t(`views.${id}`), icon: VIEW_ICONS[id] }));
 
   const visible = useMemo(() => filterTasks(tasks, filter), [tasks, filter]);
   const readyIds = useMemo(() => new Set(graph?.ready ?? []), [graph]);
@@ -60,8 +64,8 @@ export default function TasksPanel({ projectId }: PanelProps) {
       <div className="tasks-panel tasks-panel--center">
         <EmptyState
           icon={<FolderOpen size={26} strokeWidth={1.6} />}
-          title="No project open"
-          description="Open or create a project to plan and track its tasks."
+          title={t("noProject.title")}
+          description={t("noProject.description")}
         />
       </div>
     );
@@ -74,18 +78,18 @@ export default function TasksPanel({ projectId }: PanelProps) {
   if (loading && tasks.length === 0) {
     content = (
       <div className="tasks-loading">
-        <Spinner size={18} /> Loading tasks…
+        <Spinner size={18} /> {t("loading")}
       </div>
     );
   } else if (error) {
     content = (
       <EmptyState
         icon={<TriangleAlert size={26} strokeWidth={1.6} />}
-        title="Could not load tasks"
+        title={t("loadFailed")}
         description={error}
         action={
           <Button leftIcon={<RefreshCw size={14} />} onClick={reload}>
-            Retry
+            {t("common:actions.retry")}
           </Button>
         }
       />
@@ -94,11 +98,11 @@ export default function TasksPanel({ projectId }: PanelProps) {
     content = (
       <EmptyState
         icon={<ListTodo size={26} strokeWidth={1.6} />}
-        title="No tasks yet"
-        description="Break the work into tasks with acceptance criteria and dependencies. The engine tracks every state change and unblocks dependents automatically."
+        title={t("empty.title")}
+        description={t("empty.description")}
         action={
           <Button variant="primary" leftIcon={<Plus size={14} />} onClick={() => setCreateOpen(true)}>
-            Create task
+            {t("create")}
           </Button>
         }
       />
@@ -107,9 +111,9 @@ export default function TasksPanel({ projectId }: PanelProps) {
     content = (
       <EmptyState
         icon={<Filter size={26} strokeWidth={1.6} />}
-        title="No matching tasks"
-        description="Adjust or clear the filters."
-        action={<Button onClick={resetFilter}>Clear filters</Button>}
+        title={t("noMatches.title")}
+        description={t("noMatches.description")}
+        action={<Button onClick={resetFilter}>{t("clearFilters")}</Button>}
       />
     );
   } else if (view === "board") {
@@ -119,7 +123,7 @@ export default function TasksPanel({ projectId }: PanelProps) {
       <GraphView graph={visibleGraph} />
     ) : (
       <div className="tasks-loading">
-        <Spinner size={18} /> Building graph…
+        <Spinner size={18} /> {t("buildingGraph")}
       </div>
     );
   } else {
@@ -130,19 +134,19 @@ export default function TasksPanel({ projectId }: PanelProps) {
     <div className="tasks-panel">
       <div className="tasks-toolbar">
         <Button size="sm" variant="primary" leftIcon={<Plus size={14} />} onClick={() => setCreateOpen(true)}>
-          New task
+          {t("new")}
         </Button>
-        <Tabs aria-label="Task view" items={VIEWS} value={view} onChange={setView} />
+        <Tabs aria-label={t("views.label")} items={views} value={view} onChange={setView} />
         <Input
           className="tasks-search"
-          placeholder="Search tasks…"
+          placeholder={t("search.placeholder")}
           value={filter.query}
           onChange={(e) => setFilter({ query: e.target.value })}
           leftIcon={<Search size={14} />}
-          aria-label="Search tasks"
+          aria-label={t("search.label")}
         />
         <IconButton
-          label={showFilters ? "Hide filters" : "Show filters"}
+          label={showFilters ? t("filters.hide") : t("filters.show")}
           icon={<Filter size={15} />}
           active={showFilters || isFilterActive(filter)}
           aria-expanded={showFilters}
@@ -150,19 +154,19 @@ export default function TasksPanel({ projectId }: PanelProps) {
           tooltip="bottom"
         />
         <div className="tasks-toolbar__spacer" />
-        <div className="tasks-toolbar__stats" aria-label="Task summary">
-          <Badge>{tasks.length} tasks</Badge>
-          {running > 0 && <Badge tone="info">{running} running</Badge>}
-          {readyIds.size > 0 && <Badge tone="accent">{readyIds.size} ready</Badge>}
-          {attention > 0 && <Badge tone="danger">{attention} need attention</Badge>}
+        <div className="tasks-toolbar__stats" aria-label={t("summary.label")}>
+          <Badge>{t("common:count.tasks", { count: tasks.length })}</Badge>
+          {running > 0 && <Badge tone="info">{t("summary.running", { count: running })}</Badge>}
+          {readyIds.size > 0 && <Badge tone="accent">{t("summary.ready", { count: readyIds.size })}</Badge>}
+          {attention > 0 && <Badge tone="danger">{t("summary.attention", { count: attention })}</Badge>}
         </div>
-        <IconButton label="Reload tasks" icon={<RefreshCw size={14} />} onClick={reload} tooltip="bottom" />
+        <IconButton label={t("reload")} icon={<RefreshCw size={14} />} onClick={reload} tooltip="bottom" />
       </div>
 
       {showFilters && (
-        <div className="tasks-filters" role="group" aria-label="Filters">
+        <div className="tasks-filters" role="group" aria-label={t("filters.label")}>
           <div className="tasks-filters__group">
-            <span className="tasks-filters__label">Status</span>
+            <span className="tasks-filters__label">{t("filters.status")}</span>
             {ALL_STATUSES.map((s) => (
               <button
                 key={s}
@@ -176,7 +180,7 @@ export default function TasksPanel({ projectId }: PanelProps) {
             ))}
           </div>
           <div className="tasks-filters__group">
-            <span className="tasks-filters__label">Priority</span>
+            <span className="tasks-filters__label">{t("filters.priority")}</span>
             {PRIORITIES.map((p) => (
               <button
                 key={p}
@@ -190,7 +194,7 @@ export default function TasksPanel({ projectId }: PanelProps) {
             ))}
             {isFilterActive(filter) && (
               <Button size="sm" variant="ghost" onClick={resetFilter}>
-                Clear
+                {t("clear")}
               </Button>
             )}
           </div>

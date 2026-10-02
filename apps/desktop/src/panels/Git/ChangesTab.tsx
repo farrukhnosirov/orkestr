@@ -8,6 +8,7 @@ import { CheckCheck, GitCommitHorizontal, Minus, Plus, Undo2 } from "lucide-reac
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { getClient } from "../../core/client";
+import { t as i18nT, useT } from "../../i18n";
 import { ConfirmDialog, type DiffContent, DiffPane, FileTree, Notice, SectionHeader } from "./components";
 import { type ChangeGroup, buildTree, entryStatus, groupStatus, leaves, statusBadge } from "./model";
 import { errorMessage, useGitUi } from "./state";
@@ -26,27 +27,28 @@ interface Selection {
   entry: StatusEntry;
 }
 
-const GROUPS: { id: ChangeGroup; title: string; tone: "danger" | "success" | "warning" | "info" }[] = [
-  { id: "conflicts", title: "Merge conflicts", tone: "danger" },
-  { id: "staged", title: "Staged", tone: "success" },
-  { id: "unstaged", title: "Changes", tone: "warning" },
-  { id: "untracked", title: "Untracked", tone: "info" },
+const GROUPS: { id: ChangeGroup; tone: "danger" | "success" | "warning" | "info" }[] = [
+  { id: "conflicts", tone: "danger" },
+  { id: "staged", tone: "success" },
+  { id: "unstaged", tone: "warning" },
+  { id: "untracked", tone: "info" },
 ];
 
 function sides(sel: Selection): [FileRevision | null, FileRevision, string, string] {
   switch (sel.group) {
     case "staged":
-      return [sel.entry.index === "Added" ? null : { kind: "Head" }, { kind: "Index" }, "HEAD", "Staged"];
+      return [sel.entry.index === "Added" ? null : { kind: "Head" }, { kind: "Index" }, "HEAD", i18nT("git:changes.sides.staged")];
     case "untracked":
-      return [null, { kind: "Worktree" }, "—", "Working tree"];
+      return [null, { kind: "Worktree" }, "—", i18nT("git:changes.sides.worktree")];
     case "conflicts":
-      return [{ kind: "Head" }, { kind: "Worktree" }, "HEAD", "Working tree (markers)"];
+      return [{ kind: "Head" }, { kind: "Worktree" }, "HEAD", i18nT("git:changes.sides.markers")];
     default:
-      return [{ kind: "Index" }, { kind: "Worktree" }, "Staged", "Working tree"];
+      return [{ kind: "Index" }, { kind: "Worktree" }, i18nT("git:changes.sides.staged"), i18nT("git:changes.sides.worktree")];
   }
 }
 
 export function ChangesTab({ projectId, worktree, status, onStatus, reload }: Props) {
+  const { t } = useT("git");
   const groups = useMemo(() => groupStatus(status.entries), [status]);
   const [open, setOpen] = useState<Record<ChangeGroup, boolean>>({ conflicts: true, staged: true, unstaged: true, untracked: true });
   const [selected, setSelected] = useState<Selection | null>(null);
@@ -139,7 +141,7 @@ export function ChangesTab({ projectId, worktree, status, onStatus, reload }: Pr
       const res = await getClient().call("vcs.discard", { ...base, paths, confirm: true });
       onStatus(res.status);
       setNotice(
-        `Discarded ${res.restored.length + res.deleted.length} file(s). A safety snapshot was taken — restore it from the Snapshots tab.`,
+        t("changes.discarded", { count: res.restored.length + res.deleted.length }),
       );
     });
     setDiscard(null);
@@ -149,7 +151,7 @@ export function ChangesTab({ projectId, worktree, status, onStatus, reload }: Pr
     run("commit", async () => {
       const res = await getClient().call("vcs.commit", { ...base, message });
       setMessage("");
-      setNotice(`Committed ${res.commit.shortId} — ${res.commit.subject}`);
+      setNotice(t("changes.committed", { id: res.commit.shortId, subject: res.commit.subject }));
       reload();
     });
 
@@ -163,14 +165,14 @@ export function ChangesTab({ projectId, worktree, status, onStatus, reload }: Pr
   const rowActions = (group: ChangeGroup, paths: string[]) => (
     <>
       {group === "staged" ? (
-        <IconButton size="sm" label="Unstage" icon={<Minus size={14} />} onClick={() => void unstage(paths)} disabled={busy !== null} />
+        <IconButton size="sm" label={t("changes.unstage")} icon={<Minus size={14} />} onClick={() => void unstage(paths)} disabled={busy !== null} />
       ) : group !== "conflicts" ? (
         <>
-          <IconButton size="sm" variant="danger" label="Discard changes…" icon={<Undo2 size={14} />} onClick={() => setDiscard(paths)} disabled={busy !== null} />
-          <IconButton size="sm" label="Stage" icon={<Plus size={14} />} onClick={() => void stage(paths)} disabled={busy !== null} />
+          <IconButton size="sm" variant="danger" label={t("changes.discard")} icon={<Undo2 size={14} />} onClick={() => setDiscard(paths)} disabled={busy !== null} />
+          <IconButton size="sm" label={t("changes.stage")} icon={<Plus size={14} />} onClick={() => void stage(paths)} disabled={busy !== null} />
         </>
       ) : (
-        <IconButton size="sm" label="Mark resolved (stage)" icon={<CheckCheck size={14} />} onClick={() => void stage(paths)} disabled={busy !== null} />
+        <IconButton size="sm" label={t("changes.resolve")} icon={<CheckCheck size={14} />} onClick={() => void stage(paths)} disabled={busy !== null} />
       )}
     </>
   );
@@ -185,11 +187,11 @@ export function ChangesTab({ projectId, worktree, status, onStatus, reload }: Pr
             tone="warning"
             action={
               <Button size="sm" variant="ghost" onClick={() => void abortMerge()} loading={busy === "abort"}>
-                Abort merge
+                {t("changes.abortMerge")}
               </Button>
             }
           >
-            A merge is in progress. Resolve conflicts and commit, or abort.
+            {t("changes.mergeInProgress")}
           </Notice>
         )}
         {error && <Notice tone="danger">{error}</Notice>}
@@ -199,10 +201,10 @@ export function ChangesTab({ projectId, worktree, status, onStatus, reload }: Pr
           <textarea
             ref={messageRef}
             className="git-commit__input"
-            placeholder={groups.staged.length ? "Commit message (Ctrl+Enter to commit)" : "Stage changes, then write a commit message"}
+            placeholder={groups.staged.length ? t("changes.messagePlaceholder") : t("changes.messagePlaceholderEmpty")}
             value={message}
             rows={3}
-            aria-label="Commit message"
+            aria-label={t("changes.message")}
             onChange={(e) => setMessage(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && canCommit) {
@@ -213,12 +215,12 @@ export function ChangesTab({ projectId, worktree, status, onStatus, reload }: Pr
           />
           <div className="git-commit__row">
             <span className="git-muted git-small">
-              {groups.staged.length} staged · author from git config
+              {t("changes.stagedInfo", { count: groups.staged.length })}
             </span>
             <div className="git-spacer" />
             {groups.unstaged.length + groups.untracked.length > 0 && (
               <Button size="sm" variant="ghost" leftIcon={<Plus size={14} />} onClick={() => void stage([], true)} disabled={busy !== null}>
-                Stage all
+                {t("changes.stageAll")}
               </Button>
             )}
             <Button
@@ -229,15 +231,15 @@ export function ChangesTab({ projectId, worktree, status, onStatus, reload }: Pr
               disabled={!canCommit}
               loading={busy === "commit"}
             >
-              Commit
+              {t("changes.commit")}
             </Button>
           </div>
         </div>
 
         {total === 0 ? (
           <div className="git-clean">
-            <Badge tone="success">Clean</Badge>
-            <span className="git-muted">Nothing to commit — the working tree matches HEAD.</span>
+            <Badge tone="success">{t("changes.clean")}</Badge>
+            <span className="git-muted">{t("changes.cleanText")}</span>
           </div>
         ) : (
           GROUPS.map((g) => {
@@ -246,16 +248,16 @@ export function ChangesTab({ projectId, worktree, status, onStatus, reload }: Pr
             const isOpen = open[g.id];
             const paths = items.map((e) => e.path);
             return (
-              <section key={g.id} className="git-group" aria-label={g.title}>
+              <section key={g.id} className="git-group" aria-label={t(`changes.groups.${g.id}`)}>
                 <SectionHeader
-                  title={g.title}
+                  title={t(`changes.groups.${g.id}`)}
                   count={items.length}
                   tone={g.tone}
                   open={isOpen}
                   onToggle={() => setOpen((o) => ({ ...o, [g.id]: !o[g.id] }))}
                   actions={
                     g.id === "staged" ? (
-                      <IconButton size="sm" label="Unstage all" icon={<Minus size={14} />} onClick={() => void unstage([], true)} disabled={busy !== null} />
+                      <IconButton size="sm" label={t("changes.unstageAll")} icon={<Minus size={14} />} onClick={() => void unstage([], true)} disabled={busy !== null} />
                     ) : (
                       rowActions(g.id, paths)
                     )
@@ -284,13 +286,13 @@ export function ChangesTab({ projectId, worktree, status, onStatus, reload }: Pr
         content={diff}
         loading={diffLoading}
         error={diffError}
-        emptyText="Select a changed file to compare it side by side."
+        emptyText={t("changes.emptyDiff")}
       />
       {discard && (
         <ConfirmDialog
-          title={`Discard changes in ${discard.length === 1 ? discard[0] : `${discard.length} files`}?`}
-          description="Unstaged edits are reverted and untracked files are deleted. Orkestr takes a safety snapshot first, so this can be undone from the Snapshots tab."
-          confirmLabel="Discard"
+          title={discard.length === 1 ? t("changes.discardTitle", { path: discard[0] }) : t("changes.discardTitleMany", { count: discard.length })}
+          description={t("changes.discardDescription")}
+          confirmLabel={t("changes.discardConfirm")}
           danger
           busy={busy === "discard"}
           error={error}

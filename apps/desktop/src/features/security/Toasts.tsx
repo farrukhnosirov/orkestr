@@ -1,6 +1,7 @@
 import { ShieldAlert, X } from "lucide-react";
 import { useEffect } from "react";
 
+import { useT } from "../../i18n";
 import { type Toast, useSecurityStore } from "./store";
 
 const TOAST_MS = 8000;
@@ -8,9 +9,10 @@ const TOAST_MS = 8000;
 function ToastItem({ toast }: { toast: Toast }) {
   const dismiss = useSecurityStore((s) => s.dismissToast);
   const openInbox = useSecurityStore((s) => s.setInboxOpen);
+  const { t } = useT("security");
   useEffect(() => {
-    const t = window.setTimeout(() => dismiss(toast.id), TOAST_MS);
-    return () => window.clearTimeout(t);
+    const timer = window.setTimeout(() => dismiss(toast.id), TOAST_MS);
+    return () => window.clearTimeout(timer);
   }, [toast.id, dismiss]);
   return (
     <div className={`sec-toast sec-toast--${toast.tone}`} role="status">
@@ -27,11 +29,11 @@ function ToastItem({ toast }: { toast: Toast }) {
               dismiss(toast.id);
             }}
           >
-            Review
+            {t("toast.review")}
           </button>
         )}
       </div>
-      <button type="button" className="sec-toast__close" aria-label="Dismiss notification" onClick={() => dismiss(toast.id)}>
+      <button type="button" className="sec-toast__close" aria-label={t("toast.dismiss")} onClick={() => dismiss(toast.id)}>
         <X size={14} />
       </button>
     </div>
@@ -44,8 +46,8 @@ export function SecurityToasts() {
   if (toasts.length === 0) return null;
   return (
     <div className="sec-toasts" aria-live="polite">
-      {toasts.map((t) => (
-        <ToastItem key={t.id} toast={t} />
+      {toasts.map((item) => (
+        <ToastItem key={item.id} toast={item} />
       ))}
     </div>
   );

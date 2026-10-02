@@ -15,6 +15,8 @@ import type {
 } from "@orkestr/protocol";
 import type { Tone } from "@orkestr/ui";
 
+import { formatRelativeTime, t } from "../../i18n";
+
 export const CAPABILITIES: readonly Capability[] = [
   "Read",
   "Write",
@@ -34,11 +36,32 @@ export const CAPABILITIES: readonly Capability[] = [
 
 export const EFFECTS: readonly PermissionEffect[] = ["Allow", "Ask", "Deny"];
 
-export const APPROVAL_MODES: readonly { id: ApprovalMode; label: string; description: string }[] = [
-  { id: "Ask", label: "Ask", description: "Every write, command and git action asks first." },
-  { id: "SemiAuto", label: "Semi-auto", description: "Routine work inside the worktree runs; risky actions ask." },
-  { id: "FullAuto", label: "Full auto", description: "Everything policy allows runs. Dangerous actions still ask." },
-];
+export const APPROVAL_MODE_IDS: readonly ApprovalMode[] = ["Ask", "SemiAuto", "FullAuto"];
+
+/** Localized name of an approval mode («Спрашивать», «Полуавтомат», «Полный автомат»). */
+export function approvalModeLabel(mode: ApprovalMode): string {
+  return t(`common:status.approvalMode.${mode}`);
+}
+
+/** Localized one-line description of an approval mode. */
+export function approvalModeDescription(mode: ApprovalMode): string {
+  return t(`security:modes.descriptions.${mode}`);
+}
+
+/** Localized name of a capability. */
+export function capabilityLabel(capability: Capability): string {
+  return t(`security:capability.${capability}`);
+}
+
+/** Localized name of a rule effect (select options, rule badges). */
+export function effectLabel(effect: PermissionEffect): string {
+  return t(`security:effect.${effect}`);
+}
+
+/** Localized label of a risk level ("High risk"). */
+export function riskLabel(risk: RiskLevel): string {
+  return t(`security:risk.${risk}`);
+}
 
 export const EMPTY_FLAGS: EmergencyFlagsView = {
   allStopped: false,
@@ -63,33 +86,7 @@ export function riskTone(risk: RiskLevel): Tone {
 
 /** Human label of a dangerous-action category. */
 export function dangerLabel(danger: DangerCategory): string {
-  const labels: Record<DangerCategory, string> = {
-    RecursiveDelete: "Recursive delete",
-    ProtectedPathDelete: "Protected path delete",
-    DiskDestruction: "Disk destruction",
-    BackupDestruction: "Backup destruction",
-    ResourceExhaustion: "Fork bomb",
-    SecurityToolingDisable: "Disables security tooling",
-    LogWipe: "Log wipe",
-    CredentialAccess: "Credential access",
-    SelfTamper: "Orkestr self-tamper",
-    UnsafeAgentMode: "Unsafe agent mode",
-    PortExposure: "Port exposure",
-    GitDestructive: "Destructive git",
-    GitInternals: ".git internals",
-    DataDestruction: "Data destruction",
-    ProductionChange: "Production change",
-    SecretChange: "Secret change",
-    PrivilegeEscalation: "Privilege escalation",
-    SystemConfig: "System configuration",
-    NetworkConfig: "Network configuration",
-    RemoteCodeExecution: "Download & execute",
-    ContainerDestruction: "Container destruction",
-    Obfuscation: "Obfuscated command",
-    Unparseable: "Unparseable command",
-    OutsideWorktree: "Outside worktree",
-  };
-  return labels[danger];
+  return t(`security:danger.${danger}`);
 }
 
 /** Badge tone of a rule effect. */
@@ -101,13 +98,13 @@ export function effectTone(effect: PermissionEffect): Tone {
 export function scopeLabel(scope: PermissionScope, projectName?: (id: string) => string | undefined): string {
   switch (scope.scope) {
     case "Global":
-      return "Global";
+      return t("security:scope.global");
     case "Project":
-      return `Project · ${projectName?.(scope.projectId) ?? shortId(scope.projectId)}`;
+      return t("security:scope.project", { name: projectName?.(scope.projectId) ?? shortId(scope.projectId) });
     case "Agent":
-      return `Agent · ${shortId(scope.agentId)}`;
+      return t("security:scope.agent", { id: shortId(scope.agentId) });
     case "Task":
-      return `Task · ${shortId(scope.taskId)}`;
+      return t("security:scope.task", { id: shortId(scope.taskId) });
   }
 }
 
@@ -115,11 +112,14 @@ export function scopeLabel(scope: PermissionScope, projectName?: (id: string) =>
 export function secretScopeLabel(scope: SecretScope, projectName?: (id: string) => string | undefined): string {
   switch (scope.scope) {
     case "Global":
-      return "Global";
+      return t("security:scope.global");
     case "Project":
-      return projectName?.(scope.projectId) ?? `Project ${shortId(scope.projectId)}`;
+      return projectName?.(scope.projectId) ?? t("security:scope.projectId", { id: shortId(scope.projectId) });
     case "Environment":
-      return `${projectName?.(scope.projectId) ?? shortId(scope.projectId)} · env ${shortId(scope.environmentId)}`;
+      return t("security:scope.environment", {
+        project: projectName?.(scope.projectId) ?? shortId(scope.projectId),
+        env: shortId(scope.environmentId),
+      });
   }
 }
 
@@ -151,34 +151,30 @@ export function removeApproval(list: readonly Approval[], approvalId: string): A
   return list.filter((a) => a.id !== approvalId);
 }
 
+const SECRET_NAME_MAX = 128;
+
 /** Secret names: `[A-Za-z_][A-Za-z0-9_.-]{0,127}` (mirrors the core). */
 export function validateSecretName(name: string): string | null {
   const n = name.trim();
-  if (!n) return "Give the secret a name.";
-  if (n.length > 128) return "At most 128 characters.";
-  if (!/^[A-Za-z_][A-Za-z0-9_.-]*$/.test(n)) return "Use letters, digits, _ . - and start with a letter or _.";
+  if (!n) return t("security:secrets.validation.nameRequired");
+  if (n.length > SECRET_NAME_MAX) return t("security:secrets.validation.nameTooLong", { max: SECRET_NAME_MAX });
+  if (!/^[A-Za-z_][A-Za-z0-9_.-]*$/.test(n)) return t("security:secrets.validation.nameInvalid");
   return null;
 }
 
-/** Relative time ("just now", "5 min ago", "3 h ago", date). */
+/** Localized relative time («5 минут назад» / "5 minutes ago"); empty for an invalid timestamp. */
 export function relativeTime(iso: string, now: number = Date.now()): string {
-  const t = Date.parse(iso);
-  if (Number.isNaN(t)) return "";
-  const s = Math.max(0, Math.round((now - t) / 1000));
-  if (s < 45) return "just now";
-  const m = Math.round(s / 60);
-  if (m < 60) return `${m} min ago`;
-  const h = Math.round(m / 60);
-  if (h < 24) return `${h} h ago`;
-  return new Date(t).toLocaleDateString();
+  const ts = Date.parse(iso);
+  if (Number.isNaN(ts)) return "";
+  return formatRelativeTime(Math.min(ts, now), now);
 }
 
 /** Short summary of active emergency flags (empty when nothing is active). */
 export function activeFlags(flags: EmergencyFlagsView): string[] {
   const out: string[] = [];
-  if (flags.allStopped) out.push("All AI stopped");
-  if (flags.fullAutoDisabled) out.push("Full Auto disabled");
-  if (flags.networkToolsDisabled) out.push("Network tools disabled");
-  if (flags.vaultLocked) out.push("Vault locked");
+  if (flags.allStopped) out.push(t("security:flags.allStopped"));
+  if (flags.fullAutoDisabled) out.push(t("security:flags.fullAutoDisabled"));
+  if (flags.networkToolsDisabled) out.push(t("security:flags.networkToolsDisabled"));
+  if (flags.vaultLocked) out.push(t("security:flags.vaultLocked"));
   return out;
 }

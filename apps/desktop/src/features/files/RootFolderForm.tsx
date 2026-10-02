@@ -9,6 +9,7 @@ import { FolderOpen } from "lucide-react";
 import { type FormEvent, useState } from "react";
 
 import { getClient } from "../../core/client";
+import { useT } from "../../i18n";
 import { useAppStore } from "../../store/app";
 import { errorMessage } from "./rpc";
 
@@ -16,12 +17,13 @@ export function RootFolderForm({ projectId, title }: { projectId: string; title:
   const [path, setPath] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { t } = useT("fileOps");
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     const rootPath = path.trim();
     if (!rootPath) {
-      setError("Enter the absolute path of the project folder.");
+      setError(t("rootFolder.pathRequired"));
       return;
     }
     setBusy(true);
@@ -40,18 +42,18 @@ export function RootFolderForm({ projectId, title }: { projectId: string; title:
     <EmptyState
       icon={<FolderOpen size={26} strokeWidth={1.6} />}
       title={title}
-      description="Connect this project to a folder on disk. Orkestr only reads and writes inside it."
+      description={t("rootFolder.description")}
       action={
         <form className="fx-root-form" onSubmit={(e) => void submit(e)}>
           <Input
-            aria-label="Project folder"
-            placeholder="C:\\Users\\me\\code\\my-app"
+            aria-label={t("rootFolder.label")}
+            placeholder={t("rootFolder.placeholder")}
             value={path}
             onChange={(e) => setPath(e.target.value)}
             error={error ?? undefined}
           />
           <Button type="submit" variant="primary" size="sm" loading={busy}>
-            Use folder
+            {t("rootFolder.use")}
           </Button>
         </form>
       }

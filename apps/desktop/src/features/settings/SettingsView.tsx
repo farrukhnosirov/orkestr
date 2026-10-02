@@ -3,6 +3,7 @@ import { clsx } from "clsx";
 import { Settings2, X } from "lucide-react";
 import { type KeyboardEvent, useEffect, useMemo, useRef } from "react";
 
+import { useT } from "../../i18n";
 import { useAppStore } from "../../store/app";
 import { orderedSections } from "./sections";
 import { useSettingsStore } from "./settingsStore";
@@ -16,6 +17,8 @@ export function SettingsView() {
   const close = useSettingsStore((s) => s.closeSettings);
   const projectId = useAppStore((s) => s.activeProjectId);
   const sections = useMemo(() => orderedSections(), []);
+  // Re-renders on language change; section titles are localized getters.
+  const { t } = useT("shell");
   const navRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const restoreFocus = useRef<HTMLElement | null>(null);
 
@@ -65,9 +68,9 @@ export function SettingsView() {
     >
       <aside className="settings-nav">
         <div className="settings-nav__head" id="settings-title">
-          <Settings2 size={16} /> Settings
+          <Settings2 size={16} /> {t("settings.title")}
         </div>
-        <div role="tablist" aria-orientation="vertical" aria-label="Settings sections" onKeyDown={onNavKey}>
+        <div role="tablist" aria-orientation="vertical" aria-label={t("settings.sections")} onKeyDown={onNavKey}>
           {sections.map((s, i) => {
             const Icon = s.icon;
             const active = s.id === current.id;
@@ -96,7 +99,7 @@ export function SettingsView() {
       <main className="settings-main">
         <header className="settings-main__head">
           <h2 className="settings-main__title">{current.title}</h2>
-          <IconButton label="Close settings (Esc)" icon={<X size={16} />} onClick={close} tooltip="left" />
+          <IconButton label={t("settings.close")} icon={<X size={16} />} onClick={close} tooltip="left" />
         </header>
         <div
           className="settings-main__body"

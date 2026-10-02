@@ -2,6 +2,7 @@ import type { Approval, PermissionRuleRecord } from "@orkestr/protocol";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
+import { i18n } from "../../i18n";
 import { commands } from "../commands/registry";
 import { settingsSections } from "../settings/sections";
 import { ApprovalsBadge, ApprovalsDrawer } from "./ApprovalsInbox";
@@ -94,8 +95,8 @@ describe("security logic", () => {
   it("formats relative time", () => {
     const now = Date.parse("2026-10-02T12:00:00Z");
     expect(relativeTime("2026-10-02T11:59:50Z", now)).toBe("just now");
-    expect(relativeTime("2026-10-02T11:55:00Z", now)).toBe("5 min ago");
-    expect(relativeTime("2026-10-02T09:00:00Z", now)).toBe("3 h ago");
+    expect(relativeTime("2026-10-02T11:55:00Z", now)).toBe("5 minutes ago");
+    expect(relativeTime("2026-10-02T09:00:00Z", now)).toBe("3 hours ago");
     expect(relativeTime("nope", now)).toBe("");
   });
 });
@@ -145,7 +146,7 @@ describe("security UI", () => {
     act(() => useSecurityStore.getState().setFlags({ ...EMPTY_FLAGS, allStopped: true }));
     fireEvent.click(screen.getByRole("button", { name: /Emergency stop engaged/ }));
     expect(screen.getByRole("alertdialog", { name: "All AI is stopped" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Re-arm/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Lift the stop/ })).toBeTruthy();
   });
 
   it("registers commands and settings sections once", () => {
@@ -158,5 +159,57 @@ describe("security UI", () => {
     expect(settingsSections.map((s) => s.id)).toEqual(expect.arrayContaining(["security", "secrets"]));
     commands.find((c) => c.id === "security.openApprovals")?.run({ projectId: null });
     expect(useSecurityStore.getState().inboxOpen).toBe(true);
+  });
+});
+
+describe("security UI in Russian", () => {
+  afterEach(async () => {
+    await act(async () => {
+      await i18n.changeLanguage("en");
+    });
+  });
+
+  it("translates labels, plurals and the guard categories", async () => {
+    await act(async () => {
+      await i18n.changeLanguage("ru");
+    });
+    expect(dangerLabel("GitDestructive")).toBe("Необратимая операция Git");
+    expect(activeFlags({ ...EMPTY_FLAGS, fullAutoDisabled: true, vaultLocked: true })).toEqual([
+      "Режим «Полный автомат» отключён",
+      "Хранилище секретов заблокировано",
+    ]);
+    expect(scopeLabel({ scope: "Global" })).toBe("Глобально");
+    expect(validateSecretName("")).toBe("Укажите имя секрета.");
+    act(() => {
+      useSecurityStore.getState().setPending([approval("a", "2026-10-02T10:00:00Z"), approval("b", "2026-10-02T11:00:00Z")]);
+    });
+    render(
+      <>
+        <ApprovalsBadge />
+        <ApprovalsDrawer />
+      </>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Запросы на подтверждение: 2 ждут решения" }));
+    expect(screen.getByRole("dialog", { name: "Подтверждения" })).toBeTruthy();
+    expect(screen.getByText("2 действия ждут вашего решения")).toBeTruthy();
+    expect(screen.getAllByText("Высокий риск")).toHaveLength(2);
+    expect(screen.getAllByText("Терминал")).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: /Подтвердить/ })).toHaveLength(2);
+  });
+
+  it("asks before stopping all AI", async () => {
+    await act(async () => {
+      await i18n.changeLanguage("ru");
+    });
+    render(
+      <>
+        <EmergencyStopButton />
+        <EmergencyConfirmDialog />
+      </>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Экстренная остановка всей работы AI" }));
+    expect(screen.getByRole("alertdialog", { name: "Остановить всю работу AI?" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Остановить всю работу AI/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Отмена" })).toBeTruthy();
   });
 });

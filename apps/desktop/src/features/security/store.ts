@@ -8,6 +8,8 @@ import type { Approval, EmergencyFlagsView, Event } from "@orkestr/protocol";
 import { create } from "zustand";
 
 import { maybeClient } from "../../core/client";
+import { describeError } from "../../i18n/errors";
+import { t } from "../../i18n";
 import { useAppStore } from "../../store/app";
 import { useSettingsStore } from "../settings/settingsStore";
 import { EMPTY_FLAGS, removeApproval, upsertApproval } from "./logic";
@@ -75,11 +77,9 @@ export const useSecurityStore = create<SecurityState>()((set) => ({
   setPendingError: (pendingError) => set({ pendingError, pendingLoaded: true }),
 }));
 
-/** User-facing error message. */
+/** User-facing, localized error message. */
 export function errorMessage(e: unknown): string {
-  if (e instanceof OrkestrError) return e.message;
-  if (e instanceof Error) return e.message;
-  return String(e);
+  return describeError(e);
 }
 
 export async function refreshPending(): Promise<void> {
@@ -141,7 +141,7 @@ function onSecurityEvent(event: Event): void {
       const a = event.payload.approval;
       s.applyApproval(a);
       s.pushToast({
-        title: "Approval requested",
+        title: t("security:toast.approvalRequested"),
         body: a.actionSummary,
         tone: a.risk === "Critical" || a.risk === "High" ? "danger" : "warning",
         approvalId: a.id,

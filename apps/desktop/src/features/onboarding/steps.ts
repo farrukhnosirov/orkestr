@@ -2,6 +2,7 @@
  * Onboarding steps (§55, RR-G7). Phase 1 delivers steps 1–8; 9–12 are shown
  * with the phase they arrive in and can only be acknowledged.
  */
+import { t } from "../../i18n";
 
 export type OnboardingStepId =
   | "profile"
@@ -19,8 +20,9 @@ export type OnboardingStepId =
 
 export interface OnboardingStep {
   id: OnboardingStepId;
-  title: string;
-  subtitle: string;
+  /** Localized (getter over `t()`, follows language switches). */
+  readonly title: string;
+  readonly subtitle: string;
   /** Phase in which the step becomes interactive (1 = now). */
   phase: number;
   /** May be skipped without consequences. */
@@ -29,19 +31,33 @@ export interface OnboardingStep {
 
 export const CURRENT_PHASE = 1;
 
+function step(id: OnboardingStepId, phase: number, optional: boolean): OnboardingStep {
+  return {
+    id,
+    phase,
+    optional,
+    get title() {
+      return t(`onboarding:steps.${id}.title`);
+    },
+    get subtitle() {
+      return t(`onboarding:steps.${id}.subtitle`);
+    },
+  };
+}
+
 export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
-  { id: "profile", title: "Your profile", subtitle: "A local profile — no account needed", phase: 1, optional: false },
-  { id: "storage", title: "Storage", subtitle: "Where your projects and history live", phase: 1, optional: false },
-  { id: "providers", title: "AI providers", subtitle: "Connect the models you already pay for", phase: 1, optional: true },
-  { id: "manager", title: "Manager model", subtitle: "The model that plans and delegates", phase: 1, optional: true },
-  { id: "permissions", title: "Permissions", subtitle: "How much autonomy agents get", phase: 1, optional: false },
-  { id: "project", title: "First project", subtitle: "Import a folder or start fresh", phase: 1, optional: true },
-  { id: "git", title: "Git", subtitle: "Version control for safe agent work", phase: 1, optional: false },
-  { id: "terminal", title: "Terminal", subtitle: "Shells and system readiness", phase: 1, optional: false },
-  { id: "voice", title: "Voice", subtitle: "Talk to your Manager", phase: 3, optional: true },
-  { id: "remote", title: "Remote access", subtitle: "Reach this machine from anywhere", phase: 4, optional: true },
-  { id: "sync", title: "Cloud sync", subtitle: "Sync projects across devices", phase: 4, optional: true },
-  { id: "mobile", title: "Mobile pairing", subtitle: "Approve and monitor from your phone", phase: 5, optional: true },
+  step("profile", 1, false),
+  step("storage", 1, false),
+  step("providers", 1, true),
+  step("manager", 1, true),
+  step("permissions", 1, false),
+  step("project", 1, true),
+  step("git", 1, false),
+  step("terminal", 1, false),
+  step("voice", 3, true),
+  step("remote", 4, true),
+  step("sync", 4, true),
+  step("mobile", 5, true),
 ];
 
 export type StepVisualState = "done" | "current" | "upcoming" | "later";
@@ -69,10 +85,10 @@ export function canFinishAt(index: number): boolean {
 /** Validates the local profile name (mirrors the core: ≤ 80 printable chars). */
 export function validateProfileName(name: string): string | null {
   const trimmed = name.trim();
-  if (trimmed.length === 0) return "Enter a name (it stays on this machine).";
-  if ([...trimmed].length > 80) return "Use at most 80 characters.";
+  if (trimmed.length === 0) return t("onboarding:validation.nameRequired");
+  if ([...trimmed].length > 80) return t("onboarding:validation.nameTooLong");
   // eslint-disable-next-line no-control-regex
-  if (/[\u0000-\u001f\u007f]/.test(trimmed)) return "Control characters are not allowed.";
+  if (/[\u0000-\u001f\u007f]/.test(trimmed)) return t("onboarding:validation.nameControlChars");
   return null;
 }
 
@@ -81,5 +97,5 @@ export function validateFolderPath(path: string): string | null {
   const p = path.trim();
   if (!p) return null; // optional
   const absolute = /^[a-zA-Z]:[\\/]/.test(p) || p.startsWith("/") || p.startsWith("\\\\");
-  return absolute ? null : "Use an absolute path, e.g. C:\\Code\\my-app or /home/me/my-app.";
+  return absolute ? null : t("onboarding:validation.pathNotAbsolute");
 }

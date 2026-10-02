@@ -1,0 +1,236 @@
+{
+  "tabs": {
+    "label": "Agents view",
+    "agents": "Agents",
+    "templates": "Templates"
+  },
+  "noProject": {
+    "title": "No project open",
+    "description": "Open or create a project to run agents on its tasks."
+  },
+  "loading": "Loading agents…",
+  "loadFailed": "Could not load agents",
+  "empty": {
+    "title": "No agents yet",
+    "description": "Spawn an agent from a template. Each agent works in isolation — its own worktree, budget, turn limit and stop button — and asks before anything dangerous."
+  },
+  "selectAgent": {
+    "title": "Select an agent",
+    "description": "Its live transcript appears here."
+  },
+  "spawn": "Spawn agent",
+  "summary": {
+    "label": "Agent summary",
+    "running_one": "{{count}} running",
+    "running_other": "{{count}} running"
+  },
+  "reload": "Reload agents",
+  "stopped": "{{name}} stopped.",
+  "roles": {
+    "Manager": "Manager",
+    "Architect": "Architect",
+    "Backend": "Backend",
+    "Frontend": "Frontend",
+    "Database": "Database",
+    "Qa": "QA",
+    "Security": "Security",
+    "DevOps": "DevOps",
+    "UiUx": "UI/UX",
+    "ProductManager": "Product Manager",
+    "Reviewer": "Reviewer",
+    "Researcher": "Researcher"
+  },
+  "avatar": "{{role}} agent",
+  "list": {
+    "label": "Agents",
+    "noTask": "No task",
+    "model": "Model",
+    "tokens_one": "{{value}} token",
+    "tokens_other": "{{value}} tokens",
+    "tokensTitle": "Tokens (in + out)",
+    "costTitle": "Cost (estimated)",
+    "elapsedTitle": "Elapsed"
+  },
+  "detail": {
+    "region": "Agent {{name}}",
+    "pause": "Pause",
+    "resume": "Resume",
+    "stop": "Stop",
+    "model": "Model",
+    "worktree": "Worktree",
+    "none": "none",
+    "turns": "Turns",
+    "tokens": "Tokens",
+    "cost": "Cost",
+    "elapsed": "Elapsed",
+    "transcript": "Transcript",
+    "loadingTranscript": "Loading transcript…",
+    "noActivity": {
+      "title": "No activity yet",
+      "description": "Messages and tool calls appear here live."
+    },
+    "roleTask": "Task",
+    "arguments": "Arguments",
+    "result": "Result"
+  },
+  "approval": {
+    "group": "Approval: {{action}}",
+    "notePlaceholder": "Optional note or answer",
+    "noteLabel": "Note"
+  },
+  "risk": {
+    "Low": "Low",
+    "Medium": "Medium",
+    "High": "High",
+    "Critical": "Critical"
+  },
+  "toolStatus": {
+    "Pending": "Pending",
+    "AwaitingApproval": "Awaiting approval",
+    "Running": "Running",
+    "Succeeded": "Succeeded",
+    "Failed": "Failed",
+    "Denied": "Denied",
+    "Cancelled": "Cancelled"
+  },
+  "worktreePolicy": {
+    "DedicatedWorktree": "Dedicated worktree",
+    "SharedWorktree": "Shared checkout",
+    "ReadOnlyMain": "Read-only",
+    "None": "No files"
+  },
+  "worktreePolicyHint": {
+    "DedicatedWorktree": "Own branch agent/<role>-<id> (needs a Git repository with a commit)",
+    "SharedWorktree": "Works directly in the project folder",
+    "ReadOnlyMain": "Reads the project, cannot change files",
+    "None": "Chat only, no file system access"
+  },
+  "memoryAccess": {
+    "None": "No access",
+    "ProjectOnly": "Project only",
+    "ProjectAndGlobal": "Project and global",
+    "Full": "Full"
+  },
+  "qualityGate": {
+    "Build": "Build",
+    "Lint": "Lint",
+    "Typecheck": "Type check",
+    "Tests": "Tests",
+    "Security": "Security",
+    "Review": "Review",
+    "AcceptanceCriteria": "Acceptance criteria"
+  },
+  "source": {
+    "Builtin": "Official",
+    "Official": "Official",
+    "Community": "Community",
+    "Private": "Private",
+    "Custom": "Custom"
+  },
+  "spawnDialog": {
+    "subtitle": "The agent runs in isolation with its own worktree, budget and stop button.",
+    "template": "Template",
+    "templateOption": "{{name}} — {{role}}",
+    "templateOptionOfficial": "{{name}} — {{role}} (official)",
+    "task": "Task",
+    "existingTask": "Existing task",
+    "newTask": "New task",
+    "taskOption": "{{title}} ({{status}})",
+    "title": "Title",
+    "titlePlaceholder": "e.g. Add CSV export endpoint",
+    "description": "Description",
+    "model": "Model override (optional)",
+    "worktree": "Worktree",
+    "worktreeLabel": "Worktree policy",
+    "templateDefault": "Template default",
+    "templateDefaultWith": "Template default ({{policy}})",
+    "maxTurns": "Max turns",
+    "chooseTemplate": "Choose a template.",
+    "chooseTask": "Choose a task, or create a new one.",
+    "needTitle": "Give the new task a title.",
+    "maxTurnsRange": "Max turns must be 1–500.",
+    "started": "{{name}} is working on “{{task}}”."
+  },
+  "templates": {
+    "listLabel": "Agent templates",
+    "loading": "Loading templates…",
+    "loadFailed": "Could not load templates",
+    "empty": {
+      "title": "No templates",
+      "description": "Create or import an agent template."
+    },
+    "new": "New template",
+    "import": "Import",
+    "reload": "Reload templates",
+    "noDescription": "No description.",
+    "version": "v{{version}}",
+    "tools_one": "{{count}} tool",
+    "tools_other": "{{count}} tools",
+    "budget": "{{amount}} budget",
+    "spawnFrom": "Spawn from template",
+    "edit": "Edit template",
+    "duplicate": "Duplicate template",
+    "export": "Export template",
+    "delete": "Delete template",
+    "exported": "Exported {{file}}.",
+    "confirmDelete": "Delete the template “{{name}}”? Running agents are not affected.",
+    "deleted": "Template “{{name}}” deleted.",
+    "saved": "Template “{{name}}” saved.",
+    "copyName": "{{name}} (copy)",
+    "defaultName": "New agent",
+    "defaultPrompt": "You are a careful senior engineer working on {{project}}. Task: {{task}}."
+  },
+  "editor": {
+    "editTitle": "Edit template",
+    "newTitle": "New template",
+    "subtitle": "Requested permissions become agent-scoped rules when the agent is spawned.",
+    "name": "Name",
+    "role": "Role",
+    "customOption": "Custom…",
+    "customRole": "Custom role",
+    "customDefault": "Custom",
+    "version": "Version",
+    "description": "Description",
+    "systemPrompt": "System prompt — variables: {{vars}}",
+    "tools": "Tools (allow-list)",
+    "worktreePolicy": "Worktree policy",
+    "memory": "Memory",
+    "memoryLabel": "Memory access",
+    "maxTurns": "Max turns",
+    "budget": "Budget (USD per run)",
+    "budgetPlaceholder": "unlimited",
+    "timeLimit": "Time limit (min)",
+    "qualityGates": "Quality gates",
+    "preferredModel": "Preferred model",
+    "avatar": "Robot / avatar ID",
+    "avatarPlaceholder": "orbit-backend",
+    "voice": "Voice (provider:voice)",
+    "voicePlaceholder": "system:default",
+    "permissions": "Requested permissions: {{list}}",
+    "save": "Save template"
+  },
+  "validation": {
+    "name": "Name must be 1–80 characters.",
+    "prompt": "The system prompt must not be empty.",
+    "maxTurns": "Max turns must be 1–500.",
+    "version": "Version must look like 1.0.0.",
+    "budget": "Budget must be a positive amount."
+  },
+  "importDialog": {
+    "title": "Import template",
+    "subtitle": "Orkestr agent template (.agent.json). It is added as a custom template.",
+    "file": "Template file",
+    "json": "Template JSON",
+    "accept": "Accept the permissions requested by this template",
+    "empty": "Paste a template file or choose one.",
+    "imported": "Imported “{{name}}”.",
+    "importedDropped_one": "Imported “{{name}}”; {{count}} requested permission was not accepted.",
+    "importedDropped_other": "Imported “{{name}}”; {{count}} requested permissions were not accepted.",
+    "submit": "Import"
+  },
+  "commands": {
+    "group": "Agents",
+    "spawn": "Spawn Agent",
+    "stop": "Stop Agent"
+  }
+}

@@ -1,0 +1,133 @@
+{
+  "noProject": {
+    "title": "Проект не открыт",
+    "description": "Откройте или создайте проект, чтобы редактировать его файлы."
+  },
+  "noFolder": "У этого проекта пока нет папки",
+  "loadingEditor": "Загрузка редактора…",
+  "quickOpen": {
+    "label": "Переход к файлу",
+    "placeholder": "Перейти к файлу…",
+    "list": "Файлы",
+    "searching": "Идёт поиск…",
+    "noMatches": "Подходящих файлов нет",
+    "navigate": "выбрать",
+    "open": "открыть",
+    "close": "закрыть"
+  },
+  "search": {
+    "label": "Поиск по проекту",
+    "title": "Поиск",
+    "close": "Закрыть поиск",
+    "placeholder": "Поиск",
+    "input": "Текст для поиска",
+    "matchCase": "С учётом регистра",
+    "wholeWord": "Слово целиком",
+    "regex": "Регулярное выражение",
+    "globs": "Какие файлы включить или исключить",
+    "includePlaceholder": "Например, src/**, *.ts",
+    "include": "Включить файлы",
+    "excludePlaceholder": "Например, **/*.test.ts, dist/**",
+    "exclude": "Исключить файлы",
+    "searching": "Идёт поиск…",
+    "results_one": "{{count}} совпадение",
+    "results_few": "{{count}} совпадения",
+    "results_many": "{{count}} совпадений",
+    "results_other": "{{count}} совпадения",
+    "inFiles_one": "в {{count}} файле",
+    "inFiles_few": "в {{count}} файлах",
+    "inFiles_many": "в {{count}} файлах",
+    "inFiles_other": "в {{count}} файла",
+    "summary": "{{results}} {{inFiles}} · {{ms, duration}}",
+    "summaryLimited": "{{results}} {{inFiles}} (показаны не все) · {{ms, duration}}",
+    "empty": {
+      "title": "Поиск по проекту",
+      "description": "Файлы из .gitignore не учитываются. Сузить круг поиска можно с помощью glob-шаблонов."
+    },
+    "noResults": {
+      "title": "Ничего не найдено",
+      "description": "Измените запрос или уберите часть фильтров."
+    }
+  },
+  "editor": {
+    "askManager": "Спросить Менеджера о выделенном фрагменте",
+    "agentChanged": "Изменено агентом"
+  },
+  "tabs": {
+    "label": "Открытые файлы",
+    "agentChanged": "Изменён агентом",
+    "stale": "Изменён на диске",
+    "close": "Закрыть {{name}}",
+    "closeDirty": "Закрыть {{name}} (есть несохранённые изменения)"
+  },
+  "bar": {
+    "breadcrumbs": "Путь к файлу",
+    "deletedOnDisk": "удалён с диска",
+    "changedOnDisk": "изменён на диске",
+    "agentLines_one": "{{count}} строка агента",
+    "agentLines_few": "{{count}} строки агента",
+    "agentLines_many": "{{count}} строк агента",
+    "agentLines_other": "{{count}} строки агента",
+    "clearAgentMarks": "Снять отметки изменений агента",
+    "reloadDiscard": "Загрузить с диска (отменить мои изменения)",
+    "closeDiff": "Закрыть сравнение",
+    "compareSaved": "Сравнить с сохранённой версией",
+    "openExternal": "Открыть во внешней IDE",
+    "save": "Сохранить (Ctrl+S)"
+  },
+  "compare": {
+    "banner": "Слева — версия на диске, справа — ваши несохранённые изменения.",
+    "overwrite": "Перезаписать моей версией",
+    "useDisk": "Взять версию с диска",
+    "close": "Закрыть сравнение"
+  },
+  "notice": {
+    "dismiss": "Скрыть",
+    "saveFailed": "Не удалось сохранить {{name}}: {{error}}",
+    "gone": "Файла больше нет на диске."
+  },
+  "empty": {
+    "title": "Нет открытых файлов",
+    "description": "Откройте файл в панели «Файлы» или нажмите Ctrl+P, чтобы быстро перейти к любому файлу. Ctrl+Shift+F — поиск по всему проекту.",
+    "goToFile": "Перейти к файлу…"
+  },
+  "opening": "Открытие {{name}}…",
+  "binary": {
+    "title": "Двоичный файл",
+    "description": "Это не текстовый файл, поэтому его нельзя редактировать здесь.",
+    "openExternal": "Открыть во внешней программе"
+  },
+  "tooLarge": "Файл слишком большой",
+  "openFailed": "Не удалось открыть файл",
+  "status": {
+    "label": "Строка состояния редактора",
+    "cursor": "Стр. {{line}}, стлб. {{column}}",
+    "cursorSelected_one": "Стр. {{line}}, стлб. {{column}} (выделен {{count}} символ)",
+    "cursorSelected_few": "Стр. {{line}}, стлб. {{column}} (выделено {{count}} символа)",
+    "cursorSelected_many": "Стр. {{line}}, стлб. {{column}} (выделено {{count}} символов)",
+    "cursorSelected_other": "Стр. {{line}}, стлб. {{column}} (выделено {{count}} символа)",
+    "errors_one": "{{count}} ошибка",
+    "errors_few": "{{count}} ошибки",
+    "errors_many": "{{count}} ошибок",
+    "errors_other": "{{count}} ошибки",
+    "warnings_one": "{{count}} предупреждение",
+    "warnings_few": "{{count}} предупреждения",
+    "warnings_many": "{{count}} предупреждений",
+    "warnings_other": "{{count}} предупреждения",
+    "problems": "{{errors}}, {{warnings}}",
+    "readOnly": "только чтение"
+  },
+  "conflict": {
+    "title": "Файл изменён на диске",
+    "subtitle": "Пока файл {{name}} был открыт, его изменили вне редактора.",
+    "reload": "Загрузить заново (без моих изменений)",
+    "compare": "Сравнить",
+    "overwrite": "Перезаписать",
+    "text": "При перезаписи более новая версия на диске будет заменена вашими изменениями. «Сравнить» сначала покажет обе версии рядом."
+  },
+  "closeDirty": {
+    "title": "Сохранить изменения в {{name}}?",
+    "subtitle": "Если не сохранить изменения, они будут потеряны.",
+    "discard": "Не сохранять"
+  }
+}

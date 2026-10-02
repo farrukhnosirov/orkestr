@@ -21,4 +21,9 @@ maxParallelAgents?: number,
 /**
  * Time limit (minutes) of the run started from this request.
  */
-timeLimitMins?: number, };
+timeLimitMins?: number, 
+/**
+ * The user's resolved UI language (`ru`, `en`, …): the Manager and the
+ * agents of this request reply in it. Absent = keep the current one.
+ */
+language?: string, };

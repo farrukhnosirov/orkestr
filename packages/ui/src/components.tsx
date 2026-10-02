@@ -23,11 +23,32 @@ export interface SpinnerProps extends HTMLAttributes<HTMLSpanElement> {
   label?: string;
 }
 
-export function Spinner({ size = 16, label = "Loading", className, style, ...rest }: SpinnerProps) {
+/**
+ * Default user-visible strings of the primitives. The app localizes them with
+ * `setUiStrings` (the design system itself has no i18n dependency).
+ */
+export interface UiStrings {
+  /** Spinner accessible label. */
+  loading: string;
+}
+
+const uiStrings: UiStrings = { loading: "Loading" };
+
+/** Overrides default strings (called by the app on every language change). */
+export function setUiStrings(patch: Partial<UiStrings>): void {
+  Object.assign(uiStrings, patch);
+}
+
+/** Current default strings. */
+export function getUiStrings(): Readonly<UiStrings> {
+  return uiStrings;
+}
+
+export function Spinner({ size = 16, label, className, style, ...rest }: SpinnerProps) {
   return (
     <span
       role="status"
-      aria-label={label}
+      aria-label={label ?? uiStrings.loading}
       className={clsx("ok-spinner", className)}
       style={{ ["--_s" as string]: `${size}px`, ...style }}
       {...rest}

@@ -5,6 +5,7 @@ import { FileCode } from "lucide-react";
 import { lazy, Suspense, useEffect } from "react";
 
 import { RootFolderForm } from "../../features/files/RootFolderForm";
+import { useT } from "../../i18n";
 import { useActiveProject } from "../../store/app";
 import { type RevealTarget, useEditorStore } from "../../store/editor";
 import type { PanelProps } from "../types";
@@ -16,6 +17,7 @@ const Workbench = lazy(() => import("./Workbench"));
 
 /** Code panel (§15): Monaco editor, tabs, quick open, project search. */
 export default function CodePanel({ projectId }: PanelProps) {
+  const { t } = useT("code");
   const project = useActiveProject();
   const searchOpen = useEditorStore((s) => s.searchOpen);
   const hasRoot = Boolean(project?.rootPath);
@@ -46,12 +48,12 @@ export default function CodePanel({ projectId }: PanelProps) {
     return (
       <EmptyState
         icon={<FileCode size={26} strokeWidth={1.6} />}
-        title="No project open"
-        description="Open or create a project to edit its files."
+        title={t("noProject.title")}
+        description={t("noProject.description")}
       />
     );
   }
-  if (!hasRoot) return <RootFolderForm projectId={projectId} title="This project has no folder yet" />;
+  if (!hasRoot) return <RootFolderForm projectId={projectId} title={t("noFolder")} />;
 
   const open = (path: string, at?: RevealTarget) =>
     useEditorStore.getState().openFile(path, at);
@@ -63,7 +65,7 @@ export default function CodePanel({ projectId }: PanelProps) {
         <Suspense
           fallback={
             <div className="code-loading">
-              <Spinner size={18} /> Loading editor…
+              <Spinner size={18} /> {t("loadingEditor")}
             </div>
           }
         >

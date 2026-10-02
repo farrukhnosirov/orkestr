@@ -166,6 +166,6 @@ mod tests {
         let s = merge_rows(&rows);
         assert!(!s.close_to_tray);
         assert_eq!(s.event_retention_days, AppSettings::default().event_retention_days);
-        assert_eq!(s.language, "en");
+        assert_eq!(s.language, "system");
     }
 }

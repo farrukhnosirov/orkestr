@@ -2,6 +2,7 @@
  * Workspace-relative path helpers (`/`-separated, `""` = root), mirroring
  * the wire format of `files.*`.
  */
+import { t } from "../../i18n";
 
 /** Last path component (`""` for the root). */
 export function basename(path: string): string {
@@ -49,12 +50,12 @@ export function extension(name: string): string {
 /** Client-side validation of a new file/folder name (the core re-validates). */
 export function validateName(name: string): string | null {
   const n = name.trim();
-  if (!n) return "Enter a name.";
-  if (n === "." || n === "..") return "That name is reserved.";
-  if (/[<>:"|?*\u0000-\u001f]/.test(n)) return "Names cannot contain < > : \" | ? * or control characters.";
+  if (!n) return t("fileOps:names.required");
+  if (n === "." || n === "..") return t("fileOps:names.reserved");
+  if (/[<>:"|?*\u0000-\u001f]/.test(n)) return t("fileOps:names.invalidChars");
   const parts = n.split(/[\\/]/).filter((p) => p !== "" && p !== ".");
-  if (parts.some((p) => p === "..")) return "Names cannot contain `..`.";
-  if (parts.some((p) => /[. ]$/.test(p))) return "Names cannot end with a dot or a space.";
-  if (parts.some((p) => /^(con|prn|aux|nul|com[0-9]|lpt[0-9])( *\..*)?$/i.test(p))) return "That name is reserved on Windows.";
+  if (parts.some((p) => p === "..")) return t("fileOps:names.dotDot");
+  if (parts.some((p) => /[. ]$/.test(p))) return t("fileOps:names.trailingDot");
+  if (parts.some((p) => /^(con|prn|aux|nul|com[0-9]|lpt[0-9])( *\..*)?$/i.test(p))) return t("fileOps:names.reservedWindows");
   return null;
 }

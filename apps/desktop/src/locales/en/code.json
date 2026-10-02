@@ -1,0 +1,121 @@
+{
+  "noProject": {
+    "title": "No project open",
+    "description": "Open or create a project to edit its files."
+  },
+  "noFolder": "This project has no folder yet",
+  "loadingEditor": "Loading editor…",
+  "quickOpen": {
+    "label": "Go to file",
+    "placeholder": "Go to file…",
+    "list": "Files",
+    "searching": "Searching…",
+    "noMatches": "No matching files",
+    "navigate": "navigate",
+    "open": "open",
+    "close": "close"
+  },
+  "search": {
+    "label": "Search in project",
+    "title": "Search",
+    "close": "Close search",
+    "placeholder": "Search",
+    "input": "Search text",
+    "matchCase": "Match case",
+    "wholeWord": "Match whole word",
+    "regex": "Use regular expression",
+    "globs": "Files to include / exclude",
+    "includePlaceholder": "e.g. src/**, *.ts",
+    "include": "Files to include",
+    "excludePlaceholder": "e.g. **/*.test.ts, dist/**",
+    "exclude": "Files to exclude",
+    "searching": "Searching…",
+    "results_one": "{{count}} result",
+    "results_other": "{{count}} results",
+    "inFiles_one": "in {{count}} file",
+    "inFiles_other": "in {{count}} files",
+    "summary": "{{results}} {{inFiles}} · {{ms, duration}}",
+    "summaryLimited": "{{results}} {{inFiles}} (limited) · {{ms, duration}}",
+    "empty": {
+      "title": "Search the project",
+      "description": "Respects .gitignore. Use globs to narrow the files."
+    },
+    "noResults": {
+      "title": "No results",
+      "description": "Try a different query or fewer filters."
+    }
+  },
+  "editor": {
+    "askManager": "Ask Manager about selection",
+    "agentChanged": "Changed by an agent"
+  },
+  "tabs": {
+    "label": "Open files",
+    "agentChanged": "Changed by an agent",
+    "stale": "Changed on disk",
+    "close": "Close {{name}}",
+    "closeDirty": "Close {{name}} (unsaved changes)"
+  },
+  "bar": {
+    "breadcrumbs": "Breadcrumbs",
+    "deletedOnDisk": "deleted on disk",
+    "changedOnDisk": "changed on disk",
+    "agentLines_one": "{{count}} agent line",
+    "agentLines_other": "{{count}} agent lines",
+    "clearAgentMarks": "Clear agent change markers",
+    "reloadDiscard": "Reload from disk (discard my changes)",
+    "closeDiff": "Close diff",
+    "compareSaved": "Compare with last saved",
+    "openExternal": "Open in external IDE",
+    "save": "Save (Ctrl+S)"
+  },
+  "compare": {
+    "banner": "Comparing the version on disk (left) with your unsaved changes (right).",
+    "overwrite": "Overwrite with mine",
+    "useDisk": "Use disk version",
+    "close": "Close comparison"
+  },
+  "notice": {
+    "dismiss": "Dismiss",
+    "saveFailed": "Could not save {{name}}: {{error}}",
+    "gone": "The file no longer exists on disk."
+  },
+  "empty": {
+    "title": "No file open",
+    "description": "Open a file from the Files panel, or press Ctrl+P to jump to any file. Ctrl+Shift+F searches the whole project.",
+    "goToFile": "Go to file…"
+  },
+  "opening": "Opening {{name}}…",
+  "binary": {
+    "title": "Binary file",
+    "description": "This file is not text and cannot be edited here.",
+    "openExternal": "Open externally"
+  },
+  "tooLarge": "File too large",
+  "openFailed": "Could not open the file",
+  "status": {
+    "label": "Editor status",
+    "cursor": "Ln {{line}}, Col {{column}}",
+    "cursorSelected_one": "Ln {{line}}, Col {{column}} ({{count}} selected)",
+    "cursorSelected_other": "Ln {{line}}, Col {{column}} ({{count}} selected)",
+    "errors_one": "{{count}} error",
+    "errors_other": "{{count}} errors",
+    "warnings_one": "{{count}} warning",
+    "warnings_other": "{{count}} warnings",
+    "problems": "{{errors}}, {{warnings}}",
+    "readOnly": "read-only"
+  },
+  "conflict": {
+    "title": "File changed on disk",
+    "subtitle": "{{name}} was modified outside this editor since you opened it.",
+    "reload": "Reload (discard mine)",
+    "compare": "Compare",
+    "overwrite": "Overwrite",
+    "text": "Overwriting replaces the newer version on disk with your changes. Compare opens a side-by-side diff first."
+  },
+  "closeDirty": {
+    "title": "Save changes to {{name}}?",
+    "subtitle": "Your changes will be lost if you don't save them.",
+    "discard": "Don't save"
+  }
+}

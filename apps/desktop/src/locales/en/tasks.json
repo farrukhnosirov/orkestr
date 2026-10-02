@@ -1,0 +1,179 @@
+{
+  "noProject": {
+    "title": "No project open",
+    "description": "Open or create a project to plan and track its tasks."
+  },
+  "loading": "Loading tasks…",
+  "loadFailed": "Could not load tasks",
+  "empty": {
+    "title": "No tasks yet",
+    "description": "Break the work into tasks with acceptance criteria and dependencies. The engine tracks every state change and unblocks dependents automatically."
+  },
+  "noMatches": {
+    "title": "No matching tasks",
+    "description": "Adjust or clear the filters."
+  },
+  "clearFilters": "Clear filters",
+  "clear": "Clear",
+  "buildingGraph": "Building graph…",
+  "create": "Create task",
+  "new": "New task",
+  "views": {
+    "label": "Task view",
+    "list": "List",
+    "board": "Board",
+    "graph": "Graph"
+  },
+  "search": {
+    "placeholder": "Search tasks…",
+    "label": "Search tasks"
+  },
+  "filters": {
+    "label": "Filters",
+    "show": "Show filters",
+    "hide": "Hide filters",
+    "status": "Status",
+    "priority": "Priority"
+  },
+  "summary": {
+    "label": "Task summary",
+    "running_one": "{{count}} running",
+    "running_other": "{{count}} running",
+    "ready_one": "{{count}} ready",
+    "ready_other": "{{count}} ready",
+    "attention_one": "{{count}} needs attention",
+    "attention_other": "{{count}} need attention"
+  },
+  "reload": "Reload tasks",
+  "priority": {
+    "Critical": "Critical",
+    "High": "High",
+    "Normal": "Normal",
+    "Low": "Low",
+    "Background": "Background"
+  },
+  "priorityTitle": "{{priority}} priority",
+  "actions": {
+    "Planned": "Back to plan",
+    "Ready": "Mark ready",
+    "Running": "Start",
+    "Waiting": "Wait",
+    "Blocked": "Block",
+    "Review": "Send to review",
+    "Testing": "Send to testing",
+    "Completed": "Complete",
+    "Failed": "Mark failed",
+    "Cancelled": "Cancel",
+    "Interrupted": "Interrupt",
+    "Recovering": "Recover"
+  },
+  "board": {
+    "label": "Task board",
+    "column": "{{title}}, {{tasks}}",
+    "noTasks": "No tasks",
+    "notAllowed": "Moving from “{{from}}” to “{{to}}” is not allowed.",
+    "card": "{{title}}, {{status}}, {{priority}}",
+    "columns": {
+      "backlog": "Backlog",
+      "ready": "Ready",
+      "active": "In progress",
+      "verify": "Review and testing",
+      "done": "Done",
+      "attention": "Needs attention"
+    }
+  },
+  "list": {
+    "label": "Task list",
+    "task": "Task",
+    "status": "Status",
+    "priority": "Priority",
+    "updated": "Updated",
+    "depsMet": "deps met",
+    "dependencies_one": "{{count}} dependency",
+    "dependencies_other": "{{count}} dependencies"
+  },
+  "graph": {
+    "label": "Task dependency graph",
+    "criticalPath": "Critical path: {{duration}} · {{tasks}}",
+    "hint": "Drag ● → ● to add a dependency · select an edge and press Delete to remove it",
+    "edge": "Dependency {{from}} to {{to}}",
+    "nodeTitle": "{{title}} — {{status}}",
+    "noCriticalPath": "No critical path",
+    "criticalPathTasks": "Critical path: {{tasks}} (no estimates)"
+  },
+  "dependencyAdded": "Dependency added.",
+  "cycle": "That dependency would create a cycle.",
+  "createDialog": {
+    "subtitle": "Tasks start as Planned and become Ready once approved and unblocked.",
+    "title": "Title",
+    "titlePlaceholder": "e.g. Add payroll export endpoint",
+    "description": "Description",
+    "descriptionPlaceholder": "Optional — context, constraints, links",
+    "criteria": "Acceptance criteria (one per line)",
+    "criteriaPlaceholder": "Returns 201 with the export ID\nCovered by integration tests",
+    "priority": "Priority",
+    "estimate": "Estimate (min)",
+    "parent": "Parent (epic)",
+    "dependsOn": "Depends on",
+    "needTitle": "Give the task a title.",
+    "estimateInvalid": "Estimate must be a positive number of minutes.",
+    "created": "Task “{{title}}” created."
+  },
+  "drawer": {
+    "label": "Task {{title}}",
+    "close": "Close task details",
+    "titleLabel": "Task title",
+    "statusActions": "Status actions",
+    "status": "Status",
+    "final": "“{{status}}” is a final status.",
+    "requeued": "Task queued again.",
+    "deleted": "Task deleted.",
+    "confirmDelete": "Confirm delete",
+    "keep": "Keep",
+    "priority": "Priority",
+    "description": "Description",
+    "descriptionPlaceholder": "What needs to be done? Markdown supported.",
+    "criteria": "Acceptance criteria",
+    "removeCriterion": "Remove criterion “{{text}}”",
+    "criterionPlaceholder": "Add a criterion…",
+    "newCriterion": "New acceptance criterion",
+    "addCriterion": "Add criterion",
+    "dependsOn": "Depends on",
+    "noDependencies": "No dependencies.",
+    "removeDependency": "Remove dependency",
+    "addDependency": "Add dependency",
+    "addDependencyOption": "Add dependency…",
+    "dependencyOption": "{{title}} ({{status}})",
+    "blocks": "Blocks",
+    "costAttempts": "Cost and attempts",
+    "cost": "Cost",
+    "tokens": "Tokens",
+    "attempts": "Attempts",
+    "estimate": "Estimate",
+    "filesTouched": "Files touched",
+    "noFiles": "No files recorded yet.",
+    "history": "History",
+    "loadingHistory": "Loading history…",
+    "created": "Created",
+    "forced": "system"
+  },
+  "executionStatus": {
+    "Running": "Running",
+    "Succeeded": "Succeeded",
+    "Failed": "Failed",
+    "Cancelled": "Cancelled",
+    "Interrupted": "Interrupted"
+  },
+  "actor": {
+    "User": "You",
+    "Agent": "Agent #{{id}}",
+    "Manager": "AI Manager",
+    "System": "Engine",
+    "SystemRecovery": "Crash recovery"
+  },
+  "commands": {
+    "group": "Tasks",
+    "create": "Create Task",
+    "openGraph": "Open Task Graph"
+  }
+}

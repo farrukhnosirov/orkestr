@@ -5,8 +5,9 @@ import { clsx } from "clsx";
 import { BrainCircuit, Pencil, Pin, PinOff, Plus, Search, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
+import { useFormat, useT } from "../../i18n";
 import { errorMessage, requireClient, useRpcQuery } from "../../lib/rpcQuery";
-import { KIND_INFO, relativeTime } from "./kinds";
+import { KIND_INFO, kindLabel } from "./kinds";
 import { Highlighted, Markdown } from "./markdown";
 import { MemoryEditor } from "./MemoryEditor";
 
@@ -32,6 +33,8 @@ function useDebounced<T>(value: T, ms: number): T {
 
 /** Memory items of one scope: FTS search, kind chips, cards, pin, edit, delete. */
 export function MemoryList({ scope, kinds }: MemoryListProps) {
+  const { t } = useT(["memory", "common"]);
+  const fmt = useFormat();
   const [query, setQuery] = useState("");
   const [kindFilter, setKindFilter] = useState<MemoryKind | null>(null);
   const [editing, setEditing] = useState<MemoryItem | "new" | null>(null);
@@ -79,7 +82,7 @@ export function MemoryList({ scope, kinds }: MemoryListProps) {
   const togglePin = (item: MemoryItem) =>
     act(() => requireClient().call("memory.update", { id: item.id, patch: { pinned: !item.pinned } }));
   const remove = (item: MemoryItem) => {
-    if (!window.confirm(`Delete "${item.title}"? This cannot be undone.`)) return;
+    if (!window.confirm(t("list.confirmDelete", { title: item.title }))) return;
     void act(() => requireClient().call("memory.delete", { id: item.id }));
   };
 
@@ -88,21 +91,21 @@ export function MemoryList({ scope, kinds }: MemoryListProps) {
       <div className="mem-toolbar">
         <Input
           className="mem-search"
-          placeholder={scope.scope === "Global" ? "Search global memory…" : "Search project memory…"}
+          placeholder={scope.scope === "Global" ? t("list.searchGlobal") : t("list.searchProject")}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           leftIcon={<Search size={14} />}
-          aria-label="Search memory"
+          aria-label={t("list.searchLabel")}
         />
         <div className="mem-toolbar__spacer" />
         {loading && <Spinner size={14} />}
         <Button variant="primary" size="sm" leftIcon={<Plus size={14} />} onClick={() => setEditing("new")}>
-          New
+          {t("list.new")}
         </Button>
       </div>
-      <div className="mem-chips" role="group" aria-label="Filter by kind">
+      <div className="mem-chips" role="group" aria-label={t("list.filterByKind")}>
         <button type="button" className={clsx("mem-chip", kindFilter === null && "mem-chip--active")} aria-pressed={kindFilter === null} onClick={() => setKindFilter(null)}>
-          All
+          {t("list.all")}
         </button>
         {kinds.map((k) => (
           <button
@@ -112,7 +115,7 @@ export function MemoryList({ scope, kinds }: MemoryListProps) {
             aria-pressed={kindFilter === k}
             onClick={() => setKindFilter(kindFilter === k ? null : k)}
           >
-            {KIND_INFO[k].label}
+            {kindLabel(k)}
             {kindFilter === null && counts.get(k) ? <span className="mem-chip__count">{counts.get(k)}</span> : null}
           </button>
         ))}
@@ -122,7 +125,7 @@ export function MemoryList({ scope, kinds }: MemoryListProps) {
           {actionError ?? error}
           {error && (
             <Button size="sm" variant="ghost" onClick={reload}>
-              Retry
+              {t("common:actions.retry")}
             </Button>
           )}
         </div>
@@ -130,47 +133,43 @@ export function MemoryList({ scope, kinds }: MemoryListProps) {
       <div className="mem-scroll">
         {loading && data === null ? (
           <div className="mem-loading">
-            <Spinner size={18} /> Loading memory…
+            <Spinner size={18} /> {t("list.loading")}
           </div>
         ) : rows.length === 0 && !error ? (
           <EmptyState
             icon={<BrainCircuit size={26} strokeWidth={1.6} />}
-            title={q || kindFilter ? "No matching memory" : scope.scope === "Global" ? "No global memory yet" : "No project memory yet"}
-            description={
-              q || kindFilter
-                ? "Try other words or another kind."
-                : "Record requirements, conventions, decisions and known issues so every agent starts with the same knowledge."
-            }
+            title={q || kindFilter ? t("list.emptyMatching") : scope.scope === "Global" ? t("list.emptyGlobal") : t("list.emptyProject")}
+            description={q || kindFilter ? t("list.emptyMatchingHint") : t("list.emptyHint")}
             action={
               !q && !kindFilter ? (
                 <Button variant="primary" leftIcon={<Plus size={14} />} onClick={() => setEditing("new")}>
-                  Add memory
+                  {t("list.add")}
                 </Button>
               ) : undefined
             }
           />
         ) : (
-          <ul className="mem-cards" aria-label="Memory items">
+          <ul className="mem-cards" aria-label={t("list.items")}>
             {rows.map(({ item, snippet }) => {
               const info = KIND_INFO[item.kind];
               const open = expanded === item.id;
               return (
                 <li key={item.id} className={clsx("mem-card", item.pinned && "mem-card--pinned")}>
                   <div className="mem-card__head">
-                    <Badge tone={info.tone}>{info.label}</Badge>
+                    <Badge tone={info.tone}>{kindLabel(item.kind)}</Badge>
                     <button type="button" className="mem-card__title" onClick={() => setExpanded(open ? null : item.id)} aria-expanded={open}>
                       {item.title}
                     </button>
                     <div className="mem-card__actions">
                       <IconButton
                         size="sm"
-                        label={item.pinned ? "Unpin" : "Pin"}
+                        label={item.pinned ? t("list.unpin") : t("list.pin")}
                         icon={item.pinned ? <PinOff size={14} /> : <Pin size={14} />}
                         active={item.pinned}
                         onClick={() => void togglePin(item)}
                       />
-                      <IconButton size="sm" label="Edit" icon={<Pencil size={14} />} onClick={() => setEditing(item)} />
-                      <IconButton size="sm" label="Delete" variant="danger" icon={<Trash2 size={14} />} onClick={() => remove(item)} />
+                      <IconButton size="sm" label={t("common:actions.edit")} icon={<Pencil size={14} />} onClick={() => setEditing(item)} />
+                      <IconButton size="sm" label={t("common:actions.delete")} variant="danger" icon={<Trash2 size={14} />} onClick={() => remove(item)} />
                     </div>
                   </div>
                   {snippet && !open ? (
@@ -183,16 +182,16 @@ export function MemoryList({ scope, kinds }: MemoryListProps) {
                     </div>
                   ) : null}
                   <div className="mem-card__meta">
-                    {item.pinned && <span className="mem-pin-label">Pinned</span>}
-                    {item.key && <span title="Rule key">key: {item.key}</span>}
-                    {item.tags.map((t) => (
-                      <span key={t} className="mem-tag">
-                        #{t}
+                    {item.pinned && <span className="mem-pin-label">{t("list.pinned")}</span>}
+                    {item.key && <span title={t("list.ruleKey")}>{t("list.keyValue", { key: item.key })}</span>}
+                    {item.tags.map((tag) => (
+                      <span key={tag} className="mem-tag">
+                        #{tag}
                       </span>
                     ))}
-                    <span className="mem-card__time">
+                    <span className="mem-card__time" title={fmt.date(item.updatedAt)}>
                       {item.source ? `${item.source} · ` : ""}
-                      {relativeTime(item.updatedAt)}
+                      {fmt.relative(item.updatedAt)}
                     </span>
                   </div>
                 </li>

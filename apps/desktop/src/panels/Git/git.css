@@ -235,9 +235,30 @@
 
 .git-commit__row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--ok-space-2);
   margin-top: var(--ok-space-1);
+}
+
+/* The info line takes its own row when the buttons do not fit beside it
+   (narrow sidebar, longer Russian text) instead of wrapping word by word. */
+.git-commit__row > .git-small {
+  flex: 1 1 160px;
+  min-width: 0;
+}
+
+.git-commit__row > .git-spacer {
+  flex: 0 0 0;
+}
+
+.git-commit__row > button {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+.git-commit__row > button + button {
+  margin-left: 0;
 }
 
 .git-clean {
@@ -513,11 +534,17 @@
 
 .git-branch__name {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--ok-space-2);
+  gap: 2px var(--ok-space-2);
   font-weight: var(--ok-font-weight-medium);
   min-width: 0;
-  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+/* Status badges never break or get clipped (longer in Russian). */
+.git-branch__name > .ok-badge {
+  flex-shrink: 0;
   white-space: nowrap;
 }
 

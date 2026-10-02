@@ -300,15 +300,27 @@ impl Inner {
         plan.updated_at = at;
         self.save_plan(&plan).await?;
         self.save_run(&run).await;
-        self.system_event(
-            project.id,
-            &format!(
+        let text = if crate::util::is_ru(&self.deps.config.ui_language.get()) {
+            let (n, p) = (run.tasks.len(), run.limits.max_parallel_agents as usize);
+            format!(
+                "Запуск начат: {n} {}, параллельно — до {p} {}{}{}.",
+                crate::util::ru_plural(n, "задача", "задачи", "задач"),
+                crate::util::ru_plural(p, "агента", "агентов", "агентов"),
+                run.limits.max_cost_usd.map(|c| format!(", бюджет {c:.2} $")).unwrap_or_default(),
+                run.limits.time_limit_mins.map(|m| format!(", ограничение по времени {m} мин")).unwrap_or_default()
+            )
+        } else {
+            format!(
                 "Run started — {} task(s), up to {} agent(s) in parallel{}{}.",
                 run.tasks.len(),
                 run.limits.max_parallel_agents,
                 run.limits.max_cost_usd.map(|c| format!(", budget ${c:.2}")).unwrap_or_default(),
                 run.limits.time_limit_mins.map(|m| format!(", time limit {m} min")).unwrap_or_default()
-            ),
+            )
+        };
+        self.system_event(
+            project.id,
+            &text,
             MessageExtras { plan_id: Some(plan.id), run_id: Some(run.id), ..MessageExtras::default() },
         )
         .await;
@@ -371,7 +383,11 @@ impl Inner {
         self.save_run(&run).await;
         self.system_event(
             project.id,
-            &format!("Run resumed (was {previous:?}) — continuing from the current task states."),
+            &if crate::util::is_ru(&self.deps.config.ui_language.get()) {
+                format!("Запуск возобновлён (был {previous:?}) — продолжаю с текущих состояний задач.")
+            } else {
+                format!("Run resumed (was {previous:?}) — continuing from the current task states.")
+            },
             MessageExtras { plan_id: Some(plan.id), run_id: Some(run.id), ..MessageExtras::default() },
         )
         .await;
@@ -648,10 +664,17 @@ impl Supervisor {
                                     self.inner
                                         .system_event(
                                             self.project.id,
-                                            &format!(
-                                                "Task \"{}\" failed (attempt {attempts} of {max_attempts}) — retrying with a new agent.",
-                                                task.title
-                                            ),
+                                            &if crate::util::is_ru(&self.inner.deps.config.ui_language.get()) {
+                                                format!(
+                                                    "Задача «{}» не выполнена (попытка {attempts} из {max_attempts}) — повторяю с новым агентом.",
+                                                    task.title
+                                                )
+                                            } else {
+                                                format!(
+                                                    "Task \"{}\" failed (attempt {attempts} of {max_attempts}) — retrying with a new agent.",
+                                                    task.title
+                                                )
+                                            },
                                             MessageExtras { run_id: Some(self.run.id), ..MessageExtras::default() },
                                         )
                                         .await;
@@ -711,14 +734,28 @@ impl Supervisor {
                 }
             } else if !self.run.tasks[i].awaiting_review {
                 self.run.tasks[i].awaiting_review = true;
-                let why = if success { "the approval policy is Ask" } else { "the agent reported a partial result" };
+                let text = if crate::util::is_ru(&self.inner.deps.config.ui_language.get()) {
+                    let why = if success {
+                        "режим подтверждений — «Спрашивать»"
+                    } else {
+                        "агент сообщил о частичном результате"
+                    };
+                    format!(
+                        "Задача «{}» ждёт вашей проверки ({why}). Примите её (→ «Выполнена») или отметьте как «Сбой», чтобы повторить.",
+                        task.title
+                    )
+                } else {
+                    let why =
+                        if success { "the approval policy is Ask" } else { "the agent reported a partial result" };
+                    format!(
+                        "Task \"{}\" is waiting for your review ({why}). Accept it (→ Completed) or mark it Failed to retry.",
+                        task.title
+                    )
+                };
                 self.inner
                     .system_event(
                         self.project.id,
-                        &format!(
-                            "Task \"{}\" is waiting for your review ({why}). Accept it (→ Completed) or mark it Failed to retry.",
-                            task.title
-                        ),
+                        &text,
                         MessageExtras { run_id: Some(self.run.id), ..MessageExtras::default() },
                     )
                     .await;

@@ -9,9 +9,10 @@ import { ArrowRightLeft, GitBranch, GitMerge, Plus, Trash2 } from "lucide-react"
 import { type FormEvent, useState } from "react";
 
 import { getClient } from "../../core/client";
+import { useFormat, useT } from "../../i18n";
 import { ConfirmDialog, Notice } from "./components";
 import { branchNameError, relativeTime, shortId } from "./model";
-import { errorCode, errorMessage, useAsync } from "./state";
+import { errorCode, errorMessage, rawMessage, useAsync } from "./state";
 
 interface Props {
   projectId: string;
@@ -25,6 +26,8 @@ type Pending =
   | { kind: "merge"; branch: BranchInfo; preview: MergePreview | null; error: string | null };
 
 export function BranchesTab({ projectId, worktree, refresh, onChanged }: Props) {
+  const { t } = useT(["git", "common"]);
+  const fmt = useFormat();
   const base = worktree ? { projectId, worktree } : { projectId };
   const { data, error, loading, reload } = useAsync(() => getClient().call("vcs.branches", base), [projectId, worktree, refresh]);
   const [name, setName] = useState("");
@@ -57,23 +60,23 @@ export function BranchesTab({ projectId, worktree, refresh, onChanged }: Props) 
     void act("create", async () => {
       const r = await getClient().call("vcs.createBranch", { ...base, name: name.trim(), checkout });
       setName("");
-      setNotice(checkout ? `Switched to new branch ${r.branch}` : `Created ${r.branch} at ${shortId(r.commit)}`);
+      setNotice(checkout ? t("branches.switchedNew", { branch: r.branch }) : t("branches.created", { branch: r.branch, commit: shortId(r.commit) }));
     }).catch(() => undefined);
   };
 
   const switchTo = (b: BranchInfo) =>
     void act(`switch:${b.name}`, async () => {
       const r = await getClient().call("vcs.checkout", { ...base, branch: b.name });
-      setNotice(`Switched to ${r.branch}`);
+      setNotice(t("branches.switched", { branch: r.branch }));
     }).catch(() => undefined);
 
   const confirmDelete = (b: BranchInfo, force: boolean) =>
     act("delete", async () => {
       const r = await getClient().call("vcs.deleteBranch", { projectId, name: b.name, force, confirm: force });
-      setNotice(`Deleted ${r.name} (was ${shortId(r.commit)})`);
+      setNotice(t("branches.deleted", { branch: r.name, commit: shortId(r.commit) }));
       setPending(null);
     }).catch((e: unknown) => {
-      if (!force && errorCode(e) === "conflict" && errorMessage(e).includes("not fully merged")) {
+      if (!force && errorCode(e) === "conflict" && rawMessage(e).includes("not fully merged")) {
         setActionError(null);
         setPending({ kind: "delete", branch: b, force: true });
       }
@@ -92,10 +95,10 @@ export function BranchesTab({ projectId, worktree, refresh, onChanged }: Props) 
       const r = await getClient().call("vcs.merge", { ...base, source: b.name });
       setNotice(
         r.status === "UpToDate"
-          ? `Already up to date with ${b.name}`
+          ? t("branches.upToDate", { branch: b.name })
           : r.status === "Conflicted"
-            ? `Merge stopped with conflicts in ${r.conflicts.length} file(s)`
-            : `Merged ${b.name} (${shortId(r.commit)})`,
+            ? t("branches.mergeConflicts", { count: r.conflicts.length })
+            : t("branches.merged", { branch: b.name, commit: shortId(r.commit) }),
       );
       setPending(null);
     }).catch(() => undefined);
@@ -108,9 +111,9 @@ export function BranchesTab({ projectId, worktree, refresh, onChanged }: Props) 
       <div className="git-branch__main">
         <span className="git-branch__name">
           <GitBranch size={13} /> {b.name}
-          {b.current && <Badge tone="accent">current</Badge>}
-          {b.name.startsWith("agent/") && <Badge tone="violet">agent</Badge>}
-          {b.gone && <Badge tone="warning">upstream gone</Badge>}
+          {b.current && <Badge tone="accent">{t("branches.current")}</Badge>}
+          {b.name.startsWith("agent/") && <Badge tone="violet">{t("branches.agent")}</Badge>}
+          {b.gone && <Badge tone="warning">{t("branches.gone")}</Badge>}
         </span>
         <span className="git-branch__meta">
           <code>{shortId(b.commit)}</code> {b.subject}
@@ -121,23 +124,23 @@ export function BranchesTab({ projectId, worktree, refresh, onChanged }: Props) 
               · ↑{b.ahead} ↓{b.behind}
             </>
           )}
-          {b.worktreePath && !b.current && <> · checked out in a worktree</>}
+          {b.worktreePath && !b.current && <> · {t("branches.inWorktree")}</>}
         </span>
       </div>
       {!b.current && (
         <span className="git-row__actions git-row__actions--always">
           {!b.remote && (
-            <IconButton size="sm" label={`Merge ${b.name} into ${data?.current ?? "current"}…`} icon={<GitMerge size={14} />} onClick={() => startMerge(b)} disabled={busy !== null || !data?.current} />
+            <IconButton size="sm" label={t("branches.merge", { branch: b.name, target: data?.current ?? t("branches.currentTarget") })} icon={<GitMerge size={14} />} onClick={() => startMerge(b)} disabled={busy !== null || !data?.current} />
           )}
           <IconButton
             size="sm"
-            label={`Switch to ${b.name}`}
+            label={t("branches.switch", { branch: b.name })}
             icon={<ArrowRightLeft size={14} />}
             onClick={() => switchTo(b)}
             disabled={busy !== null || (b.worktreePath !== null && !b.remote)}
           />
           {!b.remote && (
-            <IconButton size="sm" variant="danger" label={`Delete ${b.name}…`} icon={<Trash2 size={14} />} onClick={() => setPending({ kind: "delete", branch: b, force: false })} disabled={busy !== null || b.worktreePath !== null} />
+            <IconButton size="sm" variant="danger" label={t("branches.delete", { branch: b.name })} icon={<Trash2 size={14} />} onClick={() => setPending({ kind: "delete", branch: b, force: false })} disabled={busy !== null || b.worktreePath !== null} />
           )}
         </span>
       )}
@@ -148,18 +151,18 @@ export function BranchesTab({ projectId, worktree, refresh, onChanged }: Props) 
     <div className="git-pane">
       <form className="git-form" onSubmit={create}>
         <Input
-          placeholder="new-branch-name"
-          aria-label="New branch name"
+          placeholder={t("branches.namePlaceholder")}
+          aria-label={t("branches.name")}
           value={name}
           onChange={(e) => setName(e.target.value)}
           error={nameError ?? undefined}
           leftIcon={<GitBranch size={14} />}
         />
         <label className="git-check">
-          <input type="checkbox" checked={checkout} onChange={(e) => setCheckout(e.target.checked)} /> Switch to it
+          <input type="checkbox" checked={checkout} onChange={(e) => setCheckout(e.target.checked)} /> {t("branches.switchToIt")}
         </label>
         <Button type="submit" size="sm" variant="primary" leftIcon={<Plus size={14} />} disabled={!name.trim() || nameError !== null} loading={busy === "create"}>
-          Create
+          {t("common:actions.create")}
         </Button>
       </form>
       {actionError && <Notice tone="danger">{actionError}</Notice>}
@@ -167,17 +170,17 @@ export function BranchesTab({ projectId, worktree, refresh, onChanged }: Props) 
       {error && <Notice tone="danger">{error}</Notice>}
       {loading && !data ? (
         <div className="git-center">
-          <Spinner size={18} /> Loading branches…
+          <Spinner size={18} /> {t("branches.loading")}
         </div>
       ) : local.length === 0 && remote.length === 0 ? (
-        <EmptyState icon={<GitBranch size={24} strokeWidth={1.6} />} title="No branches yet" description="Branches appear after the first commit." />
+        <EmptyState icon={<GitBranch size={24} strokeWidth={1.6} />} title={t("branches.empty.title")} description={t("branches.empty.description")} />
       ) : (
         <div className="git-scroll">
-          <h3 className="git-heading">Local</h3>
+          <h3 className="git-heading">{t("branches.local")}</h3>
           <ul className="git-list">{local.map(row)}</ul>
           {remote.length > 0 && (
             <>
-              <h3 className="git-heading">Remote</h3>
+              <h3 className="git-heading">{t("branches.remote")}</h3>
               <ul className="git-list">{remote.map(row)}</ul>
             </>
           )}
@@ -186,13 +189,13 @@ export function BranchesTab({ projectId, worktree, refresh, onChanged }: Props) 
 
       {pending?.kind === "delete" && (
         <ConfirmDialog
-          title={pending.force ? `Force-delete ${pending.branch.name}?` : `Delete ${pending.branch.name}?`}
+          title={pending.force ? t("branches.forceTitle", { branch: pending.branch.name }) : t("branches.deleteTitle", { branch: pending.branch.name })}
           description={
             pending.force
-              ? "This branch has commits that are not merged anywhere. Deleting it may lose them (its last commit id is shown after deletion)."
-              : "Only merged branches can be deleted safely."
+              ? t("branches.forceDescription")
+              : t("branches.deleteDescription")
           }
-          confirmLabel={pending.force ? "Force delete" : "Delete"}
+          confirmLabel={pending.force ? t("branches.forceConfirm") : t("common:actions.delete")}
           danger
           busy={busy === "delete"}
           error={actionError}
@@ -202,9 +205,9 @@ export function BranchesTab({ projectId, worktree, refresh, onChanged }: Props) 
       )}
       {pending?.kind === "merge" && (
         <ConfirmDialog
-          title={`Merge ${pending.branch.name} into ${data?.current ?? "current"}?`}
-          description="A merge commit is always created (--no-ff)."
-          confirmLabel="Merge"
+          title={t("branches.mergeTitle", { branch: pending.branch.name, target: data?.current ?? t("branches.currentTarget") })}
+          description={t("branches.mergeDescription")}
+          confirmLabel={t("branches.mergeConfirm")}
           busy={busy === "merge"}
           error={actionError ?? pending.error}
           confirmDisabled={!pending.preview || !pending.preview.clean || pending.preview.upToDate}
@@ -213,15 +216,15 @@ export function BranchesTab({ projectId, worktree, refresh, onChanged }: Props) 
         >
           {!pending.preview && !pending.error ? (
             <div className="git-center git-small">
-              <Spinner size={14} /> Checking for conflicts…
+              <Spinner size={14} /> {t("branches.checking")}
             </div>
           ) : pending.preview?.upToDate ? (
-            <Notice tone="info">Already up to date — nothing to merge.</Notice>
+            <Notice tone="info">{t("branches.previewUpToDate")}</Notice>
           ) : pending.preview?.clean ? (
-            <Notice tone="success">No conflicts. {pending.preview.commitsToMerge} commit(s) will be merged.</Notice>
+            <Notice tone="success">{t("branches.previewClean", { count: pending.preview.commitsToMerge })}</Notice>
           ) : pending.preview ? (
             <Notice tone="danger">
-              Conflicts predicted in: {pending.preview.conflicts.map((c) => c.path).join(", ")}. Resolve them on the branch first.
+              {t("branches.previewConflicts", { files: fmt.list(pending.preview.conflicts.map((c) => c.path)) })}
             </Notice>
           ) : null}
         </ConfirmDialog>

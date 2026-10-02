@@ -163,6 +163,11 @@ pub struct ManagerRequestOptions {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub time_limit_mins: Option<u32>,
+    /// The user's resolved UI language (`ru`, `en`, …): the Manager and the
+    /// agents of this request reply in it. Absent = keep the current one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub language: Option<String>,
 }
 
 /// Params of `manager.chat`.
@@ -797,6 +802,9 @@ pub struct ManagerResumeSummary {
     pub tasks_failed: u32,
     /// Blocked.
     pub tasks_blocked: u32,
+    /// Cancelled (not counted in `percent_complete`).
+    #[serde(default)]
+    pub tasks_cancelled: u32,
     /// Completed in percent.
     pub percent_complete: u32,
     /// Per-goal progress, newest first.

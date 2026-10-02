@@ -1,0 +1,231 @@
+{
+  "titleBar": {
+    "search": "Поиск или команда…",
+    "settings": "Настройки (Ctrl+,)",
+    "minimize": "Свернуть",
+    "maximize": "Развернуть",
+    "restore": "Свернуть в окно",
+    "close": "Закрыть"
+  },
+  "connection": {
+    "failed": "Не удалось подключиться к ядру Orkestr.",
+    "authenticating": "Проверка доступа…",
+    "starting": "Запуск ядра…",
+    "notInShell": "Страница открыта вне настольного приложения Orkestr. Запустите orkestrd и откройте её с параметрами ?core=WS_URL&token=TOKEN (см. файлы core.json и core.token в каталоге данных).",
+    "states": {
+      "idle": "Запуск",
+      "connecting": "Подключение к ядру…",
+      "authenticating": "Проверка доступа…",
+      "open": "Ядро подключено",
+      "reconnecting": "Переподключение…",
+      "closed": "Нет подключения"
+    }
+  },
+  "statusBar": {
+    "modeEmbedded": "Встроенное ядро",
+    "modeExternal": "orkestrd",
+    "modeBrowser": "Браузер",
+    "version": "v{{version}}",
+    "startup": "запуск за {{ms}} мс",
+    "seq": "событие № {{seq}}",
+    "seqTitle": "Порядковый номер последнего события",
+    "commands": "Команды"
+  },
+  "rail": {
+    "label": "Проекты",
+    "openProject": "Открыть проект «{{name}}»",
+    "empty": "Нет проектов",
+    "newProject": "Новый проект",
+    "createProject": "Создать проект",
+    "palette": "Палитра команд (Ctrl+K)"
+  },
+  "createProject": {
+    "title": "Новый проект",
+    "subtitle": "В проекте собраны репозитории, агенты, задачи, память и бюджеты.",
+    "name": "Название",
+    "namePlaceholder": "Например, Платформа расчёта зарплат",
+    "description": "Описание",
+    "descriptionPlaceholder": "Необязательно — о чём этот проект?",
+    "accent": "Цвет",
+    "accentGroup": "Цвет проекта",
+    "nameRequired": "Укажите название проекта.",
+    "failed": "Не удалось создать проект.",
+    "submit": "Создать проект"
+  },
+  "workspace": {
+    "unknownPanel": "Неизвестная панель",
+    "closeTab": "Закрыть «{{title}}»",
+    "emptyTitle": "Рабочая область пуста",
+    "emptyDescription": "Откройте панели через палитру команд (Ctrl+K) или верните раскладку по умолчанию.",
+    "restoreLayout": "Вернуть раскладку «Разработка»"
+  },
+  "palette": {
+    "label": "Палитра команд",
+    "results": "Результаты",
+    "searchMode": "Поиск",
+    "placeholder": "Введите команду или / для поиска…",
+    "searchPlaceholder": "Поиск проектов…",
+    "searching": "Идёт поиск…",
+    "nothingFound": "По запросу «{{query}}» ничего не найдено",
+    "noProjects": "Проектов пока нет — создайте первый командой «Создать проект»",
+    "noCommands": "Подходящих команд нет",
+    "navigate": "выбрать",
+    "run": "выполнить",
+    "searchProjects": "искать проекты",
+    "globalSearch": "Глобальный поиск",
+    "commandCount_one": "{{count}} команда",
+    "commandCount_few": "{{count}} команды",
+    "commandCount_many": "{{count}} команд",
+    "commandCount_other": "{{count}} команды",
+    "groups": {
+      "recent": "Недавние",
+      "panels": "Панели",
+      "layout": "Раскладка",
+      "appearance": "Оформление"
+    },
+    "openPanel": "Открыть панель: {{title}}",
+    "resetLayout": "Сбросить раскладку (пресет «Разработка»)",
+    "theme": "Тема: {{name}}",
+    "themeModes": {
+      "Dark": "тёмная",
+      "Light": "светлая"
+    }
+  },
+  "panels": {
+    "manager": {
+      "title": "Менеджер",
+      "description": "Чат с AI-менеджером и планы"
+    },
+    "code": {
+      "title": "Код",
+      "description": "Редактор кода Monaco"
+    },
+    "files": {
+      "title": "Файлы",
+      "description": "Проводник по файлам проекта"
+    },
+    "terminal": {
+      "title": "Терминал",
+      "description": "Сеансы терминала (PTY)"
+    },
+    "git": {
+      "title": "Git",
+      "description": "Статус, изменения, ветки и рабочие копии"
+    },
+    "agents": {
+      "title": "Агенты",
+      "description": "Шаблоны и экземпляры агентов"
+    },
+    "tasks": {
+      "title": "Задачи",
+      "description": "Доска задач и граф зависимостей"
+    },
+    "architecture": {
+      "title": "Архитектура",
+      "description": "Карта архитектуры и решения"
+    },
+    "browser": {
+      "title": "Браузер",
+      "description": "Агент для работы в браузере"
+    },
+    "database": {
+      "title": "База данных",
+      "description": "Обозреватель баз данных"
+    },
+    "logs": {
+      "title": "Журнал",
+      "description": "Поток событий в реальном времени"
+    },
+    "deployments": {
+      "title": "Развёртывания",
+      "description": "Окружения и развёртывания"
+    },
+    "memory": {
+      "title": "Память",
+      "description": "Память проекта и база знаний"
+    },
+    "costs": {
+      "title": "Расходы",
+      "description": "Расход, бюджеты и лимиты"
+    },
+    "monitoring": {
+      "title": "Мониторинг",
+      "description": "Центр управления и инфраструктура"
+    }
+  },
+  "phasePlaceholder": {
+    "badge": "Появится на этапе {{phase}}",
+    "project": "Будет работать с проектом <strong>{{name}}</strong>.",
+    "features": "{{title}}: запланированные возможности"
+  },
+  "commandGroups": {
+    "projects": "Проекты",
+    "general": "Общие",
+    "views": "Вид",
+    "window": "Окно",
+    "safety": "Безопасность"
+  },
+  "commands": {
+    "projectCreate": "Создать проект",
+    "projectSwitch": "Перейти к проекту…",
+    "settingsOpen": "Открыть настройки",
+    "onboardingOpen": "Запустить мастер настройки",
+    "toggleDnd": "Включить или выключить «Не беспокоить»",
+    "missionControl": "Центр управления",
+    "openLogs": "Открыть журнал",
+    "toggleMaximize": "Развернуть или восстановить панель",
+    "toggleFullscreen": "Включить или выключить полноэкранный режим",
+    "stopAll": "Остановить всю работу AI",
+    "switchLanguage": "Сменить язык",
+    "switchLanguageTo": "Переключить на {{language}}"
+  },
+  "stopAll": {
+    "doneTitle": "Вся работа AI остановлена",
+    "doneBody": "Вы выполнили экстренную остановку: {{agents}}, {{approvals}}.",
+    "agents_one": "остановлен {{count}} агент",
+    "agents_few": "остановлено {{count}} агента",
+    "agents_many": "остановлено {{count}} агентов",
+    "agents_other": "остановлено {{count}} агента",
+    "approvals_one": "отменён {{count}} запрос на подтверждение",
+    "approvals_few": "отменено {{count}} запроса на подтверждение",
+    "approvals_many": "отменено {{count}} запросов на подтверждение",
+    "approvals_other": "отменено {{count}} запроса на подтверждение",
+    "failedTitle": "Не удалось выполнить экстренную остановку"
+  },
+  "settings": {
+    "title": "Настройки",
+    "sections": "Разделы настроек",
+    "close": "Закрыть настройки (Esc)",
+    "sectionTitles": {
+      "general": "Общие",
+      "system": "Система",
+      "about": "О программе"
+    }
+  },
+  "dock": {
+    "panelOpened": "Открыта панель «{{title}}»",
+    "panelClosed": "Закрыта панель «{{title}}»",
+    "groupMaximized": "Панель «{{title}}» развёрнута",
+    "groupRestored": "Панель «{{title}}» восстановлена",
+    "groupFloated": "Панель «{{title}}» откреплена",
+    "groupDocked": "Панель «{{title}}» закреплена",
+    "groupPoppedOut": "Панель «{{title}}» открыта в новом окне",
+    "closeTab": "Закрыть «{{title}}»",
+    "closeTabPlain": "Закрыть",
+    "movePickTarget": "Перемещение «{{source}}». Цель — «{{target}}», {{current}} из {{total}}. Enter — выбрать место, Esc — отмена.",
+    "movePickEdge": "{{where}}. Стрелки — изменить, Enter — подтвердить, Esc — назад.",
+    "edgeCenter": "Вкладкой в «{{target}}»",
+    "edgeSplit": "Разместить {{position}} от «{{target}}»",
+    "committedCenter": "«{{source}}» перемещена вкладкой в «{{target}}».",
+    "committedSplit": "«{{source}}» размещена {{position}} от «{{target}}».",
+    "moveCancelled": "Перемещение отменено.",
+    "moveNotAllowed": "Так переместить нельзя.",
+    "moveFloated": "«{{source}}» откреплена.",
+    "position": {
+      "top": "сверху",
+      "bottom": "снизу",
+      "left": "слева",
+      "right": "справа"
+    }
+  }
+}

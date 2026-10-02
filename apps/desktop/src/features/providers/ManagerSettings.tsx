@@ -16,12 +16,18 @@ import { Button, EmptyState, IconButton, Input, Spinner } from "@orkestr/ui";
 import { ArrowDown, ArrowUp, Plus, RefreshCw, Route, Save, Sparkles, Undo2, Workflow, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { useT } from "../../i18n";
 import { useAppStore } from "../../store/app";
 import { Select, Switch, TextArea } from "./controls";
-import { moveItem, parseOptionalNumber, refKey, refLabel, ROUTING_PURPOSES, validateManagerConfig } from "./logic";
+import { moveItem, parseOptionalNumber, purposeLabel, refKey, refLabel, ROUTING_PURPOSES, validateManagerConfig } from "./logic";
 import { ModelPicker } from "./ModelPicker";
 import { errorMessage, getManagerConfig, getRoutingConfig, saveManagerConfig, saveRoutingConfig, useProvidersLive } from "./store";
 import "./providers.css";
+
+const REASONING_LEVELS: readonly ReasoningLevel[] = ["Low", "Medium", "High"];
+const CONTEXT_POLICIES: readonly ContextPolicy[] = ["Minimal", "Balanced", "Full"];
+const APPROVAL_MODES: readonly ApprovalMode[] = ["Ask", "SemiAuto", "FullAuto"];
+const ROUTING_MODES: readonly RoutingMode[] = ["Manual", "Auto"];
 
 interface Draft {
   manager: ManagerConfig;
@@ -50,6 +56,7 @@ export function ManagerSettings() {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [pendingFallback, setPendingFallback] = useState<ModelRef | null>(null);
+  const { t } = useT(["providers", "common"]);
 
   const load = useCallback(async () => {
     setLoadError(null);
@@ -70,17 +77,17 @@ export function ManagerSettings() {
   const dirty = useMemo(() => saved !== null && draft !== null && JSON.stringify(saved) !== JSON.stringify(draft), [saved, draft]);
 
   if (!connected && !draft) {
-    return <EmptyState icon={<Sparkles size={22} />} title="Connecting to the Orkestr core…" />;
+    return <EmptyState icon={<Sparkles size={22} />} title={t("connecting")} />;
   }
   if (loadError) {
     return (
       <EmptyState
         icon={<X size={22} />}
-        title="Could not load Manager settings"
+        title={t("manager.loadFailed")}
         description={loadError}
         action={
           <Button variant="primary" leftIcon={<RefreshCw size={14} />} onClick={() => void load()}>
-            Retry
+            {t("common:actions.retry")}
           </Button>
         }
       />
@@ -89,7 +96,7 @@ export function ManagerSettings() {
   if (!draft) {
     return (
       <div className="pv" aria-busy="true">
-        <Spinner label="Loading Manager settings" />
+        <Spinner label={t("manager.loading")} />
       </div>
     );
   }
@@ -110,7 +117,7 @@ export function ManagerSettings() {
       return;
     }
     if (r.rules.some((rule) => !rule.model.model.trim())) {
-      setMsg({ ok: false, text: "Every routing rule needs a model." });
+      setMsg({ ok: false, text: t("validation.routingModel") });
       return;
     }
     setSaving(true);
@@ -120,7 +127,7 @@ export function ManagerSettings() {
       const d = toDraft(sm, sr);
       setSaved(d);
       setDraft(d);
-      setMsg({ ok: true, text: "Saved." });
+      setMsg({ ok: true, text: t("manager.saved") });
     } catch (e) {
       setMsg({ ok: false, text: errorMessage(e) });
     } finally {
@@ -131,40 +138,60 @@ export function ManagerSettings() {
   const noProviders = providers.length === 0;
   return (
     <div className="pv">
-      <p className="pv__intro">
-        The AI Manager plans work, spawns agents and reviews results. Pick its model, limits and what happens when a provider is rate-limited or out of
-        quota. Model switches are always announced (§7).
-      </p>
-      {noProviders && <p className="pv-note pv-note--warn">No providers yet — add one under “AI Providers” first.</p>}
+      <p className="pv__intro">{t("manager.intro")}</p>
+      {noProviders && <p className="pv-note pv-note--warn">{t("manager.noProviders")}</p>}
 
       <section className="pv-section" aria-labelledby="pv-mgr-model">
         <h3 id="pv-mgr-model" className="pv-section__title">
-          <Sparkles size={16} /> Orchestration model
+          <Sparkles size={16} /> {t("manager.modelTitle")}
         </h3>
-        <ModelPicker label="Manager" value={m.model} providers={providers} allowNone onChange={(model) => setManager({ model })} />
+        <ModelPicker label={t("manager.managerLabel")} value={m.model} providers={providers} allowNone onChange={(model) => setManager({ model })} />
         <div className="pv-fields">
-          <Select label="Reasoning level" value={m.reasoning} onChange={(e) => setManager({ reasoning: e.target.value as ReasoningLevel })}>
-            <option value="Low">Low — fastest</option>
-            <option value="Medium">Medium</option>
-            <option value="High">High — deepest</option>
+          <Select label={t("manager.reasoning")} value={m.reasoning} onChange={(e) => setManager({ reasoning: e.target.value as ReasoningLevel })}>
+            {REASONING_LEVELS.map((level) => (
+              <option key={level} value={level}>
+                {t(`manager.reasoningLevels.${level}`)}
+              </option>
+            ))}
           </Select>
-          <Select label="Context policy" value={m.contextPolicy} onChange={(e) => setManager({ contextPolicy: e.target.value as ContextPolicy })}>
-            <option value="Minimal">Minimal</option>
-            <option value="Balanced">Balanced</option>
-            <option value="Full">Full</option>
+          <Select label={t("manager.contextPolicy")} value={m.contextPolicy} onChange={(e) => setManager({ contextPolicy: e.target.value as ContextPolicy })}>
+            {CONTEXT_POLICIES.map((policy) => (
+              <option key={policy} value={policy}>
+                {t(`manager.contextPolicies.${policy}`)}
+              </option>
+            ))}
           </Select>
-          <Select label="Approval policy" value={m.approvalPolicy} onChange={(e) => setManager({ approvalPolicy: e.target.value as ApprovalMode })} hint="Dangerous actions always ask.">
-            <option value="Ask">Ask</option>
-            <option value="SemiAuto">Semi-auto</option>
-            <option value="FullAuto">Full auto</option>
+          <Select
+            label={t("manager.approvalPolicy")}
+            value={m.approvalPolicy}
+            onChange={(e) => setManager({ approvalPolicy: e.target.value as ApprovalMode })}
+            hint={t("manager.approvalHint")}
+          >
+            {APPROVAL_MODES.map((mode) => (
+              <option key={mode} value={mode}>
+                {t(`common:status.approvalMode.${mode}`)}
+              </option>
+            ))}
           </Select>
-          <Input label="Max parallel agents" inputMode="numeric" value={draft.parallelText} onChange={(e) => setDraft({ ...draft, parallelText: e.target.value })} />
-          <Input label="Budget per run (USD)" inputMode="decimal" placeholder="unrestricted" value={draft.budgetText} onChange={(e) => setDraft({ ...draft, budgetText: e.target.value })} />
-          <Input label="Time limit (minutes)" inputMode="numeric" placeholder="none" value={draft.timeText} onChange={(e) => setDraft({ ...draft, timeText: e.target.value })} />
+          <Input label={t("manager.maxParallel")} inputMode="numeric" value={draft.parallelText} onChange={(e) => setDraft({ ...draft, parallelText: e.target.value })} />
+          <Input
+            label={t("manager.budget")}
+            inputMode="decimal"
+            placeholder={t("manager.budgetPlaceholder")}
+            value={draft.budgetText}
+            onChange={(e) => setDraft({ ...draft, budgetText: e.target.value })}
+          />
+          <Input
+            label={t("manager.timeLimit")}
+            inputMode="numeric"
+            placeholder={t("manager.timeLimitPlaceholder")}
+            value={draft.timeText}
+            onChange={(e) => setDraft({ ...draft, timeText: e.target.value })}
+          />
         </div>
         <TextArea
-          label="System instructions"
-          placeholder="Extra guidance for the Manager, e.g. “Prefer small PRs and always add tests.”"
+          label={t("manager.instructions")}
+          placeholder={t("manager.instructionsPlaceholder")}
           value={m.systemInstructions}
           maxLength={20000}
           onChange={(e) => setManager({ systemInstructions: e.target.value })}
@@ -173,33 +200,33 @@ export function ManagerSettings() {
 
       <section className="pv-section" aria-labelledby="pv-mgr-fallback">
         <h3 id="pv-mgr-fallback" className="pv-section__title">
-          <Workflow size={16} /> Fallback chain
+          <Workflow size={16} /> {t("manager.fallbackTitle")}
         </h3>
-        <p className="pv-section__hint">Tried in order when the main model is rate-limited, out of quota or failing, with a structured handoff.</p>
+        <p className="pv-section__hint">{t("manager.fallbackHint")}</p>
         {m.fallbackChain.length === 0 ? (
-          <p className="pv-note">No fallbacks — failures stop the run and ask you.</p>
+          <p className="pv-note">{t("manager.noFallbacks")}</p>
         ) : (
-          <ol className="pv-chain" aria-label="Fallback order">
+          <ol className="pv-chain" aria-label={t("manager.fallbackOrder")}>
             {m.fallbackChain.map((ref, i) => (
               <li key={`${refKey(ref)}-${i}`} className="pv-chain__item">
                 <span className="pv-chain__pos" aria-hidden="true">
                   {i + 1}
                 </span>
                 <span className="pv-chain__label">{refLabel(ref, providers)}</span>
-                <IconButton label={`Move ${ref.model} up`} size="sm" icon={<ArrowUp size={14} />} disabled={i === 0} onClick={() => setManager({ fallbackChain: moveItem(m.fallbackChain, i, i - 1) })} />
+                <IconButton label={t("manager.moveUp", { model: ref.model })} size="sm" icon={<ArrowUp size={14} />} disabled={i === 0} onClick={() => setManager({ fallbackChain: moveItem(m.fallbackChain, i, i - 1) })} />
                 <IconButton
-                  label={`Move ${ref.model} down`}
+                  label={t("manager.moveDown", { model: ref.model })}
                   size="sm"
                   icon={<ArrowDown size={14} />}
                   disabled={i === m.fallbackChain.length - 1}
                   onClick={() => setManager({ fallbackChain: moveItem(m.fallbackChain, i, i + 1) })}
                 />
-                <IconButton label={`Remove ${ref.model}`} size="sm" variant="danger" icon={<X size={14} />} onClick={() => setManager({ fallbackChain: m.fallbackChain.filter((_, j) => j !== i) })} />
+                <IconButton label={t("manager.remove", { model: ref.model })} size="sm" variant="danger" icon={<X size={14} />} onClick={() => setManager({ fallbackChain: m.fallbackChain.filter((_, j) => j !== i) })} />
               </li>
             ))}
           </ol>
         )}
-        <ModelPicker label="Add fallback" value={pendingFallback} providers={providers} allowNone onChange={setPendingFallback} />
+        <ModelPicker label={t("manager.addFallback")} value={pendingFallback} providers={providers} allowNone onChange={setPendingFallback} />
         <div>
           <Button
             size="sm"
@@ -211,22 +238,30 @@ export function ManagerSettings() {
               setPendingFallback(null);
             }}
           >
-            Add to chain
+            {t("manager.addToChain")}
           </Button>
         </div>
       </section>
 
       <section className="pv-section" aria-labelledby="pv-mgr-routing">
         <h3 id="pv-mgr-routing" className="pv-section__title">
-          <Route size={16} /> Routing
+          <Route size={16} /> {t("manager.routingTitle")}
         </h3>
         <div className="pv-fields">
-          <Select label="Mode" value={r.mode} onChange={(e) => setRouting({ mode: e.target.value as RoutingMode })} hint={r.mode === "Auto" ? "Scores capability, cost, latency and limits; rules get a boost." : "Uses the table below exactly."}>
-            <option value="Manual">Manual</option>
-            <option value="Auto">Automatic</option>
+          <Select
+            label={t("manager.routingMode")}
+            value={r.mode}
+            onChange={(e) => setRouting({ mode: e.target.value as RoutingMode })}
+            hint={r.mode === "Auto" ? t("manager.routingAutoHint") : t("manager.routingManualHint")}
+          >
+            {ROUTING_MODES.map((mode) => (
+              <option key={mode} value={mode}>
+                {t(`manager.routingModes.${mode}`)}
+              </option>
+            ))}
           </Select>
           <Input
-            label="Max rate-limit wait (s)"
+            label={t("manager.maxWait")}
             inputMode="numeric"
             value={String(r.maxRateLimitWaitSecs)}
             onChange={(e) => {
@@ -235,19 +270,19 @@ export function ManagerSettings() {
             }}
           />
           <div className="ok-field" style={{ justifyContent: "flex-end" }}>
-            <Switch checked={r.preferLocal} label="Prefer local models" onChange={(preferLocal) => setRouting({ preferLocal })} />
+            <Switch checked={r.preferLocal} label={t("manager.preferLocal")} onChange={(preferLocal) => setRouting({ preferLocal })} />
           </div>
         </div>
         {r.rules.length === 0 ? (
-          <p className="pv-note">No routing rules — every role uses the Manager’s choices{r.mode === "Auto" ? " and automatic scoring" : ""}.</p>
+          <p className="pv-note">{r.mode === "Auto" ? t("manager.noRulesAuto") : t("manager.noRules")}</p>
         ) : (
           <table className="pv-table">
             <thead>
               <tr>
-                <th scope="col">Role / task</th>
-                <th scope="col">Model</th>
+                <th scope="col">{t("manager.colPurpose")}</th>
+                <th scope="col">{t("manager.colModel")}</th>
                 <th scope="col">
-                  <span className="pv-sr">Actions</span>
+                  <span className="pv-sr">{t("manager.colActions")}</span>
                 </th>
               </tr>
             </thead>
@@ -256,27 +291,27 @@ export function ManagerSettings() {
                 <tr key={`${rule.purpose}-${i}`}>
                   <td style={{ width: "28%" }}>
                     <Select
-                      label={<span className="pv-sr">Purpose of rule {i + 1}</span>}
+                      label={<span className="pv-sr">{t("manager.rulePurpose", { index: i + 1 })}</span>}
                       value={rule.purpose}
                       onChange={(e) => setRouting({ rules: r.rules.map((x, j) => (j === i ? { ...x, purpose: e.target.value } : x)) })}
                     >
                       {[...new Set([rule.purpose, ...ROUTING_PURPOSES])].map((p) => (
                         <option key={p} value={p} disabled={p !== rule.purpose && r.rules.some((x) => x.purpose === p)}>
-                          {p}
+                          {purposeLabel(p)}
                         </option>
                       ))}
                     </Select>
                   </td>
                   <td>
                     <ModelPicker
-                      label={`Rule ${i + 1}`}
+                      label={t("manager.rule", { index: i + 1 })}
                       value={rule.model}
                       providers={providers}
                       onChange={(model) => model && setRouting({ rules: r.rules.map((x, j) => (j === i ? { ...x, model } : x)) })}
                     />
                   </td>
                   <td style={{ width: 40 }}>
-                    <IconButton label={`Remove rule ${rule.purpose}`} size="sm" variant="danger" icon={<X size={14} />} onClick={() => setRouting({ rules: r.rules.filter((_, j) => j !== i) })} />
+                    <IconButton label={t("manager.removeRule", { purpose: purposeLabel(rule.purpose) })} size="sm" variant="danger" icon={<X size={14} />} onClick={() => setRouting({ rules: r.rules.filter((_, j) => j !== i) })} />
                   </td>
                 </tr>
               ))}
@@ -295,7 +330,7 @@ export function ManagerSettings() {
               setRouting({ rules: [...r.rules, { purpose, model: { providerId: first.provider.id, model: first.provider.defaultModel ?? "" }, fallback: [] }] });
             }}
           >
-            Add routing rule
+            {t("manager.addRule")}
           </Button>
         </div>
       </section>
@@ -306,12 +341,12 @@ export function ManagerSettings() {
             {msg.text}
           </span>
         )}
-        {!msg && dirty && <span className="pv-savebar__msg">Unsaved changes</span>}
+        {!msg && dirty && <span className="pv-savebar__msg">{t("manager.unsaved")}</span>}
         <Button variant="ghost" leftIcon={<Undo2 size={14} />} disabled={!dirty || saving} onClick={() => saved && setDraft(saved)}>
-          Revert
+          {t("manager.revert")}
         </Button>
         <Button variant="primary" leftIcon={<Save size={14} />} disabled={!dirty} loading={saving} onClick={() => void save()}>
-          Save
+          {t("common:actions.save")}
         </Button>
       </div>
     </div>

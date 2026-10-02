@@ -66,7 +66,9 @@ pub struct AppSettings {
     /// Durable events older than this are pruned (approvals, decisions,
     /// emergency stops and rollbacks are kept). 0 = keep forever.
     pub event_retention_days: u32,
-    /// UI language (BCP-47, e.g. `en`, `ru`).
+    /// UI language preference: `system` (follow the OS language; the default
+    /// for new installs) or a BCP-47 tag such as `ru` / `en`. The UI resolves
+    /// `system` itself; AI Manager and agents reply in the resolved language.
     pub language: String,
     /// In-app notifications: do not disturb (no toasts; history still recorded).
     pub do_not_disturb: bool,
@@ -86,7 +88,7 @@ impl Default for AppSettings {
             theme_id: "nebula".into(),
             telemetry_enabled: false,
             event_retention_days: DEFAULT_EVENT_RETENTION_DAYS,
-            language: "en".into(),
+            language: LANGUAGE_SYSTEM.into(),
             do_not_disturb: false,
             onboarding_completed: false,
         }
@@ -179,8 +181,8 @@ impl AppSettingsPatch {
             }
         }
         if let Some(l) = &self.language {
-            if !is_language_tag(l) {
-                return Err(invalid("language", "expected a language tag like `en` or `pt-BR`"));
+            if l != LANGUAGE_SYSTEM && !is_language_tag(l) {
+                return Err(invalid("language", "expected `system` or a language tag like `en` or `pt-BR`"));
             }
         }
         Ok(())
@@ -214,6 +216,9 @@ impl AppSettingsPatch {
         changed
     }
 }
+
+/// `AppSettings::language` value meaning "follow the operating system".
+pub const LANGUAGE_SYSTEM: &str = "system";
 
 fn is_language_tag(s: &str) -> bool {
     let mut parts = s.split('-');
@@ -277,6 +282,9 @@ mod tests {
         p.validate().unwrap();
         assert_eq!(p.apply_to(&mut s), vec!["closeToTray", "language"]);
         assert!(p.apply_to(&mut s).is_empty(), "idempotent");
+        assert_eq!(AppSettings::default().language, LANGUAGE_SYSTEM, "new installs follow the OS language");
+        AppSettingsPatch { language: Some(LANGUAGE_SYSTEM.into()), ..Default::default() }.validate().unwrap();
+        AppSettingsPatch { language: Some("ru".into()), ..Default::default() }.validate().unwrap();
         for bad in [
             AppSettingsPatch { storage_mode: Some(StorageMode::Cloud), ..Default::default() },
             AppSettingsPatch { theme_id: Some("../x".into()), ..Default::default() },

@@ -5,6 +5,8 @@ import { FolderPlus, X } from "lucide-react";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 
 import { createProject } from "../core/client";
+import { useT } from "../i18n";
+import { describeError } from "../i18n/errors";
 import { useAppStore } from "../store/app";
 
 /** Accent swatches offered for new projects (stored as `#RRGGBB` on the project). */
@@ -21,6 +23,7 @@ export function CreateProjectDialog() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const nameRef = useRef<HTMLInputElement>(null);
+  const { t } = useT(["shell", "common"]);
 
   useEffect(() => {
     if (open) {
@@ -42,7 +45,7 @@ export function CreateProjectDialog() {
     e.preventDefault();
     const trimmed = name.trim();
     if (!trimmed) {
-      setError("Give the project a name.");
+      setError(t("shell:createProject.nameRequired"));
       return;
     }
     setBusy(true);
@@ -51,7 +54,7 @@ export function CreateProjectDialog() {
       await createProject({ name: trimmed, description: description.trim(), color });
       setOpen(false);
     } catch (err) {
-      setError(err instanceof OrkestrError ? err.message : "Could not create the project.");
+      setError(err instanceof OrkestrError ? describeError(err) : t("shell:createProject.failed"));
     } finally {
       setBusy(false);
     }
@@ -73,33 +76,33 @@ export function CreateProjectDialog() {
           </div>
           <div>
             <h2 id="create-project-title" className="dialog__title">
-              New project
+              {t("shell:createProject.title")}
             </h2>
-            <p className="dialog__subtitle">Projects hold repositories, agents, tasks, memory and budgets.</p>
+            <p className="dialog__subtitle">{t("shell:createProject.subtitle")}</p>
           </div>
-          <button type="button" className="dialog__close" aria-label="Close" onClick={close}>
+          <button type="button" className="dialog__close" aria-label={t("common:actions.close")} onClick={close}>
             <X size={16} />
           </button>
         </header>
         <div className="dialog__body">
           <Input
             ref={nameRef}
-            label="Name"
-            placeholder="e.g. Payroll Platform"
+            label={t("shell:createProject.name")}
+            placeholder={t("shell:createProject.namePlaceholder")}
             value={name}
             maxLength={120}
             onChange={(e) => setName(e.target.value)}
             error={error ?? undefined}
           />
           <Input
-            label="Description"
-            placeholder="Optional — what is this project about?"
+            label={t("shell:createProject.description")}
+            placeholder={t("shell:createProject.descriptionPlaceholder")}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
           />
           <div className="ok-field">
-            <span className="ok-field__label">Accent</span>
-            <div className="swatches" role="radiogroup" aria-label="Project accent color">
+            <span className="ok-field__label">{t("shell:createProject.accent")}</span>
+            <div className="swatches" role="radiogroup" aria-label={t("shell:createProject.accentGroup")}>
               {PROJECT_COLORS.map((c) => (
                 <button
                   key={c}
@@ -117,10 +120,10 @@ export function CreateProjectDialog() {
         </div>
         <footer className="dialog__footer">
           <Button variant="ghost" onClick={close} disabled={busy}>
-            Cancel
+            {t("common:actions.cancel")}
           </Button>
           <Button variant="primary" type="submit" loading={busy} disabled={!connected}>
-            Create project
+            {t("shell:createProject.submit")}
           </Button>
         </footer>
       </form>

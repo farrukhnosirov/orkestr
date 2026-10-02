@@ -16,10 +16,10 @@ export type PanelIcon = LucideIcon;
 export interface PanelDefinition {
   /** Stable id, also the dockview component name. */
   id: string;
-  /** Tab title. */
-  title: string;
-  /** One-line purpose. */
-  description: string;
+  /** Tab title (localized: registries define it as a getter over `t()`). */
+  readonly title: string;
+  /** One-line purpose (localized getter). */
+  readonly description: string;
   /** Icon. */
   icon: PanelIcon;
   /** Roadmap phase (§61) in which the panel becomes functional; 0 = available now. */

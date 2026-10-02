@@ -5,28 +5,18 @@ import { clsx } from "clsx";
 import { AlertTriangle, Coins, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { useState } from "react";
 
+import { useFormat, useLanguage, useT } from "../../i18n";
 import { errorMessage, requireClient, useRpcQuery } from "../../lib/rpcQuery";
 import { useAppStore } from "../../store/app";
 import type { PanelProps } from "../types";
 import { BudgetEditor } from "./BudgetEditor";
 import "./costs.css";
-import { formatPct, formatTokens, formatUsd, LEVEL_TONE, PERIOD_LABEL, scopeLabel } from "./format";
+import { formatPct, formatTokens, formatUsd, LEVEL_TONE, levelLabel, limitLabel, scopeLabel } from "./format";
 import { SpendChart } from "./SpendChart";
 
-const DIMENSIONS: { id: CostDimension; label: string }[] = [
-  { id: "Provider", label: "Provider" },
-  { id: "Model", label: "Model" },
-  { id: "Agent", label: "Agent" },
-  { id: "Project", label: "Project" },
-  { id: "Task", label: "Task" },
-];
+const DIMENSIONS: CostDimension[] = ["Provider", "Model", "Agent", "Project", "Task"];
 
-const WINDOWS: { id: CostWindow; label: string }[] = [
-  { id: "Today", label: "Today" },
-  { id: "Month", label: "Month" },
-  { id: "Last30Days", label: "30 days" },
-  { id: "All", label: "All" },
-];
+const WINDOWS: CostWindow[] = ["Today", "Month", "Last30Days", "All"];
 
 type Scope = "project" | "all";
 
@@ -43,11 +33,12 @@ function Kpi({ label, value, sub, tone }: { label: string; value: string; sub?: 
 }
 
 function Meter({ fraction, warnAt }: { fraction: number | null; warnAt: number }) {
+  const { t } = useT("costs");
   if (fraction === null) return <span className="cost-meter cost-meter--none" aria-hidden="true" />;
   const pct = Math.min(1, Math.max(0, fraction));
   const state = fraction >= 1 ? "danger" : fraction >= warnAt ? "warning" : "ok";
   return (
-    <span className="cost-meter" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(fraction * 100)} aria-label="Budget used">
+    <span className="cost-meter" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(fraction * 100)} aria-label={t("budgets.used")}>
       <span className={`cost-meter__fill cost-meter__fill--${state}`} style={{ width: `${pct * 100}%` }} />
       <span className="cost-meter__tick" style={{ left: `${warnAt * 100}%` }} aria-hidden="true" />
     </span>
@@ -56,6 +47,12 @@ function Meter({ fraction, warnAt }: { fraction: number | null; warnAt: number }
 
 /** Cost & Limit Center (§22). All amounts include clearly labelled estimates. */
 export default function CostsPanel({ projectId }: PanelProps) {
+  const { t } = useT(["costs", "common"]);
+  const lng = useLanguage();
+  const fmt = useFormat();
+  const usd = (v: number) => formatUsd(v, lng);
+  const tokens = (n: number) => formatTokens(n, lng);
+  const pct = (f: number | null | undefined) => formatPct(f, lng);
   const connected = useAppStore((s) => s.connection.state === "open");
   const projects = useAppStore((s) => s.projects);
   const [scope, setScope] = useState<Scope>(projectId ? "project" : "all");
@@ -95,7 +92,7 @@ export default function CostsPanel({ projectId }: PanelProps) {
   };
 
   const removeBudget = async (b: BudgetRule) => {
-    if (!globalThis.confirm(`Delete budget "${b.name ?? scopeLabel(b.scope, projects)}"?`)) return;
+    if (!globalThis.confirm(t("budgets.confirmDelete", { name: b.name ?? scopeLabel(b.scope, projects) }))) return;
     setActionError(null);
     try {
       await requireClient().call("budgets.delete", { id: b.id });
@@ -108,7 +105,7 @@ export default function CostsPanel({ projectId }: PanelProps) {
   if (!connected) {
     return (
       <div className="cost-panel cost-panel--center">
-        <EmptyState icon={<Coins size={26} strokeWidth={1.6} />} title="Not connected" description="Waiting for the Orkestr core…" />
+        <EmptyState icon={<Coins size={26} strokeWidth={1.6} />} title={t("notConnected.title")} description={t("notConnected.description")} />
       </div>
     );
   }
@@ -121,7 +118,7 @@ export default function CostsPanel({ projectId }: PanelProps) {
   const anyLoading = summary.loading || breakdown.loading || series.loading || budgets.loading;
   const loadError = summary.error ?? breakdown.error ?? series.error ?? budgets.error;
   const labelFor = (r: CostBreakdownRow): string => {
-    if (r.key === "none") return "Unattributed";
+    if (r.key === "none") return t("breakdown.unattributed");
     if (dimension === "Project") return projects.find((p) => p.id === r.key)?.name ?? `…${r.key.slice(-6)}`;
     if (dimension === "Model") return r.model ?? r.key;
     return `…${r.key.slice(-8)}`;
@@ -131,20 +128,20 @@ export default function CostsPanel({ projectId }: PanelProps) {
     <div className="cost-panel">
       <div className="cost-toolbar">
         <Tabs
-          aria-label="Cost scope"
+          aria-label={t("scope.label")}
           items={[
-            { id: "project" as const, label: "This project", disabled: !projectId },
-            { id: "all" as const, label: "All projects" },
+            { id: "project" as const, label: t("scope.project"), disabled: !projectId },
+            { id: "all" as const, label: t("scope.all") },
           ]}
           value={scope}
           onChange={setScope}
         />
-        <Badge tone="violet" title="Subscription / CLI usage is costed from list prices">
-          Includes estimates
+        <Badge tone="violet" title={t("estimates.tooltip")}>
+          {t("estimates.badge")}
         </Badge>
         <div className="cost-toolbar__spacer" />
         {anyLoading && <Spinner size={14} />}
-        <IconButton label="Refresh" icon={<RefreshCw size={14} />} onClick={reloadAll} tooltip="bottom" />
+        <IconButton label={t("common:actions.refresh")} icon={<RefreshCw size={14} />} onClick={reloadAll} tooltip="bottom" />
       </div>
 
       {(loadError || actionError) && (
@@ -154,80 +151,85 @@ export default function CostsPanel({ projectId }: PanelProps) {
       )}
 
       <div className="cost-scroll">
-        <section className="cost-kpis" aria-label="Key figures">
+        <section className="cost-kpis" aria-label={t("kpi.label")}>
           <Kpi
-            label="Today"
-            value={s ? formatUsd(s.today.costUsd) : "—"}
-            sub={s ? `${formatUsd(s.today.estimatedCostUsd)} estimated · ${s.today.requests} calls` : undefined}
+            label={t("kpi.today")}
+            value={s ? usd(s.today.costUsd) : "—"}
+            sub={s ? t("kpi.todaySub", { estimated: usd(s.today.estimatedCostUsd), count: s.today.requests }) : undefined}
           />
           <Kpi
-            label="This month"
-            value={s ? formatUsd(s.month.costUsd) : "—"}
-            sub={s ? `${formatTokens(s.month.inputTokens + s.month.outputTokens)} tokens · ${formatUsd(s.month.estimatedCostUsd)} est.` : undefined}
+            label={t("kpi.month")}
+            value={s ? usd(s.month.costUsd) : "—"}
+            sub={s ? t("kpi.monthSub", { tokens: tokens(s.month.inputTokens + s.month.outputTokens), estimated: usd(s.month.estimatedCostUsd) }) : undefined}
           />
           <Kpi
-            label="Budget used"
-            value={formatPct(used)}
-            sub={used === null ? "No limited budget applies" : used >= 1 ? "Limit reached" : "Highest applicable budget"}
+            label={t("kpi.budgetUsed")}
+            value={pct(used)}
+            sub={used === null ? t("kpi.noBudget") : used >= 1 ? t("kpi.limitReached") : t("kpi.highestBudget")}
             tone={used === null ? undefined : used >= 1 ? "danger" : used >= 0.8 ? "warning" : undefined}
           />
           <Kpi
-            label="All time"
-            value={s ? formatUsd(s.total.costUsd) : "—"}
-            sub={s ? `${s.total.requests} calls · ${s.total.failures} failed` : undefined}
+            label={t("kpi.allTime")}
+            value={s ? usd(s.total.costUsd) : "—"}
+            sub={s ? t("kpi.allTimeSub", { count: s.total.requests, failed: fmt.integer(s.total.failures) }) : undefined}
           />
         </section>
 
         <section className="cost-card" aria-labelledby="cost-daily-title">
           <header className="cost-card__head">
-            <h3 id="cost-daily-title">Daily spend · last 30 days</h3>
+            <h3 id="cost-daily-title">{t("daily.title")}</h3>
           </header>
           {series.loading && series.data === null ? (
             <div className="cost-loading">
-              <Spinner size={16} /> Loading…
+              <Spinner size={16} /> {t("common:state.loading")}
             </div>
           ) : hasSpend ? (
             <SpendChart points={points} />
           ) : (
-            <p className="cost-empty">No model usage recorded in the last 30 days. Usage appears here as agents and the Manager call providers.</p>
+            <p className="cost-empty">{t("daily.empty")}</p>
           )}
         </section>
 
         <section className="cost-card" aria-labelledby="cost-breakdown-title">
           <header className="cost-card__head">
-            <h3 id="cost-breakdown-title">Breakdown</h3>
-            <Tabs aria-label="Breakdown dimension" items={DIMENSIONS} value={dimension} onChange={setDimension} />
-            <Tabs aria-label="Time window" items={WINDOWS} value={window} onChange={setWindow} />
+            <h3 id="cost-breakdown-title">{t("breakdown.title")}</h3>
+            <Tabs
+              aria-label={t("dimension.label")}
+              items={DIMENSIONS.map((id) => ({ id, label: t(`dimension.${id}`) }))}
+              value={dimension}
+              onChange={setDimension}
+            />
+            <Tabs aria-label={t("window.label")} items={WINDOWS.map((id) => ({ id, label: t(`window.${id}`) }))} value={window} onChange={setWindow} />
           </header>
           {breakdown.loading && breakdown.data === null ? (
             <div className="cost-loading">
-              <Spinner size={16} /> Loading…
+              <Spinner size={16} /> {t("common:state.loading")}
             </div>
           ) : rows.length === 0 ? (
-            <p className="cost-empty">No usage in this window.</p>
+            <p className="cost-empty">{t("breakdown.empty")}</p>
           ) : (
             <div className="cost-table-wrap">
               <table className="cost-table">
                 <thead>
                   <tr>
-                    <th scope="col">{DIMENSIONS.find((d) => d.id === dimension)?.label}</th>
+                    <th scope="col">{t(`dimension.${dimension}`)}</th>
                     <th scope="col" className="num">
-                      Cost
+                      {t("breakdown.cost")}
                     </th>
                     <th scope="col" className="num">
-                      Estimated
+                      {t("breakdown.estimated")}
                     </th>
                     <th scope="col" className="num">
-                      Input
+                      {t("breakdown.input")}
                     </th>
                     <th scope="col" className="num">
-                      Output
+                      {t("breakdown.output")}
                     </th>
                     <th scope="col" className="num">
-                      Calls
+                      {t("breakdown.calls")}
                     </th>
                     <th scope="col" className="num">
-                      Avg latency
+                      {t("breakdown.latency")}
                     </th>
                   </tr>
                 </thead>
@@ -237,15 +239,15 @@ export default function CostsPanel({ projectId }: PanelProps) {
                       <th scope="row" title={r.key}>
                         {labelFor(r)}
                       </th>
-                      <td className="num">{formatUsd(r.totals.costUsd)}</td>
-                      <td className="num cost-muted">{r.totals.estimatedCostUsd > 0 ? formatUsd(r.totals.estimatedCostUsd) : "—"}</td>
-                      <td className="num">{formatTokens(r.totals.inputTokens)}</td>
-                      <td className="num">{formatTokens(r.totals.outputTokens)}</td>
+                      <td className="num">{usd(r.totals.costUsd)}</td>
+                      <td className="num cost-muted">{r.totals.estimatedCostUsd > 0 ? usd(r.totals.estimatedCostUsd) : "—"}</td>
+                      <td className="num">{tokens(r.totals.inputTokens)}</td>
+                      <td className="num">{tokens(r.totals.outputTokens)}</td>
                       <td className="num">
-                        {r.totals.requests}
-                        {r.totals.failures > 0 && <span className="cost-fail"> ({r.totals.failures} failed)</span>}
+                        {fmt.integer(r.totals.requests)}
+                        {r.totals.failures > 0 && <span className="cost-fail"> {t("breakdown.failed", { count: r.totals.failures })}</span>}
                       </td>
-                      <td className="num">{r.avgLatencyMs != null ? `${Math.round(r.avgLatencyMs)} ms` : "—"}</td>
+                      <td className="num">{r.avgLatencyMs != null ? fmt.duration(Math.round(r.avgLatencyMs)) : "—"}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -256,18 +258,18 @@ export default function CostsPanel({ projectId }: PanelProps) {
 
         <section className="cost-card" aria-labelledby="cost-budgets-title">
           <header className="cost-card__head">
-            <h3 id="cost-budgets-title">Budgets &amp; limits</h3>
+            <h3 id="cost-budgets-title">{t("budgets.title")}</h3>
             <div className="cost-toolbar__spacer" />
             <Button size="sm" variant="primary" leftIcon={<Plus size={14} />} onClick={() => setEditing("new")}>
-              New budget
+              {t("budgets.new")}
             </Button>
           </header>
           {budgets.loading && budgets.data === null ? (
             <div className="cost-loading">
-              <Spinner size={16} /> Loading…
+              <Spinner size={16} /> {t("common:state.loading")}
             </div>
           ) : (budgets.data ?? []).length === 0 ? (
-            <p className="cost-empty">No budgets yet. Example: Project $100 per month, Task max $5, local models unrestricted.</p>
+            <p className="cost-empty">{t("budgets.empty")}</p>
           ) : (
             <ul className="cost-budgets">
               {(budgets.data ?? []).map((b) => (
@@ -275,20 +277,23 @@ export default function CostsPanel({ projectId }: PanelProps) {
                   <div className="cost-budget__main">
                     <div className="cost-budget__title">
                       <strong>{b.budget.name ?? scopeLabel(b.budget.scope, projects)}</strong>
-                      <Badge tone={LEVEL_TONE[b.level]}>{b.level === "Warn" ? "Warning" : b.level}</Badge>
+                      <Badge tone={LEVEL_TONE[b.level]}>{levelLabel(b.level)}</Badge>
                     </div>
                     <span className="cost-budget__desc">
-                      {b.budget.name ? `${scopeLabel(b.budget.scope, projects)} · ` : ""}
-                      {b.budget.unrestricted ? "unrestricted" : `${formatUsd(b.budget.limitUsd ?? 0)} ${PERIOD_LABEL[b.budget.period]}`}
-                      {" · "}spent {formatUsd(b.spentUsd)}
-                      {b.budget.period === "PerTask" ? " (top task)" : ""}
+                      {[
+                        ...(b.budget.name ? [scopeLabel(b.budget.scope, projects)] : []),
+                        b.budget.unrestricted ? t("budgets.unrestricted") : limitLabel(b.budget.limitUsd ?? 0, b.budget.period),
+                        b.budget.period === "PerTask"
+                          ? t("budgets.spentTopTask", { amount: usd(b.spentUsd) })
+                          : t("budgets.spent", { amount: usd(b.spentUsd) }),
+                      ].join(" · ")}
                     </span>
                   </div>
                   <Meter fraction={b.budget.unrestricted ? null : b.fraction} warnAt={b.budget.warnAt} />
-                  <span className="cost-budget__pct">{b.budget.unrestricted ? "∞" : formatPct(b.fraction)}</span>
+                  <span className="cost-budget__pct">{b.budget.unrestricted ? "∞" : pct(b.fraction)}</span>
                   <div className="cost-budget__actions">
-                    <IconButton size="sm" label="Edit budget" icon={<Pencil size={14} />} onClick={() => setEditing(b.budget)} />
-                    <IconButton size="sm" variant="danger" label="Delete budget" icon={<Trash2 size={14} />} onClick={() => void removeBudget(b.budget)} />
+                    <IconButton size="sm" label={t("budgets.edit")} icon={<Pencil size={14} />} onClick={() => setEditing(b.budget)} />
+                    <IconButton size="sm" variant="danger" label={t("budgets.delete")} icon={<Trash2 size={14} />} onClick={() => void removeBudget(b.budget)} />
                   </div>
                 </li>
               ))}

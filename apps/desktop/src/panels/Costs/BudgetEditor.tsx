@@ -3,18 +3,13 @@ import { Button, Input } from "@orkestr/ui";
 import { Coins, X } from "lucide-react";
 import { type FormEvent, useState } from "react";
 
+import { t as translate, useT } from "../../i18n";
 import { errorMessage, requireClient } from "../../lib/rpcQuery";
-import { PERIOD_LABEL } from "./format";
+import { periodLabel } from "./format";
 
 type ScopeKind = BudgetScope["scope"];
 
-const SCOPE_KINDS: { id: ScopeKind; label: string }[] = [
-  { id: "Global", label: "All usage (global)" },
-  { id: "Project", label: "Project" },
-  { id: "Provider", label: "Provider (id)" },
-  { id: "Agent", label: "Agent (id)" },
-  { id: "Task", label: "Task (id)" },
-];
+const SCOPE_KINDS: ScopeKind[] = ["Global", "Project", "Provider", "Agent", "Task"];
 
 const PERIODS: BudgetPeriod[] = ["Monthly", "Daily", "PerTask", "Total"];
 
@@ -36,11 +31,11 @@ function scopeId(scope: BudgetScope | undefined): string {
   }
 }
 
-/** Builds a scope from the form, or returns an error message. */
+/** Builds a scope from the form, or returns a (localized) error message. */
 export function buildScope(kind: ScopeKind, id: string): BudgetScope | string {
   const v = id.trim();
   if (kind === "Global") return { scope: "Global" };
-  if (!UUID.test(v)) return `Enter a valid ${kind.toLowerCase()} id.`;
+  if (!UUID.test(v)) return translate(`costs:editor.invalidId.${kind}`);
   switch (kind) {
     case "Project":
       return { scope: "Project", projectId: v };
@@ -63,6 +58,7 @@ export interface BudgetEditorProps {
 
 /** Create / edit a budget (`budgets.set`). */
 export function BudgetEditor({ budget, projects, defaultProjectId, onClose, onSaved }: BudgetEditorProps) {
+  const { t } = useT(["costs", "common"]);
   const [kind, setKind] = useState<ScopeKind>(budget?.scope.scope ?? (defaultProjectId ? "Project" : "Global"));
   const [id, setId] = useState(budget ? scopeId(budget.scope) : (defaultProjectId ?? ""));
   const [period, setPeriod] = useState<BudgetPeriod>(budget?.period ?? "Monthly");
@@ -87,12 +83,12 @@ export function BudgetEditor({ budget, projects, defaultProjectId, onClose, onSa
     }
     const limitUsd = Number(limit);
     if (!unrestricted && (!limit.trim() || !Number.isFinite(limitUsd) || limitUsd < 0)) {
-      setError("Enter a limit in USD, or mark the budget unrestricted.");
+      setError(t("editor.limitRequired"));
       return;
     }
     const warn = Number(warnAt) / 100;
     if (!(warn > 0 && warn < 1)) {
-      setError("Warning threshold must be between 1 and 99 %.");
+      setError(t("editor.warnRange"));
       return;
     }
     setBusy(true);
@@ -130,18 +126,18 @@ export function BudgetEditor({ budget, projects, defaultProjectId, onClose, onSa
           </div>
           <div>
             <h2 id="budget-editor-title" className="dialog__title">
-              {budget ? "Edit budget" : "New budget"}
+              {budget ? t("editor.titleEdit") : t("editor.titleNew")}
             </h2>
-            <p className="dialog__subtitle">Alerts fire at 50 %, your warning threshold and 100 %. Unrestricted budgets exempt matching usage from broader limits.</p>
+            <p className="dialog__subtitle">{t("editor.subtitle")}</p>
           </div>
-          <button type="button" className="dialog__close" aria-label="Close" onClick={close}>
+          <button type="button" className="dialog__close" aria-label={t("common:actions.close")} onClick={close}>
             <X size={16} />
           </button>
         </header>
         <div className="dialog__body">
           <div className="cost-form-row">
             <label className="ok-field cost-field">
-              <span className="ok-field__label">Scope</span>
+              <span className="ok-field__label">{t("editor.scope")}</span>
               <select
                 className="cost-select"
                 value={kind}
@@ -152,15 +148,15 @@ export function BudgetEditor({ budget, projects, defaultProjectId, onClose, onSa
                 }}
               >
                 {SCOPE_KINDS.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.label}
+                  <option key={s} value={s}>
+                    {t(`editor.scopeKind.${s}`)}
                   </option>
                 ))}
               </select>
             </label>
             {kind === "Project" ? (
               <label className="ok-field cost-field cost-field--grow">
-                <span className="ok-field__label">Project</span>
+                <span className="ok-field__label">{t("editor.project")}</span>
                 <select className="cost-select" value={id} onChange={(e) => setId(e.target.value)}>
                   {projects.map((p) => (
                     <option key={p.id} value={p.id}>
@@ -170,23 +166,23 @@ export function BudgetEditor({ budget, projects, defaultProjectId, onClose, onSa
                 </select>
               </label>
             ) : kind !== "Global" ? (
-              <Input className="cost-field--grow" label={`${kind} id`} placeholder="UUID" value={id} onChange={(e) => setId(e.target.value)} />
+              <Input className="cost-field--grow" label={t(`editor.idLabel.${kind}`)} placeholder={t("editor.idPlaceholder")} value={id} onChange={(e) => setId(e.target.value)} />
             ) : null}
           </div>
           <div className="cost-form-row">
             <label className="ok-field cost-field">
-              <span className="ok-field__label">Period</span>
+              <span className="ok-field__label">{t("editor.period")}</span>
               <select className="cost-select" value={period} onChange={(e) => setPeriod(e.target.value as BudgetPeriod)}>
                 {PERIODS.map((p) => (
                   <option key={p} value={p}>
-                    {PERIOD_LABEL[p]}
+                    {periodLabel(p)}
                   </option>
                 ))}
               </select>
             </label>
             <Input
               className="cost-field--grow"
-              label="Limit (USD)"
+              label={t("editor.limit")}
               type="number"
               min={0}
               step="0.01"
@@ -194,19 +190,19 @@ export function BudgetEditor({ budget, projects, defaultProjectId, onClose, onSa
               value={limit}
               disabled={unrestricted}
               onChange={(e) => setLimit(e.target.value)}
-              placeholder={unrestricted ? "Unrestricted" : "100"}
+              placeholder={unrestricted ? t("editor.unrestrictedPlaceholder") : "100"}
             />
-            <Input className="cost-field" label="Warn at (%)" type="number" min={1} max={99} value={warnAt} onChange={(e) => setWarnAt(e.target.value)} />
+            <Input className="cost-field" label={t("editor.warnAt")} type="number" min={1} max={99} value={warnAt} onChange={(e) => setWarnAt(e.target.value)} />
           </div>
-          <Input label="Name" placeholder="Optional, e.g. Payroll monthly" value={name} maxLength={120} onChange={(e) => setName(e.target.value)} />
+          <Input label={t("editor.name")} placeholder={t("editor.namePlaceholder")} value={name} maxLength={120} onChange={(e) => setName(e.target.value)} />
           <div className="cost-checks">
             <label className="cost-check">
               <input type="checkbox" checked={unrestricted} onChange={(e) => setUnrestricted(e.target.checked)} />
-              Unrestricted (e.g. local Ollama, security agent)
+              {t("editor.unrestricted")}
             </label>
             <label className="cost-check">
               <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
-              Enabled
+              {t("editor.enabled")}
             </label>
           </div>
           {error && (
@@ -217,10 +213,10 @@ export function BudgetEditor({ budget, projects, defaultProjectId, onClose, onSa
         </div>
         <footer className="dialog__footer">
           <Button variant="ghost" onClick={close} disabled={busy}>
-            Cancel
+            {t("common:actions.cancel")}
           </Button>
           <Button variant="primary" type="submit" loading={busy}>
-            {budget ? "Save" : "Create budget"}
+            {budget ? t("common:actions.save") : t("editor.create")}
           </Button>
         </footer>
       </form>

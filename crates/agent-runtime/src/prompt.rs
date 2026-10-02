@@ -43,7 +43,8 @@ fn policy_text(policy: WorktreePolicy) -> &'static str {
     }
 }
 
-/// The full system prompt: template prompt + runtime rules.
+/// The full system prompt: template prompt + runtime rules + reply language
+/// (`language`: the user's UI language, e.g. `ru`).
 #[must_use]
 pub fn system_prompt(
     template: &AgentTemplate,
@@ -51,6 +52,7 @@ pub fn system_prompt(
     task: &Task,
     agent: &AgentInstance,
     tools: &[String],
+    language: &str,
 ) -> String {
     let mut s = substitute(&template.system_prompt, project, task, agent);
     s.push_str("\n\n## Orkestr runtime\n");
@@ -79,6 +81,8 @@ pub fn system_prompt(
          summary, files_changed, tests_run and open_issues.\n",
         agent.max_turns
     ));
+    s.push_str("\n## Language\n");
+    s.push_str(&crate::language::reply_language_instruction(language));
     s
 }
 

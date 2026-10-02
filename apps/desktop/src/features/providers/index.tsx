@@ -4,6 +4,7 @@
  */
 import { Plug, Sparkles } from "lucide-react";
 
+import { t, useT } from "../../i18n";
 import type { AppCommand } from "../commands/registry";
 import type { SettingsSection, SettingsSectionProps } from "../settings/sections";
 import { useSettingsStore } from "../settings/settingsStore";
@@ -15,14 +16,13 @@ export { ManagerSettings } from "./ManagerSettings";
 export { ModelPicker } from "./ModelPicker";
 export { ProviderSetup, type ProviderSetupProps } from "./ProviderSetup";
 export { useProvidersLive, useProvidersStore } from "./store";
+export { instanceName } from "./logic";
 
 function ProvidersSection(_props: SettingsSectionProps) {
+  const { t: tr } = useT("providers");
   return (
     <div className="pv">
-      <p className="pv__intro">
-        Connect AI services with official mechanisms only: API keys (kept in the OS secret vault), the official Claude Code / Codex CLIs with your own
-        login, or local endpoints like Ollama. Prices shown are estimates.
-      </p>
+      <p className="pv__intro">{tr("intro")}</p>
       <ProviderSetup />
     </div>
   );
@@ -34,7 +34,9 @@ function ManagerSection(_props: SettingsSectionProps) {
 
 export const providersSettingsSection: SettingsSection = {
   id: "providers",
-  title: "AI Providers",
+  get title() {
+    return t("providers:sections.providers");
+  },
   icon: Plug,
   order: 20,
   component: ProvidersSection,
@@ -42,7 +44,9 @@ export const providersSettingsSection: SettingsSection = {
 
 export const managerSettingsSection: SettingsSection = {
   id: "manager",
-  title: "AI Manager",
+  get title() {
+    return t("providers:sections.manager");
+  },
   icon: Sparkles,
   order: 21,
   component: ManagerSection,
@@ -55,26 +59,38 @@ function openSettings(section: string): void {
 export const providerCommands: AppCommand[] = [
   {
     id: "providers.open",
-    title: "Open AI Providers settings",
-    group: "AI Providers",
+    get title() {
+      return t("providers:commands.open");
+    },
+    get group() {
+      return t("providers:commands.group");
+    },
     icon: Plug,
-    keywords: ["provider", "api key", "openai", "anthropic", "claude", "codex", "gemini", "ollama", "deepseek", "провайдер"],
+    keywords: ["provider", "api key", "openai", "anthropic", "claude", "codex", "gemini", "ollama", "deepseek", "провайдер", "ключ", "подключить"],
     run: () => openSettings("providers"),
   },
   {
     id: "providers.manager",
-    title: "Open AI Manager settings",
-    group: "AI Providers",
+    get title() {
+      return t("providers:commands.manager");
+    },
+    get group() {
+      return t("providers:commands.group");
+    },
     icon: Sparkles,
-    keywords: ["manager", "model", "routing", "fallback", "менеджер"],
+    keywords: ["manager", "model", "routing", "fallback", "менеджер", "модель", "маршрутизация", "резервная"],
     run: () => openSettings("manager"),
   },
   {
     id: "providers.checkAll",
-    title: "Check health of all AI providers",
-    group: "AI Providers",
+    get title() {
+      return t("providers:commands.checkAll");
+    },
+    get group() {
+      return t("providers:commands.group");
+    },
     icon: Plug,
-    keywords: ["health", "status", "test"],
+    keywords: ["health", "status", "test", "проверить", "доступность", "провайдеры"],
     run: async () => {
       if (!useProvidersStore.getState().loaded) await loadProviders();
       await Promise.allSettled(

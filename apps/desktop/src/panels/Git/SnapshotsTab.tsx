@@ -10,6 +10,8 @@ import { Camera, History, RotateCcw, Trash2, Undo2 } from "lucide-react";
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 
 import { getClient } from "../../core/client";
+import { t as i18nT, useT } from "../../i18n";
+import { snapshotLabel } from "../../lib/coreText";
 import { ConfirmDialog, type DiffContent, DiffPane, Notice } from "./components";
 import { formatBytes, reasonLabel, relativeTime, shortId, statusBadge, summarizePlan } from "./model";
 import { errorMessage, useAsync, useGitUi } from "./state";
@@ -21,6 +23,7 @@ interface Props {
 }
 
 export function SnapshotsTab({ projectId, worktree, refresh }: Props) {
+  const { t } = useT(["git", "common"]);
   const { data, error, loading, reload } = useAsync(
     () => getClient().call("snapshots.list", worktree ? { projectId, workspacePath: worktree, limit: 300 } : { projectId, limit: 300 }),
     [projectId, worktree, refresh],
@@ -49,8 +52,8 @@ export function SnapshotsTab({ projectId, worktree, refresh }: Props) {
     setIntent(null);
     const target = selected ?? snapshots[0] ?? null;
     if (target) setRollback(target);
-    else setNotice("There is no snapshot to roll back to yet — create one first.");
-  }, [intent, data, selected, snapshots, setIntent]);
+    else setNotice(t("snapshots.noTarget"));
+  }, [intent, data, selected, snapshots, setIntent, t]);
 
   useEffect(() => {
     if (!selected) return;
@@ -83,8 +86,8 @@ export function SnapshotsTab({ projectId, worktree, refresh }: Props) {
           original: r.file.snapshot ?? "",
           modified: r.file.current ?? "",
           binary: r.file.binary,
-          originalLabel: `Snapshot · ${selected.label}`,
-          modifiedLabel: "Current",
+          originalLabel: t("snapshots.snapshotSide", { label: snapshotLabel(selected.label) }),
+          modifiedLabel: t("snapshots.currentSide"),
         });
       })
       .catch((e: unknown) => !cancelled && setDiffError(errorMessage(e)))
@@ -92,7 +95,7 @@ export function SnapshotsTab({ projectId, worktree, refresh }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [selected, file, refresh]);
+  }, [selected, file, refresh, t]);
 
   const run = async (name: string, fn: () => Promise<void>) => {
     setBusy(name);
@@ -110,10 +113,16 @@ export function SnapshotsTab({ projectId, worktree, refresh }: Props) {
   const create = (e: FormEvent) => {
     e.preventDefault();
     void run("create", async () => {
-      const params = { projectId, label: label.trim() || "Manual snapshot", ...(worktree ? { workspacePath: worktree } : {}) };
+      const params = { projectId, label: label.trim() || t("snapshots.defaultLabel"), ...(worktree ? { workspacePath: worktree } : {}) };
       const r = await getClient().call("snapshots.create", params);
       setLabel("");
-      setNotice(`Snapshot “${r.snapshot.label}” saved: ${r.snapshot.fileCount} files, ${formatBytes(r.snapshot.sizeBytes)}.`);
+      setNotice(
+        t("snapshots.saved", {
+          label: snapshotLabel(r.snapshot.label),
+          files: t("common:count.files", { count: r.snapshot.fileCount }),
+          size: formatBytes(r.snapshot.sizeBytes),
+        }),
+      );
       reload();
     });
   };
@@ -122,7 +131,7 @@ export function SnapshotsTab({ projectId, worktree, refresh }: Props) {
     run("restore", async () => {
       if (!selected) return;
       const r = await getClient().call("snapshots.restoreFile", { snapshotId: selected.id, path, confirm: true });
-      setNotice(r.unchanged.length ? `${path} already matches the snapshot.` : `Restored ${path}. A safety snapshot was taken first.`);
+      setNotice(r.unchanged.length ? t("snapshots.alreadyMatches", { path }) : t("snapshots.restored", { path }));
       setRestoreFile(null);
       reload();
     });
@@ -139,42 +148,42 @@ export function SnapshotsTab({ projectId, worktree, refresh }: Props) {
     <div className="git-split">
       <div className="git-split__list">
         <form className="git-form" onSubmit={create}>
-          <Input placeholder="Snapshot label" aria-label="Snapshot label" value={label} maxLength={200} onChange={(e) => setLabel(e.target.value)} leftIcon={<Camera size={14} />} />
+          <Input placeholder={t("snapshots.labelPlaceholder")} aria-label={t("snapshots.labelPlaceholder")} value={label} maxLength={200} onChange={(e) => setLabel(e.target.value)} leftIcon={<Camera size={14} />} />
           <Button type="submit" size="sm" variant="primary" leftIcon={<Camera size={14} />} loading={busy === "create"}>
-            Snapshot
+            {t("snapshots.create")}
           </Button>
         </form>
-        <p className="git-muted git-small git-hint">Snapshots include uncommitted and untracked files and never touch git history.</p>
+        <p className="git-muted git-small git-hint">{t("snapshots.hint")}</p>
         {actionError && <Notice tone="danger">{actionError}</Notice>}
         {notice && <Notice tone="success">{notice}</Notice>}
         {error && <Notice tone="danger">{error}</Notice>}
         {loading && !data ? (
           <div className="git-center">
-            <Spinner size={18} /> Loading snapshots…
+            <Spinner size={18} /> {t("snapshots.loading")}
           </div>
         ) : snapshots.length === 0 ? (
-          <EmptyState icon={<History size={24} strokeWidth={1.6} />} title="No snapshots yet" description="Take one before risky changes — Orkestr also snapshots automatically before discards and rollbacks." />
+          <EmptyState icon={<History size={24} strokeWidth={1.6} />} title={t("snapshots.empty.title")} description={t("snapshots.empty.description")} />
         ) : (
-          <ul className="git-list" aria-label="Snapshots">
+          <ul className="git-list" aria-label={t("snapshots.list")}>
             {snapshots.map((s) => (
               <li key={s.id} className={clsx("git-branch", selected?.id === s.id && "git-branch--current")}>
                 <button type="button" className="git-branch__main git-branch__button" onClick={() => setSelected(s)} aria-pressed={selected?.id === s.id}>
                   <span className="git-branch__name">
-                    {s.label}
+                    {snapshotLabel(s.label)}
                     <Badge tone={s.reason === "Manual" ? "accent" : s.reason === "PreRollback" || s.reason === "BeforeRiskyAction" ? "warning" : "violet"}>
                       {reasonLabel(s)}
                     </Badge>
-                    {s.dirty && <Badge tone="neutral">uncommitted</Badge>}
+                    {s.dirty && <Badge tone="neutral">{t("snapshots.dirty")}</Badge>}
                   </span>
                   <span className="git-branch__meta">
-                    {relativeTime(s.createdAt)} · {s.fileCount} files · {formatBytes(s.sizeBytes)}
+                    {t("snapshots.meta", { time: relativeTime(s.createdAt), files: t("common:count.files", { count: s.fileCount }), size: formatBytes(s.sizeBytes) })}
                     {s.branch && <> · {s.branch}</>}
                     {s.baseCommit && <> @ <code>{shortId(s.baseCommit)}</code></>}
                   </span>
                 </button>
                 <span className="git-row__actions git-row__actions--always">
-                  <IconButton size="sm" label="Rollback workspace to this snapshot…" icon={<RotateCcw size={14} />} onClick={() => setRollback(s)} disabled={busy !== null} />
-                  <IconButton size="sm" variant="danger" label="Delete snapshot…" icon={<Trash2 size={14} />} onClick={() => setDeleting(s)} disabled={busy !== null} />
+                  <IconButton size="sm" label={t("snapshots.rollbackTo")} icon={<RotateCcw size={14} />} onClick={() => setRollback(s)} disabled={busy !== null} />
+                  <IconButton size="sm" variant="danger" label={t("snapshots.delete")} icon={<Trash2 size={14} />} onClick={() => setDeleting(s)} disabled={busy !== null} />
                 </span>
               </li>
             ))}
@@ -185,18 +194,18 @@ export function SnapshotsTab({ projectId, worktree, refresh }: Props) {
         {selected && (
           <div className="git-snap-changes">
             <div className="git-snap-changes__head">
-              <span className="git-heading">Changes since “{selected.label}”</span>
+              <span className="git-heading">{t("snapshots.changesSince", { label: snapshotLabel(selected.label) })}</span>
               <div className="git-spacer" />
               <Button size="sm" variant="secondary" leftIcon={<RotateCcw size={14} />} onClick={() => setRollback(selected)}>
-                Rollback…
+                {t("snapshots.rollback")}
               </Button>
             </div>
             {changesLoading ? (
               <div className="git-center git-small">
-                <Spinner size={14} /> Comparing with the workspace…
+                <Spinner size={14} /> {t("snapshots.comparing")}
               </div>
             ) : changes && changes.changes.length === 0 ? (
-              <div className="git-muted git-small git-pad">The workspace matches this snapshot.</div>
+              <div className="git-muted git-small git-pad">{t("snapshots.matches")}</div>
             ) : (
               <ul className="git-snap-files">
                 {changes?.changes.map((c) => {
@@ -211,7 +220,7 @@ export function SnapshotsTab({ projectId, worktree, refresh }: Props) {
                       </button>
                       {c.kind !== "Added" && (
                         <span className="git-row__actions">
-                          <IconButton size="sm" label={`Restore ${c.path} from snapshot…`} icon={<Undo2 size={14} />} onClick={() => setRestoreFile(c.path)} />
+                          <IconButton size="sm" label={t("snapshots.restoreFile", { path: c.path })} icon={<Undo2 size={14} />} onClick={() => setRestoreFile(c.path)} />
                         </span>
                       )}
                     </li>
@@ -225,7 +234,7 @@ export function SnapshotsTab({ projectId, worktree, refresh }: Props) {
           content={diff}
           loading={diffLoading}
           error={diffError}
-          emptyText={selected ? "Pick a changed file to compare the snapshot with the current version." : "Select a snapshot to preview it."}
+          emptyText={selected ? t("snapshots.emptyDiffSelected") : t("snapshots.emptyDiff")}
         />
       </div>
 
@@ -242,9 +251,9 @@ export function SnapshotsTab({ projectId, worktree, refresh }: Props) {
       )}
       {restoreFile && selected && (
         <ConfirmDialog
-          title={`Restore ${restoreFile}?`}
-          description={`The current file is replaced with its version from “${selected.label}”. A safety snapshot is taken first.`}
-          confirmLabel="Restore file"
+          title={t("snapshots.restoreTitle", { path: restoreFile })}
+          description={t("snapshots.restoreDescription", { label: snapshotLabel(selected.label) })}
+          confirmLabel={t("snapshots.restoreConfirm")}
           danger
           busy={busy === "restore"}
           error={actionError}
@@ -254,9 +263,9 @@ export function SnapshotsTab({ projectId, worktree, refresh }: Props) {
       )}
       {deleting && (
         <ConfirmDialog
-          title={`Delete snapshot “${deleting.label}”?`}
-          description="The snapshot record is removed; files in your workspace are not touched."
-          confirmLabel="Delete snapshot"
+          title={t("snapshots.deleteTitle", { label: snapshotLabel(deleting.label) })}
+          description={t("snapshots.deleteDescription")}
+          confirmLabel={t("snapshots.deleteConfirm")}
           danger
           busy={busy === "delete"}
           error={actionError}
@@ -268,8 +277,23 @@ export function SnapshotsTab({ projectId, worktree, refresh }: Props) {
   );
 }
 
+const ROLLBACK_REASONS: Readonly<Record<string, "deleted" | "modeChanged" | "modified" | "created" | "createdKept">> = {
+  "deleted since the snapshot": "deleted",
+  "mode changed since the snapshot": "modeChanged",
+  "modified since the snapshot": "modified",
+  "created after the snapshot": "created",
+  "created after the snapshot — kept (enable “delete created files” to remove)": "createdKept",
+};
+
+/** The core explains plan items in English; known explanations are shown translated. */
+function rollbackReason(reason: string): string {
+  const key = ROLLBACK_REASONS[reason];
+  return key ? i18nT(`git:rollback.reason.${key}`) : reason;
+}
+
 /** Rollback Workspace: plan preview → per-file selection → confirm. */
 function RollbackDialog({ snapshot, onClose, onDone }: { snapshot: WorkspaceSnapshot; onClose: () => void; onDone: (msg: string) => void }) {
+  const { t } = useT(["git", "common"]);
   const [deleteCreated, setDeleteCreated] = useState(false);
   const [plan, setPlan] = useState<RollbackPlan | null>(null);
   const [planError, setPlanError] = useState<string | null>(null);
@@ -306,9 +330,12 @@ function RollbackDialog({ snapshot, onClose, onDone }: { snapshot: WorkspaceSnap
         paths: selectedPaths,
         expectedFingerprint: plan.fingerprint,
       });
-      const parts = [`${r.restored.length} restored`, `${r.deleted.length} deleted`];
-      if (r.conflicts.length) parts.push(`${r.conflicts.length} skipped (changed meanwhile)`);
-      onDone(`Rolled back to “${snapshot.label}”: ${parts.join(", ")}. Undo by rolling back to the pre-rollback snapshot.`);
+      const counts = { label: snapshotLabel(snapshot.label), restored: r.restored.length, deleted: r.deleted.length };
+      onDone(
+        r.conflicts.length
+          ? t("rollback.doneSkipped", { ...counts, skipped: r.conflicts.length })
+          : t("rollback.done", counts),
+      );
     } catch (e) {
       setError(errorMessage(e));
     } finally {
@@ -327,9 +354,9 @@ function RollbackDialog({ snapshot, onClose, onDone }: { snapshot: WorkspaceSnap
   return (
     <ConfirmDialog
       wide
-      title={`Rollback workspace to “${snapshot.label}”?`}
-      description={`${relativeTime(snapshot.createdAt)} · ${snapshot.fileCount} files. Orkestr takes a safety snapshot first, so this can be undone.`}
-      confirmLabel={`Rollback ${selectedPaths.length} file(s)`}
+      title={t("rollback.title", { label: snapshotLabel(snapshot.label) })}
+      description={t("rollback.description", { time: relativeTime(snapshot.createdAt), files: t("common:count.files", { count: snapshot.fileCount }) })}
+      confirmLabel={t("rollback.confirm", { count: selectedPaths.length })}
       danger
       busy={busy}
       error={error}
@@ -338,39 +365,39 @@ function RollbackDialog({ snapshot, onClose, onDone }: { snapshot: WorkspaceSnap
       onCancel={onClose}
     >
       <label className="git-check">
-        <input type="checkbox" checked={deleteCreated} onChange={(e) => setDeleteCreated(e.target.checked)} /> Also delete files created after the snapshot
+        <input type="checkbox" checked={deleteCreated} onChange={(e) => setDeleteCreated(e.target.checked)} /> {t("rollback.deleteCreated")}
       </label>
       {planError ? (
         <Notice tone="danger">{planError}</Notice>
       ) : !plan ? (
         <div className="git-center git-small">
-          <Spinner size={14} /> Planning rollback…
+          <Spinner size={14} /> {t("rollback.planning")}
         </div>
       ) : plan.items.length === 0 ? (
-        <Notice tone="success">The workspace already matches this snapshot.</Notice>
+        <Notice tone="success">{t("rollback.alreadyMatches")}</Notice>
       ) : (
         <>
           {summary && (
             <div className="git-plan-summary">
-              <Badge tone="warning">{summary.restore} restore</Badge>
-              <Badge tone="info">{summary.recreate} re-create</Badge>
-              <Badge tone="danger">{summary.delete} delete</Badge>
-              <Badge>{summary.keep} keep</Badge>
+              <Badge tone="warning">{t("rollback.summary.restore", { count: summary.restore })}</Badge>
+              <Badge tone="info">{t("rollback.summary.recreate", { count: summary.recreate })}</Badge>
+              <Badge tone="danger">{t("rollback.summary.delete", { count: summary.delete })}</Badge>
+              <Badge>{t("rollback.summary.keep", { count: summary.keep })}</Badge>
             </div>
           )}
-          <ul className="git-plan" aria-label="Rollback plan">
+          <ul className="git-plan" aria-label={t("rollback.plan")}>
             {plan.items.map((i) => {
               const keep = i.action === "Keep";
               return (
                 <li key={i.path} className={clsx("git-plan__item", keep && "git-plan__item--keep")}>
                   <label>
                     <input type="checkbox" disabled={keep} checked={!keep && !excluded.has(i.path)} onChange={() => toggle(i.path)} />
-                    <span className={clsx("git-plan__action", `git-plan__action--${i.action.toLowerCase()}`)}>{i.action}</span>
+                    <span className={clsx("git-plan__action", `git-plan__action--${i.action.toLowerCase()}`)}>{t(`rollback.action.${i.action}`)}</span>
                     <span className="git-row__name" title={i.path}>
                       {i.path}
                     </span>
                   </label>
-                  <span className="git-muted git-small">{i.reason}</span>
+                  <span className="git-muted git-small">{rollbackReason(i.reason)}</span>
                 </li>
               );
             })}

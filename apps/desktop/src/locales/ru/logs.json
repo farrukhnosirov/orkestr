@@ -1,0 +1,103 @@
+{
+  "filter": {
+    "label": "Фильтр событий",
+    "all": "Все",
+    "project": "Этот проект",
+    "logs": "Журнал ядра",
+    "problems": "Проблемы"
+  },
+  "search": {
+    "placeholder": "Поиск по событиям…",
+    "label": "Поиск по событиям"
+  },
+  "live": "Онлайн",
+  "paused": "Пауза · в очереди: {{queued}}",
+  "resume": "Возобновить поток",
+  "pause": "Приостановить поток",
+  "jumpToLatest": "К последним событиям",
+  "clear": "Очистить список",
+  "loading": "Загрузка истории событий…",
+  "empty": {
+    "title": "Событий пока нет",
+    "description": "Всё, что делает ядро, — проекты, задачи, агенты, инструменты, сборки — появляется здесь в реальном времени. Создайте проект, чтобы увидеть первые события.",
+    "noMatchTitle": "Подходящих событий нет",
+    "noMatchDescription": "Попробуйте другой фильтр или запрос."
+  },
+  "seq": "№ {{seq}}",
+  "local": "локальное",
+  "enums": {
+    "toolStatus": {
+      "Pending": "ожидает",
+      "AwaitingApproval": "ждёт подтверждения",
+      "Running": "выполняется",
+      "Succeeded": "выполнен",
+      "Failed": "завершился ошибкой",
+      "Denied": "запрещён",
+      "Cancelled": "отменён"
+    },
+    "reviewVerdict": {
+      "NotRequired": "не требуется",
+      "Pending": "ожидает",
+      "ChangesRequested": "нужны доработки",
+      "Approved": "принято",
+      "Rejected": "отклонено"
+    },
+    "rollbackScope": {
+      "Task": "задача",
+      "Workspace": "рабочая область"
+    },
+    "emergencyScope": {
+      "All": "вся работа AI",
+      "Project": "проект",
+      "Agent": "агент"
+    },
+    "stopReason": {
+      "Completed": "работа завершена",
+      "UserRequested": "по запросу пользователя",
+      "LimitReached": "достигнут лимит",
+      "EmergencyStop": "экстренная остановка",
+      "Error": "ошибка",
+      "Shutdown": "завершение работы"
+    },
+    "nodeStatus": {
+      "Online": "в сети",
+      "Busy": "занят",
+      "Degraded": "работает с перебоями",
+      "Offline": "не в сети"
+    },
+    "deploymentStatus": {
+      "Pending": "ожидает",
+      "AwaitingApproval": "ждёт подтверждения",
+      "Running": "выполняется",
+      "Succeeded": "выполнено",
+      "Failed": "завершилось сбоем",
+      "RolledBack": "откачено",
+      "Cancelled": "отменено"
+    },
+    "planStatus": {
+      "Proposed": "предложен",
+      "Approved": "подтверждён",
+      "Rejected": "отклонён",
+      "Superseded": "заменён новым",
+      "Running": "выполняется",
+      "Completed": "выполнен",
+      "Failed": "завершился сбоем",
+      "Cancelled": "отменён"
+    },
+    "runStatus": {
+      "Running": "выполняется",
+      "Paused": "приостановлен",
+      "Completed": "завершён",
+      "Failed": "завершился сбоем",
+      "Cancelled": "отменён",
+      "Interrupted": "прерван"
+    },
+    "budgetScope": {
+      "global": "глобальный",
+      "project": "проект",
+      "task": "задача",
+      "provider": "провайдер",
+      "agent": "агент"
+    }
+  }
+}

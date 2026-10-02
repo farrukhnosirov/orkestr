@@ -45,7 +45,9 @@ telemetryEnabled: boolean,
  */
 eventRetentionDays: number, 
 /**
- * UI language (BCP-47, e.g. `en`, `ru`).
+ * UI language preference: `system` (follow the OS language; the default
+ * for new installs) or a BCP-47 tag such as `ru` / `en`. The UI resolves
+ * `system` itself; AI Manager and agents reply in the resolved language.
  */
 language: string, 
 /**

@@ -579,6 +579,50 @@ async fn chat_plans_build_requests_and_answers_from_real_state() {
 }
 
 #[tokio::test]
+async fn manager_replies_in_the_ui_language_from_the_request() {
+    let h = harness(false, ApprovalMode::SemiAuto).await;
+    h.mock("mock-smart");
+    let ru =
+        orkestr_protocol::methods::manager::ManagerRequestOptions { language: Some("ru".into()), ..Default::default() };
+    let (_, reply) = h
+        .mgr
+        .chat_and_wait(ManagerChatParams {
+            project_id: h.project,
+            text: "hi".into(),
+            attachment: None,
+            options: Some(ru),
+        })
+        .await
+        .unwrap();
+    assert!(reply.text.contains("Вы написали: «hi»"), "{}", reply.text);
+    // The language sticks for later requests (and for agents) until the UI reports another one.
+    let (_, plan_reply) = h
+        .mgr
+        .chat_and_wait(ManagerChatParams {
+            project_id: h.project,
+            text: "Create a hello module with tests".into(),
+            attachment: None,
+            options: None,
+        })
+        .await
+        .unwrap();
+    assert!(plan_reply.text.contains("карточку плана"), "{}", plan_reply.text);
+}
+
+#[test]
+fn manager_prompt_states_the_reply_language_and_russian_plurals_agree() {
+    let project = orkestr_domain::Project::new("Demo", orkestr_domain::now());
+    let s = crate::chat::system_prompt(&project, &ManagerConfig::default(), ApprovalMode::Ask, "ru");
+    assert!(s.contains("User interface language: ru (Russian)"), "{s}");
+    use crate::util::ru_plural;
+    let f = |n| ru_plural(n, "задача", "задачи", "задач");
+    assert_eq!(
+        [f(1), f(2), f(5), f(11), f(21), f(22), f(112)],
+        ["задача", "задачи", "задач", "задач", "задача", "задачи", "задач"]
+    );
+}
+
+#[tokio::test]
 async fn state_tools_are_permission_checked() {
     let h = harness(false, ApprovalMode::SemiAuto).await;
     h.mock("mock-smart");

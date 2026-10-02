@@ -12,7 +12,8 @@ import { getClient } from "../../core/client";
 import { fileIcon } from "../../features/files/icons";
 import { basename } from "../../features/files/paths";
 import { type Segment, segmentsFromPositions, splitPathPositions } from "../../features/files/highlight";
-import { errorMessage } from "../../features/files/rpc";
+import { useT } from "../../i18n";
+import { describeError } from "../../i18n/errors";
 import { useEditorStore } from "../../store/editor";
 
 function Highlighted({ segments }: { segments: Segment[] }) {
@@ -32,6 +33,7 @@ function Highlighted({ segments }: { segments: Segment[] }) {
 }
 
 export function QuickOpen({ projectId, onOpen }: { projectId: string; onOpen: (path: string) => void }) {
+  const { t } = useT("code");
   const open = useEditorStore((s) => s.quickOpen);
   const setOpen = useEditorStore((s) => s.setQuickOpen);
   const tabs = useEditorStore((s) => s.tabs);
@@ -63,7 +65,7 @@ export function QuickOpen({ projectId, onOpen }: { projectId: string; onOpen: (p
           setError(null);
           setIndex(0);
         })
-        .catch((e: unknown) => !cancelled && setError(errorMessage(e)))
+        .catch((e: unknown) => !cancelled && setError(describeError(e)))
         .finally(() => !cancelled && setLoading(false));
     }, 70);
     return () => {
@@ -93,13 +95,13 @@ export function QuickOpen({ projectId, onOpen }: { projectId: string; onOpen: (p
 
   return (
     <div className="overlay overlay--top" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && setOpen(false)}>
-      <div className="palette qo" role="dialog" aria-modal="true" aria-label="Go to file">
+      <div className="palette qo" role="dialog" aria-modal="true" aria-label={t("quickOpen.label")}>
         <div className="palette__search">
           <Search size={18} />
           <input
             ref={inputRef}
             className="palette__input"
-            placeholder="Go to file…"
+            placeholder={t("quickOpen.placeholder")}
             value={query}
             role="combobox"
             aria-expanded="true"
@@ -124,14 +126,14 @@ export function QuickOpen({ projectId, onOpen }: { projectId: string; onOpen: (p
           />
           {loading && <Spinner size={14} />}
         </div>
-        <div className="palette__list" id="qo-list" role="listbox" ref={listRef} aria-label="Files">
+        <div className="palette__list" id="qo-list" role="listbox" ref={listRef} aria-label={t("quickOpen.list")}>
           {error ? (
             <div className="palette__empty" role="alert">
               {error}
             </div>
           ) : items.length === 0 ? (
             <div className="palette__empty">
-              <FileSearch size={18} /> {loading ? "Searching…" : "No matching files"}
+              <FileSearch size={18} /> {loading ? t("quickOpen.searching") : t("quickOpen.noMatches")}
             </div>
           ) : (
             items.map((m, i) => {
@@ -168,13 +170,13 @@ export function QuickOpen({ projectId, onOpen }: { projectId: string; onOpen: (p
         <div className="palette__footer">
           <span>
             <Kbd>↑</Kbd>
-            <Kbd>↓</Kbd> navigate
+            <Kbd>↓</Kbd> {t("quickOpen.navigate")}
           </span>
           <span>
-            <Kbd>Enter</Kbd> open
+            <Kbd>Enter</Kbd> {t("quickOpen.open")}
           </span>
           <span>
-            <Kbd>Esc</Kbd> close
+            <Kbd>Esc</Kbd> {t("quickOpen.close")}
           </span>
         </div>
       </div>

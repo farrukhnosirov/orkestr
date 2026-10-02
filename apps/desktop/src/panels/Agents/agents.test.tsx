@@ -2,6 +2,7 @@ import type { AgentInstance, AgentTemplate, AgentToolCallView, Event } from "@or
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { applyLanguagePreference } from "../../i18n";
 import { useAppStore } from "../../store/app";
 import {
   EMPTY_TRANSCRIPT,
@@ -125,12 +126,17 @@ describe("agents model", () => {
 
   it("formats and validates", () => {
     expect(formatTokens(950)).toBe("950");
-    expect(formatTokens(1500)).toBe("1.5k");
+    expect(formatTokens(1500)).toBe("1.5K");
     expect(formatTokens(2_500_000)).toBe("2.5M");
-    expect(formatCost(0)).toBe("$0");
-    expect(formatCost(0.004)).toBe("<$0.01");
+    expect(formatCost(0)).toBe("$0.00");
+    expect(formatCost(0.004)).toBe("$0.004");
     expect(formatCost(1.5)).toBe("$1.50");
-    expect(elapsed({ startedAt: "2026-10-02T10:00:00Z", stoppedAt: "2026-10-02T10:02:05Z", createdAt: "" }, 0)).toBe("2m 05s");
+    const run = { startedAt: "2026-10-02T10:00:00Z", stoppedAt: "2026-10-02T10:02:05Z", createdAt: "" };
+    expect(elapsed(run, 0)).toBe("2 min 5 sec");
+    // Russian: decimal comma, currency after the amount, non-breaking spaces.
+    expect(formatTokens(1500, "ru")).toBe("1,5 тыс.");
+    expect(formatCost(1.5, "ru")).toBe("1,50 $");
+    expect(elapsed(run, 0, "ru")).toMatch(/^2\sмин 5\sс$/);
     expect(roleInitials("UiUx")).toBe("UU");
     expect(roleInitials("Backend")).toBe("BA");
     expect(roleInitials({ Custom: "Payroll Expert" })).toBe("PE");
@@ -264,5 +270,46 @@ describe("AgentsPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Duplicate template" }));
     await screen.findByRole("dialog", { name: "New template" });
     expect((screen.getByLabelText("Name") as HTMLInputElement).value).toBe("Backend Engineer (copy)");
+  });
+});
+
+describe("AgentsPanel in Russian", () => {
+  beforeEach(async () => {
+    calls.length = 0;
+    useAppStore.getState().setConnection({ state: "open" });
+    useAgentsUi.setState({ tab: "agents", selectedAgentId: null, spawnOpen: false, editor: null, importOpen: false, toasts: [] });
+    await act(async () => {
+      await applyLanguagePreference("ru");
+    });
+  });
+  afterEach(async () => {
+    cleanup();
+    await act(async () => {
+      await applyLanguagePreference("en");
+    });
+  });
+
+  it("shows agent states, counts and actions in Russian", async () => {
+    render(<AgentsPanel projectId={PROJECT} />);
+    const detail = await screen.findByRole("region", { name: "Агент «Бэкенд-разработчик #1»" });
+    expect(within(detail).getByText("Думает")).toBeTruthy();
+    expect(within(detail).getByRole("button", { name: "Остановить" })).toBeTruthy();
+    expect(within(detail).getByText("Время работы")).toBeTruthy();
+    expect(screen.getByText("1 агент")).toBeTruthy();
+    expect(screen.getByText("1 работает")).toBeTruthy();
+    expect(screen.getByText("1,5 тыс. токенов")).toBeTruthy();
+    expect(roleInitials("Backend")).toBe("БР");
+  });
+
+  it("opens the spawn dialog and templates in Russian", async () => {
+    useAgentsUi.setState({ tab: "templates" });
+    render(<AgentsPanel projectId={PROJECT} />);
+    expect((await screen.findAllByText("Бэкенд-разработчик")).length).toBeGreaterThan(0);
+    expect(screen.getByText("Встроенный")).toBeTruthy();
+    expect(screen.getByText("6 инструментов")).toBeTruthy();
+    expect(screen.getByText("30 ходов")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Дублировать шаблон" }));
+    await screen.findByRole("dialog", { name: "Новый шаблон" });
+    expect((screen.getByLabelText("Название") as HTMLInputElement).value).toBe("Бэкенд-разработчик (копия)");
   });
 });

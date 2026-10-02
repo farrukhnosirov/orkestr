@@ -7,6 +7,7 @@ import type { ResumeSummary } from "@orkestr/protocol";
 import { create } from "zustand";
 
 import { getClient } from "../../core/client";
+import { describeError } from "../../i18n/errors";
 import { useAppStore } from "../../store/app";
 
 export interface ResumeState {
@@ -34,7 +35,7 @@ export const useResumeStore = create<ResumeState>()((set, get) => ({
       const summary = await getClient().call("system.resumeSummary", params);
       if (get().projectId === projectId) set({ summary, loading: false });
     } catch (e) {
-      if (get().projectId === projectId) set({ loading: false, error: e instanceof Error ? e.message : String(e) });
+      if (get().projectId === projectId) set({ loading: false, error: describeError(e) });
     }
   },
 

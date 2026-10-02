@@ -11,6 +11,7 @@ import { Badge, Button, EmptyState, IconButton, Spinner, Tabs } from "@orkestr/u
 import { Bot, FolderOpen, LayoutTemplate, Plus, RefreshCw, TriangleAlert } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
+import { useT } from "../../i18n";
 import { useProjectTasks } from "../Tasks/data";
 import type { PanelProps } from "../types";
 import { AgentDetail } from "./AgentDetail";
@@ -22,10 +23,11 @@ import { SpawnDialog } from "./SpawnDialog";
 import { type AgentsTab, useAgentsUi } from "./store";
 import { TemplatesTab } from "./TemplatesTab";
 
-const TABS: { id: AgentsTab; label: string; icon: JSX.Element }[] = [
-  { id: "agents", label: "Agents", icon: <Bot size={14} /> },
-  { id: "templates", label: "Templates", icon: <LayoutTemplate size={14} /> },
-];
+const TAB_ICONS: Record<AgentsTab, JSX.Element> = {
+  agents: <Bot size={14} />,
+  templates: <LayoutTemplate size={14} />,
+};
+const TAB_IDS: readonly AgentsTab[] = ["agents", "templates"];
 
 function useNow(active: boolean): number {
   const [now, setNow] = useState(() => Date.now());
@@ -38,6 +40,7 @@ function useNow(active: boolean): number {
 }
 
 export default function AgentsPanel({ projectId }: PanelProps) {
+  const { t } = useT(["agents", "common"]);
   const { agents, loading, error, reload } = useProjectAgents(projectId);
   const { tasks } = useProjectTasks(projectId);
   const templates = useTemplates();
@@ -60,15 +63,16 @@ export default function AgentsPanel({ projectId }: PanelProps) {
       <div className="agents-panel agents-panel--center">
         <EmptyState
           icon={<FolderOpen size={26} strokeWidth={1.6} />}
-          title="No project open"
-          description="Open or create a project to run agents on its tasks."
+          title={t("noProject.title")}
+          description={t("noProject.description")}
         />
       </div>
     );
   }
 
   const selected = agents.find((a) => a.id === selectedId) ?? null;
-  const selectedTask = selected?.taskId ? (tasks.find((t) => t.id === selected.taskId)?.title ?? null) : null;
+  const selectedTask = selected?.taskId ? (tasks.find((x) => x.id === selected.taskId)?.title ?? null) : null;
+  const tabs = TAB_IDS.map((id) => ({ id, label: t(`tabs.${id}`), icon: TAB_ICONS[id] }));
 
   let content: JSX.Element;
   if (tab === "templates") {
@@ -76,18 +80,18 @@ export default function AgentsPanel({ projectId }: PanelProps) {
   } else if (loading && agents.length === 0) {
     content = (
       <div className="agents-loading">
-        <Spinner size={18} /> Loading agents…
+        <Spinner size={18} /> {t("loading")}
       </div>
     );
   } else if (error) {
     content = (
       <EmptyState
         icon={<TriangleAlert size={26} strokeWidth={1.6} />}
-        title="Could not load agents"
+        title={t("loadFailed")}
         description={error}
         action={
           <Button leftIcon={<RefreshCw size={14} />} onClick={reload}>
-            Retry
+            {t("common:actions.retry")}
           </Button>
         }
       />
@@ -96,11 +100,11 @@ export default function AgentsPanel({ projectId }: PanelProps) {
     content = (
       <EmptyState
         icon={<Bot size={26} strokeWidth={1.6} />}
-        title="No agents yet"
-        description="Spawn an agent from a template. Each agent works in isolation — its own worktree, budget, turn limit and stop button — and asks before anything dangerous."
+        title={t("empty.title")}
+        description={t("empty.description")}
         action={
           <Button variant="primary" leftIcon={<Plus size={14} />} onClick={() => openSpawn()}>
-            Spawn agent
+            {t("spawn")}
           </Button>
         }
       />
@@ -115,7 +119,7 @@ export default function AgentsPanel({ projectId }: PanelProps) {
           <AgentDetail key={selected.id} agent={selected} taskTitle={selectedTask} now={now} />
         ) : (
           <div className="agents-panel--center">
-            <EmptyState title="Select an agent" description="Its live transcript appears here." />
+            <EmptyState title={t("selectAgent.title")} description={t("selectAgent.description")} />
           </div>
         )}
       </div>
@@ -126,15 +130,15 @@ export default function AgentsPanel({ projectId }: PanelProps) {
     <div className="agents-panel">
       <div className="agents-toolbar">
         <Button size="sm" variant="primary" leftIcon={<Plus size={14} />} onClick={() => openSpawn()}>
-          Spawn agent
+          {t("spawn")}
         </Button>
-        <Tabs aria-label="Agents view" items={TABS} value={tab} onChange={setTab} />
+        <Tabs aria-label={t("tabs.label")} items={tabs} value={tab} onChange={setTab} />
         <div className="agents-toolbar__spacer" />
-        <div className="agents-toolbar__stats" aria-label="Agent summary">
-          <Badge>{agents.length} agents</Badge>
-          {activeIds.length > 0 && <Badge tone="info">{activeIds.length} running</Badge>}
+        <div className="agents-toolbar__stats" aria-label={t("summary.label")}>
+          <Badge>{t("common:count.agents", { count: agents.length })}</Badge>
+          {activeIds.length > 0 && <Badge tone="info">{t("summary.running", { count: activeIds.length })}</Badge>}
         </div>
-        <IconButton label="Reload agents" icon={<RefreshCw size={14} />} onClick={reload} tooltip="bottom" />
+        <IconButton label={t("reload")} icon={<RefreshCw size={14} />} onClick={reload} tooltip="bottom" />
       </div>
       <div className="agents-body">{content}</div>
       <SpawnDialog projectId={projectId} templates={templates.templates} tasks={tasks} />

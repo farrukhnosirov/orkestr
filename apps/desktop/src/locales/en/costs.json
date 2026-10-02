@@ -1,0 +1,149 @@
+{
+  "notConnected": {
+    "title": "Not connected",
+    "description": "Waiting for the Orkestr core…"
+  },
+  "scope": {
+    "label": "Cost scope",
+    "project": "This project",
+    "all": "All projects"
+  },
+  "estimates": {
+    "badge": "Includes estimates",
+    "tooltip": "Subscription / CLI usage is costed from list prices"
+  },
+  "dimension": {
+    "label": "Breakdown dimension",
+    "Provider": "Provider",
+    "Model": "Model",
+    "Agent": "Agent",
+    "Project": "Project",
+    "Task": "Task"
+  },
+  "window": {
+    "label": "Time window",
+    "Today": "Today",
+    "Month": "Month",
+    "Last30Days": "30 days",
+    "All": "All"
+  },
+  "kpi": {
+    "label": "Key figures",
+    "today": "Today",
+    "todaySub_one": "{{estimated}} estimated · {{count, number}} call",
+    "todaySub_other": "{{estimated}} estimated · {{count, number}} calls",
+    "month": "This month",
+    "monthSub": "{{tokens}} tokens · {{estimated}} est.",
+    "budgetUsed": "Budget used",
+    "noBudget": "No limited budget applies",
+    "limitReached": "Limit reached",
+    "highestBudget": "Highest applicable budget",
+    "allTime": "All time",
+    "allTimeSub_one": "{{count, number}} call · {{failed}} failed",
+    "allTimeSub_other": "{{count, number}} calls · {{failed}} failed"
+  },
+  "daily": {
+    "title": "Daily spend · last 30 days",
+    "empty": "No model usage recorded in the last 30 days. Usage appears here as agents and the Manager call providers."
+  },
+  "breakdown": {
+    "title": "Breakdown",
+    "empty": "No usage in this window.",
+    "unattributed": "Unattributed",
+    "cost": "Cost",
+    "estimated": "Estimated",
+    "input": "Input",
+    "output": "Output",
+    "calls": "Calls",
+    "latency": "Avg latency",
+    "failed": "({{count}} failed)"
+  },
+  "budgets": {
+    "title": "Budgets & limits",
+    "new": "New budget",
+    "empty": "No budgets yet. Example: Project $100 per month, Task max $5, local models unrestricted.",
+    "used": "Budget used",
+    "edit": "Edit budget",
+    "delete": "Delete budget",
+    "confirmDelete": "Delete budget “{{name}}”?",
+    "unrestricted": "unrestricted",
+    "limit": {
+      "Daily": "{{amount}} per day",
+      "Monthly": "{{amount}} per month",
+      "Total": "{{amount}} total",
+      "PerTask": "{{amount}} per task"
+    },
+    "spent": "spent {{amount}}",
+    "spentTopTask": "spent {{amount}} (top task)"
+  },
+  "level": {
+    "Ok": "OK",
+    "Warn": "Warning",
+    "Exceeded": "Exceeded",
+    "Unrestricted": "Unrestricted",
+    "Disabled": "Disabled"
+  },
+  "period": {
+    "Monthly": "Per month",
+    "Daily": "Per day",
+    "PerTask": "Per task",
+    "Total": "Total"
+  },
+  "scopeLabel": {
+    "Global": "All usage",
+    "Project": "Project · {{name}}",
+    "ProjectId": "Project · …{{id}}",
+    "Task": "Task · …{{id}}",
+    "Provider": "Provider · …{{id}}",
+    "Agent": "Agent · …{{id}}"
+  },
+  "editor": {
+    "titleEdit": "Edit budget",
+    "titleNew": "New budget",
+    "subtitle": "Alerts fire at 50%, your warning threshold and 100%. Unrestricted budgets exempt matching usage from broader limits.",
+    "scope": "Scope",
+    "scopeKind": {
+      "Global": "All usage (global)",
+      "Project": "Project",
+      "Provider": "Provider (id)",
+      "Agent": "Agent (id)",
+      "Task": "Task (id)"
+    },
+    "project": "Project",
+    "idLabel": {
+      "Project": "Project id",
+      "Provider": "Provider id",
+      "Agent": "Agent id",
+      "Task": "Task id"
+    },
+    "invalidId": {
+      "Project": "Enter a valid project id.",
+      "Provider": "Enter a valid provider id.",
+      "Agent": "Enter a valid agent id.",
+      "Task": "Enter a valid task id."
+    },
+    "idPlaceholder": "UUID",
+    "period": "Period",
+    "limit": "Limit (USD)",
+    "unrestrictedPlaceholder": "Unrestricted",
+    "warnAt": "Warn at (%)",
+    "name": "Name",
+    "namePlaceholder": "Optional, e.g. Payroll monthly",
+    "unrestricted": "Unrestricted (e.g. local Ollama, security agent)",
+    "enabled": "Enabled",
+    "limitRequired": "Enter a limit in USD, or mark the budget unrestricted.",
+    "warnRange": "Warning threshold must be between 1 and 99%.",
+    "create": "Create budget"
+  },
+  "chart": {
+    "reported": "Reported",
+    "estimated": "Estimated",
+    "readout_one": "{{day}} · {{cost}} ({{estimated}} est.) · {{count, number}} call",
+    "readout_other": "{{day}} · {{cost}} ({{estimated}} est.) · {{count, number}} calls",
+    "total_one": "{{count}} day · {{total}}",
+    "total_other": "{{count}} days · {{total}}",
+    "aria_one": "Daily spend over the last {{count}} day, total {{total}}",
+    "aria_other": "Daily spend over the last {{count}} days, total {{total}}",
+    "bar": "{{day}}: {{cost}}, of which {{estimated}} estimated"
+  }
+}

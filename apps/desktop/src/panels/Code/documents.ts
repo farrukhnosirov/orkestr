@@ -10,6 +10,7 @@ import type * as Monaco from "monaco-editor";
 import { getClient } from "../../core/client";
 import { changedLines } from "../../features/files/lineDiff";
 import { errorInfo } from "../../features/files/rpc";
+import { describeError } from "../../i18n/errors";
 import { type EditorTab, useEditorStore } from "../../store/editor";
 import { type MonacoApi, modelUri } from "./monaco";
 
@@ -89,8 +90,8 @@ export class DocumentRegistry {
       })
       .catch((e: unknown) => {
         const info = errorInfo(e);
-        if (info.reason === "too_large") this.updateStore(path, { status: "tooLarge", error: info.message });
-        else this.updateStore(path, { status: "error", error: info.message });
+        if (info.reason === "too_large") this.updateStore(path, { status: "tooLarge", error: describeError(e) });
+        else this.updateStore(path, { status: "error", error: describeError(e) });
         return null;
       })
       .finally(() => this.loading.delete(path));

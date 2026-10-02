@@ -224,6 +224,7 @@ impl CommandGate for TestGate {
 // ---------------------------------------------------------------------------
 
 struct H {
+    ui_language: crate::UiLanguage,
     _dir: tempfile::TempDir,
     root: PathBuf,
     outside: PathBuf,
@@ -294,6 +295,7 @@ async fn harness(mode: ApprovalMode) -> H {
         .build();
     let source = Arc::new(Source::default());
     let gateway = Arc::new(Gateway { source: Arc::clone(&source), chain: Mutex::new(Vec::new()) });
+    let ui_language = crate::UiLanguage::default();
     let deps = RuntimeDeps {
         db: db.clone(),
         events: events.clone(),
@@ -306,11 +308,15 @@ async fn harness(mode: ApprovalMode) -> H {
         memory: orkestr_memory::MemoryEngine::new(db.clone()).with_events(events.clone()),
         cost: orkestr_cost::CostEngine::new(db.clone()).with_events(events.clone()),
         models: Arc::clone(&gateway) as Arc<dyn ModelGateway>,
-        config: RuntimeConfig { approval_timeout: Duration::from_secs(30), ..RuntimeConfig::default() },
+        config: RuntimeConfig {
+            approval_timeout: Duration::from_secs(30),
+            ui_language: ui_language.clone(),
+            ..RuntimeConfig::default()
+        },
     };
     let rt = AgentRuntime::new(deps);
     rt.init().await.unwrap();
-    H { root, outside, rt, sec, events, tasks, db, project: p.id, source, gateway, snapshots, _dir: dir }
+    H { ui_language, root, outside, rt, sec, events, tasks, db, project: p.id, source, gateway, snapshots, _dir: dir }
 }
 
 impl H {
@@ -760,6 +766,32 @@ async fn shipped_mock_provider_runs_end_to_end() {
         .iter()
         .any(|c| c.tool_call.tool == "write_file" && c.tool_call.status == ToolCallStatus::Succeeded));
     assert!(tr.messages.iter().any(|m| m.text.contains("Mock (offline demo)")));
+}
+
+#[tokio::test]
+async fn agents_reply_in_the_ui_language() {
+    let h = harness(ApprovalMode::SemiAuto).await;
+    h.ui_language.set("ru");
+    let tpl = h.template(&["write_file", "submit_result"], WorktreePolicy::SharedWorktree, None).await;
+    let pid = ProviderId::new();
+    h.source
+        .adapters
+        .lock()
+        .insert(pid, Arc::new(MockAdapter::new(pid, "Mock", MockOptions { chunk_delay: Duration::ZERO })));
+    *h.gateway.chain.lock() = vec![ModelRef { provider_id: pid, model: "mock-smart".into() }];
+    let a = h.spawn(tpl, None).await;
+    let a = h.wait_done(a.id).await;
+    assert_eq!(a.state, AgentState::Completed, "{:?}", a.last_error);
+    let tr = h.rt.transcript(a.id, None).await.unwrap();
+    assert!(tr.messages.iter().any(|m| m.text.contains("Mock (офлайн-демо)")), "{:?}", tr.messages);
+    assert!(!tr.messages.iter().any(|m| m.text.contains("Mock (offline demo)")));
+}
+
+#[test]
+fn system_prompt_states_the_reply_language() {
+    let s = crate::reply_language_instruction("ru");
+    assert!(s.contains(orkestr_providers::UI_LANGUAGE_MARKER));
+    assert!(s.contains("Russian"));
 }
 
 #[tokio::test]

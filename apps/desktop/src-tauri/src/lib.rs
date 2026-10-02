@@ -14,6 +14,10 @@
 //! * **Autostart** — registered by the core (`settings.update {autostart}`)
 //!   as `<this exe> --autostart`; such launches start hidden in the tray.
 //! * **Single instance** — a second launch focuses the existing window.
+//!
+//! Localization: the webview reports the resolved UI language through
+//! `set_ui_language` (at startup and on every switch); the tray menu and
+//! tooltip are rebuilt in that language (see [`tray_texts`]).
 #![forbid(unsafe_code)]
 
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -34,6 +38,42 @@ const MAIN_WINDOW: &str = "main";
 pub const AUTOSTART_FLAG: &str = "--autostart";
 /// Event emitted to the webview when the tray's *Stop All AI* is clicked.
 pub const TRAY_STOP_ALL_EVENT: &str = "orkestr://tray/stop-all";
+/// Id of the system tray icon.
+const TRAY_ID: &str = "orkestr-tray";
+
+/// Texts of the native tray (the only UI the shell draws itself).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TrayTexts {
+    /// Show / hide the main window.
+    pub toggle: &'static str,
+    /// Emergency stop of all AI activity.
+    pub stop_all: &'static str,
+    /// Quit the app (and the embedded core).
+    pub quit: &'static str,
+    /// Tray icon tooltip.
+    pub tooltip: &'static str,
+}
+
+/// Tray texts for a UI language (`ru`, `en`, `ru-RU`…); English otherwise.
+/// Terminology follows docs/i18n/glossary.md.
+#[must_use]
+pub fn tray_texts(language: &str) -> TrayTexts {
+    let primary = language.split(['-', '_']).next().unwrap_or_default().to_ascii_lowercase();
+    match primary.as_str() {
+        "ru" => TrayTexts {
+            toggle: "Показать или скрыть Orkestr",
+            stop_all: "Остановить всю работу AI",
+            quit: "Выйти из Orkestr",
+            tooltip: "Orkestr — AI-агенты продолжают работать в фоне",
+        },
+        _ => TrayTexts {
+            toggle: "Show / Hide Orkestr",
+            stop_all: "Stop All AI",
+            quit: "Quit Orkestr",
+            tooltip: "Orkestr — AI agents keep running in the background",
+        },
+    }
+}
 
 /// Connection info handed to the webview.
 #[derive(Debug, Clone, Serialize)]
@@ -60,6 +100,8 @@ struct CoreState {
 struct ShellState {
     close_to_tray: AtomicBool,
     quitting: AtomicBool,
+    /// Language the tray is currently shown in.
+    language: std::sync::Mutex<String>,
 }
 
 async fn boot_core(handle_slot: Arc<Mutex<Option<CoreHandle>>>) -> Result<CoreConnection, String> {
@@ -128,6 +170,27 @@ fn shell_quit(app: AppHandle) {
     quit(&app);
 }
 
+/// Localizes the native shell (tray menu + tooltip) to the UI language the
+/// webview resolved (`ru`, `en`). Window management only — no business data.
+#[tauri::command]
+fn set_ui_language(language: String, app: AppHandle, state: tauri::State<'_, ShellState>) -> Result<(), String> {
+    let texts = tray_texts(&language);
+    {
+        let mut current = state.language.lock().map_err(|_| "shell state poisoned".to_owned())?;
+        if *current == language {
+            return Ok(());
+        }
+        current.clone_from(&language);
+    }
+    if let Some(tray) = app.tray_by_id(TRAY_ID) {
+        let menu = tray_menu(&app, texts).map_err(|e| e.to_string())?;
+        tray.set_menu(Some(menu)).map_err(|e| e.to_string())?;
+        tray.set_tooltip(Some(texts.tooltip)).map_err(|e| e.to_string())?;
+    }
+    tracing::info!(%language, "shell language applied");
+    Ok(())
+}
+
 fn show_main(app: &AppHandle) {
     if let Some(w) = app.get_webview_window(MAIN_WINDOW) {
         let _ = w.show();
@@ -153,14 +216,20 @@ fn quit(app: &AppHandle) {
     app.exit(0);
 }
 
-fn build_tray(app: &tauri::App) -> tauri::Result<()> {
-    let toggle = MenuItem::with_id(app, "toggle", "Show / Hide Orkestr", true, None::<&str>)?;
-    let stop_all = MenuItem::with_id(app, "stop_all", "Stop All AI", true, None::<&str>)?;
+fn tray_menu<R: tauri::Runtime, M: Manager<R>>(app: &M, texts: TrayTexts) -> tauri::Result<Menu<R>> {
+    let toggle = MenuItem::with_id(app, "toggle", texts.toggle, true, None::<&str>)?;
+    let stop_all = MenuItem::with_id(app, "stop_all", texts.stop_all, true, None::<&str>)?;
     let separator = PredefinedMenuItem::separator(app)?;
-    let quit_item = MenuItem::with_id(app, "quit", "Quit Orkestr", true, None::<&str>)?;
-    let menu = Menu::with_items(app, &[&toggle, &stop_all, &separator, &quit_item])?;
-    let mut builder = TrayIconBuilder::with_id("orkestr-tray")
-        .tooltip("Orkestr — AI agents keep running in the background")
+    let quit_item = MenuItem::with_id(app, "quit", texts.quit, true, None::<&str>)?;
+    Menu::with_items(app, &[&toggle, &stop_all, &separator, &quit_item])
+}
+
+fn build_tray(app: &tauri::App) -> tauri::Result<()> {
+    // English until the webview reports the UI language (`set_ui_language`, sent right after it loads).
+    let texts = tray_texts("en");
+    let menu = tray_menu(app, texts)?;
+    let mut builder = TrayIconBuilder::with_id(TRAY_ID)
+        .tooltip(texts.tooltip)
         .menu(&menu)
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id().as_ref() {
@@ -200,7 +269,11 @@ pub fn run() {
             show_main(app);
         }))
         .manage(CoreState { ready: ready_rx, handle: Arc::clone(&handle_slot) })
-        .manage(ShellState { close_to_tray: AtomicBool::new(true), quitting: AtomicBool::new(false) })
+        .manage(ShellState {
+            close_to_tray: AtomicBool::new(true),
+            quitting: AtomicBool::new(false),
+            language: std::sync::Mutex::new("en".to_owned()),
+        })
         .setup(move |app| {
             if let Err(e) = build_tray(app) {
                 // Without a tray, hiding would strand the user: disable close-to-tray.
@@ -235,7 +308,7 @@ pub fn run() {
                 }
             }
         })
-        .invoke_handler(tauri::generate_handler![core_connection, shell_set_prefs, shell_quit]);
+        .invoke_handler(tauri::generate_handler![core_connection, shell_set_prefs, shell_quit, set_ui_language]);
 
     let app = match builder.build(tauri::generate_context!()) {
         Ok(app) => app,
@@ -257,4 +330,17 @@ pub fn run() {
             });
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tray_texts_follow_the_ui_language() {
+        assert_eq!(tray_texts("ru").stop_all, "Остановить всю работу AI");
+        assert_eq!(tray_texts("ru-RU").quit, "Выйти из Orkestr");
+        assert_eq!(tray_texts("en").toggle, "Show / Hide Orkestr");
+        assert_eq!(tray_texts("de"), tray_texts("en"), "unsupported languages fall back to English");
+    }
 }

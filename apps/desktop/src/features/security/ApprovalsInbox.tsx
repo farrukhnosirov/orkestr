@@ -4,8 +4,9 @@ import { clsx } from "clsx";
 import { Bot, Check, Inbox, ShieldAlert, ShieldCheck, Terminal, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
+import { useFormat, useT } from "../../i18n";
 import { useAppStore } from "../../store/app";
-import { dangerLabel, relativeTime, riskTone, shortId } from "./logic";
+import { capabilityLabel, dangerLabel, riskLabel, riskTone, shortId } from "./logic";
 import { errorMessage, refreshPending, resolveApproval, useSecurityStore } from "./store";
 
 /** Title-bar button showing the live number of pending approvals. */
@@ -13,7 +14,8 @@ export function ApprovalsBadge() {
   const count = useSecurityStore((s) => s.pending.length);
   const open = useSecurityStore((s) => s.inboxOpen);
   const setOpen = useSecurityStore((s) => s.setInboxOpen);
-  const label = count === 0 ? "Approvals inbox (empty)" : `Approvals inbox: ${count} pending`;
+  const { t } = useT("security");
+  const label = count === 0 ? t("inbox.badgeEmpty") : t("inbox.badgePending", { count });
   return (
     <button
       type="button"
@@ -34,6 +36,8 @@ export function ApprovalsBadge() {
 }
 
 function ApprovalCard({ approval }: { approval: Approval }) {
+  const { t } = useT(["security", "common"]);
+  const fmt = useFormat();
   const projectName = useAppStore((s) => s.projects.find((p) => p.id === approval.projectId)?.name);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState<"Approve" | "Reject" | null>(null);
@@ -52,37 +56,37 @@ function ApprovalCard({ approval }: { approval: Approval }) {
   };
 
   return (
-    <article className="sec-approval" aria-label={`Approval: ${approval.actionSummary}`}>
+    <article className="sec-approval" aria-label={t("approval.ariaLabel", { summary: approval.actionSummary })}>
       <header className="sec-approval__head">
-        <Badge tone={riskTone(approval.risk)}>{approval.risk} risk</Badge>
-        <Badge tone="violet">{approval.capability}</Badge>
+        <Badge tone={riskTone(approval.risk)}>{riskLabel(approval.risk)}</Badge>
+        <Badge tone="violet">{capabilityLabel(approval.capability)}</Badge>
         {approval.danger && (
           <Badge tone="danger" icon={<ShieldAlert size={12} />}>
             {dangerLabel(approval.danger)}
           </Badge>
         )}
-        <span className="sec-approval__time" title={approval.requestedAt}>
-          {relativeTime(approval.requestedAt)}
+        <span className="sec-approval__time" title={fmt.date(approval.requestedAt, "dateTime")}>
+          {fmt.relative(approval.requestedAt)}
         </span>
       </header>
       <h3 className="sec-approval__title">{approval.actionSummary}</h3>
       <div className="sec-approval__meta">
         <span>
-          <Bot size={12} /> {approval.agentId ? `Agent ${shortId(approval.agentId)}` : "Manager / system"}
+          <Bot size={12} /> {approval.agentId ? t("approval.agent", { id: shortId(approval.agentId) }) : t("approval.managerOrSystem")}
         </span>
         {projectName && <span>· {projectName}</span>}
       </div>
       {approval.commandPreview && (
-        <pre className="sec-approval__preview" aria-label="Command preview">
+        <pre className="sec-approval__preview" aria-label={t("approval.commandPreview")}>
           <Terminal size={12} aria-hidden="true" /> {approval.commandPreview}
         </pre>
       )}
       <p className="sec-approval__reason">{approval.reason}</p>
       <label className="sec-approval__note">
-        <span className="sr-only">Note</span>
+        <span className="sr-only">{t("approval.note")}</span>
         <input
           className="sec-input"
-          placeholder="Optional note for the agent…"
+          placeholder={t("approval.notePlaceholder")}
           value={note}
           maxLength={2000}
           onChange={(e) => setNote(e.target.value)}
@@ -102,7 +106,7 @@ function ApprovalCard({ approval }: { approval: Approval }) {
           disabled={busy !== null}
           onClick={() => void act("Reject")}
         >
-          Reject
+          {t("common:actions.reject")}
         </Button>
         <Button
           variant="primary"
@@ -112,7 +116,7 @@ function ApprovalCard({ approval }: { approval: Approval }) {
           disabled={busy !== null}
           onClick={() => void act("Approve")}
         >
-          Approve
+          {t("common:actions.approve")}
         </Button>
       </footer>
     </article>
@@ -126,6 +130,7 @@ export function ApprovalsDrawer() {
   const pending = useSecurityStore((s) => s.pending);
   const loaded = useSecurityStore((s) => s.pendingLoaded);
   const error = useSecurityStore((s) => s.pendingError);
+  const { t } = useT(["security", "common"]);
   const ref = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -153,37 +158,37 @@ export function ApprovalsDrawer() {
           </div>
           <div>
             <h2 id="sec-drawer-title" className="dialog__title">
-              Approvals
+              {t("inbox.title")}
             </h2>
             <p className="dialog__subtitle">
-              {pending.length === 0 ? "Nothing is waiting for you." : `${pending.length} action(s) waiting for your decision`}
+              {pending.length === 0 ? t("inbox.subtitleEmpty") : t("inbox.subtitlePending", { count: pending.length })}
             </p>
           </div>
-          <button type="button" className="dialog__close" aria-label="Close approvals" onClick={() => setOpen(false)}>
+          <button type="button" className="dialog__close" aria-label={t("inbox.close")} onClick={() => setOpen(false)}>
             <X size={16} />
           </button>
         </header>
         <div className="sec-drawer__body">
           {!loaded ? (
             <div className="sec-center">
-              <Spinner label="Loading approvals" />
+              <Spinner label={t("inbox.loading")} />
             </div>
           ) : error ? (
             <EmptyState
               icon={<ShieldAlert size={22} />}
-              title="Could not load approvals"
+              title={t("inbox.loadFailed")}
               description={error}
               action={
                 <Button size="sm" onClick={() => void refreshPending()}>
-                  Retry
+                  {t("common:actions.retry")}
                 </Button>
               }
             />
           ) : pending.length === 0 ? (
             <EmptyState
               icon={<ShieldCheck size={22} />}
-              title="All clear"
-              description="Agents ask here before risky actions: dangerous commands, network, secrets, deploys."
+              title={t("inbox.emptyTitle")}
+              description={t("inbox.emptyDescription")}
             />
           ) : (
             pending.map((a) => <ApprovalCard key={a.id} approval={a} />)

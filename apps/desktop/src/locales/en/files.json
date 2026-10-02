@@ -1,0 +1,73 @@
+{
+  "noProject": {
+    "title": "No project open",
+    "description": "Open or create a project to browse its files."
+  },
+  "connectFolder": "Connect a project folder",
+  "errors": {
+    "exists": "“{{name}}” already exists here.",
+    "existsInTarget": "“{{name}}” already exists in the target folder."
+  },
+  "validation": {
+    "empty": "Enter a name.",
+    "reserved": "That name is reserved.",
+    "badChars": "Names cannot contain < > : \" | ? * or control characters.",
+    "dotDot": "Names cannot contain “..”.",
+    "trailing": "Names cannot end with a dot or a space.",
+    "windows": "That name is reserved on Windows."
+  },
+  "menu": {
+    "label": "File actions",
+    "open": "Open",
+    "newFile": "New File…",
+    "newFolder": "New Folder…",
+    "rename": "Rename…",
+    "delete": "Delete…",
+    "refresh": "Refresh",
+    "copyPath": "Copy Path",
+    "copyRelative": "Copy Relative Path",
+    "reveal": "Reveal in File Explorer",
+    "openIde": "Open in External IDE"
+  },
+  "toolbar": {
+    "filterPlaceholder": "Filter files…",
+    "filter": "Filter files",
+    "clearFilter": "Clear filter",
+    "newFile": "New file",
+    "newFolder": "New folder",
+    "refresh": "Refresh",
+    "collapseAll": "Collapse all",
+    "showIgnored": "Show ignored files",
+    "hideIgnored": "Hide ignored files",
+    "openFolderIde": "Open folder in external IDE",
+    "dismiss": "Dismiss"
+  },
+  "loading": "Loading files…",
+  "readError": "Could not read the project folder",
+  "noMatches": {
+    "title": "No matching files",
+    "description": "Only loaded folders are filtered. Use Ctrl+P to search every file."
+  },
+  "emptyFolder": {
+    "title": "This folder is empty",
+    "action": "New file"
+  },
+  "tree": {
+    "label": "Project files",
+    "newFileName": "New file name",
+    "newFolderName": "New folder name",
+    "rename": "Rename {{name}}",
+    "loading": "Loading…",
+    "loadFailed": "Could not load",
+    "truncated": "Too many entries — showing the first ones",
+    "empty": "Empty folder",
+    "agentDir": "Contains files changed by agents",
+    "agentFile": "Changed by an agent"
+  },
+  "delete": {
+    "title": "Delete “{{name}}”?",
+    "folder": "The folder and everything inside it will be deleted.",
+    "file": "The file will be deleted from disk.",
+    "trash": "A copy is kept in Orkestr’s trash so it can be restored."
+  }
+}
