@@ -4,6 +4,7 @@ import { FolderOpen, FolderPlus, LayoutGrid, Palette, PanelsTopLeft, Search } fr
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
 import { openProject } from "../core/client";
+import { commands as registeredCommands } from "../features/commands/registry";
 import { getPanel, PANELS } from "../panels/registry";
 import { useAppStore } from "../store/app";
 import { workspaceActions } from "./workspaceActions";
@@ -92,6 +93,20 @@ export function CommandPalette() {
         hint: panel.phase > 0 ? `Phase ${panel.phase}` : undefined,
         keywords: panel.description,
         run: () => workspaceActions.openPanel(panel.id),
+      });
+    }
+    // Feature commands from the shared registry (§54).
+    for (const cmd of registeredCommands) {
+      const Icon = cmd.icon;
+      if (cmd.enabled && !cmd.enabled({ projectId: activeId })) continue;
+      list.push({
+        id: cmd.id,
+        title: cmd.title,
+        group: cmd.group,
+        icon: Icon ? <Icon size={16} /> : <PanelsTopLeft size={16} />,
+        hint: cmd.shortcut,
+        keywords: cmd.keywords?.join(" "),
+        run: () => void Promise.resolve(cmd.run({ projectId: activeId })).catch((e: unknown) => console.error(cmd.id, e)),
       });
     }
     list.push({

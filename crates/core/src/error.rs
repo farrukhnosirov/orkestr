@@ -31,6 +31,9 @@ pub enum CoreError {
     /// I/O failure.
     #[error("io: {0}")]
     Io(#[from] std::io::Error),
+    /// Security subsystem failure.
+    #[error(transparent)]
+    Security(#[from] orkestr_security::SecurityError),
 }
 
 /// Maps storage errors to RPC errors without leaking internals.
@@ -42,6 +45,27 @@ pub fn storage_to_rpc(err: StorageError) -> RpcError {
         other => {
             tracing::error!(error = %other, "storage failure while handling request");
             RpcError::internal("internal storage error")
+        }
+    }
+}
+
+/// Maps security errors to RPC errors without leaking internals.
+pub fn security_to_rpc(err: orkestr_security::SecurityError) -> RpcError {
+    use orkestr_security::SecurityError as S;
+    match err {
+        S::Path(e) => RpcError::forbidden(e.to_string()),
+        S::SecretNotFound(m) | S::NotFound(m) => RpcError::not_found(m),
+        S::VaultLocked => RpcError::forbidden("the secret vault is locked"),
+        S::Invalid(m) => RpcError::bad_request(m),
+        S::Conflict(m) => RpcError::conflict(m),
+        S::Forbidden(m) | S::EmergencyActive(m) => RpcError::forbidden(m),
+        S::Timeout => RpcError::conflict("timed out"),
+        S::Cancelled => RpcError::conflict("cancelled"),
+        S::Storage(e) => storage_to_rpc(e),
+        S::Events(e) => events_to_rpc(e),
+        other @ (S::Crypto(_) | S::Backend(_)) => {
+            tracing::error!(error = %other, "secret backend failure while handling request");
+            RpcError::internal("secret backend failure")
         }
     }
 }

@@ -58,4 +58,65 @@ pub struct Approval {
     pub resolved_by: Option<Actor>,
     /// Optional note by the resolver.
     pub resolution_note: Option<String>,
+    /// Exact command / action preview (redacted) shown to the approver.
+    #[serde(default)]
+    pub command_preview: Option<String>,
+    /// Dangerous-action category when the guard flagged the action.
+    #[serde(default)]
+    pub danger: Option<DangerCategory>,
+}
+
+/// Category of a dangerous or forbidden action (permission model §6.2–6.3).
+/// Append-only.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub enum DangerCategory {
+    /// Recursive or mass delete (D1).
+    RecursiveDelete,
+    /// Delete of a protected root: drive/FS root, home, OS dirs (H1).
+    ProtectedPathDelete,
+    /// Disk / volume destruction: format, diskpart, mkfs, dd to a device (H2).
+    DiskDestruction,
+    /// Backup / recovery / boot destruction (H3).
+    BackupDestruction,
+    /// Fork bomb / resource exhaustion (H4).
+    ResourceExhaustion,
+    /// Disabling security tooling (H5).
+    SecurityToolingDisable,
+    /// Audit / log wiping (H6).
+    LogWipe,
+    /// Reading other apps' credentials (H7).
+    CredentialAccess,
+    /// Tampering with Orkestr itself (H8).
+    SelfTamper,
+    /// Unsafe agent-CLI modes (H9).
+    UnsafeAgentMode,
+    /// Exposing local core ports (H10).
+    PortExposure,
+    /// Destructive / history-rewriting / outward git operation (D3).
+    GitDestructive,
+    /// Direct writes to `.git` internals.
+    GitInternals,
+    /// Data destruction: DROP/TRUNCATE/DELETE without WHERE… (D4).
+    DataDestruction,
+    /// Production write / deploy / publish (D5).
+    ProductionChange,
+    /// Secret changes or exposure (D6).
+    SecretChange,
+    /// Privilege escalation: sudo, runas (D7).
+    PrivilegeEscalation,
+    /// OS configuration / persistence / registry (D8).
+    SystemConfig,
+    /// Network configuration / tunnels / firewall (D9).
+    NetworkConfig,
+    /// Download-and-execute / dynamic code (D10).
+    RemoteCodeExecution,
+    /// Container / VM destruction (D11).
+    ContainerDestruction,
+    /// Obfuscated or too deeply nested command (D12).
+    Obfuscation,
+    /// Command could not be parsed (D12).
+    Unparseable,
+    /// Write/delete outside the confinement root (D2).
+    OutsideWorktree,
 }

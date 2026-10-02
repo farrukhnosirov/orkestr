@@ -4,6 +4,7 @@ import type { AgentId } from "./AgentId";
 import type { ApprovalId } from "./ApprovalId";
 import type { ApprovalStatus } from "./ApprovalStatus";
 import type { Capability } from "./Capability";
+import type { DangerCategory } from "./DangerCategory";
 import type { ProjectId } from "./ProjectId";
 import type { RiskLevel } from "./RiskLevel";
 import type { TaskId } from "./TaskId";
@@ -72,4 +73,12 @@ resolvedBy: Actor | null,
 /**
  * Optional note by the resolver.
  */
-resolutionNote: string | null, };
+resolutionNote: string | null, 
+/**
+ * Exact command / action preview (redacted) shown to the approver.
+ */
+commandPreview: string | null, 
+/**
+ * Dangerous-action category when the guard flagged the action.
+ */
+danger: DangerCategory | null, };

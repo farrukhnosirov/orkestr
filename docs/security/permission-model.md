@@ -10,9 +10,35 @@ Spec references: §18, §23, §24, §26, §35, §48, §52, §56, §60.7–8, §6
 
 ---
 
-## 0. Implementation status (2026-10-02)
+## 0. Implementation status
 
-Nothing in this document is enforced yet: `orkestr-security` is a skeleton
+### 0.1 Phase 1 (branch `phase1/security`)
+
+Built in `crates/security` and wired into the core:
+
+- `guard` — `DangerousActionGuard::classify(cmd, ShellKind{PowerShell,Cmd,Bash,Sh})`,
+  `classify_in(.., root)`, `classify_action(Action)` → `DangerClass{Safe | Dangerous{category,reason} |
+  Forbidden{category,reason}}` with `DangerCategory` (domain, wire type). Lexers for POSIX / PowerShell /
+  cmd (quotes, escapes, `$(…)`, backticks, script blocks, here-docs, redirects, pipelines, chaining),
+  wrapper unwrapping (sudo/env/nohup/timeout/xargs/find -exec/bash -c/cmd /c/powershell -Command and
+  `-EncodedCommand` (decoded)/wsl/iex/Start-Process/npx…, depth ≤ 4), PowerShell alias + parameter-prefix
+  resolution. ~350 table cases in `guard/tests.rs`. Unparseable ⇒ Dangerous (fail closed).
+- `paths::confine` — traversal, absolute-outside, UNC/`\\?\`/`\\.\`, drive-relative, reserved device
+  names, trailing dot/space, ADS, symlink/junction escapes (canonicalised longest existing ancestor).
+- `permissions::RuleEngine` — §4 algorithm (emergency → confinement → guard → users/system →
+  rules (narrowest scope, Deny > Ask > Allow) → mode defaults). Defaults follow §5 tightened by the
+  Phase 1 assignment: Network/Deploy/Secrets/Ssh/Docker/DbWrite always Ask without an explicit rule,
+  ComputerControl Deny without a rule and Ask with one. Rules persisted in `permission_rules`; agent
+  approval-mode overrides in `agent_approval_modes`; the project mode stays on `Project.approvalMode`.
+- `approvals`, `secrets` (OS keyring + XChaCha20-Poly1305 file vault), `audit` (append-only,
+  blake3 hash chain, triggers), `emergency` (token registry + persisted flags), `redact` (moved from
+  core). RPC: `permissions.*`, `approvals.*`, `secrets.*`, `emergency.*`, `audit.list`.
+- Not yet: typed `CheckContext.data_class`, "remember" on approvals, hard policies P8–P10, Argon2
+  passphrase vault, H8 by process identity (text-based only), script-file (`-File`) content analysis.
+
+### 0.2 Phase 0 surface (historical)
+
+Nothing in this document was enforced in Phase 0: `orkestr-security` was a skeleton
 (traits only) and no agent can run tools. The as-built surface that this
 design must converge with in Phase 1:
 

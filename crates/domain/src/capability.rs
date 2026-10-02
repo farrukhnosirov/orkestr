@@ -6,6 +6,7 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
+use crate::common::Timestamp;
 use crate::ids::{AgentId, ProjectId, TaskId};
 
 /// Something an actor may be allowed to do.
@@ -152,6 +153,25 @@ pub struct PermissionRule {
     pub resource: Option<String>,
     /// Where the rule applies.
     pub scope: PermissionScope,
+}
+
+/// A persisted permission rule with identity and metadata (Phase 1 additive).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct PermissionRuleRecord {
+    /// Rule id (UUID v7 string).
+    pub id: String,
+    /// The rule itself.
+    pub rule: PermissionRule,
+    /// Optional note ("allow cargo in backend").
+    #[serde(default)]
+    pub note: Option<String>,
+    /// Creation time.
+    pub created_at: Timestamp,
+    /// Optional expiry; expired rules are ignored.
+    #[serde(default)]
+    pub expires_at: Option<Timestamp>,
 }
 
 #[cfg(test)]

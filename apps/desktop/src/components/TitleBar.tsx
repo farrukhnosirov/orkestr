@@ -2,6 +2,8 @@ import { Kbd } from "@orkestr/ui";
 import { Copy, Minus, Search, Square, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { ApprovalsBadge } from "../features/security/ApprovalsInbox";
+import { EmergencyStopButton } from "../features/security/EmergencyStop";
 import { isTauri, windowControls } from "../lib/tauri";
 import { useActiveProject, useAppStore } from "../store/app";
 import { Logo } from "./Logo";
@@ -56,6 +58,11 @@ export function TitleBar() {
       </button>
 
       <div className="titlebar__spacer" data-tauri-drag-region />
+
+      <div className="sec-titlebar-group">
+        <ApprovalsBadge />
+        <EmergencyStopButton />
+      </div>
 
       {native && (
         <div className="titlebar__controls">

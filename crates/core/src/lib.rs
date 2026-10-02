@@ -138,6 +138,28 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
     let events = EventBus::with_log(event_log, config.event_capacity).await?;
     let node_id = migrations::load_or_create_node_id(&db).await?;
 
+    // Bind early so the guard knows the core port (H10: never expose it).
+    let listener = tokio::net::TcpListener::bind(config.bind_addr).await?;
+    let addr = listener.local_addr()?;
+
+    // Security subsystem (permissions, approvals, secrets, audit, emergency).
+    let credentials: Option<Arc<dyn orkestr_platform::CredentialStore>> = match config.secret_backend {
+        orkestr_security::SecretBackendChoice::Memory => Some(Arc::new(orkestr_platform::MemoryCredentialStore::default())),
+        orkestr_security::SecretBackendChoice::VaultFileKey => None,
+        _ => Some(Arc::new(orkestr_platform::KeyringCredentialStore::new())),
+    };
+    let security = Arc::new(
+        orkestr_security::Security::open(orkestr_security::SecurityConfig {
+            db: db.clone(),
+            events: events.clone(),
+            data_dir: paths.data_dir.clone(),
+            credentials,
+            secret_backend: config.secret_backend,
+            guard: orkestr_security::GuardConfig { protected_paths: vec![paths.data_dir.clone()], core_port: Some(addr.port()) },
+        })
+        .await?,
+    );
+
     let services = Arc::new(Services {
         version: VERSION.to_owned(),
         started_at: chrono::Utc::now(),
@@ -150,6 +172,7 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
         projects: metadata,
         objects,
         recovered_from_crash: previous_session.crashed,
+        security,
     });
     logging::attach_event_bus(services.events.clone());
 
@@ -159,16 +182,27 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
     // RPC server.
     let token = config.token.clone().unwrap_or_else(auth::generate_token);
     redact::register_secret(&token);
-    let listener = tokio::net::TcpListener::bind(config.bind_addr).await?;
-    let addr = listener.local_addr()?;
     let url = format!("ws://{addr}/rpc");
     let http_url = format!("http://{addr}");
     let shutdown = CancellationToken::new();
+    tokio::spawn(Arc::clone(&services.security.approvals).run_expiry_loop(std::time::Duration::from_secs(30), shutdown.clone()));
+    {
+        let secrets = Arc::clone(&services.security.secrets);
+        tokio::spawn(async move {
+            match secrets.preload_redaction().await {
+                Ok(n) if n > 0 => tracing::info!(count = n, "secret values registered for redaction"),
+                Ok(_) => {}
+                Err(e) => tracing::warn!(error = %e, "could not preload secret values for redaction"),
+            }
+        });
+    }
     let router = Arc::new(rpc::build_router());
-    let app = server::app(server::AppState::new(Arc::clone(&services), token.clone(), router, shutdown.clone()));
+    let app = server::app(server::AppState::new(Arc::clone(&services), token.clone(), router, shutdown.clone()).with_port(addr.port()));
     let server_shutdown = shutdown.clone();
     let server = tokio::spawn(async move {
-        let result = axum::serve(listener, app).with_graceful_shutdown(server_shutdown.cancelled_owned()).await;
+        let result = axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>())
+            .with_graceful_shutdown(server_shutdown.cancelled_owned())
+            .await;
         if let Err(e) = result {
             tracing::error!(error = %e, "RPC server failed");
         }

@@ -4,8 +4,13 @@
 //! `pub fn register(router: &mut RpcRouter)` function; [`build_router`] wires
 //! all areas. Handlers are typed by `orkestr_protocol::methods::*` markers.
 
+pub mod approvals;
+pub mod audit;
+pub mod emergency;
 pub mod events;
+pub mod permissions;
 pub mod projects;
+pub mod secrets;
 pub mod system;
 
 use std::collections::BTreeMap;
@@ -117,6 +122,13 @@ impl RpcRouter {
 pub fn build_router() -> RpcRouter {
     let mut router = RpcRouter::new();
     router.register(system::register).register(projects::register).register(events::register);
+    // security (Phase 1)
+    router
+        .register(permissions::register)
+        .register(approvals::register)
+        .register(secrets::register)
+        .register(emergency::register)
+        .register(audit::register);
     router
 }
 
