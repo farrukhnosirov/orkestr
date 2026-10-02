@@ -35,6 +35,8 @@ pub struct Services {
     pub projects: Arc<dyn ProjectRepository>,
     /// Object store.
     pub objects: Arc<FsObjectStore>,
+    /// Workspace file service (`files.*`).
+    pub files: Arc<orkestr_files::FilesManager>,
     /// Whether the previous session ended uncleanly.
     pub recovered_from_crash: bool,
 }

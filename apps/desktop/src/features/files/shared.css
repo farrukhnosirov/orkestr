@@ -1,0 +1,40 @@
+/* Shared dialogs (delete confirmation, save conflict, unsaved changes) */
+.fx-dialog {
+  width: min(520px, calc(100vw - 48px));
+}
+
+.fx-dialog--danger .dialog__icon {
+  background: var(--ok-color-danger-soft);
+  color: var(--ok-color-danger);
+}
+
+.fx-dialog--warning .dialog__icon {
+  background: var(--ok-color-warning-soft);
+  color: var(--ok-color-warning);
+}
+
+.fx-dialog__text {
+  margin: 0;
+  color: var(--ok-color-text-muted);
+  font-size: var(--ok-font-size-sm);
+}
+
+.fx-dialog__error {
+  padding: var(--ok-space-2) var(--ok-space-3);
+  border-radius: var(--ok-radius-sm);
+  border: 1px solid color-mix(in srgb, var(--ok-color-danger) 40%, transparent);
+  background: var(--ok-color-danger-soft);
+  color: var(--ok-color-danger);
+  font-size: var(--ok-font-size-sm);
+}
+
+.fx-root-form {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ok-space-2);
+  width: min(460px, 90%);
+}
+
+.fx-root-form .ok-field {
+  flex: 1;
+}

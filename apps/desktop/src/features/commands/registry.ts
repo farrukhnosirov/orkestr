@@ -4,6 +4,8 @@
  */
 import type { LucideIcon } from "lucide-react";
 
+import { FILE_COMMANDS } from "../files/commands";
+
 export interface CommandContext {
   projectId: string | null;
 }
@@ -25,3 +27,6 @@ export interface AppCommand {
 }
 
 export const commands: AppCommand[] = [];
+
+// files-editor (Phase 1)
+commands.push(...FILE_COMMANDS);

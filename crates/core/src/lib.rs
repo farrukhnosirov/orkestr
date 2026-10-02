@@ -137,6 +137,12 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
     let event_log = Arc::new(SqliteEventLog::new(db.clone()));
     let events = EventBus::with_log(event_log, config.event_capacity).await?;
     let node_id = migrations::load_or_create_node_id(&db).await?;
+    let files = Arc::new(orkestr_files::FilesManager::new(
+        orkestr_files::FilesConfig::default(),
+        Arc::new(orkestr_files::StorageTrash::new(db.clone(), objects.clone())),
+        Arc::new(orkestr_files::SystemOpener::new(Arc::new(orkestr_platform::process::which))),
+        Arc::new(rpc::files::EventBusChangeSink::new(events.clone())),
+    ));
 
     let services = Arc::new(Services {
         version: VERSION.to_owned(),
@@ -149,6 +155,7 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
         events,
         projects: metadata,
         objects,
+        files,
         recovered_from_crash: previous_session.crashed,
     });
     logging::attach_event_bus(services.events.clone());

@@ -1,0 +1,205 @@
+/**
+ * Monaco hosts: the code editor (one instance, models swapped per tab) and
+ * the diff editor (last saved / disk version vs. the live model).
+ */
+import type * as Monaco from "monaco-editor";
+import { useEffect, useRef } from "react";
+
+import { toRanges } from "../../features/files/lineDiff";
+import { useEditorStore } from "../../store/editor";
+import type { Doc } from "./documents";
+import { MONACO_THEME, tokenHex } from "./theme";
+import type { MonacoApi } from "./monaco";
+
+export interface EditorCallbacks {
+  onSave: () => void;
+  onQuickOpen: () => void;
+  onSearch: () => void;
+  onAskManager: (text: string, startLine: number, endLine: number) => void;
+  onCursor: (line: number, column: number, selected: number) => void;
+}
+
+function baseOptions(): Monaco.editor.IStandaloneEditorConstructionOptions {
+  const style = getComputedStyle(document.documentElement);
+  const mono = style.getPropertyValue("--ok-font-mono").trim();
+  return {
+    theme: MONACO_THEME,
+    automaticLayout: true,
+    fontFamily: mono || "Consolas, monospace",
+    fontSize: 13,
+    lineHeight: 20,
+    fontLigatures: true,
+    minimap: { enabled: true, renderCharacters: false, scale: 1 },
+    smoothScrolling: true,
+    cursorBlinking: "smooth",
+    cursorSmoothCaretAnimation: "on",
+    renderLineHighlight: "all",
+    scrollBeyondLastLine: false,
+    padding: { top: 10, bottom: 10 },
+    bracketPairColorization: { enabled: true },
+    guides: { bracketPairs: "active", indentation: true },
+    stickyScroll: { enabled: true },
+    fixedOverflowWidgets: true,
+    glyphMargin: false,
+    lineDecorationsWidth: 12,
+    tabSize: 2,
+    detectIndentation: true,
+  };
+}
+
+function registerCommands(monaco: MonacoApi, editor: Monaco.editor.IStandaloneCodeEditor, cb: { current: EditorCallbacks }): void {
+  const { KeyMod, KeyCode } = monaco;
+  editor.addCommand(KeyMod.CtrlCmd | KeyCode.KeyS, () => cb.current.onSave());
+  editor.addCommand(KeyMod.CtrlCmd | KeyCode.KeyP, () => cb.current.onQuickOpen());
+  editor.addCommand(KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyF, () => cb.current.onSearch());
+  editor.addAction({
+    id: "orkestr.askManager",
+    label: "Ask Manager about selection",
+    contextMenuGroupId: "navigation",
+    contextMenuOrder: 0,
+    precondition: "editorHasSelection",
+    run: (ed) => {
+      const model = ed.getModel();
+      const sel = ed.getSelection();
+      if (!model || !sel || sel.isEmpty()) return;
+      cb.current.onAskManager(model.getValueInRange(sel), sel.startLineNumber, sel.endLineNumber);
+    },
+  });
+}
+
+/** Code editor bound to the active document. */
+export function CodeEditor({
+  monaco,
+  doc,
+  agentLines,
+  callbacks,
+}: {
+  monaco: MonacoApi;
+  doc: Doc;
+  agentLines: readonly number[];
+  callbacks: EditorCallbacks;
+}) {
+  const el = useRef<HTMLDivElement>(null);
+  const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
+  const decorations = useRef<Monaco.editor.IEditorDecorationsCollection | null>(null);
+  const shownDoc = useRef<Doc | null>(null);
+  const cb = useRef(callbacks);
+  cb.current = callbacks;
+  const reveal = useEditorStore((s) => s.reveal);
+
+  useEffect(() => {
+    if (!el.current) return;
+    const editor = monaco.editor.create(el.current, { ...baseOptions(), model: null });
+    editorRef.current = editor;
+    decorations.current = editor.createDecorationsCollection();
+    registerCommands(monaco, editor, cb);
+    const sub = editor.onDidChangeCursorSelection((e) => {
+      const model = editor.getModel();
+      const selected = model ? model.getValueLengthInRange(e.selection) : 0;
+      cb.current.onCursor(e.selection.positionLineNumber, e.selection.positionColumn, selected);
+    });
+    return () => {
+      if (shownDoc.current) shownDoc.current.viewState = editor.saveViewState();
+      shownDoc.current = null;
+      sub.dispose();
+      editor.dispose();
+      editorRef.current = null;
+    };
+  }, [monaco]);
+
+  // Swap models, keeping each document's scroll/cursor state.
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor || shownDoc.current === doc) return;
+    if (shownDoc.current) shownDoc.current.viewState = editor.saveViewState();
+    editor.setModel(doc.model);
+    if (doc.viewState) editor.restoreViewState(doc.viewState);
+    editor.updateOptions({ readOnly: doc.readonly });
+    shownDoc.current = doc;
+    editor.focus();
+    const pos = editor.getPosition();
+    if (pos) cb.current.onCursor(pos.lineNumber, pos.column, 0);
+  }, [doc]);
+
+  // Reveal requests (search hits, quick open with position).
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor || !reveal || reveal.path !== doc.path) return;
+    const col = reveal.column ?? 1;
+    const range = new monaco.Range(reveal.line, col, reveal.line, col + (reveal.length ?? 0));
+    editor.setSelection(range);
+    editor.revealRangeInCenter(range, monaco.editor.ScrollType.Smooth);
+    editor.focus();
+    useEditorStore.getState().consumeReveal();
+  }, [reveal, doc, monaco]);
+
+  // Agent change markers (gutter bar + overview ruler + minimap).
+  useEffect(() => {
+    const coll = decorations.current;
+    if (!coll) return;
+    const lineCount = doc.model.getLineCount();
+    const violet = tokenHex("--ok-color-violet");
+    coll.set(
+      toRanges(agentLines.filter((l) => l <= lineCount)).map(([from, to]) => ({
+        range: new monaco.Range(from, 1, to, 1),
+        options: {
+          isWholeLine: true,
+          className: "code-agent-line",
+          linesDecorationsClassName: "code-agent-gutter",
+          linesDecorationsTooltip: "Changed by an agent",
+          overviewRuler: { color: violet, position: monaco.editor.OverviewRulerLane.Left },
+          minimap: { color: violet, position: monaco.editor.MinimapPosition.Gutter },
+        },
+      })),
+    );
+  }, [agentLines, doc, monaco]);
+
+  return <div className="code-editor" ref={el} />;
+}
+
+/** Diff editor: `original` text (left, read-only) vs the live model (right, editable). */
+export function DiffEditor({
+  monaco,
+  doc,
+  original,
+  callbacks,
+}: {
+  monaco: MonacoApi;
+  doc: Doc;
+  original: string;
+  callbacks: EditorCallbacks;
+}) {
+  const el = useRef<HTMLDivElement>(null);
+  const originalModel = useRef<Monaco.editor.ITextModel | null>(null);
+  const cb = useRef(callbacks);
+  cb.current = callbacks;
+
+  useEffect(() => {
+    if (!el.current) return;
+    const diff = monaco.editor.createDiffEditor(el.current, {
+      ...baseOptions(),
+      renderSideBySide: true,
+      originalEditable: false,
+      enableSplitViewResizing: true,
+      renderOverviewRuler: true,
+      ignoreTrimWhitespace: false,
+    });
+    const orig = monaco.editor.createModel(original, doc.model.getLanguageId());
+    originalModel.current = orig;
+    diff.setModel({ original: orig, modified: doc.model });
+    registerCommands(monaco, diff.getModifiedEditor(), cb);
+    diff.getModifiedEditor().focus();
+    return () => {
+      diff.dispose();
+      orig.dispose();
+      originalModel.current = null;
+    };
+  }, [monaco, doc]);
+
+  useEffect(() => {
+    const m = originalModel.current;
+    if (m && m.getValue() !== original) m.setValue(original);
+  }, [original]);
+
+  return <div className="code-editor" ref={el} />;
+}

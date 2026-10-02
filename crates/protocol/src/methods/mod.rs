@@ -111,6 +111,22 @@ pub fn registry() -> Vec<MethodDescriptor> {
         MethodDescriptor::of::<projects::Delete>(),
         MethodDescriptor::of::<projects::Open>(),
         MethodDescriptor::of::<events::Replay>(),
+        // files.* (Phase 1, files-editor)
+        MethodDescriptor::of::<files::List>(),
+        MethodDescriptor::of::<files::Stat>(),
+        MethodDescriptor::of::<files::Read>(),
+        MethodDescriptor::of::<files::Write>(),
+        MethodDescriptor::of::<files::Create>(),
+        MethodDescriptor::of::<files::Mkdir>(),
+        MethodDescriptor::of::<files::Rename>(),
+        MethodDescriptor::of::<files::Delete>(),
+        MethodDescriptor::of::<files::Trash>(),
+        MethodDescriptor::of::<files::Restore>(),
+        MethodDescriptor::of::<files::Search>(),
+        MethodDescriptor::of::<files::Find>(),
+        MethodDescriptor::of::<files::Watch>(),
+        MethodDescriptor::of::<files::Unwatch>(),
+        MethodDescriptor::of::<files::OpenExternal>(),
     ]
 }
 

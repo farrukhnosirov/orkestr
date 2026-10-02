@@ -109,6 +109,7 @@ pub(super) async fn run(socket: WebSocket, state: AppState, header_authed: bool)
     }
 
     forwarder.abort();
+    state.services.files.unwatch_all(&session_id.to_string());
     drop(sub_tx);
     drop(out_tx);
     let _ = tokio::time::timeout(Duration::from_secs(2), writer).await;
