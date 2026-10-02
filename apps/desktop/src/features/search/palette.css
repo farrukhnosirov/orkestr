@@ -1,0 +1,44 @@
+/* Command palette additions: highlights, shortcuts, search mode. Only --ok-* tokens. */
+
+.palette__mark {
+  padding: 0;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--ok-color-accent);
+  font-weight: var(--ok-font-weight-semibold);
+}
+
+.palette__subtitle {
+  margin-left: var(--ok-space-2);
+  color: var(--ok-color-text-subtle);
+  font-size: var(--ok-font-size-xs);
+}
+
+.palette__shortcut {
+  display: inline-flex;
+  gap: 2px;
+  margin-left: var(--ok-space-2);
+  opacity: 0.8;
+}
+
+.palette__mode {
+  padding: 2px var(--ok-space-2);
+  border-radius: var(--ok-radius-pill);
+  background: var(--ok-color-violet-soft);
+  color: var(--ok-color-violet);
+  font-size: var(--ok-font-size-xs);
+  font-weight: var(--ok-font-weight-semibold);
+  letter-spacing: var(--ok-letter-spacing-caps);
+  text-transform: uppercase;
+}
+
+.palette__item--disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.palette__group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}

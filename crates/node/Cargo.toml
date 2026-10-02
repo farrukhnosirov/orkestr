@@ -1,6 +1,6 @@
 [package]
 name = "orkestr-node"
-description = "Orkestr node: local NodeInfo from platform resources (implemented), node registry trait (Phase 6 extends) (§38)."
+description = "Orkestr node: local hardware/runtime inventory (CPU, RAM, GPUs, disks, dev runtimes, Ollama models), live resource sampler, node registry trait (Phase 6 extends) (§27, §38)."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -9,9 +9,14 @@ publish.workspace = true
 
 [dependencies]
 orkestr-domain.workspace = true
+orkestr-protocol.workspace = true
 orkestr-platform.workspace = true
 async-trait.workspace = true
 thiserror.workspace = true
+sysinfo.workspace = true
+serde_json.workspace = true
+parking_lot.workspace = true
+tracing.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

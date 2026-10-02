@@ -12,6 +12,11 @@ import { bootstrapCore } from "./core/client";
 import { registerSecurityFeature } from "./features/security/register";
 import { SecurityLayer } from "./features/security/SecurityLayer";
 import { commands, matchesShortcut } from "./features/commands/registry";
+import { Toasts } from "./features/notifications/NotificationCenter";
+import { OnboardingWizard } from "./features/onboarding/OnboardingWizard";
+import { ResumeCard } from "./features/resume/ResumeCard";
+import { SettingsView } from "./features/settings/SettingsView";
+import { useShellBootstrap } from "./features/settings/useShellBootstrap";
 import { useAppStore } from "./store/app";
 
 registerSecurityFeature();
@@ -58,6 +63,7 @@ export function App() {
   const [ready, setReady] = useState(false);
   useTheme();
   useGlobalShortcuts();
+  useShellBootstrap(ready);
 
   const boot = useCallback(() => {
     bootstrapCore().then(
@@ -88,6 +94,14 @@ export function App() {
       <CommandPalette />
       <CreateProjectDialog />
       <SecurityLayer connected={ready} />
+      {ready && (
+        <>
+          <SettingsView />
+          <OnboardingWizard />
+          <ResumeCard />
+        </>
+      )}
+      <Toasts />
     </div>
   );
 }

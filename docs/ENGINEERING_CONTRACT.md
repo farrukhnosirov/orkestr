@@ -12,7 +12,7 @@ silently.
   Bash run `export PATH="$HOME/.cargo/bin:$PATH"` first.
 - Node 24 + **npm workspaces** (pnpm is not installed; see ADR-0002).
 - Tauri **2.x** (`tauri = "2"`, `@tauri-apps/cli@^2`, `@tauri-apps/api@^2`).
-- Edition 2021 for all crates, `rust-version = "1.80"`.
+- Edition 2021 for all crates, `rust-version = "1.90"` (raised from 1.80 in Phase 1: Tauri 2.12 needs it; see ADR-0003 notes).
 - Never hardcode OS paths (`C:\Users\...`). Use `orkestr-platform` path helpers.
   `ORKESTR_HOME` env var overrides the data dir (tests MUST use a temp dir).
 

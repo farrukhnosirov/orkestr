@@ -4,6 +4,7 @@
  * everything else uses @orkestr/client.
  */
 import { invoke, isTauri as tauriDetected } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
 export interface CoreConnection {
@@ -39,6 +40,41 @@ export async function getCoreConnection(): Promise<CoreConnection> {
   }
   return { url, token, mode: "browser", startupMs: 0 };
 }
+
+/** Event emitted by the tray's "Stop All AI" item (see src-tauri `TRAY_STOP_ALL_EVENT`). */
+export const TRAY_STOP_ALL_EVENT = "orkestr://tray/stop-all";
+
+/**
+ * Shell behaviour (tray, close-to-tray, quit, fullscreen). These are window
+ * management calls, never business data (§67); in a plain browser they are no-ops.
+ */
+export const shellControls = {
+  /** Mirrors window-behaviour settings into the native shell. */
+  async applyPrefs(prefs: { closeToTray: boolean }): Promise<void> {
+    if (isTauri()) await invoke("shell_set_prefs", { prefs });
+  },
+  /** Quits the app (stops an embedded core) even when close-to-tray is on. */
+  async quit(): Promise<void> {
+    if (isTauri()) await invoke("shell_quit");
+  },
+  async hideWindow(): Promise<void> {
+    if (isTauri()) await getCurrentWindow().hide();
+  },
+  async toggleFullscreen(): Promise<void> {
+    if (isTauri()) {
+      const w = getCurrentWindow();
+      await w.setFullscreen(!(await w.isFullscreen()));
+    } else if (typeof document !== "undefined") {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else await document.documentElement.requestFullscreen();
+    }
+  },
+  /** Subscribes to the tray's "Stop All AI" item. */
+  async onTrayStopAll(handler: () => void): Promise<() => void> {
+    if (!isTauri()) return () => {};
+    return listen(TRAY_STOP_ALL_EVENT, () => handler());
+  },
+};
 
 export const windowControls = {
   async minimize(): Promise<void> {

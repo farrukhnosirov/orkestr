@@ -4,6 +4,7 @@
  */
 import type { LucideIcon } from "lucide-react";
 
+import { coreCommands } from "./coreCommands";
 import { providerCommands } from "../providers";
 import { taskCommands } from "../../panels/Tasks/commands";
 import { GIT_COMMANDS } from "../../panels/Git/commands";
@@ -30,7 +31,7 @@ export interface AppCommand {
   run: (ctx: CommandContext) => void | Promise<void>;
 }
 
-export const commands: AppCommand[] = [];
+export const commands: AppCommand[] = [...coreCommands];
 commands.push(...providerCommands);
 commands.push(...taskCommands);
 

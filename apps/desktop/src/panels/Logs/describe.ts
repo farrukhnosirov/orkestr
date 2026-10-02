@@ -160,6 +160,8 @@ export function describeEvent(event: Event): string {
       return `${event.payload.notification.title}: ${event.payload.notification.body}`;
     case "Log":
       return event.payload.message || event.payload.target;
+    case "SettingsChanged":
+      return `Settings changed: ${event.payload.changed.join(", ")}`;
   }
 }
 

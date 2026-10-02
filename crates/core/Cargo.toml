@@ -27,6 +27,7 @@ orkestr-terminal.workspace = true
 orkestr-files.workspace = true
 orkestr-memory.workspace = true
 orkestr-cost.workspace = true
+orkestr-node.workspace = true
 tokio.workspace = true
 tokio-util.workspace = true
 futures.workspace = true

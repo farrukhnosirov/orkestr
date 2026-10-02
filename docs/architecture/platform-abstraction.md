@@ -557,3 +557,13 @@ shows (onboarding §55, settings). No capability ever fakes success.
   `terminal.shells` sketch must be reconciled with these names when the
   terminal lands; the security guard's dialect enum is `ShellDialect
   { PowerShell, Cmd, Posix }`.
+
+## 6. As built additions (Phase 1 platform-shell)
+
+- `process::run_with_timeout(program, args, timeout) -> CommandOutput {code, success, stdout, stderr}` (also `ProcessControl::run`): stdin closed, output captured (UTF-16LE auto-decoded, e.g. `wsl.exe`), child killed on timeout (`PlatformError::Timeout`), `CREATE_NO_WINDOW` on Windows so the GUI never flashes consoles. `run_command` (reg/taskkill/osascript) also hides the console now.
+- `gpu::detect_gpus(timeout)`: `nvidia-smi --query-gpu` everywhere, merged with Windows WMI `Win32_VideoController` (PowerShell `Get-CimInstance`), macOS `system_profiler SPDisplaysDataType -json`, Linux `lspci`. Pure parsers are unit-tested.
+- `webview::detect_webview()`: WebView2 version from the EdgeUpdate registry key (Windows), WKWebView/Safari version (macOS), WebKitGTK via `pkg-config` (Linux).
+- `signals::shutdown_signal()`: Ctrl-C + SIGTERM/SIGHUP or Windows console close/logoff/shutdown (moved out of `orkestrd`).
+- `autostart::MemoryAutostart` (tests) and `AutostartEntry::for_current_exe`; Windows `is_enabled` uses `run_with_timeout`.
+- Resource snapshots now strip the Windows `\?\` verbatim prefix before matching mount points (the data volume was mis-detected before).
+- `orkestr-node` builds on these: `NodeMonitor` (cached inventory + 2 s sampler), runtime probes (git, node, npm, python, rustc, cargo, go, dotnet, java, docker, wsl) and Ollama `/api/tags` (loopback only).

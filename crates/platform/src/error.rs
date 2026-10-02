@@ -32,6 +32,14 @@ pub enum PlatformError {
         /// Trimmed stderr.
         stderr: String,
     },
+    /// A command did not finish in time and was killed.
+    #[error("command `{command}` timed out after {after_ms} ms")]
+    Timeout {
+        /// Program name.
+        command: String,
+        /// Timeout in milliseconds.
+        after_ms: u64,
+    },
     /// Invalid input.
     #[error("invalid: {0}")]
     Invalid(String),
@@ -50,7 +58,10 @@ impl PlatformError {
 
 /// Runs a command and maps a non-zero exit to [`PlatformError::Command`].
 pub(crate) fn run_command(program: &str, args: &[&str]) -> PlatformResult<std::process::Output> {
-    let output = std::process::Command::new(program).args(args).output()?;
+    let mut cmd = std::process::Command::new(program);
+    cmd.args(args).stdin(std::process::Stdio::null());
+    crate::process::hide_console(&mut cmd);
+    let output = cmd.output()?;
     if output.status.success() {
         Ok(output)
     } else {

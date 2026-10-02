@@ -45,6 +45,15 @@ describe("topics", () => {
     expect(eventMatches([topic.terminal(T)], ev)).toBe(true);
   });
 
+  it("routes node heartbeats to the node topic only", () => {
+    const N = "0190f0b0-0000-7000-8000-000000000003";
+    // Only the routing-relevant fields matter here.
+    const ev = { ...logEvent(null), nodeId: N, kind: "NodeStatus" } as unknown as Event;
+    expect(eventTopics(ev)).toEqual([`node:${N}`]);
+    expect(eventMatches(["global"], ev)).toBe(false);
+    expect(eventMatches([topic.node(N)], ev)).toBe(true);
+  });
+
   it("validates topics like the server", () => {
     expect(isValidTopic("*")).toBe(true);
     expect(isValidTopic(`project:${P}`)).toBe(true);

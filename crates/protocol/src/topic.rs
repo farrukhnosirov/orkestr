@@ -9,7 +9,8 @@
 //!   (`project:`, `task:`, `agent:`, `node:`, `terminal:`);
 //! * events **without** a project scope, and project lifecycle events
 //!   (`ProjectCreated/Updated/Deleted`, so project lists stay fresh), are also
-//!   published on `global`;
+//!   published on `global` — except node heartbeats (`NodeStatus` with a
+//!   node id), which only go to `node:<id>`;
 //! * `*` matches everything.
 
 use crate::event::{Event, EventKind};
@@ -70,7 +71,9 @@ pub fn event_topics(event: &Event) -> Vec<String> {
         event.kind,
         EventKind::ProjectCreated(_) | EventKind::ProjectUpdated(_) | EventKind::ProjectDeleted(_)
     );
-    if event.project_id.is_none() || lifecycle {
+    // Node heartbeats (every 2 s) only go to `node:<id>`, never `global`.
+    let heartbeat = matches!(event.kind, EventKind::NodeStatus(_)) && event.node_id.is_some();
+    if (event.project_id.is_none() && !heartbeat) || lifecycle {
         topics.push(GLOBAL.to_owned());
     }
     if let Some(id) = event.project_id {
@@ -168,6 +171,38 @@ mod tests {
             NewEvent::new(EventKind::ProjectDeleted(ProjectDeletedPayload { project_id: pid })).into_event(3, now());
         let t = event_topics(&ev);
         assert!(t.contains(&GLOBAL.to_string()) && t.contains(&project(pid)));
+    }
+
+    #[test]
+    fn node_heartbeat_is_node_topic_only() {
+        let node = orkestr_domain::Node {
+            id: orkestr_domain::NodeId::new(),
+            name: "n".into(),
+            hostname: "n".into(),
+            os: orkestr_domain::OsKind::Windows,
+            os_version: "11".into(),
+            arch: orkestr_domain::Arch::X64,
+            core_version: "0.1.0".into(),
+            status: orkestr_domain::NodeStatus::Online,
+            resources: orkestr_domain::NodeResources {
+                cpu_cores: 1,
+                cpu_usage_percent: 0.0,
+                memory_total_bytes: 1,
+                memory_used_bytes: 0,
+                disk_total_bytes: 1,
+                disk_free_bytes: 1,
+                gpus: Vec::new(),
+            },
+            tools: Vec::new(),
+            local_models: Vec::new(),
+            is_local: true,
+            last_heartbeat_at: None,
+        };
+        let id = node.id;
+        let ev = NewEvent::new(EventKind::NodeStatus(crate::event::NodeStatusPayload { node, sample: None }))
+            .into_event(4, now());
+        assert_eq!(event_topics(&ev), vec![super::node(id)]);
+        assert!(ev.kind.is_ephemeral());
     }
 
     #[test]

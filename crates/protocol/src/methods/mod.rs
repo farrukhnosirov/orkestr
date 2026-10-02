@@ -4,11 +4,11 @@
 //! implementing [`Method`]; the core router registers handlers by marker type
 //! and the TS `Methods` map is generated from [`registry()`].
 //!
-//! Implemented areas: [`system`], [`projects`], [`events`].
+//! Implemented areas: [`system`], [`projects`], [`events`], [`settings`]
+//! (`ui.*` still reserved), [`nodes`].
 //! Placeholder areas (names reserved, types arrive with their phase):
 //! [`tasks`], [`agents`], [`providers`], [`terminal`], [`approvals`],
-//! [`emergency`], [`memory`], [`vcs`], [`files`], [`snapshots`], [`cost`],
-//! [`nodes`], [`settings`].
+//! [`emergency`], [`memory`], [`vcs`], [`files`], [`snapshots`], [`cost`].
 
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -247,6 +247,14 @@ pub fn registry() -> Vec<MethodDescriptor> {
         MethodDescriptor::of::<cost::BudgetsSet>(),
         MethodDescriptor::of::<cost::BudgetsDelete>(),
         MethodDescriptor::of::<cost::BudgetsCheck>(),
+        // platform-shell (Phase 1)
+        MethodDescriptor::of::<system::Checks>(),
+        MethodDescriptor::of::<system::ResumeSummaryMethod>(),
+        MethodDescriptor::of::<settings::Get>(),
+        MethodDescriptor::of::<settings::Update>(),
+        MethodDescriptor::of::<nodes::List>(),
+        MethodDescriptor::of::<nodes::Info>(),
+        MethodDescriptor::of::<nodes::Resources>(),
     ]
 }
 

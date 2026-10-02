@@ -52,7 +52,12 @@ impl SysinfoResourceMonitor {
 
 fn disk_for(anchor: &std::path::Path) -> (u64, u64) {
     let disks = sysinfo::Disks::new_with_refreshed_list();
-    let anchor = anchor.canonicalize().unwrap_or_else(|_| anchor.to_path_buf());
+    let canon = anchor.canonicalize().unwrap_or_else(|_| anchor.to_path_buf());
+    // Windows `canonicalize` yields `\\?\C:\…`, which never starts with a mount point `C:\`.
+    let anchor = match canon.to_string_lossy().strip_prefix(r"\\?\") {
+        Some(rest) if !rest.starts_with("UNC\\") => PathBuf::from(rest),
+        _ => canon.clone(),
+    };
     disks
         .list()
         .iter()

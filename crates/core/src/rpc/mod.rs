@@ -11,10 +11,12 @@ pub mod emergency;
 pub mod events;
 pub mod files;
 pub mod memory;
+pub mod nodes;
 pub mod permissions;
 pub mod projects;
 pub mod providers;
 pub mod secrets;
+pub mod settings;
 pub mod snapshots;
 pub mod system;
 pub mod tasks;
@@ -143,6 +145,7 @@ pub fn build_router() -> RpcRouter {
     router.register(terminal::register);
     router.register(files::register);
     router.register(memory::register).register(cost::register);
+    router.register(settings::register).register(nodes::register);
     router
 }
 
