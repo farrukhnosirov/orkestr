@@ -1,0 +1,32 @@
+[package]
+name = "orkestr-files"
+description = "Orkestr workspace files: confined file service (list/read/write/search/find), trash, debounced watcher, external open (§14, §15, SR-21)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+orkestr-domain.workspace = true
+orkestr-protocol.workspace = true
+orkestr-storage.workspace = true
+async-trait.workspace = true
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+chrono.workspace = true
+uuid.workspace = true
+blake3.workspace = true
+ignore.workspace = true
+regex.workspace = true
+notify.workspace = true
+parking_lot.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

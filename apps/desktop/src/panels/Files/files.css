@@ -1,0 +1,275 @@
+/* Files panel + shared file dialogs. Values come from --ok-* tokens only. */
+
+.fx-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.fx-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: var(--ok-space-2);
+  border-bottom: 1px solid var(--ok-color-border);
+}
+
+.fx-filter {
+  flex: 1;
+  min-width: 80px;
+  margin-right: var(--ok-space-1);
+}
+
+.fx-filter .ok-input {
+  height: 26px;
+}
+
+.fx-notice {
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-2);
+  margin: var(--ok-space-2) var(--ok-space-2) 0;
+  padding: var(--ok-space-1) var(--ok-space-1) var(--ok-space-1) var(--ok-space-3);
+  border-radius: var(--ok-radius-sm);
+  border: 1px solid color-mix(in srgb, var(--ok-color-warning) 35%, transparent);
+  background: var(--ok-color-warning-soft);
+  color: var(--ok-color-warning);
+  font-size: var(--ok-font-size-sm);
+}
+
+.fx-notice span {
+  flex: 1;
+  min-width: 0;
+}
+
+.fx-loading {
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-2);
+  padding: var(--ok-space-4);
+  color: var(--ok-color-text-muted);
+}
+
+.fx-tree {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  outline: none;
+  padding: var(--ok-space-1) 0;
+  transition: background var(--ok-duration-fast) var(--ok-ease);
+}
+
+.fx-tree:focus-visible {
+  box-shadow: inset 0 0 0 1px var(--ok-color-border-accent);
+}
+
+.fx-tree--drop {
+  background: color-mix(in srgb, var(--ok-color-accent) 6%, transparent);
+  box-shadow: inset 0 0 0 1px var(--ok-color-border-accent);
+}
+
+.fx-tree__inner {
+  position: relative;
+  min-width: 100%;
+}
+
+.fx-row {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-right: var(--ok-space-2);
+  color: var(--ok-color-text-muted);
+  font-size: var(--ok-font-size-md);
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  border-left: 2px solid transparent;
+}
+
+.fx-row:hover {
+  background: var(--ok-color-surface-hover);
+  color: var(--ok-color-text);
+}
+
+.fx-row--selected {
+  background: var(--ok-color-surface-active);
+  color: var(--ok-color-text);
+  border-left-color: var(--ok-color-accent);
+}
+
+.fx-tree:focus-visible .fx-row--selected {
+  box-shadow: inset 0 0 0 1px var(--ok-color-border-accent);
+}
+
+.fx-row--ignored {
+  opacity: 0.5;
+}
+
+.fx-row--link .fx-row__name {
+  font-style: italic;
+}
+
+.fx-row--drop {
+  background: var(--ok-color-accent-soft);
+  box-shadow: inset 0 0 0 1px var(--ok-color-border-accent);
+  color: var(--ok-color-text);
+}
+
+.fx-row--status {
+  cursor: default;
+  color: var(--ok-color-text-subtle);
+  font-size: var(--ok-font-size-sm);
+  font-style: italic;
+}
+
+.fx-row--status:hover {
+  background: transparent;
+  color: var(--ok-color-text-subtle);
+}
+
+.fx-row--error {
+  color: var(--ok-color-danger);
+}
+
+.fx-row--edit {
+  cursor: default;
+}
+
+.fx-row--edit:hover {
+  background: transparent;
+}
+
+.fx-guide {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--ok-color-border);
+}
+
+.fx-row__chevron {
+  display: inline-grid;
+  place-items: center;
+  width: 14px;
+  flex-shrink: 0;
+  color: var(--ok-color-text-subtle);
+}
+
+.fx-row__icon {
+  flex-shrink: 0;
+}
+
+.fx-row__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fx-row__agent {
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  margin-left: auto;
+  flex-shrink: 0;
+  border-radius: 50%;
+  color: var(--ok-color-violet);
+  background: var(--ok-color-violet-soft);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--ok-color-violet) 45%, transparent);
+}
+
+.fx-edit {
+  flex: 1;
+  min-width: 0;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: var(--ok-radius-xs);
+  border: 1px solid var(--ok-color-border-accent);
+  background: var(--ok-color-surface-sunken);
+  color: var(--ok-color-text);
+  font-size: var(--ok-font-size-md);
+  outline: none;
+  box-shadow: 0 0 0 2px var(--ok-color-accent-soft);
+}
+
+.fx-edit--invalid {
+  border-color: var(--ok-color-danger);
+  box-shadow: 0 0 0 2px var(--ok-color-danger-soft);
+}
+
+/* Context menu */
+.fx-menu {
+  position: fixed;
+  z-index: var(--ok-z-overlay);
+  min-width: 220px;
+  padding: var(--ok-space-1);
+  border-radius: var(--ok-radius-md);
+  border: 1px solid var(--ok-color-border-strong);
+  background: var(--ok-gradient-panel), var(--ok-color-surface-strong);
+  backdrop-filter: blur(var(--ok-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--ok-blur)) saturate(150%);
+  box-shadow: var(--ok-shadow-panel);
+  animation: ok-fade-in var(--ok-duration-fast) var(--ok-ease);
+}
+
+.fx-menu__item {
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-2);
+  width: 100%;
+  height: 28px;
+  padding: 0 var(--ok-space-2);
+  border: 0;
+  border-radius: var(--ok-radius-sm);
+  background: transparent;
+  color: var(--ok-color-text-muted);
+  font-size: var(--ok-font-size-md);
+  text-align: left;
+  cursor: pointer;
+}
+
+.fx-menu__item:hover:not(:disabled),
+.fx-menu__item:focus-visible {
+  background: var(--ok-color-surface-active);
+  color: var(--ok-color-text);
+  box-shadow: none;
+}
+
+.fx-menu__item:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.fx-menu__item--danger:hover:not(:disabled),
+.fx-menu__item--danger:focus-visible {
+  background: var(--ok-color-danger-soft);
+  color: var(--ok-color-danger);
+}
+
+.fx-menu__icon {
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  color: var(--ok-color-text-subtle);
+}
+
+.fx-menu__label {
+  flex: 1;
+}
+
+.fx-menu__shortcut {
+  color: var(--ok-color-text-subtle);
+  font-size: var(--ok-font-size-xs);
+}
+
+.fx-menu__sep {
+  height: 1px;
+  margin: var(--ok-space-1) var(--ok-space-2);
+  background: var(--ok-color-border);
+}

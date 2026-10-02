@@ -8,6 +8,7 @@ import { providerCommands } from "../providers";
 import { taskCommands } from "../../panels/Tasks/commands";
 import { GIT_COMMANDS } from "../../panels/Git/commands";
 import { terminalCommands } from "../../panels/Terminal/commands";
+import { FILE_COMMANDS } from "../files/commands";
 
 export interface CommandContext {
   projectId: string | null;
@@ -50,3 +51,6 @@ export function matchesShortcut(e: Pick<KeyboardEvent, "key" | "code" | "ctrlKey
   if (key === "`") return e.key === "`" || e.code === "Backquote";
   return e.key.toLowerCase() === key;
 }
+
+// files-editor (Phase 1)
+commands.push(...FILE_COMMANDS);

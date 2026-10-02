@@ -224,6 +224,26 @@ pub struct FileChangedPayload {
     pub old_path: Option<String>,
     /// Kind.
     pub change: FileChangeKind,
+    /// Who caused the change (`external` when not made through Orkestr). Added in Phase 1.
+    #[serde(default)]
+    pub actor: FileChangeActor,
+    /// Agent that made the change when `actor` is `agent`. Added in Phase 1.
+    #[serde(default)]
+    pub agent_id: Option<AgentId>,
+}
+
+/// Who changed a file (drives agent change markers in the Files/Code panels).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub enum FileChangeActor {
+    /// The user, through an Orkestr client.
+    User,
+    /// An agent (see `agentId`).
+    Agent,
+    /// Outside Orkestr (another editor, a build tool, a VCS checkout), detected by the watcher.
+    #[default]
+    External,
 }
 
 /// `BuildStarted`.

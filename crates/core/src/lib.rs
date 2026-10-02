@@ -195,6 +195,12 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
         Some(git_state),
         orkestr_snapshots::ScanOptions::default(),
     ));
+    let files = Arc::new(orkestr_files::FilesManager::new(
+        orkestr_files::FilesConfig::default(),
+        Arc::new(orkestr_files::StorageTrash::new(db.clone(), objects.clone())),
+        Arc::new(orkestr_files::SystemOpener::new(Arc::new(orkestr_platform::process::which))),
+        Arc::new(rpc::files::EventBusChangeSink::new(events.clone())),
+    ));
 
     let services = Arc::new(Services {
         version: VERSION.to_owned(),
@@ -209,6 +215,7 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
         objects,
         providers,
         tasks,
+        files,
         recovered_from_crash: previous_session.crashed,
         security,
         vcs,

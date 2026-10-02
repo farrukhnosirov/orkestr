@@ -41,6 +41,8 @@ pub struct Services {
     pub providers: Arc<ProviderRegistry>,
     /// Task engine (§10–11).
     pub tasks: Arc<TaskService>,
+    /// Workspace file service (`files.*`).
+    pub files: Arc<orkestr_files::FilesManager>,
     /// Whether the previous session ended uncleanly.
     pub recovered_from_crash: bool,
     /// Security subsystem: permissions, approvals, secrets, audit, emergency (Phase 1).

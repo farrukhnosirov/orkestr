@@ -4,6 +4,10 @@ import type { ApprovalResult } from "./ApprovalResult";
 import type { CheckParams } from "./CheckParams";
 import type { CreateProjectParams } from "./CreateProjectParams";
 import type { DecisionView } from "./DecisionView";
+import type { CreateFileParams } from "./CreateFileParams";
+import type { CreateProjectParams } from "./CreateProjectParams";
+import type { DeleteFileParams } from "./DeleteFileParams";
+import type { DeleteFileResult } from "./DeleteFileResult";
 import type { DeleteProjectResult } from "./DeleteProjectResult";
 import type { DeleteRuleParams } from "./DeleteRuleParams";
 import type { DeleteSecretParams } from "./DeleteSecretParams";
@@ -103,6 +107,32 @@ import type { SnapshotDiffParams } from "./SnapshotDiffParams";
 import type { SnapshotDiffResult } from "./SnapshotDiffResult";
 import type { SnapshotIdParams } from "./SnapshotIdParams";
 import type { SnapshotResult } from "./SnapshotResult";
+import type { FileEntryResult } from "./FileEntryResult";
+import type { FilePathParams } from "./FilePathParams";
+import type { FindFilesParams } from "./FindFilesParams";
+import type { FindFilesResult } from "./FindFilesResult";
+import type { HealthResult } from "./HealthResult";
+import type { ListFilesParams } from "./ListFilesParams";
+import type { ListFilesResult } from "./ListFilesResult";
+import type { ListProjectsParams } from "./ListProjectsParams";
+import type { ListProjectsResult } from "./ListProjectsResult";
+import type { ListTrashParams } from "./ListTrashParams";
+import type { ListTrashResult } from "./ListTrashResult";
+import type { MkdirParams } from "./MkdirParams";
+import type { OpenExternalParams } from "./OpenExternalParams";
+import type { OpenExternalResult } from "./OpenExternalResult";
+import type { ProjectIdParams } from "./ProjectIdParams";
+import type { ProjectResult } from "./ProjectResult";
+import type { ReadFileParams } from "./ReadFileParams";
+import type { ReadFileResult } from "./ReadFileResult";
+import type { RenameFileParams } from "./RenameFileParams";
+import type { RenameFileResult } from "./RenameFileResult";
+import type { ReplayParams } from "./ReplayParams";
+import type { ReplayResult } from "./ReplayResult";
+import type { RestoreFileParams } from "./RestoreFileParams";
+import type { RestoreFileResult } from "./RestoreFileResult";
+import type { SearchFilesParams } from "./SearchFilesParams";
+import type { SearchFilesResult } from "./SearchFilesResult";
 import type { SystemInfo } from "./SystemInfo";
 import type { ToggleParams } from "./ToggleParams";
 import type { UpdateProjectParams } from "./UpdateProjectParams";
@@ -153,6 +183,10 @@ import type { TerminalIdParams } from "./TerminalIdParams";
 import type { TerminalSessionResult } from "./TerminalSessionResult";
 import type { UpdateProjectParams } from "./UpdateProjectParams";
 import type { WriteTerminalParams } from "./WriteTerminalParams";
+import type { WatchFilesParams } from "./WatchFilesParams";
+import type { WatchFilesResult } from "./WatchFilesResult";
+import type { WriteFileParams } from "./WriteFileParams";
+import type { WriteFileResult } from "./WriteFileResult";
 
 /** Typed RPC method map: `"area.verb": [Params, Result]`. */
 export type Methods = {
@@ -253,6 +287,21 @@ export type Methods = {
   "terminal.list": [ListTerminalsParams, ListTerminalsResult];
   "terminal.history": [TerminalHistoryParams, TerminalHistoryResult];
   "terminal.run": [RunCommandParams, RunCommandResult];
+  "files.list": [ListFilesParams, ListFilesResult];
+  "files.stat": [FilePathParams, FileEntryResult];
+  "files.read": [ReadFileParams, ReadFileResult];
+  "files.write": [WriteFileParams, WriteFileResult];
+  "files.create": [CreateFileParams, FileEntryResult];
+  "files.mkdir": [MkdirParams, FileEntryResult];
+  "files.rename": [RenameFileParams, RenameFileResult];
+  "files.delete": [DeleteFileParams, DeleteFileResult];
+  "files.trash": [ListTrashParams, ListTrashResult];
+  "files.restore": [RestoreFileParams, RestoreFileResult];
+  "files.search": [SearchFilesParams, SearchFilesResult];
+  "files.find": [FindFilesParams, FindFilesResult];
+  "files.watch": [WatchFilesParams, WatchFilesResult];
+  "files.unwatch": [WatchFilesParams, WatchFilesResult];
+  "files.openExternal": [OpenExternalParams, OpenExternalResult];
 };
 
 /** All implemented method names. */
@@ -354,6 +403,21 @@ export const METHOD_NAMES = [
   "terminal.list",
   "terminal.history",
   "terminal.run",
+  "files.list",
+  "files.stat",
+  "files.read",
+  "files.write",
+  "files.create",
+  "files.mkdir",
+  "files.rename",
+  "files.delete",
+  "files.trash",
+  "files.restore",
+  "files.search",
+  "files.find",
+  "files.watch",
+  "files.unwatch",
+  "files.openExternal",
 ] as const;
 
 /** Wire protocol version (see orkestr-protocol PROTOCOL_VERSION). */

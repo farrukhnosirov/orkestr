@@ -127,7 +127,13 @@ pub(crate) async fn publish_file_changes(
     changes: Vec<(String, FileChangeKind)>,
 ) {
     for (path, change) in changes.into_iter().take(MAX_FILE_EVENTS) {
-        let ev = NewEvent::new(EventKind::FileChanged(FileChangedPayload { path, old_path: None, change }))
+        let ev = NewEvent::new(EventKind::FileChanged(FileChangedPayload {
+            path,
+            old_path: None,
+            change,
+            actor: orkestr_protocol::event::FileChangeActor::User,
+            agent_id: None,
+        }))
             .project(project_id);
         if let Err(e) = publish(ctx, ev).await {
             tracing::warn!(error = %e.message, "failed to publish FileChanged");

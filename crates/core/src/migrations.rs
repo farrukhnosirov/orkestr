@@ -28,6 +28,7 @@ pub fn all() -> Vec<Migration> {
     all.extend(orkestr_vcs::vcs_migrations());
     all.extend(orkestr_snapshots::snapshot_migrations());
     all.extend(orkestr_terminal::terminal_migrations());
+    all.extend(orkestr_files::files_migrations());
     // Phase 1+: task-engine, agent-runtime, providers, memory, cost, … append here.
     all
 }
