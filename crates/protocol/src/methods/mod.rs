@@ -195,6 +195,17 @@ pub fn registry() -> Vec<MethodDescriptor> {
         MethodDescriptor::of::<snapshots::RollbackWorkspace>(),
         MethodDescriptor::of::<snapshots::RollbackTask>(),
         MethodDescriptor::of::<snapshots::Delete>(),
+        // terminal (Phase 1)
+        MethodDescriptor::of::<terminal::Shells>(),
+        MethodDescriptor::of::<terminal::Open>(),
+        MethodDescriptor::of::<terminal::Write>(),
+        MethodDescriptor::of::<terminal::ExecLine>(),
+        MethodDescriptor::of::<terminal::Resize>(),
+        MethodDescriptor::of::<terminal::Rename>(),
+        MethodDescriptor::of::<terminal::Close>(),
+        MethodDescriptor::of::<terminal::List>(),
+        MethodDescriptor::of::<terminal::History>(),
+        MethodDescriptor::of::<terminal::Run>(),
     ]
 }
 

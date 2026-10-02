@@ -49,6 +49,8 @@ pub struct Services {
     pub vcs: orkestr_vcs::Vcs,
     /// Snapshots and rollback (Phase 1, `orkestr-snapshots`).
     pub snapshots: Arc<orkestr_snapshots::SnapshotService>,
+    /// Terminal sessions and command execution.
+    pub terminals: orkestr_terminal::TerminalService,
 }
 
 impl std::fmt::Debug for Services {

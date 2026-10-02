@@ -37,6 +37,7 @@ import type { DiscardParams } from "./DiscardParams";
 import type { DiscardResult } from "./DiscardResult";
 import type { Empty } from "./Empty";
 import type { GetModeParams } from "./GetModeParams";
+import type { ExecLineParams } from "./ExecLineParams";
 import type { HealthResult } from "./HealthResult";
 import type { ListApprovalsParams } from "./ListApprovalsParams";
 import type { ListApprovalsResult } from "./ListApprovalsResult";
@@ -132,6 +133,26 @@ import type { UpdateProjectParams } from "./UpdateProjectParams";
 import type { UpdateTaskParams } from "./UpdateTaskParams";
 import type { WorktreeResult } from "./WorktreeResult";
 import type { WorktreesResult } from "./WorktreesResult";
+import type { ListShellsParams } from "./ListShellsParams";
+import type { ListShellsResult } from "./ListShellsResult";
+import type { ListTerminalsParams } from "./ListTerminalsParams";
+import type { ListTerminalsResult } from "./ListTerminalsResult";
+import type { OpenTerminalParams } from "./OpenTerminalParams";
+import type { ProjectIdParams } from "./ProjectIdParams";
+import type { ProjectResult } from "./ProjectResult";
+import type { RenameTerminalParams } from "./RenameTerminalParams";
+import type { ReplayParams } from "./ReplayParams";
+import type { ReplayResult } from "./ReplayResult";
+import type { ResizeTerminalParams } from "./ResizeTerminalParams";
+import type { RunCommandParams } from "./RunCommandParams";
+import type { RunCommandResult } from "./RunCommandResult";
+import type { SystemInfo } from "./SystemInfo";
+import type { TerminalHistoryParams } from "./TerminalHistoryParams";
+import type { TerminalHistoryResult } from "./TerminalHistoryResult";
+import type { TerminalIdParams } from "./TerminalIdParams";
+import type { TerminalSessionResult } from "./TerminalSessionResult";
+import type { UpdateProjectParams } from "./UpdateProjectParams";
+import type { WriteTerminalParams } from "./WriteTerminalParams";
 
 /** Typed RPC method map: `"area.verb": [Params, Result]`. */
 export type Methods = {
@@ -222,6 +243,16 @@ export type Methods = {
   "snapshots.rollbackWorkspace": [RollbackWorkspaceParams, RollbackResult];
   "snapshots.rollbackTask": [RollbackTaskParams, RollbackResult];
   "snapshots.delete": [SnapshotIdParams, DeleteSnapshotResult];
+  "terminal.shells": [ListShellsParams, ListShellsResult];
+  "terminal.open": [OpenTerminalParams, TerminalSessionResult];
+  "terminal.write": [WriteTerminalParams, Empty];
+  "terminal.execLine": [ExecLineParams, Empty];
+  "terminal.resize": [ResizeTerminalParams, Empty];
+  "terminal.rename": [RenameTerminalParams, TerminalSessionResult];
+  "terminal.close": [TerminalIdParams, Empty];
+  "terminal.list": [ListTerminalsParams, ListTerminalsResult];
+  "terminal.history": [TerminalHistoryParams, TerminalHistoryResult];
+  "terminal.run": [RunCommandParams, RunCommandResult];
 };
 
 /** All implemented method names. */
@@ -313,6 +344,16 @@ export const METHOD_NAMES = [
   "snapshots.rollbackWorkspace",
   "snapshots.rollbackTask",
   "snapshots.delete",
+  "terminal.shells",
+  "terminal.open",
+  "terminal.write",
+  "terminal.execLine",
+  "terminal.resize",
+  "terminal.rename",
+  "terminal.close",
+  "terminal.list",
+  "terminal.history",
+  "terminal.run",
 ] as const;
 
 /** Wire protocol version (see orkestr-protocol PROTOCOL_VERSION). */

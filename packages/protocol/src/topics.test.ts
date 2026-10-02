@@ -34,6 +34,17 @@ describe("topics", () => {
     expect(eventMatches([topic.task(T)], ev)).toBe(true);
   });
 
+  it("routes terminal output to its terminal topic only", () => {
+    const ev: Event = {
+      ...logEvent(P),
+      kind: "TerminalOutput",
+      payload: { terminalId: T, data: "x", offset: 0 },
+    };
+    expect(eventTopics(ev)).toEqual([`terminal:${T}`]);
+    expect(eventMatches([topic.project(P)], ev)).toBe(false);
+    expect(eventMatches([topic.terminal(T)], ev)).toBe(true);
+  });
+
   it("validates topics like the server", () => {
     expect(isValidTopic("*")).toBe(true);
     expect(isValidTopic(`project:${P}`)).toBe(true);

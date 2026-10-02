@@ -1,0 +1,291 @@
+/* Terminal panel — tokens only (contract §8). */
+
+.term-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  position: relative;
+}
+
+.term-panel--center {
+  align-items: center;
+  justify-content: center;
+}
+
+.term-loading {
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-2);
+  color: var(--ok-color-text-muted);
+  font-size: var(--ok-font-size-sm);
+}
+
+/* ── tab bar ─────────────────────────────────────────────── */
+
+.term-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-1);
+  padding: var(--ok-space-1) var(--ok-space-2);
+  border-bottom: 1px solid var(--ok-color-border);
+  background: var(--ok-color-surface-sunken);
+  min-height: 34px;
+}
+
+.term-tabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.term-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 220px;
+  height: 26px;
+  padding: 0 4px 0 10px;
+  border-radius: var(--ok-radius-sm);
+  border: 1px solid transparent;
+  color: var(--ok-color-text-muted);
+  font-size: var(--ok-font-size-sm);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  transition:
+    background var(--ok-duration-fast) var(--ok-ease),
+    color var(--ok-duration-fast) var(--ok-ease),
+    border-color var(--ok-duration-fast) var(--ok-ease);
+}
+
+.term-tab:hover {
+  background: var(--ok-color-surface-hover);
+  color: var(--ok-color-text);
+}
+
+.term-tab:focus-visible {
+  outline: none;
+  box-shadow: var(--ok-focus-ring);
+}
+
+.term-tab--active {
+  background: var(--ok-color-surface-active);
+  border-color: var(--ok-color-border-accent);
+  color: var(--ok-color-text);
+}
+
+.term-tab--exited .term-tab__title {
+  color: var(--ok-color-text-subtle);
+}
+
+.term-tab__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.term-tab__badge {
+  flex-shrink: 0;
+}
+
+.term-tab__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: 0;
+  border-radius: var(--ok-radius-xs);
+  background: transparent;
+  color: var(--ok-color-text-subtle);
+  cursor: pointer;
+  opacity: 0;
+}
+
+.term-tab:hover .term-tab__close,
+.term-tab--active .term-tab__close,
+.term-tab:focus-within .term-tab__close {
+  opacity: 1;
+}
+
+.term-tab__close:hover {
+  background: var(--ok-color-danger-soft);
+  color: var(--ok-color-danger);
+}
+
+.term-tab__rename {
+  width: 130px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: var(--ok-radius-xs);
+  border: 1px solid var(--ok-color-border-accent);
+  background: var(--ok-color-bg-elevated);
+  color: var(--ok-color-text);
+  font: inherit;
+  outline: none;
+}
+
+.term-tab__rename--invalid {
+  border-color: var(--ok-color-danger);
+}
+
+/* ── new terminal split button + menu ───────────────────── */
+
+.term-new {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  flex-shrink: 0;
+}
+
+.term-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: var(--ok-z-overlay);
+  min-width: 280px;
+  max-width: 420px;
+  padding: var(--ok-space-1);
+  border-radius: var(--ok-radius-md);
+  border: 1px solid var(--ok-color-border-strong);
+  background: var(--ok-color-surface-strong);
+  backdrop-filter: blur(var(--ok-blur));
+  box-shadow: var(--ok-shadow-md);
+}
+
+.term-menu__item {
+  display: grid;
+  grid-template-columns: auto auto auto 1fr;
+  align-items: center;
+  gap: var(--ok-space-2);
+  width: 100%;
+  padding: 6px var(--ok-space-2);
+  border: 0;
+  border-radius: var(--ok-radius-sm);
+  background: transparent;
+  color: var(--ok-color-text);
+  font: inherit;
+  font-size: var(--ok-font-size-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.term-menu__item--focus,
+.term-menu__item:focus-visible {
+  outline: none;
+  background: var(--ok-color-surface-hover);
+}
+
+.term-menu__name {
+  font-weight: var(--ok-font-weight-medium);
+}
+
+.term-menu__path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ok-color-text-subtle);
+  font-family: var(--ok-font-mono);
+  font-size: var(--ok-font-size-xs);
+  direction: rtl;
+  text-align: right;
+}
+
+/* ── banners ─────────────────────────────────────────────── */
+
+.term-alert,
+.term-banner,
+.term-exit {
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-2);
+  padding: 6px var(--ok-space-3);
+  font-size: var(--ok-font-size-sm);
+}
+
+.term-alert {
+  justify-content: space-between;
+  background: var(--ok-color-danger-soft);
+  color: var(--ok-color-danger);
+  border-bottom: 1px solid var(--ok-color-border);
+}
+
+.term-banner {
+  background: var(--ok-color-violet-soft);
+  color: var(--ok-color-violet);
+  border-bottom: 1px solid var(--ok-color-border);
+}
+
+.term-exit {
+  position: absolute;
+  left: var(--ok-space-3);
+  right: var(--ok-space-3);
+  bottom: var(--ok-space-3);
+  justify-content: flex-end;
+  border-radius: var(--ok-radius-md);
+  border: 1px solid var(--ok-color-border-strong);
+  background: var(--ok-color-surface-strong);
+  backdrop-filter: blur(var(--ok-blur));
+  box-shadow: var(--ok-shadow-md);
+  color: var(--ok-color-text-muted);
+}
+
+.term-exit > span {
+  margin-right: auto;
+}
+
+/* ── terminal body ───────────────────────────────────────── */
+
+.term-body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.term-body > .ok-empty {
+  margin: auto;
+}
+
+.term-view {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  padding: var(--ok-space-2) 0 var(--ok-space-1) var(--ok-space-3);
+}
+
+.term-view[hidden] {
+  display: none;
+}
+
+.term-view__host {
+  width: 100%;
+  height: 100%;
+}
+
+.term-view__host .xterm-viewport {
+  background-color: transparent !important;
+  scrollbar-width: thin;
+}
+
+.term-view__overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ok-space-2);
+  color: var(--ok-color-text-muted);
+  font-size: var(--ok-font-size-sm);
+  background: var(--ok-color-overlay);
+}
+
+.term-view__overlay--error {
+  color: var(--ok-color-danger);
+}

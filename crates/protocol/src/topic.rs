@@ -61,6 +61,11 @@ pub fn is_valid(topic: &str) -> bool {
 #[must_use]
 pub fn event_topics(event: &Event) -> Vec<String> {
     let mut topics = Vec::with_capacity(4);
+    // High-volume terminal output goes only to its terminal topic (and `*`).
+    if let EventKind::TerminalOutput(p) = &event.kind {
+        topics.push(terminal(p.terminal_id));
+        return topics;
+    }
     let lifecycle = matches!(
         event.kind,
         EventKind::ProjectCreated(_) | EventKind::ProjectUpdated(_) | EventKind::ProjectDeleted(_)
@@ -118,6 +123,23 @@ mod tests {
         assert!(matches(&["global"], &ev));
         assert!(matches(&["*"], &ev));
         assert!(!matches(&[project(ProjectId::new())], &ev));
+    }
+
+    #[test]
+    fn terminal_output_routes_to_terminal_topic_only() {
+        use crate::event::TerminalOutputPayload;
+        use orkestr_domain::TerminalId;
+        let tid = TerminalId::new();
+        let ev = NewEvent::new(EventKind::TerminalOutput(TerminalOutputPayload {
+            terminal_id: tid,
+            data: "x".into(),
+            offset: Some(0),
+        }))
+        .project(ProjectId::new())
+        .into_event(3, now());
+        assert_eq!(event_topics(&ev), vec![terminal(tid)]);
+        assert!(!matches(&["global"], &ev));
+        assert!(matches(&["*"], &ev));
     }
 
     #[test]

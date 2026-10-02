@@ -1,6 +1,6 @@
 [package]
 name = "orkestr-terminal"
-description = "SKELETON — Orkestr terminal: PTY sessions, shell abstraction, streaming, history, approval interception (§15)."
+description = "Orkestr terminal: PTY sessions (portable-pty), shell abstraction, output streaming, scrollback history, gated agent command execution (§15)."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -9,8 +9,20 @@ publish.workspace = true
 
 [dependencies]
 orkestr-domain.workspace = true
+orkestr-platform.workspace = true
+orkestr-storage.workspace = true
 async-trait.workspace = true
 thiserror.workspace = true
+tracing.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+parking_lot.workspace = true
+portable-pty.workspace = true
+sysinfo.workspace = true
+serde.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
 
 [lints]
 workspace = true

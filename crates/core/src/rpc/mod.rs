@@ -15,6 +15,7 @@ pub mod secrets;
 pub mod snapshots;
 pub mod system;
 pub mod tasks;
+pub mod terminal;
 pub mod vcs;
 
 use std::collections::BTreeMap;
@@ -136,6 +137,7 @@ pub fn build_router() -> RpcRouter {
     router.register(providers::register);
     router.register(tasks::register);
     router.register(vcs::register).register(snapshots::register);
+    router.register(terminal::register);
     router
 }
 

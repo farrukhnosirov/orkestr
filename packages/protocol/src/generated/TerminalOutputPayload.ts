@@ -12,4 +12,9 @@ terminalId: TerminalId,
 /**
  * UTF-8 (lossy) output chunk including ANSI sequences.
  */
-data: string, };
+data: string, 
+/**
+ * Absolute byte offset of `data` in the session's output stream (for
+ * de-duplicating against `terminal.history`). Added in Phase 1.
+ */
+offset?: number, };

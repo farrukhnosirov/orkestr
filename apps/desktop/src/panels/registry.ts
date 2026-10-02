@@ -42,7 +42,7 @@ export const PANELS: readonly PanelDefinition[] = [
   { id: "manager", title: "Manager", description: "AI Manager chat and plans", icon: Sparkles, phase: 1, component: ManagerPanel },
   { id: "code", title: "Code", description: "Monaco editor", icon: FileCode, phase: 1, component: CodePanel },
   { id: "files", title: "Files", description: "Project file explorer", icon: FolderTree, phase: 1, component: FilesPanel },
-  { id: "terminal", title: "Terminal", description: "PTY terminal sessions", icon: SquareTerminal, phase: 1, component: TerminalPanel },
+  { id: "terminal", title: "Terminal", description: "PTY terminal sessions", icon: SquareTerminal, phase: 0, component: TerminalPanel },
   { id: "git", title: "Git", description: "Status, diffs, branches, worktrees", icon: GitBranch, phase: 0, component: GitPanel },
   { id: "agents", title: "Agents", description: "Agent templates and instances", icon: Bot, phase: 1, component: AgentsPanel },
   { id: "tasks", title: "Tasks", description: "Task board and DAG", icon: ListTodo, phase: 0, component: TasksPanel },

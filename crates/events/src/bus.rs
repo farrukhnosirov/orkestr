@@ -287,6 +287,7 @@ mod tests {
         bus.publish(NewEvent::new(EventKind::TerminalOutput(TerminalOutputPayload {
             terminal_id: TerminalId::new(),
             data: "ls\r\n".into(),
+            offset: None,
         })))
         .await
         .unwrap();

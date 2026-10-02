@@ -23,6 +23,7 @@ orkestr-providers.workspace = true
 orkestr-task-engine.workspace = true
 orkestr-vcs.workspace = true
 orkestr-snapshots.workspace = true
+orkestr-terminal.workspace = true
 tokio.workspace = true
 tokio-util.workspace = true
 futures.workspace = true
