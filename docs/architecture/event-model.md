@@ -512,6 +512,36 @@ A daily job (ADR-0018) deletes expired rows in batches of 10 000.
 `EventKind::durability()`/`retention()` are exhaustive `const fn` matches, so a
 new kind cannot be added without being classified (unit test).
 
+### 4.3 As built (Phase 1 platform-shell, `crates/core/src/housekeeping.rs`)
+
+- **Ephemeral kinds:** `TerminalOutput`, `AgentMessage`, `ManagerMessage`
+  **and `NodeStatus`** (2 s heartbeat, RR-A11). `NodeStatus` events carrying a
+  `nodeId` are routed to `node:<id>` only, not `global`.
+- **Retention:** `prune_events` deletes durable rows with `ts` older than
+  `settings.eventRetentionDays` (default 180, `0` = forever) in batches of
+  2 000, 30 s after start and every 6 h. Kept forever: `RETAINED_KINDS` =
+  `ApprovalRequested`, `ApprovalResolved`, `DecisionRecorded`,
+  `EmergencyStop`, `RollbackPerformed`, `SnapshotCreated`, `ProjectDeleted`
+  (+ the future `SecretChanged`, `SecretAccessed`, `PermissionRuleChanged`).
+  There is no `expires_at` column; retention is computed at prune time.
+- **`seq` high-water mark:** because ephemeral events consume a `seq` without
+  a row and pruning deletes rows, `MAX(seq)` of the table can be lower than
+  numbers already delivered. `SeqHighWater` keeps a reservation in
+  `core_meta.events_seq_reserved`: at start the bus resumes after
+  `max(MAX(seq), reservation)` (via the `SeqFloorLog` wrapper), immediately
+  reserves the next 100 000 numbers, extends the reservation each second when
+  less than half is left, and a clean shutdown writes the exact last seq.
+  Result: a `seq` is **never reused**; a crash only leaves a gap (≤ 100 000).
+- **Atomicity:** `EventBus::publish` holds one async mutex across seq
+  assignment, the single-row `INSERT` (atomic in SQLite WAL — the row carries
+  its own seq) and the broadcast; a failed insert neither consumes the seq nor
+  broadcasts. Rows are never updated; pruning deletes whole rows; the
+  reservation is persisted before seqs of a new block are handed out.
+- **Session history:** `core_meta.session_started_at` is rotated at start;
+  `system.resumeSummary` counts durable events since the previous value (or a
+  caller-supplied `since`), excluding `Log` and `SettingsChanged`.
+- New kind **`SettingsChanged { settings, changed[] }`** (durable, `global`).
+
 ---
 
 ## 5. Redaction

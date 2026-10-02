@@ -9,6 +9,11 @@ import { StatusBar } from "./components/StatusBar";
 import { TitleBar } from "./components/TitleBar";
 import { Workspace } from "./components/Workspace";
 import { bootstrapCore } from "./core/client";
+import { Toasts } from "./features/notifications/NotificationCenter";
+import { OnboardingWizard } from "./features/onboarding/OnboardingWizard";
+import { ResumeCard } from "./features/resume/ResumeCard";
+import { SettingsView } from "./features/settings/SettingsView";
+import { useShellBootstrap } from "./features/settings/useShellBootstrap";
 import { useAppStore } from "./store/app";
 
 function useTheme() {
@@ -42,6 +47,7 @@ export function App() {
   const [ready, setReady] = useState(false);
   useTheme();
   useGlobalShortcuts();
+  useShellBootstrap(ready);
 
   const boot = useCallback(() => {
     bootstrapCore().then(
@@ -71,6 +77,14 @@ export function App() {
       <StatusBar />
       <CommandPalette />
       <CreateProjectDialog />
+      {ready && (
+        <>
+          <SettingsView />
+          <OnboardingWizard />
+          <ResumeCard />
+        </>
+      )}
+      <Toasts />
     </div>
   );
 }

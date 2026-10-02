@@ -1,7 +1,9 @@
 import { Kbd } from "@orkestr/ui";
-import { Copy, Minus, Search, Square, X } from "lucide-react";
+import { Copy, Minus, Search, Settings, Square, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { NotificationBell } from "../features/notifications/NotificationCenter";
+import { useSettingsStore } from "../features/settings/settingsStore";
 import { isTauri, windowControls } from "../lib/tauri";
 import { useActiveProject, useAppStore } from "../store/app";
 import { Logo } from "./Logo";
@@ -10,6 +12,7 @@ import { Logo } from "./Logo";
 export function TitleBar() {
   const project = useActiveProject();
   const setPaletteOpen = useAppStore((s) => s.setPaletteOpen);
+  const openSettings = useSettingsStore((s) => s.openSettings);
   const [maximized, setMaximized] = useState(false);
   const native = isTauri();
 
@@ -56,6 +59,13 @@ export function TitleBar() {
       </button>
 
       <div className="titlebar__spacer" data-tauri-drag-region />
+
+      <div className="titlebar__controls">
+        <NotificationBell />
+        <button type="button" className="titlebar__ctl" aria-label="Settings (Ctrl+,)" title="Settings (Ctrl+,)" onClick={() => openSettings()}>
+          <Settings size={15} />
+        </button>
+      </div>
 
       {native && (
         <div className="titlebar__controls">

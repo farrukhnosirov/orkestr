@@ -20,6 +20,10 @@
 //! | computer control    | [`ComputerControl`] | ✖³ | ✖³ | ✖³ |
 //! | power               | [`Power`]           | ✔ GetSystemPowerStatus | ✔ pmset | ✔ /sys |
 //! | resources           | [`ResourceMonitor`] | ✔ sysinfo | ✔ | ✔ |
+//! | probe commands      | [`run_with_timeout`] | ✔ no console window | ✔ | ✔ |
+//! | GPUs                | [`detect_gpus`]     | ✔ nvidia-smi + WMI | ✔ system_profiler | ✔ nvidia-smi + lspci |
+//! | web view runtime    | [`detect_webview`]  | ✔ WebView2 registry | ✔ WKWebView | ✔ WebKitGTK (pkg-config) |
+//! | shutdown signals    | [`shutdown_signal`] | ✔ Ctrl-C, close, logoff, shutdown | ✔ INT/TERM/HUP | ✔ INT/TERM/HUP |
 //!
 //! ¹ keyutils is not persistent across reboots; the persistent Secret Service
 //!   backend needs D-Bus and is a Phase 1 follow-up (see crate docs of
@@ -38,6 +42,7 @@ pub mod autostart;
 pub mod credentials;
 pub mod error;
 pub mod fs;
+pub mod gpu;
 pub mod hotkeys;
 pub mod info;
 pub mod microphone;
@@ -47,21 +52,27 @@ pub mod power;
 pub mod process;
 pub mod resources;
 pub mod shell;
+pub mod signals;
+pub mod webview;
 
 use std::sync::Arc;
 
-pub use autostart::{Autostart, AutostartEntry, NativeAutostart};
+pub use autostart::{Autostart, AutostartEntry, MemoryAutostart, NativeAutostart};
 pub use credentials::{CredentialStore, KeyringCredentialStore, MemoryCredentialStore};
 pub use error::{PlatformError, PlatformResult};
+pub use gpu::{detect_gpus, GpuDevice};
 pub use hotkeys::{ComputerControl, GlobalHotkeys, UnsupportedComputerControl, UnsupportedHotkeys};
 pub use info::PlatformInfo;
 pub use microphone::{AudioDevice, Microphone, UnsupportedMicrophone};
 pub use notifications::{DesktopNotification, NativeNotifier, Notifier};
 pub use paths::Paths;
 pub use power::{NativePower, Power, PowerStatus};
+pub use process::{run_with_timeout, CommandOutput};
 pub use process::{NativeProcessControl, ProcessControl};
 pub use resources::{ResourceMonitor, ResourceSnapshot, SysinfoResourceMonitor};
 pub use shell::{NativeShellDetector, ShellDetector, ShellInfo, ShellKind};
+pub use signals::{shutdown_signal, ShutdownSignal};
+pub use webview::{detect_webview, WebViewRuntime};
 
 /// Facade over every platform capability (§46 PlatformAdapter).
 pub trait PlatformAdapter: Send + Sync {

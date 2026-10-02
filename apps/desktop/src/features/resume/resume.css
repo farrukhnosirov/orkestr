@@ -1,0 +1,109 @@
+/* Session Resume card (§57). Only --ok-* tokens. */
+
+.resume-card {
+  position: fixed;
+  left: calc(var(--ok-rail-width) + var(--ok-space-5));
+  bottom: calc(var(--ok-statusbar-height) + var(--ok-space-4));
+  z-index: var(--ok-z-overlay);
+  width: 360px;
+  border: 1px solid var(--ok-color-border-strong);
+  border-radius: var(--ok-radius-lg);
+  background: var(--ok-gradient-panel), var(--ok-color-surface-strong);
+  backdrop-filter: blur(var(--ok-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--ok-blur)) saturate(150%);
+  box-shadow: var(--ok-shadow-panel), var(--ok-glow-accent);
+  animation: ok-rise var(--ok-duration-slow) var(--ok-ease-spring);
+}
+
+.resume-card__head {
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-2);
+  padding: var(--ok-space-3) var(--ok-space-3) var(--ok-space-2) var(--ok-space-4);
+}
+
+.resume-card__icon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--ok-radius-md);
+  background: var(--ok-gradient-accent-soft);
+  color: var(--ok-color-accent);
+}
+
+.resume-card__title {
+  flex: 1;
+  font-weight: var(--ok-font-weight-semibold);
+}
+
+.resume-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-2);
+  padding: 0 var(--ok-space-4) var(--ok-space-4);
+}
+
+.resume-card__loading {
+  flex-direction: row;
+  align-items: center;
+  color: var(--ok-color-text-muted);
+}
+
+.resume-card__muted {
+  margin: 0;
+  color: var(--ok-color-text-muted);
+  font-size: var(--ok-font-size-sm);
+}
+
+.resume-card__lines {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px var(--ok-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--ok-color-text);
+  font-size: var(--ok-font-size-sm);
+}
+
+.resume-card__lines li::before {
+  content: "•";
+  margin-right: 6px;
+  color: var(--ok-color-accent);
+}
+
+.resume-card__highlights {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: var(--ok-space-2) 0 0;
+  border-top: 1px solid var(--ok-color-border);
+  list-style: none;
+  font-size: var(--ok-font-size-sm);
+}
+
+.resume-card__hl {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ok-color-text-muted);
+}
+
+.resume-card__hl--success {
+  color: var(--ok-color-success);
+}
+
+.resume-card__hl--warning {
+  color: var(--ok-color-warning);
+}
+
+.resume-card__hl--error {
+  color: var(--ok-color-danger);
+}
+
+.resume-card__actions {
+  display: flex;
+  justify-content: flex-end;
+}

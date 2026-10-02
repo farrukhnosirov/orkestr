@@ -15,16 +15,20 @@
 #![warn(missing_docs)]
 
 pub mod auth;
+pub mod checks;
 pub mod config;
 pub mod discovery;
 pub mod error;
+pub mod housekeeping;
 pub mod logging;
 pub mod migrations;
 pub mod recovery;
 pub mod redact;
+pub mod resume;
 pub mod rpc;
 pub mod server;
 pub mod services;
+pub mod settings_store;
 
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -37,7 +41,7 @@ use orkestr_storage::{Compression, Db, FsObjectStore, SqliteMetadataStore};
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 
-pub use config::CoreConfig;
+pub use config::{AutostartConfig, CoreConfig};
 pub use error::CoreError;
 pub use services::Services;
 
@@ -60,6 +64,7 @@ pub struct CoreHandle {
     pub services: Arc<Services>,
     shutdown: CancellationToken,
     server: Option<JoinHandle<()>>,
+    housekeeping: Option<JoinHandle<()>>,
     discovery_written: bool,
 }
 
@@ -92,6 +97,13 @@ impl CoreHandle {
             if tokio::time::timeout(std::time::Duration::from_secs(5), server).await.is_err() {
                 tracing::warn!("RPC server did not stop within 5s");
             }
+        }
+        if let Some(hk) = self.housekeeping.take() {
+            let _ = tokio::time::timeout(std::time::Duration::from_secs(5), hk).await;
+        }
+        let last_seq = self.services.events.last_seq();
+        if let Err(e) = self.services.seq_high_water.finish(last_seq).await {
+            tracing::error!(error = %e, "failed to record the event seq high-water mark");
         }
         if self.discovery_written {
             discovery::remove_if_ours(&self.services.paths);
@@ -134,9 +146,21 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
     db.migrate(migrations::all()).await?;
     let objects = Arc::new(FsObjectStore::open(paths.objects_dir(), Compression::Zstd { level: 3 })?);
     let metadata = Arc::new(SqliteMetadataStore::new(db.clone()));
-    let event_log = Arc::new(SqliteEventLog::new(db.clone()));
+    // Seq high-water mark: the bus resumes after max(log max, reservation).
+    let seq_high_water = Arc::new(housekeeping::SeqHighWater::load(db.clone()).await?);
+    let event_log: Arc<dyn orkestr_events::EventLog> =
+        Arc::new(housekeeping::SeqFloorLog::new(Arc::new(SqliteEventLog::new(db.clone())), seq_high_water.reserved()));
     let events = EventBus::with_log(event_log, config.event_capacity).await?;
+    seq_high_water.reserve_from(events.last_seq()).await?;
     let node_id = migrations::load_or_create_node_id(&db).await?;
+    let previous_session_started_at = housekeeping::rotate_session(&db, chrono::Utc::now()).await?;
+    let settings = Arc::new(settings_store::SettingsStore::load(db.clone()).await?);
+    let nodes = Arc::new(orkestr_node::NodeMonitor::new(
+        node_id,
+        Arc::clone(&platform),
+        VERSION,
+        orkestr_node::DetectOptions::default(),
+    ));
 
     let services = Arc::new(Services {
         version: VERSION.to_owned(),
@@ -150,6 +174,12 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
         projects: metadata,
         objects,
         recovered_from_crash: previous_session.crashed,
+        previous_session_started_at,
+        settings,
+        nodes,
+        autostart: config.autostart.clone(),
+        node_sample_interval: config.node_sample_interval,
+        seq_high_water,
     });
     logging::attach_event_bus(services.events.clone());
 
@@ -174,6 +204,13 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
         }
     });
 
+    let housekeeping = housekeeping::spawn(
+        Arc::clone(&services),
+        shutdown.clone(),
+        config.node_sample_interval,
+        config.node_info_prefetch_after,
+    );
+
     let mut discovery_written = false;
     if config.write_discovery {
         discovery::write(&paths, &url, &token)?;
@@ -190,6 +227,7 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
         services,
         shutdown,
         server: Some(server),
+        housekeeping: Some(housekeeping),
         discovery_written,
     })
 }

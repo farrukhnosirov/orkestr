@@ -126,3 +126,9 @@ Status and errata only; the decision above is unchanged. Verified by `../spikes/
 - **Embedded mode writes `core.json`/`core.token` too** (`write_discovery` defaults to `true`), so another client can attach; the "only when the user allows other local clients" rule is not implemented.
 - **Desktop startup as built:** `find_running` (pid alive + token file readable + `GET /health` 200 within 1.5 s) → attach (`mode: "external"`), else `orkestr_core::start(CoreConfig::default())` (`mode: "embedded"`). No single-instance plugin; on `RunEvent::Exit` the embedded core is shut down. The window-close dialog, tray mode and Phase 2/3 steps are not implemented.
 - `orkestrd [--data-dir <path>] [--port <port>] [--log-json]` exists; `--background`, `migrate` and `unlock` subcommands do not.
+
+## Implementation notes (Phase 1 platform-shell)
+
+- Tray mode, close-to-tray and opt-in autostart are implemented (see ADR-0003 notes); autostart moved forward from Phase 3. `CoreConfig.autostart: AutostartConfig { id, program, args, backend }` decides what is registered: the desktop registers itself (`dev.orkestr.desktop`, `--autostart`), `orkestrd` registers `orkestrd --background [--data-dir …]` (`dev.orkestr.orkestrd`).
+- `orkestrd` handles Ctrl-C, SIGTERM/SIGHUP (Unix) and console close / logoff / system shutdown (Windows) via `orkestr_platform::signals::shutdown_signal()`; the binary no longer contains `#[cfg]` code. New flag `--background` (no console banner).
+- Clean shutdown also records the event `seq` high-water mark (`event-model.md` §4.3).

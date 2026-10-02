@@ -4,6 +4,8 @@
  */
 import type { LucideIcon } from "lucide-react";
 
+import { coreCommands } from "./coreCommands";
+
 export interface CommandContext {
   projectId: string | null;
 }
@@ -24,4 +26,4 @@ export interface AppCommand {
   run: (ctx: CommandContext) => void | Promise<void>;
 }
 
-export const commands: AppCommand[] = [];
+export const commands: AppCommand[] = [...coreCommands];

@@ -37,6 +37,18 @@ pub struct Services {
     pub objects: Arc<FsObjectStore>,
     /// Whether the previous session ended uncleanly.
     pub recovered_from_crash: bool,
+    /// Start of the previous core session (for `system.resumeSummary`).
+    pub previous_session_started_at: Option<Timestamp>,
+    /// Application settings.
+    pub settings: Arc<crate::settings_store::SettingsStore>,
+    /// Local node inventory + live resources.
+    pub nodes: Arc<orkestr_node::NodeMonitor>,
+    /// Autostart registration target.
+    pub autostart: crate::config::AutostartConfig,
+    /// Interval of the `NodeStatus` heartbeat.
+    pub node_sample_interval: std::time::Duration,
+    /// Persistent event seq reservation.
+    pub seq_high_water: Arc<crate::housekeeping::SeqHighWater>,
 }
 
 impl std::fmt::Debug for Services {
@@ -54,5 +66,14 @@ impl Services {
     #[must_use]
     pub fn uptime_ms(&self) -> u64 {
         u64::try_from(self.started_instant.elapsed().as_millis()).unwrap_or(u64::MAX)
+    }
+
+    /// The autostart backend (OS registry/LaunchAgent/XDG, or the configured override).
+    #[must_use]
+    pub fn autostart_backend(&self) -> &dyn orkestr_platform::Autostart {
+        match &self.autostart.backend {
+            Some(b) => b.as_ref(),
+            None => self.platform.autostart(),
+        }
     }
 }

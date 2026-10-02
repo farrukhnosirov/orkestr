@@ -3,14 +3,23 @@ import type { CreateProjectParams } from "./CreateProjectParams";
 import type { DeleteProjectResult } from "./DeleteProjectResult";
 import type { Empty } from "./Empty";
 import type { HealthResult } from "./HealthResult";
+import type { ListNodesResult } from "./ListNodesResult";
 import type { ListProjectsParams } from "./ListProjectsParams";
 import type { ListProjectsResult } from "./ListProjectsResult";
+import type { NodeInfo } from "./NodeInfo";
+import type { NodeInfoParams } from "./NodeInfoParams";
+import type { NodeResourcesResult } from "./NodeResourcesResult";
 import type { ProjectIdParams } from "./ProjectIdParams";
 import type { ProjectResult } from "./ProjectResult";
 import type { ReplayParams } from "./ReplayParams";
 import type { ReplayResult } from "./ReplayResult";
+import type { ResumeSummary } from "./ResumeSummary";
+import type { ResumeSummaryParams } from "./ResumeSummaryParams";
+import type { SettingsResult } from "./SettingsResult";
+import type { SystemChecksResult } from "./SystemChecksResult";
 import type { SystemInfo } from "./SystemInfo";
 import type { UpdateProjectParams } from "./UpdateProjectParams";
+import type { UpdateSettingsParams } from "./UpdateSettingsParams";
 
 /** Typed RPC method map: `"area.verb": [Params, Result]`. */
 export type Methods = {
@@ -23,6 +32,13 @@ export type Methods = {
   "projects.delete": [ProjectIdParams, DeleteProjectResult];
   "projects.open": [ProjectIdParams, ProjectResult];
   "events.replay": [ReplayParams, ReplayResult];
+  "system.checks": [Empty, SystemChecksResult];
+  "system.resumeSummary": [ResumeSummaryParams, ResumeSummary];
+  "settings.get": [Empty, SettingsResult];
+  "settings.update": [UpdateSettingsParams, SettingsResult];
+  "nodes.list": [Empty, ListNodesResult];
+  "nodes.info": [NodeInfoParams, NodeInfo];
+  "nodes.resources": [Empty, NodeResourcesResult];
 };
 
 /** All implemented method names. */
@@ -36,6 +52,13 @@ export const METHOD_NAMES = [
   "projects.delete",
   "projects.open",
   "events.replay",
+  "system.checks",
+  "system.resumeSummary",
+  "settings.get",
+  "settings.update",
+  "nodes.list",
+  "nodes.info",
+  "nodes.resources",
 ] as const;
 
 /** Wire protocol version (see orkestr-protocol PROTOCOL_VERSION). */
@@ -82,6 +105,7 @@ export const EVENT_KINDS = [
   "EmergencyStop",
   "Notification",
   "Log",
+  "SettingsChanged",
 ] as const;
 
 /** UI config schema version (see orkestr-protocol ui_config). */

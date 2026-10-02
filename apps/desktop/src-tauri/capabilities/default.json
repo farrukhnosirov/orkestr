@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Main window: custom title bar window controls. Business data never flows through Tauri — the webview talks to the core over the RPC protocol.",
+  "description": "Main window: custom title bar window controls, fullscreen, hide-to-tray and tray events. Business data never flows through Tauri — the webview talks to the core over the RPC protocol.",
   "windows": ["main"],
   "permissions": [
     "core:default",
@@ -12,6 +12,11 @@
     "core:window:allow-internal-toggle-maximize",
     "core:window:allow-is-maximized",
     "core:window:allow-close",
-    "core:window:allow-start-dragging"
+    "core:window:allow-start-dragging",
+    "core:window:allow-hide",
+    "core:window:allow-show",
+    "core:window:allow-set-focus",
+    "core:window:allow-set-fullscreen",
+    "core:window:allow-is-fullscreen"
   ]
 }

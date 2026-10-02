@@ -5,7 +5,9 @@
 //! all areas. Handlers are typed by `orkestr_protocol::methods::*` markers.
 
 pub mod events;
+pub mod nodes;
 pub mod projects;
+pub mod settings;
 pub mod system;
 
 use std::collections::BTreeMap;
@@ -117,6 +119,7 @@ impl RpcRouter {
 pub fn build_router() -> RpcRouter {
     let mut router = RpcRouter::new();
     router.register(system::register).register(projects::register).register(events::register);
+    router.register(settings::register).register(nodes::register);
     router
 }
 

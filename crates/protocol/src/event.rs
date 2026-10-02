@@ -416,6 +416,22 @@ pub struct TerminalExitedPayload {
 pub struct NodeStatusPayload {
     /// Node snapshot.
     pub node: Node,
+    /// Detailed live resource sample (per-core CPU, swap, core process, top
+    /// processes). Present on the 2 s heartbeat of the local node.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub sample: Option<crate::methods::nodes::ResourceSample>,
+}
+
+/// `SettingsChanged` — application settings were updated.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct SettingsChangedPayload {
+    /// Settings after the change.
+    pub settings: crate::methods::settings::AppSettings,
+    /// camelCase names of the fields that changed.
+    pub changed: Vec<String>,
 }
 
 /// `NodeOffline`.
@@ -570,7 +586,13 @@ macro_rules! event_kinds {
             /// `events.replay`; clients must not treat such gaps as data loss.
             #[must_use]
             pub fn is_ephemeral(&self) -> bool {
-                matches!(self, EventKind::TerminalOutput(_) | EventKind::AgentMessage(_) | EventKind::ManagerMessage(_))
+                matches!(
+                    self,
+                    EventKind::TerminalOutput(_)
+                        | EventKind::AgentMessage(_)
+                        | EventKind::ManagerMessage(_)
+                        | EventKind::NodeStatus(_)
+                )
             }
 
             /// The `kind` string of this event.
@@ -663,6 +685,8 @@ event_kinds! {
     Notification(NotificationPayload),
     /// Structured log line.
     Log(LogPayload),
+    /// Application settings changed.
+    SettingsChanged(SettingsChangedPayload),
 }
 
 // ---------------------------------------------------------------------------

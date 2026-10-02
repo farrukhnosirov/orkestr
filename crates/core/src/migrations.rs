@@ -23,6 +23,7 @@ pub fn all() -> Vec<Migration> {
     all.extend(orkestr_storage::storage_migrations());
     all.extend(orkestr_events::events_migrations());
     // Phase 1+: task-engine, agent-runtime, providers, memory, cost, … append here.
+    all.extend_from_slice(crate::settings_store::SETTINGS_MIGRATIONS);
     all
 }
 

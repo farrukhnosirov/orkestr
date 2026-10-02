@@ -87,12 +87,10 @@ impl Autostart for NativeAutostart {
 
     fn is_enabled(&self, id: &str) -> PlatformResult<bool> {
         validate_id(id)?;
-        let status = std::process::Command::new("reg")
-            .args(["query", RUN_KEY, "/v", id])
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .status()?;
-        Ok(status.success())
+        let reg = crate::process::which("reg").unwrap_or_else(|| PathBuf::from("reg"));
+        let out =
+            crate::process::run_with_timeout(&reg, &["query", RUN_KEY, "/v", id], std::time::Duration::from_secs(10))?;
+        Ok(out.success)
     }
 }
 
@@ -197,9 +195,65 @@ impl Autostart for NativeAutostart {
     }
 }
 
+impl AutostartEntry {
+    /// An entry starting the currently running executable with `args`.
+    pub fn for_current_exe(id: impl Into<String>, args: Vec<String>) -> PlatformResult<Self> {
+        Ok(Self { id: id.into(), program: std::env::current_exe()?, args })
+    }
+}
+
+/// In-memory autostart for tests and portable/ephemeral cores. Never touches
+/// the OS.
+#[derive(Debug, Default)]
+pub struct MemoryAutostart {
+    entries: parking_lot::Mutex<std::collections::BTreeMap<String, AutostartEntry>>,
+}
+
+impl MemoryAutostart {
+    /// The registered entry, if any.
+    #[must_use]
+    pub fn entry(&self, id: &str) -> Option<AutostartEntry> {
+        self.entries.lock().get(id).cloned()
+    }
+}
+
+impl Autostart for MemoryAutostart {
+    fn enable(&self, entry: &AutostartEntry) -> PlatformResult<()> {
+        validate_id(&entry.id)?;
+        for a in &entry.args {
+            reject_control_chars(a)?;
+        }
+        self.entries.lock().insert(entry.id.clone(), entry.clone());
+        Ok(())
+    }
+
+    fn disable(&self, id: &str) -> PlatformResult<bool> {
+        validate_id(id)?;
+        Ok(self.entries.lock().remove(id).is_some())
+    }
+
+    fn is_enabled(&self, id: &str) -> PlatformResult<bool> {
+        validate_id(id)?;
+        Ok(self.entries.lock().contains_key(id))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn memory_autostart_roundtrip() {
+        let a = MemoryAutostart::default();
+        let e = AutostartEntry::for_current_exe("dev.orkestr.test", vec!["--autostart".into()]).unwrap();
+        assert!(!a.is_enabled(&e.id).unwrap());
+        a.enable(&e).unwrap();
+        assert!(a.is_enabled(&e.id).unwrap());
+        assert_eq!(a.entry(&e.id).unwrap().args, vec!["--autostart".to_owned()]);
+        assert!(a.enable(&AutostartEntry { args: vec!["a\nb".into()], ..e.clone() }).is_err());
+        assert!(a.disable(&e.id).unwrap());
+        assert!(!a.disable(&e.id).unwrap());
+    }
 
     #[test]
     fn rejects_bad_ids() {

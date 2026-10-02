@@ -72,3 +72,12 @@ Status and errata only; the decision above is unchanged. Verified by `../spikes/
 - No Tauri plugins are installed yet (single-instance, window-state, global-shortcut, updater, notification are all planned).
 - `capabilities/default.json` grants `core:default` plus window minimize/maximize/unmaximize/toggle-maximize/is-maximized/close/start-dragging.
 - The CSP in `tauri.conf.json` is stricter in spirit but longer than the sketch: `connect-src 'self' ipc: http://ipc.localhost ws://127.0.0.1:* http://127.0.0.1:* ws://localhost:*`, `script-src 'self' 'wasm-unsafe-eval'`, `img-src 'self' data: blob: asset: http://asset.localhost`, `font-src 'self' data:`, `worker-src 'self' blob:`, `media-src 'self' blob: data:`.
+
+## Implementation notes (Phase 1 platform-shell)
+
+- **MSRV raised to 1.90** (`[workspace.package] rust-version`): Tauri 2.12 and its dependency tree require it. Contract §1 updated. The bump enables newer clippy lints (`unnecessary_map_or`, `manual_is_multiple_of`); the two hits in `orkestr-events` were fixed.
+- **Plugins:** `tauri-plugin-single-instance` 2.5 (registered first; a second launch shows, unminimizes and focuses the main window). `tauri` gains the `tray-icon` feature. Window-state, global-shortcut, updater and notification plugins are still not installed.
+- **Tray:** icon = default window icon; menu *Show / Hide Orkestr*, *Stop All AI*, *Quit Orkestr*; left click toggles the window. *Stop All AI* emits `orkestr://tray/stop-all` to the webview, which calls `emergency.stopAll` over RPC (no business logic in Tauri); if the method does not exist yet the webview reports it and hides the window.
+- **Close to tray:** `WindowEvent::CloseRequested` on `main` is prevented and the window hidden while `closeToTray` is on (default). The webview mirrors the core setting through the new command `shell_set_prefs({prefs:{closeToTray}})`; `shell_quit` quits even in tray mode. If the tray cannot be created, close-to-tray is disabled so the user is never stranded. (The ADR-0004 "Keep running / Stop / Cancel" dialog is not implemented; the setting replaces it.)
+- **Autostart:** registered by the core (`settings.update {autostart:true}` → `PlatformAdapter::autostart()`), id `dev.orkestr.desktop`, `<exe> --autostart`. With `--autostart` the window stays hidden (`tauri.conf.json` now has `"visible": false`; `setup` shows it otherwise).
+- **Commands (allowlist):** `core_connection`, `shell_set_prefs`, `shell_quit`. Capabilities add `core:window:allow-hide|show|set-focus|set-fullscreen|is-fullscreen`.

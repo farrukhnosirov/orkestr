@@ -4,7 +4,8 @@
  * - every event is published on each scope topic it carries
  *   (`project:`, `task:`, `agent:`, `node:`, `terminal:`);
  * - events without a project scope, and project lifecycle events, are also
- *   published on `global`;
+ *   published on `global` — except node heartbeats (`NodeStatus` with a
+ *   node id), which only go to `node:<id>`;
  * - `*` matches everything.
  */
 import type { Event } from "./generated";
@@ -46,7 +47,9 @@ const LIFECYCLE = new Set(["ProjectCreated", "ProjectUpdated", "ProjectDeleted"]
 /** Topics an event is published on (same rules as the server). */
 export function eventTopics(event: Event): string[] {
   const out: string[] = [];
-  if (event.projectId == null || LIFECYCLE.has(event.kind)) out.push(TOPIC_GLOBAL);
+  // Node heartbeats (every 2 s) only go to `node:<id>`, never `global`.
+  const heartbeat = event.kind === "NodeStatus" && event.nodeId != null;
+  if ((event.projectId == null && !heartbeat) || LIFECYCLE.has(event.kind)) out.push(TOPIC_GLOBAL);
   if (event.projectId != null) out.push(topic.project(event.projectId));
   if (event.taskId != null) out.push(topic.task(event.taskId));
   if (event.agentId != null) out.push(topic.agent(event.agentId));

@@ -224,8 +224,8 @@ impl EventLog for MemoryEventLog {
         let all = self.events.read().await;
         let mut matching: Vec<&Event> = all
             .iter()
-            .filter(|e| e.seq >= query.from_seq && query.to_seq.map_or(true, |to| e.seq <= to))
-            .filter(|e| topics.as_ref().map_or(true, |t| topic::matches(t, e)))
+            .filter(|e| e.seq >= query.from_seq && query.to_seq.is_none_or(|to| e.seq <= to))
+            .filter(|e| topics.as_ref().is_none_or(|t| topic::matches(t, e)))
             .collect();
         let has_more = matching.len() > limit;
         if query.newest_first {
