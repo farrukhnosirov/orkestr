@@ -6,6 +6,7 @@ import type { LucideIcon } from "lucide-react";
 
 import { providerCommands } from "../providers";
 import { taskCommands } from "../../panels/Tasks/commands";
+import { GIT_COMMANDS } from "../../panels/Git/commands";
 
 export interface CommandContext {
   projectId: string | null;
@@ -30,3 +31,6 @@ export interface AppCommand {
 export const commands: AppCommand[] = [];
 commands.push(...providerCommands);
 commands.push(...taskCommands);
+
+// Git / snapshots (Phase 1, vcs-snapshots)
+commands.push(...GIT_COMMANDS);

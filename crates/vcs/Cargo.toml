@@ -1,6 +1,6 @@
 [package]
 name = "orkestr-vcs"
-description = "SKELETON — Orkestr VCS: Git via the git CLI (status, diff, branches, worktrees, merge, conflicts) (§16)."
+description = "Orkestr VCS: Git via the git CLI (status, diff, log, branches, worktrees, merge preview/merge, conflicts) (§16, ADR-0008/0009)."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -9,9 +9,20 @@ publish.workspace = true
 
 [dependencies]
 orkestr-domain.workspace = true
+orkestr-protocol.workspace = true
+orkestr-storage.workspace = true
+orkestr-platform.workspace = true
+tokio.workspace = true
 async-trait.workspace = true
 serde.workspace = true
+serde_json.workspace = true
 thiserror.workspace = true
+tracing.workspace = true
+chrono.workspace = true
+dashmap.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
 
 [lints]
 workspace = true

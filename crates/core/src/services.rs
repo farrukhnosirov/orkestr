@@ -45,6 +45,10 @@ pub struct Services {
     pub recovered_from_crash: bool,
     /// Security subsystem: permissions, approvals, secrets, audit, emergency (Phase 1).
     pub security: Arc<orkestr_security::Security>,
+    /// Git / worktrees (Phase 1, `orkestr-vcs`).
+    pub vcs: orkestr_vcs::Vcs,
+    /// Snapshots and rollback (Phase 1, `orkestr-snapshots`).
+    pub snapshots: Arc<orkestr_snapshots::SnapshotService>,
 }
 
 impl std::fmt::Debug for Services {

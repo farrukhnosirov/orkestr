@@ -1,57 +1,33 @@
-//! # orkestr-snapshots — **SKELETON** (Phase 1 fills it in)
+//! # orkestr-snapshots
 //!
-//! Snapshots and rollback (MASTER_SPEC §25): checkpoints before risky or
-//! autonomous changes, including uncommitted and untracked state (not a git
-//! commit). File contents go to the content-addressed `ObjectStore`; a
-//! manifest maps paths → object ids. `Rollback Task` restores only the files a
-//! task touched and never destroys unrelated changes; every rollback first
-//! takes a `PreRollback` snapshot so it is itself undoable.
+//! Snapshots and rollback (MASTER_SPEC §25, §63.J, ADR-0021): checkpoints of
+//! a workspace directory including uncommitted and untracked state — never a
+//! git commit, ref or stash. File contents go to the content-addressed
+//! `ObjectStore` (blake3, deduplicated across snapshots); a JSON manifest
+//! `{path, hash, mode, size}` plus git HEAD/branch/dirty metadata describes
+//! each snapshot.
+//!
+//! * `Rollback Workspace` is planned first ([`SnapshotService::plan_rollback`])
+//!   and applied only on confirmation; files created after the snapshot are
+//!   kept unless explicitly selected for deletion.
+//! * `Rollback Task` restores only the files a task touched, and only where
+//!   the file still holds the task's after-state; anything changed by someone
+//!   else afterwards is reported as a conflict and never overwritten.
+//! * Every rollback first takes a `PreRollback` snapshot, so it is undoable.
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
-use async_trait::async_trait;
-use orkestr_domain::{Actor, SnapshotId, SnapshotReason, TaskId, WorkspaceId, WorkspaceSnapshot};
+pub mod engine;
+pub mod error;
+pub mod scan;
+pub mod store;
 
-/// Errors.
-#[derive(Debug, thiserror::Error)]
-pub enum SnapshotError {
-    /// Unknown snapshot.
-    #[error("snapshot {0} not found")]
-    NotFound(SnapshotId),
-    /// Restoring would overwrite unrelated changes.
-    #[error("rollback would overwrite unrelated changes in {0:?}")]
-    WouldClobber(Vec<String>),
-    /// I/O / storage failure.
-    #[error("storage: {0}")]
-    Storage(String),
-    /// Explicit stub marker.
-    #[error("unimplemented-feature: {0}")]
-    Unimplemented(&'static str),
-}
+pub use engine::{CreateSnapshot, GitState, GitStateProvider, Manifest, SnapshotService, WorkspaceRollback};
+pub use error::{SnapshotError, SnapshotResult};
+pub use scan::ScanOptions;
 
-/// Outcome of a rollback.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RollbackReport {
-    /// Files restored.
-    pub files_restored: Vec<String>,
-    /// Safety snapshot taken before restoring.
-    pub pre_rollback_snapshot: SnapshotId,
-}
-
-/// Snapshot engine.
-#[async_trait]
-pub trait SnapshotEngine: Send + Sync {
-    /// Captures a workspace (including uncommitted state).
-    async fn create(
-        &self,
-        workspace: WorkspaceId,
-        task: Option<TaskId>,
-        reason: SnapshotReason,
-        label: &str,
-        by: Actor,
-    ) -> Result<WorkspaceSnapshot, SnapshotError>;
-    /// Reverts only the changes made by `task` since its snapshot.
-    async fn rollback_task(&self, task: TaskId) -> Result<RollbackReport, SnapshotError>;
-    /// Restores a whole workspace to a snapshot.
-    async fn rollback_workspace(&self, snapshot: SnapshotId) -> Result<RollbackReport, SnapshotError>;
+/// Migrations owned by this crate.
+#[must_use]
+pub fn snapshot_migrations() -> Vec<orkestr_storage::Migration> {
+    store::MIGRATIONS.to_vec()
 }
