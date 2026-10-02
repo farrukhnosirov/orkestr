@@ -1,6 +1,6 @@
 [package]
 name = "orkestr-cost"
-description = "SKELETON — Orkestr cost & limit engine: usage, pricing, budgets, benchmarks, agent analytics (§22)."
+description = "Orkestr cost & limit engine: usage records, aggregates, budgets, threshold alerts, benchmark/agent stats (§22)."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -9,8 +9,19 @@ publish.workspace = true
 
 [dependencies]
 orkestr-domain.workspace = true
-async-trait.workspace = true
+orkestr-protocol.workspace = true
+orkestr-events.workspace = true
+orkestr-storage.workspace = true
 thiserror.workspace = true
+tracing.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+uuid.workspace = true
+tokio.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
 
 [lints]
 workspace = true

@@ -1,6 +1,6 @@
 [package]
 name = "orkestr-memory"
-description = "SKELETON — Orkestr memory engine: project/global memory, knowledge base, decision log, FTS (§20, §21)."
+description = "Orkestr memory engine: project/global memory, effective rules, knowledge base, decision log, FTS5 search (§20, §21)."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -9,8 +9,20 @@ publish.workspace = true
 
 [dependencies]
 orkestr-domain.workspace = true
-async-trait.workspace = true
+orkestr-protocol.workspace = true
+orkestr-events.workspace = true
+orkestr-storage.workspace = true
 thiserror.workspace = true
+tracing.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+tokio.workspace = true
+ignore.workspace = true
+regex.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
 
 [lints]
 workspace = true

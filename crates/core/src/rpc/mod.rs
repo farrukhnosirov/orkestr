@@ -6,9 +6,11 @@
 
 pub mod approvals;
 pub mod audit;
+pub mod cost;
 pub mod emergency;
 pub mod events;
 pub mod files;
+pub mod memory;
 pub mod permissions;
 pub mod projects;
 pub mod providers;
@@ -140,6 +142,7 @@ pub fn build_router() -> RpcRouter {
     router.register(vcs::register).register(snapshots::register);
     router.register(terminal::register);
     router.register(files::register);
+    router.register(memory::register).register(cost::register);
     router
 }
 

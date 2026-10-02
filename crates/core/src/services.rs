@@ -43,6 +43,10 @@ pub struct Services {
     pub tasks: Arc<TaskService>,
     /// Workspace file service (`files.*`).
     pub files: Arc<orkestr_files::FilesManager>,
+    /// Memory engine: memory items, decision log, knowledge base (§20–21).
+    pub memory: orkestr_memory::MemoryEngine,
+    /// Cost engine: usage, budgets, thresholds (§22).
+    pub cost: orkestr_cost::CostEngine,
     /// Whether the previous session ended uncleanly.
     pub recovered_from_crash: bool,
     /// Security subsystem: permissions, approvals, secrets, audit, emergency (Phase 1).

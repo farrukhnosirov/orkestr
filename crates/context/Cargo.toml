@@ -1,6 +1,6 @@
 [package]
 name = "orkestr-context"
-description = "SKELETON — Orkestr context optimizer: relevance, symbol extraction, token budgeting (§20)."
+description = "Orkestr context optimizer: file index, symbol extraction, BM25 relevance, token budgeting, prompt rendering (§20)."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -9,9 +9,16 @@ publish.workspace = true
 
 [dependencies]
 orkestr-domain.workspace = true
-async-trait.workspace = true
 serde.workspace = true
 thiserror.workspace = true
+tracing.workspace = true
+ignore.workspace = true
+regex.workspace = true
+once_cell.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+serde_json.workspace = true
 
 [lints]
 workspace = true

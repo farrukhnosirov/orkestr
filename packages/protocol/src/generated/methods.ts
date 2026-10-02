@@ -39,6 +39,31 @@ import type { DiffParams } from "./DiffParams";
 import type { DiffResult } from "./DiffResult";
 import type { DiscardParams } from "./DiscardParams";
 import type { DiscardResult } from "./DiscardResult";
+import type { AddKnowledgeParams } from "./AddKnowledgeParams";
+import type { BudgetIdParams } from "./BudgetIdParams";
+import type { BudgetListResult } from "./BudgetListResult";
+import type { BudgetResult } from "./BudgetResult";
+import type { CheckBudgetParams } from "./CheckBudgetParams";
+import type { CheckBudgetResult } from "./CheckBudgetResult";
+import type { CostByDimensionParams } from "./CostByDimensionParams";
+import type { CostByDimensionResult } from "./CostByDimensionResult";
+import type { CostRecordsParams } from "./CostRecordsParams";
+import type { CostRecordsResult } from "./CostRecordsResult";
+import type { CostSummaryParams } from "./CostSummaryParams";
+import type { CostSummaryResult } from "./CostSummaryResult";
+import type { CostTimeseriesParams } from "./CostTimeseriesParams";
+import type { CostTimeseriesResult } from "./CostTimeseriesResult";
+import type { CreateDecisionParams } from "./CreateDecisionParams";
+import type { CreateMemoryParams } from "./CreateMemoryParams";
+import type { CreateProjectParams } from "./CreateProjectParams";
+import type { DecisionIdParams } from "./DecisionIdParams";
+import type { DecisionListResult } from "./DecisionListResult";
+import type { DecisionResult } from "./DecisionResult";
+import type { DeleteBudgetResult } from "./DeleteBudgetResult";
+import type { DeleteMemoryResult } from "./DeleteMemoryResult";
+import type { DeleteProjectResult } from "./DeleteProjectResult";
+import type { EffectiveRulesParams } from "./EffectiveRulesParams";
+import type { EffectiveRulesResult } from "./EffectiveRulesResult";
 import type { Empty } from "./Empty";
 import type { GetModeParams } from "./GetModeParams";
 import type { ExecLineParams } from "./ExecLineParams";
@@ -135,6 +160,31 @@ import type { SearchFilesParams } from "./SearchFilesParams";
 import type { SearchFilesResult } from "./SearchFilesResult";
 import type { SystemInfo } from "./SystemInfo";
 import type { ToggleParams } from "./ToggleParams";
+import type { KnowledgeIdParams } from "./KnowledgeIdParams";
+import type { KnowledgeListResult } from "./KnowledgeListResult";
+import type { KnowledgeSourceResult } from "./KnowledgeSourceResult";
+import type { ListBudgetsParams } from "./ListBudgetsParams";
+import type { ListDecisionsParams } from "./ListDecisionsParams";
+import type { ListKnowledgeParams } from "./ListKnowledgeParams";
+import type { ListMemoryParams } from "./ListMemoryParams";
+import type { ListProjectsParams } from "./ListProjectsParams";
+import type { ListProjectsResult } from "./ListProjectsResult";
+import type { MemoryIdParams } from "./MemoryIdParams";
+import type { MemoryItemResult } from "./MemoryItemResult";
+import type { MemoryListResult } from "./MemoryListResult";
+import type { ProjectIdParams } from "./ProjectIdParams";
+import type { ProjectResult } from "./ProjectResult";
+import type { RemoveKnowledgeResult } from "./RemoveKnowledgeResult";
+import type { ReplayParams } from "./ReplayParams";
+import type { ReplayResult } from "./ReplayResult";
+import type { SearchKnowledgeParams } from "./SearchKnowledgeParams";
+import type { SearchKnowledgeResult } from "./SearchKnowledgeResult";
+import type { SearchMemoryParams } from "./SearchMemoryParams";
+import type { SearchMemoryResult } from "./SearchMemoryResult";
+import type { SetBudgetParams } from "./SetBudgetParams";
+import type { SystemInfo } from "./SystemInfo";
+import type { UpdateDecisionParams } from "./UpdateDecisionParams";
+import type { UpdateMemoryParams } from "./UpdateMemoryParams";
 import type { UpdateProjectParams } from "./UpdateProjectParams";
 import type { VaultStatusResult } from "./VaultStatusResult";
 import type { RoutingConfigPayload } from "./RoutingConfigPayload";
@@ -302,6 +352,30 @@ export type Methods = {
   "files.watch": [WatchFilesParams, WatchFilesResult];
   "files.unwatch": [WatchFilesParams, WatchFilesResult];
   "files.openExternal": [OpenExternalParams, OpenExternalResult];
+  "memory.list": [ListMemoryParams, MemoryListResult];
+  "memory.get": [MemoryIdParams, MemoryItemResult];
+  "memory.create": [CreateMemoryParams, MemoryItemResult];
+  "memory.update": [UpdateMemoryParams, MemoryItemResult];
+  "memory.delete": [MemoryIdParams, DeleteMemoryResult];
+  "memory.search": [SearchMemoryParams, SearchMemoryResult];
+  "memory.effectiveRules": [EffectiveRulesParams, EffectiveRulesResult];
+  "decisions.list": [ListDecisionsParams, DecisionListResult];
+  "decisions.get": [DecisionIdParams, DecisionResult];
+  "decisions.create": [CreateDecisionParams, DecisionResult];
+  "decisions.update": [UpdateDecisionParams, DecisionResult];
+  "knowledge.list": [ListKnowledgeParams, KnowledgeListResult];
+  "knowledge.add": [AddKnowledgeParams, KnowledgeSourceResult];
+  "knowledge.remove": [KnowledgeIdParams, RemoveKnowledgeResult];
+  "knowledge.reindex": [KnowledgeIdParams, KnowledgeSourceResult];
+  "knowledge.search": [SearchKnowledgeParams, SearchKnowledgeResult];
+  "cost.summary": [CostSummaryParams, CostSummaryResult];
+  "cost.byDimension": [CostByDimensionParams, CostByDimensionResult];
+  "cost.timeseries": [CostTimeseriesParams, CostTimeseriesResult];
+  "cost.records": [CostRecordsParams, CostRecordsResult];
+  "budgets.list": [ListBudgetsParams, BudgetListResult];
+  "budgets.set": [SetBudgetParams, BudgetResult];
+  "budgets.delete": [BudgetIdParams, DeleteBudgetResult];
+  "budgets.check": [CheckBudgetParams, CheckBudgetResult];
 };
 
 /** All implemented method names. */
@@ -418,6 +492,30 @@ export const METHOD_NAMES = [
   "files.watch",
   "files.unwatch",
   "files.openExternal",
+  "memory.list",
+  "memory.get",
+  "memory.create",
+  "memory.update",
+  "memory.delete",
+  "memory.search",
+  "memory.effectiveRules",
+  "decisions.list",
+  "decisions.get",
+  "decisions.create",
+  "decisions.update",
+  "knowledge.list",
+  "knowledge.add",
+  "knowledge.remove",
+  "knowledge.reindex",
+  "knowledge.search",
+  "cost.summary",
+  "cost.byDimension",
+  "cost.timeseries",
+  "cost.records",
+  "budgets.list",
+  "budgets.set",
+  "budgets.delete",
+  "budgets.check",
 ] as const;
 
 /** Wire protocol version (see orkestr-protocol PROTOCOL_VERSION). */

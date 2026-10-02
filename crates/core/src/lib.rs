@@ -202,6 +202,9 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
         Arc::new(rpc::files::EventBusChangeSink::new(events.clone())),
     ));
 
+    let memory = orkestr_memory::MemoryEngine::new(db.clone()).with_events(events.clone());
+    let cost = orkestr_cost::CostEngine::new(db.clone()).with_events(events.clone());
+
     let services = Arc::new(Services {
         version: VERSION.to_owned(),
         started_at: chrono::Utc::now(),
@@ -212,6 +215,8 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
         db,
         events,
         projects: metadata,
+        memory,
+        cost,
         objects,
         providers,
         tasks,

@@ -40,6 +40,11 @@ source: string | null,
  */
 pinned: boolean, 
 /**
+ * Optional rule key. A project item overrides a global item with the
+ * same key when effective rules are resolved (§20). Additive field.
+ */
+key: string | null, 
+/**
  * Creation time.
  */
 createdAt: string, 

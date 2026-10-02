@@ -71,6 +71,12 @@ pub enum MemoryKind {
     Preference,
     /// Free note.
     Note,
+    /// Quality standard (global memory, §20).
+    QualityStandard,
+    /// Provider preference (global memory, §20).
+    ProviderPreference,
+    /// Reusable infrastructure fact (global memory, §20).
+    Infrastructure,
 }
 
 /// A memory entry.
@@ -94,6 +100,10 @@ pub struct MemoryItem {
     pub source: Option<String>,
     /// Pinned items are always included in context.
     pub pinned: bool,
+    /// Optional rule key. A project item overrides a global item with the
+    /// same key when effective rules are resolved (§20). Additive field.
+    #[serde(default)]
+    pub key: Option<String>,
     /// Creation time.
     pub created_at: Timestamp,
     /// Last modification.
@@ -159,6 +169,15 @@ pub struct KnowledgeSource {
     pub indexed_at: Option<Timestamp>,
     /// Creation time.
     pub created_at: Timestamp,
+    /// Human-readable reason when `status` is `Failed` (or a partial-ingest note). Additive field.
+    #[serde(default)]
+    pub error: Option<String>,
+    /// Number of indexed chunks. Additive field.
+    #[serde(default)]
+    pub chunk_count: u32,
+    /// Number of indexed files. Additive field.
+    #[serde(default)]
+    pub file_count: u32,
 }
 
 /// Status of a decision record.
@@ -199,6 +218,9 @@ pub struct Decision {
     pub id: DecisionId,
     /// Project.
     pub project_id: ProjectId,
+    /// ADR-like sequence number, unique per project (1, 2, …). Additive field.
+    #[serde(default)]
+    pub number: u32,
     /// Title.
     pub title: String,
     /// Context / problem.
@@ -223,4 +245,7 @@ pub struct Decision {
     pub superseded_by: Option<DecisionId>,
     /// Creation time.
     pub created_at: Timestamp,
+    /// Last modification. Additive field (defaults to `created_at` semantics when absent).
+    #[serde(default)]
+    pub updated_at: Option<Timestamp>,
 }

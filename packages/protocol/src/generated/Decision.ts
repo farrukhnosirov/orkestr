@@ -19,6 +19,10 @@ id: DecisionId,
  */
 projectId: ProjectId, 
 /**
+ * ADR-like sequence number, unique per project (1, 2, …). Additive field.
+ */
+number: number, 
+/**
  * Title.
  */
 title: string, 
@@ -65,4 +69,8 @@ supersededBy: DecisionId | null,
 /**
  * Creation time.
  */
-createdAt: string, };
+createdAt: string, 
+/**
+ * Last modification. Additive field (defaults to `created_at` semantics when absent).
+ */
+updatedAt: string | null, };

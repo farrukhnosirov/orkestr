@@ -2733,10 +2733,15 @@ dependencies = [
 name = "orkestr-context"
 version = "0.1.0"
 dependencies = [
- "async-trait",
+ "ignore",
+ "once_cell",
  "orkestr-domain",
+ "regex",
  "serde",
+ "serde_json",
+ "tempfile",
  "thiserror 2.0.21",
+ "tracing",
 ]
 
 [[package]]
@@ -2749,9 +2754,11 @@ dependencies = [
  "chrono",
  "futures",
  "hex",
+ "orkestr-cost",
  "orkestr-domain",
  "orkestr-events",
  "orkestr-files",
+ "orkestr-memory",
  "orkestr-platform",
  "orkestr-protocol",
  "orkestr-providers",
@@ -2781,9 +2788,18 @@ dependencies = [
 name = "orkestr-cost"
 version = "0.1.0"
 dependencies = [
- "async-trait",
+ "chrono",
  "orkestr-domain",
+ "orkestr-events",
+ "orkestr-protocol",
+ "orkestr-storage",
+ "serde",
+ "serde_json",
+ "tempfile",
  "thiserror 2.0.21",
+ "tokio",
+ "tracing",
+ "uuid",
 ]
 
 [[package]]
@@ -2855,9 +2871,19 @@ dependencies = [
 name = "orkestr-memory"
 version = "0.1.0"
 dependencies = [
- "async-trait",
+ "chrono",
+ "ignore",
  "orkestr-domain",
+ "orkestr-events",
+ "orkestr-protocol",
+ "orkestr-storage",
+ "regex",
+ "serde",
+ "serde_json",
+ "tempfile",
  "thiserror 2.0.21",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
