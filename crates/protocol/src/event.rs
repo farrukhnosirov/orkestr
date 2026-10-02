@@ -69,6 +69,17 @@ pub struct TaskStatusChangedPayload {
     pub reason: Option<String>,
 }
 
+/// `TaskDeleted`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct TaskDeletedPayload {
+    /// Deleted task.
+    pub task_id: TaskId,
+    /// Its project.
+    pub project_id: ProjectId,
+}
+
 /// `AgentSpawned`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
@@ -663,6 +674,8 @@ event_kinds! {
     Notification(NotificationPayload),
     /// Structured log line.
     Log(LogPayload),
+    /// A task was deleted (Phase 1, appended).
+    TaskDeleted(TaskDeletedPayload),
 }
 
 // ---------------------------------------------------------------------------
@@ -767,6 +780,10 @@ impl NewEvent {
                 self.task_id = Some(t.task.id);
             }
             EventKind::TaskStatusChanged(t) => self.task_id = Some(t.task_id),
+            EventKind::TaskDeleted(t) => {
+                self.project_id = Some(t.project_id);
+                self.task_id = Some(t.task_id);
+            }
             EventKind::AgentSpawned(a) => {
                 self.agent_id = Some(a.agent.id);
                 self.project_id = Some(a.agent.project_id);

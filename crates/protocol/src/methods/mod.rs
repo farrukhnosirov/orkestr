@@ -111,6 +111,17 @@ pub fn registry() -> Vec<MethodDescriptor> {
         MethodDescriptor::of::<projects::Delete>(),
         MethodDescriptor::of::<projects::Open>(),
         MethodDescriptor::of::<events::Replay>(),
+        MethodDescriptor::of::<tasks::List>(),
+        MethodDescriptor::of::<tasks::Get>(),
+        MethodDescriptor::of::<tasks::Create>(),
+        MethodDescriptor::of::<tasks::Update>(),
+        MethodDescriptor::of::<tasks::Delete>(),
+        MethodDescriptor::of::<tasks::Transition>(),
+        MethodDescriptor::of::<tasks::AddDependency>(),
+        MethodDescriptor::of::<tasks::RemoveDependency>(),
+        MethodDescriptor::of::<tasks::Graph>(),
+        MethodDescriptor::of::<tasks::History>(),
+        MethodDescriptor::of::<tasks::Retry>(),
     ]
 }
 

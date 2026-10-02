@@ -12,6 +12,7 @@ use orkestr_domain::{NodeId, Timestamp};
 use orkestr_events::EventBus;
 use orkestr_platform::{Paths, PlatformAdapter};
 use orkestr_storage::{Db, FsObjectStore, ProjectRepository};
+use orkestr_task_engine::TaskService;
 
 /// Shared services.
 pub struct Services {
@@ -35,6 +36,8 @@ pub struct Services {
     pub projects: Arc<dyn ProjectRepository>,
     /// Object store.
     pub objects: Arc<FsObjectStore>,
+    /// Task engine (§10–11).
+    pub tasks: Arc<TaskService>,
     /// Whether the previous session ended uncleanly.
     pub recovered_from_crash: bool,
 }

@@ -17,6 +17,7 @@ orkestr-protocol.workspace = true
 orkestr-events.workspace = true
 orkestr-storage.workspace = true
 orkestr-platform.workspace = true
+orkestr-task-engine.workspace = true
 tokio.workspace = true
 tokio-util.workspace = true
 futures.workspace = true

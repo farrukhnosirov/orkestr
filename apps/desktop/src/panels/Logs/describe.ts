@@ -10,6 +10,7 @@ const CATEGORY: Partial<Record<EventKindName, EventCategory>> = {
   TaskCreated: "task",
   TaskUpdated: "task",
   TaskStatusChanged: "task",
+  TaskDeleted: "task",
   AgentSpawned: "agent",
   AgentStarted: "agent",
   AgentStateChanged: "agent",
@@ -92,6 +93,8 @@ export function describeEvent(event: Event): string {
       return `Task “${event.payload.task.title}” updated`;
     case "TaskStatusChanged":
       return `Task …${short(event.payload.taskId)}: ${event.payload.from} → ${event.payload.to}`;
+    case "TaskDeleted":
+      return `Task …${short(event.payload.taskId)} deleted`;
     case "AgentSpawned":
       return `Agent “${event.payload.agent.name}” spawned`;
     case "AgentStarted":

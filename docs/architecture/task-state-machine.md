@@ -6,41 +6,59 @@ Spec references: §9, §10, §11, §16, §17, §22, §38–39, §57, §58, §62.
 
 ---
 
-## 0. As built (Phase 0 foundation, 2026-10-02)
+## 0. As built (Phase 1, 2026-10-02)
 
-`crates/task-engine/src/state_machine.rs` implements the contract §5 table
-exactly (the 41 edges of §2) as pure functions; nothing else of this document
-is implemented yet.
+Crate `orkestr-task-engine` (modules `state_machine`, `store`, `dag`, `queue`,
+`scheduler`, `service`); RPC in `crates/core/src/rpc/tasks.rs`; UI in
+`apps/desktop/src/panels/Tasks/`.
 
-```rust
-pub fn allowed_transitions(from: TaskStatus) -> &'static [TaskStatus];
-pub fn can_transition(from: TaskStatus, to: TaskStatus) -> bool;
-/// Applies a transition in memory and returns the previous status.
-/// Sets `updated_at`; on `→ Running` sets `started_at` (first time) and increments
-/// `attempts` when coming from `Ready` or `Recovering`; on a terminal target
-/// (`Completed`, `Cancelled`) sets `finished_at`.
-pub fn transition(task: &mut Task, to: TaskStatus, now: Timestamp) -> Result<TaskStatus, InvalidTransition>;
-pub struct InvalidTransition { pub from: TaskStatus, pub to: TaskStatus }
-pub fn dependencies_satisfied(dependency_statuses: &[TaskStatus]) -> bool; // all Completed (vacuously true)
-pub enum TaskError { InvalidTransition(InvalidTransition), NotFound(TaskId), Cycle(TaskId), Storage(String), Unimplemented(&'static str) }
-#[async_trait] pub trait TaskStore { list(project), get(id), save(&Task), add_dependency(TaskDependency), interruptible() }
-#[async_trait] pub trait Scheduler { next_batch(slots: usize) -> Vec<TaskId> }
-```
-
-Domain helpers (`orkestr-domain::task`): `TaskStatus::ALL`,
-`is_terminal()` (`Completed | Cancelled`), `is_interruptible_on_crash()`
-(`Running | Waiting | Testing | Review`); `TaskPriority` is ordered
-`Background < Low < Normal < High < Critical`.
-
-Not yet implemented: `TransitionRequest`, versions/`expected_version`, guards,
-`task_transitions` history, cascades, the DAG store and cycle check, the
-priority queue and admission, `recover_after_crash` (the core's recovery hook
-list is empty), RPC `tasks.*`, and the privileged
-`{Waiting, Review, Testing} → Interrupted` edges (CA-2): with the as-built
-table, `can_transition(Waiting, Interrupted)` is `false`, so the crash-recovery
-hook must bypass `transition()` exactly as §8.2 describes. The design names
-`TaskEngineError`/`is_allowed` correspond to the as-built `TaskError`/
-`can_transition`; keep the as-built names.
+- **State machine**: the 41 edges of §2 for every actor, plus the privileged
+  `{Waiting, Review, Testing} → Interrupted` edges allowed **only** for
+  `TaskActor::SystemRecovery` (`can_transition_as`, `is_privileged_edge`;
+  history rows carry `forced = true`). Tested over all 144 pairs × 5 actors.
+  `TaskActor` (domain) = `User | Agent(id) | Manager | System | SystemRecovery`;
+  RPC callers are always `User`.
+- **Persistence** (migration `task_0001_tasks`, reversible): `tasks` (JSON doc +
+  indexed `project_id/parent_id/status/priority/agent_id/version/ready_since`;
+  FK to `projects` ON DELETE CASCADE, `parent_id` ON DELETE SET NULL),
+  `task_dependencies` (PK `(task_id, depends_on)`, no self-edges),
+  `task_history` (every status change: from, to, actor, reason, forced, at;
+  creation has `from = NULL`), `task_executions` (attempts: opened on
+  `Ready|Recovering → Running`, closed on Completed/Failed/Cancelled/Interrupted).
+- **Versions**: `Task.version` (u32) increments on every persisted change;
+  `expectedVersion` on `tasks.update`/`tasks.transition` → `conflict`
+  (`data.currentVersion`).
+- **Guards**: `→ Ready` and `Ready|Recovering → Running` require all hard
+  dependencies `Completed` (`dependencies_completed`); `→ Completed` requires
+  every child `Completed|Cancelled` (`children_completed`).
+- **Cascades** (same transaction, actor `System`): dependency `Completed` →
+  dependents `Blocked → Ready` and `Planned → Ready` (if they have deps — the
+  Phase-1 assignment chose auto-promotion over §6.2's "Planned untouched");
+  dependency `Failed|Cancelled` → dependents `Planned|Ready → Blocked`; adding a
+  pending dependency to a `Ready` task → `Blocked`; removing/deleting a
+  dependency re-evaluates (`Blocked → Ready`). `Soft` edges never block. Child
+  cancellation cascade (§6.3) is **not** implemented.
+- **DAG**: cycle check on `addDependency` (`conflict`, `data.cycle` = path),
+  intra-project only, rejected for `Running/Waiting/Review/Testing/Completed/
+  Cancelled` tasks; topological order; ready set (`Planned|Ready|Blocked` with
+  all hard deps completed); remaining critical path (estimate minutes, unknown
+  = 1, completed = 0, cancelled excluded); epic subtree; parent depth ≤ 6 and
+  no parent cycles.
+- **Queue**: Critical > High > Normal > Low > Background, FIFO within a level,
+  aging +1 level per 20 min capped at `High` (also for `Background`, unlike §7.1).
+- **Scheduler** (pure): global/per-project caps, provider slots, CPU threshold
+  (current + projected), free-RAM reserve, file-overlap avoidance (same project
+  and not in two different worktrees), backfilling. Starvation reservation
+  (§7.3) and budgets are not implemented. `TaskService::next_runnable` runs it
+  over persisted `Ready`/active tasks; nothing starts tasks automatically yet.
+- **Recovery**: `TaskRecoveryHook` (core `recovery::default_hooks`) moves
+  `Running/Waiting/Testing/Review` → `Interrupted` (reason `crash_recovery`)
+  after an unclean shutdown; graceful `CoreHandle::shutdown` does the same with
+  reason `shutdown`. `tasks.retry`: `Failed → Ready` or
+  `Interrupted → Recovering → Ready`.
+- **Events**: `TaskCreated`, `TaskUpdated` (full task, after every change),
+  `TaskStatusChanged` (per change, incl. cascades), `TaskDeleted` (new kind,
+  appended) — all with `projectId` + `taskId` scopes.
 
 ## 1. States
 

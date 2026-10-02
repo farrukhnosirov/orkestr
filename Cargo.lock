@@ -2428,6 +2428,7 @@ dependencies = [
  "orkestr-platform",
  "orkestr-protocol",
  "orkestr-storage",
+ "orkestr-task-engine",
  "parking_lot",
  "rand",
  "regex",
@@ -2620,9 +2621,17 @@ dependencies = [
 name = "orkestr-task-engine"
 version = "0.1.0"
 dependencies = [
- "async-trait",
+ "chrono",
  "orkestr-domain",
+ "orkestr-events",
+ "orkestr-protocol",
+ "orkestr-storage",
+ "serde",
+ "serde_json",
+ "tempfile",
  "thiserror 2.0.21",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]

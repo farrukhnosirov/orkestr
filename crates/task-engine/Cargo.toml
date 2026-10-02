@@ -1,6 +1,6 @@
 [package]
 name = "orkestr-task-engine"
-description = "Orkestr task engine: task state machine (implemented), DAG, priority queue, scheduler (skeleton) (§10, §11)."
+description = "Orkestr task engine: task state machine, persistence, DAG, priority queue, resource-aware scheduler, crash recovery (§10, §11, §62.13)."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -9,8 +9,18 @@ publish.workspace = true
 
 [dependencies]
 orkestr-domain.workspace = true
-async-trait.workspace = true
+orkestr-protocol.workspace = true
+orkestr-events.workspace = true
+orkestr-storage.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
 thiserror.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+tokio.workspace = true
+tempfile.workspace = true
 
 [lints]
 workspace = true
