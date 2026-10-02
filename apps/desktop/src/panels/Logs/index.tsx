@@ -76,6 +76,9 @@ export default function LogsPanel({ projectId }: PanelProps) {
         if (!cancelled) setLoading(false);
       });
     const off = client.subscribe([TOPIC_ALL], (ev) => {
+      // High-volume ephemeral streams (2 s node heartbeats, terminal bytes)
+      // have their own views (System settings, Terminal panel).
+      if (ev.kind === "NodeStatus" || ev.kind === "TerminalOutput") return;
       if (pausedRef.current) {
         queueRef.current.push(ev);
         setQueued(queueRef.current.length);

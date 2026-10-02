@@ -109,6 +109,34 @@ Phase 1 delivers, per §61:
 
 The requirements review adds the security baseline (RR-C3), onboarding (RR-G7), the command palette (RR-G6), observability (RR-G8), the resume summary (RR-G9), tray mode (RR-C2) and the protocol prerequisites for later phases (RR-P1…P10).
 
+### Status: Phase 1 wave A (integrated 2026-10-02)
+
+Wave A built eight areas in parallel and merged them into `main`
+(security, providers, tasks, vcs/snapshots, terminal, files/editor,
+memory/context/cost, platform/shell). The integration wired the areas
+together in the core composition root: provider API keys live in the security
+`SecretService` (keyring + encrypted vault, audited); every `terminal.run` /
+agent terminal line passes `SecurityCommandGate` (permission engine +
+dangerous-action guard + single-use approvals); agent-attributed `files.*`
+mutations are checked by the permission engine; `emergency.*` also stops agent
+terminals; `providers.test` usage is recorded by the cost engine; new projects
+start in the user's default approval mode; onboarding embeds the provider
+setup and Manager model; the palette, shortcuts and Settings view read the
+shared registries. Verified by `cargo test --workspace`, clippy `-D warnings`,
+`npm test`, `npm run build` and `scripts/smoke/phase1-smoke.mjs` (desktop app
+end to end).
+
+| Milestone | Wave A state | Still open |
+|---|---|---|
+| M1.1 Workspace & CI | — | CI matrix, dependency-boundary script, lint configs |
+| M1.2 Core runtime | settings store, seq high-water, retention, session history, recovery hook for tasks, `orkestrd --background` | Job Objects (`ProcessSupervisor`), `hello`/`sinceSeq`/idempotency keys, `core.lock`, log rotation |
+| M1.3 Desktop shell | title bar with Approvals + Emergency Stop, Settings view, 12-step onboarding, palette with fuzzy search, tray/close-to-tray/autostart/single instance, notifications, resume card | keep-running close dialog, native OS notifications, i18n; tray/autostart not exercised on a real desktop session by tests |
+| M1.4 Security baseline | permission engine, guard (~350 cases), confinement, approvals, secret vault, audit chain, emergency controls, WS hardening | "remember this decision", passphrase vault mode, `confine()` fuzz test, budget enforcement before calls, privacy routing |
+| M1.5 Provider hub | all Phase 1 adapters, registry, router, fallback, health loop, pricing estimates, settings UI | per-model concurrency, CLI per-call permission bridge, live checks against real providers/CLIs |
+| M1.6 Workspace tools | Files/Code (Monaco) panels, Terminal (PTY, gated), Git panel, agent worktrees | Take-control handover, scrollback snapshots, worktree reconciliation at startup, push/fetch |
+| M1.7 Agents, tasks, Manager | task engine + Tasks panel (list/board/graph) | agent runtime, Manager, Agents panel (wave B) |
+| M1.8 Memory, snapshots, cost | memory/decisions/knowledge + panel, snapshots + rollback, cost/budgets + panel, resume summary | HEAD/index restore on rollback, snapshot GC, usage from real agent runs, installer/signing |
+
 ### M1.1 Workspace and CI hardening
 - **Scope:**
   - CI matrix: Windows (build and test), macOS and Linux (check and test);

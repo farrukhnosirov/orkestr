@@ -151,8 +151,9 @@ describe("security UI", () => {
   it("registers commands and settings sections once", () => {
     registerSecurityFeature();
     registerSecurityFeature();
-    expect(commands.filter((c) => c.id === "security.stopAll")).toHaveLength(1);
-    expect(commands.find((c) => c.id === "security.stopAll")?.shortcut).toBe("Ctrl+Shift+Esc");
+    // One Stop All command (core `ai.stopAll`), which opens the security confirm dialog.
+    expect(commands.filter((c) => c.title === "Stop All AI")).toHaveLength(1);
+    expect(commands.find((c) => c.id === "ai.stopAll")?.shortcut).toBe("Ctrl+Shift+Backspace");
     expect(commands.some((c) => c.id === "security.openApprovals")).toBe(true);
     expect(settingsSections.map((s) => s.id)).toEqual(expect.arrayContaining(["security", "secrets"]));
     commands.find((c) => c.id === "security.openApprovals")?.run({ projectId: null });

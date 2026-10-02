@@ -90,7 +90,8 @@ fn rules() -> &'static SqlRules {
 #[must_use]
 pub fn classify_sql(sql: &str) -> DangerClass {
     let r = rules();
-    let danger = |reason: &str| DangerClass::Dangerous { category: DangerCategory::DataDestruction, reason: reason.to_owned() };
+    let danger =
+        |reason: &str| DangerClass::Dangerous { category: DangerCategory::DataDestruction, reason: reason.to_owned() };
     if r.mongo.is_match(sql) {
         return danger("MongoDB drop/mass delete");
     }

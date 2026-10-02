@@ -11,7 +11,12 @@ pub fn register(router: &mut RpcRouter) {
     router.method::<m::List, _, _>(|ctx: RpcContext, p: ListAuditParams| async move {
         let audit = &ctx.services.security.audit;
         let rows = audit
-            .query(AuditQuery { project_id: p.project_id, action_prefix: p.action, before_seq: p.before_seq, limit: p.limit })
+            .query(AuditQuery {
+                project_id: p.project_id,
+                action_prefix: p.action,
+                before_seq: p.before_seq,
+                limit: p.limit,
+            })
             .await
             .map_err(security_to_rpc)?;
         let chain_valid = if p.verify.unwrap_or(false) {
@@ -19,6 +24,9 @@ pub fn register(router: &mut RpcRouter) {
         } else {
             None
         };
-        Ok(ListAuditResult { entries: rows.into_iter().map(|r| AuditEntry { seq: r.seq, event: r.event }).collect(), chain_valid })
+        Ok(ListAuditResult {
+            entries: rows.into_iter().map(|r| AuditEntry { seq: r.seq, event: r.event }).collect(),
+            chain_valid,
+        })
     });
 }

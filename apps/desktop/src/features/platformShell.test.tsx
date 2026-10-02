@@ -22,7 +22,8 @@ import { formatBytes, formatDuration, Segmented, Switch } from "./settings/contr
 import { orderedSections, settingsSections, type SettingsSection } from "./settings/sections";
 import { GeneralSection } from "./settings/sections/GeneralSection";
 import { useSettingsStore } from "./settings/settingsStore";
-import { notificationTopics, shellShortcut } from "./settings/useShellBootstrap";
+import { matchesShortcut } from "./commands/registry";
+import { notificationTopics } from "./settings/useShellBootstrap";
 
 const P = "0190f0b0-0000-7000-8000-000000000001";
 
@@ -109,14 +110,15 @@ describe("command palette", () => {
     expect(pushRecent(["a", "b", "c"], "d", 3)).toEqual(["d", "a", "b"]);
   });
 
-  it("maps shell shortcuts", () => {
-    const k = (key: string, mods: Partial<KeyboardEvent> = {}) =>
-      shellShortcut({ key, ctrlKey: false, metaKey: false, shiftKey: false, altKey: false, ...mods });
-    expect(k(",", { ctrlKey: true })).toBe("settings.open");
-    expect(k("p", { ctrlKey: true })).toBe("project.switch");
-    expect(k("F11")).toBe("window.fullscreen");
-    expect(k("Backspace", { ctrlKey: true, shiftKey: true })).toBe("ai.stopAll");
-    expect(k("k", { ctrlKey: true })).toBeNull();
+  it("maps shell shortcuts through the command registry", () => {
+    const ev = (key: string, mods: Partial<KeyboardEvent> = {}) => ({ key, code: "", ctrlKey: false, metaKey: false, shiftKey: false, altKey: false, ...mods });
+    const hit = (e: ReturnType<typeof ev>) => commands.find((c) => c.shortcut && matchesShortcut(e, c.shortcut))?.id ?? null;
+    expect(hit(ev(",", { ctrlKey: true }))).toBe("settings.open");
+    expect(hit(ev("p", { ctrlKey: true, altKey: true }))).toBe("project.switch");
+    expect(hit(ev("p", { ctrlKey: true }))).toBe("files.quickOpen");
+    expect(hit(ev("F11"))).toBe("window.fullscreen");
+    expect(hit(ev("Backspace", { ctrlKey: true, shiftKey: true }))).toBe("ai.stopAll");
+    expect(hit(ev("k", { ctrlKey: true }))).toBeNull();
   });
 });
 
@@ -240,11 +242,14 @@ describe("settings", () => {
   afterEach(() => cleanup());
 
   it("orders sections stably", () => {
-    const extra: SettingsSection[] = [
-      ...settingsSections,
-      { id: "providers", title: "Providers", icon: settingsSections[0]!.icon, order: 10, component: () => null },
-    ];
-    expect(orderedSections(extra).map((s) => s.id)).toEqual(["general", "providers", "system", "about"]);
+    const icon = settingsSections[0]!.icon;
+    const mk = (id: string, order: number): SettingsSection => ({ id, title: id, icon, order, component: () => null });
+    const list = [mk("general", 0), mk("system", 900), mk("about", 1000), mk("a", 10), mk("b", 10)];
+    expect(orderedSections(list).map((s) => s.id)).toEqual(["general", "a", "b", "system", "about"]);
+    // Every area's section is registered and General stays first.
+    const ids = orderedSections().map((s) => s.id);
+    expect(ids[0]).toBe("general");
+    expect(ids).toEqual(expect.arrayContaining(["providers", "manager", "system", "about"]));
   });
 
   it("formats sizes and durations", () => {

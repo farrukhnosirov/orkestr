@@ -39,8 +39,13 @@ pub const MAX_MESSAGE_BYTES: usize = 4 * 1024 * 1024;
 
 /// Browser origins allowed to open the RPC WebSocket. Clients without an
 /// `Origin` header (native/CLI/tests) are allowed; everything else is 403.
-pub const ALLOWED_ORIGINS: &[&str] =
-    &["tauri://localhost", "http://tauri.localhost", "https://tauri.localhost", "http://127.0.0.1:1420", "http://localhost:1420"];
+pub const ALLOWED_ORIGINS: &[&str] = &[
+    "tauri://localhost",
+    "http://tauri.localhost",
+    "https://tauri.localhost",
+    "http://127.0.0.1:1420",
+    "http://localhost:1420",
+];
 
 /// Failures allowed before backoff starts.
 pub const FREE_AUTH_FAILURES: u32 = 5;
@@ -201,7 +206,11 @@ async fn rpc(
     if let Some(ip) = ip {
         if let Err(retry) = state.limiter.check(ip) {
             let secs = retry.as_secs().max(1).to_string();
-            return (StatusCode::TOO_MANY_REQUESTS, [(header::RETRY_AFTER, secs)], "too many failed authentication attempts")
+            return (
+                StatusCode::TOO_MANY_REQUESTS,
+                [(header::RETRY_AFTER, secs)],
+                "too many failed authentication attempts",
+            )
                 .into_response();
         }
     }

@@ -11,8 +11,8 @@ use std::collections::HashMap;
 use std::time::Duration;
 
 use orkestr_domain::{
-    now, Actor, AgentId, Approval, ApprovalId, ApprovalStatus, AuditOutcome, Capability, DangerCategory, ProjectId, RiskLevel,
-    TaskId, ToolCallId,
+    now, Actor, AgentId, Approval, ApprovalId, ApprovalStatus, AuditOutcome, Capability, DangerCategory, ProjectId,
+    RiskLevel, TaskId, ToolCallId,
 };
 use orkestr_events::EventBus;
 use orkestr_protocol::event::{ApprovalRequestedPayload, ApprovalResolvedPayload, EventKind};
@@ -83,7 +83,12 @@ pub struct ApprovalRequest {
 impl ApprovalRequest {
     /// Minimal request.
     #[must_use]
-    pub fn new(capability: Capability, action_summary: impl Into<String>, reason: impl Into<String>, risk: RiskLevel) -> Self {
+    pub fn new(
+        capability: Capability,
+        action_summary: impl Into<String>,
+        reason: impl Into<String>,
+        risk: RiskLevel,
+    ) -> Self {
         Self {
             project_id: None,
             task_id: None,
@@ -172,7 +177,9 @@ impl ApprovalService {
     /// cancelled (their requesters no longer exist).
     pub async fn open(db: Db, events: EventBus, audit: Arc<AuditLog>) -> SecurityResult<Self> {
         let svc = Self { db, events, audit, waiters: Mutex::new(HashMap::new()) };
-        let stale = svc.list(&ApprovalFilter { status: Some(ApprovalStatus::Pending), limit: Some(1000), ..Default::default() }).await?;
+        let stale = svc
+            .list(&ApprovalFilter { status: Some(ApprovalStatus::Pending), limit: Some(1000), ..Default::default() })
+            .await?;
         for a in stale {
             svc.finish(a.id, ApprovalStatus::Cancelled, Some(Actor::System), Some("core restarted".into())).await.ok();
         }
@@ -234,7 +241,9 @@ impl ApprovalService {
         let (tx, _rx) = watch::channel(ApprovalStatus::Pending);
         self.waiters.lock().insert(approval.id, tx);
         self.events
-            .publish(NewEvent::new(EventKind::ApprovalRequested(ApprovalRequestedPayload { approval: approval.clone() })))
+            .publish(NewEvent::new(EventKind::ApprovalRequested(ApprovalRequestedPayload {
+                approval: approval.clone(),
+            })))
             .await?;
         tracing::info!(approval_id = %approval.id, capability = ?approval.capability, risk = ?approval.risk, "approval requested");
         Ok(approval)
@@ -245,7 +254,9 @@ impl ApprovalService {
         let ids = id.to_string();
         let doc: Option<String> = self
             .db
-            .call(move |c| Ok(c.query_row("SELECT doc FROM approvals WHERE id = ?1", [ids], |r| r.get(0)).optional()?))
+            .call(move |c| {
+                Ok(c.query_row("SELECT doc FROM approvals WHERE id = ?1", [ids], |r| r.get(0)).optional()?)
+            })
             .await?;
         Ok(doc.map(|d| serde_json::from_str(&d)).transpose()?)
     }
@@ -279,7 +290,13 @@ impl ApprovalService {
 
     /// Moves a pending approval to a final status, emits `ApprovalResolved`
     /// and wakes waiters. `Conflict` if it is not pending anymore.
-    async fn finish(&self, id: ApprovalId, status: ApprovalStatus, by: Option<Actor>, note: Option<String>) -> SecurityResult<Approval> {
+    async fn finish(
+        &self,
+        id: ApprovalId,
+        status: ApprovalStatus,
+        by: Option<Actor>,
+        note: Option<String>,
+    ) -> SecurityResult<Approval> {
         let mut a = self.get(id).await?.ok_or_else(|| SecurityError::NotFound(format!("approval {id}")))?;
         if a.status != ApprovalStatus::Pending {
             return Err(SecurityError::Conflict(format!("approval {id} is already {:?}", a.status)));
@@ -294,7 +311,12 @@ impl ApprovalService {
         let st = status_str(status);
         let changed = self
             .db
-            .call(move |c| Ok(c.execute("UPDATE approvals SET status = ?1, doc = ?2 WHERE id = ?3 AND status = 'Pending'", params![st, doc, ids])?))
+            .call(move |c| {
+                Ok(c.execute(
+                    "UPDATE approvals SET status = ?1, doc = ?2 WHERE id = ?3 AND status = 'Pending'",
+                    params![st, doc, ids],
+                )?)
+            })
             .await?;
         if changed == 0 {
             return Err(SecurityError::Conflict(format!("approval {id} was resolved concurrently")));
@@ -302,7 +324,11 @@ impl ApprovalService {
         if let Some(tx) = self.waiters.lock().remove(&id) {
             let _ = tx.send(status);
         }
-        let mut ev = NewEvent::new(EventKind::ApprovalResolved(ApprovalResolvedPayload { approval_id: id, status, resolved_by: by }));
+        let mut ev = NewEvent::new(EventKind::ApprovalResolved(ApprovalResolvedPayload {
+            approval_id: id,
+            status,
+            resolved_by: by,
+        }));
         if let Some(p) = a.project_id {
             ev = ev.project(p);
         }
@@ -330,7 +356,13 @@ impl ApprovalService {
     }
 
     /// User decision (`approvals.resolve`).
-    pub async fn resolve(&self, id: ApprovalId, decision: ApprovalDecision, note: Option<String>, by: Actor) -> SecurityResult<Approval> {
+    pub async fn resolve(
+        &self,
+        id: ApprovalId,
+        decision: ApprovalDecision,
+        note: Option<String>,
+        by: Actor,
+    ) -> SecurityResult<Approval> {
         if !matches!(by, Actor::User(_)) {
             return Err(SecurityError::Forbidden("only users can resolve approvals (P1/P2)".into()));
         }
@@ -354,7 +386,9 @@ impl ApprovalService {
 
     /// Cancels every pending approval in scope. Returns how many.
     pub async fn cancel_scope(&self, scope: CancelScope, reason: &str) -> SecurityResult<u32> {
-        let pending = self.list(&ApprovalFilter { status: Some(ApprovalStatus::Pending), limit: Some(1000), ..Default::default() }).await?;
+        let pending = self
+            .list(&ApprovalFilter { status: Some(ApprovalStatus::Pending), limit: Some(1000), ..Default::default() })
+            .await?;
         let mut n = 0u32;
         for a in pending {
             let hit = match scope {
@@ -371,7 +405,9 @@ impl ApprovalService {
 
     /// Expires pending approvals whose deadline passed. Returns how many.
     pub async fn expire_due(&self) -> SecurityResult<u32> {
-        let pending = self.list(&ApprovalFilter { status: Some(ApprovalStatus::Pending), limit: Some(1000), ..Default::default() }).await?;
+        let pending = self
+            .list(&ApprovalFilter { status: Some(ApprovalStatus::Pending), limit: Some(1000), ..Default::default() })
+            .await?;
         let t = now();
         let mut n = 0u32;
         for a in pending.into_iter().filter(|a| a.expires_at.is_some_and(|e| e <= t)) {
@@ -398,7 +434,12 @@ impl ApprovalService {
 
     /// Waits for a decision. On timeout the approval becomes `Expired`; when
     /// `cancel` fires it becomes `Cancelled`. Returns the final status.
-    pub async fn wait(&self, id: ApprovalId, timeout: Duration, cancel: &CancellationToken) -> SecurityResult<ApprovalStatus> {
+    pub async fn wait(
+        &self,
+        id: ApprovalId,
+        timeout: Duration,
+        cancel: &CancellationToken,
+    ) -> SecurityResult<ApprovalStatus> {
         let mut rx = {
             let mut w = self.waiters.lock();
             w.entry(id).or_insert_with(|| watch::channel(ApprovalStatus::Pending).0).subscribe()
@@ -426,8 +467,24 @@ impl ApprovalService {
         };
         match outcome {
             Some(ApprovalStatus::Expired) | Some(ApprovalStatus::Cancelled) | None => {
-                let target = if outcome == Some(ApprovalStatus::Cancelled) { ApprovalStatus::Cancelled } else { ApprovalStatus::Expired };
-                match self.finish(id, target, Some(Actor::System), Some(if target == ApprovalStatus::Cancelled { "cancelled by requester".into() } else { "timed out".into() })).await {
+                let target = if outcome == Some(ApprovalStatus::Cancelled) {
+                    ApprovalStatus::Cancelled
+                } else {
+                    ApprovalStatus::Expired
+                };
+                match self
+                    .finish(
+                        id,
+                        target,
+                        Some(Actor::System),
+                        Some(if target == ApprovalStatus::Cancelled {
+                            "cancelled by requester".into()
+                        } else {
+                            "timed out".into()
+                        }),
+                    )
+                    .await
+                {
                     Ok(a) => Ok(a.status),
                     // Lost the race against a user decision: report what happened.
                     Err(SecurityError::Conflict(_)) => Ok(self.get(id).await?.map_or(target, |a| a.status)),
@@ -439,7 +496,12 @@ impl ApprovalService {
     }
 
     /// `request` + `wait`.
-    pub async fn request_and_wait(&self, req: ApprovalRequest, timeout: Duration, cancel: &CancellationToken) -> SecurityResult<(Approval, ApprovalStatus)> {
+    pub async fn request_and_wait(
+        &self,
+        req: ApprovalRequest,
+        timeout: Duration,
+        cancel: &CancellationToken,
+    ) -> SecurityResult<(Approval, ApprovalStatus)> {
         let a = self.request(req).await?;
         let status = self.wait(a.id, timeout, cancel).await?;
         Ok((a, status))
@@ -494,10 +556,25 @@ mod tests {
         // Second resolution conflicts.
         assert!(matches!(s.resolve(a.id, ApprovalDecision::Reject, None, user).await, Err(SecurityError::Conflict(_))));
         // Waiting on an already resolved approval returns immediately.
-        assert_eq!(s.wait(a.id, Duration::from_millis(10), &CancellationToken::new()).await.unwrap(), ApprovalStatus::Approved);
+        assert_eq!(
+            s.wait(a.id, Duration::from_millis(10), &CancellationToken::new()).await.unwrap(),
+            ApprovalStatus::Approved
+        );
         // History / filters.
-        assert_eq!(s.list(&ApprovalFilter { status: Some(ApprovalStatus::Approved), ..Default::default() }).await.unwrap().len(), 1);
-        assert_eq!(s.list(&ApprovalFilter { status: Some(ApprovalStatus::Pending), ..Default::default() }).await.unwrap().len(), 0);
+        assert_eq!(
+            s.list(&ApprovalFilter { status: Some(ApprovalStatus::Approved), ..Default::default() })
+                .await
+                .unwrap()
+                .len(),
+            1
+        );
+        assert_eq!(
+            s.list(&ApprovalFilter { status: Some(ApprovalStatus::Pending), ..Default::default() })
+                .await
+                .unwrap()
+                .len(),
+            0
+        );
     }
 
     #[tokio::test]
@@ -505,7 +582,10 @@ mod tests {
         let (_bus, s) = svc().await;
         let a = s.request(req(ProjectId::new())).await.unwrap();
         for actor in [Actor::Manager, Actor::Agent(AgentId::new()), Actor::System] {
-            assert!(matches!(s.resolve(a.id, ApprovalDecision::Approve, None, actor).await, Err(SecurityError::Forbidden(_))));
+            assert!(matches!(
+                s.resolve(a.id, ApprovalDecision::Approve, None, actor).await,
+                Err(SecurityError::Forbidden(_))
+            ));
         }
     }
 
@@ -513,7 +593,10 @@ mod tests {
     async fn timeout_expires_and_cancel_cancels() {
         let (_bus, s) = svc().await;
         let a = s.request(req(ProjectId::new())).await.unwrap();
-        assert_eq!(s.wait(a.id, Duration::from_millis(30), &CancellationToken::new()).await.unwrap(), ApprovalStatus::Expired);
+        assert_eq!(
+            s.wait(a.id, Duration::from_millis(30), &CancellationToken::new()).await.unwrap(),
+            ApprovalStatus::Expired
+        );
         assert_eq!(s.get(a.id).await.unwrap().unwrap().status, ApprovalStatus::Expired);
 
         let b = s.request(req(ProjectId::new())).await.unwrap();

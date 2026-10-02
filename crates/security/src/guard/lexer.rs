@@ -98,7 +98,9 @@ enum Pending {
     /// Next word is an input/ignored redirection operand.
     Ignore,
     /// Next word is a here-document delimiter (`<<-` strips tabs).
-    HeredocDelim { strip_tabs: bool },
+    HeredocDelim {
+        strip_tabs: bool,
+    },
 }
 
 struct Lexer {
@@ -116,8 +118,9 @@ struct Lexer {
     heredoc_queue: Vec<(usize, String, bool)>,
 }
 
-const POSIX_KEYWORDS: &[&str] =
-    &["if", "then", "else", "elif", "fi", "do", "done", "while", "until", "!", "{", "}", "(", ")", "case", "esac", "in"];
+const POSIX_KEYWORDS: &[&str] = &[
+    "if", "then", "else", "elif", "fi", "do", "done", "while", "until", "!", "{", "}", "(", ")", "case", "esac", "in",
+];
 
 impl Lexer {
     fn new(input: &str, family: Family) -> Self {
@@ -251,7 +254,8 @@ impl Lexer {
                         let Some(q) = self.peek() else { return Err(LexError::Unbalanced("quote")) };
                         self.i += 1;
                         inner.push(q);
-                        if (q == '\\' && self.family == Family::Posix) || (q == '`' && self.family == Family::PowerShell)
+                        if (q == '\\' && self.family == Family::Posix)
+                            || (q == '`' && self.family == Family::PowerShell)
                         {
                             if let Some(n) = self.peek() {
                                 self.i += 1;

@@ -79,7 +79,7 @@ impl CodexStreamParser {
                     });
                 }
                 let status = item.get("status").and_then(Value::as_str).unwrap_or("completed");
-                let exit_ok = item.get("exit_code").and_then(Value::as_i64).map_or(true, |c| c == 0);
+                let exit_ok = item.get("exit_code").and_then(Value::as_i64).is_none_or(|c| c == 0);
                 let ok = status == "completed" && exit_ok;
                 let detail = item
                     .get("aggregated_output")

@@ -21,8 +21,8 @@ use std::sync::Arc;
 
 use globset::{GlobBuilder, GlobMatcher};
 use orkestr_domain::{
-    now, Actor, AgentId, ApprovalMode, Capability, DangerCategory, PermissionEffect, PermissionRuleRecord, PermissionScope,
-    ProjectId, RiskLevel, TaskId,
+    now, Actor, AgentId, ApprovalMode, Capability, DangerCategory, PermissionEffect, PermissionRuleRecord,
+    PermissionScope, ProjectId, RiskLevel, TaskId,
 };
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
@@ -233,9 +233,12 @@ impl std::fmt::Debug for RuleEngine {
 fn risk_of(cap: Capability, ctx: &CheckContext) -> RiskLevel {
     match cap {
         Capability::Read => RiskLevel::Low,
-        Capability::Write | Capability::Terminal | Capability::Git | Capability::DbRead | Capability::Network | Capability::Browser => {
-            RiskLevel::Medium
-        }
+        Capability::Write
+        | Capability::Terminal
+        | Capability::Git
+        | Capability::DbRead
+        | Capability::Network
+        | Capability::Browser => RiskLevel::Medium,
         Capability::Delete | Capability::DbWrite | Capability::Docker | Capability::Ssh => RiskLevel::High,
         Capability::Deploy if ctx.protected_environment => RiskLevel::Critical,
         Capability::Deploy => RiskLevel::High,
@@ -246,8 +249,15 @@ fn risk_of(cap: Capability, ctx: &CheckContext) -> RiskLevel {
 fn danger_risk(cat: DangerCategory) -> RiskLevel {
     use DangerCategory as C;
     match cat {
-        C::ProtectedPathDelete | C::ProductionChange | C::SecretChange | C::DataDestruction | C::PrivilegeEscalation | C::DiskDestruction
-        | C::RemoteCodeExecution | C::CredentialAccess | C::SelfTamper => RiskLevel::Critical,
+        C::ProtectedPathDelete
+        | C::ProductionChange
+        | C::SecretChange
+        | C::DataDestruction
+        | C::PrivilegeEscalation
+        | C::DiskDestruction
+        | C::RemoteCodeExecution
+        | C::CredentialAccess
+        | C::SelfTamper => RiskLevel::Critical,
         _ => RiskLevel::High,
     }
 }
@@ -379,7 +389,11 @@ impl PermissionEngine for RuleEngine {
             return Decision::deny("emergency_stop", "Stop All AI is active", true);
         }
         if is_ai && flags.network_tools_disabled && matches!(capability, Capability::Network | Capability::Browser) {
-            return Decision::deny("emergency_network_disabled", "network tools are disabled by an emergency control", true);
+            return Decision::deny(
+                "emergency_network_disabled",
+                "network tools are disabled by an emergency control",
+                true,
+            );
         }
         if flags.vault_locked && capability == Capability::Secrets {
             return Decision::deny("vault_locked", "the secret vault is locked", true);
@@ -481,24 +495,25 @@ impl PermissionEngine for RuleEngine {
             .iter()
             .filter(|r| {
                 (r.record.rule.capability == effective_cap || r.record.rule.capability == capability)
-                    && r.record.expires_at.map_or(true, |e| e > t)
+                    && r.record.expires_at.is_none_or(|e| e > t)
                     && scope_applies(&r.record.rule.scope, ctx)
-                    && r.matcher.as_ref().map_or(true, |m| m.is_match(&key))
+                    && r.matcher.as_ref().is_none_or(|m| m.is_match(&key))
             })
             .collect();
-        let (effect, rule_id, from_rule) = if let Some(narrowest) = matching.iter().map(|r| r.record.rule.scope.specificity()).max() {
-            let winner = matching
-                .iter()
-                .filter(|r| r.record.rule.scope.specificity() == narrowest)
-                .max_by_key(|r| effect_rank(r.record.rule.effect))
-                .map(|r| (r.record.rule.effect, r.record.id.clone()));
-            match winner {
-                Some((e, id)) => (e, Some(id), true),
-                None => (PermissionEffect::Ask, None, false),
-            }
-        } else {
-            (mode_default(mode, effective_cap, inside_root, ctx.protected_environment), None, false)
-        };
+        let (effect, rule_id, from_rule) =
+            if let Some(narrowest) = matching.iter().map(|r| r.record.rule.scope.specificity()).max() {
+                let winner = matching
+                    .iter()
+                    .filter(|r| r.record.rule.scope.specificity() == narrowest)
+                    .max_by_key(|r| effect_rank(r.record.rule.effect))
+                    .map(|r| (r.record.rule.effect, r.record.id.clone()));
+                match winner {
+                    Some((e, id)) => (e, Some(id), true),
+                    None => (PermissionEffect::Ask, None, false),
+                }
+            } else {
+                (mode_default(mode, effective_cap, inside_root, ctx.protected_environment), None, false)
+            };
 
         // P6: ComputerControl needs an explicit rule and is then still asked each time.
         if effective_cap == Capability::ComputerControl {
@@ -583,7 +598,8 @@ mod tests {
 
     fn fx() -> Fx {
         let flags = Arc::new(SharedFlags::default());
-        let engine = RuleEngine::new(Arc::new(DangerousActionGuard::with_config(GuardConfig::default())), Arc::clone(&flags));
+        let engine =
+            RuleEngine::new(Arc::new(DangerousActionGuard::with_config(GuardConfig::default())), Arc::clone(&flags));
         let root = tempfile::tempdir().unwrap();
         std::fs::create_dir_all(root.path().join("src")).unwrap();
         Fx { engine, flags, root, project: ProjectId::new(), agent: AgentId::new(), task: TaskId::new() }
@@ -603,7 +619,13 @@ mod tests {
         fn agent(&self) -> Actor {
             Actor::Agent(self.agent)
         }
-        fn rule(&self, cap: Capability, effect: PermissionEffect, resource: Option<&str>, scope: PermissionScope) -> PermissionRuleRecord {
+        fn rule(
+            &self,
+            cap: Capability,
+            effect: PermissionEffect,
+            resource: Option<&str>,
+            scope: PermissionScope,
+        ) -> PermissionRuleRecord {
             PermissionRuleRecord {
                 id: uuid_like(),
                 rule: PermissionRule { capability: cap, effect, resource: resource.map(str::to_owned), scope },
@@ -638,10 +660,23 @@ mod tests {
         for mode in [ApprovalMode::Ask, ApprovalMode::SemiAuto, ApprovalMode::FullAuto] {
             let ctx = f.ctx(mode);
             assert!(f.engine.check(&a, Capability::Read, &path("src/a.rs"), &ctx).is_allow(), "{mode:?} read");
-            for cap in [Capability::Network, Capability::Deploy, Capability::Secrets, Capability::Ssh, Capability::Docker, Capability::DbWrite] {
-                assert!(f.engine.check(&a, cap, &Resource::None, &ctx).is_ask(), "{mode:?} {cap:?} never granted by default");
+            for cap in [
+                Capability::Network,
+                Capability::Deploy,
+                Capability::Secrets,
+                Capability::Ssh,
+                Capability::Docker,
+                Capability::DbWrite,
+            ] {
+                assert!(
+                    f.engine.check(&a, cap, &Resource::None, &ctx).is_ask(),
+                    "{mode:?} {cap:?} never granted by default"
+                );
             }
-            assert!(f.engine.check(&a, Capability::ComputerControl, &Resource::None, &ctx).is_deny(), "{mode:?} computer control");
+            assert!(
+                f.engine.check(&a, Capability::ComputerControl, &Resource::None, &ctx).is_deny(),
+                "{mode:?} computer control"
+            );
         }
         let ask = f.ctx(ApprovalMode::Ask);
         assert!(f.engine.check(&a, Capability::Write, &path("src/a.rs"), &ask).is_ask());
@@ -651,7 +686,10 @@ mod tests {
             let ctx = f.ctx(mode);
             assert!(f.engine.check(&a, Capability::Write, &path("src/a.rs"), &ctx).is_allow(), "{mode:?}");
             assert!(f.engine.check(&a, Capability::Terminal, &cmd("cargo test"), &ctx).is_allow(), "{mode:?}");
-            assert!(f.engine.check(&a, Capability::Git, &Resource::Git { args: vec!["commit".into()] }, &ctx).is_allow());
+            assert!(f
+                .engine
+                .check(&a, Capability::Git, &Resource::Git { args: vec!["commit".into()] }, &ctx)
+                .is_allow());
         }
         // Without a worktree root nothing is "within the worktree".
         let mut no_root = f.ctx(ApprovalMode::FullAuto);
@@ -682,7 +720,10 @@ mod tests {
                 other => panic!("{c}: {other:?}"),
             }
         }
-        assert!(f.engine.check(&a, Capability::Git, &Resource::Git { args: vec!["push".into(), "-f".into()] }, &ctx).is_ask());
+        assert!(f
+            .engine
+            .check(&a, Capability::Git, &Resource::Git { args: vec!["push".into(), "-f".into()] }, &ctx)
+            .is_ask());
         assert!(f.engine.check(&a, Capability::Terminal, &cmd("cargo test"), &ctx).is_allow());
     }
 
@@ -705,14 +746,24 @@ mod tests {
         let ctx = f.ctx(ApprovalMode::Ask);
         // Project Deny, Task Allow → Task wins.
         f.engine.set_rules(vec![
-            f.rule(Capability::Network, PermissionEffect::Deny, None, PermissionScope::Project { project_id: f.project }),
+            f.rule(
+                Capability::Network,
+                PermissionEffect::Deny,
+                None,
+                PermissionScope::Project { project_id: f.project },
+            ),
             f.rule(Capability::Network, PermissionEffect::Allow, None, PermissionScope::Task { task_id: f.task }),
         ]);
         assert!(f.engine.check(&a, Capability::Network, &Resource::Url { url: "https://x".into() }, &ctx).is_allow());
         // Global Allow, Project Deny → Project wins.
         f.engine.set_rules(vec![
             f.rule(Capability::Network, PermissionEffect::Allow, None, PermissionScope::Global),
-            f.rule(Capability::Network, PermissionEffect::Deny, None, PermissionScope::Project { project_id: f.project }),
+            f.rule(
+                Capability::Network,
+                PermissionEffect::Deny,
+                None,
+                PermissionScope::Project { project_id: f.project },
+            ),
         ]);
         match f.engine.check(&a, Capability::Network, &Resource::None, &ctx) {
             Decision::Deny(r) => {
@@ -735,9 +786,24 @@ mod tests {
         assert!(f.engine.check(&a, Capability::Network, &Resource::None, &ctx).is_ask());
         // Rules for other agents/projects/tasks don't apply.
         f.engine.set_rules(vec![
-            f.rule(Capability::Network, PermissionEffect::Allow, None, PermissionScope::Agent { agent_id: AgentId::new() }),
-            f.rule(Capability::Network, PermissionEffect::Allow, None, PermissionScope::Project { project_id: ProjectId::new() }),
-            f.rule(Capability::Network, PermissionEffect::Allow, None, PermissionScope::Task { task_id: TaskId::new() }),
+            f.rule(
+                Capability::Network,
+                PermissionEffect::Allow,
+                None,
+                PermissionScope::Agent { agent_id: AgentId::new() },
+            ),
+            f.rule(
+                Capability::Network,
+                PermissionEffect::Allow,
+                None,
+                PermissionScope::Project { project_id: ProjectId::new() },
+            ),
+            f.rule(
+                Capability::Network,
+                PermissionEffect::Allow,
+                None,
+                PermissionScope::Task { task_id: TaskId::new() },
+            ),
         ]);
         assert!(f.engine.check(&a, Capability::Network, &Resource::None, &ctx).is_ask());
     }
@@ -750,8 +816,18 @@ mod tests {
         let mut expired = f.rule(Capability::Terminal, PermissionEffect::Allow, None, PermissionScope::Global);
         expired.expires_at = Some(now() - chrono::Duration::minutes(1));
         f.engine.set_rules(vec![
-            f.rule(Capability::Terminal, PermissionEffect::Allow, Some("cargo *"), PermissionScope::Project { project_id: f.project }),
-            f.rule(Capability::Write, PermissionEffect::Allow, Some("src/**"), PermissionScope::Project { project_id: f.project }),
+            f.rule(
+                Capability::Terminal,
+                PermissionEffect::Allow,
+                Some("cargo *"),
+                PermissionScope::Project { project_id: f.project },
+            ),
+            f.rule(
+                Capability::Write,
+                PermissionEffect::Allow,
+                Some("src/**"),
+                PermissionScope::Project { project_id: f.project },
+            ),
             expired,
         ]);
         assert!(f.engine.check(&a, Capability::Terminal, &cmd("cargo test --all"), &ctx).is_allow());
@@ -766,7 +842,8 @@ mod tests {
         let f = fx();
         let a = f.agent();
         let ctx = f.ctx(ApprovalMode::FullAuto);
-        for p in ["../outside.txt", "/etc/passwd", "C:\\Windows\\win.ini", "\\\\server\\share", "src/x.txt:ads", "NUL"] {
+        for p in ["../outside.txt", "/etc/passwd", "C:\\Windows\\win.ini", "\\\\server\\share", "src/x.txt:ads", "NUL"]
+        {
             match f.engine.check(&a, Capability::Write, &path(p), &ctx) {
                 Decision::Deny(r) => assert!(r.hard, "{p}"),
                 other => panic!("{p}: {other:?}"),
@@ -808,7 +885,10 @@ mod tests {
         f.set_flags(|fl| fl.all_stopped = true);
         assert!(f.engine.check(&a, Capability::Read, &path("src/a.rs"), &ctx).is_deny());
         assert!(f.engine.check(&Actor::Manager, Capability::Read, &path("src/a.rs"), &ctx).is_deny());
-        assert!(f.engine.check(&Actor::User(orkestr_domain::UserId::new()), Capability::Read, &path("src/a.rs"), &ctx).is_allow());
+        assert!(f
+            .engine
+            .check(&Actor::User(orkestr_domain::UserId::new()), Capability::Read, &path("src/a.rs"), &ctx)
+            .is_allow());
     }
 
     #[test]
@@ -817,7 +897,12 @@ mod tests {
         let a = f.agent();
         let ctx = f.ctx(ApprovalMode::FullAuto);
         assert!(f.engine.check(&a, Capability::ComputerControl, &Resource::None, &ctx).is_deny());
-        f.engine.set_rules(vec![f.rule(Capability::ComputerControl, PermissionEffect::Allow, None, PermissionScope::Project { project_id: f.project })]);
+        f.engine.set_rules(vec![f.rule(
+            Capability::ComputerControl,
+            PermissionEffect::Allow,
+            None,
+            PermissionScope::Project { project_id: f.project },
+        )]);
         match f.engine.check(&a, Capability::ComputerControl, &Resource::None, &ctx) {
             Decision::Ask(r) => assert!(!r.rememberable),
             other => panic!("{other:?}"),

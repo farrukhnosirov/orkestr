@@ -235,7 +235,8 @@ impl EmergencyController {
     }
 
     async fn publish(&self, scope: EmergencyScope, agents_stopped: u32, by: Actor) {
-        let ev = NewEvent::new(EventKind::EmergencyStop(EmergencyStopPayload { scope, agents_stopped, triggered_by: by }));
+        let ev =
+            NewEvent::new(EventKind::EmergencyStop(EmergencyStopPayload { scope, agents_stopped, triggered_by: by }));
         if let Err(e) = self.events.publish(ev).await {
             // The stop itself already happened; never fail it because of the event log.
             tracing::error!(error = %e, "failed to publish EmergencyStop");
@@ -246,8 +247,10 @@ impl EmergencyController {
     pub async fn stop_all(&self, by: Actor) -> SecurityResult<StopReport> {
         let report = {
             let mut reg = self.reg.write();
-            let agents = u32::try_from(reg.agents.values().filter(|(_, t)| !t.is_cancelled()).count()).unwrap_or(u32::MAX);
-            let other = u32::try_from(reg.globals.iter().filter(|t| !t.is_cancelled()).count() + reg.projects.len()).unwrap_or(u32::MAX);
+            let agents =
+                u32::try_from(reg.agents.values().filter(|(_, t)| !t.is_cancelled()).count()).unwrap_or(u32::MAX);
+            let other = u32::try_from(reg.globals.iter().filter(|t| !t.is_cancelled()).count() + reg.projects.len())
+                .unwrap_or(u32::MAX);
             reg.root.cancel();
             *reg = Registry::new();
             StopReport { agents_stopped: agents, other_stopped: other }

@@ -13,7 +13,8 @@ pub mod stores;
 use std::sync::Arc;
 
 use orkestr_domain::{
-    now, Actor, AuditOutcome, Capability, ProjectId, SecretBackend, SecretRefId, SecretReference, SecretScope, Timestamp,
+    now, Actor, AuditOutcome, Capability, ProjectId, SecretBackend, SecretRefId, SecretReference, SecretScope,
+    Timestamp,
 };
 use orkestr_storage::rusqlite::{params, OptionalExtension};
 use orkestr_storage::{Db, Migration};
@@ -118,7 +119,9 @@ fn scope_key(scope: &SecretScope) -> (String, Option<ProjectId>) {
     match scope {
         SecretScope::Global => ("global".into(), None),
         SecretScope::Project { project_id } => (format!("project:{project_id}"), Some(*project_id)),
-        SecretScope::Environment { project_id, environment_id } => (format!("env:{project_id}:{environment_id}"), Some(*project_id)),
+        SecretScope::Environment { project_id, environment_id } => {
+            (format!("env:{project_id}:{environment_id}"), Some(*project_id))
+        }
     }
 }
 
@@ -223,7 +226,9 @@ impl SecretService {
         let ids = id.to_string();
         let doc: Option<String> = self
             .db
-            .call(move |c| Ok(c.query_row("SELECT doc FROM secret_refs WHERE id = ?1", [ids], |r| r.get(0)).optional()?))
+            .call(move |c| {
+                Ok(c.query_row("SELECT doc FROM secret_refs WHERE id = ?1", [ids], |r| r.get(0)).optional()?)
+            })
             .await?;
         Ok(doc.map(|d| serde_json::from_str(&d)).transpose()?)
     }
@@ -234,15 +239,25 @@ impl SecretService {
         let doc: Option<String> = self
             .db
             .call(move |c| {
-                Ok(c.query_row("SELECT doc FROM secret_refs WHERE name = ?1 AND scope_key = ?2", params![name, key], |r| r.get(0))
-                    .optional()?)
+                Ok(c.query_row(
+                    "SELECT doc FROM secret_refs WHERE name = ?1 AND scope_key = ?2",
+                    params![name, key],
+                    |r| r.get(0),
+                )
+                .optional()?)
             })
             .await?;
         Ok(doc.map(|d| serde_json::from_str(&d)).transpose()?)
     }
 
     /// Creates or rotates a secret (`name` unique per scope).
-    pub async fn set(&self, name: &str, scope: SecretScope, value: Zeroizing<String>, by: Actor) -> SecurityResult<SecretReference> {
+    pub async fn set(
+        &self,
+        name: &str,
+        scope: SecretScope,
+        value: Zeroizing<String>,
+        by: Actor,
+    ) -> SecurityResult<SecretReference> {
         if matches!(by, Actor::Agent(_) | Actor::Manager) {
             return Err(SecurityError::Forbidden("agents cannot write secrets directly".into()));
         }
@@ -288,15 +303,21 @@ impl SecretService {
                         reference.backend = SecretBackend::OsKeyring;
                         stored = true;
                     }
-                    Ok(Err(e)) => tracing::warn!(error = %e, "OS keyring write failed; storing the secret in the encrypted vault"),
-                    Err(e) => tracing::warn!(error = %e, "keyring task failed; storing the secret in the encrypted vault"),
+                    Ok(Err(e)) => {
+                        tracing::warn!(error = %e, "OS keyring write failed; storing the secret in the encrypted vault")
+                    }
+                    Err(e) => {
+                        tracing::warn!(error = %e, "keyring task failed; storing the secret in the encrypted vault")
+                    }
                 }
             }
         }
         if !stored {
             let v = self.store_for(SecretBackend::EncryptedVault)?;
             let (loc, val) = (reference.locator.clone(), value.clone());
-            tokio::task::spawn_blocking(move || v.put(&loc, &val)).await.map_err(|e| SecurityError::Backend(e.to_string()))??;
+            tokio::task::spawn_blocking(move || v.put(&loc, &val))
+                .await
+                .map_err(|e| SecurityError::Backend(e.to_string()))??;
             reference.backend = SecretBackend::EncryptedVault;
         }
         // Remove a stale copy when the backend changed on rotation.
@@ -367,7 +388,9 @@ impl SecretService {
             let value = tokio::task::spawn_blocking(move || store.get(&loc))
                 .await
                 .map_err(|e| SecurityError::Backend(e.to_string()))??
-                .ok_or_else(|| SecurityError::SecretNotFound(format!("value of {} is missing from its backend", r.name)))?;
+                .ok_or_else(|| {
+                    SecurityError::SecretNotFound(format!("value of {} is missing from its backend", r.name))
+                })?;
             Ok(value)
         }
         .await;
@@ -377,7 +400,9 @@ impl SecretService {
                 NewAudit::new(by, "secrets.read", r.name.clone(), outcome)
                     .capability(Capability::Secrets)
                     .project(ctx.project_id)
-                    .details(serde_json::json!({ "secretId": id, "error": result.as_ref().err().map(ToString::to_string) })),
+                    .details(
+                        serde_json::json!({ "secretId": id, "error": result.as_ref().err().map(ToString::to_string) }),
+                    ),
             )
             .await;
         let value = result?;
@@ -389,7 +414,12 @@ impl SecretService {
     }
 
     /// Resolves by name: project scope first, then global.
-    pub async fn resolve_by_name(&self, name: &str, by: Actor, ctx: AccessContext) -> SecurityResult<Zeroizing<String>> {
+    pub async fn resolve_by_name(
+        &self,
+        name: &str,
+        by: Actor,
+        ctx: AccessContext,
+    ) -> SecurityResult<Zeroizing<String>> {
         let mut candidate = None;
         if let Some(p) = ctx.project_id {
             candidate = self.find(name, &SecretScope::Project { project_id: p }).await?;
@@ -421,7 +451,9 @@ impl SecretService {
             // Only touch the key when a vault exists or vault mode is forced.
             let needs_key = self.choice != SecretBackendChoice::Auto || self.has_vault_secrets().await?;
             if needs_key {
-                tokio::task::spawn_blocking(move || v.unlock()).await.map_err(|e| SecurityError::Backend(e.to_string()))??;
+                tokio::task::spawn_blocking(move || v.unlock())
+                    .await
+                    .map_err(|e| SecurityError::Backend(e.to_string()))??;
             }
         }
         self.emergency.set_vault_locked(false).await?;
@@ -436,7 +468,11 @@ impl SecretService {
     /// Status.
     pub async fn status(&self) -> SecurityResult<VaultStatus> {
         let n: i64 = self.db.call(|c| Ok(c.query_row("SELECT COUNT(*) FROM secret_refs", [], |r| r.get(0))?)).await?;
-        Ok(VaultStatus { locked: self.locked(), backend: self.choice, secret_count: u32::try_from(n).unwrap_or(u32::MAX) })
+        Ok(VaultStatus {
+            locked: self.locked(),
+            backend: self.choice,
+            secret_count: u32::try_from(n).unwrap_or(u32::MAX),
+        })
     }
 
     /// Registers every stored value with the redactor (startup), so values
@@ -505,11 +541,21 @@ mod tests {
 
     #[tokio::test]
     async fn set_resolve_rotate_delete_and_audit() {
-        for choice in [SecretBackendChoice::Auto, SecretBackendChoice::Vault, SecretBackendChoice::VaultFileKey, SecretBackendChoice::Memory] {
+        for choice in [
+            SecretBackendChoice::Auto,
+            SecretBackendChoice::Vault,
+            SecretBackendChoice::VaultFileKey,
+            SecretBackendChoice::Memory,
+        ] {
             let f = fx(choice).await;
             let value = format!("sk-test-value-{choice:?}-0123456789");
-            let r = f.svc.set("OPENAI_API_KEY", SecretScope::Global, Zeroizing::new(value.clone()), user()).await.unwrap();
-            let expected_backend = if choice == SecretBackendChoice::Auto { SecretBackend::OsKeyring } else { SecretBackend::EncryptedVault };
+            let r =
+                f.svc.set("OPENAI_API_KEY", SecretScope::Global, Zeroizing::new(value.clone()), user()).await.unwrap();
+            let expected_backend = if choice == SecretBackendChoice::Auto {
+                SecretBackend::OsKeyring
+            } else {
+                SecretBackend::EncryptedVault
+            };
             if choice != SecretBackendChoice::Memory {
                 assert_eq!(r.backend, expected_backend, "{choice:?}");
             }
@@ -519,19 +565,34 @@ mod tests {
             assert!(f.svc.last_accessed(r.id).await.unwrap().is_some());
             assert!(!redact::redact(&format!("leak {value}")).contains(&value), "stored values are redacted");
             // Rotation keeps the id.
-            let r2 = f.svc.set("OPENAI_API_KEY", SecretScope::Global, Zeroizing::new("rotated-value-123".into()), user()).await.unwrap();
+            let r2 = f
+                .svc
+                .set("OPENAI_API_KEY", SecretScope::Global, Zeroizing::new("rotated-value-123".into()), user())
+                .await
+                .unwrap();
             assert_eq!(r2.id, r.id);
             assert!(r2.rotated_at.is_some());
-            assert_eq!(f.svc.resolve_by_name("OPENAI_API_KEY", Actor::System, AccessContext::default()).await.unwrap().as_str(), "rotated-value-123");
+            assert_eq!(
+                f.svc
+                    .resolve_by_name("OPENAI_API_KEY", Actor::System, AccessContext::default())
+                    .await
+                    .unwrap()
+                    .as_str(),
+                "rotated-value-123"
+            );
             assert!(f.svc.delete(r.id, user()).await.unwrap());
             assert!(!f.svc.delete(r.id, user()).await.unwrap());
             assert!(f.svc.resolve(r.id, Actor::System, AccessContext::default()).await.is_err());
-            let actions: Vec<String> = f.audit.query(Default::default()).await.unwrap().into_iter().map(|r| r.event.action).collect();
+            let actions: Vec<String> =
+                f.audit.query(Default::default()).await.unwrap().into_iter().map(|r| r.event.action).collect();
             for a in ["secrets.set", "secrets.read", "secrets.delete"] {
                 assert!(actions.iter().any(|x| x == a), "{choice:?} missing audit {a}");
             }
             // Values never reach the audit log.
-            let all = serde_json::to_string(&f.audit.query(Default::default()).await.unwrap().iter().map(|r| r.event.clone()).collect::<Vec<_>>()).unwrap();
+            let all = serde_json::to_string(
+                &f.audit.query(Default::default()).await.unwrap().iter().map(|r| r.event.clone()).collect::<Vec<_>>(),
+            )
+            .unwrap();
             assert!(!all.contains(&value));
         }
     }
@@ -540,7 +601,11 @@ mod tests {
     async fn scope_checks_and_validation() {
         let f = fx(SecretBackendChoice::Memory).await;
         let p = ProjectId::new();
-        let r = f.svc.set("DB_URL", SecretScope::Project { project_id: p }, Zeroizing::new("postgres://x".into()), user()).await.unwrap();
+        let r = f
+            .svc
+            .set("DB_URL", SecretScope::Project { project_id: p }, Zeroizing::new("postgres://x".into()), user())
+            .await
+            .unwrap();
         assert!(matches!(
             f.svc.resolve(r.id, Actor::System, AccessContext { project_id: Some(ProjectId::new()) }).await,
             Err(SecurityError::Forbidden(_))
@@ -564,13 +629,22 @@ mod tests {
         let r = f.svc.set("TOKEN", SecretScope::Global, Zeroizing::new("tok-123456789".into()), user()).await.unwrap();
         let st = f.svc.lock(user()).await.unwrap();
         assert!(st.locked);
-        assert!(matches!(f.svc.resolve(r.id, Actor::System, AccessContext::default()).await, Err(SecurityError::VaultLocked)));
-        assert!(matches!(f.svc.set("B", SecretScope::Global, Zeroizing::new("v".into()), user()).await, Err(SecurityError::VaultLocked)));
+        assert!(matches!(
+            f.svc.resolve(r.id, Actor::System, AccessContext::default()).await,
+            Err(SecurityError::VaultLocked)
+        ));
+        assert!(matches!(
+            f.svc.set("B", SecretScope::Global, Zeroizing::new("v".into()), user()).await,
+            Err(SecurityError::VaultLocked)
+        ));
         assert_eq!(f.svc.preload_redaction().await.unwrap(), 0);
         let st = f.svc.unlock(user()).await.unwrap();
         assert!(!st.locked);
         assert_eq!(st.secret_count, 1);
-        assert_eq!(f.svc.resolve(r.id, Actor::System, AccessContext::default()).await.unwrap().as_str(), "tok-123456789");
+        assert_eq!(
+            f.svc.resolve(r.id, Actor::System, AccessContext::default()).await.unwrap().as_str(),
+            "tok-123456789"
+        );
         assert_eq!(f.svc.preload_redaction().await.unwrap(), 1);
         let denied = f.audit.query(Default::default()).await.unwrap();
         assert!(denied.iter().any(|r| r.event.action == "secrets.read" && r.event.outcome == AuditOutcome::Denied));

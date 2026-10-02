@@ -586,6 +586,11 @@ impl TerminalService {
         self.stop_where(|o, _| o == owner).await
     }
 
+    /// Stops every agent command and agent terminal (emergency Stop All).
+    pub async fn stop_all_agents(&self) -> usize {
+        self.stop_where(|o, _| o.is_agent()).await
+    }
+
     /// Stops all agent commands and agent terminals of a project (emergency stop).
     pub async fn stop_project_agents(&self, project_id: ProjectId) -> usize {
         self.stop_where(|o, p| o.is_agent() && p == Some(project_id)).await

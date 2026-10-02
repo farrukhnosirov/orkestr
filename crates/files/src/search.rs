@@ -83,7 +83,7 @@ fn walk_builder(
         .git_ignore(!show_ignored)
         .git_exclude(!show_ignored)
         .filter_entry(|e| {
-            e.file_name().to_str().map_or(true, |n| !n.eq_ignore_ascii_case(".git") && !n.contains(TEMP_MARKER))
+            e.file_name().to_str().is_none_or(|n| !n.eq_ignore_ascii_case(".git") && !n.contains(TEMP_MARKER))
         });
     if !include.is_empty() || !exclude.is_empty() {
         let mut ob = OverrideBuilder::new(root.path());

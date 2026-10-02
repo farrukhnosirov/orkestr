@@ -3,8 +3,8 @@
 use orkestr_protocol::methods::emergency::LockVault;
 use orkestr_protocol::methods::permissions::DeletedResult;
 use orkestr_protocol::methods::secrets::{
-    self as m, DeleteSecretParams, ListSecretsParams, ListSecretsResult, SecretBackendPreference, SecretResult, SetSecretParams,
-    VaultStatusResult,
+    self as m, DeleteSecretParams, ListSecretsParams, ListSecretsResult, SecretBackendPreference, SecretResult,
+    SetSecretParams, VaultStatusResult,
 };
 use orkestr_protocol::RpcError;
 use orkestr_security::{SecretBackendChoice, VaultStatus};
@@ -59,7 +59,9 @@ async fn lock(ctx: &RpcContext) -> Result<VaultStatusResult, RpcError> {
 
 async fn set(ctx: RpcContext, p: SetSecretParams) -> Result<SecretResult, RpcError> {
     let sec = &ctx.services.security;
-    if let orkestr_domain::SecretScope::Project { project_id } | orkestr_domain::SecretScope::Environment { project_id, .. } = p.scope {
+    if let orkestr_domain::SecretScope::Project { project_id }
+    | orkestr_domain::SecretScope::Environment { project_id, .. } = p.scope
+    {
         super::permissions::load_project(&ctx, project_id).await?;
     }
     let SetSecretParams { name, scope, value } = p;

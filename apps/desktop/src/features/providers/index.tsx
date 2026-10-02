@@ -6,6 +6,7 @@ import { Plug, Sparkles } from "lucide-react";
 
 import type { AppCommand } from "../commands/registry";
 import type { SettingsSection, SettingsSectionProps } from "../settings/sections";
+import { useSettingsStore } from "../settings/settingsStore";
 import { ManagerSettings } from "./ManagerSettings";
 import { ProviderSetup } from "./ProviderSetup";
 import { checkHealth, loadProviders, useProvidersStore } from "./store";
@@ -47,11 +48,8 @@ export const managerSettingsSection: SettingsSection = {
   component: ManagerSection,
 };
 
-/** Event the settings view listens to (`detail.section` = section id). */
-export const OPEN_SETTINGS_EVENT = "orkestr:open-settings";
-
 function openSettings(section: string): void {
-  window.dispatchEvent(new CustomEvent(OPEN_SETTINGS_EVENT, { detail: { section } }));
+  useSettingsStore.getState().openSettings(section);
 }
 
 export const providerCommands: AppCommand[] = [

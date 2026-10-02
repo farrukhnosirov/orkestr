@@ -390,7 +390,16 @@ fn upstream_has_downloader(upstream: &[&SimpleCommand]) -> bool {
                 let (p, _) = normalize_program(&w.text);
                 matches!(
                     p.as_str(),
-                    "curl" | "wget" | "iwr" | "irm" | "invoke-webrequest" | "invoke-restmethod" | "fetch" | "aria2c" | "http" | "https"
+                    "curl"
+                        | "wget"
+                        | "iwr"
+                        | "irm"
+                        | "invoke-webrequest"
+                        | "invoke-restmethod"
+                        | "fetch"
+                        | "aria2c"
+                        | "http"
+                        | "https"
                 )
             })
     })
@@ -506,7 +515,13 @@ fn is_protected_root(base: &str) -> bool {
         let rest = parts[1..].join("/");
         if matches!(
             rest.as_str(),
-            "windows" | "windows/system32" | "windows/syswow64" | "program files" | "program files (x86)" | "programdata" | "users"
+            "windows"
+                | "windows/system32"
+                | "windows/syswow64"
+                | "program files"
+                | "program files (x86)"
+                | "programdata"
+                | "users"
         ) {
             return true;
         }
@@ -569,7 +584,8 @@ pub(crate) fn check_read_path(ctx: &Ctx<'_>, path: &str) -> DangerClass {
 /// Checks a write (or delete) target path.
 pub(crate) fn check_write_path(ctx: &Ctx<'_>, path: &str, is_delete: bool) -> DangerClass {
     let n = norm_path(path);
-    if n.is_empty() || matches!(n.as_str(), "/dev/null" | "nul" | "$null" | "/dev/stdout" | "/dev/stderr" | "con" | "-") {
+    if n.is_empty() || matches!(n.as_str(), "/dev/null" | "nul" | "$null" | "/dev/stdout" | "/dev/stderr" | "con" | "-")
+    {
         return DangerClass::Safe;
     }
     let verb = if is_delete { "deletes" } else { "writes" };
@@ -580,7 +596,9 @@ pub(crate) fn check_write_path(ctx: &Ctx<'_>, path: &str, is_delete: bool) -> Da
     {
         return f(C::SelfTamper, format!("{verb} Orkestr's own data (core token / database / data dir)"));
     }
-    for dev in ["/dev/sd", "/dev/nvme", "/dev/hd", "/dev/vd", "/dev/xvd", "/dev/disk", "/dev/mmcblk", "/dev/mapper", "//./"] {
+    for dev in
+        ["/dev/sd", "/dev/nvme", "/dev/hd", "/dev/vd", "/dev/xvd", "/dev/disk", "/dev/mmcblk", "/dev/mapper", "//./"]
+    {
         if n.starts_with(dev) {
             return f(C::DiskDestruction, format!("{verb} a raw disk device"));
         }
@@ -594,7 +612,9 @@ pub(crate) fn check_write_path(ctx: &Ctx<'_>, path: &str, is_delete: bool) -> Da
     }
     if n.ends_with("/etc/hosts") || n.contains("drivers/etc/hosts") {
         acc = acc.max(d(C::NetworkConfig, format!("{verb} the hosts file")));
-    } else if ["/etc/", "/usr/", "/bin/", "/sbin/", "/boot/", "/lib/", "/system/", "/library/"].iter().any(|p| n.starts_with(p))
+    } else if ["/etc/", "/usr/", "/bin/", "/sbin/", "/boot/", "/lib/", "/system/", "/library/"]
+        .iter()
+        .any(|p| n.starts_with(p))
         || n.contains(":/windows/")
         || n.contains(":/program files")
         || n.starts_with("%systemroot%")
@@ -607,16 +627,26 @@ pub(crate) fn check_write_path(ctx: &Ctx<'_>, path: &str, is_delete: bool) -> Da
     let name = n.rsplit('/').next().unwrap_or(&n);
     if matches!(
         name,
-        ".bashrc" | ".bash_profile" | ".zshrc" | ".zprofile" | ".zshenv" | ".profile" | ".bash_login" | "profile.ps1"
-            | "microsoft.powershell_profile.ps1" | "$profile" | "config.fish"
+        ".bashrc"
+            | ".bash_profile"
+            | ".zshrc"
+            | ".zprofile"
+            | ".zshenv"
+            | ".profile"
+            | ".bash_login"
+            | "profile.ps1"
+            | "microsoft.powershell_profile.ps1"
+            | "$profile"
+            | "config.fish"
     ) {
         acc = acc.max(d(C::SystemConfig, format!("{verb} shell startup files (persistence)")));
     }
     if let Some(root) = &ctx.root {
-        let absolute = n.starts_with('/') || n.starts_with('~') || n.starts_with("$home") || n.starts_with("%userprofile%") || {
-            let b = n.as_bytes();
-            b.len() >= 2 && b[0].is_ascii_alphabetic() && b[1] == b':'
-        };
+        let absolute =
+            n.starts_with('/') || n.starts_with('~') || n.starts_with("$home") || n.starts_with("%userprofile%") || {
+                let b = n.as_bytes();
+                b.len() >= 2 && b[0].is_ascii_alphabetic() && b[1] == b':'
+            };
         let root = root.trim_end_matches('/');
         if absolute && !(n == root || n.starts_with(&format!("{root}/"))) {
             acc = acc.max(d(C::OutsideWorktree, format!("{verb} outside the worktree (`{}`)", path.trim())));
@@ -738,7 +768,11 @@ fn program_rules(
         // ---------------- wrappers ----------------
         "sudo" | "doas" | "pkexec" | "gsudo" | "sudo-rs" => {
             let priv_ = d(C::PrivilegeEscalation, format!("runs with elevated privileges ({prog})"));
-            let i = skip_opts(args, &["-u", "-g", "-h", "-p", "-U", "-C", "-D", "-r", "-t", "--user", "--group", "--host"], 0);
+            let i = skip_opts(
+                args,
+                &["-u", "-g", "-h", "-p", "-U", "-C", "-D", "-r", "-t", "--user", "--group", "--host"],
+                0,
+            );
             unwrap(i, family).max(priv_)
         }
         "su" => {
@@ -770,8 +804,8 @@ fn program_rules(
             }
             unwrap(i, family)
         }
-        "nohup" | "time" | "command" | "exec" | "builtin" | "setsid" | "chronic" | "unbuffer" | "caffeinate" | "stdbuf"
-        | "strace" | "ltrace" | "flock" | "call" => {
+        "nohup" | "time" | "command" | "exec" | "builtin" | "setsid" | "chronic" | "unbuffer" | "caffeinate"
+        | "stdbuf" | "strace" | "ltrace" | "flock" | "call" => {
             let i = skip_opts(args, &["-o", "-n", "-e", "-c", "-w"], usize::from(prog == "flock"));
             unwrap(i, family)
         }
@@ -802,7 +836,8 @@ fn program_rules(
                 if matches!(t, "-exec" | "-execdir" | "-ok" | "-okdir") {
                     let start = i + 1;
                     let mut end = start;
-                    while end < args.len() && args[end].text != ";" && args[end].text != "+" && args[end].text != "\\;" {
+                    while end < args.len() && args[end].text != ";" && args[end].text != "+" && args[end].text != "\\;"
+                    {
                         end += 1;
                     }
                     if start < end {
@@ -833,11 +868,13 @@ fn program_rules(
                 let t = args[idx].text.as_str();
                 if t.starts_with('-') && !t.starts_with("--") && t.len() > 1 && t[1..].contains('c') {
                     if let Some(c) = args.get(idx + 1) {
-                        return acc.max(text(&c.text, Family::Posix)).max(if raw().downloader.is_match(&c.text) && c.text.contains("$(") {
-                            rce("shell executes downloaded content")
-                        } else {
-                            DangerClass::Safe
-                        });
+                        return acc.max(text(&c.text, Family::Posix)).max(
+                            if raw().downloader.is_match(&c.text) && c.text.contains("$(") {
+                                rce("shell executes downloaded content")
+                            } else {
+                                DangerClass::Safe
+                            },
+                        );
                     }
                     break;
                 }
@@ -904,10 +941,30 @@ fn program_rules(
                     return DangerClass::Safe;
                 }
                 let with_value = [
-                    "executionpolicy", "ep", "ex", "exec", "windowstyle", "w", "version", "v", "configurationname", "outputformat", "of",
-                    "inputformat", "if", "workingdirectory", "wd", "settingsfile", "custompipename", "psconsolefile",
+                    "executionpolicy",
+                    "ep",
+                    "ex",
+                    "exec",
+                    "windowstyle",
+                    "w",
+                    "version",
+                    "v",
+                    "configurationname",
+                    "outputformat",
+                    "of",
+                    "inputformat",
+                    "if",
+                    "workingdirectory",
+                    "wd",
+                    "settingsfile",
+                    "custompipename",
+                    "psconsolefile",
                 ];
-                i += if with_value.iter().any(|v| (v.starts_with(name.as_str()) && name.len() >= 2) || *v == name) { 2 } else { 1 };
+                i += if with_value.iter().any(|v| (v.starts_with(name.as_str()) && name.len() >= 2) || *v == name) {
+                    2
+                } else {
+                    1
+                };
             }
             if i < args.len() {
                 let rest = texts(&args[i..]).join(" ");
@@ -963,9 +1020,22 @@ fn program_rules(
             if ps_value(args, "verb", 2).is_some_and(|v| v.text.eq_ignore_ascii_case("runas")) {
                 acc = d(C::PrivilegeEscalation, "Start-Process -Verb RunAs (elevation)");
             }
-            let pos = ps_positionals(args, &["verb", "workingdirectory", "windowstyle", "credential", "redirectstandardoutput", "redirectstandarderror", "redirectstandardinput"]);
+            let pos = ps_positionals(
+                args,
+                &[
+                    "verb",
+                    "workingdirectory",
+                    "windowstyle",
+                    "credential",
+                    "redirectstandardoutput",
+                    "redirectstandarderror",
+                    "redirectstandardinput",
+                ],
+            );
             let file = ps_value(args, "filepath", 2).or_else(|| pos.first().map(|w| (*w).clone()));
-            let arglist = ps_value(args, "argumentlist", 2).or_else(|| ps_value(args, "args", 4)).or_else(|| pos.get(1).map(|w| (*w).clone()));
+            let arglist = ps_value(args, "argumentlist", 2)
+                .or_else(|| ps_value(args, "args", 4))
+                .or_else(|| pos.get(1).map(|w| (*w).clone()));
             if let Some(file) = file {
                 let mut t = file.text.clone();
                 if let Some(a) = arglist {
@@ -1055,11 +1125,12 @@ fn program_rules(
         "remove-item" => {
             let recursive = ps_has(args, "recurse", 1) || has_switch(args, "s");
             let mut acc = DangerClass::Safe;
-            let mut targets: Vec<Word> = ps_positionals(args, &["filter", "include", "exclude", "credential", "stream"])
-                .into_iter()
-                .filter(|w| !is_switch_word(w))
-                .cloned()
-                .collect();
+            let mut targets: Vec<Word> =
+                ps_positionals(args, &["filter", "include", "exclude", "credential", "stream"])
+                    .into_iter()
+                    .filter(|w| !is_switch_word(w))
+                    .cloned()
+                    .collect();
             for p in ["path", "literalpath", "lp", "pspath"] {
                 if let Some(v) = ps_value(args, p, 2) {
                     targets.push(v);
@@ -1105,8 +1176,10 @@ fn program_rules(
 
         // ---------------- disks / boot / backups ----------------
         "format" => f(C::DiskDestruction, "formats a drive"),
-        "format-volume" | "clear-disk" | "initialize-disk" | "remove-partition" | "new-partition" | "diskpart" | "wipefs" | "newfs"
-        | "mke2fs" | "mkswap" => f(C::DiskDestruction, format!("disk/volume destruction ({prog})")),
+        "format-volume" | "clear-disk" | "initialize-disk" | "remove-partition" | "new-partition" | "diskpart"
+        | "wipefs" | "newfs" | "mke2fs" | "mkswap" => {
+            f(C::DiskDestruction, format!("disk/volume destruction ({prog})"))
+        }
         p if p.starts_with("mkfs") => f(C::DiskDestruction, "creates a filesystem (mkfs)"),
         "dd" => {
             let mut acc = DangerClass::Safe;
@@ -1125,7 +1198,10 @@ fn program_rules(
             }
         }
         "diskutil" => {
-            if matches!(sub.as_str(), "erasedisk" | "erasevolume" | "partitiondisk" | "zerodisk" | "randomdisk" | "secureerase" | "reformat") {
+            if matches!(
+                sub.as_str(),
+                "erasedisk" | "erasevolume" | "partitiondisk" | "zerodisk" | "randomdisk" | "secureerase" | "reformat"
+            ) {
                 f(C::DiskDestruction, "diskutil erase/partition")
             } else {
                 DangerClass::Safe
@@ -1146,7 +1222,9 @@ fn program_rules(
             f(C::BackupDestruction, "deletes volume shadow copies")
         }
         "wbadmin" if has("delete") => f(C::BackupDestruction, "deletes Windows backups"),
-        "bcdedit" | "bcdboot" | "grub-install" => f(C::BackupDestruction, format!("modifies boot configuration ({prog})")),
+        "bcdedit" | "bcdboot" | "grub-install" => {
+            f(C::BackupDestruction, format!("modifies boot configuration ({prog})"))
+        }
         "efibootmgr" if args.iter().any(|a| a.text == "-B" || a.text == "--delete-bootnum") => {
             f(C::BackupDestruction, "deletes an EFI boot entry")
         }
@@ -1155,7 +1233,11 @@ fn program_rules(
         }
         "disable-computerrestore" => f(C::BackupDestruction, "disables System Restore"),
         "remove-wmiobject" | "remove-ciminstance" => {
-            let ctx_text: String = upstream.iter().flat_map(|c| c.words.iter().map(|w| w.text.to_lowercase())).collect::<Vec<_>>().join(" ");
+            let ctx_text: String = upstream
+                .iter()
+                .flat_map(|c| c.words.iter().map(|w| w.text.to_lowercase()))
+                .collect::<Vec<_>>()
+                .join(" ");
             if ctx_text.contains("shadowcopy") || lower.iter().any(|a| a.contains("shadowcopy")) {
                 f(C::BackupDestruction, "deletes volume shadow copies")
             } else {
@@ -1180,7 +1262,9 @@ fn program_rules(
                 d(C::SystemConfig, "changes Microsoft Defender settings")
             }
         }
-        "add-mppreference" if args.iter().any(|a| ps_param_name(&a.text).is_some_and(|(n, _)| n.starts_with("exclusion"))) => {
+        "add-mppreference"
+            if args.iter().any(|a| ps_param_name(&a.text).is_some_and(|(n, _)| n.starts_with("exclusion"))) =>
+        {
             f(C::SecurityToolingDisable, "adds a Microsoft Defender exclusion")
         }
         "set-netfirewallprofile" => {
@@ -1196,7 +1280,11 @@ fn program_rules(
         }
         "netsh" => {
             let joined = lower.join(" ");
-            if (joined.contains("firewall")) && (joined.contains("state off") || joined.contains("opmode disable") || joined.contains("mode=disable")) {
+            if (joined.contains("firewall"))
+                && (joined.contains("state off")
+                    || joined.contains("opmode disable")
+                    || joined.contains("mode=disable"))
+            {
                 return f(C::SecurityToolingDisable, "disables the Windows firewall");
             }
             if joined.contains("portproxy") {
@@ -1206,7 +1294,9 @@ fn program_rules(
                     }
                 }
             }
-            if lower.iter().any(|a| matches!(a.as_str(), "set" | "add" | "delete" | "del" | "reset" | "install" | "uninstall" | "import")) {
+            if lower.iter().any(|a| {
+                matches!(a.as_str(), "set" | "add" | "delete" | "del" | "reset" | "install" | "uninstall" | "import")
+            }) {
                 d(C::NetworkConfig, "changes network/firewall configuration (netsh)")
             } else {
                 DangerClass::Safe
@@ -1219,14 +1309,20 @@ fn program_rules(
                 && is_security_service(&svc)
             {
                 f(C::SecurityToolingDisable, format!("stops/reconfigures security service `{svc}`"))
-            } else if matches!(verb.as_str(), "create" | "config" | "delete" | "stop" | "start" | "pause" | "failure" | "sdset") {
+            } else if matches!(
+                verb.as_str(),
+                "create" | "config" | "delete" | "stop" | "start" | "pause" | "failure" | "sdset"
+            ) {
                 d(C::SystemConfig, format!("changes Windows services (sc {verb})"))
             } else {
                 DangerClass::Safe
             }
         }
         "stop-service" | "set-service" | "new-service" | "remove-service" | "restart-service" | "suspend-service" => {
-            let name = ps_value(args, "name", 1).map(|w| w.text.to_lowercase()).or_else(|| ps_positionals(args, &["startuptype", "status"]).first().map(|w| w.text.to_lowercase())).unwrap_or_default();
+            let name = ps_value(args, "name", 1)
+                .map(|w| w.text.to_lowercase())
+                .or_else(|| ps_positionals(args, &["startuptype", "status"]).first().map(|w| w.text.to_lowercase()))
+                .unwrap_or_default();
             if is_security_service(&name) && prog != "new-service" {
                 f(C::SecurityToolingDisable, format!("stops/reconfigures security service `{name}`"))
             } else {
@@ -1249,9 +1345,10 @@ fn program_rules(
             "find-generic-password" | "find-internet-password" if has("-w") || has("-g") => {
                 f(C::CredentialAccess, "reads passwords from the macOS keychain")
             }
-            "add-generic-password" | "add-internet-password" | "delete-generic-password" | "delete-internet-password" => {
-                d(C::SecretChange, "changes macOS keychain secrets")
-            }
+            "add-generic-password"
+            | "add-internet-password"
+            | "delete-generic-password"
+            | "delete-internet-password" => d(C::SecretChange, "changes macOS keychain secrets"),
             _ => DangerClass::Safe,
         },
         "cmdkey" => {
@@ -1265,13 +1362,22 @@ fn program_rules(
         }
 
         // ---------------- tunnels / port exposure ----------------
-        "ngrok" | "cloudflared" | "lt" | "localtunnel" | "bore" | "frpc" | "tailscale" if prog != "tailscale" || has("funnel") => {
+        "ngrok" | "cloudflared" | "lt" | "localtunnel" | "bore" | "frpc" | "tailscale"
+            if prog != "tailscale" || has("funnel") =>
+        {
             port_exposure(ctx, &lower, "opens a public tunnel to a local port")
         }
         "ssh" | "autossh" => {
             if args.iter().any(|a| {
                 let t = a.text.as_str();
-                t.starts_with("-R") || t.starts_with("-L") || t.starts_with("-D") || (t.starts_with('-') && !t.starts_with("--") && t.len() > 2 && t[1..].chars().all(|c| c.is_ascii_alphabetic()) && t[1..].contains(['R', 'L', 'D']))
+                t.starts_with("-R")
+                    || t.starts_with("-L")
+                    || t.starts_with("-D")
+                    || (t.starts_with('-')
+                        && !t.starts_with("--")
+                        && t.len() > 2
+                        && t[1..].chars().all(|c| c.is_ascii_alphabetic())
+                        && t[1..].contains(['R', 'L', 'D']))
             }) {
                 port_exposure(ctx, &lower, "creates an SSH tunnel / port forward")
             } else {
@@ -1286,15 +1392,24 @@ fn program_rules(
         "git" => git_rules(&texts(args)),
 
         // ---------------- SQL / data ----------------
-        "psql" | "mysql" | "mariadb" | "sqlite3" | "sqlcmd" | "osql" | "isql" | "invoke-sqlcmd" | "mongosh" | "mongo" | "redis-cli"
-        | "clickhouse-client" | "cockroach" | "duckdb" | "sqlplus" => sql_client_rules(prog, args, cmd, upstream),
+        "psql" | "mysql" | "mariadb" | "sqlite3" | "sqlcmd" | "osql" | "isql" | "invoke-sqlcmd" | "mongosh"
+        | "mongo" | "redis-cli" | "clickhouse-client" | "cockroach" | "duckdb" | "sqlplus" => {
+            sql_client_rules(prog, args, cmd, upstream)
+        }
         "dropdb" | "dropuser" | "mysqladmin" if prog != "mysqladmin" || has("drop") => {
             d(C::DataDestruction, format!("drops a database ({prog})"))
         }
         "prisma" if (has("migrate") && has("reset")) || has("--force-reset") || (has("db") && has("drop")) => {
             d(C::DataDestruction, "prisma reset drops all data")
         }
-        "rails" | "rake" if lower.iter().any(|a| matches!(a.as_str(), "db:drop" | "db:reset" | "db:purge" | "db:schema:load" | "db:truncate_all" | "db:migrate:reset")) => {
+        "rails" | "rake"
+            if lower.iter().any(|a| {
+                matches!(
+                    a.as_str(),
+                    "db:drop" | "db:reset" | "db:purge" | "db:schema:load" | "db:truncate_all" | "db:migrate:reset"
+                )
+            }) =>
+        {
             d(C::DataDestruction, "rails database reset/drop")
         }
         "sequelize" | "sequelize-cli" if lower.iter().any(|a| a == "db:drop" || a == "db:migrate:undo:all") => {
@@ -1320,23 +1435,31 @@ fn program_rules(
             d(C::ProductionChange, format!("helm {sub} changes a cluster"))
         }
         "terraform" | "tofu" | "terragrunt" => {
-            let destructive = matches!(sub.as_str(), "apply" | "destroy" | "import" | "taint" | "untaint" | "force-unlock")
-                || (sub == "state" && lower.iter().any(|a| matches!(a.as_str(), "rm" | "mv" | "push" | "replace-provider")))
-                || (sub == "workspace" && has("delete"))
-                || (sub == "run-all" && (has("apply") || has("destroy")));
+            let destructive =
+                matches!(sub.as_str(), "apply" | "destroy" | "import" | "taint" | "untaint" | "force-unlock")
+                    || (sub == "state"
+                        && lower.iter().any(|a| matches!(a.as_str(), "rm" | "mv" | "push" | "replace-provider")))
+                    || (sub == "workspace" && has("delete"))
+                    || (sub == "run-all" && (has("apply") || has("destroy")));
             if destructive {
                 d(C::ProductionChange, format!("terraform {sub} changes real infrastructure"))
             } else {
                 DangerClass::Safe
             }
         }
-        "pulumi" if matches!(sub.as_str(), "up" | "update" | "destroy" | "cancel" | "import") || (sub == "stack" && has("rm")) => {
+        "pulumi"
+            if matches!(sub.as_str(), "up" | "update" | "destroy" | "cancel" | "import")
+                || (sub == "stack" && has("rm")) =>
+        {
             d(C::ProductionChange, format!("pulumi {sub} changes real infrastructure"))
         }
         "vercel" | "vc" => {
             if has("env") && (has("add") || has("rm") || has("remove")) {
                 d(C::SecretChange, "changes Vercel environment secrets")
-            } else if has("--prod") || has("--production") || matches!(sub.as_str(), "rm" | "remove" | "promote" | "alias" | "rollback") {
+            } else if has("--prod")
+                || has("--production")
+                || matches!(sub.as_str(), "rm" | "remove" | "promote" | "alias" | "rollback")
+            {
                 d(C::ProductionChange, "Vercel production deploy/change")
             } else {
                 DangerClass::Safe
@@ -1363,21 +1486,30 @@ fn program_rules(
         "fly" | "flyctl" => {
             if sub == "secrets" && (has("set") || has("unset") || has("import")) {
                 d(C::SecretChange, "changes Fly.io secrets")
-            } else if matches!(sub.as_str(), "deploy" | "destroy" | "scale") || (sub == "apps" && (has("destroy") || has("delete"))) {
+            } else if matches!(sub.as_str(), "deploy" | "destroy" | "scale")
+                || (sub == "apps" && (has("destroy") || has("delete")))
+            {
                 d(C::ProductionChange, format!("fly {sub}"))
             } else {
                 DangerClass::Safe
             }
         }
-        "firebase" if sub == "deploy" || lower.iter().any(|a| a.ends_with(":delete")) => d(C::ProductionChange, "firebase deploy/delete"),
-        "serverless" | "sls" if matches!(sub.as_str(), "deploy" | "remove") => d(C::ProductionChange, format!("serverless {sub}")),
+        "firebase" if sub == "deploy" || lower.iter().any(|a| a.ends_with(":delete")) => {
+            d(C::ProductionChange, "firebase deploy/delete")
+        }
+        "serverless" | "sls" if matches!(sub.as_str(), "deploy" | "remove") => {
+            d(C::ProductionChange, format!("serverless {sub}"))
+        }
         "eb" if matches!(sub.as_str(), "deploy" | "terminate" | "swap") => d(C::ProductionChange, format!("eb {sub}")),
         "heroku" => {
             if lower.iter().any(|a| a.starts_with("config:set") || a.starts_with("config:unset")) {
                 d(C::SecretChange, "changes Heroku config vars")
             } else if lower.iter().any(|a| a.starts_with("pg:reset")) {
                 d(C::DataDestruction, "heroku pg:reset")
-            } else if lower.iter().any(|a| a.contains("destroy") || a.starts_with("releases:rollback") || a.starts_with("ps:scale")) {
+            } else if lower
+                .iter()
+                .any(|a| a.contains("destroy") || a.starts_with("releases:rollback") || a.starts_with("ps:scale"))
+            {
                 d(C::ProductionChange, "Heroku production change")
             } else {
                 DangerClass::Safe
@@ -1387,7 +1519,21 @@ fn program_rules(
         "az" => {
             if lower.iter().any(|a| a == "secret") && (has("set") || has("delete")) {
                 d(C::SecretChange, "changes Azure Key Vault secrets")
-            } else if lower.iter().any(|a| matches!(a.as_str(), "delete" | "purge" | "create" | "update" | "set" | "deploy" | "restart" | "stop" | "remove" | "swap")) {
+            } else if lower.iter().any(|a| {
+                matches!(
+                    a.as_str(),
+                    "delete"
+                        | "purge"
+                        | "create"
+                        | "update"
+                        | "set"
+                        | "deploy"
+                        | "restart"
+                        | "stop"
+                        | "remove"
+                        | "swap"
+                )
+            }) {
                 d(C::ProductionChange, "changes Azure resources")
             } else {
                 DangerClass::Safe
@@ -1396,7 +1542,19 @@ fn program_rules(
         "gcloud" | "gsutil" => {
             if has("secrets") && (has("create") || has("add") || has("delete") || has("update")) {
                 d(C::SecretChange, "changes GCP secrets")
-            } else if lower.iter().any(|a| matches!(a.as_str(), "delete" | "deploy" | "create" | "update" | "rm" | "set-iam-policy" | "add-iam-policy-binding" | "remove-iam-policy-binding")) {
+            } else if lower.iter().any(|a| {
+                matches!(
+                    a.as_str(),
+                    "delete"
+                        | "deploy"
+                        | "create"
+                        | "update"
+                        | "rm"
+                        | "set-iam-policy"
+                        | "add-iam-policy-binding"
+                        | "remove-iam-policy-binding"
+                )
+            }) {
                 d(C::ProductionChange, "changes Google Cloud resources")
             } else {
                 DangerClass::Safe
@@ -1405,10 +1563,16 @@ fn program_rules(
         "gh" => {
             let second = lower.iter().filter(|a| !a.starts_with('-')).nth(1).cloned().unwrap_or_default();
             match (sub.as_str(), second.as_str()) {
-                ("secret", "set" | "delete" | "remove") | ("variable", "set" | "delete") => d(C::SecretChange, "changes GitHub secrets"),
-                ("release", "create" | "delete" | "upload" | "edit") => d(C::ProductionChange, format!("gh release {second}")),
+                ("secret", "set" | "delete" | "remove") | ("variable", "set" | "delete") => {
+                    d(C::SecretChange, "changes GitHub secrets")
+                }
+                ("release", "create" | "delete" | "upload" | "edit") => {
+                    d(C::ProductionChange, format!("gh release {second}"))
+                }
                 ("pr", "merge") => d(C::ProductionChange, "merges a pull request"),
-                ("repo", "delete" | "archive" | "rename" | "edit" | "transfer") => d(C::ProductionChange, format!("gh repo {second}")),
+                ("repo", "delete" | "archive" | "rename" | "edit" | "transfer") => {
+                    d(C::ProductionChange, format!("gh repo {second}"))
+                }
                 ("workflow", "run") | ("run", "rerun") => d(C::ProductionChange, "triggers a CI/CD workflow"),
                 _ => DangerClass::Safe,
             }
@@ -1416,11 +1580,15 @@ fn program_rules(
         "twine" if sub == "upload" => d(C::ProductionChange, "publishes a Python package"),
         "publish-module" | "publish-script" => d(C::ProductionChange, "publishes a PowerShell module"),
         "gem" if matches!(sub.as_str(), "push" | "yank" | "owner") => d(C::ProductionChange, format!("gem {sub}")),
-        "cargo" if matches!(sub.as_str(), "publish" | "yank" | "owner") => d(C::ProductionChange, format!("cargo {sub}")),
+        "cargo" if matches!(sub.as_str(), "publish" | "yank" | "owner") => {
+            d(C::ProductionChange, format!("cargo {sub}"))
+        }
         "npm" | "pnpm" | "yarn" | "bun" => {
             if matches!(sub.as_str(), "publish" | "unpublish" | "deprecate" | "owner" | "dist-tag") {
                 d(C::ProductionChange, format!("{prog} {sub} changes the public registry"))
-            } else if (has("-g") || has("--global") || sub == "global") && matches!(sub.as_str(), "install" | "i" | "add" | "uninstall" | "remove" | "rm" | "global" | "update") {
+            } else if (has("-g") || has("--global") || sub == "global")
+                && matches!(sub.as_str(), "install" | "i" | "add" | "uninstall" | "remove" | "rm" | "global" | "update")
+            {
                 d(C::SystemConfig, "global package install/uninstall")
             } else {
                 DangerClass::Safe
@@ -1433,7 +1601,9 @@ fn program_rules(
             d(C::ContainerDestruction, "removes containers and their volumes")
         }
         "vagrant" if sub == "destroy" => d(C::ContainerDestruction, "destroys a Vagrant VM"),
-        "multipass" if matches!(sub.as_str(), "delete" | "purge") => d(C::ContainerDestruction, "deletes Multipass VMs"),
+        "multipass" if matches!(sub.as_str(), "delete" | "purge") => {
+            d(C::ContainerDestruction, "deletes Multipass VMs")
+        }
         "minikube" | "kind" | "k3d" if sub == "delete" => d(C::ContainerDestruction, format!("{prog} delete cluster")),
 
         // ---------------- OS configuration ----------------
@@ -1449,7 +1619,11 @@ fn program_rules(
                 }
                 acc = d(C::SystemConfig, format!("recursive permission/ownership change ({prog} -R)"));
             }
-            if prog == "chmod" && ops.first().is_some_and(|m| m.text.contains("777") || m.text.contains("a+rwx") || m.text.contains("o+w")) {
+            if prog == "chmod"
+                && ops
+                    .first()
+                    .is_some_and(|m| m.text.contains("777") || m.text.contains("a+rwx") || m.text.contains("o+w"))
+            {
                 acc = acc.max(d(C::SystemConfig, "makes files world-writable"));
             }
             for t in ops.iter().skip(1) {
@@ -1464,7 +1638,12 @@ fn program_rules(
                 d(C::SystemConfig, "changes scheduled jobs (crontab)")
             }
         }
-        "launchctl" if matches!(sub.as_str(), "load" | "unload" | "bootstrap" | "bootout" | "remove" | "enable" | "disable" | "submit") => {
+        "launchctl"
+            if matches!(
+                sub.as_str(),
+                "load" | "unload" | "bootstrap" | "bootout" | "remove" | "enable" | "disable" | "submit"
+            ) =>
+        {
             d(C::SystemConfig, "changes launchd services")
         }
         "defaults" if matches!(sub.as_str(), "write" | "delete") => d(C::SystemConfig, "changes macOS defaults"),
@@ -1486,36 +1665,71 @@ fn program_rules(
                 d(C::SystemConfig, format!("terminates processes by name or force ({prog})"))
             }
         }
-        "apt" | "apt-get" | "aptitude" | "dnf" | "yum" | "zypper" | "apk" | "emerge" | "snap" | "flatpak" | "port" | "pkg" => {
-            if lower.iter().any(|a| matches!(a.as_str(), "install" | "remove" | "purge" | "autoremove" | "upgrade" | "dist-upgrade" | "add" | "del" | "erase" | "reinstall")) {
+        "apt" | "apt-get" | "aptitude" | "dnf" | "yum" | "zypper" | "apk" | "emerge" | "snap" | "flatpak" | "port"
+        | "pkg" => {
+            if lower.iter().any(|a| {
+                matches!(
+                    a.as_str(),
+                    "install"
+                        | "remove"
+                        | "purge"
+                        | "autoremove"
+                        | "upgrade"
+                        | "dist-upgrade"
+                        | "add"
+                        | "del"
+                        | "erase"
+                        | "reinstall"
+                )
+            }) {
                 d(C::SystemConfig, format!("system package change ({prog})"))
             } else {
                 DangerClass::Safe
             }
         }
-        "pacman" if lower.iter().any(|a| a.starts_with("-s") || a.starts_with("-r") || a.starts_with("-u")) && !has("-ss") && !has("-si") => {
+        "pacman"
+            if lower.iter().any(|a| a.starts_with("-s") || a.starts_with("-r") || a.starts_with("-u"))
+                && !has("-ss")
+                && !has("-si") =>
+        {
             d(C::SystemConfig, "system package change (pacman)")
         }
-        "brew" | "winget" | "choco" | "scoop" if matches!(sub.as_str(), "install" | "uninstall" | "remove" | "upgrade" | "tap" | "link" | "rm") => {
+        "brew" | "winget" | "choco" | "scoop"
+            if matches!(sub.as_str(), "install" | "uninstall" | "remove" | "upgrade" | "tap" | "link" | "rm") =>
+        {
             d(C::SystemConfig, format!("system package change ({prog} {sub})"))
         }
         "reg" => {
             let verb = sub.as_str();
             if matches!(verb, "add" | "delete" | "import" | "load" | "unload" | "restore" | "copy") {
                 let machine = lower.iter().any(|a| a.starts_with("hklm") || a.starts_with("hkey_local_machine"));
-                d(C::SystemConfig, format!("modifies the {} registry (reg {verb})", if machine { "machine-wide" } else { "Windows" }))
+                d(
+                    C::SystemConfig,
+                    format!("modifies the {} registry (reg {verb})", if machine { "machine-wide" } else { "Windows" }),
+                )
             } else {
                 DangerClass::Safe
             }
         }
-        "regedit" | "regedt32" | "regini" if prog == "regini" || has_switch(args, "s") => d(C::SystemConfig, "imports registry changes"),
-        "set-itemproperty" | "new-itemproperty" | "remove-itemproperty" | "rename-itemproperty" | "copy-itemproperty"
-        | "move-itemproperty" | "clear-itemproperty" | "new-item" | "set-item" | "clear-item" => {
-            let paths: Vec<Word> = ps_positionals(args, &["name", "value", "propertytype", "type", "itemtype", "credential"])
-                .into_iter()
-                .cloned()
-                .chain(["path", "literalpath"].iter().filter_map(|p| ps_value(args, p, 2)))
-                .collect();
+        "regedit" | "regedt32" | "regini" if prog == "regini" || has_switch(args, "s") => {
+            d(C::SystemConfig, "imports registry changes")
+        }
+        "set-itemproperty"
+        | "new-itemproperty"
+        | "remove-itemproperty"
+        | "rename-itemproperty"
+        | "copy-itemproperty"
+        | "move-itemproperty"
+        | "clear-itemproperty"
+        | "new-item"
+        | "set-item"
+        | "clear-item" => {
+            let paths: Vec<Word> =
+                ps_positionals(args, &["name", "value", "propertytype", "type", "itemtype", "credential"])
+                    .into_iter()
+                    .cloned()
+                    .chain(["path", "literalpath"].iter().filter_map(|p| ps_value(args, p, 2)))
+                    .collect();
             let mut acc = DangerClass::Safe;
             for p in &paths {
                 if is_registry_path(&p.text) {
@@ -1537,14 +1751,26 @@ fn program_rules(
             d(C::SystemConfig, "changes scheduled tasks (schtasks)")
         }
         "icacls" | "cacls" | "xcacls" => {
-            if lower.iter().any(|a| a.starts_with("/grant") || a.starts_with("/deny") || a == "/reset" || a == "/setowner" || a.starts_with("/remove") || a.starts_with("/inheritance") || a == "/e" || a == "/g") {
+            if lower.iter().any(|a| {
+                a.starts_with("/grant")
+                    || a.starts_with("/deny")
+                    || a == "/reset"
+                    || a == "/setowner"
+                    || a.starts_with("/remove")
+                    || a.starts_with("/inheritance")
+                    || a == "/e"
+                    || a == "/g"
+            }) {
                 d(C::SystemConfig, "changes file ACLs")
             } else {
                 DangerClass::Safe
             }
         }
         "takeown" => d(C::SystemConfig, "takes ownership of files"),
-        "attrib" if has_switch(args, "s") && lower.iter().any(|a| matches!(a.as_str(), "-s" | "-h" | "+s" | "+h" | "-r")) => {
+        "attrib"
+            if has_switch(args, "s")
+                && lower.iter().any(|a| matches!(a.as_str(), "-s" | "-h" | "+s" | "+h" | "-r")) =>
+        {
             d(C::SystemConfig, "recursively changes system/hidden attributes")
         }
         "setx" => {
@@ -1562,17 +1788,51 @@ fn program_rules(
         }
         "ip" => {
             let obj = lower.iter().find(|a| !a.starts_with('-')).cloned().unwrap_or_default();
-            if matches!(obj.as_str(), "route" | "r" | "ro" | "addr" | "a" | "address" | "link" | "l" | "rule" | "neigh" | "tunnel" | "netns" | "xfrm")
-                && lower.iter().any(|a| matches!(a.as_str(), "add" | "del" | "delete" | "set" | "flush" | "change" | "replace" | "append"))
-            {
+            if matches!(
+                obj.as_str(),
+                "route"
+                    | "r"
+                    | "ro"
+                    | "addr"
+                    | "a"
+                    | "address"
+                    | "link"
+                    | "l"
+                    | "rule"
+                    | "neigh"
+                    | "tunnel"
+                    | "netns"
+                    | "xfrm"
+            ) && lower.iter().any(|a| {
+                matches!(a.as_str(), "add" | "del" | "delete" | "set" | "flush" | "change" | "replace" | "append")
+            }) {
                 d(C::NetworkConfig, "changes network configuration (ip)")
             } else {
                 DangerClass::Safe
             }
         }
         "iptables" | "ip6tables" | "nft" | "firewall-cmd" | "pfctl" | "ebtables" | "arptables" | "iptables-restore" => {
-            let listing = lower.iter().any(|a| matches!(a.as_str(), "-l" | "--list" | "--list-all" | "list" | "-nl" | "-vl" | "-nvl" | "--state" | "-sr" | "-s"))
-                && !lower.iter().any(|a| matches!(a.as_str(), "-a" | "-d" | "-i" | "-f" | "-x" | "-p" | "--add-rule" | "--remove-rule" | "add" | "delete" | "flush" | "-e"));
+            let listing = lower.iter().any(|a| {
+                matches!(
+                    a.as_str(),
+                    "-l" | "--list" | "--list-all" | "list" | "-nl" | "-vl" | "-nvl" | "--state" | "-sr" | "-s"
+                )
+            }) && !lower.iter().any(|a| {
+                matches!(
+                    a.as_str(),
+                    "-a" | "-d"
+                        | "-i"
+                        | "-f"
+                        | "-x"
+                        | "-p"
+                        | "--add-rule"
+                        | "--remove-rule"
+                        | "add"
+                        | "delete"
+                        | "flush"
+                        | "-e"
+                )
+            });
             if listing {
                 DangerClass::Safe
             } else {
@@ -1580,25 +1840,49 @@ fn program_rules(
             }
         }
         "ifconfig" if args.len() >= 2 => d(C::NetworkConfig, "changes network interfaces"),
-        "networksetup" if lower.iter().any(|a| a.starts_with("-set") || a.starts_with("-add") || a.starts_with("-remove") || a.starts_with("-delete")) => {
+        "networksetup"
+            if lower.iter().any(|a| {
+                a.starts_with("-set") || a.starts_with("-add") || a.starts_with("-remove") || a.starts_with("-delete")
+            }) =>
+        {
             d(C::NetworkConfig, "changes macOS network settings")
         }
-        "new-netfirewallrule" | "set-netfirewallrule" | "remove-netfirewallrule" | "disable-netfirewallrule" | "enable-netfirewallrule"
-        | "new-netipaddress" | "remove-netipaddress" | "set-netipaddress" | "set-dnsclientserveraddress" | "new-netroute" | "remove-netroute"
-        | "set-netroute" | "set-netipinterface" | "disable-netadapter" | "enable-netadapter" | "set-netadapter" | "set-netconnectionprofile" => {
-            d(C::NetworkConfig, format!("changes network configuration ({prog})"))
-        }
+        "new-netfirewallrule"
+        | "set-netfirewallrule"
+        | "remove-netfirewallrule"
+        | "disable-netfirewallrule"
+        | "enable-netfirewallrule"
+        | "new-netipaddress"
+        | "remove-netipaddress"
+        | "set-netipaddress"
+        | "set-dnsclientserveraddress"
+        | "new-netroute"
+        | "remove-netroute"
+        | "set-netroute"
+        | "set-netipinterface"
+        | "disable-netadapter"
+        | "enable-netadapter"
+        | "set-netadapter"
+        | "set-netconnectionprofile" => d(C::NetworkConfig, format!("changes network configuration ({prog})")),
 
         // ---------------- download & execute ----------------
         "certutil" if lower.iter().any(|a| a == "-urlcache" || a == "/urlcache" || a == "-verifyctl") => {
             rce("certutil -urlcache downloads files (LOLBin)")
         }
-        "certutil" if lower.iter().any(|a| a == "-decode" || a == "-decodehex") => d(C::Obfuscation, "certutil decodes an embedded payload"),
+        "certutil" if lower.iter().any(|a| a == "-decode" || a == "-decodehex") => {
+            d(C::Obfuscation, "certutil decodes an embedded payload")
+        }
         "bitsadmin" if has_switch(args, "transfer") || has_switch(args, "addfile") => rce("bitsadmin downloads files"),
         "mshta" => rce("mshta executes HTML applications"),
-        "regsvr32" if lower.iter().any(|a| a.contains("http") || a.contains("scrobj")) => rce("regsvr32 remote scriptlet"),
-        "rundll32" if lower.iter().any(|a| a.contains("http") || a.contains("javascript")) => rce("rundll32 remote/script execution"),
-        "add-type" if args.iter().any(|a| a.dynamic && raw().downloader.is_match(&a.text)) => rce("Add-Type compiles downloaded code"),
+        "regsvr32" if lower.iter().any(|a| a.contains("http") || a.contains("scrobj")) => {
+            rce("regsvr32 remote scriptlet")
+        }
+        "rundll32" if lower.iter().any(|a| a.contains("http") || a.contains("javascript")) => {
+            rce("rundll32 remote/script execution")
+        }
+        "add-type" if args.iter().any(|a| a.dynamic && raw().downloader.is_match(&a.text)) => {
+            rce("Add-Type compiles downloaded code")
+        }
         "curl" | "wget" | "invoke-webrequest" | "invoke-restmethod" => {
             let mut acc = DangerClass::Safe;
             for name in ["-o", "--output", "-outfile", "-O", "--output-document"] {
@@ -1615,7 +1899,9 @@ fn program_rules(
         "cp" | "install" | "copy" | "xcopy" | "copy-item" | "ln" | "mklink" => {
             let mut acc = DangerClass::Safe;
             let dest = if prog == "copy-item" {
-                ps_value(args, "destination", 1).or_else(|| ps_positionals(args, &["filter", "include", "exclude", "credential"]).get(1).map(|w| (*w).clone()))
+                ps_value(args, "destination", 1).or_else(|| {
+                    ps_positionals(args, &["filter", "include", "exclude", "credential"]).get(1).map(|w| (*w).clone())
+                })
             } else if family == Family::Cmd || prog == "xcopy" || prog == "copy" || prog == "mklink" {
                 non_switch(args).get(if prog == "mklink" { 0 } else { 1 }).map(|w| (*w).clone())
             } else {
@@ -1649,7 +1935,10 @@ fn program_rules(
         "tee" | "touch" | "mkdir" | "truncate" | "tee-object" => {
             let mut acc = DangerClass::Safe;
             let ops: Vec<Word> = if prog == "tee-object" {
-                ps_value(args, "filepath", 1).into_iter().chain(ps_positionals(args, &["variable", "encoding"]).into_iter().cloned()).collect()
+                ps_value(args, "filepath", 1)
+                    .into_iter()
+                    .chain(ps_positionals(args, &["variable", "encoding"]).into_iter().cloned())
+                    .collect()
             } else {
                 posix_operands(args).into_iter().cloned().collect()
             };
@@ -1695,20 +1984,40 @@ fn decode_ps_base64(s: &str) -> Option<String> {
     if bytes.len() % 2 != 0 {
         return None;
     }
-    let units: Vec<u16> = bytes.chunks_exact(2).map(|c| u16::from_le_bytes([c[0], c[1]])).collect();
+    let units: Vec<u16> = bytes.as_chunks::<2>().0.iter().map(|c| u16::from_le_bytes([c[0], c[1]])).collect();
     String::from_utf16(&units).ok()
 }
 
 fn is_registry_path(p: &str) -> bool {
     let l = p.trim_matches(['"', '\'']).to_lowercase();
-    ["hklm:", "hkcu:", "hkcr:", "hku:", "hkcc:", "registry::", "hkey_", "microsoft.powershell.core\\registry::"].iter().any(|x| l.starts_with(x))
+    ["hklm:", "hkcu:", "hkcr:", "hku:", "hkcc:", "registry::", "hkey_", "microsoft.powershell.core\\registry::"]
+        .iter()
+        .any(|x| l.starts_with(x))
 }
 
 fn is_security_service(name: &str) -> bool {
     let n = name.trim_matches(['"', '\'']).to_lowercase();
     [
-        "windefend", "mpssvc", "wscsvc", "sense", "wdnissvc", "securityhealthservice", "bfe", "eventlog", "firewalld", "apparmor", "ufw",
-        "auditd", "iptables", "nftables", "selinux", "clamav", "clamd", "falcon-sensor", "osqueryd", "wazuh-agent",
+        "windefend",
+        "mpssvc",
+        "wscsvc",
+        "sense",
+        "wdnissvc",
+        "securityhealthservice",
+        "bfe",
+        "eventlog",
+        "firewalld",
+        "apparmor",
+        "ufw",
+        "auditd",
+        "iptables",
+        "nftables",
+        "selinux",
+        "clamav",
+        "clamd",
+        "falcon-sensor",
+        "osqueryd",
+        "wazuh-agent",
     ]
     .iter()
     .any(|s| n == *s || n.starts_with(&format!("{s}.")))
@@ -1717,7 +2026,13 @@ fn is_security_service(name: &str) -> bool {
 fn port_exposure(ctx: &Ctx<'_>, lower: &[String], reason: &str) -> DangerClass {
     if let Some(port) = ctx.guard.config.core_port {
         let p = port.to_string();
-        if lower.iter().any(|a| a == &p || a.ends_with(&format!(":{p}")) || a.contains(&format!(":{p}:")) || a.contains(&format!(",{p}")) || a.contains(&format!("tcp:127.0.0.1:{p}"))) {
+        if lower.iter().any(|a| {
+            a == &p
+                || a.ends_with(&format!(":{p}"))
+                || a.contains(&format!(":{p}:"))
+                || a.contains(&format!(",{p}"))
+                || a.contains(&format!("tcp:127.0.0.1:{p}"))
+        }) {
             return f(C::PortExposure, "exposes the Orkestr core port");
         }
     }
@@ -1727,7 +2042,10 @@ fn port_exposure(ctx: &Ctx<'_>, lower: &[String], reason: &str) -> DangerClass {
 fn systemctl_rules(prog: &str, lower: &[String]) -> DangerClass {
     let non_flags: Vec<&String> = lower.iter().filter(|a| !a.starts_with('-')).collect();
     let (verb, units): (String, Vec<&String>) = if prog == "service" {
-        (non_flags.get(1).map(|s| (*s).clone()).unwrap_or_default(), non_flags.first().map(|u| vec![*u]).unwrap_or_default())
+        (
+            non_flags.get(1).map(|s| (*s).clone()).unwrap_or_default(),
+            non_flags.first().map(|u| vec![*u]).unwrap_or_default(),
+        )
     } else {
         (non_flags.first().map(|s| (*s).clone()).unwrap_or_default(), non_flags.iter().skip(1).copied().collect())
     };
@@ -1737,8 +2055,25 @@ fn systemctl_rules(prog: &str, lower: &[String]) -> DangerClass {
     }
     if matches!(
         verb.as_str(),
-        "enable" | "disable" | "stop" | "mask" | "unmask" | "restart" | "start" | "kill" | "isolate" | "poweroff" | "reboot" | "halt"
-            | "set-default" | "edit" | "link" | "preset" | "reload" | "try-restart" | "force-reload"
+        "enable"
+            | "disable"
+            | "stop"
+            | "mask"
+            | "unmask"
+            | "restart"
+            | "start"
+            | "kill"
+            | "isolate"
+            | "poweroff"
+            | "reboot"
+            | "halt"
+            | "set-default"
+            | "edit"
+            | "link"
+            | "preset"
+            | "reload"
+            | "try-restart"
+            | "force-reload"
     ) {
         return d(C::SystemConfig, format!("changes system services ({prog} {verb})"));
     }
@@ -1753,18 +2088,37 @@ fn git_rules(lower: &[String]) -> DangerClass {
         if !a.starts_with('-') {
             break;
         }
-        i += if matches!(a, "-c" | "-C" | "--git-dir" | "--work-tree" | "--namespace" | "--super-prefix" | "--config-env" | "--exec-path") { 2 } else { 1 };
+        i += if matches!(
+            a,
+            "-c" | "-C"
+                | "--git-dir"
+                | "--work-tree"
+                | "--namespace"
+                | "--super-prefix"
+                | "--config-env"
+                | "--exec-path"
+        ) {
+            2
+        } else {
+            1
+        };
     }
     let Some(sub) = lower.get(i) else { return DangerClass::Safe };
     let rest = &lower[i + 1..];
     let has = |w: &str| rest.iter().any(|a| a == w);
-    let short = |c: char| rest.iter().any(|a| a.starts_with('-') && !a.starts_with("--") && a.len() > 1 && a[1..].contains(c));
+    let short =
+        |c: char| rest.iter().any(|a| a.starts_with('-') && !a.starts_with("--") && a.len() > 1 && a[1..].contains(c));
     let operands: Vec<&String> = rest.iter().filter(|a| !a.starts_with('-')).collect();
     let g = |r: &str| d(C::GitDestructive, r.to_owned());
     match sub.as_str() {
         "push" => {
             let destructive = rest.iter().any(|a| {
-                a == "--force" || a.starts_with("--force-with-lease") || a == "--force-if-includes" || a == "--mirror" || a == "--delete" || a == "--prune"
+                a == "--force"
+                    || a.starts_with("--force-with-lease")
+                    || a == "--force-if-includes"
+                    || a == "--mirror"
+                    || a == "--delete"
+                    || a == "--prune"
             }) || short('f')
                 || short('d')
                 || operands.iter().skip(1).any(|r| r.starts_with('+') || r.starts_with(':'));
@@ -1820,15 +2174,23 @@ fn git_rules(lower: &[String]) -> DangerClass {
         "tag" if has("-d") || has("--delete") || has("-f") || has("--force") => g("deletes/moves a git tag"),
         "filter-branch" | "filter-repo" => g("rewrites git history"),
         "update-ref" if has("-d") => g("deletes a git ref"),
-        "reflog" if operands.first().is_some_and(|o| o.as_str() == "expire" || o.as_str() == "delete") => g("expires/deletes reflog entries"),
-        "gc" if rest.iter().any(|a| a.starts_with("--prune=now") || a.starts_with("--prune=all")) => g("git gc --prune=now drops unreachable objects"),
+        "reflog" if operands.first().is_some_and(|o| o.as_str() == "expire" || o.as_str() == "delete") => {
+            g("expires/deletes reflog entries")
+        }
+        "gc" if rest.iter().any(|a| a.starts_with("--prune=now") || a.starts_with("--prune=all")) => {
+            g("git gc --prune=now drops unreachable objects")
+        }
         "prune" => g("git prune drops unreachable objects"),
-        "stash" if operands.first().is_some_and(|o| o.as_str() == "drop" || o.as_str() == "clear") => g("drops stashed work"),
+        "stash" if operands.first().is_some_and(|o| o.as_str() == "drop" || o.as_str() == "clear") => {
+            g("drops stashed work")
+        }
         "worktree" if operands.first().is_some_and(|o| o.as_str() == "remove") && (has("-f") || has("--force")) => {
             g("force-removes a worktree with changes")
         }
         "rm" if has("-r") || short('r') => d(C::RecursiveDelete, "git rm -r recursive delete"),
-        "remote" if operands.first().is_some_and(|o| matches!(o.as_str(), "remove" | "rm" | "set-url")) => g("changes git remotes"),
+        "remote" if operands.first().is_some_and(|o| matches!(o.as_str(), "remove" | "rm" | "set-url")) => {
+            g("changes git remotes")
+        }
         "config" if has("--system") => d(C::SystemConfig, "changes system-wide git config"),
         _ => DangerClass::Safe,
     }
@@ -1841,7 +2203,14 @@ fn kubectl_rules(lower: &[String]) -> DangerClass {
         if !a.starts_with('-') {
             break;
         }
-        i += if matches!(a, "-n" | "--namespace" | "--context" | "--kubeconfig" | "--cluster" | "--user" | "-s" | "--server") { 2 } else { 1 };
+        i += if matches!(
+            a,
+            "-n" | "--namespace" | "--context" | "--kubeconfig" | "--cluster" | "--user" | "-s" | "--server"
+        ) {
+            2
+        } else {
+            1
+        };
     }
     let verb = lower.get(i).cloned().unwrap_or_default();
     if verb == "create" && lower.get(i + 1).is_some_and(|n| n == "secret") {
@@ -1849,8 +2218,26 @@ fn kubectl_rules(lower: &[String]) -> DangerClass {
     }
     if matches!(
         verb.as_str(),
-        "apply" | "delete" | "scale" | "rollout" | "patch" | "replace" | "drain" | "cordon" | "uncordon" | "edit" | "set" | "create" | "annotate"
-            | "label" | "taint" | "exec" | "cp" | "run" | "expose" | "autoscale"
+        "apply"
+            | "delete"
+            | "scale"
+            | "rollout"
+            | "patch"
+            | "replace"
+            | "drain"
+            | "cordon"
+            | "uncordon"
+            | "edit"
+            | "set"
+            | "create"
+            | "annotate"
+            | "label"
+            | "taint"
+            | "exec"
+            | "cp"
+            | "run"
+            | "expose"
+            | "autoscale"
     ) {
         return d(C::ProductionChange, format!("kubectl {verb} changes a cluster"));
     }
@@ -1861,7 +2248,11 @@ fn aws_rules(lower: &[String]) -> DangerClass {
     let non_flags: Vec<&String> = lower.iter().filter(|a| !a.starts_with('-')).collect();
     let service = non_flags.first().map(|s| s.as_str()).unwrap_or_default();
     let op = non_flags.get(1).map(|s| s.as_str()).unwrap_or_default();
-    if (service == "secretsmanager" && (op.starts_with("put-") || op.starts_with("create-") || op.starts_with("delete-") || op.starts_with("update-")))
+    if (service == "secretsmanager"
+        && (op.starts_with("put-")
+            || op.starts_with("create-")
+            || op.starts_with("delete-")
+            || op.starts_with("update-")))
         || (service == "ssm" && (op == "put-parameter" || op == "delete-parameter"))
     {
         return d(C::SecretChange, "changes AWS secrets/parameters");
@@ -1876,7 +2267,25 @@ fn aws_rules(lower: &[String]) -> DangerClass {
         }
         return DangerClass::Safe;
     }
-    let mutating = ["delete", "terminate", "put-", "remove", "create", "update", "modify", "stop", "reboot", "deregister", "detach", "revoke", "authorize", "attach", "run-instances", "deploy", "invoke"];
+    let mutating = [
+        "delete",
+        "terminate",
+        "put-",
+        "remove",
+        "create",
+        "update",
+        "modify",
+        "stop",
+        "reboot",
+        "deregister",
+        "detach",
+        "revoke",
+        "authorize",
+        "attach",
+        "run-instances",
+        "deploy",
+        "invoke",
+    ];
     if mutating.iter().any(|m| op.starts_with(m) || op.contains(&format!("-{m}"))) {
         return d(C::ProductionChange, format!("aws {service} {op} changes cloud resources"));
     }
@@ -1902,12 +2311,19 @@ fn docker_rules(lower: &[String]) -> DangerClass {
         (Some("volume"), Some("rm" | "prune" | "remove")) => c("removes docker volumes (data)"),
         (Some("image"), Some("prune")) if has("-a") || has("--all") => c("removes all unused images"),
         (Some("container" | "network" | "builder"), Some("prune")) => c("prunes docker objects"),
-        (Some("rm"), _) if has("-f") || has("--force") || has("-v") || has("--volumes") => c("force-removes containers"),
+        (Some("rm"), _) if has("-f") || has("--force") || has("-v") || has("--volumes") => {
+            c("force-removes containers")
+        }
         (Some("rmi"), _) if has("-f") || has("--force") => c("force-removes images"),
-        (Some("compose"), Some("down")) if has("-v") || has("--volumes") || has("--rmi") => c("removes compose services and volumes"),
+        (Some("compose"), Some("down")) if has("-v") || has("--volumes") || has("--rmi") => {
+            c("removes compose services and volumes")
+        }
         (Some("push"), _) => d(C::ProductionChange, "pushes an image to a registry"),
         (Some("run" | "create"), _)
-            if has("--privileged") || rest.iter().any(|a| a.starts_with("/:/") || a.starts_with("/var/run/docker.sock") || a == "--pid=host") =>
+            if has("--privileged")
+                || rest
+                    .iter()
+                    .any(|a| a.starts_with("/:/") || a.starts_with("/var/run/docker.sock") || a == "--pid=host") =>
         {
             d(C::PrivilegeEscalation, "runs a privileged container / mounts the host root or docker socket")
         }
@@ -1956,7 +2372,9 @@ fn sql_client_rules(prog: &str, args: &[Word], cmd: &SimpleCommand, upstream: &[
     sqls.extend(cmd.heredocs.iter().cloned());
     // `echo "DROP TABLE x" | psql`
     if let Some(prev) = upstream.last() {
-        if prev.words.first().is_some_and(|w| matches!(normalize_program(&w.text).0.as_str(), "echo" | "printf" | "write-output" | "cat")) {
+        if prev.words.first().is_some_and(|w| {
+            matches!(normalize_program(&w.text).0.as_str(), "echo" | "printf" | "write-output" | "cat")
+        }) {
             sqls.push(join(&prev.words[1..]));
             sqls.extend(prev.heredocs.iter().cloned());
         }
@@ -1978,12 +2396,19 @@ fn inline_code_rules(
     let r = raw();
     let lower = lower_texts(args);
     // Django / Laravel destructive management commands.
-    if lower.iter().any(|a| a.ends_with("manage.py")) && lower.iter().any(|a| matches!(a.as_str(), "flush" | "reset_db" | "sqlflush")) {
+    if lower.iter().any(|a| a.ends_with("manage.py"))
+        && lower.iter().any(|a| matches!(a.as_str(), "flush" | "reset_db" | "sqlflush"))
+    {
         return d(C::DataDestruction, "manage.py flush deletes all data");
     }
     if prog == "php"
         && lower.iter().any(|a| a == "artisan")
-        && lower.iter().any(|a| a.starts_with("migrate:fresh") || a.starts_with("migrate:reset") || a.starts_with("db:wipe") || a.starts_with("migrate:refresh"))
+        && lower.iter().any(|a| {
+            a.starts_with("migrate:fresh")
+                || a.starts_with("migrate:reset")
+                || a.starts_with("db:wipe")
+                || a.starts_with("migrate:refresh")
+        })
     {
         return d(C::DataDestruction, "artisan wipes the database");
     }
@@ -2013,7 +2438,8 @@ fn inline_code_rules(
         if r.credentials.is_match(t) {
             acc = acc.max(f(C::CredentialAccess, "inline script reads other applications' credentials"));
         }
-    } else if args.iter().all(|a| a.text.starts_with('-')) && !upstream.is_empty() && upstream_has_downloader(upstream) {
+    } else if args.iter().all(|a| a.text.starts_with('-')) && !upstream.is_empty() && upstream_has_downloader(upstream)
+    {
         acc = acc.max(rce("pipes downloaded content into an interpreter"));
     }
     let _ = (ctx, cmd, depth);

@@ -7,8 +7,8 @@
 use std::sync::Arc;
 
 use orkestr_domain::{
-    now, Actor, AgentId, ApprovalMode, AuditOutcome, PermissionRule, PermissionRuleRecord, PermissionScope, ProjectId, TaskId,
-    Timestamp,
+    now, Actor, AgentId, ApprovalMode, AuditOutcome, PermissionRule, PermissionRuleRecord, PermissionScope, ProjectId,
+    TaskId, Timestamp,
 };
 use orkestr_storage::rusqlite::{params, OptionalExtension};
 use orkestr_storage::{Db, Migration, StorageError};
@@ -219,13 +219,18 @@ impl PermissionService {
         self.reload().await?;
         self.audit
             .record(
-                NewAudit::new(by, "permissions.set", record.rule.resource.clone().unwrap_or_else(|| "*".into()), AuditOutcome::Executed)
-                    .capability(record.rule.capability)
-                    .project(match record.rule.scope {
-                        PermissionScope::Project { project_id } => Some(project_id),
-                        _ => None,
-                    })
-                    .details(serde_json::to_value(&record).unwrap_or_default()),
+                NewAudit::new(
+                    by,
+                    "permissions.set",
+                    record.rule.resource.clone().unwrap_or_else(|| "*".into()),
+                    AuditOutcome::Executed,
+                )
+                .capability(record.rule.capability)
+                .project(match record.rule.scope {
+                    PermissionScope::Project { project_id } => Some(project_id),
+                    _ => None,
+                })
+                .details(serde_json::to_value(&record).unwrap_or_default()),
             )
             .await;
         Ok(record)
@@ -236,7 +241,9 @@ impl PermissionService {
         let id = id.to_owned();
         let doc: Option<String> = self
             .db
-            .call(move |c| Ok(c.query_row("SELECT doc FROM permission_rules WHERE id = ?1", [id], |r| r.get(0)).optional()?))
+            .call(move |c| {
+                Ok(c.query_row("SELECT doc FROM permission_rules WHERE id = ?1", [id], |r| r.get(0)).optional()?)
+            })
             .await?;
         doc.map(|d| serde_json::from_str(&d).map_err(|e| SecurityError::Storage(StorageError::Json(e)))).transpose()
     }
@@ -254,9 +261,14 @@ impl PermissionService {
             if let Some(rec) = existing {
                 self.audit
                     .record(
-                        NewAudit::new(by, "permissions.delete", rec.rule.resource.clone().unwrap_or_else(|| "*".into()), AuditOutcome::Executed)
-                            .capability(rec.rule.capability)
-                            .details(serde_json::json!({ "ruleId": rec.id })),
+                        NewAudit::new(
+                            by,
+                            "permissions.delete",
+                            rec.rule.resource.clone().unwrap_or_else(|| "*".into()),
+                            AuditOutcome::Executed,
+                        )
+                        .capability(rec.rule.capability)
+                        .details(serde_json::json!({ "ruleId": rec.id })),
                     )
                     .await;
             }
@@ -269,7 +281,10 @@ impl PermissionService {
         let id = agent.to_string();
         let mode: Option<String> = self
             .db
-            .call(move |c| Ok(c.query_row("SELECT mode FROM agent_approval_modes WHERE agent_id = ?1", [id], |r| r.get(0)).optional()?))
+            .call(move |c| {
+                Ok(c.query_row("SELECT mode FROM agent_approval_modes WHERE agent_id = ?1", [id], |r| r.get(0))
+                    .optional()?)
+            })
             .await?;
         Ok(mode.and_then(|m| serde_json::from_value(serde_json::Value::String(m)).ok()))
     }
@@ -306,7 +321,11 @@ impl PermissionService {
 
     /// Effective approval mode: agent override, else project mode, capped by
     /// the emergency `fullAutoDisabled` flag.
-    pub async fn effective_mode(&self, project_mode: ApprovalMode, agent: Option<AgentId>) -> SecurityResult<ApprovalMode> {
+    pub async fn effective_mode(
+        &self,
+        project_mode: ApprovalMode,
+        agent: Option<AgentId>,
+    ) -> SecurityResult<ApprovalMode> {
         let base = match agent {
             Some(a) => self.agent_mode(a).await?.unwrap_or(project_mode),
             None => project_mode,
@@ -354,7 +373,10 @@ mod tests {
         assert_eq!(s.engine.rule_count(), 1);
         let ctx = CheckContext { project_id: Some(p), ..Default::default() };
         let a = Actor::Agent(AgentId::new());
-        assert!(s.engine.check(&a, Capability::Network, &Resource::Url { url: "https://api.example.com/v1".into() }, &ctx).is_allow());
+        assert!(s
+            .engine
+            .check(&a, Capability::Network, &Resource::Url { url: "https://api.example.com/v1".into() }, &ctx)
+            .is_allow());
 
         // Update keeps id and created_at.
         let mut changed = rule.clone();
@@ -362,10 +384,16 @@ mod tests {
         let rec2 = s.set(Some(rec.id.clone()), changed, None, None, user()).await.unwrap();
         assert_eq!(rec2.id, rec.id);
         assert_eq!(rec2.created_at, rec.created_at);
-        assert!(s.engine.check(&a, Capability::Network, &Resource::Url { url: "https://api.example.com/v1".into() }, &ctx).is_deny());
+        assert!(s
+            .engine
+            .check(&a, Capability::Network, &Resource::Url { url: "https://api.example.com/v1".into() }, &ctx)
+            .is_deny());
 
         assert_eq!(s.list(&RuleFilter::default()).await.unwrap().len(), 1);
-        assert_eq!(s.list(&RuleFilter { project_id: Some(ProjectId::new()), ..Default::default() }).await.unwrap().len(), 0);
+        assert_eq!(
+            s.list(&RuleFilter { project_id: Some(ProjectId::new()), ..Default::default() }).await.unwrap().len(),
+            0
+        );
         assert!(s.delete(&rec.id, user()).await.unwrap());
         assert!(!s.delete(&rec.id, user()).await.unwrap());
         assert_eq!(s.engine.rule_count(), 0);
@@ -377,12 +405,40 @@ mod tests {
     #[tokio::test]
     async fn validation_and_agent_restrictions() {
         let s = svc().await;
-        let bad = PermissionRule { capability: Capability::Write, effect: PermissionEffect::Allow, resource: Some("[".into()), scope: PermissionScope::Global };
+        let bad = PermissionRule {
+            capability: Capability::Write,
+            effect: PermissionEffect::Allow,
+            resource: Some("[".into()),
+            scope: PermissionScope::Global,
+        };
         assert!(matches!(s.set(None, bad, None, None, user()).await, Err(SecurityError::Invalid(_))));
-        let ok = PermissionRule { capability: Capability::Write, effect: PermissionEffect::Allow, resource: None, scope: PermissionScope::Global };
-        assert!(matches!(s.set(None, ok.clone(), None, None, Actor::Agent(AgentId::new())).await, Err(SecurityError::Forbidden(_))));
+        let ok = PermissionRule {
+            capability: Capability::Write,
+            effect: PermissionEffect::Allow,
+            resource: None,
+            scope: PermissionScope::Global,
+        };
+        assert!(matches!(
+            s.set(None, ok.clone(), None, None, Actor::Agent(AgentId::new())).await,
+            Err(SecurityError::Forbidden(_))
+        ));
         assert!(matches!(s.set(None, ok, None, None, Actor::Manager).await, Err(SecurityError::Forbidden(_))));
-        assert!(matches!(s.set(Some("nope".into()), PermissionRule { capability: Capability::Read, effect: PermissionEffect::Allow, resource: None, scope: PermissionScope::Global }, None, None, user()).await, Err(SecurityError::NotFound(_))));
+        assert!(matches!(
+            s.set(
+                Some("nope".into()),
+                PermissionRule {
+                    capability: Capability::Read,
+                    effect: PermissionEffect::Allow,
+                    resource: None,
+                    scope: PermissionScope::Global
+                },
+                None,
+                None,
+                user()
+            )
+            .await,
+            Err(SecurityError::NotFound(_))
+        ));
     }
 
     #[tokio::test]

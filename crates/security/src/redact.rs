@@ -171,7 +171,11 @@ pub fn redact_json(value: &serde_json::Value) -> serde_json::Value {
         Value::Object(m) => Value::Object(
             m.iter()
                 .map(|(k, v)| {
-                    let v = if is_sensitive_field(k) && !v.is_null() { Value::String(REDACTED.into()) } else { redact_json(v) };
+                    let v = if is_sensitive_field(k) && !v.is_null() {
+                        Value::String(REDACTED.into())
+                    } else {
+                        redact_json(v)
+                    };
                     (k.clone(), v)
                 })
                 .collect(),
@@ -242,7 +246,8 @@ mod tests {
 
     #[test]
     fn json_redaction() {
-        let v = serde_json::json!({"apiKey": "abc", "nested": {"msg": "Bearer xyz123"}, "n": 1, "list": ["password=x1"]});
+        let v =
+            serde_json::json!({"apiKey": "abc", "nested": {"msg": "Bearer xyz123"}, "n": 1, "list": ["password=x1"]});
         let r = redact_json(&v);
         assert_eq!(r["apiKey"], REDACTED);
         assert_eq!(r["nested"]["msg"], "Bearer [REDACTED]");

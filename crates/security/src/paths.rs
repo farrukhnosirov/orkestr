@@ -47,10 +47,19 @@ pub enum PathError {
 }
 
 const RESERVED: &[&str] = &[
-    "con", "prn", "aux", "nul", "com0", "com1", "com2", "com3", "com4", "com5", "com6", "com7", "com8", "com9", "com¹", "com²",
-    "com³", "lpt0", "lpt1", "lpt2", "lpt3", "lpt4", "lpt5", "lpt6", "lpt7", "lpt8", "lpt9", "lpt¹", "lpt²", "lpt³", "conin$",
-    "conout$", "clock$",
+    "con", "prn", "aux", "nul", "com0", "com1", "com2", "com3", "com4", "com5", "com6", "com7", "com8", "com9", "com¹",
+    "com²", "com³", "lpt0", "lpt1", "lpt2", "lpt3", "lpt4", "lpt5", "lpt6", "lpt7", "lpt8", "lpt9", "lpt¹", "lpt²",
+    "lpt³", "conin$", "conout$", "clock$",
 ];
+
+/// Windows reserved device names (`CON`, `NUL`, `COM1`, `LPT¹`, `CONIN$`, …),
+/// also with an extension (`nul.txt`) or trailing spaces before it
+/// (`CON .txt`). Shared by every confinement helper (files, terminal, guard).
+#[must_use]
+pub fn is_reserved_device_name(component: &str) -> bool {
+    let stem = component.split('.').next().unwrap_or(component).trim_end().to_lowercase();
+    RESERVED.contains(&stem.as_str())
+}
 
 fn check_component(name: &str, original: &str) -> Result<(), PathError> {
     if name == "." || name == ".." {
@@ -62,8 +71,7 @@ fn check_component(name: &str, original: &str) -> Result<(), PathError> {
     if name.ends_with('.') || name.ends_with(' ') {
         return Err(PathError::ReservedName(original.to_owned()));
     }
-    let stem = name.split('.').next().unwrap_or(name).trim_end().to_lowercase();
-    if RESERVED.contains(&stem.as_str()) {
+    if is_reserved_device_name(name) {
         return Err(PathError::ReservedName(original.to_owned()));
     }
     if name.chars().any(|c| c.is_control() || matches!(c, '<' | '>' | '"' | '|' | '?' | '*')) {
@@ -129,9 +137,14 @@ pub fn normalize_relative(root: &Path, candidate: &str) -> Result<Vec<String>, P
         let root_unified = root.to_string_lossy().replace('\\', "/");
         let root_unified = simplify(Path::new(&root_unified)).to_string_lossy().replace('\\', "/");
         let cand_norm = lexical_normalize(&unified).ok_or_else(|| PathError::Escape(candidate.to_owned()))?;
-        let root_norm = lexical_normalize(&root_unified).ok_or_else(|| PathError::Root(root.display().to_string(), "unnormalizable".into()))?;
+        let root_norm = lexical_normalize(&root_unified)
+            .ok_or_else(|| PathError::Root(root.display().to_string(), "unnormalizable".into()))?;
         let fold = cfg!(windows);
-        let (c_cmp, r_cmp) = if fold { (cand_norm.to_lowercase(), root_norm.to_lowercase()) } else { (cand_norm.clone(), root_norm.clone()) };
+        let (c_cmp, r_cmp) = if fold {
+            (cand_norm.to_lowercase(), root_norm.to_lowercase())
+        } else {
+            (cand_norm.clone(), root_norm.clone())
+        };
         let r_cmp = r_cmp.trim_end_matches('/').to_owned();
         if c_cmp == r_cmp {
             String::new()
@@ -191,7 +204,9 @@ pub fn confine(root: &Path, candidate: &str) -> Result<PathBuf, PathError> {
     // Lexical check against both the given and the canonical root form.
     let rel = match normalize_relative(root, candidate) {
         Ok(r) => r,
-        Err(PathError::Escape(_)) if Path::new(candidate).is_absolute() => normalize_relative(&simplify(&canon_root), candidate)?,
+        Err(PathError::Escape(_)) if Path::new(candidate).is_absolute() => {
+            normalize_relative(&simplify(&canon_root), candidate)?
+        }
         Err(e) => return Err(e),
     };
     let mut full = canon_root.clone();
@@ -346,7 +361,12 @@ mod tests {
         assert!(matches!(confine(&root, "link\\secret.txt"), Err(PathError::Escape(_))));
         assert!(matches!(confine(&root, "link/new.txt"), Err(PathError::Escape(_))));
         let inner = root.join("inner");
-        let ok = std::process::Command::new("cmd").args(["/C", "mklink", "/J"]).arg(&inner).arg(root.join("src")).output().unwrap();
+        let ok = std::process::Command::new("cmd")
+            .args(["/C", "mklink", "/J"])
+            .arg(&inner)
+            .arg(root.join("src"))
+            .output()
+            .unwrap();
         assert!(ok.status.success());
         assert!(confine(&root, "inner\\a.txt").is_ok());
     }

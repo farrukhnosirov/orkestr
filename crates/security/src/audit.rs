@@ -7,7 +7,9 @@
 //! canonical row)`), which makes tampering evident (not impossible).
 //! Resources and details are redacted before they are written.
 
-use orkestr_domain::{now, Actor, AuditEvent, AuditEventId, AuditOutcome, Capability, CorrelationId, ProjectId, Timestamp};
+use orkestr_domain::{
+    now, Actor, AuditEvent, AuditEventId, AuditOutcome, Capability, CorrelationId, ProjectId, Timestamp,
+};
 use orkestr_storage::rusqlite::{params, OptionalExtension};
 use orkestr_storage::{Db, Migration, StorageError};
 use serde::{Deserialize, Serialize};
@@ -285,7 +287,9 @@ impl AuditLog {
             let event = AuditEvent {
                 id: AuditEventId::parse(&id).map_err(|e| parse("id", e.to_string()))?,
                 ts: Timestamp::from(
-                    chrono::DateTime::parse_from_rfc3339(&ts).map_err(|e| parse("ts", e.to_string()))?.with_timezone(&chrono::Utc),
+                    chrono::DateTime::parse_from_rfc3339(&ts)
+                        .map_err(|e| parse("ts", e.to_string()))?
+                        .with_timezone(&chrono::Utc),
                 ),
                 actor: serde_json::from_str(&actor).map_err(|e| parse("actor", e.to_string()))?,
                 action,
@@ -294,8 +298,12 @@ impl AuditLog {
                     .transpose()
                     .map_err(|e| parse("capability", e.to_string()))?,
                 resource,
-                project_id: project.map(|p| ProjectId::parse(&p)).transpose().map_err(|e| parse("project", e.to_string()))?,
-                outcome: serde_json::from_value(serde_json::Value::String(outcome)).map_err(|e| parse("outcome", e.to_string()))?,
+                project_id: project
+                    .map(|p| ProjectId::parse(&p))
+                    .transpose()
+                    .map_err(|e| parse("project", e.to_string()))?,
+                outcome: serde_json::from_value(serde_json::Value::String(outcome))
+                    .map_err(|e| parse("outcome", e.to_string()))?,
                 details: serde_json::from_str(&details).map_err(|e| parse("details", e.to_string()))?,
                 correlation_id: correlation
                     .map(|c| CorrelationId::parse(&c))
@@ -371,7 +379,8 @@ mod tests {
         assert_eq!(mine.len(), 3);
         let one = log.query(AuditQuery { action_prefix: Some("test.4".into()), ..Default::default() }).await.unwrap();
         assert_eq!(one.len(), 1);
-        let page = log.query(AuditQuery { before_seq: Some(all[1].seq), limit: Some(2), ..Default::default() }).await.unwrap();
+        let page =
+            log.query(AuditQuery { before_seq: Some(all[1].seq), limit: Some(2), ..Default::default() }).await.unwrap();
         assert_eq!(page.len(), 2);
         assert!(page.iter().all(|r| r.seq < all[1].seq));
         assert_eq!(log.verify_chain().await.unwrap(), None);
@@ -389,7 +398,9 @@ mod tests {
         // Simulate tampering by an attacker who drops the trigger.
         log.db
             .call(|c| {
-                c.execute_batch("DROP TRIGGER audit_events_no_update; UPDATE audit_events SET action = 'x' WHERE seq = 1;")?;
+                c.execute_batch(
+                    "DROP TRIGGER audit_events_no_update; UPDATE audit_events SET action = 'x' WHERE seq = 1;",
+                )?;
                 Ok(())
             })
             .await

@@ -52,6 +52,25 @@ portable setups), set `ORKESTR_HOME=/path`. To develop the UI in a plain
 browser, start `orkestrd` and open
 `http://localhost:1420/?core=<url from core.json>&token=<contents of core.token>`.
 
+## End-to-end smoke test (Phase 1)
+
+`scripts/smoke/phase1-smoke.mjs` launches the debug desktop app with a
+throw-away `ORKESTR_HOME`, reads `core.json`/`core.token`, and drives every
+Phase 1 area over the real WebSocket: projects, files, Git status and agent
+worktrees, snapshots with a task rollback, the task DAG, a PTY terminal, a
+gated dangerous `terminal.run` with an approval round-trip, providers (Mock),
+memory, cost, settings, nodes and the emergency stop. It never touches your
+real data directory or the OS keyring (secret backend `vault-file`).
+
+```bash
+cargo build -p orkestr-desktop               # builds target/debug/orkestr-desktop(.exe)
+node scripts/smoke/phase1-smoke.mjs          # desktop app (a window opens for ~30 s)
+node scripts/smoke/phase1-smoke.mjs --headless   # same checks against target/debug/orkestrd
+```
+
+It needs Node 22+ (global `WebSocket`) and `git` on `PATH`, prints one
+`PASS`/`FAIL` line per check and exits non-zero on failure.
+
 ## Layout
 
 | Path | What |
@@ -62,8 +81,15 @@ browser, start `orkestrd` and open
 | `crates/storage` | SQLite (WAL), reversible migrations, metadata store, content-addressed objects. |
 | `crates/platform` | Paths, shells, credential store, autostart, power, resources. Holds every `cfg(target_os)`. |
 | `crates/core` | Composition root, axum RPC server, discovery, crash recovery, `orkestrd`. |
-| `crates/task-engine` | Task state machine (implemented) and scheduler (skeleton). |
-| `crates/{security,providers,agent-runtime,orchestrator,context,memory,vcs,terminal,snapshots,cost,sync,node}` | Engine crates: public traits fixed, implementations arrive in later phases. |
+| `crates/security` | Permission engine, dangerous-action guard, path confinement, approvals, secret vault, audit log, emergency controls. |
+| `crates/providers` | Provider hub: adapters (OpenAI/compatible, Anthropic, Gemini, DeepSeek, Ollama, Claude Code CLI, Codex CLI, Mock), registry, router, fallback, pricing. |
+| `crates/task-engine` | Task state machine, DAG, priority queue, resource-aware scheduler (pure), persistence, recovery. |
+| `crates/{vcs,snapshots}` | Git via the `git` CLI (status/diff/branches/worktrees/merge) and content snapshots with safe workspace/task rollback. |
+| `crates/terminal` | PTY sessions and gated command execution (security gate wired in `crates/core/src/gates.rs`). |
+| `crates/files` | Confined file service, search/find, trash, debounced watcher. |
+| `crates/{memory,context,cost}` | Memory/decisions/knowledge (FTS5), context optimizer, usage + budgets. |
+| `crates/node` | Node inventory and live resource sampling. |
+| `crates/{agent-runtime,orchestrator,sync}` | Engine crates whose implementations arrive in later waves/phases. |
 | `packages/protocol` | `@orkestr/protocol`: generated TS types and helpers. |
 | `packages/client` | `@orkestr/client`: typed WebSocket client with reconnect and replay. |
 | `packages/ui` | `@orkestr/ui`: `--ok-*` tokens, theme engine, primitives. |

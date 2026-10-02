@@ -598,7 +598,7 @@ impl SnapshotService {
             .items
             .iter()
             .filter(|i| i.action != RollbackAction::Keep)
-            .filter(|i| selected.as_ref().map_or(true, |s| s.contains(i.path.as_str())))
+            .filter(|i| selected.as_ref().is_none_or(|s| s.contains(i.path.as_str())))
             .collect();
         let mut result = RollbackResult {
             snapshot_id: id,

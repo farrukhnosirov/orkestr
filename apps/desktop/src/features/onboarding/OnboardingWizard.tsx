@@ -25,7 +25,7 @@ import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Logo } from "../../components/Logo";
 import { getClient, openProject } from "../../core/client";
 import { useAppStore } from "../../store/app";
-import { callOptional } from "../settings/optionalRpc";
+import { ManagerSettings, ProviderSetup } from "../providers";
 import { SystemChecksList } from "../settings/sections/SystemChecksList";
 import { useSettingsStore } from "../settings/settingsStore";
 import { useSystemStore } from "../settings/systemStore";
@@ -216,8 +216,10 @@ export function OnboardingWizard() {
     } else if (current.id === "permissions") {
       setBusy(true);
       try {
-        const r = await callOptional("permissions.setMode", { mode });
-        setModeNote(r.available ? null : "Saved as your default; the permission engine applies it when it is available.");
+        // The default applies to new projects; the open project switches now.
+        const projectId = useAppStore.getState().activeProjectId;
+        if (projectId) await getClient().call("permissions.setMode", { projectId, mode });
+        setModeNote(projectId ? null : "Saved as your default; new projects start in this mode.");
       } catch (e) {
         setBusy(false);
         return setError(e instanceof Error ? e.message : String(e));
@@ -303,26 +305,22 @@ export function OnboardingWizard() {
       break;
     case "providers":
       body = (
-        <div className="onb-slot">
-          {/* INTEGRATOR: embed <ProviderSetup/> */}
-          <KeyRound size={22} />
-          <h3>Connect AI providers</h3>
-          <p>
-            Use your own API keys or the official CLIs you are already signed in to (Claude Code, Codex). Keys are stored in
-            the OS credential store, never in plain text.
+        <div className="onb-embed">
+          <p className="onb-hint">
+            <KeyRound size={14} /> Use your own API keys or the official CLIs you are already signed in to (Claude Code, Codex). Keys are
+            stored in the OS secret vault, never in plain text. You can skip this and connect providers later in Settings.
           </p>
-          <p className="onb-slot__note">Provider setup is not part of this build yet — you can skip this step and connect providers later.</p>
+          <ProviderSetup compact />
         </div>
       );
       break;
     case "manager":
       body = (
-        <div className="onb-slot">
-          {/* INTEGRATOR: embed <ManagerModelPicker/> */}
-          <Bot size={22} />
-          <h3>Choose the Manager model</h3>
-          <p>The Manager plans work, splits it into tasks and delegates to agents. A strong reasoning model works best.</p>
-          <p className="onb-slot__note">Available once a provider is connected — skip for now.</p>
+        <div className="onb-embed">
+          <p className="onb-hint">
+            <Bot size={14} /> The Manager plans work, splits it into tasks and delegates to agents. A strong reasoning model works best.
+          </p>
+          <ManagerSettings />
         </div>
       );
       break;

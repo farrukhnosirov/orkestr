@@ -111,7 +111,8 @@ async fn permissions_modes_rules_and_checks() {
     c.subscribe(json!(["global"])).await;
     let root = dir.path().join("proj");
     std::fs::create_dir_all(root.join("src")).unwrap();
-    let project = c.ok("projects.create", json!({"name": "Sec", "rootPath": root.to_string_lossy()})).await["project"].clone();
+    let project =
+        c.ok("projects.create", json!({"name": "Sec", "rootPath": root.to_string_lossy()})).await["project"].clone();
     let pid = project["id"].as_str().unwrap().to_owned();
     c.wait_event("ProjectCreated").await;
 
@@ -132,11 +133,21 @@ async fn permissions_modes_rules_and_checks() {
     let chk = |cap: &str, resource: Value| json!({"capability": cap, "resource": resource, "projectId": pid, "agentId": AgentId::new().to_string()});
     let d = c.ok("permissions.check", chk("Write", json!({"type": "path", "path": "src/main.rs"}))).await;
     assert_eq!(d["decision"], "Allow", "{d}");
-    let d = c.ok("permissions.check", chk("Terminal", json!({"type": "command", "command": "git push --force", "shell": "Bash"}))).await;
+    let d = c
+        .ok(
+            "permissions.check",
+            chk("Terminal", json!({"type": "command", "command": "git push --force", "shell": "Bash"})),
+        )
+        .await;
     assert_eq!(d["decision"], "Ask");
     assert_eq!(d["danger"], "GitDestructive");
     assert_eq!(d["rememberable"], false);
-    let d = c.ok("permissions.check", chk("Terminal", json!({"type": "command", "command": "Remove-Item C:\\ -Recurse", "shell": "PowerShell"}))).await;
+    let d = c
+        .ok(
+            "permissions.check",
+            chk("Terminal", json!({"type": "command", "command": "Remove-Item C:\\ -Recurse", "shell": "PowerShell"})),
+        )
+        .await;
     assert_eq!(d["decision"], "Deny");
     assert_eq!(d["hard"], true);
     let d = c.ok("permissions.check", chk("Write", json!({"type": "path", "path": "../escape.txt"}))).await;
@@ -158,7 +169,14 @@ async fn permissions_modes_rules_and_checks() {
     assert_eq!(d["decision"], "Allow");
     let rules = c.ok("permissions.list", json!({"projectId": pid})).await;
     assert_eq!(rules["rules"].as_array().unwrap().len(), 1);
-    assert_eq!(c.err("permissions.set", json!({"rule": {"capability": "Read", "effect": "Allow", "resource": "[", "scope": {"scope": "Global"}}})).await, "bad_request");
+    assert_eq!(
+        c.err(
+            "permissions.set",
+            json!({"rule": {"capability": "Read", "effect": "Allow", "resource": "[", "scope": {"scope": "Global"}}})
+        )
+        .await,
+        "bad_request"
+    );
     assert_eq!(c.ok("permissions.delete", json!({"id": rid})).await["deleted"], true);
     assert_eq!(c.ok("permissions.delete", json!({"id": rid})).await["deleted"], false);
     let d = c.ok("permissions.check", chk("Network", json!({"type": "url", "url": "https://api.example.com/x"}))).await;
@@ -177,7 +195,12 @@ async fn approvals_inbox_flow() {
     let pid = ProjectId::new();
     c.subscribe(json!([format!("project:{pid}"), "global"])).await;
 
-    let mut req = ApprovalRequest::new(Capability::Terminal, "Run `git push --force`", "dangerous git operation", RiskLevel::High);
+    let mut req = ApprovalRequest::new(
+        Capability::Terminal,
+        "Run `git push --force`",
+        "dangerous git operation",
+        RiskLevel::High,
+    );
     req.project_id = Some(pid);
     req.command_preview = Some("git push --force origin main".into());
     let approval = core.services.security.approvals.request(req).await.unwrap();
@@ -187,20 +210,29 @@ async fn approvals_inbox_flow() {
     // Background waiter (the "agent").
     let svc = std::sync::Arc::clone(&core.services.security.approvals);
     let id = approval.id;
-    let waiter = tokio::spawn(async move { svc.wait(id, Duration::from_secs(20), &tokio_util::sync::CancellationToken::new()).await });
+    let waiter = tokio::spawn(async move {
+        svc.wait(id, Duration::from_secs(20), &tokio_util::sync::CancellationToken::new()).await
+    });
 
     let pending = c.ok("approvals.list", json!({"status": "Pending"})).await;
     assert_eq!(pending["approvals"].as_array().unwrap().len(), 1);
     let got = c.ok("approvals.get", json!({"approvalId": id.to_string()})).await;
     assert_eq!(got["approval"]["commandPreview"], "git push --force origin main");
-    let res = c.ok("approvals.resolve", json!({"approvalId": id.to_string(), "decision": "Approve", "note": "go"})).await;
+    let res =
+        c.ok("approvals.resolve", json!({"approvalId": id.to_string(), "decision": "Approve", "note": "go"})).await;
     assert_eq!(res["approval"]["status"], "Approved");
     assert_eq!(res["approval"]["resolvedBy"]["type"], "User");
     let ev = c.wait_event("ApprovalResolved").await;
     assert_eq!(ev["event"]["payload"]["status"], "Approved");
     assert_eq!(waiter.await.unwrap().unwrap(), orkestr_domain::ApprovalStatus::Approved);
-    assert_eq!(c.err("approvals.resolve", json!({"approvalId": id.to_string(), "decision": "Reject"})).await, "conflict");
-    assert_eq!(c.err("approvals.get", json!({"approvalId": orkestr_domain::ApprovalId::new().to_string()})).await, "not_found");
+    assert_eq!(
+        c.err("approvals.resolve", json!({"approvalId": id.to_string(), "decision": "Reject"})).await,
+        "conflict"
+    );
+    assert_eq!(
+        c.err("approvals.get", json!({"approvalId": orkestr_domain::ApprovalId::new().to_string()})).await,
+        "not_found"
+    );
     let history = c.ok("approvals.list", json!({})).await;
     assert_eq!(history["approvals"].as_array().unwrap().len(), 1);
     core.shutdown().await;
@@ -212,7 +244,8 @@ async fn secrets_are_write_only_and_vault_locks() {
     let mut c = Client::connect(&core).await;
     c.subscribe(json!(["*"])).await;
     let value = "sk-integration-SECRET-value-0123456789";
-    let res = c.call("secrets.set", json!({"name": "OPENAI_API_KEY", "scope": {"scope": "Global"}, "value": value})).await;
+    let res =
+        c.call("secrets.set", json!({"name": "OPENAI_API_KEY", "scope": {"scope": "Global"}, "value": value})).await;
     assert_eq!(res["ok"], true, "{res}");
     assert!(!res.to_string().contains(value), "value never echoed");
     let sid = res["result"]["secret"]["id"].as_str().unwrap().to_owned();
@@ -248,11 +281,17 @@ async fn secrets_are_write_only_and_vault_locks() {
     // Lock → writes refused; unlock → OK.
     let st = c.ok("emergency.lockVault", json!({})).await;
     assert_eq!(st["locked"], true);
-    assert_eq!(c.err("secrets.set", json!({"name": "B", "scope": {"scope": "Global"}, "value": "x"})).await, "forbidden");
+    assert_eq!(
+        c.err("secrets.set", json!({"name": "B", "scope": {"scope": "Global"}, "value": "x"})).await,
+        "forbidden"
+    );
     let em = c.ok("emergency.status", json!({})).await;
     assert_eq!(em["flags"]["vaultLocked"], true);
     assert_eq!(c.ok("secrets.unlock", json!({})).await["locked"], false);
-    assert_eq!(c.err("secrets.set", json!({"name": "bad name", "scope": {"scope": "Global"}, "value": "x"})).await, "bad_request");
+    assert_eq!(
+        c.err("secrets.set", json!({"name": "bad name", "scope": {"scope": "Global"}, "value": "x"})).await,
+        "bad_request"
+    );
     assert_eq!(c.ok("secrets.delete", json!({"secretId": sid})).await["deleted"], true);
     assert_eq!(c.ok("secrets.list", json!({})).await["secrets"].as_array().unwrap().len(), 0);
     // No event payload ever contained the value.
@@ -296,12 +335,20 @@ async fn emergency_stop_all_project_agent_and_reset() {
     assert_eq!(ev["event"]["payload"]["scope"]["scope"], "All");
     assert!(em.register_agent(AgentId::new(), None).is_err(), "new AI work refused while stopped");
     // Agents are denied everything while stopped.
-    let d = c.ok("permissions.check", json!({"capability": "Read", "resource": {"type": "none"}, "agentId": AgentId::new().to_string()})).await;
+    let d = c
+        .ok(
+            "permissions.check",
+            json!({"capability": "Read", "resource": {"type": "none"}, "agentId": AgentId::new().to_string()}),
+        )
+        .await;
     assert_eq!(d["decision"], "Deny");
     assert_eq!(d["code"], "emergency_stop");
 
     let s = c.ok("emergency.reset", json!({})).await;
-    assert_eq!(s["flags"], json!({"allStopped": false, "fullAutoDisabled": false, "networkToolsDisabled": false, "vaultLocked": false}));
+    assert_eq!(
+        s["flags"],
+        json!({"allStopped": false, "fullAutoDisabled": false, "networkToolsDisabled": false, "vaultLocked": false})
+    );
     assert!(em.register_agent(AgentId::new(), None).is_ok());
     let audit = c.ok("audit.list", json!({"action": "emergency.", "verify": true})).await;
     assert_eq!(audit["chainValid"], true);

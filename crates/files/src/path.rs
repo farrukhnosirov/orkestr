@@ -151,43 +151,15 @@ fn validate_component(c: &str, input: &str) -> FilesResult<()> {
     Ok(())
 }
 
-/// Windows reserved device names, also with an extension (`nul.txt`) or
-/// trailing spaces before the extension (`CON .txt`).
-#[must_use]
-pub fn is_reserved_device_name(component: &str) -> bool {
-    let stem = component.split('.').next().unwrap_or(component).trim_end_matches(' ');
-    let upper = stem.to_ascii_uppercase();
-    if matches!(upper.as_str(), "CON" | "PRN" | "AUX" | "NUL" | "CONIN$" | "CONOUT$" | "CLOCK$") {
-        return true;
-    }
-    for prefix in ["COM", "LPT"] {
-        if let Some(rest) = upper.strip_prefix(prefix) {
-            let mut chars = rest.chars();
-            if let (Some(d), None) = (chars.next(), chars.next()) {
-                if d.is_ascii_digit() || matches!(d, '¹' | '²' | '³') {
-                    return true;
-                }
-            }
-        }
-    }
-    false
-}
+/// Windows reserved device names — the single implementation lives in the
+/// security crate (`orkestr_security::paths`).
+pub use orkestr_security::paths::is_reserved_device_name;
 
 /// Strips the Windows verbatim prefix (`\\?\C:\x` → `C:\x`, `\\?\UNC\s\x` →
 /// `\\s\x`) so external programs and messages get conventional paths.
 #[must_use]
 pub fn display_path(path: &Path) -> PathBuf {
-    let s = path.to_string_lossy();
-    if let Some(rest) = s.strip_prefix(r"\\?\UNC\") {
-        return PathBuf::from(format!(r"\\{rest}"));
-    }
-    if let Some(rest) = s.strip_prefix(r"\\?\") {
-        let b = rest.as_bytes();
-        if b.len() >= 2 && b[0].is_ascii_alphabetic() && b[1] == b':' {
-            return PathBuf::from(rest);
-        }
-    }
-    path.to_path_buf()
+    orkestr_security::paths::simplify(path)
 }
 
 /// A physical location inside the workspace.

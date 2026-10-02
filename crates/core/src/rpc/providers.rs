@@ -1,5 +1,6 @@
 //! `providers.*` handlers (§4, §5, §7, §55) plus the core-side wiring of the
-//! provider hub: the event-bus sink and the interim credential bridge.
+//! provider hub: the event-bus sink and the credential bridge to the
+//! security area's secret vault.
 //!
 //! API keys are accepted only inbound, handed to the vault through
 //! [`CredentialResolver`] and never returned, logged or emitted.
@@ -7,9 +8,8 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use orkestr_domain::{ProviderId, SecretRefId};
+use orkestr_domain::{Actor, ProviderId, SecretRefId, SecretScope};
 use orkestr_events::EventBus;
-use orkestr_platform::PlatformAdapter;
 use orkestr_protocol::event::{
     EventKind, ProviderFallbackPayload, ProviderRateLimitedPayload, ProviderStatusChangedPayload,
 };
@@ -197,6 +197,10 @@ async fn update(ctx: RpcContext, p: UpdateProviderParams) -> Result<ProviderView
 
 async fn test(ctx: RpcContext, p: TestProviderParams) -> Result<TestProviderResult, RpcError> {
     let o = ctx.services.providers.test(p.provider_id, p.model).await.map_err(to_rpc)?;
+    if let Some(u) = o.usage {
+        let record = usage_record(p.provider_id, &o.model, &u, UsageScope::default(), Some(o.latency_ms), o.ok);
+        record_usage(&ctx.services, &record).await;
+    }
     Ok(TestProviderResult {
         ok: o.ok,
         model: o.model,
@@ -208,6 +212,59 @@ async fn test(ctx: RpcContext, p: TestProviderParams) -> Result<TestProviderResu
         output_tokens: o.usage.map(|u| u.output_tokens),
         cost_usd: o.cost_usd,
     })
+}
+
+/// Who a provider call was made for (all optional).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct UsageScope {
+    /// Project.
+    pub project_id: Option<orkestr_domain::ProjectId>,
+    /// Task.
+    pub task_id: Option<orkestr_domain::TaskId>,
+    /// Agent.
+    pub agent_id: Option<orkestr_domain::AgentId>,
+}
+
+/// Builds the cost-engine record of one provider call. The cost is the
+/// provider/CLI-reported amount when present, otherwise a list-price
+/// estimate (`estimated = true`), or 0 when the model has no known price.
+#[must_use]
+pub fn usage_record(
+    provider_id: ProviderId,
+    model: &str,
+    usage: &orkestr_providers::Usage,
+    scope: UsageScope,
+    latency_ms: Option<u64>,
+    success: bool,
+) -> orkestr_domain::UsageRecord {
+    let reported = usage.reported_cost_usd.is_some();
+    let cost = orkestr_providers::estimate_cost(model, usage).unwrap_or(0.0);
+    orkestr_domain::UsageRecord {
+        id: orkestr_domain::UsageRecordId::new(),
+        ts: chrono::Utc::now(),
+        provider_id,
+        model: model.to_owned(),
+        project_id: scope.project_id,
+        task_id: scope.task_id,
+        agent_id: scope.agent_id,
+        execution_id: None,
+        input_tokens: usage.input_tokens,
+        output_tokens: usage.output_tokens,
+        cached_input_tokens: usage.cached_input_tokens,
+        reasoning_tokens: usage.reasoning_tokens,
+        cost_usd: if cost.is_finite() && cost >= 0.0 { cost } else { 0.0 },
+        estimated: !reported || usage.estimated,
+        latency_ms,
+        success,
+    }
+}
+
+/// Feeds a provider call into the cost engine (usage + budget thresholds).
+/// Failures are logged: accounting must never break the call itself.
+pub async fn record_usage(services: &crate::services::Services, record: &orkestr_domain::UsageRecord) {
+    if let Err(e) = services.cost.ingest(record).await {
+        tracing::warn!(error = %e, provider = %record.provider_id, "failed to record provider usage");
+    }
 }
 
 /// Publishes provider events on the bus (`ProviderStatusChanged`,
@@ -256,73 +313,59 @@ impl ProviderEventSink for BusProviderSink {
     }
 }
 
-/// Keyring service under which provider secrets are stored.
-pub const KEYRING_SERVICE: &str = "orkestr.providers";
-
-/// **Interim** credential bridge: stores provider API keys directly in the OS
-/// credential store (`orkestr-platform` `CredentialStore`) under
-/// `(orkestr.providers, secret/<SecretRefId>)`.
+/// Credential bridge over the security area's [`SecretService`]: provider
+/// API keys live in the OS keyring (encrypted-file vault fallback), every
+/// access is audited, values are registered with the redactor, and the vault
+/// lock / emergency controls apply. Only the `SecretRefId` is stored by the
+/// provider registry.
 ///
-/// Integration note: when the security area's `SecretStore` lands, replace
-/// this with an adapter over it (scoping, audit, encrypted-file fallback);
-/// the `SecretRefId`s stay valid if the same locator scheme is used.
-pub struct PlatformCredentialBridge {
-    platform: Arc<dyn PlatformAdapter>,
+/// Each stored key gets a unique secret name (`provider.<id>.<nonce>`) so a
+/// rotation (store new → delete old) never deletes the freshly stored value.
+pub struct SecretServiceCredentials {
+    secrets: Arc<orkestr_security::SecretService>,
 }
 
-impl PlatformCredentialBridge {
-    /// Wraps the platform.
+impl SecretServiceCredentials {
+    /// Wraps the secret service.
     #[must_use]
-    pub fn new(platform: Arc<dyn PlatformAdapter>) -> Self {
-        Self { platform }
+    pub fn new(secrets: Arc<orkestr_security::SecretService>) -> Self {
+        Self { secrets }
     }
+}
 
-    fn account(id: SecretRefId) -> String {
-        format!("secret/{id}")
-    }
-
-    async fn blocking<T: Send + 'static>(
-        &self,
-        f: impl FnOnce(&dyn orkestr_platform::CredentialStore) -> Result<T, CredentialError> + Send + 'static,
-    ) -> Result<T, CredentialError> {
-        let platform = Arc::clone(&self.platform);
-        tokio::task::spawn_blocking(move || f(platform.credentials()))
-            .await
-            .map_err(|e| CredentialError::Backend(format!("credential task failed: {e}")))?
+fn credential_error(e: orkestr_security::SecurityError) -> CredentialError {
+    match e {
+        orkestr_security::SecurityError::VaultLocked => CredentialError::Locked,
+        orkestr_security::SecurityError::SecretNotFound(_) | orkestr_security::SecurityError::NotFound(_) => {
+            CredentialError::NotFound
+        }
+        other => CredentialError::Backend(other.to_string()),
     }
 }
 
 #[async_trait]
-impl CredentialResolver for PlatformCredentialBridge {
+impl CredentialResolver for SecretServiceCredentials {
     async fn store(&self, provider: ProviderId, _label: &str, secret: &str) -> Result<SecretRefId, CredentialError> {
-        let id = SecretRefId::new();
-        let secret = secret.to_owned();
-        crate::redact::register_secret(&secret);
-        self.blocking(move |c| {
-            c.set(KEYRING_SERVICE, &Self::account(id), &secret).map_err(|e| CredentialError::Backend(e.to_string()))
-        })
-        .await?;
-        tracing::info!(%provider, secret_ref = %id, "provider secret stored in OS credential store");
-        Ok(id)
+        let name = format!("provider.{provider}.{}", SecretRefId::new());
+        let reference = self
+            .secrets
+            .set(&name, SecretScope::Global, zeroize::Zeroizing::new(secret.to_owned()), Actor::System)
+            .await
+            .map_err(credential_error)?;
+        tracing::info!(%provider, secret_ref = %reference.id, "provider secret stored in the secret vault");
+        Ok(reference.id)
     }
 
     async fn resolve(&self, reference: SecretRefId) -> Result<String, CredentialError> {
-        let secret = self
-            .blocking(move |c| {
-                c.get(KEYRING_SERVICE, &Self::account(reference)).map_err(|e| CredentialError::Backend(e.to_string()))
-            })
-            .await?
-            .ok_or(CredentialError::NotFound)?;
-        crate::redact::register_secret(&secret);
-        Ok(secret)
+        let value = self
+            .secrets
+            .resolve(reference, Actor::System, orkestr_security::AccessContext::default())
+            .await
+            .map_err(credential_error)?;
+        Ok(value.as_str().to_owned())
     }
 
     async fn delete(&self, reference: SecretRefId) -> Result<(), CredentialError> {
-        self.blocking(move |c| {
-            c.delete(KEYRING_SERVICE, &Self::account(reference))
-                .map(|_| ())
-                .map_err(|e| CredentialError::Backend(e.to_string()))
-        })
-        .await
+        self.secrets.delete(reference, Actor::System).await.map(|_| ()).map_err(credential_error)
     }
 }

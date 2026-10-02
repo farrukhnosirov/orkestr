@@ -134,7 +134,7 @@ pub(crate) async fn publish_file_changes(
             actor: orkestr_protocol::event::FileChangeActor::User,
             agent_id: None,
         }))
-            .project(project_id);
+        .project(project_id);
         if let Err(e) = publish(ctx, ev).await {
             tracing::warn!(error = %e.message, "failed to publish FileChanged");
         }

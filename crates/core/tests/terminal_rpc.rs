@@ -243,3 +243,89 @@ async fn shutdown_kills_open_terminals() {
     use orkestr_platform::ProcessControl;
     assert!(!orkestr_platform::NativeProcessControl.is_alive(pid), "terminal shell survived core shutdown");
 }
+
+#[cfg(windows)]
+const RM_BUILD: &str = "rd /s /q build";
+#[cfg(not(windows))]
+const RM_BUILD: &str = "rm -rf build";
+#[cfg(windows)]
+const RM_OTHER: &str = "rd /s /q other";
+#[cfg(not(windows))]
+const RM_OTHER: &str = "rm -rf other";
+#[cfg(windows)]
+const FORBIDDEN: &str = "format C:";
+#[cfg(not(windows))]
+const FORBIDDEN: &str = "rm -rf /";
+
+/// The terminal gate is the security subsystem: dangerous commands file an
+/// approval (single use once approved), rejected ones are refused,
+/// forbidden ones never run, and Stop All blocks agent commands.
+#[tokio::test]
+async fn terminal_security_gate_end_to_end() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(root.path().join("build")).unwrap();
+    std::fs::create_dir_all(root.path().join("other")).unwrap();
+    let mut config = CoreConfig::with_data_dir(dir.path());
+    config.secret_backend = orkestr_security::SecretBackendChoice::Memory;
+    let core = orkestr_core::start(config).await.unwrap();
+    let mut c = Client::connect(&core).await;
+    c.subscribe("*").await;
+    let project = c.ok("projects.create", json!({"name": "Gate", "rootPath": root.path().to_string_lossy()})).await;
+    let pid = project["project"]["id"].as_str().unwrap().to_owned();
+    let run = |cmd: &str| json!({"projectId": pid, "shellId": SHELL, "command": cmd});
+
+    // Dangerous (user) → approval_required with an approval id + event.
+    let res = c.call("terminal.run", run(RM_BUILD)).await;
+    assert_eq!(res["error"]["code"], "approval_required", "{res}");
+    let approval = res["error"]["data"]["approvalId"].as_str().expect("approval id").to_owned();
+    assert!(root.path().join("build").exists(), "must not run before approval");
+    // Retrying while pending does not file a second approval.
+    let again = c.call("terminal.run", run(RM_BUILD)).await;
+    assert_eq!(again["error"]["data"]["approvalId"], approval.as_str(), "{again}");
+    c.wait_events(Duration::from_secs(5), |evs| {
+        evs.iter().any(|e| {
+            e["event"]["kind"] == "ApprovalRequested" && e["event"]["payload"]["approval"]["id"] == approval.as_str()
+        })
+    })
+    .await;
+    let pending = c.ok("approvals.list", json!({"status": "Pending"})).await;
+    assert_eq!(pending["approvals"].as_array().unwrap().len(), 1, "{pending}");
+
+    // Approve → runs exactly once.
+    c.ok("approvals.resolve", json!({"approvalId": approval, "decision": "Approve"})).await;
+    let out = c.ok("terminal.run", run(RM_BUILD)).await;
+    assert_eq!(out["exitCode"], 0, "{out}");
+    assert!(!root.path().join("build").exists());
+    assert_eq!(c.err_code("terminal.run", run(RM_BUILD)).await, "approval_required");
+
+    // Reject → refused on retry.
+    let res = c.call("terminal.run", run(RM_OTHER)).await;
+    let other = res["error"]["data"]["approvalId"].as_str().unwrap().to_owned();
+    c.ok("approvals.resolve", json!({"approvalId": other, "decision": "Reject"})).await;
+    assert_eq!(c.err_code("terminal.run", run(RM_OTHER)).await, "forbidden");
+    assert!(root.path().join("other").exists());
+
+    // Forbidden → never runs, no approval.
+    assert_eq!(c.err_code("terminal.run", run(FORBIDDEN)).await, "forbidden");
+
+    // Semi-Auto agent: safe commands inside the root run; Stop All blocks them.
+    let agent = "0190f5c2-0000-7000-8000-0000000000a1";
+    c.ok("permissions.setMode", json!({"projectId": pid, "mode": "SemiAuto"})).await;
+    let out = c
+        .ok("terminal.run", json!({"projectId": pid, "agentId": agent, "shellId": SHELL, "command": "echo agent-ok"}))
+        .await;
+    assert_eq!(out["stdout"].as_str().unwrap().trim(), "agent-ok", "{out}");
+    let stop = c.ok("emergency.stopAll", json!({})).await;
+    assert_eq!(stop["flags"]["allStopped"], true);
+    assert_eq!(
+        c.err_code(
+            "terminal.run",
+            json!({"projectId": pid, "agentId": agent, "shellId": SHELL, "command": "echo agent-ok"})
+        )
+        .await,
+        "forbidden"
+    );
+    c.ok("emergency.reset", json!({})).await;
+    core.shutdown().await;
+}

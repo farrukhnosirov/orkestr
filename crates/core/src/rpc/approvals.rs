@@ -1,7 +1,8 @@
 //! `approvals.*` handlers (§23).
 
 use orkestr_protocol::methods::approvals::{
-    self as m, ApprovalDecisionKind, ApprovalIdParams, ApprovalResult, ListApprovalsParams, ListApprovalsResult, ResolveApprovalParams,
+    self as m, ApprovalDecisionKind, ApprovalIdParams, ApprovalResult, ListApprovalsParams, ListApprovalsResult,
+    ResolveApprovalParams,
 };
 use orkestr_protocol::RpcError;
 use orkestr_security::{ApprovalDecision, ApprovalFilter};
@@ -45,7 +46,8 @@ pub fn register(router: &mut RpcRouter) {
                 ApprovalDecisionKind::Approve => ApprovalDecision::Approve,
                 ApprovalDecisionKind::Reject => ApprovalDecision::Reject,
             };
-            let approval = sec.approvals.resolve(p.approval_id, decision, p.note, sec.user()).await.map_err(security_to_rpc)?;
+            let approval =
+                sec.approvals.resolve(p.approval_id, decision, p.note, sec.user()).await.map_err(security_to_rpc)?;
             Ok(ApprovalResult { approval })
         });
 }

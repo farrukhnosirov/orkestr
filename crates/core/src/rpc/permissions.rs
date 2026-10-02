@@ -5,8 +5,8 @@ use std::path::PathBuf;
 use orkestr_domain::{now, Actor, AuditOutcome, Project, ProjectId};
 use orkestr_protocol::event::{EventKind, ProjectPayload};
 use orkestr_protocol::methods::permissions::{
-    self as m, CheckParams, CheckResource, CommandShell, DecisionKind, DecisionView, DeleteRuleParams, DeletedResult, GetModeParams,
-    ListRulesParams, ListRulesResult, ModeResult, RuleResult, SetModeParams, SetRuleParams,
+    self as m, CheckParams, CheckResource, CommandShell, DecisionKind, DecisionView, DeleteRuleParams, DeletedResult,
+    GetModeParams, ListRulesParams, ListRulesResult, ModeResult, RuleResult, SetModeParams, SetRuleParams,
 };
 use orkestr_protocol::{NewEvent, RpcError};
 use orkestr_security::permissions::RuleFilter;
@@ -142,16 +142,19 @@ async fn check(ctx: RpcContext, p: CheckParams) -> Result<DecisionView, RpcError
     let engine = std::sync::Arc::clone(&sec.engine);
     let capability = p.capability;
     // Path confinement touches the filesystem: run off the async workers.
-    let decision = tokio::task::spawn_blocking(move || engine.check(&actor, capability, &resource, &cctx))
-        .await
-        .map_err(|e| {
+    let decision =
+        tokio::task::spawn_blocking(move || engine.check(&actor, capability, &resource, &cctx)).await.map_err(|e| {
             tracing::error!(error = %e, "permission check task failed");
             RpcError::internal("permission check failed")
         })?;
     Ok(decision_view(decision, mode))
 }
 
-async fn mode_result(ctx: &RpcContext, project: &Project, agent: Option<orkestr_domain::AgentId>) -> Result<ModeResult, RpcError> {
+async fn mode_result(
+    ctx: &RpcContext,
+    project: &Project,
+    agent: Option<orkestr_domain::AgentId>,
+) -> Result<ModeResult, RpcError> {
     let sec = &ctx.services.security;
     let agent_mode = match agent {
         Some(a) => sec.permissions.agent_mode(a).await.map_err(security_to_rpc)?,
@@ -194,9 +197,14 @@ async fn set_mode(ctx: RpcContext, p: SetModeParams) -> Result<ModeResult, RpcEr
                     .map_err(events_to_rpc)?;
                 sec.audit
                     .record(
-                        NewAudit::new(sec.user(), "permissions.setMode", format!("project:{}", project.id), AuditOutcome::Executed)
-                            .project(Some(project.id))
-                            .details(serde_json::json!({ "from": from, "to": mode })),
+                        NewAudit::new(
+                            sec.user(),
+                            "permissions.setMode",
+                            format!("project:{}", project.id),
+                            AuditOutcome::Executed,
+                        )
+                        .project(Some(project.id))
+                        .details(serde_json::json!({ "from": from, "to": mode })),
                     )
                     .await;
                 tracing::info!(project_id = %project.id, ?mode, "approval mode changed");

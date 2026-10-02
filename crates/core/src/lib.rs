@@ -19,6 +19,7 @@ pub mod checks;
 pub mod config;
 pub mod discovery;
 pub mod error;
+pub mod gates;
 pub mod housekeeping;
 pub mod logging;
 pub mod migrations;
@@ -159,19 +160,15 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
     let events = EventBus::with_log(event_log, config.event_capacity).await?;
     seq_high_water.reserve_from(events.last_seq()).await?;
     let node_id = migrations::load_or_create_node_id(&db).await?;
-    // Terminal: UserOnlyGate until the security engine provides a CommandGate.
-    let terminals = orkestr_terminal::TerminalService::builder()
-        .sink(Arc::new(rpc::terminal::EventTerminalSink::new(events.clone())))
-        .log(Arc::new(orkestr_terminal::SqliteCommandLog::new(db.clone(), redact::redact)))
-        .build();
-
     // Bind early so the guard knows the core port (H10: never expose it).
     let listener = tokio::net::TcpListener::bind(config.bind_addr).await?;
     let addr = listener.local_addr()?;
 
     // Security subsystem (permissions, approvals, secrets, audit, emergency).
     let credentials: Option<Arc<dyn orkestr_platform::CredentialStore>> = match config.secret_backend {
-        orkestr_security::SecretBackendChoice::Memory => Some(Arc::new(orkestr_platform::MemoryCredentialStore::default())),
+        orkestr_security::SecretBackendChoice::Memory => {
+            Some(Arc::new(orkestr_platform::MemoryCredentialStore::default()))
+        }
         orkestr_security::SecretBackendChoice::VaultFileKey => None,
         _ => Some(Arc::new(orkestr_platform::KeyringCredentialStore::new())),
     };
@@ -182,14 +179,25 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
             data_dir: paths.data_dir.clone(),
             credentials,
             secret_backend: config.secret_backend,
-            guard: orkestr_security::GuardConfig { protected_paths: vec![paths.data_dir.clone()], core_port: Some(addr.port()) },
+            guard: orkestr_security::GuardConfig {
+                protected_paths: vec![paths.data_dir.clone()],
+                core_port: Some(addr.port()),
+            },
         })
         .await?,
     );
+    // Terminal: every command (user `run`s and agent lines) passes the
+    // security gate (permission engine + dangerous-action guard + approvals).
+    let terminals = orkestr_terminal::TerminalService::builder()
+        .sink(Arc::new(rpc::terminal::EventTerminalSink::new(events.clone())))
+        .log(Arc::new(orkestr_terminal::SqliteCommandLog::new(db.clone(), redact::redact)))
+        .gate(Arc::new(gates::SecurityCommandGate::new(Arc::clone(&security), Arc::clone(&metadata))))
+        .build();
+
     // Provider hub: first start registers the Mock and detects Ollama / CLIs.
     let providers = Arc::new(orkestr_providers::ProviderRegistry::new(
         db.clone(),
-        Arc::new(rpc::providers::PlatformCredentialBridge::new(Arc::clone(&platform))),
+        Arc::new(rpc::providers::SecretServiceCredentials::new(Arc::clone(&security.secrets))),
         Arc::new(rpc::providers::BusProviderSink::new(events.clone())),
     ));
     if let Err(e) = providers.init().await {
@@ -268,7 +276,9 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
     let url = format!("ws://{addr}/rpc");
     let http_url = format!("http://{addr}");
     let shutdown = CancellationToken::new();
-    tokio::spawn(Arc::clone(&services.security.approvals).run_expiry_loop(std::time::Duration::from_secs(30), shutdown.clone()));
+    tokio::spawn(
+        Arc::clone(&services.security.approvals).run_expiry_loop(std::time::Duration::from_secs(30), shutdown.clone()),
+    );
     {
         let secrets = Arc::clone(&services.security.secrets);
         tokio::spawn(async move {
@@ -281,7 +291,9 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
     }
     services.providers.spawn_health_loop(shutdown.clone());
     let router = Arc::new(rpc::build_router());
-    let app = server::app(server::AppState::new(Arc::clone(&services), token.clone(), router, shutdown.clone()).with_port(addr.port()));
+    let app = server::app(
+        server::AppState::new(Arc::clone(&services), token.clone(), router, shutdown.clone()).with_port(addr.port()),
+    );
     let server_shutdown = shutdown.clone();
     let server = tokio::spawn(async move {
         let result = axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>())

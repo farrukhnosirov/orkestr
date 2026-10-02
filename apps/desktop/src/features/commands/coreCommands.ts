@@ -20,24 +20,26 @@ import { useAppStore } from "../../store/app";
 import { useNotificationsStore } from "../notifications/notificationsStore";
 import { useOnboardingStore } from "../onboarding/onboardingStore";
 import { SEARCH_PREFIX, usePaletteStore } from "../search/paletteStore";
-import { callOptional } from "../settings/optionalRpc";
+import { stopAllAi as stopAllAiNow, useSecurityStore } from "../security/store";
 import { useSettingsStore } from "../settings/settingsStore";
 import type { AppCommand } from "./registry";
 
 /**
- * Emergency stop of all AI activity (§52) — `emergency.stopAll` when the
- * core implements it. Returns whether the stop was executed.
+ * Emergency stop of all AI activity (§52): `emergency.stopAll`, handled
+ * locally in the core. Used by the tray, which acts without a confirmation
+ * dialog (the user explicitly picked "Stop All AI"). Returns whether the
+ * stop was executed.
  */
 export async function stopAllAi(): Promise<boolean> {
   const notify = useNotificationsStore.getState().notify;
   try {
-    const r = await callOptional("emergency.stopAll", {});
-    if (r.available) {
-      notify("Critical", "All AI activity stopped", "Emergency stop executed by you.");
-      return true;
-    }
-    notify("Info", "Nothing to stop", "No agents can run in this build yet (emergency.stopAll is not available).");
-    return false;
+    const r = await stopAllAiNow();
+    notify(
+      "Critical",
+      "All AI activity stopped",
+      `Emergency stop executed by you: ${r.agentsStopped} agent(s) stopped, ${r.approvalsCancelled} pending approval(s) cancelled.`,
+    );
+    return true;
   } catch (e) {
     notify("Error", "Emergency stop failed", e instanceof Error ? e.message : String(e));
     return false;
@@ -59,7 +61,8 @@ export const coreCommands: AppCommand[] = [
     group: "Projects",
     icon: FolderSearch,
     keywords: ["open", "go to", "search", "find"],
-    shortcut: "Ctrl+P",
+    // Ctrl+P is "Go to File…" (files area), as in common editors.
+    shortcut: "Ctrl+Alt+P",
     run: () => usePaletteStore.getState().openPalette(SEARCH_PREFIX),
   },
   {
@@ -123,8 +126,7 @@ export const coreCommands: AppCommand[] = [
     icon: OctagonX,
     keywords: ["emergency", "kill", "halt", "panic", "stop agents"],
     shortcut: "Ctrl+Shift+Backspace",
-    run: async () => {
-      await stopAllAi();
-    },
+    // Opens the security confirmation dialog (stop + re-arm live there).
+    run: () => useSecurityStore.getState().setConfirmStopOpen(true),
   },
 ];

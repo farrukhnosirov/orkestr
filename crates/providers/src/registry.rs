@@ -1100,7 +1100,7 @@ trait PastExt {
 
 impl PastExt for Option<Instant> {
     fn is_none_or_past(&self, now: Instant) -> bool {
-        self.map_or(true, |t| t <= now)
+        self.is_none_or(|t| t <= now)
     }
 }
 

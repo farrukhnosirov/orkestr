@@ -104,9 +104,9 @@ async fn create(ctx: RpcContext, p: CreateProjectParams) -> Result<ProjectResult
     if let Some(c) = p.classification {
         project.classification = c;
     }
-    if let Some(a) = p.approval_mode {
-        project.approval_mode = a;
-    }
+    // New projects start in the user's default approval mode (Settings /
+    // onboarding) unless the request names one.
+    project.approval_mode = p.approval_mode.unwrap_or_else(|| ctx.services.settings.get().default_approval_mode);
     if let Some(pr) = p.privacy {
         project.privacy = pr;
     }

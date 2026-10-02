@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use orkestr_domain::{
-    Actor, AgentId, ApprovalMode, Capability, DangerCategory, PermissionRule, PermissionRuleRecord, ProjectId, RiskLevel, TaskId,
-    Timestamp,
+    Actor, AgentId, ApprovalMode, Capability, DangerCategory, PermissionRule, PermissionRuleRecord, ProjectId,
+    RiskLevel, TaskId, Timestamp,
 };
 
 use super::method;

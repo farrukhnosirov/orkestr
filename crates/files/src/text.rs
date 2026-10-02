@@ -59,10 +59,10 @@ pub fn decode(bytes: &[u8]) -> Decoded {
 }
 
 fn decode_utf16(rest: &[u8], conv: fn([u8; 2]) -> u16, encoding: TextEncoding) -> Decoded {
-    if rest.len() % 2 != 0 {
+    if !rest.len().is_multiple_of(2) {
         return Decoded::Binary;
     }
-    let units: Vec<u16> = rest.chunks_exact(2).map(|c| conv([c[0], c[1]])).collect();
+    let units: Vec<u16> = rest.as_chunks::<2>().0.iter().map(|c| conv([c[0], c[1]])).collect();
     match String::from_utf16(&units) {
         Ok(content) => Decoded::Text { content, encoding },
         Err(_) => Decoded::Binary,

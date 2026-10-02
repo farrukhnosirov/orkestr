@@ -142,8 +142,30 @@ async fn files_area_end_to_end() {
     assert_eq!(stale["data"]["reason"], "stale");
     assert_eq!(stale["data"]["actualHash"], written["hash"]);
 
-    // Agent attribution.
+    // Agent writes go through the permission engine: in the default Ask
+    // mode they need approval; in Semi-Auto, writes inside the root pass.
     let agent = "0190f5c2-0000-7000-8000-000000000001";
+    let gated = c
+        .err(
+            "files.write",
+            json!({"projectId": pid, "path": "src/gen.rs", "content": "// gen
+", "create": true, "agentId": agent}),
+        )
+        .await;
+    assert_eq!(gated["code"], "approval_required", "{gated}");
+    let gated =
+        c.err("files.delete", json!({"projectId": pid, "path": "src", "recursive": true, "agentId": agent})).await;
+    assert_eq!(gated["code"], "approval_required", "{gated}");
+    c.ok("permissions.setMode", json!({"projectId": pid, "mode": "SemiAuto"})).await;
+    let escape = c
+        .err(
+            "files.write",
+            json!({"projectId": pid, "path": "../x.rs", "content": "x", "create": true, "agentId": agent}),
+        )
+        .await;
+    assert!(escape["code"] == "forbidden" || escape["code"] == "bad_request", "{escape}");
+
+    // Agent attribution.
     c.ok(
         "files.write",
         json!({"projectId": pid, "path": "src/gen.rs", "content": "// gen\n", "create": true, "agentId": agent}),

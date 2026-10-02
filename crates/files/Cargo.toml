@@ -11,6 +11,7 @@ publish.workspace = true
 orkestr-domain.workspace = true
 orkestr-protocol.workspace = true
 orkestr-storage.workspace = true
+orkestr-security.workspace = true
 async-trait.workspace = true
 tokio.workspace = true
 serde.workspace = true

@@ -207,6 +207,22 @@
   font-size: var(--ok-font-size-sm);
 }
 
+/* Embedded feature UI (provider setup, Manager model) */
+.onb-embed {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-3);
+  max-height: 46vh;
+  overflow: auto;
+  padding-right: var(--ok-space-1);
+}
+
+.onb-embed .onb-hint {
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-2);
+}
+
 /* ── Choices ──────────────────────────────────────────── */
 .onb-choices {
   display: flex;

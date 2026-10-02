@@ -49,7 +49,9 @@ pub use emergency::{EmergencyController, EmergencyFlags, SharedFlags, StopReport
 pub use error::{SecurityError, SecurityResult};
 pub use guard::{Action, DangerClass, DangerousActionGuard, GuardConfig, ShellKind};
 pub use paths::{confine, confine_relative, PathError};
-pub use permissions::{AskReason, CheckContext, Decision, DenyReason, PermissionEngine, PermissionService, Resource, RuleEngine};
+pub use permissions::{
+    AskReason, CheckContext, Decision, DenyReason, PermissionEngine, PermissionService, Resource, RuleEngine,
+};
 pub use redact::{GlobalRedactor, Redactor};
 pub use secrets::{AccessContext, SecretBackendChoice, SecretService, SecretStore, VaultStatus};
 
@@ -77,7 +79,10 @@ pub struct SecurityConfig {
 
 impl std::fmt::Debug for SecurityConfig {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("SecurityConfig").field("data_dir", &self.data_dir).field("secret_backend", &self.secret_backend).finish_non_exhaustive()
+        f.debug_struct("SecurityConfig")
+            .field("data_dir", &self.data_dir)
+            .field("secret_backend", &self.secret_backend)
+            .finish_non_exhaustive()
     }
 }
 
@@ -120,8 +125,9 @@ impl std::fmt::Debug for Security {
 async fn load_or_create_local_user(db: &Db) -> SecurityResult<UserId> {
     let id = db
         .call(|c| {
-            let existing: Option<String> =
-                c.query_row("SELECT value FROM security_meta WHERE key = 'local_user_id'", [], |r| r.get(0)).optional()?;
+            let existing: Option<String> = c
+                .query_row("SELECT value FROM security_meta WHERE key = 'local_user_id'", [], |r| r.get(0))
+                .optional()?;
             if let Some(v) = existing {
                 return UserId::parse(&v).map_err(|e| orkestr_storage::StorageError::Corrupt(e.to_string()));
             }
@@ -144,7 +150,8 @@ impl Security {
         let audit = Arc::new(AuditLog::new(cfg.db.clone()));
         let emergency = Arc::new(EmergencyController::open(cfg.db.clone(), cfg.events.clone()).await?);
         let engine = Arc::new(RuleEngine::new(Arc::clone(&guard), emergency.shared_flags()));
-        let permissions = Arc::new(PermissionService::open(cfg.db.clone(), Arc::clone(&engine), Arc::clone(&audit)).await?);
+        let permissions =
+            Arc::new(PermissionService::open(cfg.db.clone(), Arc::clone(&engine), Arc::clone(&audit)).await?);
         let approvals = Arc::new(ApprovalService::open(cfg.db.clone(), cfg.events.clone(), Arc::clone(&audit)).await?);
         let prefix = secrets::stores::data_dir_hash(&cfg.data_dir);
         let use_keyring = matches!(cfg.secret_backend, SecretBackendChoice::Auto | SecretBackendChoice::Vault);
@@ -170,9 +177,20 @@ impl Security {
         Actor::User(self.local_user)
     }
 
-    async fn audit_emergency(&self, by: Actor, action: &str, resource: String, project: Option<ProjectId>, details: serde_json::Value) {
+    async fn audit_emergency(
+        &self,
+        by: Actor,
+        action: &str,
+        resource: String,
+        project: Option<ProjectId>,
+        details: serde_json::Value,
+    ) {
         self.audit
-            .record(NewAudit::new(by, action, resource, orkestr_domain::AuditOutcome::Executed).project(project).details(details))
+            .record(
+                NewAudit::new(by, action, resource, orkestr_domain::AuditOutcome::Executed)
+                    .project(project)
+                    .details(details),
+            )
             .await;
     }
 
@@ -180,39 +198,74 @@ impl Security {
     pub async fn stop_all(&self, by: Actor) -> SecurityResult<EmergencyOutcome> {
         let report = self.emergency.stop_all(by).await?;
         let approvals_cancelled = self.approvals.cancel_scope(CancelScope::All, "emergency stop").await.unwrap_or(0);
-        self.audit_emergency(by, "emergency.stopAll", "all".into(), None, serde_json::json!({ "report": report, "approvalsCancelled": approvals_cancelled }))
-            .await;
+        self.audit_emergency(
+            by,
+            "emergency.stopAll",
+            "all".into(),
+            None,
+            serde_json::json!({ "report": report, "approvalsCancelled": approvals_cancelled }),
+        )
+        .await;
         Ok(EmergencyOutcome { report, approvals_cancelled })
     }
 
     /// Stop one project's AI work (+ its pending approvals).
     pub async fn stop_project(&self, project: ProjectId, by: Actor) -> SecurityResult<EmergencyOutcome> {
         let report = self.emergency.stop_project(project, by).await?;
-        let approvals_cancelled = self.approvals.cancel_scope(CancelScope::Project(project), "emergency stop").await.unwrap_or(0);
-        self.audit_emergency(by, "emergency.stopProject", format!("project:{project}"), Some(project), serde_json::json!({ "report": report }))
-            .await;
+        let approvals_cancelled =
+            self.approvals.cancel_scope(CancelScope::Project(project), "emergency stop").await.unwrap_or(0);
+        self.audit_emergency(
+            by,
+            "emergency.stopProject",
+            format!("project:{project}"),
+            Some(project),
+            serde_json::json!({ "report": report }),
+        )
+        .await;
         Ok(EmergencyOutcome { report, approvals_cancelled })
     }
 
     /// Stop one agent (+ its pending approvals).
     pub async fn stop_agent(&self, agent: AgentId, by: Actor) -> SecurityResult<EmergencyOutcome> {
         let report = self.emergency.stop_agent(agent, by).await?;
-        let approvals_cancelled = self.approvals.cancel_scope(CancelScope::Agent(agent), "emergency stop").await.unwrap_or(0);
-        self.audit_emergency(by, "emergency.stopAgent", format!("agent:{agent}"), None, serde_json::json!({ "report": report })).await;
+        let approvals_cancelled =
+            self.approvals.cancel_scope(CancelScope::Agent(agent), "emergency stop").await.unwrap_or(0);
+        self.audit_emergency(
+            by,
+            "emergency.stopAgent",
+            format!("agent:{agent}"),
+            None,
+            serde_json::json!({ "report": report }),
+        )
+        .await;
         Ok(EmergencyOutcome { report, approvals_cancelled })
     }
 
     /// Sets/clears `fullAutoDisabled` (audited).
     pub async fn disable_full_auto(&self, disabled: bool, by: Actor) -> SecurityResult<EmergencyFlags> {
         let flags = self.emergency.set_full_auto_disabled(disabled).await?;
-        self.audit_emergency(by, "emergency.disableFullAuto", "all".into(), None, serde_json::json!({ "disabled": disabled })).await;
+        self.audit_emergency(
+            by,
+            "emergency.disableFullAuto",
+            "all".into(),
+            None,
+            serde_json::json!({ "disabled": disabled }),
+        )
+        .await;
         Ok(flags)
     }
 
     /// Sets/clears `networkToolsDisabled` (audited).
     pub async fn disable_network_tools(&self, disabled: bool, by: Actor) -> SecurityResult<EmergencyFlags> {
         let flags = self.emergency.set_network_tools_disabled(disabled).await?;
-        self.audit_emergency(by, "emergency.disableNetworkTools", "all".into(), None, serde_json::json!({ "disabled": disabled })).await;
+        self.audit_emergency(
+            by,
+            "emergency.disableNetworkTools",
+            "all".into(),
+            None,
+            serde_json::json!({ "disabled": disabled }),
+        )
+        .await;
         Ok(flags)
     }
 
@@ -248,7 +301,11 @@ mod tests {
         // Data dir is protected from agents.
         let cmd = format!("rm -f {}", dir.path().join("orkestr.db").display());
         assert!(sec.guard.classify(&cmd, ShellKind::Bash).is_forbidden());
-        let a = sec.approvals.request(ApprovalRequest::new(Capability::Network, "fetch", "mode", RiskLevel::Medium)).await.unwrap();
+        let a = sec
+            .approvals
+            .request(ApprovalRequest::new(Capability::Network, "fetch", "mode", RiskLevel::Medium))
+            .await
+            .unwrap();
         let token = sec.emergency.register_agent(AgentId::new(), None).unwrap();
         let out = sec.stop_all(sec.user()).await.unwrap();
         assert_eq!(out.report.agents_stopped, 1);
@@ -258,7 +315,13 @@ mod tests {
         // Local user id is stable.
         let user = sec.local_user;
         assert_eq!(load_or_create_local_user(&db).await.unwrap(), user);
-        assert!(sec.audit.query(AuditQuery::default()).await.unwrap().iter().any(|r| r.event.action == "emergency.stopAll"));
+        assert!(sec
+            .audit
+            .query(AuditQuery::default())
+            .await
+            .unwrap()
+            .iter()
+            .any(|r| r.event.action == "emergency.stopAll"));
     }
 
     #[tokio::test]

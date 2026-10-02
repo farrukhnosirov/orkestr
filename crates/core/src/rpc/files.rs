@@ -144,6 +144,49 @@ async fn workspace(ctx: &RpcContext, project_id: ProjectId, worktree: Option<&st
     ctx.services.files.workspace(project.id, &root).map_err(files_to_rpc)
 }
 
+/// Permission check for agent-attributed mutations (contract §6): the
+/// security engine decides with the workspace as confinement root. Users
+/// are not gated here (they act through the UI on their own files).
+/// `Ask` → `approval_required` (the agent runtime is expected to use
+/// `ApprovalService::request_and_wait` itself); `Deny` → `forbidden`.
+async fn agent_check(
+    ctx: &RpcContext,
+    ws: &Workspace,
+    agent: Option<AgentId>,
+    capability: orkestr_domain::Capability,
+    paths: &[&str],
+    recursive: bool,
+) -> Result<(), RpcError> {
+    use orkestr_security::{CheckContext, Decision, PermissionEngine, Resource};
+    let Some(agent) = agent else { return Ok(()) };
+    let sec = &ctx.services.security;
+    let project_mode = project_exists(ctx, ws.project_id).await?.approval_mode;
+    let mode =
+        sec.permissions.effective_mode(project_mode, Some(agent)).await.map_err(crate::error::security_to_rpc)?;
+    let check_ctx = CheckContext {
+        project_id: Some(ws.project_id),
+        agent_id: Some(agent),
+        task_id: None,
+        approval_mode: mode,
+        worktree_root: Some(ws.root.path().to_path_buf()),
+        protected_environment: false,
+    };
+    for path in paths {
+        let resource = Resource::Path { path: (*path).to_owned(), recursive };
+        match sec.engine.check(&orkestr_domain::Actor::Agent(agent), capability, &resource, &check_ctx) {
+            Decision::Allow => {}
+            Decision::Ask(r) => {
+                return Err(RpcError::new(orkestr_protocol::RpcErrorCode::ApprovalRequired, r.message.clone())
+                    .with_data(json!({ "code": r.code, "risk": r.risk, "danger": r.danger, "path": path })));
+            }
+            Decision::Deny(r) => {
+                return Err(RpcError::forbidden(r.message.clone()).with_data(json!({ "code": r.code, "path": path })));
+            }
+        }
+    }
+    Ok(())
+}
+
 async fn publish(ctx: &RpcContext, project_id: ProjectId, changes: Vec<FileChangedPayload>) {
     publish_changes(&ctx.services.events, project_id, changes).await;
 }
@@ -185,6 +228,7 @@ impl ChangeSink for EventBusChangeSink {
 
 async fn write(ctx: RpcContext, p: WriteFileParams) -> Result<m::WriteFileResult, RpcError> {
     let ws = workspace(&ctx, p.project_id, p.worktree_path.as_deref()).await?;
+    agent_check(&ctx, &ws, p.agent_id, orkestr_domain::Capability::Write, &[&p.path], false).await?;
     let out = ctx
         .services
         .files
@@ -205,6 +249,7 @@ async fn write(ctx: RpcContext, p: WriteFileParams) -> Result<m::WriteFileResult
 
 async fn create(ctx: RpcContext, p: CreateFileParams) -> Result<FileEntryResult, RpcError> {
     let ws = workspace(&ctx, p.project_id, p.worktree_path.as_deref()).await?;
+    agent_check(&ctx, &ws, p.agent_id, orkestr_domain::Capability::Write, &[&p.path], false).await?;
     let out = ctx
         .services
         .files
@@ -217,6 +262,7 @@ async fn create(ctx: RpcContext, p: CreateFileParams) -> Result<FileEntryResult,
 
 async fn mkdir(ctx: RpcContext, p: MkdirParams) -> Result<FileEntryResult, RpcError> {
     let ws = workspace(&ctx, p.project_id, p.worktree_path.as_deref()).await?;
+    agent_check(&ctx, &ws, p.agent_id, orkestr_domain::Capability::Write, &[&p.path], false).await?;
     let out =
         ctx.services.files.mkdir(&ws, &p.path, ChangeActor::from_agent(p.agent_id)).await.map_err(files_to_rpc)?;
     publish(&ctx, ws.project_id, out.changes).await;
@@ -225,6 +271,7 @@ async fn mkdir(ctx: RpcContext, p: MkdirParams) -> Result<FileEntryResult, RpcEr
 
 async fn rename(ctx: RpcContext, p: RenameFileParams) -> Result<m::RenameFileResult, RpcError> {
     let ws = workspace(&ctx, p.project_id, p.worktree_path.as_deref()).await?;
+    agent_check(&ctx, &ws, p.agent_id, orkestr_domain::Capability::Write, &[&p.from, &p.to], false).await?;
     let out = ctx
         .services
         .files
@@ -237,6 +284,8 @@ async fn rename(ctx: RpcContext, p: RenameFileParams) -> Result<m::RenameFileRes
 
 async fn delete(ctx: RpcContext, p: DeleteFileParams) -> Result<m::DeleteFileResult, RpcError> {
     let ws = workspace(&ctx, p.project_id, p.worktree_path.as_deref()).await?;
+    agent_check(&ctx, &ws, p.agent_id, orkestr_domain::Capability::Delete, &[&p.path], p.recursive.unwrap_or(false))
+        .await?;
     let out = ctx
         .services
         .files

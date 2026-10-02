@@ -349,7 +349,10 @@ fn powershell_matrix() {
             ("Invoke-Expression $code", D(C::Obfuscation)),
             ("iex 'Get-Date'", Safe),
             ("iex 'Remove-Item C:\\ -Recurse'", F(C::ProtectedPathDelete)),
-            ("powershell -enc UgBlAG0AbwB2AGUALQBJAHQAZQBtACAAQwA6AFwAIAAtAFIAZQBjAHUAcgBzAGUA", F(C::ProtectedPathDelete)),
+            (
+                "powershell -enc UgBlAG0AbwB2AGUALQBJAHQAZQBtACAAQwA6AFwAIAAtAFIAZQBjAHUAcgBzAGUA",
+                F(C::ProtectedPathDelete),
+            ),
             ("powershell -EncodedCommand RwBlAHQALQBEAGEAdABlAA==", D(C::Obfuscation)),
             ("powershell -NoProfile -Command \"Remove-Item -Recurse x\"", D(C::RecursiveDelete)),
             ("pwsh -c 'git push --force'", D(C::GitDestructive)),
@@ -507,7 +510,10 @@ fn chaining_and_case_insensitivity_across_shells() {
             ],
         );
     }
-    check(ShellKind::Bash, &[("echo a; git reset --hard", D(C::GitDestructive)), ("echo a & git reset --hard", D(C::GitDestructive))]);
+    check(
+        ShellKind::Bash,
+        &[("echo a; git reset --hard", D(C::GitDestructive)), ("echo a & git reset --hard", D(C::GitDestructive))],
+    );
     check(ShellKind::PowerShell, &[("echo a; git reset --hard", D(C::GitDestructive))]);
     check(ShellKind::Cmd, &[("echo a & git reset --hard", D(C::GitDestructive))]);
 }
@@ -541,7 +547,11 @@ fn worktree_confinement_flags_outside_writes() {
     assert!(c.is_safe(), "{c:?}");
     let c = g.classify_in("cp a ../../etc/x", ShellKind::Bash, Some(&root));
     assert_eq!(c.category(), Some(C::OutsideWorktree), "{c:?}");
-    let c = g.classify_in("Set-Content D:\\elsewhere\\a.txt x", ShellKind::PowerShell, Some(&PathBuf::from("C:\\work\\proj")));
+    let c = g.classify_in(
+        "Set-Content D:\\elsewhere\\a.txt x",
+        ShellKind::PowerShell,
+        Some(&PathBuf::from("C:\\work\\proj")),
+    );
     assert_eq!(c.category(), Some(C::OutsideWorktree), "{c:?}");
 }
 
@@ -565,7 +575,10 @@ fn structured_actions() {
         Some(C::GitDestructive)
     );
     assert!(g.classify_action(&Action::Git { args: vec!["status".into()] }).is_safe());
-    assert_eq!(g.classify_action(&Action::Sql { statement: "DROP TABLE x".into() }).category(), Some(C::DataDestruction));
+    assert_eq!(
+        g.classify_action(&Action::Sql { statement: "DROP TABLE x".into() }).category(),
+        Some(C::DataDestruction)
+    );
     assert!(g.classify_action(&Action::Deploy { environment: "prod".into(), protected: true }).is_dangerous());
     assert!(g.classify_action(&Action::Deploy { environment: "dev".into(), protected: false }).is_safe());
     assert!(g.classify_action(&Action::SecretWrite { name: "X".into() }).is_dangerous());
@@ -584,7 +597,17 @@ fn rank_and_max() {
 
 #[test]
 fn secret_file_names() {
-    for p in [".env", ".env.local", "config/.env.production", "server.pem", "id_rsa", "id_ed25519.pub", "aws_credentials", "secrets.yaml", "x.key"] {
+    for p in [
+        ".env",
+        ".env.local",
+        "config/.env.production",
+        "server.pem",
+        "id_rsa",
+        "id_ed25519.pub",
+        "aws_credentials",
+        "secrets.yaml",
+        "x.key",
+    ] {
         assert!(DangerousActionGuard::is_secret_file(p), "{p}");
     }
     for p in [".env.example", "README.md", "src/env.rs", "keyboard.ts", ".envrc.sample"] {

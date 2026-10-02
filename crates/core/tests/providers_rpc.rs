@@ -111,7 +111,11 @@ async fn openai_compatible_server() -> (String, Arc<Mutex<Vec<HeaderMap>>>) {
 #[tokio::test]
 async fn providers_end_to_end() {
     let dir = tempfile::tempdir().unwrap();
-    let core = orkestr_core::start(CoreConfig::with_data_dir(dir.path())).await.unwrap();
+    // Provider keys go through the security SecretService; keep tests off
+    // the real OS keyring.
+    let mut config = CoreConfig::with_data_dir(dir.path());
+    config.secret_backend = orkestr_security::SecretBackendChoice::Memory;
+    let core = orkestr_core::start(config).await.unwrap();
     let mut c = Client::connect(&core).await;
 
     // Kinds.
@@ -167,6 +171,11 @@ async fn providers_end_to_end() {
     let with_key = c.call_raw("providers.setCredential", json!({"providerId": pid, "apiKey": key})).await;
     assert_eq!(with_key["ok"], true, "{with_key}");
     assert_eq!(with_key["result"]["provider"]["hasCredential"], true);
+    // The key lives in the security vault (reference only, value never listed).
+    let secrets = c.call("secrets.list", json!({})).await;
+    let refs = secrets["secrets"].as_array().expect("secrets list");
+    assert!(refs.iter().any(|r| r["name"].as_str().is_some_and(|n| n.starts_with("provider."))), "{secrets}");
+    assert!(!secrets.to_string().contains(&key), "secret value leaked into secrets.list");
     assert!(!with_key.to_string().contains(&key), "the key is never echoed");
 
     let test = c.call("providers.test", json!({"providerId": pid})).await;

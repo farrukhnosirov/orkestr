@@ -194,7 +194,7 @@ impl CostEngine {
             let usable = s.budget.period != orkestr_domain::BudgetPeriod::PerTask
                 && !matches!(s.level, BudgetLevel::Disabled | BudgetLevel::Unrestricted);
             if let (true, true, Some(f)) = (relevant, usable, s.fraction) {
-                if budget_used.map_or(true, |b| f > b) {
+                if budget_used.is_none_or(|b| f > b) {
                     budget_used = Some(f);
                     budget_id = Some(s.budget.id.clone());
                 }

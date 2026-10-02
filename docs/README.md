@@ -47,7 +47,7 @@ pass on 2026-10-02 checked every document against `crates/`, `apps/` and
 | 19 | Desktop/Web/Mobile shared protocol | [`api/protocol.md`](api/protocol.md) | §0 (normative for v1) |
 | 20 | ADR list | [`adr/README.md`](adr/README.md) (ADR-0001…0022) | "Impl." column + per-ADR notes |
 | 21 | Technical spike list | [`spikes/README.md`](spikes/README.md) | statuses + "What the foundation verified" |
-| 22 | MVP milestones | [`roadmap/mvp-milestones.md`](roadmap/mvp-milestones.md) | M0.x status lines |
+| 22 | MVP milestones | [`roadmap/mvp-milestones.md`](roadmap/mvp-milestones.md) | M0.x status lines; Phase 1 wave A status table |
 
 ## All documents by folder
 
@@ -124,7 +124,7 @@ each ADR, the planned ADRs 0023–0035 and the decision map.
 
 ### `roadmap/`
 
-- [`roadmap/mvp-milestones.md`](roadmap/mvp-milestones.md): milestones M0.1–M3.6 with exit criteria, plus an outline of Phases 4–7.
+- [`roadmap/mvp-milestones.md`](roadmap/mvp-milestones.md): milestones M0.1–M3.6 with exit criteria, plus an outline of Phases 4–7 and the Phase 1 wave A integration status. The end-to-end smoke test is `scripts/smoke/phase1-smoke.mjs` (see the root README).
 - [`roadmap/feature-traceability.md`](roadmap/feature-traceability.md): every §68 feature mapped to a phase, crates, panels and delivery level.
 
 ## What exists in code (summary, 2026-10-02)

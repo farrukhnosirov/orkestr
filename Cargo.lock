@@ -3075,6 +3075,7 @@ dependencies = [
  "notify",
  "orkestr-domain",
  "orkestr-protocol",
+ "orkestr-security",
  "orkestr-storage",
  "parking_lot",
  "regex",

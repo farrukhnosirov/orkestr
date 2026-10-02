@@ -61,7 +61,7 @@ fn levels(sys: &System, tree: &HashSet<Pid>) -> Vec<Vec<Pid>> {
             .filter(|p| {
                 let parent = sys.process(*p).and_then(sysinfo::Process::parent);
                 // Top of what's left: parent dead, outside the tree, or already placed.
-                parent.map_or(true, |pp| !alive.contains(&pp) || placed.contains(&pp))
+                parent.is_none_or(|pp| !alive.contains(&pp) || placed.contains(&pp))
             })
             .collect();
         if level.is_empty() {

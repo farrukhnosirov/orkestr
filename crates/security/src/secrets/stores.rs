@@ -78,7 +78,9 @@ impl KeyringStore {
 impl SecretStore for KeyringStore {
     fn put(&self, locator: &str, value: &str) -> SecurityResult<()> {
         if value.len() > MAX_KEYRING_VALUE {
-            return Err(SecurityError::Backend(format!("value too large for the OS keyring (> {MAX_KEYRING_VALUE} bytes)")));
+            return Err(SecurityError::Backend(format!(
+                "value too large for the OS keyring (> {MAX_KEYRING_VALUE} bytes)"
+            )));
         }
         Ok(self.creds.set(KEYRING_SERVICE, &self.account(locator), value)?)
     }
@@ -129,7 +131,10 @@ pub struct EncryptedFileVault {
 
 impl std::fmt::Debug for EncryptedFileVault {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("EncryptedFileVault").field("dir", &self.dir).field("unlocked", &self.key.lock().is_some()).finish()
+        f.debug_struct("EncryptedFileVault")
+            .field("dir", &self.dir)
+            .field("unlocked", &self.key.lock().is_some())
+            .finish()
     }
 }
 
@@ -161,7 +166,8 @@ impl EncryptedFileVault {
     fn read_file(&self) -> SecurityResult<VaultFile> {
         match std::fs::read(self.file()) {
             Ok(bytes) => {
-                let f: VaultFile = serde_json::from_slice(&bytes).map_err(|e| SecurityError::Crypto(format!("vault file is corrupt: {e}")))?;
+                let f: VaultFile = serde_json::from_slice(&bytes)
+                    .map_err(|e| SecurityError::Crypto(format!("vault file is corrupt: {e}")))?;
                 if f.magic != VAULT_MAGIC {
                     return Err(SecurityError::Crypto("vault file has an unknown format".into()));
                 }
@@ -176,11 +182,14 @@ impl EncryptedFileVault {
 
     fn write_file(&self, f: &VaultFile) -> SecurityResult<()> {
         let bytes = serde_json::to_vec(f)?;
-        orkestr_platform::fs::write_private_file(&self.file(), &bytes).map_err(|e| SecurityError::Backend(format!("cannot write vault: {e}")))
+        orkestr_platform::fs::write_private_file(&self.file(), &bytes)
+            .map_err(|e| SecurityError::Backend(format!("cannot write vault: {e}")))
     }
 
     fn decode_key(hex_key: &str) -> SecurityResult<Zeroizing<[u8; 32]>> {
-        let mut raw = Zeroizing::new(hex::decode(hex_key.trim()).map_err(|_| SecurityError::Crypto("vault key is malformed".into()))?);
+        let mut raw = Zeroizing::new(
+            hex::decode(hex_key.trim()).map_err(|_| SecurityError::Crypto("vault key is malformed".into()))?,
+        );
         if raw.len() != 32 {
             return Err(SecurityError::Crypto("vault key has the wrong length".into()));
         }
@@ -223,14 +232,17 @@ impl EncryptedFileVault {
         };
         let hex_key: Zeroizing<String> = match source {
             KeySource::Keyring => {
-                let c = self.creds.as_ref().ok_or_else(|| SecurityError::Backend("vault key is in the OS keyring but no keyring is configured".into()))?;
+                let c = self.creds.as_ref().ok_or_else(|| {
+                    SecurityError::Backend("vault key is in the OS keyring but no keyring is configured".into())
+                })?;
                 Zeroizing::new(
                     c.get(KEYRING_SERVICE, &self.key_account())?
                         .ok_or_else(|| SecurityError::Crypto("vault key missing from the OS keyring".into()))?,
                 )
             }
             KeySource::File => Zeroizing::new(
-                std::fs::read_to_string(self.key_file()).map_err(|e| SecurityError::Backend(format!("cannot read vault key file: {e}")))?,
+                std::fs::read_to_string(self.key_file())
+                    .map_err(|e| SecurityError::Backend(format!("cannot read vault key file: {e}")))?,
             ),
         };
         let key = Self::decode_key(&hex_key)?;
@@ -301,7 +313,8 @@ impl SecretStore for EncryptedFileVault {
         let nonce = b64.decode(&e.n).map_err(|_| SecurityError::Crypto("corrupt vault entry".into()))?;
         let ct = b64.decode(&e.c).map_err(|_| SecurityError::Crypto("corrupt vault entry".into()))?;
         let plain = self.open(&ct, &nonce, locator.as_bytes())?;
-        let s = String::from_utf8(plain.to_vec()).map_err(|_| SecurityError::Crypto("vault value is not UTF-8".into()))?;
+        let s =
+            String::from_utf8(plain.to_vec()).map_err(|_| SecurityError::Crypto("vault value is not UTF-8".into()))?;
         Ok(Some(Zeroizing::new(s)))
     }
 

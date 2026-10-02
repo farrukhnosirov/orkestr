@@ -16,7 +16,6 @@ import { notificationFromEvent } from "../notifications/fromEvent";
 import { useNotificationsStore } from "../notifications/notificationsStore";
 import { useOnboardingStore } from "../onboarding/onboardingStore";
 import { startResumeWatcher } from "../resume/resumeStore";
-import { SEARCH_PREFIX, usePaletteStore } from "../search/paletteStore";
 import { useSettingsStore } from "./settingsStore";
 
 function onEvent(ev: Event): void {
@@ -31,16 +30,6 @@ function onEvent(ev: Event): void {
 /** Topics for notifications: global + every known project. */
 export function notificationTopics(projectIds: readonly string[]): string[] {
   return [TOPIC_GLOBAL, ...projectIds.map((id) => topic.project(id))];
-}
-
-/** Keyboard shortcuts owned by the shell (palette Ctrl+K lives in App). */
-export function shellShortcut(e: Pick<KeyboardEvent, "key" | "ctrlKey" | "metaKey" | "shiftKey" | "altKey">): string | null {
-  const mod = e.ctrlKey || e.metaKey;
-  if (mod && !e.shiftKey && !e.altKey && e.key === ",") return "settings.open";
-  if (mod && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "p") return "project.switch";
-  if (mod && e.shiftKey && !e.altKey && e.key === "Backspace") return "ai.stopAll";
-  if (!mod && !e.shiftKey && !e.altKey && e.key === "F11") return "window.fullscreen";
-  return null;
 }
 
 export function useShellBootstrap(ready: boolean): void {
@@ -99,15 +88,14 @@ export function useShellBootstrap(ready: boolean): void {
     };
   }, [ready]);
 
-  // Tray "Stop All AI": stop agents, or hide the window when nothing can be stopped.
+  // Tray "Stop All AI": immediate emergency stop (no dialog — the user picked it explicitly).
+  // Shell shortcuts (Ctrl+, F11, Ctrl+Shift+Backspace…) run through the command registry in App.
   useEffect(() => {
     let off: (() => void) | undefined;
     let disposed = false;
     shellControls
       .onTrayStopAll(() => {
-        void stopAllAi().then((stopped) => {
-          if (!stopped) void shellControls.hideWindow();
-        });
+        void stopAllAi();
       })
       .then(
         (u) => (disposed ? u() : (off = u)),
@@ -122,18 +110,4 @@ export function useShellBootstrap(ready: boolean): void {
   // Session Resume.
   useEffect(() => (ready ? startResumeWatcher() : undefined), [ready]);
 
-  // Shortcuts.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const id = shellShortcut(e);
-      if (!id) return;
-      e.preventDefault();
-      if (id === "settings.open") useSettingsStore.getState().openSettings();
-      else if (id === "project.switch") usePaletteStore.getState().openPalette(SEARCH_PREFIX);
-      else if (id === "window.fullscreen") void shellControls.toggleFullscreen();
-      else if (id === "ai.stopAll") void stopAllAi();
-    };
-    window.addEventListener("keydown", onKey, { capture: true });
-    return () => window.removeEventListener("keydown", onKey, { capture: true });
-  }, []);
 }

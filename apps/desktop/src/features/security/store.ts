@@ -9,6 +9,7 @@ import { create } from "zustand";
 
 import { maybeClient } from "../../core/client";
 import { useAppStore } from "../../store/app";
+import { useSettingsStore } from "../settings/settingsStore";
 import { EMPTY_FLAGS, removeApproval, upsertApproval } from "./logic";
 
 export interface Toast {
@@ -58,7 +59,12 @@ export const useSecurityStore = create<SecurityState>()((set) => ({
   toasts: [],
   setInboxOpen: (inboxOpen) => set({ inboxOpen }),
   setConfirmStopOpen: (confirmStopOpen) => set({ confirmStopOpen }),
-  openCenter: (tab) => set((s) => ({ centerOpen: true, centerTab: tab ?? s.centerTab })),
+  // The shared Settings view hosts the "security" / "secrets" sections.
+  openCenter: (tab) => {
+    const t = tab ?? "permissions";
+    set({ centerTab: t });
+    useSettingsStore.getState().openSettings(t === "secrets" ? "secrets" : "security");
+  },
   closeCenter: () => set({ centerOpen: false }),
   pushToast: (t) => set((s) => ({ toasts: [...s.toasts.slice(-3), { ...t, id: `t${++toastSeq}` }] })),
   dismissToast: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
