@@ -4,6 +4,8 @@
  */
 import type { LucideIcon } from "lucide-react";
 
+import { GIT_COMMANDS } from "../../panels/Git/commands";
+
 export interface CommandContext {
   projectId: string | null;
 }
@@ -25,3 +27,6 @@ export interface AppCommand {
 }
 
 export const commands: AppCommand[] = [];
+
+// Git / snapshots (Phase 1, vcs-snapshots)
+commands.push(...GIT_COMMANDS);

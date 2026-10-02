@@ -290,6 +290,40 @@ pub struct WorkspaceSnapshot {
     pub created_by: Actor,
     /// Creation time.
     pub created_at: Timestamp,
+    /// Absolute path of the captured directory (additive, Phase 1).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub workspace_path: Option<String>,
+    /// Branch checked out at snapshot time.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub branch: Option<String>,
+    /// Whether the git worktree had uncommitted changes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub dirty: Option<bool>,
+    /// Agent the snapshot belongs to.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub agent_id: Option<AgentId>,
+    /// Before/after marker of a task checkpoint pair (task rollback, §63.J).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub task_phase: Option<TaskSnapshotPhase>,
+    /// Bytes newly written to the object store (after dedup).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub new_bytes: Option<u64>,
+}
+
+/// Position of a snapshot in a task's checkpoint pair.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub enum TaskSnapshotPhase {
+    /// Taken before the task changed anything.
+    Before,
+    /// Taken when the task finished or stopped.
+    After,
 }
 
 #[cfg(test)]

@@ -24,6 +24,23 @@ pub trait ProcessControl: Send + Sync {
 #[derive(Debug, Default, Clone, Copy)]
 pub struct NativeProcessControl;
 
+/// A `Command` for a background helper process (git, build tools, …) that
+/// never shows a window: on Windows it sets `CREATE_NO_WINDOW`, so a console
+/// program spawned by the GUI app does not flash a console. Arguments are
+/// passed as a vector by the caller (never through a shell).
+#[must_use]
+pub fn background_command(program: impl AsRef<std::ffi::OsStr>) -> std::process::Command {
+    #[allow(unused_mut)]
+    let mut cmd = std::process::Command::new(program);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        cmd.creation_flags(CREATE_NO_WINDOW);
+    }
+    cmd
+}
+
 fn sys() -> &'static Mutex<sysinfo::System> {
     static SYS: std::sync::OnceLock<Mutex<sysinfo::System>> = std::sync::OnceLock::new();
     SYS.get_or_init(|| Mutex::new(sysinfo::System::new()))

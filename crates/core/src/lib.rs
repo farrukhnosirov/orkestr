@@ -138,6 +138,21 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
     let events = EventBus::with_log(event_log, config.event_capacity).await?;
     let node_id = migrations::load_or_create_node_id(&db).await?;
 
+    // VCS + snapshots (Phase 1). Git is optional: without it vcs.* methods
+    // report a clear error and snapshots carry no git metadata.
+    let git = Arc::new(orkestr_vcs::GitCli::new(orkestr_vcs::GitRunner::new(platform.process().which("git"))));
+    if !git.is_available() {
+        tracing::warn!("git not found on PATH — Git features are disabled");
+    }
+    let vcs = orkestr_vcs::Vcs::new(Arc::clone(&git), db.clone(), paths.data_dir.join("worktrees"));
+    let git_state: Arc<dyn orkestr_snapshots::GitStateProvider> = git;
+    let snapshots = Arc::new(orkestr_snapshots::SnapshotService::new(
+        db.clone(),
+        Arc::clone(&objects) as Arc<dyn orkestr_storage::ObjectStore>,
+        Some(git_state),
+        orkestr_snapshots::ScanOptions::default(),
+    ));
+
     let services = Arc::new(Services {
         version: VERSION.to_owned(),
         started_at: chrono::Utc::now(),
@@ -150,6 +165,8 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
         projects: metadata,
         objects,
         recovered_from_crash: previous_session.crashed,
+        vcs,
+        snapshots,
     });
     logging::attach_event_bus(services.events.clone());
 

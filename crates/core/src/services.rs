@@ -37,6 +37,10 @@ pub struct Services {
     pub objects: Arc<FsObjectStore>,
     /// Whether the previous session ended uncleanly.
     pub recovered_from_crash: bool,
+    /// Git / worktrees (Phase 1, `orkestr-vcs`).
+    pub vcs: orkestr_vcs::Vcs,
+    /// Snapshots and rollback (Phase 1, `orkestr-snapshots`).
+    pub snapshots: Arc<orkestr_snapshots::SnapshotService>,
 }
 
 impl std::fmt::Debug for Services {

@@ -6,7 +6,9 @@
 
 pub mod events;
 pub mod projects;
+pub mod snapshots;
 pub mod system;
+pub mod vcs;
 
 use std::collections::BTreeMap;
 use std::future::Future;
@@ -117,6 +119,7 @@ impl RpcRouter {
 pub fn build_router() -> RpcRouter {
     let mut router = RpcRouter::new();
     router.register(system::register).register(projects::register).register(events::register);
+    router.register(vcs::register).register(snapshots::register);
     router
 }
 
