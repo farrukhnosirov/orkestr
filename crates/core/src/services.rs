@@ -13,6 +13,7 @@ use orkestr_events::EventBus;
 use orkestr_platform::{Paths, PlatformAdapter};
 use orkestr_providers::ProviderRegistry;
 use orkestr_storage::{Db, FsObjectStore, ProjectRepository};
+use orkestr_task_engine::TaskService;
 
 /// Shared services.
 pub struct Services {
@@ -38,6 +39,8 @@ pub struct Services {
     pub objects: Arc<FsObjectStore>,
     /// AI provider hub (registry, router, fallback).
     pub providers: Arc<ProviderRegistry>,
+    /// Task engine (§10–11).
+    pub tasks: Arc<TaskService>,
     /// Whether the previous session ended uncleanly.
     pub recovered_from_crash: bool,
     /// Security subsystem: permissions, approvals, secrets, audit, emergency (Phase 1).

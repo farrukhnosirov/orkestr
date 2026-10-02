@@ -13,6 +13,11 @@ import type { EmergencyStopResult } from "./EmergencyStopResult";
 import type { CreateProviderParams } from "./CreateProviderParams";
 import type { DeleteProjectResult } from "./DeleteProjectResult";
 import type { DeleteProviderResult } from "./DeleteProviderResult";
+import type { AddDependencyParams } from "./AddDependencyParams";
+import type { CreateProjectParams } from "./CreateProjectParams";
+import type { CreateTaskParams } from "./CreateTaskParams";
+import type { DeleteProjectResult } from "./DeleteProjectResult";
+import type { DeleteTaskResult } from "./DeleteTaskResult";
 import type { Empty } from "./Empty";
 import type { GetModeParams } from "./GetModeParams";
 import type { HealthResult } from "./HealthResult";
@@ -58,6 +63,23 @@ import type { TestProviderParams } from "./TestProviderParams";
 import type { TestProviderResult } from "./TestProviderResult";
 import type { UpdateProjectParams } from "./UpdateProjectParams";
 import type { UpdateProviderParams } from "./UpdateProviderParams";
+import type { ListTasksParams } from "./ListTasksParams";
+import type { ListTasksResult } from "./ListTasksResult";
+import type { ProjectIdParams } from "./ProjectIdParams";
+import type { ProjectResult } from "./ProjectResult";
+import type { RemoveDependencyParams } from "./RemoveDependencyParams";
+import type { ReplayParams } from "./ReplayParams";
+import type { ReplayResult } from "./ReplayResult";
+import type { SingleTaskResult } from "./SingleTaskResult";
+import type { SystemInfo } from "./SystemInfo";
+import type { TaskChangeResult } from "./TaskChangeResult";
+import type { TaskGraph } from "./TaskGraph";
+import type { TaskGraphParams } from "./TaskGraphParams";
+import type { TaskHistoryResult } from "./TaskHistoryResult";
+import type { TaskIdParams } from "./TaskIdParams";
+import type { TransitionTaskParams } from "./TransitionTaskParams";
+import type { UpdateProjectParams } from "./UpdateProjectParams";
+import type { UpdateTaskParams } from "./UpdateTaskParams";
 
 /** Typed RPC method map: `"area.verb": [Params, Result]`. */
 export type Methods = {
@@ -109,6 +131,17 @@ export type Methods = {
   "providers.setManager": [ManagerConfigPayload, ManagerConfigPayload];
   "providers.getRouting": [Empty, RoutingConfigPayload];
   "providers.setRouting": [RoutingConfigPayload, RoutingConfigPayload];
+  "tasks.list": [ListTasksParams, ListTasksResult];
+  "tasks.get": [TaskIdParams, SingleTaskResult];
+  "tasks.create": [CreateTaskParams, SingleTaskResult];
+  "tasks.update": [UpdateTaskParams, SingleTaskResult];
+  "tasks.delete": [TaskIdParams, DeleteTaskResult];
+  "tasks.transition": [TransitionTaskParams, TaskChangeResult];
+  "tasks.addDependency": [AddDependencyParams, TaskChangeResult];
+  "tasks.removeDependency": [RemoveDependencyParams, TaskChangeResult];
+  "tasks.graph": [TaskGraphParams, TaskGraph];
+  "tasks.history": [TaskIdParams, TaskHistoryResult];
+  "tasks.retry": [TaskIdParams, TaskChangeResult];
 };
 
 /** All implemented method names. */
@@ -161,6 +194,17 @@ export const METHOD_NAMES = [
   "providers.setManager",
   "providers.getRouting",
   "providers.setRouting",
+  "tasks.list",
+  "tasks.get",
+  "tasks.create",
+  "tasks.update",
+  "tasks.delete",
+  "tasks.transition",
+  "tasks.addDependency",
+  "tasks.removeDependency",
+  "tasks.graph",
+  "tasks.history",
+  "tasks.retry",
 ] as const;
 
 /** Wire protocol version (see orkestr-protocol PROTOCOL_VERSION). */
@@ -207,6 +251,7 @@ export const EVENT_KINDS = [
   "EmergencyStop",
   "Notification",
   "Log",
+  "TaskDeleted",
 ] as const;
 
 /** UI config schema version (see orkestr-protocol ui_config). */

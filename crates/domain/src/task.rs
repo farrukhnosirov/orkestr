@@ -183,6 +183,16 @@ pub struct Task {
     pub started_at: Option<Timestamp>,
     /// Time it reached a terminal state.
     pub finished_at: Option<Timestamp>,
+    /// Optimistic-concurrency version, incremented on every persisted change
+    /// (task-state-machine.md §3). Added in Phase 1.
+    #[serde(default)]
+    pub version: u32,
+    /// Planner estimate in minutes (critical path weight, §11). `None` = unknown (weight 1).
+    #[serde(default)]
+    pub estimate_minutes: Option<u32>,
+    /// When the task last entered `Ready` (queue FIFO + aging, §11).
+    #[serde(default)]
+    pub ready_since: Option<Timestamp>,
 }
 
 impl Task {
@@ -217,6 +227,9 @@ impl Task {
             updated_at: now,
             started_at: None,
             finished_at: None,
+            version: 0,
+            estimate_minutes: None,
+            ready_since: None,
         }
     }
 }
@@ -243,6 +256,77 @@ pub struct TaskDependency {
     pub depends_on: TaskId,
     /// Kind.
     pub kind: DependencyKind,
+}
+
+/// Who requested a task status change (recorded in the task history).
+///
+/// `SystemRecovery` is the only actor allowed to use the privileged
+/// `{Waiting, Review, Testing} → Interrupted` crash-recovery edges
+/// (ADR-0022, CA-2).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[serde(tag = "type", content = "id")]
+#[ts(export)]
+pub enum TaskActor {
+    /// The local user (desktop/web/mobile client).
+    User,
+    /// An agent instance.
+    Agent(AgentId),
+    /// The AI Manager / orchestrator.
+    Manager,
+    /// Automatic engine behaviour (dependency propagation, scheduler).
+    System,
+    /// Crash / shutdown recovery of the core (privileged).
+    SystemRecovery,
+}
+
+/// One persisted status change of a task (`task_history`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct TaskHistoryEntry {
+    /// Monotonic row id.
+    pub seq: i64,
+    /// Task.
+    pub task_id: TaskId,
+    /// Previous status (`None` for creation).
+    pub from: Option<TaskStatus>,
+    /// New status.
+    pub to: TaskStatus,
+    /// Who requested it.
+    pub actor: TaskActor,
+    /// Reason code / human note.
+    pub reason: Option<String>,
+    /// Whether a privileged (system-only) edge was used.
+    pub forced: bool,
+    /// When.
+    pub at: Timestamp,
+}
+
+/// One execution attempt of a task (`task_executions`). Opened when the task
+/// enters `Running` from `Ready`/`Recovering`, closed when it reaches
+/// `Completed`, `Failed`, `Cancelled` or `Interrupted`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct TaskAttempt {
+    /// Id.
+    pub id: ExecutionId,
+    /// Task.
+    pub task_id: TaskId,
+    /// Attempt number starting at 1.
+    pub attempt: u32,
+    /// Agent that ran it, if known.
+    pub agent_id: Option<AgentId>,
+    /// Status.
+    pub status: crate::execution::ExecutionStatus,
+    /// Usage attributed to this attempt.
+    pub usage: UsageSummary,
+    /// Short outcome summary.
+    pub summary: Option<String>,
+    /// Start.
+    pub started_at: Timestamp,
+    /// End.
+    pub finished_at: Option<Timestamp>,
 }
 
 #[cfg(test)]

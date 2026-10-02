@@ -13,6 +13,7 @@ pub mod projects;
 pub mod secrets;
 pub mod providers;
 pub mod system;
+pub mod tasks;
 
 use std::collections::BTreeMap;
 use std::future::Future;
@@ -131,6 +132,7 @@ pub fn build_router() -> RpcRouter {
         .register(emergency::register)
         .register(audit::register);
     router.register(providers::register);
+    router.register(tasks::register);
     router
 }
 

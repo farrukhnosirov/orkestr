@@ -5,6 +5,7 @@
 import type { LucideIcon } from "lucide-react";
 
 import { providerCommands } from "../providers";
+import { taskCommands } from "../../panels/Tasks/commands";
 
 export interface CommandContext {
   projectId: string | null;
@@ -28,3 +29,4 @@ export interface AppCommand {
 
 export const commands: AppCommand[] = [];
 commands.push(...providerCommands);
+commands.push(...taskCommands);

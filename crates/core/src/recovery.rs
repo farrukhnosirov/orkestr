@@ -80,11 +80,29 @@ pub trait RecoveryHook: Send + Sync {
     async fn recover(&self, services: &Services) -> Result<String, String>;
 }
 
+/// Task engine: `Running/Waiting/Testing/Review` → `Interrupted` through the
+/// privileged `SystemRecovery` edges (contract §5, ADR-0022); emits
+/// `TaskStatusChanged` + `TaskUpdated` per task.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct TaskRecoveryHook;
+
+#[async_trait]
+impl RecoveryHook for TaskRecoveryHook {
+    fn name(&self) -> &'static str {
+        "task-engine"
+    }
+
+    async fn recover(&self, services: &Services) -> Result<String, String> {
+        let report = services.tasks.recover_interrupted("crash_recovery").await.map_err(|e| e.to_string())?;
+        Ok(format!("{} task(s) marked Interrupted", report.interrupted.len()))
+    }
+}
+
 /// Hooks run after a crash, in order. Engines append theirs as they land
 /// (Phase 1: task engine → Interrupted; agent runtime → Stopped; terminal → Exited).
 #[must_use]
 pub fn default_hooks() -> Vec<Arc<dyn RecoveryHook>> {
-    Vec::new()
+    vec![Arc::new(TaskRecoveryHook)]
 }
 
 /// Runs recovery hooks if the previous session crashed and records the outcome.

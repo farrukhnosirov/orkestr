@@ -97,6 +97,10 @@ impl CoreHandle {
             discovery::remove_if_ours(&self.services.paths);
             self.discovery_written = false;
         }
+        // Graceful shutdown: in-flight tasks become Interrupted (ADR-0022).
+        if let Err(e) = self.services.tasks.recover_interrupted("shutdown").await {
+            tracing::error!(error = %e, "failed to interrupt running tasks on shutdown");
+        }
         recovery::end_session(&self.services.paths);
         logging::detach_event_bus();
         tracing::info!("orkestr core stopped");
@@ -169,6 +173,7 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
         tracing::error!(error = %e, "provider registry failed to initialise");
     }
 
+    let tasks = Arc::new(orkestr_task_engine::TaskService::new(db.clone(), events.clone()));
     let services = Arc::new(Services {
         version: VERSION.to_owned(),
         started_at: chrono::Utc::now(),
@@ -181,6 +186,7 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
         projects: metadata,
         objects,
         providers,
+        tasks,
         recovered_from_crash: previous_session.crashed,
         security,
     });

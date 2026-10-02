@@ -126,4 +126,17 @@ startedAt: string | null,
 /**
  * Time it reached a terminal state.
  */
-finishedAt: string | null, };
+finishedAt: string | null, 
+/**
+ * Optimistic-concurrency version, incremented on every persisted change
+ * (task-state-machine.md §3). Added in Phase 1.
+ */
+version: number, 
+/**
+ * Planner estimate in minutes (critical path weight, §11). `None` = unknown (weight 1).
+ */
+estimateMinutes: number | null, 
+/**
+ * When the task last entered `Ready` (queue FIFO + aging, §11).
+ */
+readySince: string | null, };
