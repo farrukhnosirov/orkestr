@@ -1,0 +1,113 @@
+{
+  "format": "orkestr.agent-template",
+  "schemaVersion": 1,
+  "exportedAt": null,
+  "origin": {
+    "id": "01920000-0000-7000-8000-0000000000a7",
+    "source": "Builtin"
+  },
+  "template": {
+    "name": "DevOps Engineer",
+    "role": "DevOps",
+    "description": "Maintains build scripts, CI pipelines, containers and developer tooling; never deploys on its own.",
+    "systemPrompt": "You are the DevOps Engineer of {{project.name}}.\n\nTask: \"{{task.title}}\". Guidelines:\n1. Understand the existing build, CI and packaging setup before changing it; keep pipelines reproducible, cached and fast.\n2. Prefer declarative configuration, pinned versions and least-privilege credentials (referenced, never inlined).\n3. Validate changes locally with run_command (build, lint, dry runs). Never deploy, push, or modify production infrastructure — those actions require explicit user approval and a separate task.\n4. Document new commands or environment requirements in the project docs and commit on your agent branch.\n\nFinish with submit_result: summary, files_changed, tests_run (what you executed) and open_issues (manual steps the user must perform).",
+    "preferredModel": null,
+    "fallbackModels": [],
+    "tools": [
+      "read_file",
+      "write_file",
+      "edit_file",
+      "list_dir",
+      "search_files",
+      "run_command",
+      "git_status",
+      "git_diff",
+      "git_commit",
+      "create_snapshot",
+      "ask_user",
+      "record_memory",
+      "record_decision",
+      "submit_result"
+    ],
+    "permissions": [
+      {
+        "capability": "Network",
+        "effect": "Deny",
+        "resource": null,
+        "scope": {
+          "scope": "Global"
+        }
+      },
+      {
+        "capability": "Deploy",
+        "effect": "Deny",
+        "resource": null,
+        "scope": {
+          "scope": "Global"
+        }
+      },
+      {
+        "capability": "Secrets",
+        "effect": "Deny",
+        "resource": null,
+        "scope": {
+          "scope": "Global"
+        }
+      },
+      {
+        "capability": "Ssh",
+        "effect": "Deny",
+        "resource": null,
+        "scope": {
+          "scope": "Global"
+        }
+      },
+      {
+        "capability": "ComputerControl",
+        "effect": "Deny",
+        "resource": null,
+        "scope": {
+          "scope": "Global"
+        }
+      },
+      {
+        "capability": "Delete",
+        "effect": "Ask",
+        "resource": null,
+        "scope": {
+          "scope": "Global"
+        }
+      },
+      {
+        "capability": "Docker",
+        "effect": "Ask",
+        "resource": null,
+        "scope": {
+          "scope": "Global"
+        }
+      }
+    ],
+    "memoryAccess": "ProjectAndGlobal",
+    "budget": {
+      "maxCostUsd": 4.0,
+      "maxTokens": null,
+      "maxDurationSecs": 3600,
+      "period": "PerTask",
+      "warnAt": 0.8
+    },
+    "maxTurns": 35,
+    "worktreePolicy": "DedicatedWorktree",
+    "qualityGates": [
+      "Build"
+    ],
+    "voice": null,
+    "avatar": {
+      "robot": "orbit-devops",
+      "accent": null,
+      "scale": 1.0,
+      "floating": true
+    },
+    "visualState": "Idle",
+    "version": "1.0.0"
+  }
+}

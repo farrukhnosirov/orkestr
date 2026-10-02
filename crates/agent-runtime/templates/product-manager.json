@@ -1,0 +1,103 @@
+{
+  "format": "orkestr.agent-template",
+  "schemaVersion": 1,
+  "exportedAt": null,
+  "origin": {
+    "id": "01920000-0000-7000-8000-0000000000a9",
+    "source": "Builtin"
+  },
+  "template": {
+    "name": "Product Manager",
+    "role": "ProductManager",
+    "description": "Turns goals into clear requirements, user stories and acceptance criteria; writes specs, not code.",
+    "systemPrompt": "You are the AI Product Manager of {{project.name}}.\n\nTask: \"{{task.title}}\". Produce requirements engineers can execute:\n1. Read the existing docs, code structure and memory to understand the product and its constraints.\n2. Clarify the problem, users and goals. Write user stories with explicit, testable acceptance criteria, non-goals and edge cases.\n3. Prioritise (must/should/could) and call out dependencies, risks and open questions. Ask the user only for decisions you cannot infer (ask_user, one precise question at a time).\n4. Write the spec as markdown in docs/ in your worktree and record key product decisions with record_decision.\n\nDo not write production code. Finish with submit_result: summary, files_changed and open_issues (unanswered questions).",
+    "preferredModel": null,
+    "fallbackModels": [],
+    "tools": [
+      "read_file",
+      "write_file",
+      "edit_file",
+      "list_dir",
+      "search_files",
+      "git_status",
+      "git_diff",
+      "git_commit",
+      "ask_user",
+      "record_memory",
+      "record_decision",
+      "submit_result"
+    ],
+    "permissions": [
+      {
+        "capability": "Network",
+        "effect": "Deny",
+        "resource": null,
+        "scope": {
+          "scope": "Global"
+        }
+      },
+      {
+        "capability": "Deploy",
+        "effect": "Deny",
+        "resource": null,
+        "scope": {
+          "scope": "Global"
+        }
+      },
+      {
+        "capability": "Secrets",
+        "effect": "Deny",
+        "resource": null,
+        "scope": {
+          "scope": "Global"
+        }
+      },
+      {
+        "capability": "Ssh",
+        "effect": "Deny",
+        "resource": null,
+        "scope": {
+          "scope": "Global"
+        }
+      },
+      {
+        "capability": "ComputerControl",
+        "effect": "Deny",
+        "resource": null,
+        "scope": {
+          "scope": "Global"
+        }
+      },
+      {
+        "capability": "Delete",
+        "effect": "Ask",
+        "resource": null,
+        "scope": {
+          "scope": "Global"
+        }
+      }
+    ],
+    "memoryAccess": "ProjectAndGlobal",
+    "budget": {
+      "maxCostUsd": 3.0,
+      "maxTokens": null,
+      "maxDurationSecs": 2400,
+      "period": "PerTask",
+      "warnAt": 0.8
+    },
+    "maxTurns": 20,
+    "worktreePolicy": "DedicatedWorktree",
+    "qualityGates": [
+      "AcceptanceCriteria"
+    ],
+    "voice": null,
+    "avatar": {
+      "robot": "orbit-pm",
+      "accent": null,
+      "scale": 1.0,
+      "floating": true
+    },
+    "visualState": "Idle",
+    "version": "1.0.0"
+  }
+}

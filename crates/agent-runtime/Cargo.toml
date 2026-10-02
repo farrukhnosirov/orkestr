@@ -1,6 +1,6 @@
 [package]
 name = "orkestr-agent-runtime"
-description = "SKELETON — Orkestr agent runtime: template/instance lifecycle, tool loop, tool registry, handoff, budgets (§6, §57)."
+description = "Orkestr agent runtime: templates, instance lifecycle + state machine, isolated tool loop over the provider router, tools, handoff, budgets (§6, §57, §64)."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -9,11 +9,36 @@ publish.workspace = true
 
 [dependencies]
 orkestr-domain.workspace = true
+orkestr-protocol.workspace = true
+orkestr-events.workspace = true
+orkestr-storage.workspace = true
+orkestr-security.workspace = true
+orkestr-providers.workspace = true
+orkestr-task-engine.workspace = true
+orkestr-context.workspace = true
+orkestr-memory.workspace = true
+orkestr-vcs.workspace = true
+orkestr-snapshots.workspace = true
+orkestr-terminal.workspace = true
+orkestr-cost.workspace = true
 async-trait.workspace = true
+futures.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
+tokio.workspace = true
 tokio-util.workspace = true
+tracing.workspace = true
+chrono.workspace = true
+parking_lot.workspace = true
+regex.workspace = true
+ignore.workspace = true
+globset.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+orkestr-platform.workspace = true
 
 [lints]
 workspace = true

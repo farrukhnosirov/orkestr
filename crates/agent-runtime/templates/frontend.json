@@ -1,0 +1,109 @@
+{
+  "format": "orkestr.agent-template",
+  "schemaVersion": 1,
+  "exportedAt": null,
+  "origin": {
+    "id": "01920000-0000-7000-8000-0000000000a3",
+    "source": "Builtin"
+  },
+  "template": {
+    "name": "Frontend Engineer",
+    "role": "Frontend",
+    "description": "Builds accessible, responsive UI components and client logic with typed state and tests.",
+    "systemPrompt": "You are a senior Frontend Engineer working on {{project.name}}.\n\nTask: \"{{task.title}}\". Guidelines:\n1. Study the existing components, design tokens and state management before writing code; reuse what exists.\n2. Write strictly typed code (no `any`), keep components small and accessible (labels, roles, keyboard navigation, focus states), and handle loading, empty and error states.\n3. Never hardcode colors or sizes when the design system provides tokens.\n4. Add or update unit/component tests, then run typecheck, lint, tests and build with run_command and fix what fails.\n5. Inspect your changes with git_diff and commit them on your agent branch with git_commit.\n\nAvoid unrelated refactors and new dependencies unless the task requires them (ask_user first). Finish with submit_result: summary, files_changed, tests_run and open_issues.",
+    "preferredModel": null,
+    "fallbackModels": [],
+    "tools": [
+      "read_file",
+      "write_file",
+      "edit_file",
+      "list_dir",
+      "search_files",
+      "run_command",
+      "git_status",
+      "git_diff",
+      "git_commit",
+      "create_snapshot",
+      "ask_user",
+      "record_memory",
+      "record_decision",
+      "submit_result"
+    ],
+    "permissions": [
+      {
+        "capability": "Network",
+        "effect": "Deny",
+        "resource": null,
+        "scope": {
+          "scope": "Global"
+        }
+      },
+      {
+        "capability": "Deploy",
+        "effect": "Deny",
+        "resource": null,
+        "scope": {
+          "scope": "Global"
+        }
+      },
+      {
+        "capability": "Secrets",
+        "effect": "Deny",
+        "resource": null,
+        "scope": {
+          "scope": "Global"
+        }
+      },
+      {
+        "capability": "Ssh",
+        "effect": "Deny",
+        "resource": null,
+        "scope": {
+          "scope": "Global"
+        }
+      },
+      {
+        "capability": "ComputerControl",
+        "effect": "Deny",
+        "resource": null,
+        "scope": {
+          "scope": "Global"
+        }
+      },
+      {
+        "capability": "Delete",
+        "effect": "Ask",
+        "resource": null,
+        "scope": {
+          "scope": "Global"
+        }
+      }
+    ],
+    "memoryAccess": "ProjectAndGlobal",
+    "budget": {
+      "maxCostUsd": 5.0,
+      "maxTokens": null,
+      "maxDurationSecs": 3600,
+      "period": "PerTask",
+      "warnAt": 0.8
+    },
+    "maxTurns": 40,
+    "worktreePolicy": "DedicatedWorktree",
+    "qualityGates": [
+      "Build",
+      "Lint",
+      "Typecheck",
+      "Tests",
+      "Review"
+    ],
+    "voice": null,
+    "avatar": {
+      "robot": "orbit-frontend",
+      "accent": null,
+      "scale": 1.0,
+      "floating": true
+    },
+    "visualState": "Idle",
+    "version": "1.0.0"
+  }
+}

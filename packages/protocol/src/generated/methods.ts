@@ -2,6 +2,12 @@
 import type { AddDependencyParams } from "./AddDependencyParams";
 import type { AddKnowledgeParams } from "./AddKnowledgeParams";
 import type { AddWorktreeParams } from "./AddWorktreeParams";
+import type { AgentHandoffsResult } from "./AgentHandoffsResult";
+import type { AgentIdParams } from "./AgentIdParams";
+import type { AgentStats } from "./AgentStats";
+import type { AgentStatsParams } from "./AgentStatsParams";
+import type { AgentStopParams } from "./AgentStopParams";
+import type { AgentTranscriptResult } from "./AgentTranscriptResult";
 import type { ApprovalIdParams } from "./ApprovalIdParams";
 import type { ApprovalResult } from "./ApprovalResult";
 import type { BranchResult } from "./BranchResult";
@@ -31,6 +37,7 @@ import type { CreateProjectParams } from "./CreateProjectParams";
 import type { CreateProviderParams } from "./CreateProviderParams";
 import type { CreateSnapshotParams } from "./CreateSnapshotParams";
 import type { CreateTaskParams } from "./CreateTaskParams";
+import type { CreateTemplateParams } from "./CreateTemplateParams";
 import type { DecisionIdParams } from "./DecisionIdParams";
 import type { DecisionListResult } from "./DecisionListResult";
 import type { DecisionResult } from "./DecisionResult";
@@ -47,6 +54,7 @@ import type { DeleteRuleParams } from "./DeleteRuleParams";
 import type { DeleteSecretParams } from "./DeleteSecretParams";
 import type { DeleteSnapshotResult } from "./DeleteSnapshotResult";
 import type { DeleteTaskResult } from "./DeleteTaskResult";
+import type { DeleteTemplateResult } from "./DeleteTemplateResult";
 import type { DeletedResult } from "./DeletedResult";
 import type { DiffParams } from "./DiffParams";
 import type { DiffResult } from "./DiffResult";
@@ -58,16 +66,21 @@ import type { EmergencyStatusResult } from "./EmergencyStatusResult";
 import type { EmergencyStopResult } from "./EmergencyStopResult";
 import type { Empty } from "./Empty";
 import type { ExecLineParams } from "./ExecLineParams";
+import type { ExportTemplateResult } from "./ExportTemplateResult";
 import type { FileEntryResult } from "./FileEntryResult";
 import type { FilePathParams } from "./FilePathParams";
 import type { FindFilesParams } from "./FindFilesParams";
 import type { FindFilesResult } from "./FindFilesResult";
 import type { GetModeParams } from "./GetModeParams";
 import type { HealthResult } from "./HealthResult";
+import type { ImportTemplateParams } from "./ImportTemplateParams";
+import type { ImportTemplateResult } from "./ImportTemplateResult";
 import type { InitParams } from "./InitParams";
 import type { KnowledgeIdParams } from "./KnowledgeIdParams";
 import type { KnowledgeListResult } from "./KnowledgeListResult";
 import type { KnowledgeSourceResult } from "./KnowledgeSourceResult";
+import type { ListAgentsParams } from "./ListAgentsParams";
+import type { ListAgentsResult } from "./ListAgentsResult";
 import type { ListApprovalsParams } from "./ListApprovalsParams";
 import type { ListApprovalsResult } from "./ListApprovalsResult";
 import type { ListAuditParams } from "./ListAuditParams";
@@ -92,6 +105,8 @@ import type { ListSnapshotsParams } from "./ListSnapshotsParams";
 import type { ListSnapshotsResult } from "./ListSnapshotsResult";
 import type { ListTasksParams } from "./ListTasksParams";
 import type { ListTasksResult } from "./ListTasksResult";
+import type { ListTemplatesParams } from "./ListTemplatesParams";
+import type { ListTemplatesResult } from "./ListTemplatesResult";
 import type { ListTerminalsParams } from "./ListTerminalsParams";
 import type { ListTerminalsResult } from "./ListTerminalsResult";
 import type { ListTrashParams } from "./ListTrashParams";
@@ -167,12 +182,16 @@ import type { SetSecretParams } from "./SetSecretParams";
 import type { SettingsResult } from "./SettingsResult";
 import type { ShowParams } from "./ShowParams";
 import type { ShowResult } from "./ShowResult";
+import type { SingleAgentResult } from "./SingleAgentResult";
 import type { SingleTaskResult } from "./SingleTaskResult";
+import type { SingleTemplateResult } from "./SingleTemplateResult";
 import type { SnapshotDetail } from "./SnapshotDetail";
 import type { SnapshotDiffParams } from "./SnapshotDiffParams";
 import type { SnapshotDiffResult } from "./SnapshotDiffResult";
 import type { SnapshotIdParams } from "./SnapshotIdParams";
 import type { SnapshotResult } from "./SnapshotResult";
+import type { SpawnAgentParams } from "./SpawnAgentParams";
+import type { SpawnAgentResult } from "./SpawnAgentResult";
 import type { StopAgentParams } from "./StopAgentParams";
 import type { StopProjectParams } from "./StopProjectParams";
 import type { SystemChecksResult } from "./SystemChecksResult";
@@ -182,6 +201,7 @@ import type { TaskGraph } from "./TaskGraph";
 import type { TaskGraphParams } from "./TaskGraphParams";
 import type { TaskHistoryResult } from "./TaskHistoryResult";
 import type { TaskIdParams } from "./TaskIdParams";
+import type { TemplateIdParams } from "./TemplateIdParams";
 import type { TerminalHistoryParams } from "./TerminalHistoryParams";
 import type { TerminalHistoryResult } from "./TerminalHistoryResult";
 import type { TerminalIdParams } from "./TerminalIdParams";
@@ -189,6 +209,7 @@ import type { TerminalSessionResult } from "./TerminalSessionResult";
 import type { TestProviderParams } from "./TestProviderParams";
 import type { TestProviderResult } from "./TestProviderResult";
 import type { ToggleParams } from "./ToggleParams";
+import type { TranscriptParams } from "./TranscriptParams";
 import type { TransitionTaskParams } from "./TransitionTaskParams";
 import type { UpdateDecisionParams } from "./UpdateDecisionParams";
 import type { UpdateMemoryParams } from "./UpdateMemoryParams";
@@ -196,6 +217,7 @@ import type { UpdateProjectParams } from "./UpdateProjectParams";
 import type { UpdateProviderParams } from "./UpdateProviderParams";
 import type { UpdateSettingsParams } from "./UpdateSettingsParams";
 import type { UpdateTaskParams } from "./UpdateTaskParams";
+import type { UpdateTemplateParams } from "./UpdateTemplateParams";
 import type { VaultStatusResult } from "./VaultStatusResult";
 import type { WatchFilesParams } from "./WatchFilesParams";
 import type { WatchFilesResult } from "./WatchFilesResult";
@@ -350,6 +372,22 @@ export type Methods = {
   "nodes.list": [Empty, ListNodesResult];
   "nodes.info": [NodeInfoParams, NodeInfo];
   "nodes.resources": [Empty, NodeResourcesResult];
+  "templates.list": [ListTemplatesParams, ListTemplatesResult];
+  "templates.get": [TemplateIdParams, SingleTemplateResult];
+  "templates.create": [CreateTemplateParams, SingleTemplateResult];
+  "templates.update": [UpdateTemplateParams, SingleTemplateResult];
+  "templates.delete": [TemplateIdParams, DeleteTemplateResult];
+  "templates.export": [TemplateIdParams, ExportTemplateResult];
+  "templates.import": [ImportTemplateParams, ImportTemplateResult];
+  "agents.list": [ListAgentsParams, ListAgentsResult];
+  "agents.get": [AgentIdParams, SingleAgentResult];
+  "agents.spawn": [SpawnAgentParams, SpawnAgentResult];
+  "agents.stop": [AgentStopParams, SingleAgentResult];
+  "agents.pause": [AgentIdParams, SingleAgentResult];
+  "agents.resume": [AgentIdParams, SingleAgentResult];
+  "agents.transcript": [TranscriptParams, AgentTranscriptResult];
+  "agents.handoff": [AgentIdParams, AgentHandoffsResult];
+  "agents.stats": [AgentStatsParams, AgentStats];
 };
 
 /** All implemented method names. */
@@ -497,6 +535,22 @@ export const METHOD_NAMES = [
   "nodes.list",
   "nodes.info",
   "nodes.resources",
+  "templates.list",
+  "templates.get",
+  "templates.create",
+  "templates.update",
+  "templates.delete",
+  "templates.export",
+  "templates.import",
+  "agents.list",
+  "agents.get",
+  "agents.spawn",
+  "agents.stop",
+  "agents.pause",
+  "agents.resume",
+  "agents.transcript",
+  "agents.handoff",
+  "agents.stats",
 ] as const;
 
 /** Wire protocol version (see orkestr-protocol PROTOCOL_VERSION). */
@@ -545,6 +599,7 @@ export const EVENT_KINDS = [
   "Log",
   "TaskDeleted",
   "SettingsChanged",
+  "AgentUpdated",
 ] as const;
 
 /** UI config schema version (see orkestr-protocol ui_config). */

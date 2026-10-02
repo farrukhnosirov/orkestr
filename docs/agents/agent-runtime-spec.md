@@ -13,22 +13,46 @@ Spec references: §1, §5, §6, §7, §16, §17, §20, §21, §22, §23, §30, �
 
 ---
 
-## 0. Implementation status (2026-10-02)
+## 0. Implementation status (2026-10-02, Phase 1)
 
-The Phase 0 foundation contains the **wire types** of this spec in
-`orkestr-domain` (`AgentTemplate`, `AgentInstance`, `AgentTeam`,
-`AgentState`, `AgentRole`, `WorktreePolicy`, `QualityGate`,
-`MemoryAccess`, `TemplateSource`, `Execution`, `ToolCall`) and a
-**skeleton** `orkestr-agent-runtime` crate: `Tool { name, description,
-capability, input_schema, call(&ToolContext, Value) }`, `ToolRegistry`,
-`ToolContext { agent_id, project_id, task_id, root, cancel }`, `Handoff`,
-`AgentRuntime { spawn, stop, stop_all, list }` and `AgentError`. There is
-no tool loop, no tool, no template loading and no RPC yet. §2 below shows the
-**built** wire structs plus the runtime-only fields this spec adds; §5 shows
-the **target** `Tool` shape, which replaces the skeleton's `call` with
-`descriptor`/`resource`/`execute` in Phase 1. The skeleton's doc comment
-uses dotted tool names (`fs.read`); the normative rule is §5.1
-(`^[a-z][a-z0-9_]{0,63}$`, no dots: `fs_read`).
+**Built** in `orkestr-agent-runtime` (+ `crates/core/src/rpc/{agents,templates}.rs`, desktop `panels/Agents`):
+
+- Templates (§2.1): all §6 fields, persisted (`agent_templates`), 11 built-in official
+  templates (`crates/agent-runtime/templates/*.json`, Architect … Researcher) seeded on
+  start and read-only; CRUD + import/export (`orkestr.agent-template` envelope v1;
+  imported permission requests are dropped unless `acceptPermissions: true`).
+  Template permissions become `Agent`-scope rules at spawn and are removed when the run ends.
+- Instances + the state machine of §3 (`state.rs`, full matrix tested); persisted
+  (`agent_instances`, `agent_executions`, `agent_messages`, `agent_tool_calls`,
+  `agent_handoffs`); events `AgentSpawned/Started/StateChanged/Updated/Stopped`,
+  `AgentMessage` (text deltas only), `ToolCallStarted/Finished`. `AgentUpdated` is a new,
+  ephemeral event kind (usage/turns/model/activity snapshots).
+- Isolation: one tokio task per agent, its own `CancellationToken` from
+  `EmergencyController::register_agent`, own worktree (`agent/<role>-<shortid>` via
+  `orkestr-vcs` for `DedicatedWorktree`; `SharedWorktree`, `ReadOnlyMain`, `None`), own
+  conversation, turn / budget / wall-clock limits.
+- Tool loop (§4) over the provider router with fallback + structured handoff hook; context
+  bundle from `orkestr-context` (rules, memory, files, previous handoff); automatic
+  checkpoint snapshot before the first mutating tool; usage → `CostEngine::ingest`;
+  pre-flight budget check (agent budget + `CostEngine::check`); one "call submit_result"
+  nudge, then an implicit `partial` result.
+- Tools (assignment names, which supersede the `fs_*` names of §5.2): `read_file`,
+  `write_file`, `edit_file`, `list_dir`, `search_files`, `run_command`, `git_status`,
+  `git_diff`, `git_commit`, `create_snapshot`, `ask_user`, `record_memory`,
+  `record_decision`, `submit_result`. Deviation: `git_status`/`git_diff`/`create_snapshot`
+  are checked as `Read` on the worktree root (they are read-only), `git_commit` as `Git`.
+  `run_command` is checked by the terminal's security gate (same engine, actor = agent);
+  `Ask` ⇒ agent + task `Waiting` until the approval is resolved (approve ⇒ the gate lets the
+  same command through once; reject ⇒ tool `Denied`, returned to the model).
+- CLI coding agents (§4.1, `cli.rs`): Claude Code / Codex via `run_coding_agent` in the
+  worktree with a static tool policy; file changes outside the worktree cancel the run.
+  **Limits:** no per-command approval bridge yet (Bash only allowed in Full Auto; Codex needs
+  a one-time approval per run unless Full Auto), CLI cost is checked only after the run,
+  no fallback chain for CLI agents, pause is not supported.
+- Not built yet: rolling transcript summaries / context-overflow compaction, doom-loop
+  detection, parallel tool calls, `fs_delete`/`fs_move`/`run_checks`/`memory_search`/
+  `ask_manager`, teams/hierarchy (Phase 2), idle timeout watchdog, Job Object per agent
+  (commands use the terminal's process-tree kill).
 
 ---
 

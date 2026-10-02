@@ -252,6 +252,30 @@ pub struct AgentInstance {
     pub stopped_at: Option<Timestamp>,
     /// Last activity.
     pub last_activity_at: Option<Timestamp>,
+    /// Template version pinned at spawn (Phase 1, additive).
+    #[serde(default)]
+    pub template_version: Option<String>,
+    /// Worktree policy the agent runs with (Phase 1, additive).
+    #[serde(default)]
+    pub worktree_policy: WorktreePolicy,
+    /// Turn limit of the current run (Phase 1, additive; 0 = unknown).
+    #[serde(default)]
+    pub max_turns: u32,
+    /// Budget of the current run (Phase 1, additive).
+    #[serde(default)]
+    pub budget: Option<Budget>,
+    /// Current execution (Phase 1, additive).
+    #[serde(default)]
+    pub execution_id: Option<crate::ids::ExecutionId>,
+    /// Execution style: `chat` (tool loop) or `cli` (official CLI coding agent). Phase 1, additive.
+    #[serde(default)]
+    pub execution_style: Option<String>,
+    /// CLI session id of a coding-agent run (resume). Phase 1, additive.
+    #[serde(default)]
+    pub cli_session: Option<String>,
+    /// Short human-readable current activity ("Running cargo test"). Phase 1, additive.
+    #[serde(default)]
+    pub activity: Option<String>,
 }
 
 /// Predefined team kinds (§6).

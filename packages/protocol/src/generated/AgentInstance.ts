@@ -4,10 +4,13 @@ import type { AgentRole } from "./AgentRole";
 import type { AgentState } from "./AgentState";
 import type { AgentTeamId } from "./AgentTeamId";
 import type { AgentTemplateId } from "./AgentTemplateId";
+import type { Budget } from "./Budget";
+import type { ExecutionId } from "./ExecutionId";
 import type { ModelRef } from "./ModelRef";
 import type { ProjectId } from "./ProjectId";
 import type { TaskId } from "./TaskId";
 import type { UsageSummary } from "./UsageSummary";
+import type { WorktreePolicy } from "./WorktreePolicy";
 import type { WorktreeRef } from "./WorktreeRef";
 
 /**
@@ -85,4 +88,36 @@ stoppedAt: string | null,
 /**
  * Last activity.
  */
-lastActivityAt: string | null, };
+lastActivityAt: string | null, 
+/**
+ * Template version pinned at spawn (Phase 1, additive).
+ */
+templateVersion: string | null, 
+/**
+ * Worktree policy the agent runs with (Phase 1, additive).
+ */
+worktreePolicy: WorktreePolicy, 
+/**
+ * Turn limit of the current run (Phase 1, additive; 0 = unknown).
+ */
+maxTurns: number, 
+/**
+ * Budget of the current run (Phase 1, additive).
+ */
+budget: Budget | null, 
+/**
+ * Current execution (Phase 1, additive).
+ */
+executionId: ExecutionId | null, 
+/**
+ * Execution style: `chat` (tool loop) or `cli` (official CLI coding agent). Phase 1, additive.
+ */
+executionStyle: string | null, 
+/**
+ * CLI session id of a coding-agent run (resume). Phase 1, additive.
+ */
+cliSession: string | null, 
+/**
+ * Short human-readable current activity ("Running cargo test"). Phase 1, additive.
+ */
+activity: string | null, };

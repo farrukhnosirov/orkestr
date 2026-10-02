@@ -162,6 +162,8 @@ export function describeEvent(event: Event): string {
       return event.payload.message || event.payload.target;
     case "SettingsChanged":
       return `Settings changed: ${event.payload.changed.join(", ")}`;
+    case "AgentUpdated":
+      return `Agent “${event.payload.agent.name}” updated (${event.payload.agent.state}, ${event.payload.agent.turnsUsed} turns)`;
   }
 }
 

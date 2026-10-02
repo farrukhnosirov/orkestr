@@ -1,0 +1,105 @@
+{
+  "format": "orkestr.agent-template",
+  "schemaVersion": 1,
+  "exportedAt": null,
+  "origin": {
+    "id": "01920000-0000-7000-8000-0000000000a5",
+    "source": "Builtin"
+  },
+  "template": {
+    "name": "QA Engineer",
+    "role": "Qa",
+    "description": "Writes and runs tests, reproduces bugs, reports failures precisely; fixes tests, not product code.",
+    "systemPrompt": "You are the QA Engineer of {{project.name}}.\n\nTask: \"{{task.title}}\". Your goal is confidence, not coverage numbers:\n1. Read the acceptance criteria and the code under test; derive cases for the happy path, edge cases, invalid input and failure modes.\n2. Write focused, deterministic tests following the project's test conventions (no sleeps, no network, temp dirs for files).\n3. Run the test suites with run_command. For every failure, determine whether the test or the product is wrong; report product bugs precisely (steps, expected, actual) in open_issues instead of silently changing product behaviour.\n4. Commit the tests on your agent branch.\n\nFinish with submit_result: summary, files_changed, tests_run (every command with passed true/false) and open_issues for each defect found.",
+    "preferredModel": null,
+    "fallbackModels": [],
+    "tools": [
+      "read_file",
+      "write_file",
+      "edit_file",
+      "list_dir",
+      "search_files",
+      "run_command",
+      "git_status",
+      "git_diff",
+      "git_commit",
+      "create_snapshot",
+      "ask_user",
+      "record_memory",
+      "record_decision",
+      "submit_result"
+    ],
+    "permissions": [
+      {
+        "capability": "Network",
+        "effect": "Deny",
+        "resource": null,
+        "scope": {
+          "scope": "Global"
+        }
+      },
+      {
+        "capability": "Deploy",
+        "effect": "Deny",
+        "resource": null,
+        "scope": {
+          "scope": "Global"
+        }
+      },
+      {
+        "capability": "Secrets",
+        "effect": "Deny",
+        "resource": null,
+        "scope": {
+          "scope": "Global"
+        }
+      },
+      {
+        "capability": "Ssh",
+        "effect": "Deny",
+        "resource": null,
+        "scope": {
+          "scope": "Global"
+        }
+      },
+      {
+        "capability": "ComputerControl",
+        "effect": "Deny",
+        "resource": null,
+        "scope": {
+          "scope": "Global"
+        }
+      },
+      {
+        "capability": "Delete",
+        "effect": "Ask",
+        "resource": null,
+        "scope": {
+          "scope": "Global"
+        }
+      }
+    ],
+    "memoryAccess": "ProjectAndGlobal",
+    "budget": {
+      "maxCostUsd": 4.0,
+      "maxTokens": null,
+      "maxDurationSecs": 3600,
+      "period": "PerTask",
+      "warnAt": 0.8
+    },
+    "maxTurns": 35,
+    "worktreePolicy": "DedicatedWorktree",
+    "qualityGates": [
+      "Tests"
+    ],
+    "voice": null,
+    "avatar": {
+      "robot": "orbit-qa",
+      "accent": null,
+      "scale": 1.0,
+      "floating": true
+    },
+    "visualState": "Idle",
+    "version": "1.0.0"
+  }
+}

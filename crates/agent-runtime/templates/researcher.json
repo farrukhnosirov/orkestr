@@ -1,0 +1,114 @@
+{
+  "format": "orkestr.agent-template",
+  "schemaVersion": 1,
+  "exportedAt": null,
+  "origin": {
+    "id": "01920000-0000-7000-8000-0000000000ab",
+    "source": "Builtin"
+  },
+  "template": {
+    "name": "Researcher",
+    "role": "Researcher",
+    "description": "Investigates the codebase and documentation to answer questions and compare options; read-only.",
+    "systemPrompt": "You are the Researcher of {{project.name}}. You have read-only access to the project.\n\nTask: \"{{task.title}}\". Investigate thoroughly and report clearly:\n1. Break the question down, then gather evidence with search_files, list_dir and read_file. Cite file paths and line numbers for every claim.\n2. Compare options with their trade-offs (complexity, risk, performance, maintenance) when the task asks for a recommendation.\n3. Distinguish facts found in the code from assumptions; say explicitly what you could not verify.\n4. Store reusable findings with record_memory so future agents do not repeat the research.\n\nFinish with submit_result: a structured summary (findings, recommendation, evidence) and open_issues for anything unresolved.",
+    "preferredModel": null,
+    "fallbackModels": [],
+    "tools": [
+      "read_file",
+      "list_dir",
+      "search_files",
+      "git_status",
+      "git_diff",
+      "ask_user",
+      "record_memory",
+      "record_decision",
+      "submit_result"
+    ],
+    "permissions": [
+      {
+        "capability": "Network",
+        "effect": "Deny",
+        "resource": null,
+        "scope": {
+          "scope": "Global"
+        }
+      },
+      {
+        "capability": "Deploy",
+        "effect": "Deny",
+        "resource": null,
+        "scope": {
+          "scope": "Global"
+        }
+      },
+      {
+        "capability": "Secrets",
+        "effect": "Deny",
+        "resource": null,
+        "scope": {
+          "scope": "Global"
+        }
+      },
+      {
+        "capability": "Ssh",
+        "effect": "Deny",
+        "resource": null,
+        "scope": {
+          "scope": "Global"
+        }
+      },
+      {
+        "capability": "ComputerControl",
+        "effect": "Deny",
+        "resource": null,
+        "scope": {
+          "scope": "Global"
+        }
+      },
+      {
+        "capability": "Write",
+        "effect": "Deny",
+        "resource": null,
+        "scope": {
+          "scope": "Global"
+        }
+      },
+      {
+        "capability": "Delete",
+        "effect": "Deny",
+        "resource": null,
+        "scope": {
+          "scope": "Global"
+        }
+      },
+      {
+        "capability": "Terminal",
+        "effect": "Deny",
+        "resource": null,
+        "scope": {
+          "scope": "Global"
+        }
+      }
+    ],
+    "memoryAccess": "ProjectAndGlobal",
+    "budget": {
+      "maxCostUsd": 2.0,
+      "maxTokens": null,
+      "maxDurationSecs": 1800,
+      "period": "PerTask",
+      "warnAt": 0.8
+    },
+    "maxTurns": 25,
+    "worktreePolicy": "ReadOnlyMain",
+    "qualityGates": [],
+    "voice": null,
+    "avatar": {
+      "robot": "orbit-researcher",
+      "accent": null,
+      "scale": 1.0,
+      "floating": true
+    },
+    "visualState": "Idle",
+    "version": "1.0.0"
+  }
+}

@@ -94,6 +94,8 @@ impl CoreHandle {
 
     async fn shutdown_inner(&mut self) {
         self.shutdown.cancel();
+        // Stop agent runs first (their commands are killed with the terminals).
+        self.services.agents.shutdown().await;
         // Kill terminal process trees before the server goes away.
         self.services.terminals.shutdown().await;
         if let Some(server) = self.server.take() {
@@ -237,6 +239,24 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
         orkestr_node::DetectOptions::default(),
     ));
 
+    let agents = orkestr_agent_runtime::AgentRuntime::new(orkestr_agent_runtime::RuntimeDeps {
+        db: db.clone(),
+        events: events.clone(),
+        security: Arc::clone(&security),
+        tasks: Arc::clone(&tasks),
+        projects: Arc::clone(&metadata) as Arc<dyn orkestr_storage::ProjectRepository>,
+        vcs: vcs.clone(),
+        snapshots: Arc::clone(&snapshots),
+        terminals: terminals.clone(),
+        memory: memory.clone(),
+        cost: cost.clone(),
+        models: Arc::new(orkestr_agent_runtime::RegistryGateway(Arc::clone(&providers))),
+        config: orkestr_agent_runtime::RuntimeConfig::default(),
+    });
+    if let Err(e) = agents.init().await {
+        tracing::error!(error = %e, "agent runtime failed to initialise");
+    }
+
     let services = Arc::new(Services {
         version: VERSION.to_owned(),
         started_at: chrono::Utc::now(),
@@ -264,6 +284,7 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
         autostart: config.autostart.clone(),
         node_sample_interval: config.node_sample_interval,
         seq_high_water,
+        agents,
     });
     logging::attach_event_bus(services.events.clone());
 

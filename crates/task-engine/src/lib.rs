@@ -30,7 +30,7 @@ use orkestr_domain::{ProjectId, TaskId, TaskStatus};
 pub use dag::{dependency_reaction, Dag, DagNode, Trigger};
 pub use queue::{effective_priority, AgingPolicy, PriorityQueue, QueueEntry};
 pub use scheduler::{Deferral, ResourceSnapshot, SchedTask, SchedulePlan, Scheduler, SchedulerLimits};
-pub use service::{RecoveryReport, TaskService};
+pub use service::{AgentRunUpdate, RecoveryReport, TaskService};
 pub use state_machine::{
     allowed_transitions, can_transition, can_transition_as, is_privileged_edge, transition, transition_as, Applied,
     InvalidTransition,

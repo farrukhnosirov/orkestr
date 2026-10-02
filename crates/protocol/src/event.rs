@@ -89,6 +89,16 @@ pub struct AgentSpawnedPayload {
     pub agent: AgentInstance,
 }
 
+/// `AgentUpdated` — the agent's row changed (usage, turns, model, worktree,
+/// activity). Phase 1, appended. Carries the full instance.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct AgentUpdatedPayload {
+    /// The agent after the change.
+    pub agent: AgentInstance,
+}
+
 /// `AgentStarted`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
@@ -628,6 +638,7 @@ macro_rules! event_kinds {
                         | EventKind::AgentMessage(_)
                         | EventKind::ManagerMessage(_)
                         | EventKind::NodeStatus(_)
+                        | EventKind::AgentUpdated(_)
                 )
             }
 
@@ -725,6 +736,8 @@ event_kinds! {
     TaskDeleted(TaskDeletedPayload),
     /// Application settings changed.
     SettingsChanged(SettingsChangedPayload),
+    /// An agent instance changed (usage, turns, model, activity). Phase 1, appended.
+    AgentUpdated(AgentUpdatedPayload),
 }
 
 // ---------------------------------------------------------------------------
@@ -834,6 +847,11 @@ impl NewEvent {
                 self.task_id = Some(t.task_id);
             }
             EventKind::AgentSpawned(a) => {
+                self.agent_id = Some(a.agent.id);
+                self.project_id = Some(a.agent.project_id);
+                self.task_id = a.agent.task_id;
+            }
+            EventKind::AgentUpdated(a) => {
                 self.agent_id = Some(a.agent.id);
                 self.project_id = Some(a.agent.project_id);
                 self.task_id = a.agent.task_id;

@@ -39,6 +39,24 @@ pub struct TaskChange {
     pub changes: Vec<TaskStatusChange>,
 }
 
+/// Bookkeeping written by the agent runtime on a task (never its status —
+/// status changes go through [`TaskService::transition`]).
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct AgentRunUpdate {
+    /// Assign this agent.
+    pub agent_id: Option<orkestr_domain::AgentId>,
+    /// Model in use.
+    pub model: Option<orkestr_domain::ModelRef>,
+    /// Worktree in use.
+    pub worktree: Option<orkestr_domain::WorktreeRef>,
+    /// Usage to add to the task's total.
+    pub usage_delta: Option<orkestr_domain::UsageSummary>,
+    /// Files to merge into `filesTouched` (deduplicated, capped).
+    pub files_touched: Vec<String>,
+    /// Final result.
+    pub result: Option<orkestr_domain::TaskResult>,
+}
+
 /// Outcome of crash/shutdown recovery.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct RecoveryReport {
@@ -695,6 +713,47 @@ impl TaskService {
                 critical_path,
                 critical_path_length,
             })
+        })
+        .await
+    }
+
+    /// Records agent-run data on a task (agent, model, worktree, usage, files,
+    /// result) and publishes `TaskUpdated`. Never changes the status.
+    pub async fn record_agent_run(&self, id: TaskId, update: AgentRunUpdate) -> Result<Task, TaskError> {
+        self.write(move |tx| {
+            let mut task = store::require_task(tx.c, id)?;
+            if let Some(a) = update.agent_id {
+                task.agent_id = Some(a);
+            }
+            if let Some(m) = update.model {
+                task.model = Some(m);
+            }
+            if let Some(w) = update.worktree {
+                task.worktree = Some(w);
+            }
+            if let Some(u) = update.usage_delta {
+                task.usage.add(&u);
+            }
+            for f in update.files_touched {
+                let f = f.trim().replace('\\', "/");
+                if f.is_empty() || f.len() > 1024 || task.files_touched.contains(&f) {
+                    continue;
+                }
+                if task.files_touched.len() >= orkestr_protocol::methods::tasks::MAX_FILES {
+                    break;
+                }
+                task.files_touched.push(f);
+            }
+            if let Some(mut r) = update.result {
+                if r.summary.chars().count() > 20_000 {
+                    r.summary = r.summary.chars().take(20_000).collect();
+                }
+                task.result = Some(r);
+            }
+            task.updated_at = tx.now;
+            store::save_task(tx.c, &mut task)?;
+            tx.fx.updated.insert(task.id, task.clone());
+            Ok(task)
         })
         .await
     }

@@ -45,6 +45,7 @@ export const EPHEMERAL_EVENT_KINDS: ReadonlySet<EventKindName> = new Set<EventKi
   "AgentMessage",
   "ManagerMessage",
   "NodeStatus",
+  "AgentUpdated",
 ]);
 
 /** Local notices from the server (e.g. "subscription lagged") carry `seq === 0`. */

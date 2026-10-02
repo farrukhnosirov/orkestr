@@ -6,8 +6,9 @@
 //!
 //! Implemented areas: [`system`], [`projects`], [`events`], [`settings`]
 //! (`ui.*` still reserved), [`nodes`].
+//! Agent runtime: [`agents`], [`templates`].
 //! Placeholder areas (names reserved, types arrive with their phase):
-//! [`tasks`], [`agents`], [`providers`], [`terminal`], [`approvals`],
+//! [`tasks`], [`providers`], [`terminal`], [`approvals`],
 //! [`emergency`], [`memory`], [`vcs`], [`files`], [`snapshots`], [`cost`].
 
 use serde::de::DeserializeOwned;
@@ -31,6 +32,7 @@ pub mod settings;
 pub mod snapshots;
 pub mod system;
 pub mod tasks;
+pub mod templates;
 pub mod terminal;
 pub mod vcs;
 
@@ -255,6 +257,23 @@ pub fn registry() -> Vec<MethodDescriptor> {
         MethodDescriptor::of::<nodes::List>(),
         MethodDescriptor::of::<nodes::Info>(),
         MethodDescriptor::of::<nodes::Resources>(),
+        // agent runtime (Phase 1)
+        MethodDescriptor::of::<templates::List>(),
+        MethodDescriptor::of::<templates::Get>(),
+        MethodDescriptor::of::<templates::Create>(),
+        MethodDescriptor::of::<templates::Update>(),
+        MethodDescriptor::of::<templates::Delete>(),
+        MethodDescriptor::of::<templates::Export>(),
+        MethodDescriptor::of::<templates::Import>(),
+        MethodDescriptor::of::<agents::List>(),
+        MethodDescriptor::of::<agents::Get>(),
+        MethodDescriptor::of::<agents::Spawn>(),
+        MethodDescriptor::of::<agents::Stop>(),
+        MethodDescriptor::of::<agents::Pause>(),
+        MethodDescriptor::of::<agents::Resume>(),
+        MethodDescriptor::of::<agents::Transcript>(),
+        MethodDescriptor::of::<agents::HandoffList>(),
+        MethodDescriptor::of::<agents::Stats>(),
     ]
 }
 
