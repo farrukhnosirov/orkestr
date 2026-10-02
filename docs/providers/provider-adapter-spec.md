@@ -39,6 +39,24 @@ only additively):
 | `id()` | returns `ProviderId` by value | returns `&ProviderId` | Either is fine (`ProviderId` is `Copy`) |
 | Registry, router, limits, fallback, mock | not built | §5, §7, §9, §10 | Phase 1 |
 
+### 0.1 Phase 1 implementation (branch `phase1/providers`)
+
+Built in `crates/providers` (modules `types`, `adapter`, `adapters/{openai,anthropic,gemini,ollama,cli,claude_code,codex,mock}`,
+`http`, `registry`, `router`, `fallback`, `limits`, `pricing`, `catalog`, `factory`, `store`, `credentials`):
+
+- `ChatEvent` keeps the contract names: `TextDelta(String)`, `ToolCall{id,name,arguments}`, `Usage(Usage)`,
+  `Done{stop_reason}`, `Error(ProviderError)`, plus `Switched{from,to,reason}` emitted by the fallback executor.
+- `ProviderError` keeps the seven classes with string detail (`QuotaExceeded(String)`), plus `Unsupported`
+  and `Unimplemented`. Structured sub-reasons (`LimitScope`, `AuthFailure`, …) are **not** built yet.
+- Rich auth state is `AuthStatus` (crate) mapped onto the wire `AuthState` + detail; live status is the
+  new wire type `orkestr_domain::ProviderStatus`. `run_coding_agent` returns `CodingAgentStream`.
+- Wire methods: `providers.{list,get,create,update,delete,setCredential,clearCredential,health,models,test,kinds,getManager,setManager,getRouting,setRouting}`;
+  Manager (§5) and routing (§7) settings are `orkestr_domain::{ManagerConfig, RoutingConfig}`.
+- Not built yet: per-call permission bridge for Claude Code (`--permission-prompt-tool` MCP server — the
+  caller passes a static `CliToolPolicy`), Codex session resume, per-(provider, model) concurrency
+  semaphores, opaque thinking-block echo for Anthropic extended thinking with tools (thinking is only
+  enabled without tools), prompt-caching hints, benchmark-weighted routing (Phase 2).
+
 RPC names follow `../api/protocol.md` §8.13/§8.27 (`providers.delete`,
 `providers.health`; the code also reserves `providers.create`,
 `providers.update`, `providers.setCredential`, which §8.27 maps).

@@ -11,6 +11,7 @@ pub mod events;
 pub mod permissions;
 pub mod projects;
 pub mod secrets;
+pub mod providers;
 pub mod system;
 
 use std::collections::BTreeMap;
@@ -129,6 +130,7 @@ pub fn build_router() -> RpcRouter {
         .register(secrets::register)
         .register(emergency::register)
         .register(audit::register);
+    router.register(providers::register);
     router
 }
 

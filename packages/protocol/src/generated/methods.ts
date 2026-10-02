@@ -10,6 +10,9 @@ import type { DeleteSecretParams } from "./DeleteSecretParams";
 import type { DeletedResult } from "./DeletedResult";
 import type { EmergencyStatusResult } from "./EmergencyStatusResult";
 import type { EmergencyStopResult } from "./EmergencyStopResult";
+import type { CreateProviderParams } from "./CreateProviderParams";
+import type { DeleteProjectResult } from "./DeleteProjectResult";
+import type { DeleteProviderResult } from "./DeleteProviderResult";
 import type { Empty } from "./Empty";
 import type { GetModeParams } from "./GetModeParams";
 import type { HealthResult } from "./HealthResult";
@@ -24,8 +27,16 @@ import type { ListRulesResult } from "./ListRulesResult";
 import type { ListSecretsParams } from "./ListSecretsParams";
 import type { ListSecretsResult } from "./ListSecretsResult";
 import type { ModeResult } from "./ModeResult";
+import type { ListProvidersResult } from "./ListProvidersResult";
+import type { ManagerConfigPayload } from "./ManagerConfigPayload";
 import type { ProjectIdParams } from "./ProjectIdParams";
 import type { ProjectResult } from "./ProjectResult";
+import type { ProviderIdParams } from "./ProviderIdParams";
+import type { ProviderKindsResult } from "./ProviderKindsResult";
+import type { ProviderModelsParams } from "./ProviderModelsParams";
+import type { ProviderModelsResult } from "./ProviderModelsResult";
+import type { ProviderStatusResult } from "./ProviderStatusResult";
+import type { ProviderViewResult } from "./ProviderViewResult";
 import type { ReplayParams } from "./ReplayParams";
 import type { ReplayResult } from "./ReplayResult";
 import type { ResolveApprovalParams } from "./ResolveApprovalParams";
@@ -40,6 +51,13 @@ import type { SystemInfo } from "./SystemInfo";
 import type { ToggleParams } from "./ToggleParams";
 import type { UpdateProjectParams } from "./UpdateProjectParams";
 import type { VaultStatusResult } from "./VaultStatusResult";
+import type { RoutingConfigPayload } from "./RoutingConfigPayload";
+import type { SetCredentialParams } from "./SetCredentialParams";
+import type { SystemInfo } from "./SystemInfo";
+import type { TestProviderParams } from "./TestProviderParams";
+import type { TestProviderResult } from "./TestProviderResult";
+import type { UpdateProjectParams } from "./UpdateProjectParams";
+import type { UpdateProviderParams } from "./UpdateProviderParams";
 
 /** Typed RPC method map: `"area.verb": [Params, Result]`. */
 export type Methods = {
@@ -76,6 +94,21 @@ export type Methods = {
   "emergency.status": [Empty, EmergencyStatusResult];
   "emergency.reset": [Empty, EmergencyStatusResult];
   "audit.list": [ListAuditParams, ListAuditResult];
+  "providers.list": [Empty, ListProvidersResult];
+  "providers.get": [ProviderIdParams, ProviderViewResult];
+  "providers.create": [CreateProviderParams, ProviderViewResult];
+  "providers.update": [UpdateProviderParams, ProviderViewResult];
+  "providers.delete": [ProviderIdParams, DeleteProviderResult];
+  "providers.setCredential": [SetCredentialParams, ProviderViewResult];
+  "providers.clearCredential": [ProviderIdParams, ProviderViewResult];
+  "providers.health": [ProviderIdParams, ProviderStatusResult];
+  "providers.models": [ProviderModelsParams, ProviderModelsResult];
+  "providers.test": [TestProviderParams, TestProviderResult];
+  "providers.kinds": [Empty, ProviderKindsResult];
+  "providers.getManager": [Empty, ManagerConfigPayload];
+  "providers.setManager": [ManagerConfigPayload, ManagerConfigPayload];
+  "providers.getRouting": [Empty, RoutingConfigPayload];
+  "providers.setRouting": [RoutingConfigPayload, RoutingConfigPayload];
 };
 
 /** All implemented method names. */
@@ -113,6 +146,21 @@ export const METHOD_NAMES = [
   "emergency.status",
   "emergency.reset",
   "audit.list",
+  "providers.list",
+  "providers.get",
+  "providers.create",
+  "providers.update",
+  "providers.delete",
+  "providers.setCredential",
+  "providers.clearCredential",
+  "providers.health",
+  "providers.models",
+  "providers.test",
+  "providers.kinds",
+  "providers.getManager",
+  "providers.setManager",
+  "providers.getRouting",
+  "providers.setRouting",
 ] as const;
 
 /** Wire protocol version (see orkestr-protocol PROTOCOL_VERSION). */

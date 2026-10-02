@@ -159,6 +159,15 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
         })
         .await?,
     );
+    // Provider hub: first start registers the Mock and detects Ollama / CLIs.
+    let providers = Arc::new(orkestr_providers::ProviderRegistry::new(
+        db.clone(),
+        Arc::new(rpc::providers::PlatformCredentialBridge::new(Arc::clone(&platform))),
+        Arc::new(rpc::providers::BusProviderSink::new(events.clone())),
+    ));
+    if let Err(e) = providers.init().await {
+        tracing::error!(error = %e, "provider registry failed to initialise");
+    }
 
     let services = Arc::new(Services {
         version: VERSION.to_owned(),
@@ -171,6 +180,7 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
         events,
         projects: metadata,
         objects,
+        providers,
         recovered_from_crash: previous_session.crashed,
         security,
     });
@@ -196,6 +206,7 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
             }
         });
     }
+    services.providers.spawn_health_loop(shutdown.clone());
     let router = Arc::new(rpc::build_router());
     let app = server::app(server::AppState::new(Arc::clone(&services), token.clone(), router, shutdown.clone()).with_port(addr.port()));
     let server_shutdown = shutdown.clone();

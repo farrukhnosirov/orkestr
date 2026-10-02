@@ -5,6 +5,8 @@
 import type { LucideIcon } from "lucide-react";
 import type { ComponentType } from "react";
 
+import { managerSettingsSection, providersSettingsSection } from "../providers";
+
 export interface SettingsSectionProps {
   /** Active project, or null for global settings. */
   projectId: string | null;
@@ -21,3 +23,4 @@ export interface SettingsSection {
 }
 
 export const settingsSections: SettingsSection[] = [];
+settingsSections.push(providersSettingsSection, managerSettingsSection);

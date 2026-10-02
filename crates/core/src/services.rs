@@ -11,6 +11,7 @@ use std::time::Instant;
 use orkestr_domain::{NodeId, Timestamp};
 use orkestr_events::EventBus;
 use orkestr_platform::{Paths, PlatformAdapter};
+use orkestr_providers::ProviderRegistry;
 use orkestr_storage::{Db, FsObjectStore, ProjectRepository};
 
 /// Shared services.
@@ -35,6 +36,8 @@ pub struct Services {
     pub projects: Arc<dyn ProjectRepository>,
     /// Object store.
     pub objects: Arc<FsObjectStore>,
+    /// AI provider hub (registry, router, fallback).
+    pub providers: Arc<ProviderRegistry>,
     /// Whether the previous session ended uncleanly.
     pub recovered_from_crash: bool,
     /// Security subsystem: permissions, approvals, secrets, audit, emergency (Phase 1).
