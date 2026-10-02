@@ -16,14 +16,17 @@ use ts_rs::TS;
 
 pub mod agents;
 pub mod approvals;
+pub mod audit;
 pub mod cost;
 pub mod emergency;
 pub mod events;
 pub mod files;
 pub mod memory;
 pub mod nodes;
+pub mod permissions;
 pub mod projects;
 pub mod providers;
+pub mod secrets;
 pub mod settings;
 pub mod snapshots;
 pub mod system;
@@ -111,6 +114,31 @@ pub fn registry() -> Vec<MethodDescriptor> {
         MethodDescriptor::of::<projects::Delete>(),
         MethodDescriptor::of::<projects::Open>(),
         MethodDescriptor::of::<events::Replay>(),
+        // security (Phase 1)
+        MethodDescriptor::of::<permissions::List>(),
+        MethodDescriptor::of::<permissions::Set>(),
+        MethodDescriptor::of::<permissions::Delete>(),
+        MethodDescriptor::of::<permissions::Check>(),
+        MethodDescriptor::of::<permissions::GetMode>(),
+        MethodDescriptor::of::<permissions::SetMode>(),
+        MethodDescriptor::of::<approvals::List>(),
+        MethodDescriptor::of::<approvals::Get>(),
+        MethodDescriptor::of::<approvals::Resolve>(),
+        MethodDescriptor::of::<secrets::List>(),
+        MethodDescriptor::of::<secrets::Set>(),
+        MethodDescriptor::of::<secrets::Delete>(),
+        MethodDescriptor::of::<secrets::Lock>(),
+        MethodDescriptor::of::<secrets::Unlock>(),
+        MethodDescriptor::of::<secrets::Status>(),
+        MethodDescriptor::of::<emergency::StopAll>(),
+        MethodDescriptor::of::<emergency::StopProject>(),
+        MethodDescriptor::of::<emergency::StopAgent>(),
+        MethodDescriptor::of::<emergency::DisableFullAuto>(),
+        MethodDescriptor::of::<emergency::DisableNetworkTools>(),
+        MethodDescriptor::of::<emergency::LockVault>(),
+        MethodDescriptor::of::<emergency::Status>(),
+        MethodDescriptor::of::<emergency::Reset>(),
+        MethodDescriptor::of::<audit::List>(),
     ]
 }
 

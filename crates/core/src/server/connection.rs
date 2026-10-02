@@ -1,5 +1,7 @@
 //! One WebSocket connection: auth handshake, request dispatch, subscriptions.
 
+use std::collections::HashSet;
+use std::net::IpAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -10,6 +12,7 @@ use orkestr_events::{EventBus, Received, Subscription};
 use orkestr_protocol::event::{EventKind, LogLevel, LogPayload};
 use orkestr_protocol::frames::{AuthResult, ClientFrame, ResFrame, ServerFrame, SubResult};
 use orkestr_protocol::{Event, RpcError, PROTOCOL_VERSION};
+use parking_lot::Mutex;
 use tokio::sync::{mpsc, oneshot, Semaphore};
 
 use super::AppState;
@@ -48,7 +51,10 @@ fn salvage_id(text: &str) -> String {
         .unwrap_or_default()
 }
 
-pub(super) async fn run(socket: WebSocket, state: AppState, header_authed: bool) {
+/// Request ids currently being handled on one connection.
+type InflightIds = Arc<Mutex<HashSet<String>>>;
+
+pub(super) async fn run(socket: WebSocket, state: AppState, header_authed: bool, peer: Option<IpAddr>) {
     let session_id = SessionId::new();
     let (mut sink, mut stream) = socket.split();
     let (out_tx, mut out_rx) = mpsc::channel::<Outgoing>(OUTBOUND_BUFFER);
@@ -74,7 +80,7 @@ pub(super) async fn run(socket: WebSocket, state: AppState, header_authed: bool)
         let _ = sink.close().await;
     });
 
-    let authed = header_authed || authenticate(&mut stream, &state, &out_tx, session_id).await;
+    let authed = header_authed || authenticate(&mut stream, &state, &out_tx, session_id, peer).await;
     if !authed {
         drop(out_tx);
         let _ = tokio::time::timeout(Duration::from_secs(2), writer).await;
@@ -85,6 +91,7 @@ pub(super) async fn run(socket: WebSocket, state: AppState, header_authed: bool)
     let (sub_tx, sub_rx) = mpsc::channel::<SubCommand>(32);
     let forwarder = tokio::spawn(forward_events(state.services.events.clone(), sub_rx, out_tx.clone()));
     let inflight = Arc::new(Semaphore::new(MAX_INFLIGHT_REQUESTS));
+    let inflight_ids: InflightIds = Arc::new(Mutex::new(HashSet::new()));
 
     loop {
         tokio::select! {
@@ -95,7 +102,7 @@ pub(super) async fn run(socket: WebSocket, state: AppState, header_authed: bool)
             msg = stream.next() => match msg {
                 None | Some(Err(_)) | Some(Ok(Message::Close(_))) => break,
                 Some(Ok(Message::Text(text))) => {
-                    let keep_open = handle_text(text.as_str(), &state, &out_tx, &sub_tx, &inflight, session_id).await;
+                    let keep_open = handle_text(text.as_str(), &state, &out_tx, &sub_tx, (&inflight, &inflight_ids), session_id, peer).await;
                     if !keep_open {
                         break;
                     }
@@ -131,6 +138,7 @@ async fn authenticate(
     state: &AppState,
     out: &mpsc::Sender<Outgoing>,
     session_id: SessionId,
+    peer: Option<IpAddr>,
 ) -> bool {
     let first = tokio::time::timeout(AUTH_TIMEOUT, async {
         loop {
@@ -150,10 +158,16 @@ async fn authenticate(
         _ => ("auth".to_owned(), false),
     };
     if ok {
+        if let Some(ip) = peer {
+            state.limiter.record_success(ip);
+        }
         let _ = out.send(res(ResFrame::ok(id, auth_result(state, session_id)))).await;
         true
     } else {
         tracing::warn!("rejected rpc session: missing or invalid auth frame");
+        if let Some(ip) = peer {
+            state.limiter.record_failure(ip);
+        }
         let _ = out
             .send(res(ResFrame::err(
                 if id.is_empty() { "auth".to_owned() } else { id },
@@ -171,8 +185,9 @@ async fn handle_text(
     state: &AppState,
     out: &mpsc::Sender<Outgoing>,
     subs: &mpsc::Sender<SubCommand>,
-    inflight: &Arc<Semaphore>,
+    (inflight, inflight_ids): (&Arc<Semaphore>, &InflightIds),
     session_id: SessionId,
+    peer: Option<IpAddr>,
 ) -> bool {
     let frame = match serde_json::from_str::<ClientFrame>(text) {
         Ok(f) => f,
@@ -189,6 +204,9 @@ async fn handle_text(
                 let _ = out.send(res(ResFrame::ok(id, auth_result(state, session_id)))).await;
                 true
             } else {
+                if let Some(ip) = peer {
+                    state.limiter.record_failure(ip);
+                }
                 let _ = out.send(res(ResFrame::err(id, RpcError::unauthorized("invalid token")))).await;
                 let _ = out.send(Outgoing::Close(CLOSE_UNAUTHORIZED, "unauthorized")).await;
                 false
@@ -200,7 +218,14 @@ async fn handle_text(
                     out.send(res(ResFrame::err(id, RpcError::bad_request("request id must be 1..=128 chars")))).await;
                 return true;
             }
+            if !inflight_ids.lock().insert(id.clone()) {
+                let _ = out
+                    .send(res(ResFrame::err(id, RpcError::conflict("a request with this id is already in flight"))))
+                    .await;
+                return true;
+            }
             let Ok(permit) = Arc::clone(inflight).acquire_owned().await else { return false };
+            let ids = Arc::clone(inflight_ids);
             let ctx =
                 RpcContext { services: Arc::clone(&state.services), session_id, correlation_id: CorrelationId::new() };
             let router = Arc::clone(&state.router);
@@ -221,6 +246,7 @@ async fn handle_text(
                     }
                 };
                 tracing::debug!(%method, ok = frame.ok, elapsed_ms = started.elapsed().as_millis() as u64, "rpc");
+                ids.lock().remove(&frame.id);
                 let _ = out.send(res(frame)).await;
             });
             true

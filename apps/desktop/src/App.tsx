@@ -9,7 +9,11 @@ import { StatusBar } from "./components/StatusBar";
 import { TitleBar } from "./components/TitleBar";
 import { Workspace } from "./components/Workspace";
 import { bootstrapCore } from "./core/client";
+import { registerSecurityFeature } from "./features/security/register";
+import { SecurityLayer } from "./features/security/SecurityLayer";
 import { useAppStore } from "./store/app";
+
+registerSecurityFeature();
 
 function useTheme() {
   const themeId = useAppStore((s) => s.themeId);
@@ -71,6 +75,7 @@ export function App() {
       <StatusBar />
       <CommandPalette />
       <CreateProjectDialog />
+      <SecurityLayer connected={ready} />
     </div>
   );
 }

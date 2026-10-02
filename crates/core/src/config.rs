@@ -19,6 +19,9 @@ pub struct CoreConfig {
     pub write_discovery: bool,
     /// Event bus buffer size.
     pub event_capacity: usize,
+    /// Secret value backend. Default: `ORKESTR_SECRET_BACKEND` (`auto`, `vault`,
+    /// `vault-file`, `memory`) or `Auto` (OS keyring, encrypted vault fallback).
+    pub secret_backend: orkestr_security::SecretBackendChoice,
 }
 
 impl Default for CoreConfig {
@@ -29,6 +32,10 @@ impl Default for CoreConfig {
             token: None,
             write_discovery: true,
             event_capacity: orkestr_events::DEFAULT_CAPACITY,
+            secret_backend: std::env::var("ORKESTR_SECRET_BACKEND")
+                .ok()
+                .and_then(|v| orkestr_security::SecretBackendChoice::parse(&v))
+                .unwrap_or_default(),
         }
     }
 }

@@ -37,6 +37,8 @@ pub struct Services {
     pub objects: Arc<FsObjectStore>,
     /// Whether the previous session ended uncleanly.
     pub recovered_from_crash: bool,
+    /// Security subsystem: permissions, approvals, secrets, audit, emergency (Phase 1).
+    pub security: Arc<orkestr_security::Security>,
 }
 
 impl std::fmt::Debug for Services {
