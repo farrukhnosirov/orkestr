@@ -35,6 +35,10 @@ pub struct Services {
     pub projects: Arc<dyn ProjectRepository>,
     /// Object store.
     pub objects: Arc<FsObjectStore>,
+    /// Memory engine: memory items, decision log, knowledge base (§20–21).
+    pub memory: orkestr_memory::MemoryEngine,
+    /// Cost engine: usage, budgets, thresholds (§22).
+    pub cost: orkestr_cost::CostEngine,
     /// Whether the previous session ended uncleanly.
     pub recovered_from_crash: bool,
 }

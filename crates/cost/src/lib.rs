@@ -1,74 +1,173 @@
-//! # orkestr-cost — **SKELETON** (Phase 1–2 fill it in)
+//! # orkestr-cost
 //!
-//! Cost & Limit Center (MASTER_SPEC §22): usage records per
-//! provider/model/agent/project/task, pricing, daily/monthly budgets
-//! (Smart Budgeting), `BudgetThreshold` events, model benchmarking and agent
-//! performance analytics.
+//! Cost & Limit Center (MASTER_SPEC §22):
+//!
+//! * [`CostEngine::ingest`] stores [`UsageRecord`]s (append-only) and fires
+//!   `BudgetThreshold` events when an applicable budget crosses 50 %, its
+//!   `warnAt` fraction or 100 % — once per budget, period and level.
+//! * Aggregates: [`CostEngine::summary`], [`CostEngine::by_dimension`]
+//!   (provider / model / agent / project / task), [`CostEngine::timeseries`]
+//!   (day / month, zero-filled) and raw [`CostEngine::records`].
+//! * Budgets ([`budget`]): scopes Global / Project / Task / Provider / Agent,
+//!   periods Daily / Monthly / Total / PerTask, a USD limit or an explicit
+//!   *unrestricted* flag. [`CostEngine::check`] evaluates the whole scope chain
+//!   for an estimated call → Allow | Warn | Exceeded.
+//! * Statistics skeletons ([`stats`]): model benchmarks and agent performance
+//!   computed from usage records; quality signals (first-pass success,
+//!   retries, review rejections) are fed by the task engine later.
+//!
+//! Calendar periods use the core's local UTC offset at startup
+//! ([`Calendar::local`]); keys are stored with each record.
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
-use async_trait::async_trait;
-use orkestr_domain::{Budget, ProjectId, UsageRecord, UsageSummary};
+pub mod budget;
+pub mod calendar;
+pub mod schema;
+pub mod stats;
+mod usage;
+
+use orkestr_events::EventBus;
+use orkestr_storage::{Db, StorageError};
+
+pub use budget::{evaluate_limit, exempt_flags, scope_rank, BudgetContext};
+pub use calendar::Calendar;
+pub use orkestr_domain::UsageRecord;
+pub use schema::cost_migrations;
 
 /// Errors.
 #[derive(Debug, thiserror::Error)]
 pub enum CostError {
+    /// Entity not found.
+    #[error("{0} not found")]
+    NotFound(String),
+    /// Invalid input.
+    #[error("{0}")]
+    Invalid(String),
     /// Storage failure.
     #[error("storage: {0}")]
-    Storage(String),
-    /// Explicit stub marker.
-    #[error("unimplemented-feature: {0}")]
-    Unimplemented(&'static str),
+    Storage(#[from] StorageError),
+    /// Event publication failed.
+    #[error("event publication failed: {0}")]
+    Events(String),
 }
 
-/// Result of a budget check.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum BudgetCheck {
-    /// Within budget.
-    Ok,
-    /// Above the warning threshold (fraction spent).
-    Warn(f64),
-    /// Exceeded.
-    Exceeded,
-}
+/// Result alias.
+pub type CostResult<T> = Result<T, CostError>;
 
-/// Usage ledger.
-#[async_trait]
-pub trait CostLedger: Send + Sync {
-    /// Records one metered call.
-    async fn record(&self, usage: &UsageRecord) -> Result<(), CostError>;
-    /// Summary for a project in the current budget period.
-    async fn project_summary(&self, project: ProjectId) -> Result<UsageSummary, CostError>;
-}
-
-/// Pure budget evaluation (USD only; tokens/time are checked by their owners).
+/// Converts USD to integer micro-dollars (storage unit).
 #[must_use]
-pub fn check_budget(budget: &Budget, spent: &UsageSummary) -> BudgetCheck {
-    let Some(limit) = budget.max_cost_usd else { return BudgetCheck::Ok };
-    if limit <= 0.0 || spent.cost_usd >= limit {
-        return BudgetCheck::Exceeded;
+pub fn usd_to_micros(usd: f64) -> i64 {
+    if !usd.is_finite() {
+        return 0;
     }
-    let fraction = spent.cost_usd / limit;
-    if fraction >= budget.warn_at {
-        BudgetCheck::Warn(fraction)
-    } else {
-        BudgetCheck::Ok
+    // Saturating float→int conversion is the documented behaviour of `as`.
+    #[allow(clippy::cast_possible_truncation)]
+    let v = (usd * 1_000_000.0).round() as i64;
+    v
+}
+
+/// Converts micro-dollars back to USD.
+#[must_use]
+pub fn micros_to_usd(micros: i64) -> f64 {
+    #[allow(clippy::cast_precision_loss)]
+    let v = micros as f64 / 1_000_000.0;
+    v
+}
+
+/// The cost engine. Cheap to clone.
+#[derive(Debug, Clone)]
+pub struct CostEngine {
+    db: Db,
+    events: Option<EventBus>,
+    calendar: Calendar,
+}
+
+impl CostEngine {
+    /// Engine over a database with [`cost_migrations`] applied, using the
+    /// local calendar.
+    #[must_use]
+    pub fn new(db: Db) -> Self {
+        Self { db, events: None, calendar: Calendar::local() }
+    }
+
+    /// Attaches an event bus for `BudgetThreshold` events.
+    #[must_use]
+    pub fn with_events(mut self, events: EventBus) -> Self {
+        self.events = Some(events);
+        self
+    }
+
+    /// Overrides the calendar (tests, explicit time zones).
+    #[must_use]
+    pub fn with_calendar(mut self, calendar: Calendar) -> Self {
+        self.calendar = calendar;
+        self
+    }
+
+    /// The calendar in use.
+    #[must_use]
+    pub fn calendar(&self) -> Calendar {
+        self.calendar
+    }
+
+    /// Underlying database.
+    #[must_use]
+    pub fn db(&self) -> &Db {
+        &self.db
+    }
+}
+
+#[cfg(test)]
+pub(crate) mod testutil {
+    use chrono::{DateTime, Utc};
+    use orkestr_domain::{ProviderId, UsageRecord, UsageRecordId};
+    use orkestr_events::EventBus;
+    use orkestr_storage::Db;
+
+    use super::*;
+
+    pub async fn engine() -> (CostEngine, EventBus) {
+        let db = Db::open_in_memory().unwrap();
+        db.migrate(cost_migrations()).await.unwrap();
+        let bus = EventBus::in_memory(256);
+        (CostEngine::new(db).with_events(bus.clone()).with_calendar(Calendar::utc()), bus)
+    }
+
+    pub fn ts(s: &str) -> DateTime<Utc> {
+        DateTime::parse_from_rfc3339(s).unwrap().with_timezone(&Utc)
+    }
+
+    pub fn record(provider: ProviderId, model: &str, cost: f64, at: &str) -> UsageRecord {
+        UsageRecord {
+            id: UsageRecordId::new(),
+            ts: ts(at),
+            provider_id: provider,
+            model: model.into(),
+            project_id: None,
+            task_id: None,
+            agent_id: None,
+            execution_id: None,
+            input_tokens: 1000,
+            output_tokens: 200,
+            cached_input_tokens: 0,
+            reasoning_tokens: 0,
+            cost_usd: cost,
+            estimated: false,
+            latency_ms: Some(400),
+            success: true,
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use orkestr_domain::BudgetPeriod;
 
     #[test]
-    fn budget_evaluation() {
-        let mut b = Budget::unrestricted(BudgetPeriod::Monthly);
-        let spent = UsageSummary { input_tokens: 0, output_tokens: 0, cost_usd: 90.0 };
-        assert_eq!(check_budget(&b, &spent), BudgetCheck::Ok);
-        b.max_cost_usd = Some(100.0);
-        assert!(matches!(check_budget(&b, &spent), BudgetCheck::Warn(f) if (f - 0.9).abs() < 1e-9));
-        b.max_cost_usd = Some(50.0);
-        assert_eq!(check_budget(&b, &spent), BudgetCheck::Exceeded);
+    fn micros_roundtrip() {
+        assert_eq!(usd_to_micros(1.234_567_4), 1_234_567);
+        assert_eq!(usd_to_micros(f64::NAN), 0);
+        assert!((micros_to_usd(2_500_000) - 2.5).abs() < 1e-12);
     }
 }

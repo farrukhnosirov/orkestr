@@ -23,6 +23,8 @@ pub fn all() -> Vec<Migration> {
     all.extend(orkestr_storage::storage_migrations());
     all.extend(orkestr_events::events_migrations());
     // Phase 1+: task-engine, agent-runtime, providers, memory, cost, … append here.
+    all.extend(orkestr_memory::memory_migrations());
+    all.extend(orkestr_cost::cost_migrations());
     all
 }
 

@@ -43,4 +43,16 @@ indexedAt: string | null,
 /**
  * Creation time.
  */
-createdAt: string, };
+createdAt: string, 
+/**
+ * Human-readable reason when `status` is `Failed` (or a partial-ingest note). Additive field.
+ */
+error: string | null, 
+/**
+ * Number of indexed chunks. Additive field.
+ */
+chunkCount: number, 
+/**
+ * Number of indexed files. Additive field.
+ */
+fileCount: number, };

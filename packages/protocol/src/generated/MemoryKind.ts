@@ -3,4 +3,4 @@
 /**
  * Kind of memory item (§20).
  */
-export type MemoryKind = "Requirement" | "Architecture" | "BusinessLogic" | "Convention" | "Schema" | "Api" | "Decision" | "Mistake" | "Todo" | "KnownIssue" | "AgentSummary" | "Preference" | "Note";
+export type MemoryKind = "Requirement" | "Architecture" | "BusinessLogic" | "Convention" | "Schema" | "Api" | "Decision" | "Mistake" | "Todo" | "KnownIssue" | "AgentSummary" | "Preference" | "Note" | "QualityStandard" | "ProviderPreference" | "Infrastructure";

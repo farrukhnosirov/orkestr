@@ -51,8 +51,8 @@ export const PANELS: readonly PanelDefinition[] = [
   { id: "database", title: "Database", description: "Database explorer", icon: Database, phase: 2, component: DatabasePanel },
   { id: "logs", title: "Logs", description: "Live event stream", icon: ScrollText, phase: 0, component: LogsPanel },
   { id: "deployments", title: "Deployments", description: "Environments and deployments", icon: Rocket, phase: 2, component: DeploymentsPanel },
-  { id: "memory", title: "Memory", description: "Project memory and knowledge", icon: BrainCircuit, phase: 1, component: MemoryPanel },
-  { id: "costs", title: "Costs", description: "Usage, budgets and limits", icon: Coins, phase: 1, component: CostsPanel },
+  { id: "memory", title: "Memory", description: "Project memory and knowledge", icon: BrainCircuit, phase: 0, component: MemoryPanel },
+  { id: "costs", title: "Costs", description: "Usage, budgets and limits", icon: Coins, phase: 0, component: CostsPanel },
   { id: "monitoring", title: "Monitoring", description: "Mission Control and infrastructure", icon: Activity, phase: 3, component: MonitoringPanel },
 ];
 

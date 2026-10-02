@@ -4,7 +4,9 @@
 //! `pub fn register(router: &mut RpcRouter)` function; [`build_router`] wires
 //! all areas. Handlers are typed by `orkestr_protocol::methods::*` markers.
 
+pub mod cost;
 pub mod events;
+pub mod memory;
 pub mod projects;
 pub mod system;
 
@@ -117,6 +119,7 @@ impl RpcRouter {
 pub fn build_router() -> RpcRouter {
     let mut router = RpcRouter::new();
     router.register(system::register).register(projects::register).register(events::register);
+    router.register(memory::register).register(cost::register);
     router
 }
 
