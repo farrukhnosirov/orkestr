@@ -146,9 +146,13 @@
       "title": "Costs",
       "description": "Usage, budgets and limits"
     },
+    "missionControl": {
+      "title": "Mission Control",
+      "description": "Operations overview: agents, runs, spend, alerts"
+    },
     "monitoring": {
       "title": "Monitoring",
-      "description": "Mission Control and infrastructure"
+      "description": "Node resources, processes and core health"
     }
   },
   "phasePlaceholder": {

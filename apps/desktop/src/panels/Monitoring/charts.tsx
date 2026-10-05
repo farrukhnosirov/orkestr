@@ -8,6 +8,8 @@
 import { clsx } from "clsx";
 import { useId, useMemo, useRef, useState } from "react";
 
+import "./charts.css";
+
 export type ChartTone = "accent" | "violet" | "info" | "success" | "warning" | "danger";
 
 /** Polyline points for values in [0, max] inside a w×h box (pure, unit-tested). */

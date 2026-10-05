@@ -1,0 +1,102 @@
+{
+  "node": {
+    "thisNode": "This computer",
+    "interval": "sampled every {{ms}} ms"
+  },
+  "window": {
+    "label": "Time window",
+    "2m": "2 min",
+    "5m": "5 min",
+    "10m": "10 min"
+  },
+  "toolbar": {
+    "refresh": "Refresh health checks",
+    "missionControl": "Open Mission Control (Ctrl+Shift+D)"
+  },
+  "charts": {
+    "cpu": "CPU",
+    "ram": "Memory",
+    "disk": "Disk",
+    "swap": "Swap",
+    "coreCpu": "Orkestr core CPU",
+    "coreMem": "Orkestr core memory",
+    "collecting": "Collecting samples…",
+    "label": "{{title}}, now {{value}}",
+    "min": "min {{value}}",
+    "avg": "avg {{value}}",
+    "max": "max {{value}}"
+  },
+  "cores": {
+    "title": "CPU cores",
+    "count_one": "{{count}} core",
+    "count_other": "{{count}} cores",
+    "core": "Core {{index}}: {{value}}"
+  },
+  "services": {
+    "title": "Core services",
+    "version": "v{{version}}",
+    "uptime": "up {{time}}",
+    "rpc": "RPC latency",
+    "rpcHint": "avg {{avg}} ms · p95 {{p95}} ms",
+    "ms": "{{ms}} ms",
+    "eventLag": "Event lag",
+    "lastSeq": "last event #{{seq}}",
+    "db": "Database",
+    "wal": "write-ahead log {{size}}",
+    "objects": "Object store",
+    "objectsCount_one": "{{count}} object",
+    "objectsCount_other": "{{count}} objects",
+    "objectsTruncated_one": "at least {{count}} object (scan stopped early)",
+    "objectsTruncated_other": "at least {{count}} objects (scan stopped early)",
+    "methods": "RPC methods",
+    "probe": "probe took {{ms}} ms"
+  },
+  "level": {
+    "ok": "Healthy",
+    "warn": "Warning",
+    "fail": "Failing",
+    "unknown": "Unknown"
+  },
+  "processes": {
+    "title": "Processes started by Orkestr",
+    "count_one": "{{count}} process",
+    "count_other": "{{count}} processes",
+    "empty": "No processes yet: terminals and CLI agents appear here when they start.",
+    "name": "Process",
+    "kind": "Kind",
+    "scope": "Project",
+    "cpu": "CPU",
+    "memory": "Memory",
+    "pid": "PID",
+    "running": "Running",
+    "stopped": "Stopped",
+    "agent": "agent",
+    "subtree_one": "{{count}} process in tree",
+    "subtree_other": "{{count}} processes in tree",
+    "kinds": {
+      "Core": "Core",
+      "Terminal": "Terminal",
+      "AgentTerminal": "Agent terminal",
+      "Child": "Child process"
+    }
+  },
+  "log": {
+    "title": "Errors and warnings",
+    "count_one": "{{count}} line",
+    "count_other": "{{count}} lines",
+    "clear": "Clear",
+    "empty": "No errors or warnings recorded.",
+    "loading": "Loading history…",
+    "levels": {
+      "trace": "trace",
+      "debug": "debug",
+      "info": "info",
+      "warn": "warning",
+      "error": "error"
+    }
+  },
+  "errors": {
+    "telemetry": "Live resource data is unavailable: {{error}}",
+    "health": "Health probe failed: {{error}}"
+  }
+}

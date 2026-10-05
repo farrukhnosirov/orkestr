@@ -1,0 +1,114 @@
+{
+  "node": {
+    "thisNode": "Этот компьютер",
+    "interval": "замер каждые {{ms}} мс"
+  },
+  "window": {
+    "label": "Интервал времени",
+    "2m": "2 мин",
+    "5m": "5 мин",
+    "10m": "10 мин"
+  },
+  "toolbar": {
+    "refresh": "Обновить проверки состояния",
+    "missionControl": "Открыть центр управления (Ctrl+Shift+D)"
+  },
+  "charts": {
+    "cpu": "ЦП",
+    "ram": "Память",
+    "disk": "Диск",
+    "swap": "Файл подкачки",
+    "coreCpu": "ЦП ядра Orkestr",
+    "coreMem": "Память ядра Orkestr",
+    "collecting": "Сбор данных…",
+    "label": "{{title}}, сейчас {{value}}",
+    "min": "мин. {{value}}",
+    "avg": "сред. {{value}}",
+    "max": "макс. {{value}}"
+  },
+  "cores": {
+    "title": "Ядра ЦП",
+    "count_one": "{{count}} ядро",
+    "count_few": "{{count}} ядра",
+    "count_many": "{{count}} ядер",
+    "count_other": "{{count}} ядра",
+    "core": "Ядро {{index}}: {{value}}"
+  },
+  "services": {
+    "title": "Службы ядра",
+    "version": "v{{version}}",
+    "uptime": "работает {{time}}",
+    "rpc": "Задержка RPC",
+    "rpcHint": "сред. {{avg}} мс · p95 {{p95}} мс",
+    "ms": "{{ms}} мс",
+    "eventLag": "Задержка событий",
+    "lastSeq": "последнее событие №{{seq}}",
+    "db": "База данных",
+    "wal": "журнал предзаписи {{size}}",
+    "objects": "Хранилище объектов",
+    "objectsCount_one": "{{count}} объект",
+    "objectsCount_few": "{{count}} объекта",
+    "objectsCount_many": "{{count}} объектов",
+    "objectsCount_other": "{{count}} объекта",
+    "objectsTruncated_one": "не менее {{count}} объекта (подсчёт прерван)",
+    "objectsTruncated_few": "не менее {{count}} объектов (подсчёт прерван)",
+    "objectsTruncated_many": "не менее {{count}} объектов (подсчёт прерван)",
+    "objectsTruncated_other": "не менее {{count}} объекта (подсчёт прерван)",
+    "methods": "Методы RPC",
+    "probe": "проверка заняла {{ms}} мс"
+  },
+  "level": {
+    "ok": "В норме",
+    "warn": "Предупреждение",
+    "fail": "Сбой",
+    "unknown": "Нет данных"
+  },
+  "processes": {
+    "title": "Процессы, запущенные Orkestr",
+    "count_one": "{{count}} процесс",
+    "count_few": "{{count}} процесса",
+    "count_many": "{{count}} процессов",
+    "count_other": "{{count}} процесса",
+    "empty": "Процессов пока нет: терминалы и CLI-агенты появятся здесь после запуска.",
+    "name": "Процесс",
+    "kind": "Тип",
+    "scope": "Проект",
+    "cpu": "ЦП",
+    "memory": "Память",
+    "pid": "PID",
+    "running": "Работает",
+    "stopped": "Остановлен",
+    "agent": "агент",
+    "subtree_one": "{{count}} процесс в дереве",
+    "subtree_few": "{{count}} процесса в дереве",
+    "subtree_many": "{{count}} процессов в дереве",
+    "subtree_other": "{{count}} процесса в дереве",
+    "kinds": {
+      "Core": "Ядро",
+      "Terminal": "Терминал",
+      "AgentTerminal": "Терминал агента",
+      "Child": "Дочерний процесс"
+    }
+  },
+  "log": {
+    "title": "Ошибки и предупреждения",
+    "count_one": "{{count}} запись",
+    "count_few": "{{count}} записи",
+    "count_many": "{{count}} записей",
+    "count_other": "{{count}} записи",
+    "clear": "Очистить",
+    "empty": "Ошибок и предупреждений нет.",
+    "loading": "Загрузка истории…",
+    "levels": {
+      "trace": "трассировка",
+      "debug": "отладка",
+      "info": "инфо",
+      "warn": "предупреждение",
+      "error": "ошибка"
+    }
+  },
+  "errors": {
+    "telemetry": "Данные о ресурсах в реальном времени недоступны: {{error}}",
+    "health": "Не удалось проверить состояние ядра: {{error}}"
+  }
+}

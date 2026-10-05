@@ -154,10 +154,16 @@ export function DeploymentsWidget(_props: WidgetProps) {
   );
 }
 
+const RISKS: readonly string[] = ["Low", "Medium", "High", "Critical"];
+
+function isRisk(v: unknown): v is Approval["risk"] {
+  return typeof v === "string" && RISKS.includes(v);
+}
+
 const SEVERITY_ICON: Record<AlertSeverity, typeof Info> = { critical: AlertOctagon, warning: AlertTriangle, info: Info };
 
 function AlertRow({ a }: { a: Alert }) {
-  const { t } = useT(["missionControl", "common"]);
+  const { t } = useT(["missionControl", "security", "common"]);
   const fmt = useFormat();
   const projects = useAppStore((s) => s.projects);
   const Icon = SEVERITY_ICON[a.severity];
@@ -168,6 +174,7 @@ function AlertRow({ a }: { a: Alert }) {
     params["limit"] = fmt.currency(Number(a.params["limit"] ?? 0));
   }
   if (a.kind === "rateLimited") params["secs"] = fmt.duration(Number(a.params["secs"] ?? 0) * 1000);
+  if (a.kind === "approval" && isRisk(a.params["risk"])) params["risk"] = t(`security:risk.${a.params["risk"]}`);
   return (
     <li className={clsx("mc-alert", `mc-alert--${a.severity}`)}>
       <Icon size={15} className="mc-alert__icon" aria-hidden="true" />

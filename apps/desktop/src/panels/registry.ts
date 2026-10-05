@@ -13,6 +13,7 @@ import {
   FolderTree,
   GitBranch,
   Globe,
+  LayoutDashboard,
   ListTodo,
   Network,
   Rocket,
@@ -33,6 +34,7 @@ import GitPanel from "./Git";
 import LogsPanel from "./Logs";
 import ManagerPanel from "./Manager";
 import MemoryPanel from "./Memory";
+import MissionControlPanel from "./MissionControl";
 import MonitoringPanel from "./Monitoring";
 import TasksPanel from "./Tasks";
 import TerminalPanel from "./Terminal";
@@ -73,7 +75,9 @@ export const PANELS: readonly PanelDefinition[] = [
   panel("deployments", Rocket, 2, DeploymentsPanel),
   panel("memory", BrainCircuit, 0, MemoryPanel),
   panel("costs", Coins, 0, CostsPanel),
-  panel("monitoring", Activity, 3, MonitoringPanel),
+  // mission-control (Phase 3)
+  panel("missionControl", LayoutDashboard, 0, MissionControlPanel),
+  panel("monitoring", Activity, 0, MonitoringPanel),
 ];
 
 const BY_ID = new Map(PANELS.map((p) => [p.id, p]));

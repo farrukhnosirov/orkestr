@@ -17,6 +17,7 @@ import { OnboardingWizard } from "./features/onboarding/OnboardingWizard";
 import { ResumeCard } from "./features/resume/ResumeCard";
 import { SettingsView } from "./features/settings/SettingsView";
 import { useShellBootstrap } from "./features/settings/useShellBootstrap";
+import { MissionControlOverlay } from "./panels/MissionControl";
 import { useAppStore } from "./store/app";
 
 registerSecurityFeature();
@@ -99,6 +100,7 @@ export function App() {
           <SettingsView />
           <OnboardingWizard />
           <ResumeCard />
+          <MissionControlOverlay />
         </>
       )}
       <Toasts />
