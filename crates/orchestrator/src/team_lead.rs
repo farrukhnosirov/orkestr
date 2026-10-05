@@ -223,7 +223,7 @@ pub fn normalize_subtasks(
 }
 
 /// Context of a delegation (from the run loop).
-pub struct Delegation {
+pub(crate) struct Delegation {
     /// The delegated plan task (must be `Ready`).
     pub parent_task: TaskId,
     /// Run that delegates.
@@ -249,7 +249,7 @@ enum End {
 
 /// Hands a task to the team lead. Returns the lead's agent id; the lead
 /// works in the background and reports through the task's status.
-pub async fn delegate(inner: Arc<Inner>, req: LeadRequest, d: Delegation) -> OrchResult<AgentId> {
+pub(crate) async fn delegate(inner: Arc<Inner>, req: LeadRequest, d: Delegation) -> OrchResult<AgentId> {
     if req.depth == 0 || req.depth >= MAX_HIERARCHY_DEPTH {
         return Err(OrchestratorError::Invalid(format!(
             "hierarchy depth {} is not allowed: a lead works at level 1 and its executors at level {MAX_HIERARCHY_DEPTH}",
@@ -532,7 +532,14 @@ impl LeadDriver {
             user.push_str(&format!("Project description: {}\n", one_line(&self.project.description, 400)));
         }
         if let Ok(rules) = self.inner.deps.memory.effective_rules(Some(self.project.id), None).await {
-            let own: Vec<_> = rules.iter().filter(|r| r.item.project_id.is_none_or(|p| p == self.project.id)).collect();
+            let own: Vec<_> = rules
+                .iter()
+                .filter(|r| match &r.item.scope {
+                    orkestr_domain::MemoryScope::Global => true,
+                    orkestr_domain::MemoryScope::Project { project_id } => *project_id == self.project.id,
+                    _ => false,
+                })
+                .collect();
             if !own.is_empty() {
                 user.push_str("Project rules:\n");
                 for r in own.iter().take(10) {
