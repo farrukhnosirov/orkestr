@@ -1,4 +1,6 @@
 /** Title-bar layout switcher (§29): presets, user layouts, save, editor, lock. */
+import "./layout.css";
+
 import { clsx } from "clsx";
 import { Check, ChevronDown, LayoutTemplate, Lock, Save, SlidersHorizontal, Unlock } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";

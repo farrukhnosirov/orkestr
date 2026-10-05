@@ -9,6 +9,9 @@ import { StatusBar } from "./components/StatusBar";
 import { TitleBar } from "./components/TitleBar";
 import { Workspace } from "./components/Workspace";
 import { bootstrapCore } from "./core/client";
+import { LayoutDialogs } from "./features/layout/LayoutDialogs";
+import { LayoutEditorPanel } from "./features/layout/LayoutEditor";
+import { registerLayoutFeature } from "./features/layout/register";
 import { registerSecurityFeature } from "./features/security/register";
 import { SecurityLayer } from "./features/security/SecurityLayer";
 import { commands, matchesShortcut } from "./features/commands/registry";
@@ -20,6 +23,7 @@ import { useShellBootstrap } from "./features/settings/useShellBootstrap";
 import { useAppStore } from "./store/app";
 
 registerSecurityFeature();
+registerLayoutFeature();
 
 function useTheme() {
   const themeId = useAppStore((s) => s.themeId);
@@ -99,6 +103,8 @@ export function App() {
           <SettingsView />
           <OnboardingWizard />
           <ResumeCard />
+          <LayoutEditorPanel />
+          <LayoutDialogs />
         </>
       )}
       <Toasts />

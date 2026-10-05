@@ -2,6 +2,7 @@ import { Kbd } from "@orkestr/ui";
 import { Copy, Minus, Search, Settings, Square, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { LayoutSwitcher } from "../features/layout/LayoutSwitcher";
 import { NotificationBell } from "../features/notifications/NotificationCenter";
 import { ApprovalsBadge } from "../features/security/ApprovalsInbox";
 import { EmergencyStopButton } from "../features/security/EmergencyStop";
@@ -61,6 +62,9 @@ export function TitleBar() {
           <Kbd>K</Kbd>
         </span>
       </button>
+
+      {/* layout-multimonitor (Phase 3): layout presets / editor */}
+      <LayoutSwitcher />
 
       <div className="titlebar__spacer" data-tauri-drag-region />
 

@@ -5,13 +5,17 @@
  * no data flows through the shell. Emergency Stop and approvals stay
  * reachable in every window (§70, ADR-0015).
  */
+import "./layout.css";
+
 import { BUILTIN_THEMES, applyTheme, EmptyState } from "@orkestr/ui";
 import { Copy, Minus, PanelLeftOpen, Square, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import { ConnectionScreen } from "../../components/ConnectionScreen";
-import { bootstrapCore } from "../../core/client";
-import { useT } from "../../i18n";
+import { TOPIC_GLOBAL } from "@orkestr/protocol";
+
+import { bootstrapCore, getClient } from "../../core/client";
+import { applyLanguagePreference, languagePreference, useT } from "../../i18n";
 import { isTauri, windowControls } from "../../lib/tauri";
 import { getPanel } from "../../panels/registry";
 import { useAppStore } from "../../store/app";
@@ -19,6 +23,7 @@ import { Toasts } from "../notifications/NotificationCenter";
 import { EmergencyStopButton } from "../security/EmergencyStop";
 import { ApprovalsBadge } from "../security/ApprovalsInbox";
 import { SecurityLayer } from "../security/SecurityLayer";
+import { useSettingsStore } from "../settings/settingsStore";
 import type { DetachedRoute } from "./route";
 import { windowsApi } from "./windowsApi";
 
@@ -35,6 +40,31 @@ function useDetachedTheme() {
       console.error("failed to apply theme", e);
     }
   }, [themeId]);
+}
+
+/** Follows settings (language, theme) like the main window, without its side effects (onboarding, tray, resume). */
+function useDetachedSettings(ready: boolean) {
+  useEffect(() => {
+    if (!ready) return;
+    const apply = () => {
+      const s = useSettingsStore.getState().settings;
+      if (!s) return;
+      if (s.language !== languagePreference()) void applyLanguagePreference(s.language);
+      const app = useAppStore.getState();
+      if (s.themeId && s.themeId !== app.themeId) app.setThemeId(s.themeId);
+    };
+    const off = useSettingsStore.subscribe((s, prev) => {
+      if (s.settings !== prev.settings) apply();
+    });
+    const unsubscribe = getClient().subscribe([TOPIC_GLOBAL], (ev) => {
+      if (ev.kind === "SettingsChanged") useSettingsStore.getState().applyRemote(ev.payload.settings);
+    });
+    void useSettingsStore.getState().load();
+    return () => {
+      off();
+      unsubscribe();
+    };
+  }, [ready]);
 }
 
 function DetachedTitleBar({ route }: { route: DetachedRoute }) {
@@ -121,6 +151,7 @@ function DetachedBody({ route }: { route: DetachedRoute }) {
 export function DetachedPanelApp({ route }: { route: DetachedRoute }) {
   const [ready, setReady] = useState(false);
   useDetachedTheme();
+  useDetachedSettings(ready);
   const boot = useCallback(() => {
     bootstrapCore().then(
       () => setReady(true),

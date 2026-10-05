@@ -3,6 +3,8 @@
  * the lock toggle and the multi-monitor map, plus a canvas overlay inside the
  * workspace that highlights groups and drop zones while editing.
  */
+import "./layout.css";
+
 import { Badge, Button } from "@orkestr/ui";
 import { clsx } from "clsx";
 import {

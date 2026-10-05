@@ -1,0 +1,843 @@
+/* Layout feature (§28-29, §34): switcher, editor sheet, dock group actions,
+   editing canvas, detached panel windows. Colors only from --ok-* tokens;
+   blur/glow/durations collapse automatically in Performance mode (tokens.css). */
+
+/* ── Title-bar switcher ────────────────────────────────── */
+.lyt-switcher {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.lyt-switcher__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  max-width: 220px;
+  padding: 0 8px 0 9px;
+  border: 1px solid var(--ok-color-border);
+  border-radius: var(--ok-radius-md);
+  background: color-mix(in srgb, var(--ok-color-surface-sunken) 80%, transparent);
+  color: var(--ok-color-text-muted);
+  font: inherit;
+  font-size: var(--ok-font-size-sm);
+  font-weight: var(--ok-font-weight-medium);
+  cursor: pointer;
+  transition:
+    border-color var(--ok-duration-fast) var(--ok-ease),
+    color var(--ok-duration-fast) var(--ok-ease),
+    box-shadow var(--ok-duration-base) var(--ok-ease);
+}
+
+.lyt-switcher__btn:hover,
+.lyt-switcher__btn--open {
+  border-color: var(--ok-color-border-accent);
+  color: var(--ok-color-text);
+  box-shadow: var(--ok-glow-accent);
+}
+
+.lyt-switcher__btn:focus-visible {
+  outline: none;
+  box-shadow: var(--ok-focus-ring);
+}
+
+.lyt-switcher__icon {
+  flex-shrink: 0;
+  color: var(--ok-color-accent);
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--ok-color-accent) calc(60% * var(--ok-glow-intensity)), transparent));
+}
+
+.lyt-switcher__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lyt-switcher__lock {
+  flex-shrink: 0;
+  color: var(--ok-color-warning);
+}
+
+.lyt-switcher__chevron {
+  flex-shrink: 0;
+  color: var(--ok-color-text-subtle);
+  transition: transform var(--ok-duration-fast) var(--ok-ease);
+}
+
+.lyt-switcher__btn--open .lyt-switcher__chevron {
+  transform: rotate(180deg);
+}
+
+.lyt-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: var(--ok-z-overlay);
+  display: flex;
+  flex-direction: column;
+  min-width: 264px;
+  max-height: min(560px, calc(100vh - 96px));
+  overflow-y: auto;
+  padding: 6px;
+  border: 1px solid var(--ok-color-border-strong);
+  border-radius: var(--ok-radius-lg);
+  background: var(--ok-gradient-panel), var(--ok-color-surface-strong);
+  backdrop-filter: blur(var(--ok-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--ok-blur)) saturate(150%);
+  box-shadow: var(--ok-shadow-panel), var(--ok-glow-violet);
+  transform-origin: top left;
+}
+
+.lyt-menu__label {
+  padding: 8px 10px 4px;
+  color: var(--ok-color-text-subtle);
+  font-size: var(--ok-font-size-xs);
+  font-weight: var(--ok-font-weight-semibold);
+  letter-spacing: var(--ok-letter-spacing-caps);
+  text-transform: uppercase;
+}
+
+.lyt-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 30px;
+  padding: 4px 10px;
+  border: 0;
+  border-radius: var(--ok-radius-sm);
+  background: transparent;
+  color: var(--ok-color-text);
+  font: inherit;
+  font-size: var(--ok-font-size-sm);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--ok-duration-fast) var(--ok-ease);
+}
+
+.lyt-menu__item:hover:not(:disabled),
+.lyt-menu__item:focus-visible {
+  outline: none;
+  background: var(--ok-color-surface-hover);
+}
+
+.lyt-menu__item[aria-checked="true"] {
+  background: var(--ok-gradient-accent-soft);
+}
+
+.lyt-menu__item:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.lyt-menu__icon {
+  flex-shrink: 0;
+  color: var(--ok-color-text-subtle);
+}
+
+.lyt-menu__item[aria-checked="true"] .lyt-menu__icon {
+  color: var(--ok-color-accent);
+}
+
+.lyt-menu__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.lyt-menu__meta,
+.lyt-menu__empty {
+  color: var(--ok-color-text-subtle);
+  font-size: var(--ok-font-size-xs);
+}
+
+.lyt-menu__empty {
+  padding: 4px 10px 6px;
+}
+
+.lyt-menu__check {
+  flex-shrink: 0;
+  color: var(--ok-color-accent);
+}
+
+.lyt-menu__check--hidden {
+  visibility: hidden;
+}
+
+.lyt-menu__sep {
+  height: 1px;
+  margin: 6px 4px;
+  background: var(--ok-color-border);
+}
+
+.lyt-dot {
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--ok-color-violet);
+  box-shadow: 0 0 calc(8px * var(--ok-glow-intensity)) var(--ok-color-violet);
+}
+
+.lyt-kbd {
+  flex-shrink: 0;
+  padding: 1px 5px;
+  border: 1px solid var(--ok-color-border);
+  border-radius: var(--ok-radius-xs);
+  background: var(--ok-color-surface-sunken);
+  color: var(--ok-color-text-subtle);
+  font-family: var(--ok-font-mono);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+/* ── Dock group actions ────────────────────────────────── */
+.dock-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 100%;
+  padding: 0 6px;
+}
+
+.dock-actions__btn {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--ok-radius-sm);
+  background: transparent;
+  color: var(--ok-color-text-subtle);
+  cursor: pointer;
+  opacity: 0.7;
+  transition:
+    opacity var(--ok-duration-fast) var(--ok-ease),
+    background var(--ok-duration-fast) var(--ok-ease),
+    color var(--ok-duration-fast) var(--ok-ease);
+}
+
+.dv-groupview:hover .dock-actions__btn,
+.dv-active-group .dock-actions__btn {
+  opacity: 1;
+}
+
+.dock-actions__btn:hover,
+.dock-actions__btn:focus-visible {
+  outline: none;
+  background: var(--ok-color-surface-hover);
+  color: var(--ok-color-accent);
+}
+
+/* ── Workspace while editing / locked ──────────────────── */
+.workspace {
+  position: relative;
+}
+
+.workspace--editing {
+  border-color: var(--ok-color-border-accent);
+  box-shadow: var(--ok-shadow-panel), var(--ok-glow-accent);
+}
+
+.workspace--editing .dv-groupview {
+  outline: 1px dashed color-mix(in srgb, var(--ok-color-accent) 45%, transparent);
+  outline-offset: -1px;
+}
+
+.workspace--editing .dv-groupview.dv-active-group {
+  outline-style: solid;
+  outline-color: var(--ok-color-border-accent);
+}
+
+.workspace--locked .dv-tabs-and-actions-container {
+  background: color-mix(in srgb, var(--ok-color-warning) 4%, var(--dv-tabs-and-actions-container-background-color));
+}
+
+.layout-canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.layout-canvas__grid {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--ok-color-accent) 7%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--ok-color-accent) 7%, transparent) 1px, transparent 1px);
+  background-size: 24px 24px;
+  mask-image: radial-gradient(ellipse at center, #000 40%, transparent 100%);
+  -webkit-mask-image: radial-gradient(ellipse at center, #000 40%, transparent 100%);
+  animation: ok-fade-in var(--ok-duration-slow) var(--ok-ease);
+}
+
+.layout-canvas__hint {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: calc(100% - 32px);
+  padding: 6px 12px;
+  border: 1px solid var(--ok-color-border-accent);
+  border-radius: var(--ok-radius-pill);
+  background: color-mix(in srgb, var(--ok-color-bg) 78%, transparent);
+  backdrop-filter: blur(var(--ok-blur));
+  -webkit-backdrop-filter: blur(var(--ok-blur));
+  color: var(--ok-color-text-muted);
+  font-size: var(--ok-font-size-xs);
+  box-shadow: var(--ok-glow-accent);
+}
+
+.layout-canvas__hint svg {
+  flex-shrink: 0;
+  color: var(--ok-color-accent);
+}
+
+/* ── Editor side sheet ─────────────────────────────────── */
+.lyt-sheet {
+  position: fixed;
+  top: calc(var(--ok-titlebar-height) + 8px);
+  right: 10px;
+  bottom: calc(var(--ok-statusbar-height) + 10px);
+  z-index: calc(var(--ok-z-overlay) - 10);
+  display: flex;
+  flex-direction: column;
+  width: min(380px, calc(100vw - 32px));
+  border: 1px solid var(--ok-color-border-strong);
+  border-radius: var(--ok-radius-xl);
+  background: var(--ok-gradient-panel), var(--ok-color-surface-strong);
+  backdrop-filter: blur(var(--ok-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--ok-blur)) saturate(150%);
+  box-shadow: var(--ok-shadow-panel), var(--ok-glow-violet);
+  overflow: hidden;
+}
+
+.lyt-sheet::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1px;
+  background: var(--ok-gradient-accent);
+  opacity: calc(0.6 * var(--ok-glow-intensity) + 0.2);
+  pointer-events: none;
+}
+
+.lyt-sheet__header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ok-space-3);
+  padding: var(--ok-space-4) var(--ok-space-4) var(--ok-space-3);
+}
+
+.lyt-sheet__icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border-radius: var(--ok-radius-md);
+  background: var(--ok-gradient-accent-soft);
+  color: var(--ok-color-accent);
+  box-shadow: inset 0 0 0 1px var(--ok-color-border-strong);
+}
+
+.lyt-sheet__heading {
+  flex: 1;
+  min-width: 0;
+}
+
+.lyt-sheet__title {
+  margin: 0;
+  font-family: var(--ok-font-display);
+  font-size: var(--ok-font-size-lg);
+  font-weight: var(--ok-font-weight-semibold);
+}
+
+.lyt-sheet__subtitle {
+  margin: 2px 0 0;
+  color: var(--ok-color-text-muted);
+  font-size: var(--ok-font-size-xs);
+  line-height: 1.45;
+}
+
+.lyt-sheet__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 var(--ok-space-4) var(--ok-space-3);
+}
+
+.lyt-sheet__footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: var(--ok-space-3) var(--ok-space-4);
+  border-top: 1px solid var(--ok-color-border);
+}
+
+.lyt-lock {
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-3);
+  margin: 0 var(--ok-space-4) var(--ok-space-2);
+  padding: 10px 12px;
+  border: 1px solid var(--ok-color-border);
+  border-radius: var(--ok-radius-md);
+  background: var(--ok-color-surface-sunken);
+}
+
+.lyt-lock__title {
+  font-size: var(--ok-font-size-sm);
+  font-weight: var(--ok-font-weight-medium);
+}
+
+.lyt-switch {
+  position: relative;
+  flex-shrink: 0;
+  width: 38px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--ok-color-border-strong);
+  border-radius: var(--ok-radius-pill);
+  background: var(--ok-color-surface-sunken);
+  cursor: pointer;
+  transition:
+    background var(--ok-duration-base) var(--ok-ease),
+    border-color var(--ok-duration-base) var(--ok-ease);
+}
+
+.lyt-switch:focus-visible {
+  outline: none;
+  box-shadow: var(--ok-focus-ring);
+}
+
+.lyt-switch__knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--ok-color-text-muted);
+  color: var(--ok-color-text-inverse);
+  transition: transform var(--ok-duration-base) var(--ok-ease-spring);
+}
+
+.lyt-switch--on {
+  border-color: color-mix(in srgb, var(--ok-color-warning) 60%, transparent);
+  background: var(--ok-color-warning-soft);
+}
+
+.lyt-switch--on .lyt-switch__knob {
+  transform: translateX(16px);
+  background: var(--ok-color-warning);
+  box-shadow: 0 0 calc(10px * var(--ok-glow-intensity)) var(--ok-color-warning);
+}
+
+.lyt-section {
+  padding: var(--ok-space-3) 0;
+  border-top: 1px solid var(--ok-color-border);
+}
+
+.lyt-section:first-child {
+  border-top: 0;
+}
+
+.lyt-section__title {
+  margin: 0 0 var(--ok-space-2);
+  color: var(--ok-color-text-subtle);
+  font-size: var(--ok-font-size-xs);
+  font-weight: var(--ok-font-weight-semibold);
+  letter-spacing: var(--ok-letter-spacing-caps);
+  text-transform: uppercase;
+}
+
+.lyt-presets {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.lyt-preset {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 6px 8px;
+  border: 1px solid var(--ok-color-border);
+  border-radius: var(--ok-radius-md);
+  background: color-mix(in srgb, var(--ok-color-surface) 70%, transparent);
+  color: var(--ok-color-text);
+  font: inherit;
+  font-size: var(--ok-font-size-sm);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color var(--ok-duration-fast) var(--ok-ease),
+    background var(--ok-duration-fast) var(--ok-ease),
+    box-shadow var(--ok-duration-base) var(--ok-ease),
+    transform var(--ok-duration-fast) var(--ok-ease);
+}
+
+.lyt-preset:hover {
+  border-color: var(--ok-color-border-strong);
+  background: var(--ok-color-surface-hover);
+}
+
+.lyt-preset:active {
+  transform: scale(0.985);
+}
+
+.lyt-preset:focus-visible {
+  outline: none;
+  box-shadow: var(--ok-focus-ring);
+}
+
+.lyt-preset--active {
+  border-color: var(--ok-color-border-accent);
+  background: var(--ok-gradient-accent-soft);
+  box-shadow: var(--ok-glow-accent);
+}
+
+.lyt-preset__icon {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border-radius: var(--ok-radius-sm);
+  background: var(--ok-color-surface-sunken);
+  color: var(--ok-color-text-subtle);
+}
+
+.lyt-preset--active .lyt-preset__icon {
+  color: var(--ok-color-accent);
+}
+
+.lyt-preset__name {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.25;
+}
+
+.lyt-preset__meta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.lyt-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: var(--ok-space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lyt-presets + .lyt-list {
+  margin-top: var(--ok-space-2);
+}
+
+.lyt-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 32px;
+  padding: 0 2px 0 0;
+  border-radius: var(--ok-radius-sm);
+  transition: background var(--ok-duration-fast) var(--ok-ease);
+}
+
+.lyt-row:hover {
+  background: var(--ok-color-surface-hover);
+}
+
+.lyt-row--active {
+  background: var(--ok-gradient-accent-soft);
+}
+
+.lyt-row--muted .lyt-row__main {
+  color: var(--ok-color-text-subtle);
+}
+
+.lyt-row__main {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 32px;
+  padding: 0 8px;
+  border: 0;
+  background: transparent;
+  color: var(--ok-color-text);
+  font: inherit;
+  font-size: var(--ok-font-size-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.lyt-row__main--static {
+  cursor: default;
+}
+
+.lyt-row__main svg {
+  flex-shrink: 0;
+  color: var(--ok-color-text-subtle);
+}
+
+.lyt-row__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lyt-chip {
+  flex-shrink: 0;
+  padding: 1px 7px;
+  border-radius: var(--ok-radius-pill);
+  font-size: 10.5px;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+.lyt-chip--dock {
+  background: var(--ok-color-accent-soft);
+  color: var(--ok-color-accent);
+}
+
+.lyt-chip--floating {
+  background: var(--ok-color-info-soft);
+  color: var(--ok-color-info);
+}
+
+.lyt-chip--window {
+  background: var(--ok-color-violet-soft);
+  color: var(--ok-color-violet);
+}
+
+.lyt-chip--hidden {
+  background: var(--ok-color-surface-sunken);
+  color: var(--ok-color-text-subtle);
+}
+
+.lyt-icon-btn {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--ok-radius-sm);
+  background: transparent;
+  color: var(--ok-color-text-subtle);
+  cursor: pointer;
+  transition:
+    background var(--ok-duration-fast) var(--ok-ease),
+    color var(--ok-duration-fast) var(--ok-ease);
+}
+
+.lyt-icon-btn:hover:not(:disabled),
+.lyt-icon-btn:focus-visible {
+  outline: none;
+  background: var(--ok-color-surface-active);
+  color: var(--ok-color-accent);
+}
+
+.lyt-icon-btn--danger:hover:not(:disabled) {
+  background: var(--ok-color-danger-soft);
+  color: var(--ok-color-danger);
+}
+
+.lyt-icon-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.lyt-select {
+  max-width: 120px;
+  height: 24px;
+  padding: 0 6px;
+  border: 1px solid var(--ok-color-border);
+  border-radius: var(--ok-radius-sm);
+  background: var(--ok-color-surface-sunken);
+  color: var(--ok-color-text-muted);
+  font: inherit;
+  font-size: var(--ok-font-size-xs);
+  cursor: pointer;
+}
+
+.lyt-select:hover,
+.lyt-select:focus-visible {
+  outline: none;
+  border-color: var(--ok-color-border-accent);
+  color: var(--ok-color-text);
+}
+
+.lyt-select option {
+  background: var(--ok-color-bg-elevated);
+  color: var(--ok-color-text);
+}
+
+.lyt-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: var(--ok-space-3);
+}
+
+.lyt-note {
+  margin: 0;
+  color: var(--ok-color-text-subtle);
+  font-size: var(--ok-font-size-xs);
+  line-height: 1.45;
+}
+
+.lyt-error {
+  margin: 0 var(--ok-space-4) var(--ok-space-2);
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--ok-color-danger) 40%, transparent);
+  border-radius: var(--ok-radius-sm);
+  background: var(--ok-color-danger-soft);
+  color: var(--ok-color-danger);
+  font-size: var(--ok-font-size-xs);
+}
+
+.dialog__body .lyt-error {
+  margin: 0;
+}
+
+.lyt-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ok-space-2);
+  margin-top: var(--ok-space-3);
+  color: var(--ok-color-text-muted);
+  font-size: var(--ok-font-size-sm);
+}
+
+.lyt-field .lyt-select {
+  max-width: 180px;
+}
+
+.lyt-spread {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: var(--ok-space-3);
+}
+
+.lyt-section > .lyt-note {
+  margin-top: var(--ok-space-2);
+}
+
+/* Monitor map (procedural SVG). */
+.lyt-map {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--ok-color-border);
+  border-radius: var(--ok-radius-md);
+  background:
+    radial-gradient(ellipse at 50% 120%, color-mix(in srgb, var(--ok-color-violet) 14%, transparent), transparent 70%),
+    var(--ok-color-surface-sunken);
+}
+
+.lyt-map__mon rect:first-child {
+  fill: url(#lyt-map-screen);
+  stroke: var(--ok-color-border-strong);
+  stroke-width: 1;
+}
+
+.lyt-map__mon--main rect:first-child {
+  stroke: var(--ok-color-accent);
+  stroke-width: 1.5;
+  filter: drop-shadow(0 0 calc(6px * var(--ok-glow-intensity)) color-mix(in srgb, var(--ok-color-accent) 70%, transparent));
+}
+
+.lyt-map__num {
+  fill: var(--ok-color-text);
+  font-family: var(--ok-font-display);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.lyt-map__mon svg {
+  color: var(--ok-color-warning);
+}
+
+.lyt-map__chip {
+  fill: color-mix(in srgb, var(--ok-color-bg) 60%, transparent);
+  stroke: var(--ok-color-border);
+}
+
+.lyt-map__chip-text {
+  fill: var(--ok-color-text-muted);
+  font-size: 8.5px;
+}
+
+/* ── Detached panel windows ────────────────────────────── */
+.app--detached {
+  border: 1px solid var(--ok-color-border-strong);
+  border-radius: var(--ok-radius-md);
+}
+
+.titlebar--detached {
+  gap: var(--ok-space-2);
+  padding-left: var(--ok-space-3);
+}
+
+.detached__icon {
+  flex-shrink: 0;
+  color: var(--ok-color-accent);
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--ok-color-accent) calc(60% * var(--ok-glow-intensity)), transparent));
+}
+
+.detached__title {
+  overflow: hidden;
+  font-family: var(--ok-font-display);
+  font-size: var(--ok-font-size-md);
+  font-weight: var(--ok-font-weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.detached__redock:hover {
+  color: var(--ok-color-accent);
+}
+
+.detached__main {
+  flex: 1;
+  min-height: 0;
+  padding: var(--ok-space-2);
+}
+
+.detached__panel {
+  height: 100%;
+  border: 1px solid var(--ok-color-border);
+  border-radius: var(--ok-radius-lg);
+  background: color-mix(in srgb, var(--ok-color-surface-strong) 80%, transparent);
+  backdrop-filter: blur(calc(var(--ok-blur) * 0.6));
+  -webkit-backdrop-filter: blur(calc(var(--ok-blur) * 0.6));
+  box-shadow: var(--ok-shadow-panel);
+}
+
+@media (max-width: 1100px) {
+  .lyt-switcher__name {
+    max-width: 96px;
+  }
+}
