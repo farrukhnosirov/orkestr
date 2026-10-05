@@ -11,7 +11,8 @@
     "history": "History",
     "branches": "Branches",
     "worktrees": "Worktrees",
-    "snapshots": "Snapshots"
+    "snapshots": "Snapshots",
+    "merge": "Merge Manager"
   },
   "panel": {
     "noProject": {

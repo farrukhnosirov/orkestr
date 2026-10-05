@@ -6,7 +6,7 @@ import "./git.css";
 
 import type { RepoStatus } from "@orkestr/protocol";
 import { Badge, Button, EmptyState, IconButton, Spinner, Tabs } from "@orkestr/ui";
-import { Camera, FolderGit2, GitBranch, GitCommitHorizontal, History, ListTree, RefreshCw, X } from "lucide-react";
+import { Camera, FolderGit2, GitBranch, GitCommitHorizontal, GitMerge, History, ListTree, RefreshCw, X } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 
 import { getClient } from "../../core/client";
@@ -17,6 +17,7 @@ import { BranchesTab } from "./BranchesTab";
 import { ChangesTab } from "./ChangesTab";
 import { Notice } from "./components";
 import { HistoryTab } from "./HistoryTab";
+import { MergeTab } from "./merge/MergeTab";
 import { statusSummary } from "./model";
 import { SnapshotsTab } from "./SnapshotsTab";
 import { type GitTab, errorMessage, useGitUi, useProjectRefresh } from "./state";
@@ -28,6 +29,7 @@ const TABS: { id: GitTab; icon: ReactNode }[] = [
   { id: "branches", icon: <GitBranch size={14} /> },
   { id: "worktrees", icon: <FolderGit2 size={14} /> },
   { id: "snapshots", icon: <Camera size={14} /> },
+  { id: "merge", icon: <GitMerge size={14} /> },
 ];
 
 export default function GitPanel({ projectId }: PanelProps) {
@@ -198,6 +200,7 @@ function GitWorkspace({ projectId, rootPath }: { projectId: string; rootPath: st
           />
         )}
         {tab === "snapshots" && <SnapshotsTab projectId={projectId} worktree={worktree} refresh={version} />}
+        {tab === "merge" && <MergeTab projectId={projectId} currentBranch={status.branch ?? null} />}
       </div>
     </div>
   );

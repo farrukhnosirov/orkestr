@@ -12,7 +12,7 @@ import { maybeClient } from "../../core/client";
 import { describeError } from "../../i18n/errors";
 import { useAppStore } from "../../store/app";
 
-export type GitTab = "changes" | "branches" | "worktrees" | "history" | "snapshots";
+export type GitTab = "changes" | "branches" | "worktrees" | "history" | "snapshots" | "merge";
 
 /** Requests coming from commands (palette/shortcuts) to the panel. */
 export type GitIntent = "commit" | "rollback" | null;

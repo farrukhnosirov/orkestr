@@ -11,7 +11,8 @@
     "history": "История",
     "branches": "Ветки",
     "worktrees": "Рабочие копии",
-    "snapshots": "Снимки"
+    "snapshots": "Снимки",
+    "merge": "Слияние"
   },
   "panel": {
     "noProject": {
