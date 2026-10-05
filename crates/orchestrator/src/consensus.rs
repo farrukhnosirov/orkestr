@@ -431,6 +431,8 @@ impl Inner {
 
     async fn record_decision(&self, run: &mut ConsensusRun) {
         let Some(d) = run.decision.clone() else { return };
+        // The Decision Log is user-facing data: write it in the UI language.
+        let ru = is_ru(&self.deps.config.ui_language.get());
         let alternatives: Vec<DecisionAlternative> = run
             .proposals
             .iter()
@@ -438,7 +440,12 @@ impl Inner {
             .map(|p| {
                 let mut summary = p.summary.clone();
                 if let Some(score) = p.score {
-                    summary.push_str(&format!("\n\nScore: {score:.1}/10 · confidence {:.0}%", p.confidence * 100.0));
+                    let pct = p.confidence * 100.0;
+                    summary.push_str(&if ru {
+                        format!("\n\nОценка: {score:.1}/10 · уверенность {pct:.0}%")
+                    } else {
+                        format!("\n\nScore: {score:.1}/10 · confidence {pct:.0}%")
+                    });
                 }
                 summary.push_str(&format!("\n\n{}", p.approach));
                 DecisionAlternative {
@@ -446,23 +453,35 @@ impl Inner {
                     summary: cap(&summary, 16_000),
                     proposed_by: Some(cap(&p.answered_by.as_ref().unwrap_or(&p.model).model, 400)),
                     rejected_reason: (d.chosen_index != Some(p.index)).then(|| {
-                        p.score_note.clone().unwrap_or_else(|| "not chosen by the synthesizer".to_owned())
+                        p.score_note.clone().unwrap_or_else(|| {
+                            if ru { "синтезатор выбрал другой вариант" } else { "not chosen by the synthesizer" }.to_owned()
+                        })
                     }),
                 }
             })
             .collect();
         let n = alternatives.len();
-        let mut context = format!("Consensus of {n} models on: {}", run.question);
+        let mut context = if ru {
+            format!("Консенсус моделей ({n}) по вопросу: {}", run.question)
+        } else {
+            format!("Consensus of {n} models on: {}", run.question)
+        };
         if !run.context.trim().is_empty() {
             context.push_str(&format!("\n\n{}", cap(&run.context, 16_000)));
         }
+        let agreement = d.agreement * 100.0;
+        let reasoning = if ru {
+            format!("{}\n\nСогласие участников: {agreement:.0}%", d.reasoning_summary)
+        } else {
+            format!("{}\n\nAgreement: {agreement:.0}%", d.reasoning_summary)
+        };
         let params = CreateDecisionParams {
             project_id: run.project_id,
             title: cap(&d.title, 180),
             decision: d.decision.clone(),
             context: Some(context),
             alternatives: Some(alternatives),
-            reasoning_summary: Some(format!("{}\n\nAgreement: {:.0}%", d.reasoning_summary, d.agreement * 100.0)),
+            reasoning_summary: Some(reasoning),
             consequences: Some(d.consequences.clone()),
             status: Some(DecisionStatus::Accepted),
             task_ids: run.task_id.map(|t| vec![t]),
@@ -472,7 +491,7 @@ impl Inner {
         match self.deps.memory.create_decision(params).await {
             Ok(dec) => {
                 run.decision_id = Some(dec.id);
-                let text = if is_ru(&self.deps.config.ui_language.get()) {
+                let text = if ru {
                     format!("Решение консенсуса записано в журнал решений (№{}): {}", dec.number, dec.title)
                 } else {
                     format!("Consensus decision recorded in the Decision Log (#{}): {}", dec.number, dec.title)
