@@ -76,6 +76,8 @@ pub struct Services {
     /// `system` (then the UI reports the resolved language with each Manager
     /// request).
     pub ui_language: orkestr_agent_runtime::UiLanguage,
+    /// Architecture Map: scans, snapshots, diffs (§21, Phase 2).
+    pub architecture: orkestr_insight::ArchitectureService,
     /// Persistent event seq reservation.
     pub seq_high_water: Arc<crate::housekeeping::SeqHighWater>,
 }

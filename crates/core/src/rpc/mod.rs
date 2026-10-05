@@ -6,6 +6,7 @@
 
 pub mod agents;
 pub mod approvals;
+pub mod architecture;
 pub mod audit;
 pub mod cost;
 pub mod emergency;
@@ -17,6 +18,7 @@ pub mod nodes;
 pub mod permissions;
 pub mod projects;
 pub mod providers;
+pub mod replay;
 pub mod secrets;
 pub mod settings;
 pub mod snapshots;
@@ -151,6 +153,8 @@ pub fn build_router() -> RpcRouter {
     router.register(settings::register).register(nodes::register);
     router.register(templates::register).register(agents::register);
     router.register(manager::register);
+    // architecture map + execution replay (Phase 2)
+    router.register(architecture::register).register(replay::register);
     router
 }
 

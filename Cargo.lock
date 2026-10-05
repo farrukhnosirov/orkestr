@@ -3000,6 +3000,7 @@ dependencies = [
  "orkestr-domain",
  "orkestr-events",
  "orkestr-files",
+ "orkestr-insight",
  "orkestr-memory",
  "orkestr-node",
  "orkestr-orchestrator",
