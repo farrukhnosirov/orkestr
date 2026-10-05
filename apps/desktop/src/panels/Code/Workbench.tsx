@@ -34,7 +34,7 @@ import { type EditorTab, useEditorStore } from "../../store/editor";
 import { type Doc, registryFor, SaveConflictError } from "./documents";
 import { CodeEditor, DiffEditor, type EditorCallbacks } from "./EditorHost";
 import { applyTokensTheme, getMonaco } from "./monaco";
-import { useAppStore } from "../../store/app";
+import { useThemeRevision } from "../../features/theme/useThemeRevision";
 
 const ENCODINGS: Record<string, string> = {
   utf8: "UTF-8",
@@ -71,7 +71,8 @@ export default function Workbench({ projectId }: { projectId: string }) {
   const tabs = useEditorStore((s) => s.tabs);
   const activePath = useEditorStore((s) => s.activePath);
   const diff = useEditorStore((s) => s.diff);
-  const themeId = useAppStore((s) => s.themeId);
+  // Re-derive from tokens on every theme apply (switches and live editor previews).
+  const themeId = useThemeRevision();
   const [, rerender] = useReducer((x: number) => x + 1, 0);
   const [cursor, setCursor] = useState<Cursor | null>(null);
   const [problems, setProblems] = useState({ errors: 0, warnings: 0 });

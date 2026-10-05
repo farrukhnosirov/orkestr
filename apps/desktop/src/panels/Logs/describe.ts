@@ -246,6 +246,18 @@ export function describeEvent(event: Event): string {
       const done = r.tasks.filter((x) => x.status === "Completed").length;
       return t("events:managerRun", { status: t(`logs:enums.runStatus.${r.status}`), done, total: r.tasks.length });
     }
+    // Theme engine (Phase 3) — texts live in the `theme` namespace.
+    case "UiConfigChanged": {
+      const p = event.payload;
+      if (p.config === null) return t("theme:events.deviceOverrideRemoved");
+      return p.deviceId === null
+        ? t("theme:events.configChanged", { name: p.config.theme.name })
+        : t("theme:events.deviceConfigChanged", { name: p.config.theme.name });
+    }
+    case "UiThemesChanged":
+      return event.payload.deleted
+        ? t("theme:events.themeDeleted", { id: event.payload.themeId })
+        : t("theme:events.themeSaved", { id: event.payload.themeId });
   }
 }
 

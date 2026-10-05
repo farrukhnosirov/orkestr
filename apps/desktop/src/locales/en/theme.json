@@ -1,0 +1,331 @@
+{
+  "section": "Appearance",
+  "loading": "Loading themes…",
+  "events": {
+    "configChanged": "Interface theme changed to {{name}}",
+    "deviceConfigChanged": "Theme of one device changed to {{name}}",
+    "deviceOverrideRemoved": "A device returned to the shared theme",
+    "themeSaved": "Theme {{id}} saved",
+    "themeDeleted": "Theme {{id}} deleted"
+  },
+  "unavailable": "Themes are unavailable",
+  "openEditor": "Open theme editor",
+  "commands": {
+    "group": "Appearance",
+    "openEditor": "Open Theme Editor",
+    "openAppearance": "Open Appearance Settings"
+  },
+  "gallery": {
+    "title": "Themes",
+    "select": "Use theme {{name}}",
+    "builtin": "Built-in",
+    "custom": "Custom",
+    "customize": "Customize",
+    "duplicate": "Duplicate",
+    "export": "Export to file",
+    "delete": "Delete",
+    "copyName": "{{name}} (copy)",
+    "duplicated": "Created “{{name}}”"
+  },
+  "delete": {
+    "title": "Delete theme",
+    "confirm": "Delete the theme “{{name}}”? Devices that use it switch to Nebula.",
+    "action": "Delete theme"
+  },
+  "import": {
+    "button": "Import theme…",
+    "opened": "Opened {{name}} in the editor. Save it to add it to your themes.",
+    "invalid": "This file is not a valid Orkestr theme: {{issues}}"
+  },
+  "device": {
+    "title": "This device",
+    "perDevice": "Separate theme on this device",
+    "perDeviceDesc": "Keep a theme for this computer only. Other devices keep the shared theme."
+  },
+  "effects": {
+    "title": "Effects and performance",
+    "performanceDesc": "Visual effects never take resources from agents: Performance and Battery modes freeze the background and turn off blur and glow.",
+    "now": "Right now",
+    "renderer": "Background:",
+    "animation": "Animation:",
+    "fps": "{{fps}} fps",
+    "static": "static",
+    "blur": "Blur:",
+    "motion": "Motion:"
+  },
+  "renderers": {
+    "css": "CSS gradient",
+    "canvas": "Canvas",
+    "webgl": "WebGL"
+  },
+  "motionLevels": {
+    "full": "full",
+    "reduced": "reduced",
+    "off": "off"
+  },
+  "units": {
+    "px": "{{value}} px",
+    "times": "{{value}}×"
+  },
+  "modes": {
+    "Dark": "Dark",
+    "Light": "Light"
+  },
+  "builtin": {
+    "nebula": "Deep-space glass with cyan and violet light. The Orkestr default.",
+    "midnight-pro": "Calm, neutral navy for long sessions. Restrained glow, crisp blue accent.",
+    "aurora": "Polar night with teal and violet aurora curtains drifting overhead.",
+    "carbon": "Graphite and amber. Dense, tight radii, minimal transparency.",
+    "solar-light": "Warm daylight paper with amber accents. Every text pair meets WCAG AA.",
+    "high-contrast": "Accessibility theme: pure black, solid surfaces, no blur or motion, AAA text contrast."
+  },
+  "contrast": {
+    "title": "Contrast check (WCAG)",
+    "allPass": "All pairs pass",
+    "failing_one": "{{count}} pair below the minimum",
+    "failing_other": "{{count}} pairs below the minimum",
+    "ratio": "{{ratio}}:1 (min. {{min}}:1)",
+    "pass": "Passes",
+    "warning": "Below the recommended minimum",
+    "blocking": "Below the required minimum",
+    "blockingHint": "Text or danger color is unreadable on the background. The theme cannot be applied or saved until this is fixed.",
+    "sample": "Aa",
+    "level": {
+      "pass": "AA",
+      "warn": "AA warnings",
+      "fail": "Unreadable"
+    },
+    "summary": {
+      "pass": "Current theme meets WCAG AA",
+      "warn": "Current theme has contrast warnings",
+      "fail": "Current theme fails contrast"
+    },
+    "rules": {
+      "text-bg": "Text on background",
+      "text-elevated": "Text on elevated surface",
+      "muted-bg": "Secondary text on background",
+      "accent-fg": "Text on accent buttons",
+      "accent-bg": "Accent on background",
+      "danger-bg": "Danger on background",
+      "success-bg": "Success on background",
+      "warning-bg": "Warning on background"
+    }
+  },
+  "picker": {
+    "plane": "Saturation and brightness",
+    "hue": "Hue",
+    "alpha": "Opacity",
+    "value": "Color value",
+    "useSwatch": "Use {{value}}",
+    "open": "Pick color: {{name}}"
+  },
+  "tabs": {
+    "colors": "Colors",
+    "typography": "Text",
+    "effects": "Effects",
+    "motion": "Motion",
+    "background": "Background",
+    "sounds": "Sounds",
+    "robot": "Robots",
+    "json": "JSON"
+  },
+  "editor": {
+    "title": "Theme editor",
+    "name": "Theme name",
+    "mode": "Base",
+    "sections": "Editor sections",
+    "livePreview": "Live preview",
+    "savesAsNew": "Saves as a new theme",
+    "savesInPlace": "Saves this theme",
+    "unsaved": "Unsaved",
+    "close": "Close the editor",
+    "reset": "Reset to the saved version",
+    "resetShort": "Reset",
+    "save": "Save",
+    "saveAsNew": "Save as new theme",
+    "saved": "Saved",
+    "issues_one": "{{count}} problem",
+    "issues_other": "{{count}} problems",
+    "previewKept": "The app keeps showing the last valid version until this is fixed.",
+    "discardTitle": "Discard changes",
+    "discardText": "Discard unsaved changes to this theme?",
+    "keepEditing": "Keep editing",
+    "discard": "Discard",
+    "overridden": "Changed in this theme",
+    "resetToken": "Reset {{name}}",
+    "deriveAccent": "Tint accent variants from this color",
+    "gradientFromAccents": "Build the accent gradient from the accent colors",
+    "invalidGradient": "Not a valid gradient",
+    "fontSample": "Orkestr runs 12 agents — 0O 1l {}",
+    "textSize": "Text size",
+    "radius": "Corner radius",
+    "spacing": "Spacing",
+    "blur": "Glass blur",
+    "panelOpacity": "Panel opacity",
+    "glow": "Glow",
+    "animations": "Animations",
+    "motionSpeed": "Animation speed",
+    "motionIntensity": "Decorative motion",
+    "motionHint": "Reduced motion in the operating system and the Performance and Battery modes always win over these settings.",
+    "backgroundKind": "Background type",
+    "backgroundColors": "Background colors",
+    "removeColor": "Remove {{value}}",
+    "addColor": "Add color",
+    "colorsFromAccents": "Uses the accent colors",
+    "intensity": "Intensity",
+    "speed": "Speed",
+    "density": "Density",
+    "webgl": "Allow WebGL",
+    "webglHint": "Used only in Ultra mode; otherwise a lighter canvas renders the background.",
+    "soundsEnabled": "Theme sounds",
+    "volume": "Volume",
+    "soundEvents": "Event sounds",
+    "soundsHint": "The sound engine plays these presets; Do Not Disturb mutes them.",
+    "robotSkin": "Robot look",
+    "robotScale": "Robot size",
+    "robotUseAccent": "Use the theme accent",
+    "robotHint": "Defaults for floating robots. Each robot can still be customized in the Robot Designer.",
+    "description": "Description",
+    "author": "Author",
+    "jsonTitle": "Theme JSON",
+    "applyJson": "Apply JSON",
+    "refreshJson": "Refresh from editor",
+    "copyJson": "Copy",
+    "copied": "Copied"
+  },
+  "groups": {
+    "backgrounds": "Background layers",
+    "surfaces": "Surfaces",
+    "borders": "Borders",
+    "text": "Text",
+    "accents": "Accents",
+    "statuses": "Statuses",
+    "gradients": "Gradients",
+    "families": "Fonts",
+    "scale": "Size and weight",
+    "shape": "Shape and spacing",
+    "glass": "Glass and glow",
+    "shadows": "Shadows"
+  },
+  "tokens": {
+    "color-bg": "Background",
+    "color-bg-elevated": "Elevated background",
+    "color-overlay": "Overlay",
+    "color-surface": "Surface",
+    "color-surface-strong": "Strong surface",
+    "color-surface-sunken": "Sunken surface",
+    "color-surface-hover": "Hover",
+    "color-surface-active": "Pressed / selected",
+    "color-border": "Border",
+    "color-border-strong": "Strong border",
+    "color-border-accent": "Accent border",
+    "color-text": "Text",
+    "color-text-muted": "Secondary text",
+    "color-text-subtle": "Subtle text",
+    "color-text-inverse": "Text on accent",
+    "color-accent": "Accent",
+    "color-accent-strong": "Strong accent",
+    "color-accent-soft": "Soft accent",
+    "color-violet": "Violet",
+    "color-violet-strong": "Strong violet",
+    "color-magenta": "Magenta",
+    "color-success": "Success",
+    "color-success-soft": "Soft success",
+    "color-warning": "Warning",
+    "color-warning-soft": "Soft warning",
+    "color-danger": "Danger",
+    "color-danger-soft": "Soft danger",
+    "color-info": "Info",
+    "color-info-soft": "Soft info",
+    "gradient-accent": "Accent gradient",
+    "gradient-accent-soft": "Soft accent gradient",
+    "gradient-space": "App background gradient",
+    "font-sans": "Interface font",
+    "font-display": "Heading font",
+    "font-mono": "Code font",
+    "line-height": "Line height",
+    "font-weight-regular": "Regular weight",
+    "font-weight-medium": "Medium weight",
+    "font-weight-semibold": "Semibold weight",
+    "ease": "Easing"
+  },
+  "fonts": {
+    "inter": "Inter",
+    "system": "System",
+    "humanist": "Humanist",
+    "geometric": "Geometric",
+    "rounded": "Rounded",
+    "serif": "Serif",
+    "jetbrains": "JetBrains Mono",
+    "cascadia": "Cascadia Code",
+    "consolas": "Consolas",
+    "sfmono": "SF Mono",
+    "fira": "Fira Code",
+    "current": "Custom"
+  },
+  "shadows": {
+    "none": "None",
+    "soft": "Soft",
+    "medium": "Medium",
+    "deep": "Deep",
+    "custom": "Custom"
+  },
+  "easings": {
+    "smooth": "Smooth",
+    "snappy": "Snappy",
+    "gentle": "Gentle",
+    "linear": "Linear",
+    "custom": "Custom"
+  },
+  "backgrounds": {
+    "Solid": "Solid",
+    "Gradient": "Gradient",
+    "Nebula": "Nebula",
+    "Grid": "Grid",
+    "Particles": "Particles"
+  },
+  "backgroundHints": {
+    "Solid": "A flat background color. The lightest option.",
+    "Gradient": "A static layered gradient from the theme's background gradient.",
+    "Nebula": "Slowly drifting clouds of light. WebGL in Ultra mode, canvas otherwise.",
+    "Grid": "A perspective grid gliding toward the horizon.",
+    "Particles": "Softly twinkling particles drifting upward."
+  },
+  "soundEvents": {
+    "wake": "Wake word heard",
+    "task": {
+      "started": "Task started",
+      "completed": "Task completed"
+    },
+    "agent": {
+      "error": "Agent error"
+    },
+    "approval": {
+      "requested": "Approval requested"
+    },
+    "build": {
+      "failed": "Build failed"
+    },
+    "deploy": {
+      "finished": "Deployment finished"
+    },
+    "alert": "Alert"
+  },
+  "soundPresets": {
+    "none": "No sound",
+    "chime-soft": "Soft chime",
+    "chime-bright": "Bright chime",
+    "ping": "Ping",
+    "pulse": "Pulse",
+    "thud": "Low thud",
+    "alert-soft": "Soft alert",
+    "alert-strong": "Strong alert",
+    "whoosh": "Whoosh"
+  },
+  "robotSkins": {
+    "orbit": "Orbit",
+    "pixel": "Pixel",
+    "nova": "Nova",
+    "drone": "Drone"
+  }
+}

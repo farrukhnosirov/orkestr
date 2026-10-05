@@ -1,4 +1,5 @@
-import { BUILTIN_THEMES, Kbd, Spinner } from "@orkestr/ui";
+import type { ThemeConfig } from "@orkestr/protocol";
+import { BUILTIN_THEME_ORDER, BUILTIN_THEMES, Kbd, Spinner } from "@orkestr/ui";
 import { clsx } from "clsx";
 import {
   Clock,
@@ -20,6 +21,7 @@ import { SEARCH_PREFIX, usePaletteStore } from "../features/search/paletteStore"
 import "../features/search/palette.css";
 import { projectsProvider, searchAll, type SearchGroup, type SearchResult } from "../features/search/providers";
 import { PANELS } from "../panels/registry";
+import { useThemeStore } from "../features/theme/themeStore";
 import { useAppStore } from "../store/app";
 import { workspaceActions } from "./workspaceActions";
 
@@ -41,7 +43,7 @@ export interface PaletteItem {
 }
 
 /** Dynamic entries derived from registries (panels, layout, themes). */
-function builtinItems(setThemeId: (id: string) => void): PaletteItem[] {
+function builtinItems(themes: readonly ThemeConfig[], selectTheme: (id: string) => void): PaletteItem[] {
   const list: PaletteItem[] = [];
   for (const panel of PANELS) {
     list.push({
@@ -65,7 +67,7 @@ function builtinItems(setThemeId: (id: string) => void): PaletteItem[] {
     indices: [],
     run: () => workspaceActions.resetLayout(),
   });
-  for (const theme of Object.values(BUILTIN_THEMES)) {
+  for (const theme of themes) {
     list.push({
       id: `theme.${theme.id}`,
       title: t("shell:palette.theme", { name: theme.name }),
@@ -73,7 +75,7 @@ function builtinItems(setThemeId: (id: string) => void): PaletteItem[] {
       icon: Palette,
       keywords: `theme тема ${theme.mode} ${t(`shell:palette.themeModes.${theme.mode}`)}`,
       indices: [],
-      run: () => setThemeId(theme.id),
+      run: () => selectTheme(theme.id),
     });
   }
   return list;
@@ -154,7 +156,12 @@ function Shortcut({ keys }: { keys: string }) {
 export function CommandPalette() {
   const open = useAppStore((s) => s.paletteOpen);
   const setOpen = useAppStore((s) => s.setPaletteOpen);
-  const setThemeId = useAppStore((s) => s.setThemeId);
+  const libraryThemes = useThemeStore((s) => s.themes);
+  // Built-ins are listed even before the library loads (offline / not connected yet).
+  const themes = useMemo(
+    () => (libraryThemes.length > 0 ? libraryThemes.map((e) => e.theme) : BUILTIN_THEME_ORDER.flatMap((id) => BUILTIN_THEMES[id] ?? [])),
+    [libraryThemes],
+  );
   const projectId = useAppStore((s) => s.activeProjectId);
   const projectsVersion = useAppStore((s) => s.projects);
   const initialQuery = usePaletteStore((s) => s.initialQuery);
@@ -209,10 +216,10 @@ export function CommandPalette() {
   }, [open, searchMode, searchQuery, projectsVersion]);
 
   const allItems = useMemo<PaletteItem[]>(
-    () => [...registryCommands.map((c) => fromCommand(c, projectId)), ...builtinItems(setThemeId)],
+    () => [...registryCommands.map((c) => fromCommand(c, projectId)), ...builtinItems(themes, (id) => void useThemeStore.getState().selectTheme(id))],
     // `language`: titles and groups are re-read when the UI language changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [projectId, setThemeId, language],
+    [projectId, themes, language],
   );
 
   const results = useMemo<PaletteItem[]>(() => {

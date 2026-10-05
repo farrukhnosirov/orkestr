@@ -13,6 +13,7 @@ import CssWorker from "monaco-editor/language/css/css.worker?worker";
 import HtmlWorker from "monaco-editor/language/html/html.worker?worker";
 import JsonWorker from "monaco-editor/language/json/json.worker?worker";
 import TsWorker from "monaco-editor/language/typescript/ts.worker?worker";
+import { onThemeApplied } from "@orkestr/ui";
 
 import { cssColorToHex } from "./model";
 
@@ -76,5 +77,11 @@ export function applyTheme(): void {
 }
 
 applyTheme();
+
+// Follow theme switches and live editor previews (theme engine, features/theme).
+onThemeApplied(() => {
+  applyTheme();
+  monaco.editor.setTheme(THEME);
+});
 
 export { monaco };
