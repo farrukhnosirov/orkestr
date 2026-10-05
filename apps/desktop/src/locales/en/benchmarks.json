@@ -1,0 +1,71 @@
+{
+  "tabs": {
+    "label": "Costs view",
+    "overview": "Overview",
+    "models": "Model Benchmarks",
+    "agents": "Agent Performance"
+  },
+  "window": {
+    "label": "Window",
+    "days_one": "{{count}} day",
+    "days_other": "{{count}} days"
+  },
+  "role": {
+    "label": "Role",
+    "all": "All roles"
+  },
+  "groupBy": {
+    "label": "Group by",
+    "Template": "Template",
+    "Instance": "Instance"
+  },
+  "models": {
+    "title": "Model benchmarks",
+    "hint": "Collected from every agent run: first-pass success, builds, defects, retries, latency, tokens and cost. Rates stay empty until there is data behind them.",
+    "empty": "No model has been used in this window yet.",
+    "chartsLabel": "Model comparison charts",
+    "chartFirstPass": "First-pass success",
+    "chartCost": "Average cost per run",
+    "chartLatency": "Average latency",
+    "col": {
+      "model": "Model",
+      "executions": "Runs",
+      "firstPass": "First pass",
+      "build": "Build success",
+      "defects": "Defects / run",
+      "retries": "Retries / run",
+      "latency": "Latency (avg / p95)",
+      "tokens": "Tokens / run",
+      "cost": "Cost / run",
+      "total": "Total cost",
+      "score": "Routing score"
+    },
+    "calls_one": "{{count, number}} call",
+    "calls_other": "{{count, number}} calls",
+    "callSuccess": "call success {{pct}}",
+    "scoreHint": "Historical score the automatic router blends into model selection (needs at least 3 samples).",
+    "sortBy": "Sort by {{column}}"
+  },
+  "agents": {
+    "title": "Agent performance",
+    "hint": "Outcomes of agent runs per template or instance. Post-merge bugs are bug tasks tagged bug:<task id> (or children tagged bug) of a completed task.",
+    "empty": "No agent has run in this window yet.",
+    "col": {
+      "agent": "Agent",
+      "executions": "Runs",
+      "outcome": "Completed / failed",
+      "firstPass": "First pass",
+      "rejection": "Review rejection",
+      "bugs": "Post-merge bugs",
+      "retries": "Retries",
+      "duration": "Avg duration",
+      "cost": "Cost",
+      "models": "Models"
+    },
+    "running_one": "{{count}} running",
+    "running_other": "{{count}} running",
+    "cancelled_one": "{{count}} cancelled",
+    "cancelled_other": "{{count}} cancelled"
+  },
+  "na": "—"
+}

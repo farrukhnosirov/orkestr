@@ -5,6 +5,7 @@ import { Check, Coins, FileCode2, GitFork, History, Plus, RotateCcw, Trash2, X }
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 
 import { t as translate, useFormat, useT } from "../../i18n";
+import { ContextPreview } from "./ContextPreview";
 import { errorMessage, taskActions } from "./data";
 import { PRIORITIES, TRANSITIONS, shortId, statusColor } from "./model";
 import { PriorityChip, StatusBadge } from "./parts";
@@ -402,6 +403,8 @@ export function TaskDrawer({ task, tasks }: { task: Task; tasks: Task[] }) {
             </ul>
           )}
         </section>
+
+        <ContextPreview taskId={task.id} version={task.version} />
 
         <section className="tasks-section">
           <h4 className="tasks-section__title">

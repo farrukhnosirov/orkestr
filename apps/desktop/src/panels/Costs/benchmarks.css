@@ -1,0 +1,114 @@
+/* Model benchmarks / agent performance — tokens only (contract §8). */
+.bench-hint {
+  margin: 0 0 var(--ok-space-2);
+  color: var(--ok-color-text-muted);
+  font-size: var(--ok-font-size-xs);
+}
+
+.bench-select {
+  background: var(--ok-color-surface);
+  color: var(--ok-color-text);
+  border: 1px solid var(--ok-color-border);
+  border-radius: var(--ok-radius-md);
+  padding: 2px var(--ok-space-2);
+  font-size: var(--ok-font-size-sm);
+}
+
+.bench-charts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--ok-space-3);
+  margin-bottom: var(--ok-space-3);
+}
+
+.bench-chart {
+  margin: 0;
+  padding: var(--ok-space-2);
+  border: 1px solid var(--ok-color-border);
+  border-radius: var(--ok-radius-md);
+  background: var(--ok-color-surface-sunken);
+}
+
+.bench-chart figcaption {
+  font-size: var(--ok-font-size-xs);
+  font-weight: var(--ok-font-weight-semibold);
+  color: var(--ok-color-text-muted);
+  margin-bottom: var(--ok-space-2);
+}
+
+.bench-chart ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-1);
+}
+
+.bench-chart li {
+  display: grid;
+  grid-template-columns: minmax(60px, 34%) 1fr auto;
+  align-items: center;
+  gap: var(--ok-space-2);
+  font-size: var(--ok-font-size-xs);
+}
+
+.bench-chart__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ok-color-text-subtle);
+}
+
+.bench-chart__track {
+  height: 8px;
+  border-radius: var(--ok-radius-pill);
+  background: var(--ok-color-surface-hover);
+  overflow: hidden;
+}
+
+.bench-chart__bar {
+  display: block;
+  height: 100%;
+  border-radius: var(--ok-radius-pill);
+  background: var(--ok-color-accent);
+}
+
+.bench-chart__value {
+  font-variant-numeric: tabular-nums;
+  color: var(--ok-color-text);
+}
+
+.bench-sort {
+  all: unset;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.bench-sort:focus-visible {
+  outline: 2px solid var(--ok-color-accent);
+  outline-offset: 2px;
+}
+
+.bench-model {
+  display: block;
+  font-weight: var(--ok-font-weight-medium);
+}
+
+.bench-sub {
+  display: block;
+  color: var(--ok-color-text-muted);
+  font-size: var(--ok-font-size-xs);
+  font-weight: normal;
+}
+
+.bench-ok {
+  color: var(--ok-color-success, var(--ok-color-text));
+}
+
+.bench-models {
+  color: var(--ok-color-text-subtle);
+  font-size: var(--ok-font-size-xs);
+}

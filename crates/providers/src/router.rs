@@ -385,7 +385,7 @@ mod tests {
         let (a, b) = (ProviderId::new(), ProviderId::new());
         let mut x = cand(a, "gpt-4o", ProviderKind::OpenAi, false);
         let mut y = cand(b, "claude-sonnet-4-5", ProviderKind::Anthropic, false);
-        x.pricing = y.pricing.clone();
+        x.pricing = y.pricing;
         let cfg = RoutingConfig { mode: RoutingMode::Auto, ..RoutingConfig::default() };
         // Same static profile → tie broken by provider id; history decides otherwise.
         let base = route(&RouteRequest::default(), &[x.clone(), y.clone()], &cfg);

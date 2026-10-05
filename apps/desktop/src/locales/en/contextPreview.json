@@ -1,0 +1,66 @@
+{
+  "title": "Context",
+  "show": "Preview context",
+  "hide": "Hide context",
+  "refresh": "Refresh context preview",
+  "loading": "Assembling context…",
+  "intro": "What an agent working on this task would receive, selected by the Context Optimizer.",
+  "summary": "{{used, number}} of {{budget, number}} tokens",
+  "window": "model window {{window, number}} · {{reserved, number}} reserved for output",
+  "noWindow": "model window unknown — the configured cap applies",
+  "files_one": "{{count, number}} indexed file",
+  "files_other": "{{count, number}} indexed files",
+  "edges_one": "{{count, number}} import link",
+  "edges_other": "{{count, number}} import links",
+  "commits_one": "{{count, number}} recent commit",
+  "commits_other": "{{count, number}} recent commits",
+  "noRoot": "The project has no folder — files are not part of the context.",
+  "omitted_one": "{{count, number}} more candidate left out",
+  "omitted_other": "{{count, number}} more candidates left out",
+  "handoff": {
+    "None": "handoff kept in full",
+    "Deterministic": "handoff shortened",
+    "Model": "handoff summarized by a model"
+  },
+  "tokens": "{{count, number}} tok",
+  "lines": "lines {{start}}–{{end}}",
+  "kind": {
+    "Task": "Task",
+    "Handoff": "Handoff",
+    "Rule": "Rule",
+    "Memory": "Memory",
+    "File": "File"
+  },
+  "decision": {
+    "Whole": "whole file",
+    "Excerpt": "excerpts",
+    "Included": "included",
+    "OmittedBudget": "over budget",
+    "OmittedUnreadable": "unreadable",
+    "BelowCutoff": "below cutoff",
+    "Duplicate": "duplicate"
+  },
+  "reason": {
+    "mentioned": "mentioned in the task",
+    "focus": "already touched by this task",
+    "termMatch": "matches: {{terms}}",
+    "defines": "defines {{symbol}}",
+    "importedBy": "imported by {{file}}",
+    "imports": "imports {{file}}",
+    "references": "uses {{symbol}} from {{file}}",
+    "recentChange_one": "changed recently ({{count}} commit)",
+    "recentChange_other": "changed recently ({{count}} commits)",
+    "rule": {
+      "project": "project rule",
+      "global": "global rule",
+      "overrides": "project rule, overrides a global one"
+    },
+    "pinned": "pinned",
+    "memory": "relevance {{pct}}",
+    "memoryTags": "relevance {{pct}} · tags {{tags}}",
+    "mistake": "mistake to avoid",
+    "knownIssue": "known issue"
+  },
+  "showRendered": "Show prompt text",
+  "hideRendered": "Hide prompt text"
+}
