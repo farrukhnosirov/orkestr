@@ -224,7 +224,11 @@ async fn harness(gates: Arc<dyn MergeGateSource>, quality_passes: Option<bool>) 
         cost: Some(orkestr_cost::CostEngine::new(db.clone())),
         gates,
         quality: None,
-        config: MergeConfig { approval_timeout: Duration::from_secs(60), abort_wait: Duration::from_secs(20), ..MergeConfig::default() },
+        config: MergeConfig {
+            approval_timeout: Duration::from_secs(60),
+            abort_wait: Duration::from_secs(20),
+            ..MergeConfig::default()
+        },
     };
     if quality_passes.is_some() {
         deps = deps.with_quality(Arc::clone(&quality) as Arc<dyn MergeQualityRunner>);
@@ -295,7 +299,11 @@ impl H {
         self.sec.approvals.resolve(aid, ApprovalDecision::Approve, None, self.sec.user()).await.unwrap();
     }
 
-    async fn wait_status(&self, id: orkestr_domain::MergeProposalId, want: &[MergeProposalStatus]) -> MergeManagerProposal {
+    async fn wait_status(
+        &self,
+        id: orkestr_domain::MergeProposalId,
+        want: &[MergeProposalStatus],
+    ) -> MergeManagerProposal {
         let deadline = tokio::time::Instant::now() + Duration::from_secs(60);
         loop {
             let p = self.mm.get(id).await.unwrap();
@@ -358,17 +366,15 @@ async fn non_conflicting_branches_merge_in_dependency_order_after_approval() {
     assert_eq!(be.commits_ahead, 1);
 
     // Reordering against the DAG is refused; a valid reorder is accepted.
-    let bad = h
-        .mm
-        .reorder(p.id, vec!["agent/frontend-1".into(), "agent/backend-1".into(), "agent/docs-1".into()])
-        .await
-        .unwrap_err();
+    let bad =
+        h.mm.reorder(p.id, vec!["agent/frontend-1".into(), "agent/backend-1".into(), "agent/docs-1".into()])
+            .await
+            .unwrap_err();
     assert!(bad.to_string().contains("must merge first"), "{bad}");
-    let p = h
-        .mm
-        .reorder(p.id, vec!["agent/docs-1".into(), "agent/backend-1".into(), "agent/frontend-1".into()])
-        .await
-        .unwrap();
+    let p =
+        h.mm.reorder(p.id, vec!["agent/docs-1".into(), "agent/backend-1".into(), "agent/frontend-1".into()])
+            .await
+            .unwrap();
     assert_eq!(p.order[0], "agent/docs-1");
 
     let main_before = h.rev("main");
@@ -391,7 +397,11 @@ async fn non_conflicting_branches_merge_in_dependency_order_after_approval() {
     let log = git(&["log", "--merges", "--format=%s", "main"], &h.root);
     let subjects: Vec<&str> = log.lines().rev().collect();
     assert_eq!(subjects.len(), 3, "{log}");
-    assert!(subjects[0].contains("agent/docs-1") && subjects[1].contains("agent/backend-1") && subjects[2].contains("agent/frontend-1"));
+    assert!(
+        subjects[0].contains("agent/docs-1")
+            && subjects[1].contains("agent/backend-1")
+            && subjects[2].contains("agent/frontend-1")
+    );
     // The integration branch is gone.
     assert!(!h.branches().contains("orkestr/integration-"), "{}", h.branches());
     // Listed.
@@ -411,7 +421,10 @@ async fn conflicts_are_detected_resolved_with_an_ai_suggestion_and_merged() {
     h.branch("agent/b-1", "main", &[("shared.txt", "line 1\nline 2 from B\nline 3\n"), ("b.txt", "b\n")]);
     let p = h.propose(&[("agent/a-1", None), ("agent/b-1", None)]).await;
     assert_eq!(p.recommendation, MergeRecommendation::ResolveConflicts);
-    assert!(p.conflicts.iter().any(|c| c.scope == MergeConflictScope::Pair && c.paths == vec!["shared.txt".to_owned()]));
+    assert!(p
+        .conflicts
+        .iter()
+        .any(|c| c.scope == MergeConflictScope::Pair && c.paths == vec!["shared.txt".to_owned()]));
     let ordered = p.conflicts.iter().find(|c| c.scope == MergeConflictScope::Order).unwrap();
     assert_eq!(ordered.branch, "agent/b-1");
     assert_eq!(p.branches[1].predicted_conflicts, vec!["shared.txt".to_owned()]);
@@ -436,9 +449,8 @@ async fn conflicts_are_detected_resolved_with_an_ai_suggestion_and_merged() {
     // Continuing with an open conflict is refused.
     assert!(h.mm.execute(exec(p.id)).await.unwrap_err().to_string().contains("unresolved"));
     // Content with markers is refused.
-    let err = h
-        .mm
-        .resolve_conflict(MergeResolveConflictParams {
+    let err =
+        h.mm.resolve_conflict(MergeResolveConflictParams {
             proposal_id: p.id,
             path: "shared.txt".into(),
             resolution: MergeResolution::Content { content: f.result.clone().unwrap() },
@@ -448,9 +460,12 @@ async fn conflicts_are_detected_resolved_with_an_ai_suggestion_and_merged() {
     assert!(err.to_string().contains("conflict markers"));
 
     // AI suggestion (Mock: union of both sides), stored but not applied.
-    let s = h
-        .mm
-        .resolve_conflict(MergeResolveConflictParams { proposal_id: p.id, path: "shared.txt".into(), resolution: MergeResolution::Ai })
+    let s =
+        h.mm.resolve_conflict(MergeResolveConflictParams {
+            proposal_id: p.id,
+            path: "shared.txt".into(),
+            resolution: MergeResolution::Ai,
+        })
         .await
         .unwrap();
     let sf = &s.execution.as_ref().unwrap().conflicts[0];
@@ -460,9 +475,8 @@ async fn conflicts_are_detected_resolved_with_an_ai_suggestion_and_merged() {
     assert!(sf.suggestion_note.as_deref().unwrap().contains("Mock"));
 
     // The user accepts it.
-    let r = h
-        .mm
-        .resolve_conflict(MergeResolveConflictParams {
+    let r =
+        h.mm.resolve_conflict(MergeResolveConflictParams {
             proposal_id: p.id,
             path: "shared.txt".into(),
             resolution: MergeResolution::Content { content: suggestion.clone() },
@@ -481,7 +495,8 @@ async fn conflicts_are_detected_resolved_with_an_ai_suggestion_and_merged() {
 #[tokio::test]
 async fn auto_policy_merges_only_when_every_gate_is_green() {
     // Tests gate passed, review gate unknown.
-    let Some(h) = harness(Arc::new(FixedGates { review: MergeGateStatus::Unknown, tests: MergeGateStatus::Passed }), None).await
+    let Some(h) =
+        harness(Arc::new(FixedGates { review: MergeGateStatus::Unknown, tests: MergeGateStatus::Passed }), None).await
     else {
         return;
     };
@@ -639,9 +654,8 @@ async fn blockers_dirty_worktrees_unfinished_tasks_and_run_collection() {
         report: None,
     };
     crate::store::ManagerStore::new(h.db.clone()).save_run(&run).await.unwrap();
-    let p = h
-        .mm
-        .propose(MergeProposeParams {
+    let p =
+        h.mm.propose(MergeProposeParams {
             project_id: h.project,
             run_id: Some(run.id),
             branches: Some(vec![MergeBranchInput { branch: "agent/ghost".into(), task_id: None }]),
@@ -651,7 +665,8 @@ async fn blockers_dirty_worktrees_unfinished_tasks_and_run_collection() {
         .unwrap();
     assert_eq!(p.run_id, Some(run.id));
     assert_eq!(p.branches.len(), 2);
-    let kinds: Vec<(MergeBlockerKind, Option<String>)> = p.blockers.iter().map(|b| (b.kind, b.branch.clone())).collect();
+    let kinds: Vec<(MergeBlockerKind, Option<String>)> =
+        p.blockers.iter().map(|b| (b.kind, b.branch.clone())).collect();
     assert!(kinds.contains(&(MergeBlockerKind::UncommittedChanges, Some("agent/done-1".into()))), "{kinds:?}");
     assert!(kinds.contains(&(MergeBlockerKind::TaskNotCompleted, Some("agent/open-1".into()))), "{kinds:?}");
     assert!(kinds.contains(&(MergeBlockerKind::BranchMissing, Some("agent/ghost".into()))), "{kinds:?}");

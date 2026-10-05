@@ -54,7 +54,8 @@ const CONFIG_FILES: &[&str] = &[
     ".npmrc",
 ];
 
-const SECURITY_WORDS: &[&str] = &["auth", "security", "secret", "crypto", "permission", "credential", "password", "token"];
+const SECURITY_WORDS: &[&str] =
+    &["auth", "security", "secret", "crypto", "permission", "credential", "password", "token"];
 
 fn file_name(path: &str) -> &str {
     path.rsplit('/').next().unwrap_or(path)
@@ -140,7 +141,8 @@ fn decls(language: Language, text: &str) -> Vec<Decl> {
     let mut out = Vec::with_capacity(syms.len());
     for (i, s) in syms.iter().enumerate() {
         let start = (s.line as usize).saturating_sub(1).min(lines.len());
-        let end = syms.get(i + 1).map_or(lines.len(), |n| (n.line as usize).saturating_sub(1)).clamp(start, lines.len());
+        let end =
+            syms.get(i + 1).map_or(lines.len(), |n| (n.line as usize).saturating_sub(1)).clamp(start, lines.len());
         let body = lines[start..end].iter().map(|l| l.trim_end()).collect::<Vec<_>>().join("\n");
         out.push(Decl {
             kind: format!("{:?}", s.kind),
@@ -384,7 +386,8 @@ mod tests {
         assert!(path_flags(".github/workflows/ci.yml").contains(&MergeRiskFlag::Ci));
         assert!(path_flags("src/auth/login.rs").contains(&MergeRiskFlag::Security));
         assert!(path_flags("src/lib.rs").is_empty());
-        assert!(path_flags("src/authors.md").contains(&MergeRiskFlag::Security)); // conservative
+        assert!(path_flags("src/authors.md").contains(&MergeRiskFlag::Security));
+        // conservative
     }
 
     #[test]

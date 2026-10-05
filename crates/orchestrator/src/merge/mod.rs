@@ -197,7 +197,10 @@ impl MergeDeps {
             cost: Some(d.cost.clone()),
             gates: Arc::new(NoGateSource),
             quality: None,
-            config: MergeConfig { approval_timeout: d.config.approval_timeout.max(Duration::from_secs(3600)), ..MergeConfig::default() },
+            config: MergeConfig {
+                approval_timeout: d.config.approval_timeout.max(Duration::from_secs(3600)),
+                ..MergeConfig::default()
+            },
         }
     }
 
@@ -302,7 +305,11 @@ impl MergeManager {
         let stale = self
             .inner
             .store
-            .with_status(&[MergeProposalStatus::AwaitingApproval, MergeProposalStatus::Merging, MergeProposalStatus::Testing])
+            .with_status(&[
+                MergeProposalStatus::AwaitingApproval,
+                MergeProposalStatus::Merging,
+                MergeProposalStatus::Testing,
+            ])
             .await?;
         for p in stale {
             if self.inner.active.lock().contains_key(&p.id) {
@@ -393,7 +400,9 @@ impl MergeManager {
             None => match &policy.target_branch {
                 Some(t) => t.clone(),
                 None => self.git().current_branch(&root).await.map_err(vcs_err)?.ok_or_else(|| {
-                    OrchestratorError::Invalid("the project checkout is on a detached HEAD: choose a target branch".into())
+                    OrchestratorError::Invalid(
+                        "the project checkout is on a detached HEAD: choose a target branch".into(),
+                    )
                 })?,
             },
         };
@@ -465,7 +474,10 @@ impl MergeManager {
         let _d = self.inner.decide.lock().await;
         let mut p = self.inner.store.get(id).await?;
         if p.status != MergeProposalStatus::Proposed {
-            return Err(OrchestratorError::Conflict(format!("the proposal is {:?}; only a proposed merge can be reordered", p.status)));
+            return Err(OrchestratorError::Conflict(format!(
+                "the proposal is {:?}; only a proposed merge can be reordered",
+                p.status
+            )));
         }
         let project = self.project(p.project_id).await?;
         let root = root_of(&project)?;
@@ -497,8 +509,13 @@ impl MergeManager {
         let mut branches: Vec<MergeBranch> = Vec::new();
         let mut tasks: HashMap<String, Task> = HashMap::new();
         for input in inputs {
-            let Some(commit) = git.rev_parse(root, &format!("refs/heads/{}", input.branch)).await.map_err(vcs_err)? else {
-                blockers.push(MergeBlocker { kind: MergeBlockerKind::BranchMissing, branch: Some(input.branch.clone()), detail: None });
+            let Some(commit) = git.rev_parse(root, &format!("refs/heads/{}", input.branch)).await.map_err(vcs_err)?
+            else {
+                blockers.push(MergeBlocker {
+                    kind: MergeBlockerKind::BranchMissing,
+                    branch: Some(input.branch.clone()),
+                    detail: None,
+                });
                 continue;
             };
             let task = match input.task_id {
@@ -587,7 +604,10 @@ impl MergeManager {
                 o
             }
             None => analyze::order_branches(&names, &deps).map_err(|cycle| {
-                OrchestratorError::Invalid(format!("the branches depend on each other in a cycle: {}", cycle.join(", ")))
+                OrchestratorError::Invalid(format!(
+                    "the branches depend on each other in a cycle: {}",
+                    cycle.join(", ")
+                ))
             })?,
         };
         branches.sort_by_key(|b| order.iter().position(|o| o == &b.branch).unwrap_or(usize::MAX));
@@ -650,7 +670,9 @@ impl MergeManager {
                     detail: b.gates.task.detail.clone(),
                 });
             }
-            for (name, g) in [("review", &b.gates.review), ("tests", &b.gates.tests), ("acceptance", &b.gates.acceptance)] {
+            for (name, g) in
+                [("review", &b.gates.review), ("tests", &b.gates.tests), ("acceptance", &b.gates.acceptance)]
+            {
                 if g.status == MergeGateStatus::Failed {
                     blockers.push(MergeBlocker {
                         kind: MergeBlockerKind::GateFailed,
@@ -692,7 +714,9 @@ impl MergeManager {
             None => MergeGate::of(MergeGateStatus::NotRequired),
             Some(t) => match t.status {
                 TaskStatus::Completed => MergeGate::of(MergeGateStatus::Passed),
-                TaskStatus::Failed | TaskStatus::Cancelled => MergeGate::with(MergeGateStatus::Failed, format!("{:?}", t.status)),
+                TaskStatus::Failed | TaskStatus::Cancelled => {
+                    MergeGate::with(MergeGateStatus::Failed, format!("{:?}", t.status))
+                }
                 other => MergeGate::with(MergeGateStatus::Pending, format!("{other:?}")),
             },
         };
@@ -703,7 +727,9 @@ impl MergeManager {
             } else {
                 match task.map(|t| t.review_state) {
                     Some(ReviewState::Approved) => MergeGate::with(MergeGateStatus::Passed, "task review approved"),
-                    Some(ReviewState::ChangesRequested) => MergeGate::with(MergeGateStatus::Failed, "changes requested"),
+                    Some(ReviewState::ChangesRequested) => {
+                        MergeGate::with(MergeGateStatus::Failed, "changes requested")
+                    }
                     Some(ReviewState::Rejected) => MergeGate::with(MergeGateStatus::Failed, "review rejected"),
                     Some(ReviewState::Pending) => MergeGate::of(MergeGateStatus::Pending),
                     _ => MergeGate::default(),
@@ -822,7 +848,9 @@ impl MergeManager {
             return Ok(p);
         }
         let risky = p.branches.iter().any(|b| {
-            b.diff.risks.iter().any(|r| matches!(r.flag, MergeRiskFlag::Migration | MergeRiskFlag::PublicApi | MergeRiskFlag::Security))
+            b.diff.risks.iter().any(|r| {
+                matches!(r.flag, MergeRiskFlag::Migration | MergeRiskFlag::PublicApi | MergeRiskFlag::Security)
+            })
         });
         let risk = if risky || !p.conflicts.is_empty() { RiskLevel::High } else { RiskLevel::Medium };
         let mut req = ApprovalRequest::new(
@@ -837,7 +865,9 @@ impl MergeManager {
             p.branches
                 .iter()
                 .enumerate()
-                .map(|(i, b)| format!("{}. {} (+{} −{}) — {}", i + 1, b.branch, b.diff.additions, b.diff.deletions, b.title))
+                .map(|(i, b)| {
+                    format!("{}. {} (+{} −{}) — {}", i + 1, b.branch, b.diff.additions, b.diff.deletions, b.title)
+                })
                 .chain(std::iter::once(format!("→ {} (via orkestr/integration-{})", p.target, short(&p.id))))
                 .collect::<Vec<_>>()
                 .join("\n"),
@@ -888,7 +918,11 @@ impl MergeManager {
                         .flatten()
                         .and_then(|a| a.resolution_note);
                     this.inner.active.lock().remove(&id);
-                    p.status = if s == ApprovalStatus::Cancelled { MergeProposalStatus::Aborted } else { MergeProposalStatus::Rejected };
+                    p.status = if s == ApprovalStatus::Cancelled {
+                        MergeProposalStatus::Aborted
+                    } else {
+                        MergeProposalStatus::Rejected
+                    };
                     p.status_detail = Some(match note {
                         Some(n) => format!("{s:?}: {n}"),
                         None => format!("{s:?}"),
@@ -1017,7 +1051,10 @@ impl MergeManager {
 
         // 2. Continue after resolved conflicts.
         if let Some(cb) = exec.conflict_branch.clone() {
-            let commit = git.conclude_merge(&wt).await.map_err(|e| fail(format!("could not conclude the merge of {cb}: {e}")))?;
+            let commit = git
+                .conclude_merge(&wt)
+                .await
+                .map_err(|e| fail(format!("could not conclude the merge of {cb}: {e}")))?;
             if let Some(b) = p.branches.iter_mut().find(|b| b.branch == cb) {
                 b.state = MergeBranchState::Merged;
                 b.merge_commit = Some(commit);
@@ -1050,7 +1087,11 @@ impl MergeManager {
             match res.status {
                 MergeStatus::Merged | MergeStatus::UpToDate => {
                     if let Some(b) = p.branches.iter_mut().find(|b| b.branch == name) {
-                        b.state = if res.status == MergeStatus::Merged { MergeBranchState::Merged } else { MergeBranchState::UpToDate };
+                        b.state = if res.status == MergeStatus::Merged {
+                            MergeBranchState::Merged
+                        } else {
+                            MergeBranchState::UpToDate
+                        };
                         b.merge_commit = res.commit.clone();
                     }
                 }
@@ -1158,7 +1199,13 @@ impl MergeManager {
         }
     }
 
-    async fn cleanup_branches(&self, project: &Project, root: &Path, p: &MergeManagerProposal, head: &str) -> Vec<String> {
+    async fn cleanup_branches(
+        &self,
+        project: &Project,
+        root: &Path,
+        p: &MergeManagerProposal,
+        head: &str,
+    ) -> Vec<String> {
         let mut cleaned = Vec::new();
         if p.policy.cleanup == orkestr_protocol::methods::merge::MergeCleanup::Keep {
             return cleaned;
@@ -1166,11 +1213,14 @@ impl MergeManager {
         let git = self.git();
         let managed: Vec<orkestr_protocol::methods::vcs::WorktreeInfo> =
             self.inner.deps.vcs.worktrees(project.id, root).await.unwrap_or_default();
-        for b in p.branches.iter().filter(|b| matches!(b.state, MergeBranchState::Merged | MergeBranchState::UpToDate)) {
+        for b in p.branches.iter().filter(|b| matches!(b.state, MergeBranchState::Merged | MergeBranchState::UpToDate))
+        {
             if !git.is_ancestor(root, &b.commit, head).await.unwrap_or(false) {
                 continue;
             }
-            if let Some(w) = managed.iter().find(|w| w.branch.as_deref() == Some(b.branch.as_str()) && w.managed && !w.is_main) {
+            if let Some(w) =
+                managed.iter().find(|w| w.branch.as_deref() == Some(b.branch.as_str()) && w.managed && !w.is_main)
+            {
                 match self.inner.deps.vcs.remove_worktree(project.id, root, &w.path, false).await {
                     Ok(path) => cleaned.push(path),
                     Err(e) => {
@@ -1291,7 +1341,10 @@ impl MergeManager {
     pub async fn resolve_conflict(&self, params: MergeResolveConflictParams) -> OrchResult<MergeManagerProposal> {
         let mut p = self.inner.store.get(params.proposal_id).await?;
         if p.status != MergeProposalStatus::Conflicted {
-            return Err(OrchestratorError::Conflict(format!("the proposal is {:?}, not stopped on conflicts", p.status)));
+            return Err(OrchestratorError::Conflict(format!(
+                "the proposal is {:?}, not stopped on conflicts",
+                p.status
+            )));
         }
         let exec = p.execution.clone().unwrap_or_default();
         let idx = exec
@@ -1306,19 +1359,16 @@ impl MergeManager {
                 return Err(OrchestratorError::Invalid("binary files cannot be resolved by the AI".into()));
             }
             let project = self.project(p.project_id).await?;
-            let merged: Vec<String> = p
-                .branches
-                .iter()
-                .filter(|b| b.state == MergeBranchState::Merged)
-                .map(|b| b.branch.clone())
-                .collect();
+            let merged: Vec<String> =
+                p.branches.iter().filter(|b| b.state == MergeBranchState::Merged).map(|b| b.branch.clone()).collect();
             let theirs = exec.conflict_branch.clone().unwrap_or_default();
             let (content, note) = self.suggest(&project, &conflict, &merged.join(", "), &theirs).await?;
             let mut p2 = self.inner.store.get(p.id).await?;
             if p2.status != MergeProposalStatus::Conflicted {
                 return Err(OrchestratorError::Conflict("the merge changed while the AI was working".into()));
             }
-            if let Some(c) = p2.execution.as_mut().and_then(|e| e.conflicts.iter_mut().find(|c| c.path == params.path)) {
+            if let Some(c) = p2.execution.as_mut().and_then(|e| e.conflicts.iter_mut().find(|c| c.path == params.path))
+            {
                 c.suggestion = Some(content);
                 c.suggestion_note = note;
             }
@@ -1356,7 +1406,9 @@ impl MergeManager {
                     return Err(OrchestratorError::Invalid("the resolved content is too large".into()));
                 }
                 if resolve::has_conflict_markers(&content) {
-                    return Err(OrchestratorError::Invalid("the resolved content still contains conflict markers".into()));
+                    return Err(OrchestratorError::Invalid(
+                        "the resolved content still contains conflict markers".into(),
+                    ));
                 }
                 git.stage_resolution(&wt, &conflict.path, Some(&content)).await.map_err(vcs_err)?;
             }
@@ -1365,7 +1417,9 @@ impl MergeManager {
         let fresh = std::fs::read(wt.join(&conflict.path)).ok();
         if let Some(c) = p.execution.as_mut().and_then(|e| e.conflicts.get_mut(idx)) {
             c.resolved = true;
-            c.result = fresh.and_then(|b| (!b.iter().take(8000).any(|x| *x == 0)).then(|| cap_text(String::from_utf8_lossy(&b).into_owned())));
+            c.result = fresh.and_then(|b| {
+                (!b.iter().take(8000).any(|x| *x == 0)).then(|| cap_text(String::from_utf8_lossy(&b).into_owned()))
+            });
         }
         self.save(&mut p).await;
         Ok(p)
@@ -1426,9 +1480,11 @@ impl MergeManager {
         theirs: &str,
     ) -> OrchResult<(String, Option<String>)> {
         let chain = self.model_chain(project).await?;
-        let models = self.inner.deps.models.clone().ok_or_else(|| OrchestratorError::NoModel("no model gateway".into()))?;
+        let models =
+            self.inner.deps.models.clone().ok_or_else(|| OrchestratorError::NoModel("no model gateway".into()))?;
         let head = chain[0].clone();
-        let mut req = ChatRequest::new(head.model.clone(), vec![ChatMessage::user(resolve::user_prompt(conflict, ours, theirs))]);
+        let mut req =
+            ChatRequest::new(head.model.clone(), vec![ChatMessage::user(resolve::user_prompt(conflict, ours, theirs))]);
         req.system = Some(resolve::system_prompt());
         req.response_format = ResponseFormat::JsonObject;
         req.max_output_tokens = Some(self.inner.deps.config.max_output_tokens);
@@ -1482,7 +1538,9 @@ impl MergeManager {
         }
         match res {
             Err(_) => Err(OrchestratorError::Planning("the AI suggestion timed out".into())),
-            Ok(Err(e)) => Err(OrchestratorError::Planning(format!("the AI suggestion failed: {}", crate::util::redact(&e)))),
+            Ok(Err(e)) => {
+                Err(OrchestratorError::Planning(format!("the AI suggestion failed: {}", crate::util::redact(&e))))
+            }
             Ok(Ok(())) => {
                 let (content, note) = resolve::parse_reply(&text).map_err(OrchestratorError::Planning)?;
                 Ok((content, note.map(|n| crate::util::redact(&n))))

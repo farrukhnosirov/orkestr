@@ -58,7 +58,7 @@ in separate panels.
 | 8 | Global Memory | §20 | 2 | memory | Memory, Settings | Partial | Full | Full | Same split as #7. Project rules override global rules |
 | 9 | Knowledge Base | §20 | 2 | memory (KnowledgeSource), context | Memory (Knowledge tab) | Arch | Partial | Full | P1: `KnowledgeSource` entity. P2: Markdown/text/API docs ingest with FTS. P3: PDF and external docs, relevance in the context pack |
 | 10 | Git Worktrees per agent | §16 | 1 | vcs, orchestrator, agent-runtime | Git, Agents | Full | Full | Full | ADR-0009. Merge Manager is #11 |
-| 11 | AI Merge Manager | §16 | 2 | orchestrator (merge), vcs | Git, Approvals, Tasks | Arch | Full | Full | P1: `merge_preview` and conflict detection in vcs, manual merge by the user. P2: proposals, gates, policy auto-merge, revert proposals |
+| 11 | AI Merge Manager | §16 | 2 | orchestrator (merge), vcs | Git, Approvals, Tasks | Arch | Full | Full | P1: `merge_preview` and conflict detection in vcs, manual merge by the user. P2: proposals, gates, policy auto-merge, revert proposals (P2 as built: `merge.*` + Git panel → Merge Manager; revert proposals open — see git-worktree-strategy §6.5) |
 | 12 | Automatic Code Review | §17 | 2 | orchestrator, agent-runtime | Tasks, Code (diff), Agents | Partial | Full | Full | P1: user or Manager can assign a Reviewer agent to a task's diff; `ReviewFinished`. P2: automatic pipeline step and a quality gate |
 | 13 | Consensus Mode | §8 | 2 | orchestrator, providers, memory (decisions) | Manager, Decisions | — | Full | Full | P2: N-model proposals, synthesis, alternatives stored (ADR-0027) |
 | 14 | Adversarial Review | §8 | 2 | orchestrator, agent-runtime | Tasks, Decisions | — | Full | Full | Reviewer that cannot auto-agree; findings as structured items |

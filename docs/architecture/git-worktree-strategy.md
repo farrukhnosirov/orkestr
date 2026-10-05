@@ -213,6 +213,43 @@ Rollback of a merged task (Phase 2, §63.J): a revert proposal
 (`git revert --no-commit` in an `_int` worktree → proposal → same approval
 flow). Never `reset --hard` on user branches.
 
+### 6.5 As built (Phase 2, `orkestr-orchestrator::merge`, `merge.*` RPC)
+
+The Phase 2 Merge Manager works on a **proposal of several branches** (a
+Manager run's agent branches and/or branches picked by the user) rather than
+per task:
+
+- `merge.propose` analyses every branch without touching a worktree: semantic
+  diff (files, hunks, symbols added/changed/removed via `orkestr-context`
+  symbol extraction, risk flags: migrations, public API, lockfiles, config,
+  CI, security, deletions, binaries, large changes), conflicts **along the
+  merge order** (simulated chain of `git merge-tree --write-tree` +
+  `commit-tree` on dangling commits) and **pairwise** between branches,
+  dependency order (task DAG + git ancestry; an explicit order is validated),
+  gates (task status, review, tests, acceptance — from `MergeGateSource`,
+  falling back to the task's review state and the agent's last handoff),
+  blockers and a recommendation. Persisted in `merge_proposals`; the
+  per-project `MergePolicy` in `merge_policies`.
+- `merge.execute` asks for approval (`ApprovalService`, capability Git) unless
+  the policy is `Auto` **and** the recommendation is `MergeNow` (every gate
+  green, no conflicts, no blockers). Execution: pre-merge snapshot of the
+  target checkout → integration branch `orkestr/integration-<id>` in its own
+  worktree → `git merge --no-ff` per branch in order → quality checks
+  (`MergeQualityRunner`, when wired) → guarded fast-forward of the target
+  (CAS `update-ref` when not checked out; `merge --ff-only` in a clean
+  checkout otherwise) → cleanup per policy (`Keep` / remove worktrees / also
+  branches, only when contained in the new target head).
+- A conflict stops the merge (`Conflicted`) with base/ours/theirs/working-copy
+  text per file; `merge.resolveConflict` stages ours, theirs or edited
+  content, or asks a model for a suggestion (stored, applied only when the
+  user saves it). `merge.execute` then continues with the next branch.
+- Failure, abort, a restart while merging: the integration worktree and
+  branch are discarded; the target was never touched (rollback = discard).
+- Differences to §6.1–6.4: no `Task.merge_state` (tasks are not gated on
+  merging yet); no protected-branch list (user targets always need approval
+  unless the policy is `Auto`); revert proposals and agent-side conflict
+  resolution rounds (§7) are not implemented.
+
 ---
 
 ## 7. Conflict handling

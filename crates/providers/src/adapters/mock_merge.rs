@@ -103,7 +103,9 @@ mod tests {
     fn marker_selects_the_script() {
         let mut req = ChatRequest::new(
             "mock-smart",
-            vec![ChatMessage::user(format!("file\n{CONFLICT_BEGIN}\n<<<<<<< a\n1\n=======\n2\n>>>>>>> b\n{CONFLICT_END}\n"))],
+            vec![ChatMessage::user(format!(
+                "file\n{CONFLICT_BEGIN}\n<<<<<<< a\n1\n=======\n2\n>>>>>>> b\n{CONFLICT_END}\n"
+            ))],
         );
         assert!(script(&req).is_none());
         req.system = Some(format!("{MERGE_RESOLVE_MARKER}\nresolve"));

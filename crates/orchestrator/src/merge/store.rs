@@ -141,7 +141,8 @@ impl MergeStore {
         let doc: Option<String> = self
             .db
             .call(move |c| {
-                Ok(c.query_row("SELECT doc FROM merge_policies WHERE project_id = ?1", [pid], |r| r.get(0)).optional()?)
+                Ok(c.query_row("SELECT doc FROM merge_policies WHERE project_id = ?1", [pid], |r| r.get(0))
+                    .optional()?)
             })
             .await?;
         match doc {

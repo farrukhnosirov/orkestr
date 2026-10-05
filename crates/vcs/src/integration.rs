@@ -195,7 +195,8 @@ impl GitCli {
         if !exists.success() {
             return Ok(BlobText::Missing);
         }
-        let size: usize = self.runner().run_ok(dir, ["cat-file", "-s", spec], RunOptions::read()).await?.line().parse().unwrap_or(0);
+        let size: usize =
+            self.runner().run_ok(dir, ["cat-file", "-s", spec], RunOptions::read()).await?.line().parse().unwrap_or(0);
         if size > max {
             return Ok(BlobText::TooLarge);
         }
@@ -308,14 +309,21 @@ impl GitCli {
         if !self.is_ancestor(dir, &old, &new).await? {
             return Err(VcsError::invalid(format!("{new} does not descend from {old}: not a fast-forward")));
         }
-        let checked_out =
-            self.worktree_list(dir).await?.into_iter().find(|w| w.branch().as_deref() == Some(branch.as_str()) && !w.bare);
+        let checked_out = self
+            .worktree_list(dir)
+            .await?
+            .into_iter()
+            .find(|w| w.branch().as_deref() == Some(branch.as_str()) && !w.bare);
         let Some(wt) = checked_out else {
             let full_ref = format!("refs/heads/{branch}");
             let reason = format!("orkestr: merge manager fast-forward {branch}");
             let out = self
                 .runner()
-                .run(dir, ["update-ref", "-m", reason.as_str(), full_ref.as_str(), new.as_str(), old.as_str()], RunOptions::write())
+                .run(
+                    dir,
+                    ["update-ref", "-m", reason.as_str(), full_ref.as_str(), new.as_str(), old.as_str()],
+                    RunOptions::write(),
+                )
                 .await?;
             if !out.success() {
                 return Err(VcsError::RefChanged(format!("`{branch}` moved while merging; propose the merge again")));
@@ -333,7 +341,8 @@ impl GitCli {
                 wt.path
             )));
         }
-        let out = self.runner().run(&wt_path, ["merge", "--ff-only", "--quiet", new.as_str()], RunOptions::write()).await?;
+        let out =
+            self.runner().run(&wt_path, ["merge", "--ff-only", "--quiet", new.as_str()], RunOptions::write()).await?;
         if !out.success() {
             if out.stderr.contains("would be overwritten") {
                 return Err(VcsError::Dirty(format!(

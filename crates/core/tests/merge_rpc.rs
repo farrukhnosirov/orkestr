@@ -158,7 +158,10 @@ async fn merge_manager_over_websocket() {
         .await;
     assert_eq!(pol["policy"]["targetBranch"], "main");
     assert_eq!(pol["policy"]["cleanup"], "Keep");
-    assert_eq!(c.error_code("merge.list", json!({"projectId": "00000000-0000-7000-8000-000000000000"})).await, "not_found");
+    assert_eq!(
+        c.error_code("merge.list", json!({"projectId": "00000000-0000-7000-8000-000000000000"})).await,
+        "not_found"
+    );
 
     // ── propose: dependency order + semantic diff ────────
     assert_eq!(c.error_code("merge.propose", json!({"projectId": pid, "branches": []})).await, "bad_request");
@@ -180,18 +183,21 @@ async fn merge_manager_over_websocket() {
     assert!(p["blockers"].as_array().unwrap().is_empty(), "{p}");
     let api = p["branches"].as_array().unwrap().iter().find(|b| b["branch"] == "agent/api").unwrap();
     assert_eq!(api["diff"]["files"][0]["path"], "src/api.rs");
-    assert!(api["diff"]["symbols"].as_array().unwrap().iter().any(|s| s["name"] == "api" && s["change"] == "Added"), "{api}");
+    assert!(
+        api["diff"]["symbols"].as_array().unwrap().iter().any(|s| s["name"] == "api" && s["change"] == "Added"),
+        "{api}"
+    );
     let ui = p["branches"].as_array().unwrap().iter().find(|b| b["branch"] == "agent/ui").unwrap();
     assert_eq!(ui["dependsOn"], json!(["agent/api"]));
 
     // Reorder: violating the dependency is rejected; a valid order is kept.
     assert_eq!(
-        c.error_code("merge.reorder", json!({"proposalId": id, "order": ["agent/ui", "agent/api", "agent/docs"]})).await,
+        c.error_code("merge.reorder", json!({"proposalId": id, "order": ["agent/ui", "agent/api", "agent/docs"]}))
+            .await,
         "bad_request"
     );
-    let p = c
-        .call("merge.reorder", json!({"proposalId": id, "order": ["agent/docs", "agent/api", "agent/ui"]}))
-        .await["proposal"]
+    let p = c.call("merge.reorder", json!({"proposalId": id, "order": ["agent/docs", "agent/api", "agent/ui"]})).await
+        ["proposal"]
         .clone();
     assert_eq!(p["order"], json!(["agent/docs", "agent/api", "agent/ui"]));
     let listed = c.call("merge.list", json!({"projectId": pid})).await;
@@ -220,13 +226,19 @@ async fn merge_manager_over_websocket() {
 
     // ── conflicts: predicted, stop, resolve, continue ────
     let p = c
-        .call("merge.propose", json!({"projectId": pid, "branches": [{"branch": "agent/left"}, {"branch": "agent/right"}]}))
+        .call(
+            "merge.propose",
+            json!({"projectId": pid, "branches": [{"branch": "agent/left"}, {"branch": "agent/right"}]}),
+        )
         .await["proposal"]
         .clone();
     let cid = p["id"].as_str().unwrap().to_owned();
     assert_eq!(p["recommendation"], "ResolveConflicts", "{p}");
-    assert!(p["conflicts"].as_array().unwrap().iter().any(|c| c["scope"] == "Pair"
-        && c["paths"].as_array().unwrap().iter().any(|x| x == "src/shared.rs")));
+    assert!(p["conflicts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|c| c["scope"] == "Pair" && c["paths"].as_array().unwrap().iter().any(|x| x == "src/shared.rs")));
     let p = c.call("merge.execute", json!({"proposalId": cid})).await["proposal"].clone();
     let approval = p["execution"]["approvalId"].as_str().unwrap().to_owned();
     c.call("approvals.resolve", json!({"approvalId": approval, "decision": "Approve"})).await;
@@ -249,8 +261,11 @@ async fn merge_manager_over_websocket() {
         "bad_request"
     );
     assert_eq!(
-        c.error_code("merge.resolveConflict", json!({"proposalId": cid, "path": "nope.rs", "resolution": {"kind": "Ours"}}))
-            .await,
+        c.error_code(
+            "merge.resolveConflict",
+            json!({"proposalId": cid, "path": "nope.rs", "resolution": {"kind": "Ours"}})
+        )
+        .await,
         "not_found"
     );
     let resolved = "pub fn shared() -> u32 {\n    5\n}\n";
@@ -271,7 +286,9 @@ async fn merge_manager_over_websocket() {
 
     // ── abort: awaiting approval → aborted, approval cancelled ──
     branch_from(root, "agent/late", "main", &[("late.txt", "late\n")]);
-    let p = c.call("merge.propose", json!({"projectId": pid, "branches": [{"branch": "agent/late"}]})).await["proposal"].clone();
+    let p = c.call("merge.propose", json!({"projectId": pid, "branches": [{"branch": "agent/late"}]})).await
+        ["proposal"]
+        .clone();
     let aid = p["id"].as_str().unwrap().to_owned();
     let p = c.call("merge.execute", json!({"proposalId": aid})).await["proposal"].clone();
     let approval = p["execution"]["approvalId"].as_str().unwrap().to_owned();
@@ -281,7 +298,10 @@ async fn merge_manager_over_websocket() {
     assert_ne!(a["approval"]["status"], "Pending", "{a}");
     assert!(!root.join("late.txt").exists());
     assert_eq!(c.error_code("merge.abort", json!({"proposalId": aid})).await, "conflict");
-    assert_eq!(c.error_code("merge.get", json!({"proposalId": "00000000-0000-7000-8000-000000000001"})).await, "not_found");
+    assert_eq!(
+        c.error_code("merge.get", json!({"proposalId": "00000000-0000-7000-8000-000000000001"})).await,
+        "not_found"
+    );
 
     core.shutdown().await;
 }
