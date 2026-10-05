@@ -1,5 +1,7 @@
 {
-  "tab": "Merge Manager",
+  "commands": {
+    "open": "Open Merge Manager"
+  },
   "toolbar": {
     "new": "New proposal",
     "policy": "Merge policy",

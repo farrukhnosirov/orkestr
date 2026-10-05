@@ -3,7 +3,7 @@
  * "Rollback Workspace", "Commit". They act through RPC or open the Git panel
  * with an intent the panel picks up.
  */
-import { Camera, GitCommitHorizontal, RotateCcw } from "lucide-react";
+import { Camera, GitCommitHorizontal, GitMerge, RotateCcw } from "lucide-react";
 
 import { getClient } from "../../core/client";
 import { workspaceActions } from "../../components/workspaceActions";
@@ -18,7 +18,7 @@ function hasRepoProject(ctx: CommandContext): boolean {
   return Boolean(p?.rootPath) && useAppStore.getState().connection.state === "open";
 }
 
-function openGit(tab: "changes" | "snapshots", intent: "commit" | "rollback" | null): void {
+function openGit(tab: "changes" | "snapshots" | "merge", intent: "commit" | "rollback" | null): void {
   const ui = useGitUi.getState();
   ui.setTab(tab);
   ui.setIntent(intent);
@@ -68,5 +68,16 @@ export const GIT_COMMANDS: AppCommand[] = [
     keywords: ["git", "commit", "save", "коммит", "закоммитить", "сделать коммит"],
     enabled: hasRepoProject,
     run: () => openGit("changes", "commit"),
+  },
+  {
+    id: "merge.open",
+    get title() {
+      return t("merge:commands.open");
+    },
+    group: "Git",
+    icon: GitMerge,
+    keywords: ["merge", "merge manager", "integrate", "branches", "слияние", "слить", "ветки", "менеджер слияния"],
+    enabled: hasRepoProject,
+    run: () => openGit("merge", null),
   },
 ];
