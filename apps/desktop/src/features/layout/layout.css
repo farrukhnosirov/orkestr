@@ -82,7 +82,7 @@
   padding: 6px;
   border: 1px solid var(--ok-color-border-strong);
   border-radius: var(--ok-radius-lg);
-  background: var(--ok-gradient-panel), var(--ok-color-surface-strong);
+  background: var(--ok-gradient-panel), color-mix(in srgb, var(--ok-color-bg-elevated) 95%, transparent);
   backdrop-filter: blur(var(--ok-blur)) saturate(150%);
   -webkit-backdrop-filter: blur(var(--ok-blur)) saturate(150%);
   box-shadow: var(--ok-shadow-panel), var(--ok-glow-violet);
@@ -310,7 +310,7 @@
   width: min(380px, calc(100vw - 32px));
   border: 1px solid var(--ok-color-border-strong);
   border-radius: var(--ok-radius-xl);
-  background: var(--ok-gradient-panel), var(--ok-color-surface-strong);
+  background: var(--ok-gradient-panel), color-mix(in srgb, var(--ok-color-bg-elevated) 95%, transparent);
   backdrop-filter: blur(var(--ok-blur)) saturate(150%);
   -webkit-backdrop-filter: blur(var(--ok-blur)) saturate(150%);
   box-shadow: var(--ok-shadow-panel), var(--ok-glow-violet);
@@ -529,6 +529,7 @@
 
 .lyt-preset__meta {
   display: flex;
+  margin-left: 2px;
   align-items: center;
   gap: 5px;
   flex-shrink: 0;
@@ -840,4 +841,37 @@
   .lyt-switcher__name {
     max-width: 96px;
   }
+}
+
+/* ── Floating in-app panels (dockview floating groups) ─── */
+.dockview-theme-nebula .dv-resize-container {
+  overflow: hidden;
+  border-radius: var(--ok-radius-lg);
+  background: var(--ok-gradient-panel), color-mix(in srgb, var(--ok-color-bg-elevated) 96%, transparent);
+  box-shadow: var(--ok-shadow-panel), var(--ok-glow-violet);
+}
+
+/* Drag handle: a slim grip instead of an empty bar. */
+.dockview-theme-nebula .dv-floating-titlebar {
+  position: relative;
+  height: 14px;
+  border-bottom: 0;
+  background: transparent;
+}
+
+.dockview-theme-nebula .dv-floating-titlebar::after {
+  content: "";
+  position: absolute;
+  top: 5px;
+  left: 50%;
+  width: 44px;
+  height: 4px;
+  transform: translateX(-50%);
+  border-radius: var(--ok-radius-pill);
+  background: var(--ok-color-border-strong);
+  transition: background var(--ok-duration-fast) var(--ok-ease);
+}
+
+.dockview-theme-nebula .dv-floating-titlebar:hover::after {
+  background: var(--ok-gradient-accent);
 }

@@ -45,6 +45,8 @@ let windowsTimer: ReturnType<typeof setTimeout> | null = null;
 let monitorTimer: ReturnType<typeof setInterval> | null = null;
 let disposers: (() => void)[] = [];
 let started = false;
+/** The active layout changed since it was applied or saved (only then is it stored — visiting a preset never "customises" it). */
+let dirty = false;
 
 // ── core persistence ─────────────────────────────────────────────────────────
 
@@ -149,7 +151,8 @@ async function saveNow(): Promise<void> {
     clearTimeout(saveTimer);
     saveTimer = null;
   }
-  if (!store().loaded) return;
+  if (!store().loaded || !dirty) return;
+  dirty = false;
   const doc = await captureCurrent();
   if (!doc) return;
   adopt(await rpc((c) => c.call("ui.layoutsSave", { layout: doc, activate: false })));
@@ -158,6 +161,7 @@ async function saveNow(): Promise<void> {
 /** Debounced autosave of the active layout (per device, in the core). */
 export function scheduleSave(): void {
   if (applying > 0 || !store().loaded) return;
+  dirty = true;
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     saveTimer = null;
@@ -224,6 +228,7 @@ async function applyPlan(plan: LayoutPlan, opts: { restoreWindows: boolean }): P
       if (preset) buildPreset(dock, preset);
     }
     store().patch({ activeId: plan.id });
+    dirty = false;
     setDockLocked(doc?.locked ?? false);
     if (opts.restoreWindows) await restoreWindows(doc);
     syncDockSummary();
