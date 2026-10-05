@@ -17,6 +17,7 @@ use ts_rs::TS;
 
 pub mod agents;
 pub mod approvals;
+pub mod architecture;
 pub mod audit;
 pub mod cost;
 pub mod emergency;
@@ -28,6 +29,7 @@ pub mod nodes;
 pub mod permissions;
 pub mod projects;
 pub mod providers;
+pub mod replay;
 pub mod secrets;
 pub mod settings;
 pub mod snapshots;
@@ -288,6 +290,13 @@ pub fn registry() -> Vec<MethodDescriptor> {
         MethodDescriptor::of::<manager::Cancel>(),
         MethodDescriptor::of::<manager::Status>(),
         MethodDescriptor::of::<manager::ResumeSummaryMethod>(),
+        // architecture map + execution replay (Phase 2)
+        MethodDescriptor::of::<architecture::Map>(),
+        MethodDescriptor::of::<architecture::Refresh>(),
+        MethodDescriptor::of::<architecture::Diff>(),
+        MethodDescriptor::of::<replay::Runs>(),
+        MethodDescriptor::of::<replay::Timeline>(),
+        MethodDescriptor::of::<replay::Step>(),
     ]
 }
 

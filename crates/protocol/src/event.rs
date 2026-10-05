@@ -637,6 +637,29 @@ pub struct ManagerRunPayload {
     pub run: crate::methods::manager::ManagerRun,
 }
 
+/// `ArchitectureMapUpdated` — a scan stored a new architecture snapshot.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct ArchitectureMapUpdatedPayload {
+    /// Project.
+    pub project_id: ProjectId,
+    /// New snapshot.
+    pub snapshot_id: String,
+    /// Counts of the new map.
+    pub stats: crate::methods::architecture::ArchStats,
+    /// Nodes added versus the previous snapshot.
+    pub added_nodes: u32,
+    /// Nodes removed versus the previous snapshot.
+    pub removed_nodes: u32,
+    /// Nodes changed versus the previous snapshot.
+    pub changed_nodes: u32,
+    /// Edges added or removed versus the previous snapshot.
+    pub changed_edges: u32,
+    /// The refresh was triggered by file changes (not by a user request).
+    pub automatic: bool,
+}
+
 // ---------------------------------------------------------------------------
 // Kinds
 // ---------------------------------------------------------------------------
@@ -774,6 +797,8 @@ event_kinds! {
     ManagerPlanUpdated(ManagerPlanPayload),
     /// A Manager run changed (progress, status, report). Phase 1, appended.
     ManagerRunUpdated(ManagerRunPayload),
+    /// A new Architecture Map snapshot was stored (§21). Phase 2, appended.
+    ArchitectureMapUpdated(ArchitectureMapUpdatedPayload),
 }
 
 // ---------------------------------------------------------------------------
@@ -922,6 +947,7 @@ impl NewEvent {
             EventKind::ManagerMessageAdded(m) => self.project_id = Some(m.message.project_id),
             EventKind::ManagerPlanUpdated(p) => self.project_id = Some(p.plan.project_id),
             EventKind::ManagerRunUpdated(r) => self.project_id = Some(r.run.project_id),
+            EventKind::ArchitectureMapUpdated(a) => self.project_id = Some(a.project_id),
             EventKind::Notification(n) => {
                 self.project_id = n.notification.project_id;
                 self.task_id = n.notification.task_id;

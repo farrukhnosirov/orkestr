@@ -39,6 +39,7 @@ orkestr-sync = { path = "crates/sync" }
 orkestr-node = { path = "crates/node" }
 orkestr-core = { path = "crates/core" }
 orkestr-files = { path = "crates/files" }
+orkestr-insight = { path = "crates/insight" }
 
 # --- async ---------------------------------------------------------------------
 tokio = { version = "1.47", features = ["full"] }

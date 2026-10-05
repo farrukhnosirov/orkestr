@@ -1,0 +1,36 @@
+[package]
+name = "orkestr-insight"
+description = "Orkestr project insight: Architecture Map (modules, services, databases, APIs, dependencies; incremental scans, snapshots, diffs) and Execution Replay (timelines reconstructed from the event log) (§21)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+orkestr-domain.workspace = true
+orkestr-protocol.workspace = true
+orkestr-events.workspace = true
+orkestr-storage.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+tracing.workspace = true
+chrono.workspace = true
+parking_lot.workspace = true
+uuid.workspace = true
+ignore.workspace = true
+regex.workspace = true
+once_cell.workspace = true
+blake3.workspace = true
+globset.workspace = true
+# Cargo.toml / pyproject.toml parsing (already in the lockfile via Tauri).
+toml = "1.1"
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true
