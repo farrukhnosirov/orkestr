@@ -16,7 +16,7 @@ function pick<T extends string>(list: readonly T[], v: string): T | null {
 /** Display name of a panel / widget id. */
 export function idLabel(id: string): string {
   const key = `aiui:ids.${idKey(id)}`;
-  if (i18n.exists(key)) return String(i18n.t(key));
+  if (i18n.exists(key)) return t(key as "aiui:ids.claude");
   return t("aiui:quoted", { name: humanizeId(id) });
 }
 

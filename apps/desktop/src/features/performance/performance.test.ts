@@ -1,0 +1,129 @@
+import { describe, expect, it } from "vitest";
+
+import { makeParticles, mulberry32 } from "./AmbientField";
+import { motionOffset, scaledTransition } from "./motion";
+import { usePerfStore } from "./perfStore";
+import { FrameBudgetMonitor, PERF_MODES, canDegrade, effectiveMode, resolvePolicy, rootAttributes, applyPolicyToRoot } from "./policy";
+
+const ENV = { reducedMotion: false, hidden: false };
+
+describe("performance policy", () => {
+  it("degrades monotonically from Ultra Visual to Battery Saver", () => {
+    const policies = PERF_MODES.map((m) => resolvePolicy(m, ENV));
+    for (let i = 1; i < policies.length; i += 1) {
+      const [prev, cur] = [policies[i - 1]!, policies[i]!];
+      expect(cur.robotFps).toBeLessThanOrEqual(prev.robotFps);
+      expect(cur.chartRefreshMs).toBeGreaterThanOrEqual(prev.chartRefreshMs);
+      expect(cur.durationScale).toBeLessThanOrEqual(prev.durationScale);
+      expect(cur.blurScale).toBeLessThanOrEqual(prev.blurScale);
+    }
+    expect(policies[0]).toMatchObject({ mode: "UltraVisual", robots3d: true, gpuEffects: true, robotFps: 60 });
+    expect(policies[1]).toMatchObject({ mode: "Balanced", robots3d: false, gpuEffects: false, blur: true });
+    expect(policies[2]).toMatchObject({ mode: "Performance", blur: false, glow: false, motion: "reduced", backgroundAnimation: false });
+    expect(policies[3]).toMatchObject({ mode: "BatterySaver", motion: "off", durationScale: 0, robotFps: 10 });
+  });
+
+  it("GPU-heavy effects only in Ultra Visual", () => {
+    expect(PERF_MODES.filter((m) => resolvePolicy(m, ENV).gpuEffects)).toEqual(["UltraVisual"]);
+  });
+
+  it("prefers-reduced-motion caps motion and stops the background", () => {
+    const p = resolvePolicy("UltraVisual", { reducedMotion: true, hidden: false });
+    expect(p.motion).toBe("reduced");
+    expect(p.durationScale).toBe(0.5);
+    expect(p.backgroundAnimation).toBe(false);
+    // Already lower levels are untouched.
+    expect(resolvePolicy("BatterySaver", { reducedMotion: true, hidden: false }).motion).toBe("off");
+  });
+
+  it("a hidden window pauses every visual", () => {
+    const p = resolvePolicy("UltraVisual", { reducedMotion: false, hidden: true });
+    expect(p).toMatchObject({ paused: true, robotFps: 0, gpuEffects: false, backgroundAnimation: false });
+    expect(p.chartRefreshMs).toBeGreaterThanOrEqual(30000);
+  });
+
+  it("switches to Battery Saver on battery only when allowed", () => {
+    const base = { chosen: "UltraVisual" as const, autoBattery: true, onBattery: true, autoDegrade: false, degradeSteps: 0 };
+    expect(effectiveMode(base)).toEqual({ mode: "BatterySaver", reason: "battery" });
+    expect(effectiveMode({ ...base, autoBattery: false })).toEqual({ mode: "UltraVisual", reason: "user" });
+    expect(effectiveMode({ ...base, onBattery: null })).toEqual({ mode: "UltraVisual", reason: "user" });
+    expect(effectiveMode({ ...base, onBattery: false })).toEqual({ mode: "UltraVisual", reason: "user" });
+  });
+
+  it("frame-budget degrade steps down but never below Performance", () => {
+    const base = { chosen: "UltraVisual" as const, autoBattery: false, onBattery: null, autoDegrade: true, degradeSteps: 1 };
+    expect(effectiveMode(base)).toEqual({ mode: "Balanced", reason: "frameBudget" });
+    expect(effectiveMode({ ...base, degradeSteps: 5 })).toEqual({ mode: "Performance", reason: "frameBudget" });
+    expect(canDegrade({ ...base, degradeSteps: 2 })).toBe(false);
+    expect(effectiveMode({ ...base, chosen: "BatterySaver" })).toEqual({ mode: "BatterySaver", reason: "user" });
+    expect(effectiveMode({ ...base, autoDegrade: false })).toEqual({ mode: "UltraVisual", reason: "user" });
+  });
+
+  it("FrameBudgetMonitor degrades only on sustained jank", () => {
+    const m = new FrameBudgetMonitor({ budgetMs: 20, windowFrames: 10, jankRatio: 0.25, badWindows: 2 });
+    const feed = (delta: number, n: number) => {
+      let out: "degrade" | null = null;
+      for (let i = 0; i < n; i += 1) out = m.push(delta) ?? out;
+      return out;
+    };
+    expect(feed(16, 50)).toBeNull(); // smooth
+    expect(feed(40, 10)).toBeNull(); // one bad window
+    expect(feed(16, 10)).toBeNull(); // recovered: counter resets
+    expect(feed(40, 10)).toBeNull();
+    expect(feed(40, 10)).toBe("degrade"); // two bad windows in a row
+    expect(feed(1000, 100)).toBeNull(); // pauses (tab switch) are not jank
+    expect(m.push(Number.NaN)).toBeNull();
+  });
+
+  it("writes the root contract", () => {
+    const p = resolvePolicy("Performance", ENV);
+    const { data, vars } = rootAttributes(p);
+    expect(data).toMatchObject({ okPerformance: "Performance", okMotion: "reduced", okBlur: "off", okGlow: "off", okGpu: "off", okPaused: "off" });
+    expect(vars["--ok-motion-scale"]).toBe("0.5");
+    const root = document.createElement("div");
+    applyPolicyToRoot(p, root);
+    expect(root.dataset["okBlur"]).toBe("off");
+    expect(root.style.getPropertyValue("--ok-blur-scale")).toBe("0");
+  });
+});
+
+describe("performance store", () => {
+  it("derives the effective mode from power and degrade steps", () => {
+    const s = usePerfStore.getState();
+    s.setAutoBattery(true);
+    s.setAutoDegrade(true);
+    s.setChosen("UltraVisual");
+    s.setPower({ supported: true, hasBattery: true, onAcPower: false, batteryPercent: 40 });
+    expect(usePerfStore.getState()).toMatchObject({ mode: "BatterySaver", reason: "battery" });
+    s.setPower({ supported: true, hasBattery: true, onAcPower: true, batteryPercent: 40 });
+    expect(usePerfStore.getState().mode).toBe("UltraVisual");
+    expect(usePerfStore.getState().degrade()).toBe(true);
+    expect(usePerfStore.getState()).toMatchObject({ mode: "Balanced", reason: "frameBudget" });
+    // A new explicit choice forgets automatic steps.
+    s.setChosen("Balanced");
+    s.setChosen("UltraVisual");
+    expect(usePerfStore.getState()).toMatchObject({ mode: "UltraVisual", degradeSteps: 0 });
+    s.setHidden(true);
+    expect(usePerfStore.getState().policy.paused).toBe(true);
+    s.setHidden(false);
+    s.setAutoDegrade(false);
+    expect(usePerfStore.getState().degrade()).toBe(false);
+  });
+});
+
+describe("motion system", () => {
+  it("scales durations with the policy and goes instant at 0", () => {
+    expect(scaledTransition(0)).toEqual({ duration: 0 });
+    expect(scaledTransition(0.5, "base")).toMatchObject({ duration: 0.1 });
+    expect(scaledTransition(1, "base", true)).toMatchObject({ type: "spring" });
+    expect(scaledTransition(0.5, "base", true)).not.toHaveProperty("type");
+    expect([motionOffset("full"), motionOffset("reduced"), motionOffset("off")]).toEqual([10, 4, 0]);
+  });
+
+  it("ambient particles are deterministic and inside the unit square", () => {
+    const a = makeParticles(20, mulberry32(7));
+    const b = makeParticles(20, mulberry32(7));
+    expect(a).toEqual(b);
+    expect(a.every((p) => p.x >= 0 && p.x < 1 && p.y >= 0 && p.y < 1 && p.r > 0)).toBe(true);
+  });
+});

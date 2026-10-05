@@ -125,7 +125,7 @@ function asStringList(v: JsonValue | undefined): string[] {
   return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
 }
 
-function isObject(v: JsonValue | undefined): v is { [key in string]?: JsonValue } {
+function isObject(v: JsonValue | undefined): v is { [key: string]: JsonValue } {
   return v !== null && v !== undefined && typeof v === "object" && !Array.isArray(v);
 }
 

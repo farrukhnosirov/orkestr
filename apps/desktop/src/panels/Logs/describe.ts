@@ -246,6 +246,11 @@ export function describeEvent(event: Event): string {
       const done = r.tasks.filter((x) => x.status === "Completed").length;
       return t("events:managerRun", { status: t(`logs:enums.runStatus.${r.status}`), done, total: r.tasks.length });
     }
+    // Phase 3: AI-editable UI.
+    case "UiPatchProposed":
+      return t("events:uiPatchProposed", { summary: event.payload.summary });
+    case "UiConfigPatched":
+      return t("events:uiConfigPatched", { summary: event.payload.summary, version: event.payload.version });
   }
 }
 
