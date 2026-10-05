@@ -287,6 +287,9 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
     if let Err(e) = manager.init().await {
         tracing::error!(error = %e, "AI Manager failed to initialise");
     }
+    if let Err(e) = manager.recover_reviews().await {
+        tracing::error!(error = %e, "failed to recover reviews / consensus runs of the previous session");
+    }
 
     let quality = orkestr_quality::QualityService::new(orkestr_quality::QualityDeps {
         db: db.clone(),

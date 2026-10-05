@@ -637,6 +637,24 @@ pub struct ManagerRunPayload {
     pub run: crate::methods::manager::ManagerRun,
 }
 
+/// `ReviewUpdated` (Phase 2, review-consensus).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct ReviewPayload {
+    /// The review after the change.
+    pub review: crate::methods::reviews::Review,
+}
+
+/// `ConsensusUpdated` (Phase 2, review-consensus).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct ConsensusPayload {
+    /// The consensus run after the change.
+    pub run: crate::methods::consensus::ConsensusRun,
+}
+
 // ---------------------------------------------------------------------------
 // Kinds
 // ---------------------------------------------------------------------------
@@ -774,6 +792,10 @@ event_kinds! {
     ManagerPlanUpdated(ManagerPlanPayload),
     /// A Manager run changed (progress, status, report). Phase 1, appended.
     ManagerRunUpdated(ManagerRunPayload),
+    /// A code review (standard or adversarial) was created or changed. Phase 2, appended.
+    ReviewUpdated(ReviewPayload),
+    /// A consensus run was created or changed. Phase 2, appended.
+    ConsensusUpdated(ConsensusPayload),
 }
 
 // ---------------------------------------------------------------------------
@@ -922,6 +944,14 @@ impl NewEvent {
             EventKind::ManagerMessageAdded(m) => self.project_id = Some(m.message.project_id),
             EventKind::ManagerPlanUpdated(p) => self.project_id = Some(p.plan.project_id),
             EventKind::ManagerRunUpdated(r) => self.project_id = Some(r.run.project_id),
+            EventKind::ReviewUpdated(r) => {
+                self.project_id = Some(r.review.project_id);
+                self.task_id = Some(r.review.task_id);
+            }
+            EventKind::ConsensusUpdated(c) => {
+                self.project_id = Some(c.run.project_id);
+                self.task_id = c.run.task_id;
+            }
             EventKind::Notification(n) => {
                 self.project_id = n.notification.project_id;
                 self.task_id = n.notification.task_id;

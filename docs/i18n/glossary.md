@@ -101,6 +101,12 @@ consistently and add it to this table in the same change.
 | Wake word | фраза активации | — | |
 | Built-in agent templates | Архитектор ПО, Бэкенд-разработчик, Фронтенд-разработчик, Инженер баз данных, Тестировщик, Аудитор безопасности, DevOps-инженер, UI/UX-дизайнер, Продакт-менеджер, Ревьюер кода, Исследователь | — | Display names only; the core stores the English names (`lib/coreText.ts`). |
 | Epic (task tag) | эпик | — | Tag shown as «эпик: Название». |
+| Finding (review) | замечание | Отметить исправленным / Отклонить | Neuter: severities «Критическое / Серьёзное / Среднее / Незначительное / Информационное», statuses «Открыто / Подтверждено / Опровергнуто / Исправлено / Отклонено». |
+| Review verdict: Approve / Request changes / Reject | Одобрено / Нужны доработки / Отклонено | — | |
+| Adversarial review | ревью оппонента | Запросить ревью оппонента | Badge «Оппонент». Not «состязательное ревью». |
+| Consensus (mode) | консенсус, режим консенсуса | Запустить консенсус | |
+| Proposal (consensus) | предложение | — | |
+| Synthesizer (consensus) | арбитр | — | The model that turns proposals into one decision. |
 
 Task statuses: Запланирована, Готова к работе, Выполняется, Ожидает,
 Заблокирована, На ревью, Тестируется, Выполнена, Сбой, Отменена, Прервана,

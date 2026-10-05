@@ -2,6 +2,7 @@
 import type { AddDependencyParams } from "./AddDependencyParams";
 import type { AddKnowledgeParams } from "./AddKnowledgeParams";
 import type { AddWorktreeParams } from "./AddWorktreeParams";
+import type { AdversarialReviewParams } from "./AdversarialReviewParams";
 import type { AgentHandoffsResult } from "./AgentHandoffsResult";
 import type { AgentIdParams } from "./AgentIdParams";
 import type { AgentStats } from "./AgentStats";
@@ -24,6 +25,7 @@ import type { CheckParams } from "./CheckParams";
 import type { CheckoutParams } from "./CheckoutParams";
 import type { CommitParams } from "./CommitParams";
 import type { CommitResult } from "./CommitResult";
+import type { ConsensusResult } from "./ConsensusResult";
 import type { CostByDimensionParams } from "./CostByDimensionParams";
 import type { CostByDimensionResult } from "./CostByDimensionResult";
 import type { CostRecordsParams } from "./CostRecordsParams";
@@ -78,7 +80,9 @@ import type { FindFilesParams } from "./FindFilesParams";
 import type { FindFilesResult } from "./FindFilesResult";
 import type { GateConfig } from "./GateConfig";
 import type { GateReport } from "./GateReport";
+import type { GetConsensusParams } from "./GetConsensusParams";
 import type { GetModeParams } from "./GetModeParams";
+import type { GetReviewParams } from "./GetReviewParams";
 import type { HealthResult } from "./HealthResult";
 import type { ImportTemplateParams } from "./ImportTemplateParams";
 import type { ImportTemplateResult } from "./ImportTemplateResult";
@@ -93,6 +97,8 @@ import type { ListApprovalsResult } from "./ListApprovalsResult";
 import type { ListAuditParams } from "./ListAuditParams";
 import type { ListAuditResult } from "./ListAuditResult";
 import type { ListBudgetsParams } from "./ListBudgetsParams";
+import type { ListConsensusParams } from "./ListConsensusParams";
+import type { ListConsensusResult } from "./ListConsensusResult";
 import type { ListDecisionsParams } from "./ListDecisionsParams";
 import type { ListFilesParams } from "./ListFilesParams";
 import type { ListFilesResult } from "./ListFilesResult";
@@ -102,6 +108,8 @@ import type { ListNodesResult } from "./ListNodesResult";
 import type { ListProjectsParams } from "./ListProjectsParams";
 import type { ListProjectsResult } from "./ListProjectsResult";
 import type { ListProvidersResult } from "./ListProvidersResult";
+import type { ListReviewsParams } from "./ListReviewsParams";
+import type { ListReviewsResult } from "./ListReviewsResult";
 import type { ListRulesParams } from "./ListRulesParams";
 import type { ListRulesResult } from "./ListRulesResult";
 import type { ListRunsParams } from "./ListRunsParams";
@@ -179,13 +187,16 @@ import type { ReplayParams } from "./ReplayParams";
 import type { ReplayResult } from "./ReplayResult";
 import type { RepoParams } from "./RepoParams";
 import type { RepoStatus } from "./RepoStatus";
+import type { RequestReviewParams } from "./RequestReviewParams";
 import type { ResizeTerminalParams } from "./ResizeTerminalParams";
 import type { ResolveApprovalParams } from "./ResolveApprovalParams";
+import type { ResolveFindingParams } from "./ResolveFindingParams";
 import type { RestoreFileParams } from "./RestoreFileParams";
 import type { RestoreFileResult } from "./RestoreFileResult";
 import type { RestoreTrashedParams } from "./RestoreTrashedParams";
 import type { ResumeSummary } from "./ResumeSummary";
 import type { ResumeSummaryParams } from "./ResumeSummaryParams";
+import type { ReviewResult } from "./ReviewResult";
 import type { RollbackPlan } from "./RollbackPlan";
 import type { RollbackResult } from "./RollbackResult";
 import type { RollbackTaskParams } from "./RollbackTaskParams";
@@ -196,6 +207,7 @@ import type { RunChecksParams } from "./RunChecksParams";
 import type { RunCommandParams } from "./RunCommandParams";
 import type { RunCommandResult } from "./RunCommandResult";
 import type { RunIdParams } from "./RunIdParams";
+import type { RunConsensusParams } from "./RunConsensusParams";
 import type { SearchFilesParams } from "./SearchFilesParams";
 import type { SearchFilesResult } from "./SearchFilesResult";
 import type { SearchKnowledgeParams } from "./SearchKnowledgeParams";
@@ -441,6 +453,14 @@ export type Methods = {
   "quality.gates": [QualityProjectParams, GateConfig];
   "quality.setGates": [SetGatesParams, GateConfig];
   "quality.evaluate": [EvaluateParams, GateReport];
+  "reviews.request": [RequestReviewParams, ReviewResult];
+  "reviews.list": [ListReviewsParams, ListReviewsResult];
+  "reviews.get": [GetReviewParams, ReviewResult];
+  "reviews.resolveFinding": [ResolveFindingParams, ReviewResult];
+  "reviews.adversarial": [AdversarialReviewParams, ReviewResult];
+  "consensus.run": [RunConsensusParams, ConsensusResult];
+  "consensus.list": [ListConsensusParams, ListConsensusResult];
+  "consensus.get": [GetConsensusParams, ConsensusResult];
 };
 
 /** All implemented method names. */
@@ -626,6 +646,14 @@ export const METHOD_NAMES = [
   "quality.gates",
   "quality.setGates",
   "quality.evaluate",
+  "reviews.request",
+  "reviews.list",
+  "reviews.get",
+  "reviews.resolveFinding",
+  "reviews.adversarial",
+  "consensus.run",
+  "consensus.list",
+  "consensus.get",
 ] as const;
 
 /** Wire protocol version (see orkestr-protocol PROTOCOL_VERSION). */
@@ -678,6 +706,8 @@ export const EVENT_KINDS = [
   "ManagerMessageAdded",
   "ManagerPlanUpdated",
   "ManagerRunUpdated",
+  "ReviewUpdated",
+  "ConsensusUpdated",
 ] as const;
 
 /** UI config schema version (see orkestr-protocol ui_config). */

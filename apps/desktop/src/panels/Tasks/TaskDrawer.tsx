@@ -5,6 +5,7 @@ import { Check, Coins, FileCode2, GitFork, History, Plus, RotateCcw, Trash2, X }
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 
 import { QualitySection } from "../../features/quality";
+import { ReviewsSection } from "../../features/reviews/ReviewsSection";
 import { t as translate, useFormat, useT } from "../../i18n";
 import { errorMessage, taskActions } from "./data";
 import { PRIORITIES, TRANSITIONS, shortId, statusColor } from "./model";
@@ -283,6 +284,7 @@ export function TaskDrawer({ task, tasks }: { task: Task; tasks: Task[] }) {
         </section>
 
         <QualitySection task={task} />
+        <ReviewsSection taskId={task.id} onToast={toast} />
 
         <section className="tasks-section">
           <h4 className="tasks-section__title">

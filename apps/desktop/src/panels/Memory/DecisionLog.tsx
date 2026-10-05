@@ -5,6 +5,8 @@ import { clsx } from "clsx";
 import { Plus, Scale, X } from "lucide-react";
 import { type FormEvent, useState } from "react";
 
+import { useConsensusRuns } from "../../features/reviews/data";
+import { DecisionConsensus, runsByDecision } from "../../features/reviews/DecisionConsensus";
 import { useFormat, useT } from "../../i18n";
 import { errorMessage, requireClient, useRpcQuery } from "../../lib/rpcQuery";
 import { DECISION_STATUS_TONE } from "./kinds";
@@ -159,6 +161,9 @@ export function DecisionLog({ projectId }: { projectId: string }) {
     { topics: [topic.project(projectId)], reloadOn: ["DecisionRecorded"] },
   );
   const decisions = data ?? [];
+  // Consensus Mode decisions show their models, scores and the chosen proposal.
+  const { runs: consensusRuns } = useConsensusRuns(projectId);
+  const consensusOf = runsByDecision(consensusRuns);
 
   const setStatus = async (d: Decision, status: DecisionStatus) => {
     setActionError(null);
@@ -236,6 +241,7 @@ export function DecisionLog({ projectId }: { projectId: string }) {
                     </span>
                   </div>
                   <Markdown source={d.decision} className="md dec-entry__decision" />
+                  {consensusOf.has(d.id) && <DecisionConsensus run={consensusOf.get(d.id)!} />}
                   {d.context && (
                     <section>
                       <h4>{t("decisions.context")}</h4>
@@ -249,8 +255,17 @@ export function DecisionLog({ projectId }: { projectId: string }) {
                         {d.alternatives.map((a, i) => (
                           <li key={i}>
                             <strong>{a.title}</strong>
-                            {a.summary && ` — ${a.summary}`}
+                            {a.proposedBy && <code className="mem-tag">{a.proposedBy}</code>}
                             {a.rejectedReason && <span className="mem-muted"> {t("decisions.notChosen", { reason: a.rejectedReason })}</span>}
+                            {a.summary &&
+                              (a.summary.length > 240 || a.summary.includes("\n") ? (
+                                <details className="dec-alt__more">
+                                  <summary>{t("decisions.alternativeDetails")}</summary>
+                                  <Markdown source={a.summary} />
+                                </details>
+                              ) : (
+                                ` — ${a.summary}`
+                              ))}
                           </li>
                         ))}
                       </ul>

@@ -18,6 +18,7 @@ use ts_rs::TS;
 pub mod agents;
 pub mod approvals;
 pub mod audit;
+pub mod consensus;
 pub mod cost;
 pub mod emergency;
 pub mod events;
@@ -29,6 +30,7 @@ pub mod permissions;
 pub mod projects;
 pub mod providers;
 pub mod quality;
+pub mod reviews;
 pub mod secrets;
 pub mod settings;
 pub mod snapshots;
@@ -300,6 +302,15 @@ pub fn registry() -> Vec<MethodDescriptor> {
         MethodDescriptor::of::<quality::Gates>(),
         MethodDescriptor::of::<quality::SetGates>(),
         MethodDescriptor::of::<quality::Evaluate>(),
+        // review-consensus (Phase 2)
+        MethodDescriptor::of::<reviews::Request>(),
+        MethodDescriptor::of::<reviews::List>(),
+        MethodDescriptor::of::<reviews::Get>(),
+        MethodDescriptor::of::<reviews::ResolveFinding>(),
+        MethodDescriptor::of::<reviews::Adversarial>(),
+        MethodDescriptor::of::<consensus::Run>(),
+        MethodDescriptor::of::<consensus::List>(),
+        MethodDescriptor::of::<consensus::Get>(),
     ]
 }
 

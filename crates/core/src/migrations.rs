@@ -36,6 +36,8 @@ pub fn all() -> Vec<Migration> {
     all.extend(orkestr_agent_runtime::agent_migrations());
     all.extend(orkestr_orchestrator::orchestrator_migrations());
     all.extend(orkestr_quality::quality_migrations());
+    // Phase 2 (review-consensus)
+    all.extend(orkestr_orchestrator::review_migrations());
     all
 }
 

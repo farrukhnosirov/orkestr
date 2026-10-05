@@ -100,6 +100,7 @@
     "context": "Контекст",
     "alternatives": "Альтернативы",
     "notChosen": "(почему не выбрали: {{reason}})",
+    "alternativeDetails": "Полное предложение",
     "reasoning": "Краткое обоснование",
     "consequences": "Последствия",
     "relatedTasks_one": "{{count}} связанная задача",
