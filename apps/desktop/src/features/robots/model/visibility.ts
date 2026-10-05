@@ -41,6 +41,27 @@ export function slotFromAgent(agent: AgentInstance, now: number, prev?: RobotSlo
   };
 }
 
+/** An agent with its resolved robot design (`robots.list` entry). */
+export interface RobotEntryLike {
+  agent: AgentInstance;
+  design: RobotDesign;
+  floating: boolean;
+}
+
+/** Merges `robots.list` entries (fresh agent + resolved design) into the slots. */
+export function mergeRobotEntries(slots: RobotSlots, entries: readonly RobotEntryLike[], now: number): RobotSlots {
+  if (entries.length === 0) return slots;
+  const next = new Map(slots);
+  for (const e of entries) {
+    const prev = next.get(e.agent.id);
+    next.set(e.agent.id, { ...slotFromAgent(e.agent, now, prev), floating: e.floating, design: e.design });
+  }
+  return next;
+}
+
+/** Agent event kinds the robots react to. */
+export const ROBOT_AGENT_EVENTS: ReadonlySet<string> = new Set(["AgentSpawned", "AgentUpdated", "AgentStateChanged", "AgentStopped"]);
+
 /** Applies one agent event. Returns the same map when nothing changed. */
 export function applyRobotEvent(slots: RobotSlots, ev: Event, now: number): RobotSlots {
   switch (ev.kind) {

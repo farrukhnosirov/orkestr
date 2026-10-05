@@ -86,3 +86,9 @@ export const STATE_HEX: Readonly<Record<Exclude<RobotState, "Idle">, string>> = 
 export function stateHex(state: RobotState, accent: string): string {
   return state === "Idle" ? accent : STATE_HEX[state];
 }
+
+/** Designer live preview: the state shown at `t` when cycling every `periodMs`. */
+export function previewStateAt(t: number, periodMs = 2600): RobotState {
+  const i = Math.floor(Math.max(0, t) / periodMs) % ROBOT_STATES.length;
+  return ROBOT_STATES[i] ?? "Idle";
+}

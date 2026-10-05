@@ -25,13 +25,15 @@ export const ROBOT_EVENTS = {
   assign: "orkestr://robot/assign",
   openCluster: "orkestr://robot/open-cluster",
   voice: "orkestr://robot/voice",
+  /** cluster → main: the cluster window loaded; send it the overflow ids. */
+  clusterReady: "orkestr://robot/cluster-ready",
   /** main → all robot windows: the robots document changed; refetch it. */
   configChanged: "orkestr://robots/config-changed",
   /** main → cluster window: agent ids in the overflow cluster. */
   cluster: "orkestr://robots/cluster",
 } as const;
 
-export type MainRequest = "open-agent" | "hide" | "assign" | "open-cluster" | "voice";
+export type MainRequest = "open-agent" | "hide" | "assign" | "open-cluster" | "voice" | "cluster-ready";
 
 export interface RobotOpenArgs {
   agentId: string | null;

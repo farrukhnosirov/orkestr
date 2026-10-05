@@ -450,11 +450,11 @@ pub fn robot_set_drop_zones(
 }
 
 /// Requests a robot window may forward to the main window.
-const MAIN_REQUESTS: &[&str] = &["open-agent", "hide", "assign", "open-cluster", "voice"];
+const MAIN_REQUESTS: &[&str] = &["open-agent", "hide", "assign", "open-cluster", "voice", "cluster-ready"];
 
 /// Robot webview → main window request (`open-agent`, `hide`, `assign`,
-/// `open-cluster`, `voice`). `open-agent` / `open-cluster` / `assign` bring the
-/// main window forward.
+/// `open-cluster`, `voice`, `cluster-ready`). `open-agent` / `open-cluster` /
+/// `assign` bring the main window forward.
 #[tauri::command]
 pub fn robot_to_main(
     app: AppHandle,
