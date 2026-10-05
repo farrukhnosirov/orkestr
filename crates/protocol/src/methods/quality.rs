@@ -262,9 +262,10 @@ pub enum RunTarget {
     },
 }
 
-/// Status of a run or check.
+/// Status of a run or check (TS: `QualityCheckStatus` — `CheckStatus` is the
+/// system-check status of `methods::system`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
-#[ts(export)]
+#[ts(export, rename = "QualityCheckStatus")]
 pub enum CheckStatus {
     /// Waiting to start.
     Queued,
