@@ -5,6 +5,8 @@ import type { AddWorktreeParams } from "./AddWorktreeParams";
 import type { AdversarialReviewParams } from "./AdversarialReviewParams";
 import type { AgentHandoffsResult } from "./AgentHandoffsResult";
 import type { AgentIdParams } from "./AgentIdParams";
+import type { AgentPerformanceParams } from "./AgentPerformanceParams";
+import type { AgentPerformanceResult } from "./AgentPerformanceResult";
 import type { AgentStats } from "./AgentStats";
 import type { AgentStatsParams } from "./AgentStatsParams";
 import type { AgentStopParams } from "./AgentStopParams";
@@ -19,6 +21,8 @@ import type { ArchMapParams } from "./ArchMapParams";
 import type { ArchMapResult } from "./ArchMapResult";
 import type { ArchRefreshParams } from "./ArchRefreshParams";
 import type { ArchRefreshResult } from "./ArchRefreshResult";
+import type { BenchmarkRecordsParams } from "./BenchmarkRecordsParams";
+import type { BenchmarkRecordsResult } from "./BenchmarkRecordsResult";
 import type { BranchResult } from "./BranchResult";
 import type { BranchesResult } from "./BranchesResult";
 import type { BudgetIdParams } from "./BudgetIdParams";
@@ -32,6 +36,10 @@ import type { CheckoutParams } from "./CheckoutParams";
 import type { CommitParams } from "./CommitParams";
 import type { CommitResult } from "./CommitResult";
 import type { ConsensusResult } from "./ConsensusResult";
+import type { ContextExplainParams } from "./ContextExplainParams";
+import type { ContextExplainResult } from "./ContextExplainResult";
+import type { ContextPreviewParams } from "./ContextPreviewParams";
+import type { ContextPreviewResult } from "./ContextPreviewResult";
 import type { CostByDimensionParams } from "./CostByDimensionParams";
 import type { CostByDimensionResult } from "./CostByDimensionResult";
 import type { CostRecordsParams } from "./CostRecordsParams";
@@ -172,6 +180,8 @@ import type { MergeResult } from "./MergeResult";
 import type { MergeSetPolicyParams } from "./MergeSetPolicyParams";
 import type { MkdirParams } from "./MkdirParams";
 import type { ModeResult } from "./ModeResult";
+import type { ModelBenchmarksParams } from "./ModelBenchmarksParams";
+import type { ModelBenchmarksResult } from "./ModelBenchmarksResult";
 import type { NodeInfo } from "./NodeInfo";
 import type { NodeInfoParams } from "./NodeInfoParams";
 import type { NodeResourcesResult } from "./NodeResourcesResult";
@@ -500,6 +510,11 @@ export type Methods = {
   "merge.resolveConflict": [MergeResolveConflictParams, MergeProposalResult];
   "merge.policy": [MergePolicyParams, MergePolicyResult];
   "merge.setPolicy": [MergeSetPolicyParams, MergePolicyResult];
+  "context.preview": [ContextPreviewParams, ContextPreviewResult];
+  "context.explain": [ContextExplainParams, ContextExplainResult];
+  "benchmarks.models": [ModelBenchmarksParams, ModelBenchmarksResult];
+  "benchmarks.agents": [AgentPerformanceParams, AgentPerformanceResult];
+  "benchmarks.records": [BenchmarkRecordsParams, BenchmarkRecordsResult];
 };
 
 /** All implemented method names. */
@@ -708,6 +723,11 @@ export const METHOD_NAMES = [
   "merge.resolveConflict",
   "merge.policy",
   "merge.setPolicy",
+  "context.preview",
+  "context.explain",
+  "benchmarks.models",
+  "benchmarks.agents",
+  "benchmarks.records",
 ] as const;
 
 /** Wire protocol version (see orkestr-protocol PROTOCOL_VERSION). */

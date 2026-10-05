@@ -8,5 +8,6 @@ pub mod gemini;
 pub mod mock;
 pub mod mock_review;
 pub mod mock_merge;
+pub mod mock_summarize;
 pub mod ollama;
 pub mod openai;

@@ -81,6 +81,12 @@ impl AgentRuntime {
         &self.store
     }
 
+    /// Engines the runtime is wired with (context previews, Phase 2).
+    #[must_use]
+    pub fn deps(&self) -> &Arc<RuntimeDeps> {
+        &self.deps
+    }
+
     /// Seeds built-in templates and marks agents of a previous session that
     /// were still active as stopped (their tasks are interrupted by the task
     /// engine's recovery).

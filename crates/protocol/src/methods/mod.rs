@@ -20,6 +20,8 @@ pub mod approvals;
 pub mod architecture;
 pub mod audit;
 pub mod consensus;
+pub mod benchmarks;
+pub mod context;
 pub mod cost;
 pub mod emergency;
 pub mod events;
@@ -331,6 +333,12 @@ pub fn registry() -> Vec<MethodDescriptor> {
         MethodDescriptor::of::<merge::ResolveConflict>(),
         MethodDescriptor::of::<merge::Policy>(),
         MethodDescriptor::of::<merge::SetPolicy>(),
+        // context optimizer + benchmarks (Phase 2)
+        MethodDescriptor::of::<context::Preview>(),
+        MethodDescriptor::of::<context::Explain>(),
+        MethodDescriptor::of::<benchmarks::Models>(),
+        MethodDescriptor::of::<benchmarks::Agents>(),
+        MethodDescriptor::of::<benchmarks::Records>(),
     ]
 }
 

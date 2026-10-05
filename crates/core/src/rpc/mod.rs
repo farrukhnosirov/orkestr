@@ -9,6 +9,8 @@ pub mod approvals;
 pub mod architecture;
 pub mod audit;
 pub mod consensus;
+pub mod benchmarks;
+pub mod context;
 pub mod cost;
 pub mod emergency;
 pub mod events;
@@ -163,6 +165,8 @@ pub fn build_router() -> RpcRouter {
     // architecture map + execution replay (Phase 2)
     router.register(architecture::register).register(replay::register);
     router.register(merge::register);
+    // Phase 2: context optimizer + benchmarks.
+    router.register(context::register).register(benchmarks::register);
     router
 }
 

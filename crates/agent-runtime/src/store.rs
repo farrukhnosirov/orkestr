@@ -374,6 +374,11 @@ impl AgentStore {
         self.handoff_docs("agent_id", agent.to_string(), 100).await
     }
 
+    /// Handoffs of a task (any agent), newest first (context optimizer §57).
+    pub async fn task_handoffs(&self, task: TaskId, limit: u32) -> AgentResult<Vec<Handoff>> {
+        self.handoff_docs("task_id", task.to_string(), limit.clamp(1, 100)).await
+    }
+
     /// The newest handoff of a task (any agent).
     pub async fn latest_task_handoff(&self, task: TaskId) -> AgentResult<Option<Handoff>> {
         Ok(self.handoff_docs("task_id", task.to_string(), 1).await?.into_iter().next())

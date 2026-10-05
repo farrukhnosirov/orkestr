@@ -15,6 +15,7 @@
 #![warn(missing_docs)]
 
 pub mod auth;
+pub mod benchmarks;
 pub mod checks;
 pub mod config;
 pub mod discovery;
@@ -354,6 +355,7 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
         ui_language,
         quality,
         architecture,
+        benchmarks: Arc::new(benchmarks::BenchmarkStats::new()),
     });
     logging::attach_event_bus(services.events.clone());
 
@@ -388,6 +390,8 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
         orkestr_insight::arch::AutoRefreshConfig::default(),
         shutdown.clone(),
     );
+    // Benchmarks + router statistics + context-index invalidation (Phase 2).
+    benchmarks::spawn_collector(Arc::clone(&services), shutdown.clone());
     let router = Arc::new(rpc::build_router());
     let app = server::app(
         server::AppState::new(Arc::clone(&services), token.clone(), router, shutdown.clone()).with_port(addr.port()),

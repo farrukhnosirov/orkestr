@@ -27,6 +27,7 @@ orkestr-terminal.workspace = true
 orkestr-files.workspace = true
 orkestr-memory.workspace = true
 orkestr-cost.workspace = true
+orkestr-context.workspace = true
 orkestr-node.workspace = true
 orkestr-agent-runtime.workspace = true
 orkestr-orchestrator.workspace = true

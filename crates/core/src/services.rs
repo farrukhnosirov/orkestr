@@ -84,6 +84,8 @@ pub struct Services {
     pub architecture: orkestr_insight::ArchitectureService,
     /// Persistent event seq reservation.
     pub seq_high_water: Arc<crate::housekeeping::SeqHighWater>,
+    /// Historical model statistics for router auto-scoring (Phase 2, §22).
+    pub benchmarks: Arc<crate::benchmarks::BenchmarkStats>,
 }
 
 impl std::fmt::Debug for Services {

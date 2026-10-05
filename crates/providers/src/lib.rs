@@ -29,6 +29,7 @@ pub mod catalog;
 pub mod credentials;
 pub mod factory;
 pub mod fallback;
+pub mod history;
 pub mod http;
 pub mod limits;
 pub mod pricing;
@@ -44,6 +45,7 @@ pub use adapter::ProviderAdapter;
 /// runtime and the AI Manager. The Mock provider reads it to answer in that
 /// language; real models simply follow the instruction.
 pub const UI_LANGUAGE_MARKER: &str = "User interface language:";
+pub use adapters::mock_summarize::HANDOFF_SUMMARY_MARKER;
 pub use catalog::{kind_info, kind_slug, parse_kind, KindInfo, MOCK_DISPLAY_NAME, PHASE1_KINDS};
 pub use credentials::{CredentialError, CredentialResolver, MemoryCredentials};
 pub use factory::AdapterDeps;
@@ -51,6 +53,7 @@ pub use fallback::{
     chat_with_fallback, AdapterSource, AttemptOutcome, FallbackOptions, HandoffContext, HandoffHook, NullSink,
     ProviderEvent, ProviderEventSink,
 };
+pub use history::{ModelHistory, ModelStatsSource};
 pub use pricing::{estimate_cost, pricing_for, PRICING_TABLE_DATE};
 pub use registry::{
     migrations, ModelsOutcome, NewProvider, ProviderPatch, ProviderRegistry, ProviderView, RegistryError,

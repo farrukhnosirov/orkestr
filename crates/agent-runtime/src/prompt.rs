@@ -2,9 +2,7 @@
 
 use std::path::Path;
 
-use orkestr_context::{build_bundle, ContextRequest, FileIndex, FsReader, IndexOptions};
-use orkestr_domain::{AgentInstance, AgentRole, AgentTemplate, MemoryAccess, Project, Task, WorktreePolicy};
-use orkestr_protocol::methods::memory::SearchMemoryParams;
+use orkestr_domain::{AgentInstance, AgentRole, AgentTemplate, Project, Task, WorktreePolicy};
 
 use crate::deps::RuntimeDeps;
 
@@ -96,67 +94,15 @@ pub async fn initial_message(
     root: Option<&Path>,
     handoff: Option<String>,
 ) -> String {
-    let mut task_text = format!("# Task: {}\n", task.title);
-    if !task.description.trim().is_empty() {
-        task_text.push_str(&format!("\n{}\n", task.description.trim()));
-    }
-    if !task.acceptance_criteria.is_empty() {
-        task_text.push_str("\nAcceptance criteria:\n");
-        for c in &task.acceptance_criteria {
-            task_text.push_str(&format!("- [{}] {}\n", if c.met { "x" } else { " " }, c.text));
-        }
-    }
-
-    let (rules, memory) = if template.memory_access == MemoryAccess::None {
-        (Vec::new(), Vec::new())
-    } else {
-        let rules = match deps.memory.effective_rules(Some(project.id), None).await {
-            Ok(r) => r.into_iter().map(|r| r.item).collect(),
-            Err(e) => {
-                tracing::warn!(error = %e, "agent context: effective rules unavailable");
-                Vec::new()
-            }
-        };
-        let hits = deps
-            .memory
-            .search(SearchMemoryParams {
-                query: task.title.clone(),
-                project_id: Some(project.id),
-                include_global: Some(template.memory_access != MemoryAccess::ProjectOnly),
-                kinds: None,
-                limit: Some(8),
-            })
-            .await
-            .map(|h| h.into_iter().map(|h| h.item).collect())
-            .unwrap_or_default();
-        (rules, hits)
-    };
-
-    let req = ContextRequest {
-        task: format!("{}\n{}", task.title, task.description),
-        token_budget: deps.config.context_token_budget,
-        rules,
-        memory,
-        handoff,
-        max_files: 8,
-    };
-    let bundle = match root.map(Path::to_path_buf) {
-        Some(root) => tokio::task::spawn_blocking(move || {
-            let index = FileIndex::build(&root, IndexOptions::default()).unwrap_or_default();
-            build_bundle(&index, &FsReader::new(&root), &req)
-        })
-        .await
-        .ok(),
-        None => {
-            let empty = FileIndex::default();
-            Some(build_bundle(&empty, &FsReader::new(std::env::temp_dir()), &req))
-        }
-    };
-    let mut out = task_text;
-    if let Some(b) = bundle {
-        out.push_str("\n# Context (selected by Orkestr)\n");
-        out.push_str(&b.render());
-    }
+    // Full Context Optimizer (§20): cached index + import graph, churn, rule
+    // precedence, memory relevance, model-aware budget, compressed handoff.
+    let opts =
+        crate::context_plan::ContextOptions { summarize: true, ..crate::context_plan::ContextOptions::default() };
+    let planned =
+        crate::context_plan::plan_context(deps, template.memory_access, project, task, root, handoff, &opts).await;
+    let mut out = planned.task_header;
+    out.push_str("\n# Context (selected by Orkestr)\n");
+    out.push_str(&planned.plan.bundle.render());
     out.push_str("\nStart by exploring what you need, then do the work and finish with submit_result.\n");
     out
 }

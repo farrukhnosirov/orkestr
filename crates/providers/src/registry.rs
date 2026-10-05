@@ -222,6 +222,8 @@ pub struct ProviderRegistry {
     runtime: Mutex<HashMap<ProviderId, Runtime>>,
     models: Mutex<HashMap<ProviderId, CachedModels>>,
     writes: tokio::sync::Mutex<()>,
+    /// Historical benchmark statistics for auto-routing (wired by the core).
+    stats: RwLock<Option<Arc<dyn crate::history::ModelStatsSource>>>,
 }
 
 impl std::fmt::Debug for ProviderRegistry {
@@ -289,6 +291,7 @@ impl ProviderRegistry {
             runtime: Mutex::new(HashMap::new()),
             models: Mutex::new(HashMap::new()),
             writes: tokio::sync::Mutex::new(()),
+            stats: RwLock::new(None),
         }
     }
 
@@ -990,7 +993,36 @@ impl ProviderRegistry {
                     context_window: m.context_window,
                     pricing: m.pricing,
                     latency_ms: latency,
+                    history: None,
                 });
+            }
+        }
+        out
+    }
+
+    /// Wires historical benchmark statistics into auto-routing (§22).
+    pub fn set_stats_source(&self, source: Arc<dyn crate::history::ModelStatsSource>) {
+        *self.stats.write() = Some(source);
+    }
+
+    /// Context window (tokens) of `model` from the cached model list or the
+    /// provider descriptor (model-aware context budgeting, §20).
+    #[must_use]
+    pub fn model_context_window(&self, model: &ModelRef) -> Option<u32> {
+        self.candidates(std::slice::from_ref(model))
+            .into_iter()
+            .find(|c| &c.model == model)
+            .map(|c| c.context_window)
+            .filter(|w| *w > 0)
+    }
+
+    /// Candidates with historical statistics for `purpose` attached.
+    #[must_use]
+    pub fn candidates_with_history(&self, extra: &[ModelRef], purpose: Option<&str>) -> Vec<Candidate> {
+        let mut out = self.candidates(extra);
+        if let Some(src) = self.stats.read().clone() {
+            for c in &mut out {
+                c.history = src.history(&c.model, purpose);
             }
         }
         out
@@ -1001,7 +1033,7 @@ impl ProviderRegistry {
         let cfg = self.routing_config().await?;
         let mut extra = router::manual_chain(req, &cfg);
         extra.extend(req.exclude.iter().cloned());
-        Ok(router::route(req, &self.candidates(&extra), &cfg))
+        Ok(router::route(req, &self.candidates_with_history(&extra, req.purpose.as_deref()), &cfg))
     }
 
     /// Streams a chat over a fallback chain (see [`chat_with_fallback`]).

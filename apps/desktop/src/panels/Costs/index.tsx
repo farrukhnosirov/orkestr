@@ -9,6 +9,7 @@ import { useFormat, useLanguage, useT } from "../../i18n";
 import { errorMessage, requireClient, useRpcQuery } from "../../lib/rpcQuery";
 import { useAppStore } from "../../store/app";
 import type { PanelProps } from "../types";
+import { AgentPerformance, ModelBenchmarks } from "./Benchmarks";
 import { BudgetEditor } from "./BudgetEditor";
 import "./costs.css";
 import { formatPct, formatTokens, formatUsd, LEVEL_TONE, levelLabel, limitLabel, scopeLabel } from "./format";
@@ -19,6 +20,8 @@ const DIMENSIONS: CostDimension[] = ["Provider", "Model", "Agent", "Project", "T
 const WINDOWS: CostWindow[] = ["Today", "Month", "Last30Days", "All"];
 
 type Scope = "project" | "all";
+
+type View = "overview" | "models" | "agents";
 
 const RELOAD_ON = ["BudgetThreshold"] as const;
 
@@ -47,7 +50,7 @@ function Meter({ fraction, warnAt }: { fraction: number | null; warnAt: number }
 
 /** Cost & Limit Center (§22). All amounts include clearly labelled estimates. */
 export default function CostsPanel({ projectId }: PanelProps) {
-  const { t } = useT(["costs", "common"]);
+  const { t } = useT(["costs", "common", "benchmarks"]);
   const lng = useLanguage();
   const fmt = useFormat();
   const usd = (v: number) => formatUsd(v, lng);
@@ -56,6 +59,7 @@ export default function CostsPanel({ projectId }: PanelProps) {
   const connected = useAppStore((s) => s.connection.state === "open");
   const projects = useAppStore((s) => s.projects);
   const [scope, setScope] = useState<Scope>(projectId ? "project" : "all");
+  const [view, setView] = useState<View>("overview");
   const [dimension, setDimension] = useState<CostDimension>("Provider");
   const [window, setWindow] = useState<CostWindow>("Month");
   const [editing, setEditing] = useState<BudgetRule | "new" | null>(null);
@@ -136,6 +140,12 @@ export default function CostsPanel({ projectId }: PanelProps) {
           value={scope}
           onChange={setScope}
         />
+        <Tabs
+          aria-label={t("benchmarks:tabs.label")}
+          items={(["overview", "models", "agents"] as const).map((id) => ({ id, label: t(`benchmarks:tabs.${id}`) }))}
+          value={view}
+          onChange={setView}
+        />
         <Badge tone="violet" title={t("estimates.tooltip")}>
           {t("estimates.badge")}
         </Badge>
@@ -151,6 +161,12 @@ export default function CostsPanel({ projectId }: PanelProps) {
       )}
 
       <div className="cost-scroll">
+        {view === "models" ? (
+          <ModelBenchmarks projectId={pid} />
+        ) : view === "agents" ? (
+          <AgentPerformance projectId={pid} />
+        ) : (
+        <>
         <section className="cost-kpis" aria-label={t("kpi.label")}>
           <Kpi
             label={t("kpi.today")}
@@ -300,6 +316,8 @@ export default function CostsPanel({ projectId }: PanelProps) {
             </ul>
           )}
         </section>
+        </>
+        )}
       </div>
 
       {editing && (

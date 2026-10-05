@@ -46,6 +46,16 @@ pub trait ModelGateway: Send + Sync {
     fn provider(&self, id: ProviderId) -> Option<ProviderInfo>;
     /// The adapter (CLI coding-agent runs).
     fn adapter(&self, id: ProviderId) -> Option<Arc<dyn ProviderAdapter>>;
+    /// Context window (tokens) of a model, when known (model-aware context
+    /// budgeting, §20). Phase 2, additive.
+    fn context_window(&self, _model: &ModelRef) -> Option<u32> {
+        None
+    }
+    /// The model explicitly configured for a routing purpose (a routing rule),
+    /// e.g. the cheap `Summarize` model for handoff compression. Phase 2, additive.
+    async fn configured_model(&self, _purpose: &str) -> Option<ModelRef> {
+        None
+    }
 }
 
 /// Production gateway over the provider registry.
@@ -84,5 +94,14 @@ impl ModelGateway for RegistryGateway {
 
     fn adapter(&self, id: ProviderId) -> Option<Arc<dyn ProviderAdapter>> {
         self.0.adapter(id)
+    }
+
+    fn context_window(&self, model: &ModelRef) -> Option<u32> {
+        self.0.model_context_window(model)
+    }
+
+    async fn configured_model(&self, purpose: &str) -> Option<ModelRef> {
+        let cfg = self.0.routing_config().await.ok()?;
+        cfg.rule_for(purpose).map(|r| r.model.clone())
     }
 }

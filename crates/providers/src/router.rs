@@ -40,6 +40,8 @@ pub struct Candidate {
     pub pricing: Option<ModelPricing>,
     /// Average latency (ms).
     pub latency_ms: Option<f64>,
+    /// Historical benchmark statistics (auto-scoring input; `None` = unknown).
+    pub history: Option<crate::history::ModelHistory>,
 }
 
 /// Capabilities a request needs.
@@ -167,7 +169,8 @@ pub fn score(c: &Candidate, req: &RouteRequest, cfg: &RoutingConfig) -> f64 {
         (Some(p), false) => 1.0 / (1.0 + (p.input_per_mtok_usd + p.output_per_mtok_usd) / 2.0 / 5.0),
         (None, false) => 0.5,
     };
-    let latency = c.latency_ms.map_or(0.5, |ms| 1.0 / (1.0 + ms / 2000.0));
+    let latency =
+        c.latency_ms.or_else(|| c.history.and_then(|h| h.avg_latency_ms)).map_or(0.5, |ms| 1.0 / (1.0 + ms / 2000.0));
     let health = match c.health {
         ProviderHealth::Healthy => 1.0,
         ProviderHealth::Unknown => 0.6,
@@ -188,6 +191,10 @@ pub fn score(c: &Candidate, req: &RouteRequest, cfg: &RoutingConfig) -> f64 {
         } else if rule.fallback.contains(&c.model) {
             s += 0.5;
         }
+    }
+    // Learned quality / latency / cost from past executions (§22).
+    if let Some(h) = &c.history {
+        s += h.adjustment();
     }
     if c.kind == ProviderKind::Mock {
         s -= 0.8; // the offline demo is a last resort when real providers exist
@@ -271,6 +278,7 @@ mod tests {
             context_window: 128_000,
             pricing: crate::pricing::pricing_for(model),
             latency_ms: Some(500.0),
+            history: None,
         }
     }
 
@@ -367,6 +375,35 @@ mod tests {
         };
         let req = RouteRequest { purpose: Some("Architect".into()), ..RouteRequest::default() };
         assert_eq!(route(&req, &[cheap.clone(), expensive.clone()], &cfg)[0], mr(&expensive));
+    }
+
+    #[test]
+    fn auto_scoring_uses_history_when_confident() {
+        use crate::history::ModelHistory;
+        let (a, b) = (ProviderId::new(), ProviderId::new());
+        let mut x = cand(a, "gpt-4o", ProviderKind::OpenAi, false);
+        let mut y = cand(b, "claude-sonnet-4-5", ProviderKind::Anthropic, false);
+        x.pricing = y.pricing;
+        let cfg = RoutingConfig { mode: RoutingMode::Auto, ..RoutingConfig::default() };
+        // Same static profile → tie broken by provider id; history decides otherwise.
+        let base = route(&RouteRequest::default(), &[x.clone(), y.clone()], &cfg);
+        let loser = if base[0] == mr(&x) { &mut x } else { &mut y };
+        loser.history = Some(ModelHistory {
+            samples: 25,
+            call_success_rate: 1.0,
+            first_pass_rate: Some(0.95),
+            avg_latency_ms: Some(400.0),
+            avg_cost_usd: Some(0.01),
+        });
+        let favoured = mr(loser);
+        assert_eq!(route(&RouteRequest::default(), &[x.clone(), y.clone()], &cfg)[0], favoured);
+        // Too few samples: ignored.
+        for c in [&mut x, &mut y] {
+            if let Some(h) = c.history.as_mut() {
+                h.samples = 2;
+            }
+        }
+        assert_eq!(route(&RouteRequest::default(), &[x, y], &cfg), base);
     }
 
     #[test]
