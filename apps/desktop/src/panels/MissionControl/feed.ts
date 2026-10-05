@@ -205,7 +205,7 @@ export function applyQualityEvent(runs: readonly QualityRun[], ev: Event, max = 
   }
   const run = next;
   const rest = runs.filter((r) => r.id !== run.id);
-  return [run, ...rest].sort(newerFirst).slice(0, max);
+  return [run, ...rest].sort((a, b) => newerFirst({ seq: a.seq, ts: a.finishedAt ?? a.startedAt }, { seq: b.seq, ts: b.finishedAt ?? b.startedAt })).slice(0, max);
 }
 
 /** Event kinds that matter to the feed. */
