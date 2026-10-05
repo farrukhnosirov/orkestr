@@ -1,0 +1,207 @@
+/*
+ * Visual OS layer (§28, §31): Performance Mode gating, density, background
+ * dim, motion and chrome polish. Driven by root attributes written by the
+ * performance store (`data-ok-performance|motion|blur|glow|bg-anim|gpu|paused`,
+ * `--ok-motion-scale`) and the UI preferences (`data-ok-density`, `--ok-bg-dim`).
+ * Tokens only; `!important` on custom properties lets the performance policy
+ * win over theme overrides written inline on <html>/<body>.
+ */
+
+/* ── Performance gating ───────────────────────────────── */
+:root[data-ok-blur="off"],
+:root[data-ok-blur="off"] body {
+  --ok-blur: 0px !important;
+}
+
+:root[data-ok-glow="off"],
+:root[data-ok-glow="off"] body {
+  --ok-glow-intensity: 0 !important;
+}
+
+:root[data-ok-motion="reduced"] {
+  --ok-duration-fast: 60ms;
+  --ok-duration-base: 100ms;
+  --ok-duration-slow: 180ms;
+}
+
+:root[data-ok-motion="off"] {
+  --ok-duration-fast: 0ms;
+  --ok-duration-base: 0ms;
+  --ok-duration-slow: 0ms;
+}
+
+:root[data-ok-motion="off"] *,
+:root[data-ok-motion="off"] *::before,
+:root[data-ok-motion="off"] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0ms !important;
+}
+
+/* Spinners keep turning (they communicate progress), just without glow. */
+:root[data-ok-motion="off"] .ok-spinner {
+  animation-duration: 0.8s !important;
+  animation-iteration-count: infinite !important;
+}
+
+/* Hidden / minimized window: every CSS animation pauses (§70). */
+:root[data-ok-paused="on"] *,
+:root[data-ok-paused="on"] *::before,
+:root[data-ok-paused="on"] *::after {
+  animation-play-state: paused !important;
+}
+
+/* Ultra Visual: richer glass. */
+:root[data-ok-performance="UltraVisual"] .titlebar,
+:root[data-ok-performance="UltraVisual"] .aiui-card {
+  backdrop-filter: blur(calc(var(--ok-blur) * var(--ok-blur-scale, 1))) saturate(160%);
+  -webkit-backdrop-filter: blur(calc(var(--ok-blur) * var(--ok-blur-scale, 1))) saturate(160%);
+}
+
+/* ── Density ──────────────────────────────────────────── */
+:root[data-ok-density="compact"] {
+  --ok-space-2: 6px;
+  --ok-space-3: 9px;
+  --ok-space-4: 12px;
+  --ok-space-5: 16px;
+  --ok-space-6: 18px;
+  --ok-space-8: 24px;
+  --ok-titlebar-height: 34px;
+  --ok-statusbar-height: 22px;
+  --ok-rail-width: 58px;
+  --ok-font-size-md: 12.5px;
+  --ok-font-size-lg: 14px;
+}
+
+:root[data-ok-density="compact"] .rail__tile,
+:root[data-ok-density="compact"] .rail__add {
+  width: 36px;
+  height: 36px;
+}
+
+:root[data-ok-density="compact"] .dockview-theme-nebula {
+  --dv-tabs-and-actions-container-height: 30px;
+  padding: 4px;
+}
+
+/* ── Background: dim + ambient drift ─────────────────── */
+.app__backdrop {
+  box-shadow: inset 0 0 0 100vmax rgba(0, 0, 0, var(--ok-bg-dim, 0));
+  transition: box-shadow var(--ok-duration-slow) var(--ok-ease);
+}
+
+.app__backdrop::after {
+  opacity: calc((0.5 * var(--ok-glow-intensity) + 0.15) * (1 - var(--ok-bg-dim, 0) * 0.6));
+}
+
+/* Subtle nebula drift (Balanced / Ultra only; compositor-only transform). */
+.app__backdrop::before {
+  content: "";
+  position: absolute;
+  inset: -8%;
+  background:
+    radial-gradient(600px 420px at 30% 30%, color-mix(in srgb, var(--ok-color-violet) 10%, transparent) 0%, transparent 70%),
+    radial-gradient(520px 380px at 75% 70%, color-mix(in srgb, var(--ok-color-accent) 8%, transparent) 0%, transparent 70%);
+  opacity: 0;
+  pointer-events: none;
+  will-change: transform;
+}
+
+:root[data-ok-bg-anim="on"] .app__backdrop::before {
+  opacity: calc(0.4 + 0.6 * var(--ok-glow-intensity));
+  animation: ok-nebula-drift 48s ease-in-out infinite alternate;
+}
+
+@keyframes ok-nebula-drift {
+  0% {
+    transform: translate3d(-2%, -1%, 0) scale(1);
+  }
+  100% {
+    transform: translate3d(3%, 2%, 0) scale(1.06);
+  }
+}
+
+.ambient-field {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  opacity: calc(0.35 + 0.45 * var(--ok-glow-intensity));
+  mix-blend-mode: screen;
+}
+
+/* ── Chrome polish ────────────────────────────────────── */
+.titlebar__ctl:focus-visible,
+.titlebar__search:focus-visible,
+.rail__tile:focus-visible,
+.rail__add:focus-visible {
+  outline: none;
+  box-shadow: var(--ok-focus-ring), var(--ok-glow-accent);
+}
+
+.titlebar__ctl:active {
+  transform: scale(0.94);
+}
+
+.titlebar__ctl {
+  transition:
+    background var(--ok-duration-fast) var(--ok-ease),
+    color var(--ok-duration-fast) var(--ok-ease),
+    transform var(--ok-duration-fast) var(--ok-ease);
+}
+
+.titlebar__hud svg {
+  transition: transform var(--ok-duration-base) var(--ok-ease-spring);
+}
+
+.titlebar__hud:hover svg {
+  transform: translateY(-1px) scale(1.08);
+}
+
+.rail__tile:hover {
+  transform: translateY(-1px);
+}
+
+.statusbar {
+  backdrop-filter: blur(calc(var(--ok-blur) * 0.6));
+  -webkit-backdrop-filter: blur(calc(var(--ok-blur) * 0.6));
+}
+
+/* Thin accent line along the top of the status bar while agents work. */
+.statusbar {
+  position: relative;
+}
+
+.statusbar::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -1px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--ok-color-border-accent), transparent);
+  opacity: calc(0.3 + 0.4 * var(--ok-glow-intensity));
+  pointer-events: none;
+}
+
+/* Universal visible focus for custom controls that forgot one. */
+button:focus-visible,
+[role="button"]:focus-visible,
+[role="tab"]:focus-visible,
+[role="radio"]:focus-visible,
+[role="switch"]:focus-visible,
+a:focus-visible {
+  outline: none;
+  box-shadow: var(--ok-focus-ring);
+}
+
+/* Scrollbars: accent on hover/drag inside panels. */
+*::-webkit-scrollbar-thumb:active {
+  background-color: color-mix(in srgb, var(--ok-color-accent) 45%, transparent);
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}

@@ -1,0 +1,109 @@
+/* Visual OS primitives (Phase 3): skeletons, illustrations. Tokens only. */
+
+.ok-skeleton {
+  display: block;
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--ok-radius-sm);
+  background: var(--ok-color-surface-hover);
+}
+
+.ok-skeleton--pill {
+  border-radius: var(--ok-radius-pill);
+}
+
+.ok-skeleton--circle {
+  border-radius: 50%;
+}
+
+.ok-skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent 0%, color-mix(in srgb, var(--ok-color-text) 9%, transparent) 50%, transparent 100%);
+  animation: ok-shimmer 1.4s var(--ok-ease) infinite;
+}
+
+.ok-skeleton-lines {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-2);
+  width: 100%;
+}
+
+@keyframes ok-shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+.ok-illustration {
+  display: block;
+  overflow: visible;
+}
+
+.ok-illustration__spin {
+  transform-origin: 60px 60px;
+  animation: ok-spin 14s linear infinite;
+}
+
+.ok-illustration__orbit--slow {
+  transform-box: fill-box;
+}
+
+.ok-illustration__twinkle {
+  animation: ok-twinkle 2.4s ease-in-out infinite;
+}
+
+.ok-illustration__float {
+  animation: ok-float 2.8s ease-in-out infinite;
+}
+
+.ok-illustration__wave {
+  animation: ok-wave 2.1s ease-in-out infinite;
+}
+
+@keyframes ok-twinkle {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@keyframes ok-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(4px);
+  }
+}
+
+@keyframes ok-wave {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Motion off (Performance Mode / reduced motion): static art and skeletons. */
+[data-ok-motion="off"] .ok-skeleton::after,
+[data-ok-motion="off"] .ok-illustration *,
+[data-ok-motion="off"] .ok-empty__icon::before {
+  animation: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ok-skeleton::after,
+  .ok-illustration * {
+    animation: none !important;
+  }
+}

@@ -1,0 +1,128 @@
+{
+  "card": {
+    "title": "Предложено изменение интерфейса",
+    "fromManager": "От AI-менеджера",
+    "fromAgent": "От агента",
+    "fromUser": "От вас",
+    "livePreview": "Предпросмотр",
+    "preparing": "Готовим предпросмотр…",
+    "changesLabel": "Что изменится",
+    "noChanges": "Ничего не изменится — интерфейс уже выглядит так.",
+    "keep": "Оставить",
+    "revert": "Отменить",
+    "dismiss": "Закрыть",
+    "compare": "Показать как было",
+    "compareActive": "Показан исходный вид",
+    "compareHint": "Переключиться между предпросмотром и текущим интерфейсом",
+    "applying": "Сохранение…",
+    "applied": "Интерфейс обновлён",
+    "appliedHint": "Отменить изменение можно здесь или в разделе «Настройки → Интерфейс».",
+    "undo": "Отменить",
+    "close": "Закрыть",
+    "invalidTitle": "Изменение отклонено",
+    "safety": "Меняются только проверенные настройки интерфейса — никакого кода."
+  },
+  "errors": {
+    "rejected": "Предложенный патч затрагивает настройки, которые нельзя менять, или содержит небезопасные значения.",
+    "offline": "Нет подключения к ядру — предпросмотр недоступен."
+  },
+  "change": {
+    "density": "Плотность: {{value}}",
+    "panelSide": "{{name}}: переместить {{side}}",
+    "panelHidden": "{{name}}: скрыть",
+    "panelShown": "{{name}}: показать",
+    "panelReset": "{{name}}: расположение по умолчанию",
+    "widgetsHidden_one": "Скрыть виджет {{names}}",
+    "widgetsHidden_few": "Скрыть {{count}} виджета: {{names}}",
+    "widgetsHidden_many": "Скрыть {{count}} виджетов: {{names}}",
+    "widgetsHidden_other": "Скрыть {{count}} виджета: {{names}}",
+    "widgetsShown_one": "Показать виджет {{names}}",
+    "widgetsShown_few": "Показать {{count}} виджета: {{names}}",
+    "widgetsShown_many": "Показать {{count}} виджетов: {{names}}",
+    "widgetsShown_other": "Показать {{count}} виджета: {{names}}",
+    "backgroundDarker": "Фон темнее (затемнение {{percent}})",
+    "backgroundLighter": "Фон светлее (затемнение {{percent}})",
+    "hud": "HUD: {{field}}",
+    "token": "Цвет темы «{{name}}»",
+    "tokenRemoved": "Значение темы «{{name}}» — по умолчанию",
+    "effect": "Эффект: {{name}}",
+    "themeMode": "Тема: {{value}}",
+    "layoutPreset": "Раскладка: {{value}}",
+    "performanceMode": "Режим производительности: {{value}}",
+    "other": "Настройка {{path}}"
+  },
+  "quoted": "«{{name}}»",
+  "density": {
+    "Comfortable": "просторная",
+    "Compact": "компактная"
+  },
+  "side": {
+    "Left": "влево",
+    "Right": "вправо",
+    "Bottom": "вниз",
+    "Center": "в центр"
+  },
+  "themeMode": {
+    "Dark": "тёмная",
+    "Light": "светлая"
+  },
+  "preset": {
+    "Coding": "Разработка",
+    "MissionControl": "Центр управления",
+    "Monitoring": "Мониторинг",
+    "Focus": "Фокус",
+    "Custom": "Своя"
+  },
+  "hudField": {
+    "opacity": "непрозрачность",
+    "showAgents": "полоса агентов",
+    "showManagerInput": "поле для Менеджера",
+    "unknown": "внешний вид"
+  },
+  "effect": {
+    "blurPx": "размытие",
+    "glowIntensity": "свечение",
+    "panelOpacity": "непрозрачность панелей",
+    "animations": "анимации",
+    "unknown": "внешний вид"
+  },
+  "ids": {
+    "claude": "Claude",
+    "openai": "OpenAI",
+    "gemini": "Gemini",
+    "terminal": "Терминал",
+    "logs": "Журнал",
+    "agents": "Агенты",
+    "tasks": "Задачи",
+    "missionControl_claude": "Дорожка Claude",
+    "missionControl_openai": "Дорожка OpenAI",
+    "missionControl_gemini": "Дорожка Gemini",
+    "missionControl_terminal": "Терминал",
+    "missionControl_agents": "Агенты",
+    "missionControl_tasks": "Задачи",
+    "missionControl_tokenChart": "График токенов",
+    "missionControl_costChart": "График расходов",
+    "missionControl_taskGraph": "Граф задач",
+    "missionControl_resources": "Ресурсы"
+  },
+  "history": {
+    "title": "Изменения интерфейса",
+    "description": "Изменения, сделанные вами или AI-менеджером. Отмена точно восстанавливает прежние настройки.",
+    "empty": "В этом сеансе интерфейс ещё не менялся.",
+    "undo": "Отменить",
+    "redo": "Повторить",
+    "undoSummary": "Отмена: {{summary}}",
+    "redoSummary": "Повтор: {{summary}}",
+    "byManager": "AI-менеджер",
+    "byAgent": "Агент",
+    "byUser": "Вы",
+    "tryIt": "Попросите Менеджера: «Сделай Центр управления компактнее, Claude справа, убери график токенов, сделай фон темнее»."
+  },
+  "summaries": {
+    "density": "Плотность: {{value}}",
+    "backgroundDim": "Затемнение фона: {{percent}}",
+    "hudOpacity": "Непрозрачность HUD: {{percent}}",
+    "hudAgents": "Полоса агентов в HUD",
+    "hudInput": "Поле для Менеджера в HUD"
+  }
+}

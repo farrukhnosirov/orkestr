@@ -9,6 +9,8 @@ import { StatusBar } from "./components/StatusBar";
 import { TitleBar } from "./components/TitleBar";
 import { Workspace } from "./components/Workspace";
 import { bootstrapCore } from "./core/client";
+import { AiUiLayer } from "./features/aiui/AiUiLayer";
+import { VisualLayer } from "./features/performance/VisualLayer";
 import { registerSecurityFeature } from "./features/security/register";
 import { SecurityLayer } from "./features/security/SecurityLayer";
 import { commands, matchesShortcut } from "./features/commands/registry";
@@ -79,6 +81,7 @@ export function App() {
   return (
     <div className="app">
       <div className="app__backdrop" aria-hidden="true" />
+      <VisualLayer connected={ready} />
       <TitleBar />
       {ready ? (
         <div className="app__body">
@@ -101,6 +104,7 @@ export function App() {
           <ResumeCard />
         </>
       )}
+      {ready && <AiUiLayer connected={ready} />}
       <Toasts />
     </div>
   );

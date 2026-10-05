@@ -1,0 +1,86 @@
+{
+  "sectionTitle": "Interface",
+  "modes": {
+    "UltraVisual": {
+      "name": "Ultra Visual",
+      "description": "Every effect: strong glass and glow, animated background, 3D robots at 60 fps."
+    },
+    "Balanced": {
+      "name": "Balanced",
+      "description": "Glass, glow and smooth motion; 2D robots at 30 fps. The default."
+    },
+    "Performance": {
+      "name": "Performance",
+      "description": "No blur or glow, shorter motion, static background. More resources for agents."
+    },
+    "BatterySaver": {
+      "name": "Battery Saver",
+      "description": "Lowest power: no effects, no motion, slow chart refresh."
+    }
+  },
+  "group": {
+    "mode": "Performance mode",
+    "auto": "Automatic switching",
+    "density": "Density and background",
+    "hud": "HUD"
+  },
+  "effective": {
+    "label": "In effect now",
+    "user": "Chosen by you",
+    "battery": "Switched to Battery Saver — running on battery",
+    "frameBudget": "Lowered automatically — the interface was missing its frame budget",
+    "paused": "Visual effects are paused while the window is hidden"
+  },
+  "power": {
+    "onBattery": "On battery · {{percent}}",
+    "onBatteryUnknown": "On battery",
+    "onAc": "Plugged in",
+    "unsupported": "Power state is not available on this device"
+  },
+  "autoBattery": "Battery Saver on battery",
+  "autoBatteryDesc": "Switch to Battery Saver automatically when the device runs on battery.",
+  "autoDegrade": "Lower effects when the interface stutters",
+  "autoDegradeDesc": "If frames keep missing their budget, step down one mode (never below Performance).",
+  "reducedMotion": "The system asks for reduced motion — animations are shortened.",
+  "density": "Density",
+  "densityDesc": "Compact fits more on screen: tighter spacing and smaller chrome.",
+  "densityOptions": {
+    "Comfortable": "Comfortable",
+    "Compact": "Compact"
+  },
+  "backgroundDim": "Background dimming",
+  "backgroundDimDesc": "Darken the space background behind panels.",
+  "policy": {
+    "title": "What this mode allows",
+    "blur": "Glass blur",
+    "glow": "Glow",
+    "motion": "Motion",
+    "background": "Animated background",
+    "robots": "Robots",
+    "charts": "Chart refresh",
+    "on": "On",
+    "off": "Off",
+    "motionLevels": {
+      "full": "Full",
+      "reduced": "Reduced",
+      "off": "Off"
+    },
+    "robotsValue": "{{fps}} fps · {{dimension}}",
+    "dimension3d": "3D",
+    "dimension2d": "2D",
+    "chartsValue": "every {{seconds}} s"
+  },
+  "degraded": {
+    "title": "Visual effects lowered",
+    "body": "The interface was stuttering, so Orkestr switched to “{{mode}}” to keep agents fast. Change it in Settings → Interface."
+  },
+  "statusChip": "Mode: {{mode}}",
+  "statusChipAuto": "Mode: {{mode}} (automatic)",
+  "statusChipTitle": "Performance mode — open interface settings",
+  "fps": "{{fps}} fps",
+  "commands": {
+    "setMode": "Performance mode: {{mode}}",
+    "undoUi": "Undo the last interface change",
+    "redoUi": "Redo the interface change"
+  }
+}

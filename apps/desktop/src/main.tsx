@@ -6,6 +6,8 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
 import { App } from "./App";
+import { HudApp } from "./features/hud/HudApp";
+import { isHudWindow } from "./features/hud/hudWindow";
 import "./i18n";
 import { installLanguageEffects } from "./lib/language";
 
@@ -16,6 +18,6 @@ if (!root) throw new Error("#root element missing");
 
 createRoot(root).render(
   <StrictMode>
-    <App />
+    {isHudWindow() ? <HudApp /> : <App />}
   </StrictMode>,
 );

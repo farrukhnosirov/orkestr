@@ -1,0 +1,124 @@
+{
+  "card": {
+    "title": "UI change proposed",
+    "fromManager": "From the AI Manager",
+    "fromAgent": "From an agent",
+    "fromUser": "From you",
+    "livePreview": "Live preview",
+    "preparing": "Preparing the preview…",
+    "changesLabel": "What changes",
+    "noChanges": "Nothing would change — the interface already looks like this.",
+    "keep": "Keep",
+    "revert": "Revert",
+    "dismiss": "Dismiss",
+    "compare": "Show original",
+    "compareActive": "Showing original",
+    "compareHint": "Toggle between the preview and the current interface",
+    "applying": "Saving…",
+    "applied": "Interface updated",
+    "appliedHint": "You can undo this here or in Settings → Interface.",
+    "undo": "Undo",
+    "close": "Close",
+    "invalidTitle": "The change was rejected",
+    "safety": "Only validated interface settings change — never code."
+  },
+  "errors": {
+    "rejected": "The proposed patch touches settings that cannot be changed or contains unsafe values.",
+    "offline": "Not connected to the core — the preview is unavailable."
+  },
+  "change": {
+    "density": "Density: {{value}}",
+    "panelSide": "{{name}}: move to the {{side}}",
+    "panelHidden": "{{name}}: hide",
+    "panelShown": "{{name}}: show",
+    "panelReset": "{{name}}: default placement",
+    "widgetsHidden_one": "Hide widget {{names}}",
+    "widgetsHidden_other": "Hide {{count}} widgets: {{names}}",
+    "widgetsShown_one": "Show widget {{names}}",
+    "widgetsShown_other": "Show {{count}} widgets: {{names}}",
+    "backgroundDarker": "Darker background ({{percent}} dimming)",
+    "backgroundLighter": "Lighter background ({{percent}} dimming)",
+    "hud": "HUD: {{field}}",
+    "token": "Theme color «{{name}}»",
+    "tokenRemoved": "Theme value «{{name}}» back to default",
+    "effect": "Effect: {{name}}",
+    "themeMode": "Theme: {{value}}",
+    "layoutPreset": "Layout: {{value}}",
+    "performanceMode": "Performance mode: {{value}}",
+    "other": "Setting {{path}}"
+  },
+  "quoted": "“{{name}}”",
+  "density": {
+    "Comfortable": "comfortable",
+    "Compact": "compact"
+  },
+  "side": {
+    "Left": "left",
+    "Right": "right",
+    "Bottom": "bottom",
+    "Center": "center"
+  },
+  "themeMode": {
+    "Dark": "dark",
+    "Light": "light"
+  },
+  "preset": {
+    "Coding": "Coding",
+    "MissionControl": "Mission Control",
+    "Monitoring": "Monitoring",
+    "Focus": "Focus",
+    "Custom": "Custom"
+  },
+  "hudField": {
+    "opacity": "opacity",
+    "showAgents": "agent strip",
+    "showManagerInput": "Manager input",
+    "unknown": "appearance"
+  },
+  "effect": {
+    "blurPx": "blur",
+    "glowIntensity": "glow",
+    "panelOpacity": "panel opacity",
+    "animations": "animations",
+    "unknown": "appearance"
+  },
+  "ids": {
+    "claude": "Claude",
+    "openai": "OpenAI",
+    "gemini": "Gemini",
+    "terminal": "Terminal",
+    "logs": "Logs",
+    "agents": "Agents",
+    "tasks": "Tasks",
+    "missionControl_claude": "Claude lane",
+    "missionControl_openai": "OpenAI lane",
+    "missionControl_gemini": "Gemini lane",
+    "missionControl_terminal": "Terminal",
+    "missionControl_agents": "Agents",
+    "missionControl_tasks": "Tasks",
+    "missionControl_tokenChart": "Token chart",
+    "missionControl_costChart": "Cost chart",
+    "missionControl_taskGraph": "Task graph",
+    "missionControl_resources": "Resources"
+  },
+  "history": {
+    "title": "Interface changes",
+    "description": "Changes made by you or the AI Manager. Undo restores the previous settings exactly.",
+    "empty": "No interface changes in this session yet.",
+    "undo": "Undo",
+    "redo": "Redo",
+    "undoSummary": "Undo: {{summary}}",
+    "redoSummary": "Redo: {{summary}}",
+    "byManager": "AI Manager",
+    "byAgent": "Agent",
+    "byUser": "You",
+    "tryIt": "Try asking the Manager: “Make Mission Control more compact, Claude on the right, remove the token chart, darker background”."
+  },
+  "summaries": {
+    "density": "Density: {{value}}",
+    "backgroundDim": "Background dimming: {{percent}}",
+    "hudOpacity": "HUD opacity: {{percent}}",
+    "hudAgents": "HUD agent strip",
+    "hudInput": "HUD Manager input"
+  }
+}

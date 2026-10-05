@@ -12,6 +12,7 @@ import { managerCommands } from "../../panels/Manager/commands";
 import { GIT_COMMANDS } from "../../panels/Git/commands";
 import { terminalCommands } from "../../panels/Terminal/commands";
 import { FILE_COMMANDS } from "../files/commands";
+import { hudCommands } from "../hud/commands";
 
 export interface CommandContext {
   projectId: string | null;
@@ -63,3 +64,6 @@ export function matchesShortcut(e: Pick<KeyboardEvent, "key" | "code" | "ctrlKey
 
 // files-editor (Phase 1)
 commands.push(...FILE_COMMANDS);
+
+// HUD, Performance Mode, AI-editable UI (Phase 3)
+commands.push(...hudCommands);

@@ -1,0 +1,60 @@
+{
+  "title": "Orkestr HUD",
+  "regionLabel": "Orkestr HUD — compact status and quick actions",
+  "noProject": "No project open",
+  "managerPlaceholder": "Ask the Manager…",
+  "managerPlaceholderProject": "Ask the Manager about {{project}}…",
+  "send": "Send",
+  "sent": "Sent to the Manager",
+  "sendFailed": "Could not send: {{error}}",
+  "agents_one": "{{count}} agent working",
+  "agents_other": "{{count}} agents working",
+  "noAgents": "No active agents",
+  "agentTitle": "{{name}} — {{state}}",
+  "moreAgents": "+{{count}}",
+  "run": {
+    "idle": "Idle",
+    "Running": "Run in progress · {{done}}/{{total}}",
+    "Paused": "Run paused",
+    "Completed": "Run completed",
+    "Failed": "Run failed",
+    "Cancelled": "Run cancelled",
+    "Interrupted": "Run interrupted",
+    "managerThinking": "The Manager is working…"
+  },
+  "approvals_one": "{{count}} approval",
+  "approvals_other": "{{count}} approvals",
+  "noApprovals": "No approvals",
+  "approve": "Approve",
+  "reject": "Reject",
+  "approveTitle": "Approve: {{summary}}",
+  "riskyOpensMain": "High-risk requests are reviewed in the main window",
+  "review": "Review",
+  "voice": "Voice",
+  "voiceUnavailable": "Voice control is not set up",
+  "expand": "Open Orkestr",
+  "hide": "Hide HUD",
+  "drag": "Drag to move",
+  "stopped": "AI work is stopped",
+  "commands": {
+    "toggle": "Toggle HUD",
+    "collapse": "Collapse into HUD",
+    "group": "View"
+  },
+  "settings": {
+    "opacity": "HUD opacity",
+    "opacityDesc": "How solid the HUD background is.",
+    "showAgents": "Agent strip",
+    "showAgentsDesc": "Show active agents in the HUD.",
+    "showInput": "Manager input",
+    "showInputDesc": "Show the mini Manager input in the HUD.",
+    "open": "Open HUD",
+    "collapse": "Collapse main window into HUD",
+    "hotkey": "Toggle with {{keys}} while Orkestr is focused. The HUD remembers its position on this device.",
+    "browserOnly": "The HUD is a separate window and is available in the desktop app."
+  },
+  "titleBar": {
+    "collapse": "Collapse into HUD",
+    "collapseTitle": "Collapse into HUD ({{keys}} toggles it)"
+  }
+}

@@ -2,6 +2,7 @@ import type { ConnectionState } from "@orkestr/client";
 import { Kbd, type Status, StatusDot } from "@orkestr/ui";
 import { Cpu, Radio } from "lucide-react";
 
+import { PerfChip } from "../features/performance/PerfChip";
 import { useFormat, useT } from "../i18n";
 import { useActiveProject, useAppStore } from "../store/app";
 
@@ -50,6 +51,7 @@ export function StatusBar() {
         <span>{t("statusBar.seq", { seq: lastSeq })}</span>
       </div>
       <div className="statusbar__spacer" />
+      <PerfChip />
       {project && <div className="statusbar__item statusbar__item--muted">{project.name}</div>}
       <div className="statusbar__item statusbar__item--muted">
         <Kbd>Ctrl</Kbd>
