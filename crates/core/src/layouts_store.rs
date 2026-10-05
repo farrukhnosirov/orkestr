@@ -21,7 +21,7 @@ use orkestr_storage::{Db, Migration, StorageError, StorageResult};
 
 /// Migrations owned by the layouts store (appended after every other list).
 pub const LAYOUT_MIGRATIONS: &[Migration] = &[Migration {
-    id: "core_0003_ui_layouts",
+    id: "core_0301_ui_layouts",
     owner: "core",
     up: "CREATE TABLE ui_layouts (
             device_id  TEXT NOT NULL,

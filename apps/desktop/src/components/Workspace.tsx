@@ -123,7 +123,7 @@ function Watermark(_props: IWatermarkPanelProps) {
       description={popouts > 0 ? translate("layout:workspace.allDetached", { count: popouts }) : t("workspace.emptyDescription")}
       action={
         <Button variant="primary" onClick={() => void layout.resetActive()}>
-          {t("workspace.restoreLayout")}
+          {translate("layout:workspace.restore")}
         </Button>
       }
     />
