@@ -1,0 +1,171 @@
+{
+  "settings": {
+    "sectionTitle": "Robots",
+    "loading": "Loading robot settings…",
+    "unavailable": "Robot settings are unavailable",
+    "floating": "Floating robots",
+    "show": "Show floating robots",
+    "showDesc": "Every running agent gets a robot on your desktop. Click a robot to open the agent, right-click for more.",
+    "showDescBrowser": "Robots live on the desktop and appear only in the Orkestr desktop app.",
+    "maxVisible": "Robots on the desktop",
+    "maxVisibleDesc": "The rest gather in a cluster you can click.",
+    "linger": "Keep finished robots",
+    "lingerDesc": "How long a robot stays after its agent finishes, to celebrate and show the result.",
+    "lingerNone": "Hide at once",
+    "seconds_one": "{{count}} s",
+    "seconds_other": "{{count}} s",
+    "minutes_one": "{{count}} min",
+    "minutes_other": "{{count}} min",
+    "hidden_one": "{{count}} robot hidden",
+    "hidden_other": "{{count}} robots hidden",
+    "hiddenDesc": "Robots you hid stay hidden until Orkestr restarts.",
+    "showHidden": "Show them again"
+  },
+  "designer": {
+    "title": "Robot Designer",
+    "target": "Design for",
+    "targetDesc": "The default design applies to every template without its own.",
+    "defaultDesign": "Default design",
+    "templateCustom": "{{name}} (custom)",
+    "pause": "Pause the preview",
+    "play": "Cycle through states",
+    "previewState": "Preview state",
+    "mode": "Rendering",
+    "modes": {
+      "TwoD": "2D",
+      "ThreeD": "3D"
+    },
+    "threeDHint": "3D robots render only in the Ultra Visual performance mode; other modes show the 2D robot.",
+    "skin": "Skin",
+    "material": "Material",
+    "accent": "Accent color",
+    "accentFromSkin": "Use the skin color",
+    "scale": "Size",
+    "intensity": "Animation",
+    "accessories": "Accessories",
+    "accessoriesLimit_one": "up to {{count}}",
+    "accessoriesLimit_other": "up to {{count}}",
+    "voice": "Voice",
+    "voiceEnabled": "Read bubbles aloud",
+    "voiceId": "Voice ID",
+    "voiceIdPlaceholder": "Voice ID (empty: the template voice)",
+    "sounds": "Sounds",
+    "behaviour": "Behaviour",
+    "bubble": "Speech bubbles",
+    "invalid_one": "The design has {{count}} problem.",
+    "invalid_other": "The design has {{count}} problems.",
+    "useDefault": "Use the default design",
+    "revert": "Revert"
+  },
+  "skins": {
+    "nebula": "Nebula",
+    "ember": "Ember",
+    "mint": "Mint",
+    "chrome": "Chrome",
+    "sakura": "Sakura",
+    "obsidian": "Obsidian",
+    "sunrise": "Sunrise",
+    "glacier": "Glacier"
+  },
+  "materials": {
+    "Matte": "Matte",
+    "Glossy": "Glossy",
+    "Metal": "Metal",
+    "Neon": "Neon"
+  },
+  "accessories": {
+    "antenna": "Antenna",
+    "headphones": "Headphones",
+    "visor": "Visor",
+    "bowtie": "Bow tie",
+    "jetpack": "Jetpack",
+    "halo": "Halo",
+    "scarf": "Scarf"
+  },
+  "sounds": {
+    "none": "Off",
+    "soft": "Soft",
+    "retro": "Retro",
+    "scifi": "Sci-fi",
+    "chime": "Chime"
+  },
+  "behaviour": {
+    "snap": "Snap to screen edges and other robots",
+    "autoHideIdle": "Hide while the agent is idle",
+    "clickThroughIdle": "Let clicks pass through an idle robot"
+  },
+  "bubbleLevels": {
+    "Off": "Off",
+    "Minimal": "Results",
+    "Normal": "Normal",
+    "Chatty": "Everything"
+  },
+  "commands": {
+    "group": "Robots",
+    "show": "Show floating robots",
+    "hide": "Hide floating robots",
+    "designer": "Open Robot Designer"
+  },
+  "templates": {
+    "design": "Robot design"
+  },
+  "assign": {
+    "title": "Assign to project",
+    "confirm": "Start a new agent from the same template as {{agent}} in {{project}}? {{agent}} keeps working in its current project.",
+    "sameProject": "{{agent}} already works in {{project}}.",
+    "noTemplate": "{{agent}} was not started from a template, so it cannot be assigned to another project.",
+    "unavailable": "This robot or project is no longer available.",
+    "action": "Assign",
+    "doneTitle": "Agent assigned",
+    "doneBody": "{{name}} started in the project.",
+    "failedTitle": "Could not assign the agent"
+  },
+  "robot": {
+    "unknownAgent": "Agent",
+    "label": "{{name}}: {{state}}. Click to open the agent; right-click for actions.",
+    "invalidRoute": "Unknown robot",
+    "offline": "No connection to the Orkestr core"
+  },
+  "menu": {
+    "label": "Robot actions",
+    "open": "Open agent details",
+    "stop": "Stop agent",
+    "hide": "Hide robot",
+    "assign": "Assign to project…",
+    "voice": "Voice",
+    "assignTitle": "Assign to project",
+    "noProjects": "No other projects"
+  },
+  "cluster": {
+    "label_one": "{{count}} more robot. Click to open the agents.",
+    "label_other": "{{count}} more robots. Click to open the agents.",
+    "count_one": "+{{count}} robot",
+    "count_other": "+{{count}} robots",
+    "hint": "Open agents"
+  },
+  "bubble": {
+    "completed": "Done! ✓",
+    "error": "Something went wrong",
+    "errorDetail": "Error: {{detail}}",
+    "waiting": "Waiting for you",
+    "approval": "I need your approval",
+    "thinking": "Thinking…",
+    "coding": "Writing code…",
+    "testing": "Running tests…",
+    "reviewing": "Reviewing the changes…",
+    "listening": "Listening…",
+    "activity": "{{activity}}",
+    "stopped": "Stopped",
+    "limitReached": "Limit reached, I stopped",
+    "testsPassed_one": "Tests passed ✓ ({{count}})",
+    "testsPassed_other": "Tests passed ✓ ({{count}})",
+    "testsFailed_one": "{{count}} test failed",
+    "testsFailed_other": "{{count}} tests failed",
+    "reviewApproved": "Review approved ✓",
+    "reviewChanges_one": "Review: {{count}} change requested",
+    "reviewChanges_other": "Review: {{count}} changes requested",
+    "reviewRejected": "Review rejected",
+    "buildSucceeded": "Build succeeded ✓",
+    "buildFailed": "Build failed"
+  }
+}

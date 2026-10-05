@@ -60,6 +60,7 @@ export function ProjectRail() {
                   style={tileStyle(p)}
                   aria-label={t("rail.openProject", { name: p.name })}
                   aria-current={active ? "true" : undefined}
+                  data-robot-drop={p.id}
                   onClick={() => {
                     if (!active) void openProject(p.id);
                   }}

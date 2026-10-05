@@ -31,7 +31,14 @@ export const ROBOT_EVENTS = {
   configChanged: "orkestr://robots/config-changed",
   /** main → cluster window: agent ids in the overflow cluster. */
   cluster: "orkestr://robots/cluster",
+  /** robot → main: a robot saved its position (`{key, position}`), keep the cached document fresh. */
+  positionSaved: "orkestr://robots/position-saved",
 } as const;
+
+export interface PositionSaved {
+  key: string;
+  position: { monitor: string | null; x: number; y: number };
+}
 
 export type MainRequest = "open-agent" | "hide" | "assign" | "open-cluster" | "voice" | "cluster-ready";
 
@@ -81,6 +88,9 @@ export const robotShell = {
   },
   async broadcastConfigChanged(): Promise<void> {
     if (isTauri()) await emit(ROBOT_EVENTS.configChanged);
+  },
+  async positionSaved(p: PositionSaved): Promise<void> {
+    if (isTauri()) await emitTo("main", ROBOT_EVENTS.positionSaved, p);
   },
   async sendCluster(agentIds: string[]): Promise<void> {
     if (isTauri()) await emitTo("robot-cluster", ROBOT_EVENTS.cluster, agentIds);

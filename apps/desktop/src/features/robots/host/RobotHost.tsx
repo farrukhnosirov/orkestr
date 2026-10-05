@@ -25,7 +25,7 @@ import {
   selectRobots,
 } from "../model/visibility";
 import { clusterOpenArgs, type OpenWindow, robotOpenArgs, slotDesign, staleWindows } from "../model/windows";
-import { ROBOT_EVENTS, type RobotDrop, robotShell } from "../shell";
+import { type PositionSaved, ROBOT_EVENTS, type RobotDrop, robotShell } from "../shell";
 import { useRobotsStore } from "../store";
 import { AssignDialog } from "./AssignDialog";
 import { focusAgent } from "./focus";
@@ -60,9 +60,10 @@ export function RobotHost() {
     if (connected) void useRobotsStore.getState().load();
   }, [connected]);
 
-  // Active agents (+ fresh designs whenever the document changes).
+  // Active agents (+ fresh designs whenever the designs change; positions do not matter here).
+  const designsKey = config ? JSON.stringify([config.defaultDesign, config.designs]) : null;
   useEffect(() => {
-    if (!connected || !config) return undefined;
+    if (!connected || designsKey === null) return undefined;
     let cancelled = false;
     const lingering = [...slotsRef.current.values()].filter((s) => s.finishedAt !== null).map((s) => s.agentId);
     Promise.all([fetchEntries(null), lingering.length ? fetchEntries(lingering) : Promise.resolve([])])
@@ -73,7 +74,7 @@ export function RobotHost() {
     return () => {
       cancelled = true;
     };
-  }, [connected, config]);
+  }, [connected, designsKey]);
 
   // Live agent events of every project.
   useEffect(() => {
@@ -193,6 +194,7 @@ export function RobotHost() {
       robotShell.on<RobotDrop>(ROBOT_EVENTS.assign, (p) => setAssign(p)),
       robotShell.on<RobotDrop>(ROBOT_EVENTS.drop, (p) => setAssign(p)),
       robotShell.on(ROBOT_EVENTS.openCluster, () => workspaceActions.openPanel("agents")),
+      robotShell.on<PositionSaved>(ROBOT_EVENTS.positionSaved, (p) => useRobotsStore.getState().notePosition(p.key, p.position)),
       robotShell.on(ROBOT_EVENTS.clusterReady, () => {
         void robotShell.sendCluster(overflowRef.current).catch(() => undefined);
       }),

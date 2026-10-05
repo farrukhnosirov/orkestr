@@ -15,6 +15,7 @@ import { planAssign } from "../model/assign";
 import type { RobotSlot } from "../model/visibility";
 import type { RobotDrop } from "../shell";
 import { spawnInProject } from "./focus";
+import "../designer/designer.css";
 
 export interface AssignDialogProps {
   request: RobotDrop;

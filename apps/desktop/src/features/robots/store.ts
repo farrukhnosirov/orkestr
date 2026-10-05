@@ -3,7 +3,7 @@
  * cached from the core), robots the user hid this session and the Robot
  * Designer's target. Business data comes from the core over RPC only.
  */
-import type { RobotDesign, RobotsConfig, SetRobotsConfigParams } from "@orkestr/protocol";
+import type { RobotDesign, RobotPosition, RobotsConfig, SetRobotsConfigParams } from "@orkestr/protocol";
 import { create } from "zustand";
 
 import { maybeClient } from "../../core/client";
@@ -26,6 +26,8 @@ export interface RobotsState {
   load: () => Promise<void>;
   patch: (p: SetRobotsConfigParams) => Promise<boolean>;
   saveDesign: (target: DesignerTarget, design: RobotDesign | null) => Promise<boolean>;
+  /** A robot window saved its position (keeps the cache in step without a refetch). */
+  notePosition: (key: string, position: RobotPosition) => void;
   hide: (agentId: string) => void;
   unhideAll: () => void;
   setTarget: (target: DesignerTarget) => void;
@@ -72,6 +74,11 @@ export const useRobotsStore = create<RobotsState>()((set, get) => ({
       return design ? get().patch({ defaultDesign: design }) : Promise.resolve(false);
     }
     return get().patch({ design: { templateId: target.templateId, design } });
+  },
+
+  notePosition: (key, position) => {
+    const config = get().config;
+    if (config) set({ config: { ...config, positions: { ...config.positions, [key]: position } } });
   },
 
   hide: (agentId) => {

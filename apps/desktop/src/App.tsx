@@ -15,11 +15,13 @@ import { commands, matchesShortcut } from "./features/commands/registry";
 import { Toasts } from "./features/notifications/NotificationCenter";
 import { OnboardingWizard } from "./features/onboarding/OnboardingWizard";
 import { ResumeCard } from "./features/resume/ResumeCard";
+import { RobotHost, registerRobotsFeature } from "./features/robots/register";
 import { SettingsView } from "./features/settings/SettingsView";
 import { useShellBootstrap } from "./features/settings/useShellBootstrap";
 import { useAppStore } from "./store/app";
 
 registerSecurityFeature();
+registerRobotsFeature();
 
 function useTheme() {
   const themeId = useAppStore((s) => s.themeId);
@@ -99,6 +101,7 @@ export function App() {
           <SettingsView />
           <OnboardingWizard />
           <ResumeCard />
+          <RobotHost />
         </>
       )}
       <Toasts />
