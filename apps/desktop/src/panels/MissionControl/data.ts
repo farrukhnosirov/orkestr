@@ -223,6 +223,18 @@ function startFeed(topics: readonly string[]): () => void {
 }
 
 /** Joins the shared feed while mounted. */
+/**
+ * Quality runs published by an external source.
+ * INTEGRATOR(P2): when the quality pipeline lands, feed its latest runs here
+ * (`setQualityRuns(runs)` after `quality.*` RPC loads / events); `null`
+ * returns to the event-derived list. The widget prefers the published list.
+ */
+export const useQualityRunsStore = create<{ runs: QualityRun[] | null }>()(() => ({ runs: null }));
+
+export function setQualityRuns(runs: QualityRun[] | null): void {
+  useQualityRunsStore.setState({ runs });
+}
+
 export function useMissionFeed(): Pick<FeedState, "alerts" | "quality" | "loaded"> {
   const connected = useAppStore((s) => s.connection.state === "open");
   const topics = useProjectTopics();
@@ -245,7 +257,9 @@ export function useMissionFeed(): Pick<FeedState, "alerts" | "quality" | "loaded
     };
   }, [connected, key]);
   const alerts = useFeedStore((s) => s.alerts);
-  const quality = useFeedStore((s) => s.quality);
+  const derived = useFeedStore((s) => s.quality);
+  const published = useQualityRunsStore((s) => s.runs);
+  const quality = published ?? derived;
   const loaded = useFeedStore((s) => s.loaded);
   return { alerts, quality, loaded };
 }

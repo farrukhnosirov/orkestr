@@ -125,7 +125,7 @@ export type QualityStatus = "running" | "passed" | "failed";
 /**
  * A build or test run as Mission Control shows it.
  * INTEGRATOR(P2): the quality pipeline exposes runs over RPC (`quality.*`);
- * bind them through `setQualitySource` in `data.ts` — this shape is the
+ * publish them with `setQualityRuns` in `data.ts` — this shape is the
  * contract the widget renders.
  */
 export interface QualityRun {
