@@ -133,10 +133,22 @@ import type { ManagerStatusResult } from "./ManagerStatusResult";
 import type { MemoryIdParams } from "./MemoryIdParams";
 import type { MemoryItemResult } from "./MemoryItemResult";
 import type { MemoryListResult } from "./MemoryListResult";
+import type { MergeAbortParams } from "./MergeAbortParams";
+import type { MergeExecuteParams } from "./MergeExecuteParams";
+import type { MergeListParams } from "./MergeListParams";
+import type { MergeListResult } from "./MergeListResult";
 import type { MergeParams } from "./MergeParams";
+import type { MergePolicyParams } from "./MergePolicyParams";
+import type { MergePolicyResult } from "./MergePolicyResult";
 import type { MergePreview } from "./MergePreview";
 import type { MergePreviewParams } from "./MergePreviewParams";
+import type { MergeProposalIdParams } from "./MergeProposalIdParams";
+import type { MergeProposalResult } from "./MergeProposalResult";
+import type { MergeProposeParams } from "./MergeProposeParams";
+import type { MergeReorderParams } from "./MergeReorderParams";
+import type { MergeResolveConflictParams } from "./MergeResolveConflictParams";
 import type { MergeResult } from "./MergeResult";
+import type { MergeSetPolicyParams } from "./MergeSetPolicyParams";
 import type { MkdirParams } from "./MkdirParams";
 import type { ModeResult } from "./ModeResult";
 import type { NodeInfo } from "./NodeInfo";
@@ -417,6 +429,15 @@ export type Methods = {
   "manager.cancel": [ManagerRunIdParams, ManagerRunResult];
   "manager.status": [ManagerStatusParams, ManagerStatusResult];
   "manager.resumeSummary": [ManagerProjectParams, ManagerResumeSummary];
+  "merge.propose": [MergeProposeParams, MergeProposalResult];
+  "merge.get": [MergeProposalIdParams, MergeProposalResult];
+  "merge.list": [MergeListParams, MergeListResult];
+  "merge.reorder": [MergeReorderParams, MergeProposalResult];
+  "merge.execute": [MergeExecuteParams, MergeProposalResult];
+  "merge.abort": [MergeAbortParams, MergeProposalResult];
+  "merge.resolveConflict": [MergeResolveConflictParams, MergeProposalResult];
+  "merge.policy": [MergePolicyParams, MergePolicyResult];
+  "merge.setPolicy": [MergeSetPolicyParams, MergePolicyResult];
 };
 
 /** All implemented method names. */
@@ -592,6 +613,15 @@ export const METHOD_NAMES = [
   "manager.cancel",
   "manager.status",
   "manager.resumeSummary",
+  "merge.propose",
+  "merge.get",
+  "merge.list",
+  "merge.reorder",
+  "merge.execute",
+  "merge.abort",
+  "merge.resolveConflict",
+  "merge.policy",
+  "merge.setPolicy",
 ] as const;
 
 /** Wire protocol version (see orkestr-protocol PROTOCOL_VERSION). */
@@ -644,6 +674,7 @@ export const EVENT_KINDS = [
   "ManagerMessageAdded",
   "ManagerPlanUpdated",
   "ManagerRunUpdated",
+  "MergeProposalUpdated",
 ] as const;
 
 /** UI config schema version (see orkestr-protocol ui_config). */

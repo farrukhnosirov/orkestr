@@ -1,0 +1,553 @@
+/* Git panel → Merge Manager tab — tokens only (contract §8). */
+
+.mm-mono {
+  font-family: var(--ok-font-mono);
+  font-size: var(--ok-font-size-xs);
+}
+
+.mm-ok {
+  color: var(--ok-color-success);
+}
+
+.mm-warn {
+  color: var(--ok-color-warning);
+}
+
+.mm-add {
+  color: var(--ok-color-success);
+  font-family: var(--ok-font-mono);
+  font-size: var(--ok-font-size-xs);
+}
+
+.mm-del {
+  color: var(--ok-color-danger);
+  font-family: var(--ok-font-mono);
+  font-size: var(--ok-font-size-xs);
+}
+
+.mm-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-2);
+  padding: var(--ok-space-2) var(--ok-space-3);
+  border-bottom: 1px solid var(--ok-color-border);
+}
+
+/* ── proposal list ─────────────────────────────────────── */
+.mm-item {
+  min-height: 0;
+  border-bottom: 1px solid var(--ok-color-border);
+}
+
+.mm-item__main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  min-width: 0;
+  padding: var(--ok-space-2) var(--ok-space-3);
+  border: 0;
+  background: transparent;
+  color: var(--ok-color-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mm-item__top {
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-2);
+  min-width: 0;
+}
+
+.mm-item__target {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mm-item__names {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ok-color-text-subtle);
+  font-family: var(--ok-font-mono);
+}
+
+/* ── detail ────────────────────────────────────────────── */
+.mm-detail {
+  padding-bottom: var(--ok-space-4);
+}
+
+.mm-detail__head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-1);
+  padding: var(--ok-space-3);
+  border-bottom: 1px solid var(--ok-color-border);
+}
+
+.mm-detail__title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ok-space-2);
+  font-weight: 600;
+}
+
+.mm-detail__actions,
+.mm-inline-actions,
+.mm-heading__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ok-space-2);
+}
+
+.mm-detail__actions {
+  margin-top: var(--ok-space-1);
+}
+
+.mm-heading__actions {
+  margin-left: auto;
+}
+
+.mm-section {
+  padding: var(--ok-space-3) var(--ok-space-3) 0;
+}
+
+.mm-heading {
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-2);
+  margin: 0 0 var(--ok-space-2);
+  font-size: var(--ok-font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ok-color-text-muted);
+}
+
+.mm-hint,
+.mm-none {
+  margin: 0 0 var(--ok-space-2);
+}
+
+.mm-none {
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-1);
+}
+
+.mm-section .git-notice {
+  margin: 0 0 var(--ok-space-2);
+}
+
+.mm-bullets {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-1);
+}
+
+.mm-bullet {
+  padding: var(--ok-space-1) var(--ok-space-2);
+  border-left: 2px solid var(--ok-color-border-strong);
+  border-radius: var(--ok-radius-xs);
+  background: var(--ok-color-surface-sunken);
+  font-size: var(--ok-font-size-sm);
+  overflow-wrap: anywhere;
+}
+
+.mm-bullet--danger {
+  border-left-color: var(--ok-color-danger);
+}
+
+.mm-bullet--warning {
+  border-left-color: var(--ok-color-warning);
+}
+
+/* ── branch cards ──────────────────────────────────────── */
+.mm-cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-2);
+}
+
+.mm-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-1);
+  padding: var(--ok-space-2) var(--ok-space-3);
+  border: 1px solid var(--ok-color-border);
+  border-radius: var(--ok-radius-md);
+  background: var(--ok-color-surface);
+}
+
+.mm-card[draggable="true"] {
+  cursor: grab;
+}
+
+.mm-card--dragging {
+  opacity: 0.5;
+}
+
+.mm-card--drop {
+  border-color: var(--ok-color-border-accent);
+  box-shadow: 0 -2px 0 var(--ok-color-accent);
+}
+
+.mm-card__head {
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-2);
+  min-width: 0;
+}
+
+.mm-card__grip {
+  display: inline-flex;
+  color: var(--ok-color-text-subtle);
+}
+
+.mm-card__index {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--ok-radius-pill);
+  background: var(--ok-color-accent-soft);
+  color: var(--ok-color-accent);
+  font-size: var(--ok-font-size-xs);
+  font-weight: 600;
+}
+
+.mm-card__title {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.mm-card__branch {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ok-space-1);
+  min-width: 0;
+}
+
+.mm-card__task {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ok-color-text-muted);
+  font-size: var(--ok-font-size-sm);
+}
+
+.mm-card__stats {
+  flex-shrink: 0;
+}
+
+.mm-card__moves {
+  display: flex;
+  flex-shrink: 0;
+}
+
+.mm-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ok-space-3);
+}
+
+.mm-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ok-space-1);
+}
+
+.mm-card__conflicts {
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-1);
+  color: var(--ok-color-warning);
+  overflow-wrap: anywhere;
+}
+
+.mm-card__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ok-space-1);
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ok-color-accent);
+  font: inherit;
+  cursor: pointer;
+}
+
+.mm-card__details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-1);
+  padding-top: var(--ok-space-1);
+  border-top: 1px dashed var(--ok-color-border);
+}
+
+.mm-subhead {
+  margin: var(--ok-space-1) 0 0;
+  font-size: var(--ok-font-size-xs);
+  font-weight: 600;
+  color: var(--ok-color-text-muted);
+}
+
+.mm-files,
+.mm-symbols {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: var(--ok-font-size-sm);
+}
+
+.mm-files li,
+.mm-symbols li {
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-2);
+  min-width: 0;
+  padding: 1px 0;
+}
+
+.mm-files__path,
+.mm-symbols__path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mm-symbols__path {
+  text-align: right;
+  font-size: var(--ok-font-size-xs);
+}
+
+.mm-sym {
+  flex-shrink: 0;
+  width: 72px;
+  font-size: var(--ok-font-size-xs);
+  text-transform: uppercase;
+}
+
+.mm-sym--Added {
+  color: var(--ok-color-success);
+}
+
+.mm-sym--Changed {
+  color: var(--ok-color-warning);
+}
+
+.mm-sym--Removed {
+  color: var(--ok-color-danger);
+}
+
+.mm-facts {
+  display: grid;
+  gap: var(--ok-space-1);
+  margin: 0;
+  font-size: var(--ok-font-size-sm);
+}
+
+.mm-facts > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ok-space-2);
+}
+
+.mm-facts dt {
+  min-width: 180px;
+  color: var(--ok-color-text-muted);
+}
+
+.mm-facts dd {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ok-space-1);
+  margin: 0;
+}
+
+/* ── conflicts ─────────────────────────────────────────── */
+.mm-conflicts {
+  display: grid;
+  grid-template-columns: minmax(180px, 28%) 1fr;
+  min-height: 360px;
+  border: 1px solid var(--ok-color-border);
+  border-radius: var(--ok-radius-md);
+  overflow: hidden;
+}
+
+.mm-conflicts__files {
+  overflow: auto;
+  border-right: 1px solid var(--ok-color-border);
+}
+
+.mm-conflicts__file {
+  padding-left: var(--ok-space-2);
+}
+
+.mm-resolver {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.mm-resolver .git-notice {
+  margin: var(--ok-space-2) var(--ok-space-2) 0;
+}
+
+.mm-resolver__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ok-space-2);
+  padding: var(--ok-space-1) var(--ok-space-2);
+  border-bottom: 1px solid var(--ok-color-border);
+}
+
+.mm-resolver__sides {
+  margin-left: auto;
+}
+
+.mm-resolver__editor {
+  flex: 1;
+  min-height: 300px;
+  display: flex;
+}
+
+.mm-resolver__editor > * {
+  flex: 1;
+}
+
+.mm-resolver__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ok-space-2);
+  padding: var(--ok-space-2);
+  border-top: 1px solid var(--ok-color-border);
+}
+
+@container (max-width: 640px) {
+  .mm-conflicts {
+    grid-template-columns: 1fr;
+  }
+
+  .mm-conflicts__files {
+    max-height: 140px;
+    border-right: 0;
+    border-bottom: 1px solid var(--ok-color-border);
+  }
+
+  .mm-facts dt {
+    min-width: 0;
+  }
+}
+
+/* ── dialogs ───────────────────────────────────────────── */
+.mm-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-3);
+}
+
+.mm-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-1);
+}
+
+.mm-field__label {
+  font-size: var(--ok-font-size-xs);
+  font-weight: 600;
+  color: var(--ok-color-text-muted);
+}
+
+.mm-select {
+  height: 30px;
+  padding: 0 var(--ok-space-2);
+  border: 1px solid var(--ok-color-border);
+  border-radius: var(--ok-radius-sm);
+  background: var(--ok-color-surface-sunken);
+  color: var(--ok-color-text);
+  font: inherit;
+  font-size: var(--ok-font-size-sm);
+}
+
+.mm-pick {
+  max-height: 240px;
+}
+
+.mm-fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.mm-radio {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ok-space-2);
+  padding: var(--ok-space-2);
+  border: 1px solid var(--ok-color-border);
+  border-radius: var(--ok-radius-md);
+  cursor: pointer;
+}
+
+.mm-radio--on {
+  border-color: var(--ok-color-border-accent);
+  background: var(--ok-color-accent-soft);
+}
+
+.mm-radio > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mm-radio__title {
+  font-size: var(--ok-font-size-sm);
+  font-weight: 600;
+}
+
+.mm-checks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-1);
+}
+
+.mm-check {
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-2);
+  font-size: var(--ok-font-size-sm);
+  cursor: pointer;
+}
+
+.mm-radio input,
+.mm-check input {
+  accent-color: var(--ok-color-accent);
+}

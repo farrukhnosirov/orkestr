@@ -246,6 +246,10 @@ export function describeEvent(event: Event): string {
       const done = r.tasks.filter((x) => x.status === "Completed").length;
       return t("events:managerRun", { status: t(`logs:enums.runStatus.${r.status}`), done, total: r.tasks.length });
     }
+    case "MergeProposalUpdated": {
+      const p = event.payload.proposal;
+      return t("events:mergeProposal", { target: p.target, status: t(`merge:status.${p.status}`) });
+    }
   }
 }
 

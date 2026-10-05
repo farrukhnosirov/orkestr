@@ -57,5 +57,6 @@
   },
   "managerPlan_one": "Manager plan “{{goal}}” {{status}} ({{count}} task)",
   "managerPlan_other": "Manager plan “{{goal}}” {{status}} ({{count}} tasks)",
-  "managerRun": "Manager run {{status}}: {{done}}/{{total}} tasks done"
+  "managerRun": "Manager run {{status}}: {{done}}/{{total}} tasks done",
+  "mergeProposal": "Merge into {{target}}: {{status}}"
 }
