@@ -611,6 +611,7 @@ impl Inner {
                 parent_agent_id: None,
                 rules: scope_rules(&assignment.permissions),
                 rule_note: Some(format!("team scope: {}", team.name)),
+                ..Default::default()
             },
             approval_cap: team.policies.approval_mode,
         })))

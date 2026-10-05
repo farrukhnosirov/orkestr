@@ -564,6 +564,10 @@ pub struct RunTask {
     pub awaiting_review: bool,
     /// Result summary of the agent.
     pub summary: Option<String>,
+    /// Quality pipeline of the task (Phase 2).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub pipeline: Option<super::pipeline::RunTaskPipeline>,
 }
 
 /// A branch ready to be merged (merging itself is Phase 2).
@@ -612,6 +616,9 @@ pub struct RunReport {
     pub duration_secs: u64,
     /// Branches to merge (Phase 2 merges them).
     pub merge_proposals: Vec<MergeProposal>,
+    /// Quality pipeline per task: gates, review verdicts, healing, merge outcome (Phase 2).
+    #[serde(default)]
+    pub pipelines: Vec<super::pipeline::PipelineReport>,
 }
 
 /// A supervised execution of a plan.

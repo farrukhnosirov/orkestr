@@ -31,6 +31,7 @@ pub mod memory;
 pub mod merge;
 pub mod nodes;
 pub mod permissions;
+pub mod pipeline;
 pub mod pm;
 pub mod projects;
 pub mod providers;
@@ -359,6 +360,12 @@ pub fn registry() -> Vec<MethodDescriptor> {
         MethodDescriptor::of::<pm::Update>(),
         MethodDescriptor::of::<pm::Approve>(),
         MethodDescriptor::of::<pm::Discard>(),
+        // quality pipeline + self-healing (Phase 2)
+        MethodDescriptor::of::<pipeline::Get>(),
+        MethodDescriptor::of::<pipeline::List>(),
+        MethodDescriptor::of::<pipeline::Start>(),
+        MethodDescriptor::of::<pipeline::GetConfig>(),
+        MethodDescriptor::of::<pipeline::SetConfig>(),
     ]
 }
 

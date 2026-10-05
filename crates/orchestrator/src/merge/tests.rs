@@ -641,6 +641,7 @@ async fn blockers_dirty_worktrees_unfinished_tasks_and_run_collection() {
                 last_error: None,
                 awaiting_review: false,
                 summary: None,
+                pipeline: None,
             })
             .collect(),
         agents_spawned: 2,

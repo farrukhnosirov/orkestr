@@ -93,5 +93,8 @@
   "teamLeadRun_few": "Лид команды над «{{title}}»: {{status}} ({{count}} подзадачи)",
   "teamLeadRun_many": "Лид команды над «{{title}}»: {{status}} ({{count}} подзадач)",
   "teamLeadRun_other": "Лид команды над «{{title}}»: {{status}} ({{count}} подзадачи)",
-  "pmDraft": "Черновик продукта «{{title}}»: {{status}}"
+  "pmDraft": "Черновик продукта «{{title}}»: {{status}}",
+  "pipelineUpdated": "Конвейер качества (задача {{task}}): {{status}}",
+  "pipelineStage": "Этап конвейера «{{stage}}»: {{status}}",
+  "healingAttempt": "Попытка самовосстановления {{n}}: {{summary}}"
 }

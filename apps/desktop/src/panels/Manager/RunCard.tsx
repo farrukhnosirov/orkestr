@@ -2,7 +2,8 @@
  * Live run card (§1 steps 5–13, §11): progress bar, per-task status with the
  * agent working on it (link to the Agents panel), cost so far, Pause /
  * Resume / Cancel, review decisions for results that wait for the user, and
- * the final report with merge proposals.
+ * the quality pipeline's stages per task (Phase 2) and the final report
+ * with merge proposals.
  */
 import type { ManagerRun, RunTask } from "@orkestr/protocol";
 import { Badge, Button } from "@orkestr/ui";
@@ -11,6 +12,7 @@ import { Bot, Check, GitBranch, OctagonX, Pause, Play, Rocket, X } from "lucide-
 import { useState } from "react";
 
 import { workspaceActions } from "../../components/workspaceActions";
+import { PipelineStages } from "../../features/pipeline";
 import { useLanguage, useT } from "../../i18n";
 import { roleLabel } from "../Agents/model";
 import { useAgentsUi } from "../Agents/store";
@@ -63,6 +65,14 @@ function TaskRow({ task, live }: { task: RunTask; live: boolean }) {
           <GitBranch size={11} aria-hidden="true" /> {task.branch}
           {task.attempts > 1 && <span> · {t("run.attempt", { n: task.attempts })}</span>}
         </div>
+      )}
+      {task.pipeline && (
+        <PipelineStages
+          stages={task.pipeline.stages}
+          status={task.pipeline.status}
+          healing={task.pipeline.healingAttempts}
+          task={task.title}
+        />
       )}
       {task.lastError && <div className="mgr-rtask__meta mgr-rtask__meta--warn">{task.lastError}</div>}
       {task.awaitingReview && (

@@ -1,0 +1,79 @@
+{
+  "title": "Quality pipeline",
+  "stagesLabel": "Pipeline stages",
+  "loading": "Loading the pipeline…",
+  "empty": "The pipeline runs when the task's agent finishes: review → build → tests → security → merge, with self-healing of failures.",
+  "start": "Run pipeline",
+  "started": "Quality pipeline started",
+  "live": "In progress",
+  "stage": {
+    "Author": "Author",
+    "Review": "Review",
+    "Build": "Build",
+    "Test": "Tests",
+    "Security": "Security",
+    "Merge": "Merge"
+  },
+  "stageStatus": {
+    "Pending": "Pending",
+    "Running": "Running",
+    "Passed": "Passed",
+    "Failed": "Failed",
+    "Skipped": "Skipped",
+    "Waiting": "Waiting"
+  },
+  "status": {
+    "Running": "Running",
+    "Healing": "Self-healing",
+    "AwaitingUser": "Waiting for you",
+    "Escalated": "Escalated to you",
+    "Passed": "Passed",
+    "Failed": "Failed",
+    "Cancelled": "Cancelled"
+  },
+  "runs_one": "{{count}} run",
+  "runs_other": "{{count}} runs",
+  "verdict": {
+    "Approve": "approved",
+    "RequestChanges": "changes requested",
+    "Reject": "rejected"
+  },
+  "reviewVerdict": "Review: {{verdict}}",
+  "securityVerdict": "Security: {{verdict}}",
+  "gates": "Quality gates: {{status}}",
+  "gateStatus": {
+    "Passed": "passed",
+    "Failed": "failed",
+    "Pending": "pending",
+    "Unknown": "unknown",
+    "Skipped": "skipped"
+  },
+  "merge": "Merge: {{outcome}}",
+  "earlier_one": "{{count}} earlier pipeline",
+  "earlier_other": "{{count}} earlier pipelines",
+  "healing": {
+    "title": "Self-healing",
+    "none": "No fix attempts so far.",
+    "limits": "Limits: {{attempts}} attempts, {{mins}} min",
+    "granted_one": "+{{count}} attempt granted by you",
+    "granted_other": "+{{count}} attempts granted by you",
+    "attempt": "Attempt {{n}}",
+    "escalated": "stronger model",
+    "agent": "Fix agent",
+    "outcome": {
+      "Queued": "Queued",
+      "Running": "Fixing",
+      "Submitted": "Submitted",
+      "Fixed": "Fixed",
+      "StillFailing": "Still failing",
+      "AgentFailed": "Agent failed",
+      "Stopped": "Stopped"
+    },
+    "failingTests": "Failing tests",
+    "compilerErrors": "Compiler errors",
+    "findings": "To address",
+    "excerpts": "Relevant code",
+    "lines": "lines {{from}}–{{to}}"
+  },
+  "runStages": "Pipeline of “{{task}}”"
+}

@@ -349,6 +349,10 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
     if let Err(e) = merge.init().await {
         tracing::error!(error = %e, "Merge Manager failed to initialise");
     }
+    // Quality pipeline (Phase 2, §17): Build / Test stages and gates through
+    // the quality runner; the Merge stage through the Merge Manager.
+    manager.set_pipeline_checks(Arc::new(integration::PipelineQuality::new(quality.clone(), Arc::clone(&snapshots))));
+    manager.set_merge_manager(merge.clone());
 
     let services = Arc::new(Services {
         version: VERSION.to_owned(),

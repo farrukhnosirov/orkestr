@@ -1,0 +1,85 @@
+{
+  "title": "Конвейер качества",
+  "stagesLabel": "Этапы конвейера",
+  "loading": "Загрузка конвейера…",
+  "empty": "Конвейер запускается, когда агент задачи закончит работу: ревью → сборка → тесты → безопасность → слияние, с самовосстановлением при сбоях.",
+  "start": "Запустить конвейер",
+  "started": "Конвейер качества запущен",
+  "live": "Выполняется",
+  "stage": {
+    "Author": "Автор",
+    "Review": "Ревью",
+    "Build": "Сборка",
+    "Test": "Тесты",
+    "Security": "Безопасность",
+    "Merge": "Слияние"
+  },
+  "stageStatus": {
+    "Pending": "Ожидает",
+    "Running": "Выполняется",
+    "Passed": "Пройден",
+    "Failed": "Сбой",
+    "Skipped": "Пропущен",
+    "Waiting": "Ждёт решения"
+  },
+  "status": {
+    "Running": "Выполняется",
+    "Healing": "Самовосстановление",
+    "AwaitingUser": "Ждёт вас",
+    "Escalated": "Передан вам",
+    "Passed": "Пройден",
+    "Failed": "Сбой",
+    "Cancelled": "Отменён"
+  },
+  "runs_one": "{{count}} запуск",
+  "runs_few": "{{count}} запуска",
+  "runs_many": "{{count}} запусков",
+  "runs_other": "{{count}} запуска",
+  "verdict": {
+    "Approve": "одобрено",
+    "RequestChanges": "нужны доработки",
+    "Reject": "отклонено"
+  },
+  "reviewVerdict": "Ревью: {{verdict}}",
+  "securityVerdict": "Безопасность: {{verdict}}",
+  "gates": "Критерии качества: {{status}}",
+  "gateStatus": {
+    "Passed": "пройдены",
+    "Failed": "не пройдены",
+    "Pending": "ожидают",
+    "Unknown": "неизвестно",
+    "Skipped": "пропущены"
+  },
+  "merge": "Слияние: {{outcome}}",
+  "earlier_one": "{{count}} предыдущий запуск конвейера",
+  "earlier_few": "{{count}} предыдущих запуска конвейера",
+  "earlier_many": "{{count}} предыдущих запусков конвейера",
+  "earlier_other": "{{count}} предыдущего запуска конвейера",
+  "healing": {
+    "title": "Самовосстановление",
+    "none": "Попыток исправления пока не было.",
+    "limits": "Лимиты: попыток — {{attempts}}, времени — {{mins}} мин",
+    "granted_one": "+{{count}} попытка разрешена вами",
+    "granted_few": "+{{count}} попытки разрешены вами",
+    "granted_many": "+{{count}} попыток разрешено вами",
+    "granted_other": "+{{count}} попытки разрешено вами",
+    "attempt": "Попытка {{n}}",
+    "escalated": "более сильная модель",
+    "agent": "Агент-исправитель",
+    "outcome": {
+      "Queued": "В очереди",
+      "Running": "Исправляет",
+      "Submitted": "Отправлено",
+      "Fixed": "Исправлено",
+      "StillFailing": "Сбой остался",
+      "AgentFailed": "Сбой агента",
+      "Stopped": "Остановлено"
+    },
+    "failingTests": "Упавшие тесты",
+    "compilerErrors": "Ошибки компиляции",
+    "findings": "Что исправить",
+    "excerpts": "Связанный код",
+    "lines": "строки {{from}}–{{to}}"
+  },
+  "runStages": "Конвейер задачи «{{task}}»"
+}

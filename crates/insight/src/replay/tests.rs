@@ -114,6 +114,7 @@ fn run_task(id: TaskId, title: &str, status: TaskStatus, agent: Option<AgentId>)
         last_error: None,
         awaiting_review: false,
         summary: None,
+        pipeline: None,
     }
 }
 
@@ -183,6 +184,7 @@ async fn fixture() -> (Fixture, EventBus) {
         vec![run_task(t1, "Backend", TaskStatus::Running, Some(a1)), run_task(t2, "Frontend", TaskStatus::Ready, None)];
     let report = RunReport {
         summary: "done".into(),
+        pipelines: vec![],
         completed: 2,
         failed: 0,
         not_done: 0,

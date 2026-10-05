@@ -99,6 +99,8 @@ import type { GateConfig } from "./GateConfig";
 import type { GateReport } from "./GateReport";
 import type { GetConsensusParams } from "./GetConsensusParams";
 import type { GetModeParams } from "./GetModeParams";
+import type { GetPipelineParams } from "./GetPipelineParams";
+import type { GetPipelineResult } from "./GetPipelineResult";
 import type { GetReviewParams } from "./GetReviewParams";
 import type { HealthResult } from "./HealthResult";
 import type { ImportTemplateParams } from "./ImportTemplateParams";
@@ -122,6 +124,8 @@ import type { ListFilesResult } from "./ListFilesResult";
 import type { ListKnowledgeParams } from "./ListKnowledgeParams";
 import type { ListMemoryParams } from "./ListMemoryParams";
 import type { ListNodesResult } from "./ListNodesResult";
+import type { ListPipelinesParams } from "./ListPipelinesParams";
+import type { ListPipelinesResult } from "./ListPipelinesResult";
 import type { ListProjectsParams } from "./ListProjectsParams";
 import type { ListProjectsResult } from "./ListProjectsResult";
 import type { ListProvidersResult } from "./ListProvidersResult";
@@ -194,6 +198,8 @@ import type { OpenExternalParams } from "./OpenExternalParams";
 import type { OpenExternalResult } from "./OpenExternalResult";
 import type { OpenTerminalParams } from "./OpenTerminalParams";
 import type { PathsParams } from "./PathsParams";
+import type { PipelineConfig } from "./PipelineConfig";
+import type { PipelineConfigParams } from "./PipelineConfigParams";
 import type { PlanRollbackParams } from "./PlanRollbackParams";
 import type { PmApproveParams } from "./PmApproveParams";
 import type { PmApproveResult } from "./PmApproveResult";
@@ -270,6 +276,7 @@ import type { SetBudgetParams } from "./SetBudgetParams";
 import type { SetCredentialParams } from "./SetCredentialParams";
 import type { SetGatesParams } from "./SetGatesParams";
 import type { SetModeParams } from "./SetModeParams";
+import type { SetPipelineConfigParams } from "./SetPipelineConfigParams";
 import type { SetProfileParams } from "./SetProfileParams";
 import type { SetRuleParams } from "./SetRuleParams";
 import type { SetSchedulerLimitsParams } from "./SetSchedulerLimitsParams";
@@ -288,6 +295,7 @@ import type { SnapshotIdParams } from "./SnapshotIdParams";
 import type { SnapshotResult } from "./SnapshotResult";
 import type { SpawnAgentParams } from "./SpawnAgentParams";
 import type { SpawnAgentResult } from "./SpawnAgentResult";
+import type { StartPipelineParams } from "./StartPipelineParams";
 import type { StopAgentParams } from "./StopAgentParams";
 import type { StopProjectParams } from "./StopProjectParams";
 import type { SystemChecksResult } from "./SystemChecksResult";
@@ -297,6 +305,7 @@ import type { TaskGraph } from "./TaskGraph";
 import type { TaskGraphParams } from "./TaskGraphParams";
 import type { TaskHistoryResult } from "./TaskHistoryResult";
 import type { TaskIdParams } from "./TaskIdParams";
+import type { TaskPipeline } from "./TaskPipeline";
 import type { TeamIdParams } from "./TeamIdParams";
 import type { TeamView } from "./TeamView";
 import type { TemplateIdParams } from "./TemplateIdParams";
@@ -552,6 +561,11 @@ export type Methods = {
   "pm.update": [PmUpdateParams, PmDraft];
   "pm.approve": [PmApproveParams, PmApproveResult];
   "pm.discard": [PmDraftIdParams, PmDraft];
+  "pipeline.get": [GetPipelineParams, GetPipelineResult];
+  "pipeline.list": [ListPipelinesParams, ListPipelinesResult];
+  "pipeline.start": [StartPipelineParams, TaskPipeline];
+  "pipeline.getConfig": [PipelineConfigParams, PipelineConfig];
+  "pipeline.setConfig": [SetPipelineConfigParams, PipelineConfig];
 };
 
 /** All implemented method names. */
@@ -780,6 +794,11 @@ export const METHOD_NAMES = [
   "pm.update",
   "pm.approve",
   "pm.discard",
+  "pipeline.get",
+  "pipeline.list",
+  "pipeline.start",
+  "pipeline.getConfig",
+  "pipeline.setConfig",
 ] as const;
 
 /** Wire protocol version (see orkestr-protocol PROTOCOL_VERSION). */
@@ -842,6 +861,9 @@ export const EVENT_KINDS = [
   "TeamDeleted",
   "TeamLeadRunUpdated",
   "PmDraftUpdated",
+  "PipelineUpdated",
+  "PipelineStageChanged",
+  "HealingAttemptStarted",
 ] as const;
 
 /** UI config schema version (see orkestr-protocol ui_config). */

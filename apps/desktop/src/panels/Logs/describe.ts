@@ -30,6 +30,9 @@ const CATEGORY: Partial<Record<EventKindName, EventCategory>> = {
   BuildSucceeded: "build",
   TestRunFinished: "build",
   ReviewFinished: "build",
+  PipelineUpdated: "build",
+  PipelineStageChanged: "build",
+  HealingAttemptStarted: "build",
   ApprovalRequested: "approval",
   ApprovalResolved: "approval",
   ProviderStatusChanged: "provider",
@@ -54,6 +57,7 @@ export function severityOf(event: Event): EventSeverity {
     case "ProviderRateLimited":
     case "ProviderFallback":
     case "MergeRiskDetected":
+    case "HealingAttemptStarted":
     case "BudgetThreshold":
     case "ApprovalRequested":
     case "RollbackPerformed":
@@ -61,6 +65,16 @@ export function severityOf(event: Event): EventSeverity {
     case "BuildSucceeded":
     case "DeploymentFinished":
       return "success";
+    case "PipelineUpdated":
+      return event.payload.pipeline.status === "Passed"
+        ? "success"
+        : event.payload.pipeline.status === "Failed"
+          ? "error"
+          : event.payload.pipeline.status === "Escalated" || event.payload.pipeline.status === "AwaitingUser"
+            ? "warning"
+            : "info";
+    case "PipelineStageChanged":
+      return event.payload.status === "Failed" ? "warning" : event.payload.status === "Passed" ? "success" : "info";
     case "TestRunFinished":
       return event.payload.failed > 0 ? "error" : "success";
     case "ProjectCreated":
@@ -292,6 +306,19 @@ export function describeEvent(event: Event): string {
       });
     case "PmDraftUpdated":
       return t("events:pmDraft", { title: event.payload.draft.epic.title, status: t(`product:status.${event.payload.draft.status}`) });
+    // Phase 2: quality pipeline + self-healing.
+    case "PipelineUpdated":
+      return t("events:pipelineUpdated", {
+        task: short(event.payload.pipeline.taskId),
+        status: t(`pipeline:status.${event.payload.pipeline.status}`),
+      });
+    case "PipelineStageChanged":
+      return t("events:pipelineStage", {
+        stage: t(`pipeline:stage.${event.payload.stage}`),
+        status: t(`pipeline:stageStatus.${event.payload.status}`),
+      });
+    case "HealingAttemptStarted":
+      return t("events:healingAttempt", { n: event.payload.attempt, summary: event.payload.summary });
   }
 }
 

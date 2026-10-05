@@ -723,6 +723,65 @@ pub struct PmDraftPayload {
     pub draft: crate::methods::pm::PmDraft,
 }
 
+/// `PipelineUpdated`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct PipelinePayload {
+    /// The pipeline after the change.
+    pub pipeline: crate::methods::pipeline::TaskPipeline,
+}
+
+/// `PipelineStageChanged`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct PipelineStagePayload {
+    /// Pipeline.
+    pub pipeline_id: String,
+    /// Project.
+    pub project_id: ProjectId,
+    /// Task.
+    pub task_id: TaskId,
+    /// Stage.
+    pub stage: crate::methods::pipeline::PipelineStageKind,
+    /// New status.
+    pub status: crate::methods::pipeline::StageStatus,
+    /// Run number of the stage (re-runs after fixes count).
+    pub runs: u32,
+    /// Detail.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub detail: Option<String>,
+}
+
+/// `HealingAttemptStarted`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct HealingAttemptPayload {
+    /// Pipeline.
+    pub pipeline_id: String,
+    /// Project.
+    pub project_id: ProjectId,
+    /// Task.
+    pub task_id: TaskId,
+    /// 1-based attempt.
+    pub attempt: u32,
+    /// Stage whose failure is fixed.
+    pub stage: crate::methods::pipeline::PipelineStageKind,
+    /// Failure signature.
+    pub signature: String,
+    /// Summary of the failure.
+    pub summary: String,
+    /// Fix model.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub model: Option<orkestr_domain::ModelRef>,
+    /// The model was escalated.
+    pub escalated: bool,
+}
+
 // ---------------------------------------------------------------------------
 // Kinds
 // ---------------------------------------------------------------------------
@@ -881,6 +940,12 @@ event_kinds! {
     TeamLeadRunUpdated(TeamLeadRunPayload),
     /// An AI Product Manager draft was created, edited, approved or discarded. Phase 2, appended.
     PmDraftUpdated(PmDraftPayload),
+    /// A task's quality pipeline changed (stages, healing attempts, status). Phase 2, appended.
+    PipelineUpdated(PipelinePayload),
+    /// A quality-pipeline stage changed status. Phase 2, appended.
+    PipelineStageChanged(PipelineStagePayload),
+    /// A Self-Healing fix attempt started. Phase 2, appended.
+    HealingAttemptStarted(HealingAttemptPayload),
 }
 
 // ---------------------------------------------------------------------------
@@ -1039,6 +1104,18 @@ impl NewEvent {
             }
             EventKind::ArchitectureMapUpdated(a) => self.project_id = Some(a.project_id),
             EventKind::MergeProposalUpdated(m) => self.project_id = Some(m.proposal.project_id),
+            EventKind::PipelineUpdated(p) => {
+                self.project_id = Some(p.pipeline.project_id);
+                self.task_id = Some(p.pipeline.task_id);
+            }
+            EventKind::PipelineStageChanged(p) => {
+                self.project_id = Some(p.project_id);
+                self.task_id = Some(p.task_id);
+            }
+            EventKind::HealingAttemptStarted(p) => {
+                self.project_id = Some(p.project_id);
+                self.task_id = Some(p.task_id);
+            }
             EventKind::Notification(n) => {
                 self.project_id = n.notification.project_id;
                 self.task_id = n.notification.task_id;

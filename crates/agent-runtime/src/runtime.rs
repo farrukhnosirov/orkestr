@@ -43,6 +43,13 @@ pub struct SpawnExtras {
     pub rules: Vec<PermissionRule>,
     /// Note stored with those rules.
     pub rule_note: Option<String>,
+    /// Extra instructions placed after the task header of the agent's first
+    /// message (the quality pipeline's failure analysis for a fix agent).
+    pub briefing: Option<String>,
+    /// Fix loop of the quality pipeline: the task may be in `Review`,
+    /// `Testing` or `Running` (changes requested) — the agent takes it back
+    /// to `Running` instead of requiring `Ready`.
+    pub fix_loop: bool,
 }
 
 struct Live {
@@ -274,7 +281,7 @@ impl AgentRuntime {
         Ok((chain, false))
     }
 
-    async fn resolve_task(&self, p: &SpawnAgentParams) -> AgentResult<Task> {
+    async fn resolve_task(&self, p: &SpawnAgentParams, fix_loop: bool) -> AgentResult<Task> {
         let task = match (&p.task_id, &p.new_task) {
             (Some(_), Some(_)) | (None, None) => {
                 return Err(AgentError::Invalid("give exactly one of taskId or newTask".into()));
@@ -316,6 +323,10 @@ impl AgentRuntime {
         }
         let task = match task.status {
             TaskStatus::Ready => task,
+            TaskStatus::Review | TaskStatus::Testing | TaskStatus::Running if fix_loop => {
+                // The run moves it to `Running` ("fix loop" in benchmarks).
+                return Ok(task);
+            }
             TaskStatus::Planned => {
                 self.deps
                     .tasks
@@ -388,7 +399,7 @@ impl AgentRuntime {
         if cli && policy == WorktreePolicy::None {
             return Err(AgentError::Invalid("CLI coding agents need a workspace (worktree policy None)".into()));
         }
-        let task = self.resolve_task(&p).await?;
+        let task = self.resolve_task(&p, extras.fix_loop).await?;
 
         let agent_id = AgentId::new();
         let cancel = self
@@ -545,7 +556,7 @@ impl AgentRuntime {
             deps: Arc::clone(&self.deps),
         };
         let control = Arc::new(RunControl::new(cancel));
-        let run = Run::new(
+        let mut run = Run::new(
             Arc::clone(&self.deps),
             self.store.clone(),
             Arc::clone(&control),
@@ -559,6 +570,8 @@ impl AgentRuntime {
             approval_mode,
             tools,
         );
+        run.briefing = extras.briefing.clone();
+        run.fix_loop = extras.fix_loop;
         self.live.lock().insert(agent_id, Live { control, project_id: project.id });
         let live = Arc::clone(&self.live);
         tokio::spawn(async move {

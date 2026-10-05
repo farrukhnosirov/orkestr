@@ -8,13 +8,16 @@
 //! * Merge Manager ← review state + quality runner: [`MergeGates`] answers the
 //!   review gate from the reviews and the tests gate from the latest quality
 //!   run of the task; [`MergeQuality`] runs the project's build / typecheck /
-//!   test checks on the integration worktree before the target moves.
+//!   test checks on the integration worktree before the target moves;
+//! * quality pipeline ← quality runner: [`PipelineQuality`] runs the Build /
+//!   Test stages of a task's pipeline in its worktree and evaluates the
+//!   project's gates (with the task's snapshots for the rollback DoD item).
 
 use std::path::Path;
 
 use async_trait::async_trait;
 use orkestr_domain::{Project, ProjectId, Task, TaskId};
-use orkestr_orchestrator::{Manager, MergeGateSource, MergeQualityRunner};
+use orkestr_orchestrator::{Manager, MergeGateSource, MergeQualityRunner, PipelineChecks};
 use orkestr_protocol::methods::merge::{MergeGate, MergeGateStatus, MergeQualityCheck, MergeQualityReport};
 use orkestr_protocol::methods::quality::{CheckKind, CheckStatus, QualityRun, RunTarget};
 use orkestr_protocol::methods::reviews::ReviewGate;
@@ -236,6 +239,85 @@ impl MergeQualityRunner for MergeQuality {
             }
         };
         Ok(merge_report(&finished))
+    }
+}
+
+/// The quality pipeline's checks and gates over the quality runner.
+#[derive(Clone)]
+pub struct PipelineQuality {
+    quality: QualityService,
+    snapshots: std::sync::Arc<orkestr_snapshots::SnapshotService>,
+}
+
+impl PipelineQuality {
+    /// Over the quality service and the snapshots (rollback DoD item).
+    #[must_use]
+    pub fn new(quality: QualityService, snapshots: std::sync::Arc<orkestr_snapshots::SnapshotService>) -> Self {
+        Self { quality, snapshots }
+    }
+}
+
+impl std::fmt::Debug for PipelineQuality {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PipelineQuality").finish_non_exhaustive()
+    }
+}
+
+#[async_trait]
+impl PipelineChecks for PipelineQuality {
+    async fn run_checks(
+        &self,
+        project: &Project,
+        task: &Task,
+        agent: Option<orkestr_domain::AgentId>,
+        workspace: &Path,
+        kinds: &[CheckKind],
+        cancel: &CancellationToken,
+    ) -> Result<Option<QualityRun>, String> {
+        let root = project.root_path.as_deref().map(Path::new);
+        let profile = self.quality.profile(project.id, root.or(Some(workspace))).await.map_err(|e| e.to_string())?;
+        let started = self
+            .quality
+            .start(StartRun {
+                project_id: project.id,
+                task_id: Some(task.id),
+                agent_id: agent,
+                target: RunTarget::Task { task_id: task.id },
+                workspace: workspace.to_path_buf(),
+                checks: profile.checks,
+                kinds: kinds.to_vec(),
+                check_ids: Vec::new(),
+                budget: QualityService::default_budget(),
+            })
+            .await;
+        let run = match started {
+            Ok(run) => run,
+            Err(QualityError::NothingToRun(_)) => return Ok(None),
+            Err(e) => return Err(e.to_string()),
+        };
+        tokio::select! {
+            r = self.quality.wait(&run.id) => r.map(Some).map_err(|e| e.to_string()),
+            () = cancel.cancelled() => {
+                let _ = self.quality.cancel(&run.id);
+                Err("cancelled".into())
+            }
+        }
+    }
+
+    async fn gates(&self, project: &Project, task: &Task) -> Option<orkestr_protocol::methods::quality::GateReport> {
+        let root = project.root_path.as_deref().map(Path::new);
+        let profile = self.quality.profile(project.id, root).await.ok()?;
+        let mut kinds: Vec<CheckKind> = profile.checks.iter().filter(|c| c.enabled).map(|c| c.kind).collect();
+        kinds.sort_unstable();
+        kinds.dedup();
+        let snapshots = self.snapshots.list(project.id, Some(task.id), None, 1000).await.map(|s| s.len()).unwrap_or(0);
+        match self.quality.evaluate(project.id, Some(task), &kinds, snapshots).await {
+            Ok(r) => Some(r),
+            Err(e) => {
+                tracing::warn!(task = %task.id, error = %e, "quality gate evaluation failed");
+                None
+            }
+        }
     }
 }
 

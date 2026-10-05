@@ -40,6 +40,8 @@ pub fn all() -> Vec<Migration> {
     all.extend(orkestr_orchestrator::review_migrations());
     all.extend(orkestr_insight::insight_migrations());
     all.extend(orkestr_orchestrator::merge_migrations());
+    // Phase 2 (quality pipeline + self-healing)
+    all.extend(orkestr_orchestrator::pipeline_migrations());
     all
 }
 

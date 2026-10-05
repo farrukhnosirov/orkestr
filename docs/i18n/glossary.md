@@ -51,6 +51,7 @@ consistently and add it to this table in the same change.
 | Terminal | терминал | — | «Сеанс терминала». |
 | Quality gates | критерии качества | — | |
 | Self-healing | самовосстановление | — | |
+| Quality pipeline | конвейер качества | Запустить конвейер | Stages: «Автор», «Ревью», «Сборка», «Тесты», «Безопасность», «Слияние». |
 | Review (of code / task) | ревью | Отправить на ревью / Принять | Status «На ревью». «Проверка» for automatic checks. |
 | Test(s) | тесты | Запустить тесты | |
 | Build | сборка | Собрать | |

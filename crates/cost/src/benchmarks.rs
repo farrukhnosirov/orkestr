@@ -14,6 +14,7 @@
 //! | `AgentStarted` / `AgentStopped` | start / end, outcome, stop reason |
 //! | `TaskStatusChanged` Review/Testing → Running | fix loop of the task's *author* |
 //! | `TaskStatusChanged` Failed → Ready / Recovering | retry of the author |
+//! | `HealingAttemptStarted` (quality pipeline) | retry of the author |
 //! | `TaskStatusChanged` → Completed / Failed / Cancelled | final task status and *first-pass success* |
 //! | `ReviewFinished` | review, findings (defects), rejection (ChangesRequested / Rejected) |
 //! | `BuildSucceeded` / `BuildFailed` | build success of the emitting agent (else the task author) |
@@ -319,6 +320,14 @@ pub fn apply_event(c: &Connection, ev: &Event) -> rusqlite::Result<(bool, bool)>
                 _ => {}
             }
             Ok((changed, finished))
+        }
+        EventKind::HealingAttemptStarted(p) => {
+            // A Self-Healing fix attempt retries the task: counted on the
+            // execution whose work failed (the current author).
+            match author(c, p.task_id, None, false)? {
+                Some(a) => Ok((bump(c, &a, "retries = retries + 1", &now)?, false)),
+                None => Ok((false, false)),
+            }
         }
         EventKind::ReviewFinished(p) => {
             let Some(task) = ev.task_id else { return Ok((false, false)) };
@@ -1054,6 +1063,43 @@ mod tests {
         t.tags = vec!["Bug".into(), format!("fixes:{origin}"), "fixes:not-an-id".into()];
         assert!(is_bug_task(&t));
         assert_eq!(linked_tasks(&t), vec![origin, parent]);
+    }
+
+    #[tokio::test]
+    async fn self_healing_attempts_count_as_retries_of_the_author() {
+        let (eng, _bus) = engine().await;
+        let project = ProjectId::new();
+        let m = ModelRef { provider_id: ProviderId::new(), model: "smart-2".into() };
+        let t = TaskId::new();
+        let mut seq = Seq(0);
+        let author = agent(project, t, "Backend #1", AgentRole::Backend, AgentTemplateId::new(), &m);
+        let heal = |seq: &mut Seq, attempt| {
+            seq.ev(
+                EventKind::HealingAttemptStarted(orkestr_protocol::event::HealingAttemptPayload {
+                    pipeline_id: "p".into(),
+                    project_id: project,
+                    task_id: t,
+                    attempt,
+                    stage: orkestr_protocol::methods::pipeline::PipelineStageKind::Test,
+                    signature: "s".into(),
+                    summary: "tests failed".into(),
+                    model: None,
+                    escalated: false,
+                }),
+                Some(t),
+                None,
+            )
+        };
+        let evs = vec![
+            seq.ev(EventKind::AgentSpawned(AgentSpawnedPayload { agent: author.clone() }), Some(t), Some(author.id)),
+            status(&mut seq, t, TaskStatus::Running, TaskStatus::Testing),
+            heal(&mut seq, 1),
+            heal(&mut seq, 2),
+        ];
+        eng.apply_benchmark_events(evs).await.unwrap();
+        let recs = eng.benchmark_records(BenchmarkRecordsParams::default()).await.unwrap();
+        assert_eq!(recs.len(), 1);
+        assert_eq!(recs[0].retries, 2);
     }
 
     #[tokio::test]

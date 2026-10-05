@@ -128,8 +128,9 @@ pub(crate) async fn run_cli(run: &mut Run) -> Outcome {
         disallowed.push("Bash".into());
     }
     let previous = run.store.latest_task_handoff(run.task.id).await.ok().flatten().map(|h| crate::handoff::render(&h));
-    let mut prompt =
+    let prompt =
         crate::prompt::initial_message(&run.deps, &run.template, &run.project, &run.task, Some(&root), previous).await;
+    let mut prompt = crate::prompt::with_briefing(prompt, run.briefing.as_deref());
     prompt.push_str(
         "\nWhen you are completely done, end your final message with a fenced ```json block containing \
          {\"status\": \"done|partial|blocked|failed\", \"summary\": \"…\", \"files_changed\": [], \"tests_run\": \

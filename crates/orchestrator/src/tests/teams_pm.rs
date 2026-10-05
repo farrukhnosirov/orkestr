@@ -209,6 +209,7 @@ async fn team_agents_never_see_other_projects_secrets() {
         parent_agent_id: None,
         rules: extra,
         rule_note: Some("team scope: Security Team".into()),
+        ..Default::default()
     };
     let (agent, task) = h.rt.spawn_with(params, extras).await.unwrap();
     assert_eq!(agent.team_id, Some(team));

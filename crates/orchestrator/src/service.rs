@@ -56,6 +56,8 @@ pub(crate) struct Inner {
     pub decide: tokio::sync::Mutex<()>,
     /// Global parallel scheduler (shared by every run, §11).
     pub parallel: Arc<crate::parallel::ParallelScheduler>,
+    /// Quality pipelines: seams + live drivers (Phase 2).
+    pub(crate) pipeline: crate::pipeline::PipelineSlots,
 }
 
 /// The AI Manager service (cheap to clone).
@@ -98,6 +100,7 @@ impl Manager {
                 runs: Mutex::new(HashMap::new()),
                 decide: tokio::sync::Mutex::new(()),
                 parallel,
+                pipeline: crate::pipeline::PipelineSlots::default(),
             }),
         }
     }
@@ -145,6 +148,7 @@ impl Manager {
             let mut rx = c.finished.subscribe();
             let _ = tokio::time::timeout(Duration::from_secs(5), rx.wait_for(|d| *d)).await;
         }
+        self.inner.stop_pipelines(None, crate::pipeline::DriverStop::Shutdown).await;
         let turns: Vec<CancellationToken> = self.inner.busy.lock().values().cloned().collect();
         for t in turns {
             t.cancel();

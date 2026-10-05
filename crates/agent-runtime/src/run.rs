@@ -252,6 +252,11 @@ pub struct Run {
     pub execution: Execution,
     /// Usage of this run.
     pub run_usage: UsageSummary,
+    /// Extra instructions after the task header (pipeline fix attempts).
+    pub briefing: Option<String>,
+    /// A quality-pipeline fix attempt: a `done` result goes to `Testing` so
+    /// the pipeline checks it (never straight to `Completed`).
+    pub fix_loop: bool,
     checkpoint_taken: bool,
     budget_warned: bool,
     budget_note: Option<String>,
@@ -305,6 +310,8 @@ impl Run {
             progress: Arc::new(Mutex::new(Progress::default())),
             execution,
             run_usage: UsageSummary::default(),
+            briefing: None,
+            fix_loop: false,
             checkpoint_taken: false,
             budget_warned: false,
             budget_note: None,
@@ -666,6 +673,7 @@ impl Run {
             previous,
         )
         .await;
+        let initial = crate::prompt::with_briefing(initial, self.briefing.as_deref());
         self.message(MessageRole::User, &initial, &[]).await;
         let mut messages = vec![ChatMessage::user(initial)];
         let specs = self.tool_specs();
@@ -1350,6 +1358,7 @@ impl Run {
             Outcome::Submitted(r) => {
                 let gates = &self.template.quality_gates;
                 let target = match r.status {
+                    SubmitStatus::Done if self.fix_loop => TaskStatus::Testing,
                     SubmitStatus::Done if gates.is_empty() => TaskStatus::Completed,
                     SubmitStatus::Done if gates.contains(&QualityGate::Review) => TaskStatus::Review,
                     SubmitStatus::Done => TaskStatus::Testing,

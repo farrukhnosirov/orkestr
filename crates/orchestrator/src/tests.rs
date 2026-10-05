@@ -313,6 +313,9 @@ async fn harness(with_git: bool, policy: ApprovalMode) -> H {
     migs.extend(orkestr_cost::cost_migrations());
     migs.extend(orkestr_agent_runtime::agent_migrations());
     migs.extend(crate::orchestrator_migrations());
+    migs.extend(crate::review_migrations());
+    migs.extend(crate::pipeline_migrations());
+    migs.extend(crate::merge_migrations());
     db.migrate(migs).await.unwrap();
     let events = EventBus::in_memory(16_384);
     let sec = Arc::new(
@@ -1061,3 +1064,5 @@ async fn invalid_requests_are_rejected() {
 mod parallel_tests;
 // Phase 2: Agent Teams, hierarchy, cross-project scoping, AI Product Manager.
 mod teams_pm;
+// Phase 2: quality pipeline + self-healing.
+mod pipeline;

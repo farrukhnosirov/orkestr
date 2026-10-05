@@ -4,6 +4,7 @@ import { clsx } from "clsx";
 import { Check, Coins, FileCode2, GitFork, History, Plus, RotateCcw, Trash2, X } from "lucide-react";
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 
+import { PipelineSection } from "../../features/pipeline";
 import { QualitySection } from "../../features/quality";
 import { ReviewsSection } from "../../features/reviews/ReviewsSection";
 import { t as translate, useFormat, useT } from "../../i18n";
@@ -284,6 +285,7 @@ export function TaskDrawer({ task, tasks }: { task: Task; tasks: Task[] }) {
           </form>
         </section>
 
+        <PipelineSection taskId={task.id} taskStatus={task.status} onToast={toast} />
         <QualitySection task={task} />
         <ReviewsSection taskId={task.id} onToast={toast} />
 

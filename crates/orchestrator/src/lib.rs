@@ -28,6 +28,10 @@
 //! * [`merge`] — the AI Merge Manager (§16, Phase 2): semantic diff,
 //!   conflict detection, dependency order, gates, approval-gated merge via an
 //!   integration branch, conflict resolution, rollback.
+//! * [`pipeline`] + [`healing`] — the end-to-end quality pipeline of a task
+//!   (Author → Review → Build → Test → Security → Merge) driving the task
+//!   state machine, and the Self-Healing loop (failure analysis, fix agents,
+//!   hard limits, escalation to the user) — §17, §68.15–16.
 //! * [`parallel`] — the global parallel-execution scheduler shared by all
 //!   runs (caps, provider/model concurrency, rate-limit back-off, resources,
 //!   file-conflict avoidance, fairness, merge-risk checks), the API
@@ -43,8 +47,11 @@ pub mod chat;
 pub mod consensus;
 pub mod deps;
 pub mod error;
+pub mod healing;
 pub mod merge;
 pub mod parallel;
+pub mod pipeline;
+pub mod pipeline_store;
 pub mod plan;
 pub mod planner;
 pub mod pm;
@@ -67,6 +74,8 @@ pub use deps::{
 pub use error::{OrchResult, OrchestratorError};
 pub use merge::{merge_migrations, MergeDeps, MergeGateSource, MergeManager, MergeQualityRunner};
 pub use parallel::{AutoResumeReport, GatedGateway, ParallelDeps, ParallelScheduler};
+pub use pipeline::PipelineChecks;
+pub use pipeline_store::pipeline_migrations;
 pub use review::{gate_of, ReviewGateSource};
 pub use review_store::review_migrations;
 pub use schema::orchestrator_migrations;

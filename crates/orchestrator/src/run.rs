@@ -269,6 +269,7 @@ impl Inner {
                 last_error: None,
                 awaiting_review: false,
                 summary: None,
+                pipeline: None,
             });
         }
         if tasks.is_empty() {
@@ -442,6 +443,11 @@ struct Supervisor {
     budget_hit: bool,
     /// Agents whose end was already accounted for (failure streak, retry).
     handled: BTreeSet<orkestr_domain::AgentId>,
+    /// Pipelines seen in progress by this supervisor (their final outcome
+    /// counts once for the failure streak).
+    pipelines_open: BTreeSet<String>,
+    /// The project's quality pipeline is on (finished results wait for it).
+    pipeline_enabled: bool,
 }
 
 impl Supervisor {
@@ -468,6 +474,8 @@ impl Supervisor {
             notes: Vec::new(),
             budget_hit: false,
             handled: BTreeSet::new(),
+            pipelines_open: BTreeSet::new(),
+            pipeline_enabled: false,
         }
     }
 
@@ -501,12 +509,14 @@ impl Supervisor {
             if let Some(kind) = self.control.stop_kind() {
                 match kind {
                     StopKind::Cancel => {
+                        self.inner.stop_pipelines(Some(self.run.id), crate::pipeline::DriverStop::Cancel).await;
                         self.stop_agents(AgentStopMode::Cancel).await;
                         self.cancel_tasks("cancelled by the user").await;
                         self.refresh().await;
                         self.finish(ManagerRunStatus::Cancelled, Some("cancelled by the user".into())).await;
                     }
                     StopKind::Shutdown => {
+                        self.inner.stop_pipelines(Some(self.run.id), crate::pipeline::DriverStop::Shutdown).await;
                         self.refresh().await;
                         let paused = *self.control.paused.borrow();
                         self.run.status = ManagerRunStatus::Interrupted;
@@ -525,6 +535,7 @@ impl Supervisor {
                 // Let them record their own outcome (their tasks become
                 // Cancelled), then cancel what never started so the final
                 // run card shows no task as still running.
+                self.inner.stop_pipelines(Some(self.run.id), crate::pipeline::DriverStop::Cancel).await;
                 self.wait_agents_stopped(Duration::from_secs(10)).await;
                 self.cancel_tasks("emergency stop").await;
                 self.refresh().await;
@@ -532,8 +543,9 @@ impl Supervisor {
                 return;
             }
             self.refresh().await;
-            self.accept_results().await;
+            self.advance_results().await;
             if let Some((status, reason)) = self.check_bounds() {
+                self.inner.stop_pipelines(Some(self.run.id), crate::pipeline::DriverStop::Cancel).await;
                 self.stop_agents(AgentStopMode::Interrupt).await;
                 self.refresh().await;
                 self.finish(status, Some(reason)).await;
@@ -556,6 +568,7 @@ impl Supervisor {
             } else {
                 self.run.status = ManagerRunStatus::Running;
                 if let Some(fatal) = self.schedule().await {
+                    self.inner.stop_pipelines(Some(self.run.id), crate::pipeline::DriverStop::Cancel).await;
                     self.stop_agents(AgentStopMode::Interrupt).await;
                     self.refresh().await;
                     self.finish(ManagerRunStatus::Failed, Some(fatal)).await;
@@ -571,7 +584,7 @@ impl Supervisor {
                         Some(s) => loop {
                             match s.recv().await {
                                 Some(orkestr_events::Received::Event(ev)) => {
-                                    if matches!(ev.kind_name(), "TaskStatusChanged" | "AgentStopped" | "TaskUpdated" | "ApprovalResolved") {
+                                    if matches!(ev.kind_name(), "TaskStatusChanged" | "AgentStopped" | "TaskUpdated" | "ApprovalResolved" | "PipelineUpdated") {
                                         break;
                                     }
                                 }
@@ -717,6 +730,78 @@ impl Supervisor {
         })
     }
 
+    /// Phase 2: finished agents' results go through the quality pipeline
+    /// ([`crate::pipeline`]) — one driver per task in `Review` / `Testing`;
+    /// the run card mirrors each task's pipeline. With the pipeline disabled
+    /// for the project the Phase 1 acceptance applies ([`Self::accept_results`]).
+    async fn advance_results(&mut self) {
+        use orkestr_protocol::methods::pipeline::{PipelineConfig, PipelineStatus, RunTaskPipeline};
+        let cfg = match self.inner.pipeline_config(self.project.id).await {
+            Ok(c) => c,
+            Err(e) => {
+                tracing::warn!(error = %e, "pipeline settings unavailable; using defaults");
+                PipelineConfig::defaults(self.project.id)
+            }
+        };
+        self.pipeline_enabled = cfg.enabled;
+        if !cfg.enabled {
+            self.accept_results().await;
+            return;
+        }
+        let store = self.inner.pipeline_store();
+        for i in 0..self.run.tasks.len() {
+            let (tid, status, agent, role) = {
+                let t = &self.run.tasks[i];
+                (t.task_id, t.status, t.agent_id, t.role.clone())
+            };
+            let agent_live = agent.is_some_and(|a| self.agent_live(a));
+            let finished = matches!(status, TaskStatus::Review | TaskStatus::Testing);
+            if finished && !agent_live && !self.inner.pipeline_live(tid) {
+                // The pipeline owns the result from here (no blind retry).
+                if let Some(a) = agent {
+                    self.handled.insert(a);
+                }
+                let ctx = crate::pipeline::PipelineCtx {
+                    task_id: tid,
+                    run_id: Some(self.run.id),
+                    role: Some(role),
+                    policy: self.run.approval_policy,
+                    model: self.plan.options.model.clone(),
+                    budget_usd: self.run.limits.max_cost_usd.map(|m| (m - self.run.cost_usd).max(0.0)),
+                    paused: Some(self.control.paused.subscribe()),
+                    parent_cancel: self.control.cancel.clone(),
+                };
+                if let Err(e) = self.inner.launch_pipeline(ctx).await {
+                    tracing::warn!(task_id = %tid, error = %e, "could not start the quality pipeline");
+                    self.run.tasks[i].last_error = Some(one_line(&format!("quality pipeline: {e}"), 300));
+                }
+            }
+            let Ok(Some(p)) = store.latest(tid).await else { continue };
+            let mine = p.run_id == Some(self.run.id);
+            let rt = &mut self.run.tasks[i];
+            rt.pipeline = Some(RunTaskPipeline::from(&p));
+            rt.awaiting_review = mine && matches!(p.status, PipelineStatus::AwaitingUser | PipelineStatus::Escalated);
+            if !mine {
+                continue;
+            }
+            if !p.status.is_final() {
+                self.pipelines_open.insert(p.id.clone());
+            } else if self.pipelines_open.remove(&p.id) {
+                match p.status {
+                    PipelineStatus::Passed => {
+                        self.run.consecutive_failures = 0;
+                        self.run.tasks[i].last_error = None;
+                    }
+                    PipelineStatus::Failed => {
+                        self.run.consecutive_failures += 1;
+                        self.run.tasks[i].last_error = p.status_reason.as_ref().map(|r| one_line(r, 300));
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+
     /// `Review` / `Testing` results: accepted automatically when the agent
     /// reported success and the approval policy is not `Ask`; otherwise they
     /// wait for the user (Tasks panel / run card → Completed or Failed).
@@ -830,6 +915,10 @@ impl Supervisor {
     }
 
     fn check_done(&self) -> Option<(ManagerRunStatus, Option<String>)> {
+        // A pipeline still works (its merge stage follows the completion).
+        if self.run.tasks.iter().any(|t| self.inner.pipeline_live(t.task_id)) {
+            return None;
+        }
         let terminal = |s: TaskStatus| matches!(s, TaskStatus::Completed | TaskStatus::Cancelled);
         if self.run.tasks.iter().all(|t| terminal(t.status)) {
             let cancelled = self.run.tasks.iter().filter(|t| t.status == TaskStatus::Cancelled).count();
@@ -845,6 +934,7 @@ impl Supervisor {
         let progressing = self.run.tasks.iter().any(|t| {
             matches!(t.status, TaskStatus::Ready | TaskStatus::Running | TaskStatus::Waiting | TaskStatus::Recovering)
                 || t.awaiting_review
+                || (self.pipeline_enabled && matches!(t.status, TaskStatus::Review | TaskStatus::Testing))
                 || (matches!(t.status, TaskStatus::Planned | TaskStatus::Blocked) && self.deps_satisfiable(&t.key))
         });
         if progressing {
@@ -964,7 +1054,10 @@ impl Supervisor {
     async fn candidates(&self, git: bool) -> Vec<Candidate> {
         let mut out = Vec::new();
         for rt in &self.run.tasks {
-            if rt.status != TaskStatus::Ready || rt.agent_id.is_some_and(|a| self.agent_live(a)) {
+            if rt.status != TaskStatus::Ready
+                || rt.agent_id.is_some_and(|a| self.agent_live(a))
+                || self.inner.pipeline_live(rt.task_id)
+            {
                 continue;
             }
             let Ok(task) = self.inner.deps.tasks.get(rt.task_id).await else { continue };
@@ -1394,8 +1487,23 @@ impl Supervisor {
                         files_changed: if changed.is_empty() { t.files_changed.clone() } else { changed },
                         additions: add,
                         deletions: del,
-                        note: "review the diff and merge it (automatic merging is Phase 2)".into(),
+                        note: "review the diff and merge it in the Merge Manager".into(),
                     });
+                }
+            }
+        }
+        // Quality pipelines of this run: gates, verdicts, healing, merge.
+        let mut pipelines = Vec::new();
+        let store = self.inner.pipeline_store();
+        for t in &self.run.tasks {
+            if let Ok(Some(p)) = store.latest(t.task_id).await {
+                if p.run_id == Some(self.run.id) {
+                    if let Some(m) = merge.iter_mut().find(|m| m.task_id == t.task_id) {
+                        if let Some(o) = &p.merge_outcome {
+                            m.note = cap(o, 300);
+                        }
+                    }
+                    pipelines.push(crate::pipeline::report_of(&p, &t.title));
                 }
             }
         }
@@ -1447,8 +1555,35 @@ impl Supervisor {
                 issues.iter().take(20).map(|t| format!("- {t}")).collect::<Vec<_>>().join("\n")
             ));
         }
+        if !pipelines.is_empty() {
+            md.push_str("\n### Quality pipeline\n");
+            for p in &pipelines {
+                let mut parts = vec![format!("{:?}", p.status)];
+                if let Some(v) = p.review_verdict {
+                    parts.push(format!("review {v:?}"));
+                }
+                if let Some(v) = p.security_verdict {
+                    parts.push(format!("security {v:?}"));
+                }
+                if let Some(g) = p.gates {
+                    if p.failed_gates.is_empty() {
+                        parts.push(format!("gates {g:?}"));
+                    } else {
+                        let list = p.failed_gates.iter().map(|g| format!("{g:?}")).collect::<Vec<_>>().join(", ");
+                        parts.push(format!("gates {g:?} ({list})"));
+                    }
+                }
+                if p.healing_attempts > 0 {
+                    parts.push(format!("self-healing: {} attempt(s)", p.healing_attempts));
+                }
+                if let Some(m) = &p.merge_outcome {
+                    parts.push(format!("merge: {}", one_line(m, 120)));
+                }
+                md.push_str(&format!("- **{}** — {}\n", p.title, parts.join(" · ")));
+            }
+        }
         if !merge.is_empty() {
-            md.push_str("\n### Merge proposals (merging is Phase 2)\n");
+            md.push_str("\n### Merge proposals\n");
             for m in &merge {
                 md.push_str(&format!(
                     "- `{}` — {} file(s){}\n",
@@ -1472,6 +1607,7 @@ impl Supervisor {
             cost_usd: self.run.cost_usd,
             duration_secs: secs,
             merge_proposals: merge,
+            pipelines,
         }
     }
 }

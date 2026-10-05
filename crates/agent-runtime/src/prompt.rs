@@ -84,6 +84,30 @@ pub fn system_prompt(
     s
 }
 
+/// Inserts `briefing` (e.g. a quality-pipeline failure analysis) between the
+/// task header and the context bundle of an initial message.
+#[must_use]
+pub fn with_briefing(initial: String, briefing: Option<&str>) -> String {
+    let Some(b) = briefing.map(str::trim).filter(|b| !b.is_empty()) else { return initial };
+    match initial.find(
+        "
+# Context (selected by Orkestr)",
+    ) {
+        Some(i) => format!(
+            "{}
+{b}
+{}",
+            &initial[..i],
+            &initial[i..]
+        ),
+        None => format!(
+            "{initial}
+{b}
+"
+        ),
+    }
+}
+
 /// Builds the initial user message: task, acceptance criteria and the
 /// context bundle (rules, memory, relevant files, previous handoff).
 pub async fn initial_message(

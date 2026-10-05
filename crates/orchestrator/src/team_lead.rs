@@ -1024,6 +1024,7 @@ impl LeadDriver {
                 parent_agent_id: Some(self.agent.id),
                 rules: scope_rules(&self.req.assignment.permissions),
                 rule_note: Some(format!("team scope: {}", self.req.team.name)),
+                ..Default::default()
             };
             match self.inner.deps.agents.spawn_with(params, extras).await {
                 Ok((agent, _)) => {

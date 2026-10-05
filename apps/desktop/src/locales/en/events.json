@@ -77,5 +77,8 @@
   "teamDeleted": "Team {{id}} deleted",
   "teamLeadRun_one": "Team lead on “{{title}}”: {{status}} ({{count}} sub-task)",
   "teamLeadRun_other": "Team lead on “{{title}}”: {{status}} ({{count}} sub-tasks)",
-  "pmDraft": "Product draft “{{title}}”: {{status}}"
+  "pmDraft": "Product draft “{{title}}”: {{status}}",
+  "pipelineUpdated": "Quality pipeline (task {{task}}): {{status}}",
+  "pipelineStage": "Pipeline stage {{stage}}: {{status}}",
+  "healingAttempt": "Self-healing attempt {{n}}: {{summary}}"
 }
