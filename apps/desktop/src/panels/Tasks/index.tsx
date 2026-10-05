@@ -10,6 +10,7 @@ import { clsx } from "clsx";
 import { Filter, FolderOpen, KanbanSquare, List, ListTodo, Network, Plus, RefreshCw, Search, TriangleAlert } from "lucide-react";
 import { useMemo, useState } from "react";
 
+import { SchedulerBar } from "../../features/scheduler/SchedulerBar";
 import { useT } from "../../i18n";
 import type { PanelProps } from "../types";
 import { BoardView } from "./BoardView";
@@ -49,6 +50,7 @@ export default function TasksPanel({ projectId }: PanelProps) {
   const visible = useMemo(() => filterTasks(tasks, filter), [tasks, filter]);
   const readyIds = useMemo(() => new Set(graph?.ready ?? []), [graph]);
   const selected = tasks.find((t) => t.id === selectedId) ?? null;
+  const titles = useMemo(() => new Map(tasks.map((x) => [x.id, x.title] as const)), [tasks]);
   const visibleGraph = useMemo(() => {
     if (!graph || !isFilterActive(filter)) return graph;
     const keep = new Set(visible.map((t) => t.id));
@@ -162,6 +164,8 @@ export default function TasksPanel({ projectId }: PanelProps) {
         </div>
         <IconButton label={t("reload")} icon={<RefreshCw size={14} />} onClick={reload} tooltip="bottom" />
       </div>
+
+      <SchedulerBar projectId={projectId} titles={titles} />
 
       {showFilters && (
         <div className="tasks-filters" role="group" aria-label={t("filters.label")}>

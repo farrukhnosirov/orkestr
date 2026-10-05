@@ -53,6 +53,7 @@ export function severityOf(event: Event): EventSeverity {
       return "error";
     case "ProviderRateLimited":
     case "ProviderFallback":
+    case "MergeRiskDetected":
     case "BudgetThreshold":
     case "ApprovalRequested":
     case "RollbackPerformed":
@@ -245,6 +246,14 @@ export function describeEvent(event: Event): string {
       const r = event.payload.run;
       const done = r.tasks.filter((x) => x.status === "Completed").length;
       return t("events:managerRun", { status: t(`logs:enums.runStatus.${r.status}`), done, total: r.tasks.length });
+    }
+    case "SchedulerUpdated":
+      return event.payload.settingsChanged
+        ? t("events:schedulerSettings")
+        : t("events:schedulerUpdated", { ...event.payload.counts });
+    case "MergeRiskDetected": {
+      const r = event.payload.risk;
+      return t("events:mergeRisk", { count: Math.max(r.files.length, r.conflicts.length) });
     }
   }
 }

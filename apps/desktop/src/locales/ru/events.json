@@ -67,5 +67,11 @@
   "managerPlan_few": "План Менеджера «{{goal}}»: {{status}} ({{count}} задачи)",
   "managerPlan_many": "План Менеджера «{{goal}}»: {{status}} ({{count}} задач)",
   "managerPlan_other": "План Менеджера «{{goal}}»: {{status}} ({{count}} задачи)",
-  "managerRun": "Запуск Менеджера ({{status}}): выполнено задач — {{done}} из {{total}}"
+  "managerRun": "Запуск Менеджера ({{status}}): выполнено задач — {{done}} из {{total}}",
+  "schedulerUpdated": "Планировщик: выполняется — {{running}}, в очереди — {{queued}}, ожидает — {{waiting}}",
+  "schedulerSettings": "Изменены лимиты планировщика",
+  "mergeRisk_one": "Возможный конфликт слияния двух агентов ({{count}} файл)",
+  "mergeRisk_few": "Возможный конфликт слияния двух агентов ({{count}} файла)",
+  "mergeRisk_many": "Возможный конфликт слияния двух агентов ({{count}} файлов)",
+  "mergeRisk_other": "Возможный конфликт слияния двух агентов ({{count}} файла)"
 }

@@ -2,6 +2,7 @@
   "tabs": {
     "label": "Agents view",
     "agents": "Agents",
+    "queue": "Queue",
     "templates": "Templates"
   },
   "noProject": {

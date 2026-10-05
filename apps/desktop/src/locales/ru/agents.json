@@ -2,6 +2,7 @@
   "tabs": {
     "label": "Раздел агентов",
     "agents": "Агенты",
+    "queue": "Очередь",
     "templates": "Шаблоны"
   },
   "noProject": {
