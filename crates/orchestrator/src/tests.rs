@@ -1056,3 +1056,6 @@ async fn invalid_requests_are_rejected() {
         .unwrap_err();
     assert!(err.to_string().contains("maxParallelAgents"), "{err}");
 }
+
+// Phase 2: Agent Teams, hierarchy, cross-project scoping, AI Product Manager.
+mod teams_pm;

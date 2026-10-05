@@ -614,7 +614,7 @@ impl Supervisor {
                 continue;
             };
             let agent = self.run.tasks[i].agent_id;
-            let agent_live = agent.is_some_and(|a| self.inner.deps.agents.is_live(a));
+            let agent_live = agent.is_some_and(|a| self.agent_live(a));
             {
                 let rt = &mut self.run.tasks[i];
                 rt.status = task.status;
@@ -708,7 +708,7 @@ impl Supervisor {
                 self.run.tasks[i].awaiting_review = false;
                 continue;
             }
-            if rt.agent_id.is_some_and(|a| self.inner.deps.agents.is_live(a)) {
+            if rt.agent_id.is_some_and(|a| self.agent_live(a)) {
                 continue;
             }
             let Ok(task) = self.inner.deps.tasks.get(rt.task_id).await else { continue };
@@ -763,8 +763,14 @@ impl Supervisor {
         }
     }
 
+    /// A run agent is live while its runtime run lasts — or, for a task
+    /// delegated to a team lead (Phase 2), while the lead works.
+    fn agent_live(&self, a: orkestr_domain::AgentId) -> bool {
+        self.inner.deps.agents.is_live(a) || crate::team_lead::is_lead_live(a)
+    }
+
     fn live_agents(&self) -> usize {
-        self.run.tasks.iter().filter(|t| t.agent_id.is_some_and(|a| self.inner.deps.agents.is_live(a))).count()
+        self.run.tasks.iter().filter(|t| t.agent_id.is_some_and(|a| self.agent_live(a))).count()
     }
 
     fn check_bounds(&self) -> Option<(ManagerRunStatus, String)> {
@@ -941,7 +947,7 @@ impl Supervisor {
         let candidates: Vec<usize> = (0..self.run.tasks.len())
             .filter(|i| {
                 let t = &self.run.tasks[*i];
-                t.status == TaskStatus::Ready && !t.agent_id.is_some_and(|a| self.inner.deps.agents.is_live(a))
+                t.status == TaskStatus::Ready && !t.agent_id.is_some_and(|a| self.agent_live(a))
             })
             .collect();
         if candidates.is_empty() {

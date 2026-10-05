@@ -222,6 +222,38 @@ pub fn normalize_subtasks(
     Ok((summary, out, warnings))
 }
 
+/// Lead agents currently working (their records stand in for the delegated
+/// task's agent in the run loop, which treats them as live).
+static LIVE_LEADS: std::sync::LazyLock<std::sync::Mutex<HashSet<AgentId>>> =
+    std::sync::LazyLock::new(|| std::sync::Mutex::new(HashSet::new()));
+
+/// Whether a team lead agent is still working on its delegated task.
+#[must_use]
+pub fn is_lead_live(agent: AgentId) -> bool {
+    LIVE_LEADS.lock().is_ok_and(|s| s.contains(&agent))
+}
+
+/// Registration of a working lead; removed when the lead's driver ends
+/// (also on panic).
+struct LiveLead(AgentId);
+
+impl LiveLead {
+    fn register(agent: AgentId) -> Self {
+        if let Ok(mut s) = LIVE_LEADS.lock() {
+            s.insert(agent);
+        }
+        Self(agent)
+    }
+}
+
+impl Drop for LiveLead {
+    fn drop(&mut self) {
+        if let Ok(mut s) = LIVE_LEADS.lock() {
+            s.remove(&self.0);
+        }
+    }
+}
+
 /// Context of a delegation (from the run loop).
 pub(crate) struct Delegation {
     /// The delegated plan task (must be `Ready`).
@@ -366,7 +398,11 @@ pub(crate) async fn delegate(inner: Arc<Inner>, req: LeadRequest, d: Delegation)
         model_cost: 0.0,
         live: BTreeMap::new(),
     };
-    tokio::spawn(driver.drive());
+    let live = LiveLead::register(id);
+    tokio::spawn(async move {
+        driver.drive().await;
+        drop(live);
+    });
     Ok(id)
 }
 
