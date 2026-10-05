@@ -108,7 +108,10 @@ async fn reviews_and_consensus_over_ws_with_the_mock_provider() {
     let mut c = Client::connect(&core).await;
 
     let project = c
-        .ok("projects.create", json!({"name": "Reviewed", "rootPath": root.to_string_lossy(), "approvalMode": "SemiAuto"}))
+        .ok(
+            "projects.create",
+            json!({"name": "Reviewed", "rootPath": root.to_string_lossy(), "approvalMode": "SemiAuto"}),
+        )
         .await["project"]
         .clone();
     let pid = project["id"].as_str().unwrap().to_owned();
@@ -134,7 +137,8 @@ async fn reviews_and_consensus_over_ws_with_the_mock_provider() {
         .clone();
     let tid = task["id"].as_str().unwrap().to_owned();
     std::fs::create_dir_all(root.join("src")).unwrap();
-    std::fs::write(root.join("src/hello.js"), "export function hello(name) {\n  return `Hello, ${name}!`;\n}\n").unwrap();
+    std::fs::write(root.join("src/hello.js"), "export function hello(name) {\n  return `Hello, ${name}!`;\n}\n")
+        .unwrap();
     for to in ["Ready", "Running", "Review"] {
         c.ok("tasks.transition", json!({"taskId": tid, "to": to})).await;
     }
@@ -182,7 +186,8 @@ async fn reviews_and_consensus_over_ws_with_the_mock_provider() {
         "not_found"
     );
     assert_eq!(
-        c.err("reviews.resolveFinding", json!({"reviewId": aid, "findingId": fid, "status": "Confirmed"})).await["code"],
+        c.err("reviews.resolveFinding", json!({"reviewId": aid, "findingId": fid, "status": "Confirmed"})).await
+            ["code"],
         "bad_request"
     );
     assert_eq!(c.err("reviews.list", json!({})).await["code"], "bad_request");

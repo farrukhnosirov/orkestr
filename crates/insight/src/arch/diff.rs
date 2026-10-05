@@ -31,7 +31,8 @@ pub fn diff(old: Option<&ArchitectureMap>, new: &ArchitectureMap) -> ArchDiff {
             d.removed_nodes.push((*n).clone());
         }
     }
-    let old_edges: BTreeMap<&str, _> = old.map(|m| m.edges.iter().map(|e| (e.id.as_str(), e)).collect()).unwrap_or_default();
+    let old_edges: BTreeMap<&str, _> =
+        old.map(|m| m.edges.iter().map(|e| (e.id.as_str(), e)).collect()).unwrap_or_default();
     let new_edges: BTreeMap<&str, _> = new.edges.iter().map(|e| (e.id.as_str(), e)).collect();
     for (id, e) in &new_edges {
         if !old_edges.contains_key(id) {

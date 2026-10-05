@@ -13,7 +13,7 @@
 //!   `ApprovalService`) unless the project's [`MergePolicy`] is `Auto` and
 //!   every gate is green. Execution: pre-merge snapshot → integration branch
 //!   `orkestr/integration-<id>` in its own worktree → `--no-ff` merges in
-//!   order → quality checks ([`MergeQualityRunner`], when wired) → guarded
+//!   order → quality checks ([`MergeQualityRunner`]; core wires the quality runner) → guarded
 //!   fast-forward of the target → cleanup per policy. The target is never
 //!   touched before the final fast-forward, so failure and abort roll back by
 //!   discarding the integration branch.

@@ -85,7 +85,12 @@
     "ApprovalRequested": "Approval requested",
     "ApprovalResolved": "Approval resolved",
     "DecisionRecorded": "Decision",
-    "EmergencyStop": "Emergency stop"
+    "EmergencyStop": "Emergency stop",
+    "ReviewUpdated": "Review failed",
+    "ConsensusUpdated": "Consensus",
+    "TeamLeadRunUpdated": "Team lead",
+    "MergeProposalUpdated": "Merge",
+    "MergeRiskDetected": "Merge risk"
   },
   "fileChange": {
     "Created": "created",

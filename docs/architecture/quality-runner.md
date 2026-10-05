@@ -34,9 +34,17 @@ Crate `crates/quality` (`orkestr-quality`), RPC area `quality.*`
    met), each `enabled` + `required`, and the Definition of Done checklist
    (code, tests, docs, migrations, rollback, review, AC). `quality.evaluate`
    combines the latest result per check with the review verdict
-   (`ReviewStatusSource`, default reads the task; the review area plugs in via
-   `QualityService::set_review_source`) and security findings
-   (`SecurityFindingsSource`, default `Unknown`).
+   (`ReviewStatusSource`) and security findings (`SecurityFindingsSource`).
+   The core composition root wires both to the code reviews
+   (`orkestr_core::integration::ReviewGates` over `Manager::review_gate`):
+   "reviewer approved" = the latest finished standard review approved,
+   "no critical security finding" = no unresolved critical security finding
+   in the latest standard / adversarial reviews; without a finished review
+   the task's own review state (`TaskFieldReview`) / `Unknown` is used.
+7. **Merge Manager**: the same core module implements `MergeGateSource`
+   (review gate from the reviews, tests gate from the task's latest quality
+   run) and `MergeQualityRunner` (build + typecheck + test checks of the
+   profile on the integration worktree, cancellable with the merge).
 
 ## RPC
 

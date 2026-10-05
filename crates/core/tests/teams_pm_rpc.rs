@@ -104,8 +104,11 @@ async fn teams_and_product_manager_over_ws_with_the_mock_provider() {
     let providers = c.ok("providers.list", json!({})).await["providers"].as_array().unwrap().clone();
     let mock = providers.iter().find(|p| p["provider"]["kind"] == "Mock").unwrap()["provider"]["id"].clone();
     let model = json!({"providerId": mock, "model": "mock-smart"});
-    c.ok("providers.setManager", json!({"config": {"model": model, "maxParallelAgents": 2, "approvalPolicy": "SemiAuto"}}))
-        .await;
+    c.ok(
+        "providers.setManager",
+        json!({"config": {"model": model, "maxParallelAgents": 2, "approvalPolicy": "SemiAuto"}}),
+    )
+    .await;
     let sub = c.raw(json!({"type": "sub", "id": "s1", "topics": [format!("project:{pid}"), "global"]}), "s1").await;
     assert_eq!(sub["ok"], true);
 
@@ -129,7 +132,10 @@ async fn teams_and_product_manager_over_ws_with_the_mock_provider() {
     c.wait_events("TeamUpdated", 1).await;
     assert_eq!(c.err("teams.create", json!({"name": " ", "members": []})).await["code"], "bad_request");
     let updated = c
-        .ok("teams.update", json!({"teamId": tid, "name": "Payments Team", "policies": {"maxFanOut": 3, "requireReview": false}}))
+        .ok(
+            "teams.update",
+            json!({"teamId": tid, "name": "Payments Team", "policies": {"maxFanOut": 3, "requireReview": false}}),
+        )
         .await;
     assert_eq!(updated["team"]["name"], "Payments Team");
     assert_eq!(updated["team"]["policies"]["maxFanOut"], 3);
@@ -139,7 +145,10 @@ async fn teams_and_product_manager_over_ws_with_the_mock_provider() {
     let assigned = c.ok("teams.assign", json!({"teamId": tid, "projectId": pid})).await;
     assert_eq!(assigned["assignments"][0]["permissions"]["secrets"], false);
     let allowed = c
-        .ok("teams.assign", json!({"teamId": tid, "projectId": pid, "permissions": {"secrets": true, "denied": ["Network"]}}))
+        .ok(
+            "teams.assign",
+            json!({"teamId": tid, "projectId": pid, "permissions": {"secrets": true, "denied": ["Network"]}}),
+        )
         .await;
     assert_eq!(allowed["assignments"][0]["permissions"]["denied"][0], "Network");
     let un = c.ok("teams.assign", json!({"teamId": tid, "projectId": pid, "unassign": true})).await;

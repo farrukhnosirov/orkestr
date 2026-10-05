@@ -136,9 +136,7 @@ async fn scheduler_status_limits_explain_and_a_capped_run_over_ws() {
     settings["minFreeDiskMb"] = json!(0);
     let saved = c.ok("scheduler.setLimits", json!({"settings": settings})).await;
     assert_eq!(saved["settings"]["maxParallelGlobal"], 1);
-    let ev = c
-        .wait_event(|e| e["kind"] == "SchedulerUpdated" && e["payload"]["settingsChanged"] == true)
-        .await;
+    let ev = c.wait_event(|e| e["kind"] == "SchedulerUpdated" && e["payload"]["settingsChanged"] == true).await;
     assert_eq!(ev["payload"]["counts"]["running"], 0);
 
     // Project, mock provider, Manager config.
@@ -196,9 +194,12 @@ async fn scheduler_status_limits_explain_and_a_capped_run_over_ws() {
     loop {
         let st = c.ok("scheduler.status", json!({"projectId": pid})).await;
         assert!(st["running"].as_array().unwrap().len() <= 1, "global cap 1: {st}");
-        if st["queue"].as_array().unwrap().iter().any(|e| {
-            e["state"] == "waiting" && e["reason"]["kind"] == "globalLimit" && e["runId"] == run_id.as_str()
-        }) {
+        if st["queue"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|e| e["state"] == "waiting" && e["reason"]["kind"] == "globalLimit" && e["runId"] == run_id.as_str())
+        {
             saw_wait = true;
         }
         let runs = c.ok("manager.status", json!({"runId": run_id})).await["runs"].clone();

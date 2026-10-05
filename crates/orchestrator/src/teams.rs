@@ -39,7 +39,7 @@ use crate::service::{Inner, Manager};
 /// Tables of teams, assignments, lead runs and AI Product Manager drafts
 /// (Phase 2; applied after `orchestrator_0001_manager`).
 pub const MIGRATIONS: &[Migration] = &[Migration {
-    id: "orchestrator_0002_teams_pm",
+    id: "orchestrator_0003_teams_pm",
     owner: "orchestrator",
     up: "CREATE TABLE agent_teams (
             id          TEXT PRIMARY KEY NOT NULL,
@@ -129,17 +129,14 @@ impl TeamStore {
 
     /// Stores built-in teams and the seeded flag atomically.
     pub async fn seed(&self, teams: Vec<AgentTeam>) -> OrchResult<bool> {
-        let docs = teams
-            .iter()
-            .map(|t| serde_json::to_string(t).map(|d| (t.clone(), d)))
-            .collect::<Result<Vec<_>, _>>()?;
+        let docs =
+            teams.iter().map(|t| serde_json::to_string(t).map(|d| (t.clone(), d))).collect::<Result<Vec<_>, _>>()?;
         let inserted = self
             .db
             .call(move |c| {
                 let tx = c.transaction()?;
-                let done: Option<String> = tx
-                    .query_row("SELECT value FROM team_meta WHERE key = 'seeded'", [], |r| r.get(0))
-                    .optional()?;
+                let done: Option<String> =
+                    tx.query_row("SELECT value FROM team_meta WHERE key = 'seeded'", [], |r| r.get(0)).optional()?;
                 if done.is_some() {
                     return Ok(false);
                 }
@@ -190,7 +187,9 @@ impl TeamStore {
         let sid = id.to_string();
         let doc: Option<String> = self
             .db
-            .call(move |c| Ok(c.query_row("SELECT doc FROM agent_teams WHERE id = ?1", [sid], |r| r.get(0)).optional()?))
+            .call(move |c| {
+                Ok(c.query_row("SELECT doc FROM agent_teams WHERE id = ?1", [sid], |r| r.get(0)).optional()?)
+            })
             .await?;
         parse_doc(&doc.ok_or_else(|| OrchestratorError::NotFound(format!("team {id}")))?)
     }
@@ -200,8 +199,9 @@ impl TeamStore {
         let docs: Vec<String> = self
             .db
             .call(|c| {
-                let mut stmt =
-                    c.prepare("SELECT doc FROM agent_teams ORDER BY builtin DESC, created_at ASC, name COLLATE NOCASE")?;
+                let mut stmt = c.prepare(
+                    "SELECT doc FROM agent_teams ORDER BY builtin DESC, created_at ASC, name COLLATE NOCASE",
+                )?;
                 let rows = stmt.query_map([], |r| r.get::<_, String>(0))?;
                 Ok(rows.collect::<Result<Vec<_>, _>>()?)
             })
@@ -352,9 +352,8 @@ impl TeamStore {
         let docs: Vec<String> = self
             .db
             .call(move |c| {
-                let mut stmt = c.prepare(
-                    "SELECT doc FROM team_lead_runs WHERE team_id = ?1 ORDER BY created_at DESC LIMIT ?2",
-                )?;
+                let mut stmt =
+                    c.prepare("SELECT doc FROM team_lead_runs WHERE team_id = ?1 ORDER BY created_at DESC LIMIT ?2")?;
                 let rows = stmt.query_map(params![t, i64::from(limit)], |r| r.get::<_, String>(0))?;
                 Ok(rows.collect::<Result<Vec<_>, _>>()?)
             })
@@ -367,9 +366,8 @@ impl TeamStore {
         let docs: Vec<String> = self
             .db
             .call(|c| {
-                let mut stmt = c.prepare(
-                    "SELECT doc FROM team_lead_runs WHERE status IN ('Planning', 'Executing', 'Reviewing')",
-                )?;
+                let mut stmt =
+                    c.prepare("SELECT doc FROM team_lead_runs WHERE status IN ('Planning', 'Executing', 'Reviewing')")?;
                 let rows = stmt.query_map([], |r| r.get::<_, String>(0))?;
                 Ok(rows.collect::<Result<Vec<_>, _>>()?)
             })
@@ -416,7 +414,12 @@ pub fn validate_policies(p: &TeamPolicies) -> OrchResult<()> {
 }
 
 /// Validates the static shape of a team (templates are checked by the caller).
-pub fn validate_shape(name: &str, description: &str, members: &[TeamMember], policies: &TeamPolicies) -> OrchResult<()> {
+pub fn validate_shape(
+    name: &str,
+    description: &str,
+    members: &[TeamMember],
+    policies: &TeamPolicies,
+) -> OrchResult<()> {
     let n = name.trim();
     if n.is_empty() || n.chars().count() > MAX_TEAM_NAME_LEN {
         return Err(OrchestratorError::Invalid(format!("the team name must be 1..={MAX_TEAM_NAME_LEN} characters")));
@@ -531,7 +534,9 @@ impl Inner {
         for m in &team.members {
             match self.deps.agents.templates().get(m.template_id).await {
                 Ok(t) => out.push((m.clone(), t.role)),
-                Err(e) => tracing::warn!(team = %team.id, template = %m.template_id, error = %e, "team member template missing"),
+                Err(e) => {
+                    tracing::warn!(team = %team.id, template = %m.template_id, error = %e, "team member template missing")
+                }
             }
         }
         out
@@ -546,10 +551,7 @@ impl Inner {
             return Ok(a);
         }
         if team.project_id.is_some_and(|p| p != project) {
-            return Err(OrchestratorError::Forbidden(format!(
-                "team \"{}\" belongs to another project",
-                team.name
-            )));
+            return Err(OrchestratorError::Forbidden(format!("team \"{}\" belongs to another project", team.name)));
         }
         let a = TeamAssignment {
             team_id: team.id,
@@ -872,10 +874,7 @@ impl Manager {
             store.delete_assignment(team.id, p.project_id).await?;
         } else {
             if team.project_id.is_some_and(|tp| tp != p.project_id) {
-                return Err(OrchestratorError::Forbidden(format!(
-                    "team \"{}\" belongs to another project",
-                    team.name
-                )));
+                return Err(OrchestratorError::Forbidden(format!("team \"{}\" belongs to another project", team.name)));
             }
             if let Some(plan_id) = p.plan_id {
                 let plan = self.inner.store.plan(plan_id).await?;
@@ -884,7 +883,8 @@ impl Manager {
                 }
             }
             let existing = store.assignment(team.id, p.project_id).await?;
-            let perms = p.permissions.unwrap_or_else(|| existing.as_ref().map(|a| a.permissions.clone()).unwrap_or_default());
+            let perms =
+                p.permissions.unwrap_or_else(|| existing.as_ref().map(|a| a.permissions.clone()).unwrap_or_default());
             if perms.denied.len() > orkestr_domain::Capability::ALL.len() {
                 return Err(OrchestratorError::Invalid("too many denied capabilities".into()));
             }
@@ -927,8 +927,8 @@ impl Manager {
             .map_err(|e| OrchestratorError::Internal(e.to_string()))?
             .ok_or_else(|| OrchestratorError::NotFound(format!("secret {secret}")))?;
         match r.scope {
-            SecretScope::Project { project_id } | SecretScope::Environment { project_id, .. } if project_id == project => {
-            }
+            SecretScope::Project { project_id } | SecretScope::Environment { project_id, .. }
+                if project_id == project => {}
             SecretScope::Global => {
                 return Err(OrchestratorError::Forbidden("team agents never read global secrets".into()));
             }
@@ -985,7 +985,10 @@ mod tests {
         assert_eq!(r.len(), 1);
         assert_eq!(r[0].capability, Capability::Secrets);
         assert_eq!(r[0].effect, PermissionEffect::Deny);
-        let r = scope_rules(&TeamProjectPermissions { secrets: true, denied: vec![Capability::Network, Capability::Network] });
+        let r = scope_rules(&TeamProjectPermissions {
+            secrets: true,
+            denied: vec![Capability::Network, Capability::Network],
+        });
         assert_eq!(r.iter().map(|r| r.capability).collect::<Vec<_>>(), vec![Capability::Network]);
         assert!(r.iter().all(|r| r.effect == PermissionEffect::Deny));
     }

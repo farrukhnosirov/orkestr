@@ -27,13 +27,8 @@ pub fn register(router: &mut RpcRouter) {
     router
         .method::<r::Runs, _, _>(|ctx: RpcContext, p: ReplayRunsParams| async move {
             let limit = p.limit.unwrap_or(DEFAULT_RUNS).clamp(1, MAX_RUNS);
-            let runs = ctx
-                .services
-                .manager
-                .store()
-                .runs(Some(p.project_id), None, limit)
-                .await
-                .map_err(manager_to_rpc)?;
+            let runs =
+                ctx.services.manager.store().runs(Some(p.project_id), None, limit).await.map_err(manager_to_rpc)?;
             Ok(ReplayRunsResult { runs: runs.iter().map(replay::run_summary).collect() })
         })
         .method::<r::Timeline, _, _>(|ctx: RpcContext, p: ReplayTimelineParams| async move {
@@ -68,7 +63,14 @@ async fn seeds(ctx: &RpcContext, p: &ReplayTimelineParams) -> Result<ReplaySeeds
                 }
                 None => None,
             };
-            Ok(ReplaySeeds { project_id: p.project_id, subject: ReplaySubject::Run, run: Some(run), plan, request, task: None })
+            Ok(ReplaySeeds {
+                project_id: p.project_id,
+                subject: ReplaySubject::Run,
+                run: Some(run),
+                plan,
+                request,
+                task: None,
+            })
         }
         (None, Some(task_id)) => {
             let task = ctx.services.tasks.get(task_id).await.map_err(task_to_rpc)?;

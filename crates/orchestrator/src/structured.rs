@@ -118,11 +118,18 @@ impl Inner {
             });
             usage_total.add(&record_usage(&self.deps, call.project.id, &model, usage, out.first_ms, true).await);
             let parsed = extract_object(&out.text, call.key)
-                .ok_or_else(|| OrchestratorError::Planning(format!("the answer contained no JSON object with `{}`", call.key)))
+                .ok_or_else(|| {
+                    OrchestratorError::Planning(format!("the answer contained no JSON object with `{}`", call.key))
+                })
                 .and_then(|v| validate(&v));
             match parsed {
                 Ok(value) => {
-                    return Ok(StructuredOutcome { value, model: Some(model), usage: usage_total, repaired: attempt > 0 })
+                    return Ok(StructuredOutcome {
+                        value,
+                        model: Some(model),
+                        usage: usage_total,
+                        repaired: attempt > 0,
+                    })
                 }
                 Err(e) => {
                     last_err = e.to_string();

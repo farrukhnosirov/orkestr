@@ -2,12 +2,8 @@
 //! hierarchy, cross-project scoping (§68.27) and the AI Product Manager
 //! (§9, §68.47) over the shared harness with the offline Mock provider.
 
-use orkestr_domain::{
-    AgentTemplateId, AgentTeamId, SecretScope, TaskId, TeamMember, TeamPolicies, TemplateSource,
-};
-use orkestr_protocol::methods::pm::{
-    PmApproveParams, PmDraftParams, PmDraftStatus, PmListParams, PmUpdateParams,
-};
+use orkestr_domain::{AgentTeamId, AgentTemplateId, SecretScope, TaskId, TeamMember, TeamPolicies, TemplateSource};
+use orkestr_protocol::methods::pm::{PmApproveParams, PmDraftParams, PmDraftStatus, PmListParams, PmUpdateParams};
 use orkestr_protocol::methods::teams::{
     AssignTeamParams, CreateTeamParams, ListTeamsParams, TeamLeadStatus, TeamProjectPermissions, TeamView,
     UpdateTeamParams,
@@ -17,7 +13,14 @@ use super::*;
 use crate::OrchestratorError;
 
 async fn template(h: &H, role: AgentRole) -> AgentTemplateId {
-    h.rt.templates().list(None, Some(TemplateSource::Builtin)).await.unwrap().into_iter().find(|t| t.role == role).unwrap().id
+    h.rt.templates()
+        .list(None, Some(TemplateSource::Builtin))
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|t| t.role == role)
+        .unwrap()
+        .id
 }
 
 fn member(template_id: AgentTemplateId, lead: bool, count: u32) -> TeamMember {
@@ -65,7 +68,8 @@ async fn builtin_teams_are_seeded_once_and_crud_is_validated() {
     assert_eq!(teams(&h).await.len(), 6);
 
     // Validation: two leads, lead count, unknown template, bad bounds, hierarchy without a lead.
-    let bad = |r: Result<TeamView, OrchestratorError>| assert!(matches!(r, Err(OrchestratorError::Invalid(_))), "{r:?}");
+    let bad =
+        |r: Result<TeamView, OrchestratorError>| assert!(matches!(r, Err(OrchestratorError::Invalid(_))), "{r:?}");
     bad(h.mgr.teams_create(create("X", vec![member(backend, true, 1), member(reviewer, true, 1)], None)).await);
     bad(h.mgr.teams_create(create("X", vec![member(backend, true, 2)], None)).await);
     bad(h.mgr.teams_create(create("X", vec![member(AgentTemplateId::new(), false, 1)], None)).await);
@@ -120,21 +124,33 @@ async fn team_agents_never_see_other_projects_secrets() {
     let user = h.sec.user();
     let secrets = &h.sec.secrets;
     let mine = secrets
-        .set("DB_PASSWORD", SecretScope::Project { project_id: h.project }, zeroize::Zeroizing::new("a-secret".into()), user)
+        .set(
+            "DB_PASSWORD",
+            SecretScope::Project { project_id: h.project },
+            zeroize::Zeroizing::new("a-secret".into()),
+            user,
+        )
         .await
         .unwrap()
         .id;
     let theirs = secrets
-        .set("DB_PASSWORD", SecretScope::Project { project_id: other }, zeroize::Zeroizing::new("b-secret".into()), user)
+        .set(
+            "DB_PASSWORD",
+            SecretScope::Project { project_id: other },
+            zeroize::Zeroizing::new("b-secret".into()),
+            user,
+        )
         .await
         .unwrap()
         .id;
-    let global = secrets.set("PROVIDER_KEY", SecretScope::Global, zeroize::Zeroizing::new("g".into()), user).await.unwrap().id;
+    let global =
+        secrets.set("PROVIDER_KEY", SecretScope::Global, zeroize::Zeroizing::new("g".into()), user).await.unwrap().id;
     let read = |project: ProjectId, secret| {
         let mgr = h.mgr.clone();
         async move { mgr.with_team_secret(team, project, None, secret, str::to_owned).await }
     };
-    let forbidden = |r: Result<String, OrchestratorError>| assert!(matches!(r, Err(OrchestratorError::Forbidden(_))), "{r:?}");
+    let forbidden =
+        |r: Result<String, OrchestratorError>| assert!(matches!(r, Err(OrchestratorError::Forbidden(_))), "{r:?}");
 
     // Not assigned at all.
     forbidden(read(h.project, mine).await);
@@ -154,7 +170,8 @@ async fn team_agents_never_see_other_projects_secrets() {
     // The agent-scope rules installed on team agents deny Secrets unless allowed.
     let rules = crate::teams::scope_rules(&TeamProjectPermissions::default());
     assert!(rules.iter().any(|r| r.capability == Capability::Secrets && r.effect == PermissionEffect::Deny));
-    let narrowed = crate::teams::scope_rules(&TeamProjectPermissions { secrets: true, denied: vec![Capability::Network] });
+    let narrowed =
+        crate::teams::scope_rules(&TeamProjectPermissions { secrets: true, denied: vec![Capability::Network] });
     assert!(!narrowed.iter().any(|r| r.capability == Capability::Secrets));
 
     // A live team agent carries the scope: Secrets denied even in Full Auto,
@@ -237,11 +254,14 @@ async fn a_team_lead_decomposes_spawns_executors_then_a_reviewer() {
     let mut plan = h.custom_plan(vec![ptask("a", "Build the greeter feature", AgentRole::Backend, &[])]).await;
     plan.options.team_id = Some(team.id);
     h.mgr.store().save_plan(&plan).await.unwrap();
-    let r = h.mgr.approve_plan(ApprovePlanParams { plan_id: plan.id, edits: None, start_run: Some(true) }).await.unwrap();
+    let r =
+        h.mgr.approve_plan(ApprovePlanParams { plan_id: plan.id, edits: None, start_run: Some(true) }).await.unwrap();
     let run = r.run.unwrap();
     let done = h
         .mgr
-        .wait_run(run.id, Duration::from_secs(120), |r| final_status(r.status) || r.tasks.iter().any(|t| t.awaiting_review))
+        .wait_run(run.id, Duration::from_secs(120), |r| {
+            final_status(r.status) || r.tasks.iter().any(|t| t.awaiting_review)
+        })
         .await
         .unwrap();
     let view = h.mgr.teams_get(team.id).await.unwrap();
@@ -337,7 +357,11 @@ async fn product_manager_drafts_edits_and_approves_into_a_task_hierarchy() {
     h.mock("mock-smart");
     let d = h
         .mgr
-        .pm_draft(PmDraftParams { project_id: h.project, idea: "a payroll module for small shops".into(), options: None })
+        .pm_draft(PmDraftParams {
+            project_id: h.project,
+            idea: "a payroll module for small shops".into(),
+            options: None,
+        })
         .await
         .unwrap();
     assert_eq!(d.status, PmDraftStatus::Draft);
@@ -359,7 +383,10 @@ async fn product_manager_drafts_edits_and_approves_into_a_task_hierarchy() {
     epic.features[0].stories[0].tasks[1].title = "Implement the payroll service API".into();
     epic.features[0].stories[0].acceptance_criteria.push("Totals are rounded to cents".into());
     let d = h.mgr.pm_update(PmUpdateParams { draft_id: d.id.clone(), epic }).await.unwrap();
-    assert_eq!(h.mgr.pm_list(PmListParams { project_id: h.project, include_discarded: None }).await.unwrap().drafts.len(), 1);
+    assert_eq!(
+        h.mgr.pm_list(PmListParams { project_id: h.project, include_discarded: None }).await.unwrap().drafts.len(),
+        1
+    );
 
     // Approve (no run): epic → features → stories → tasks with dependencies.
     let team = teams(&h).await.into_iter().find(|v| v.team.name == "Web Team").unwrap().team.id;
@@ -404,9 +431,16 @@ async fn product_manager_drafts_edits_and_approves_into_a_task_hierarchy() {
     assert!(matches!(h.mgr.pm_discard(&d.id).await, Err(OrchestratorError::Conflict(_))));
 
     // Discard another draft; it disappears from the default list.
-    let d2 = h.mgr.pm_draft(PmDraftParams { project_id: h.project, idea: "a todo app".into(), options: None }).await.unwrap();
+    let d2 = h
+        .mgr
+        .pm_draft(PmDraftParams { project_id: h.project, idea: "a todo app".into(), options: None })
+        .await
+        .unwrap();
     assert_eq!(h.mgr.pm_discard(&d2.id).await.unwrap().status, PmDraftStatus::Discarded);
-    assert_eq!(h.mgr.pm_list(PmListParams { project_id: h.project, include_discarded: None }).await.unwrap().drafts.len(), 1);
+    assert_eq!(
+        h.mgr.pm_list(PmListParams { project_id: h.project, include_discarded: None }).await.unwrap().drafts.len(),
+        1
+    );
     let all = h.mgr.pm_list(PmListParams { project_id: h.project, include_discarded: Some(true) }).await.unwrap();
     assert_eq!(all.drafts.len(), 2);
     // Invalid ideas.
@@ -417,17 +451,18 @@ async fn product_manager_drafts_edits_and_approves_into_a_task_hierarchy() {
 async fn an_approved_product_draft_runs_and_completes_its_containers() {
     let h = harness(false, ApprovalMode::SemiAuto).await;
     h.mock("mock-smart");
-    let d = h
-        .mgr
-        .pm_draft(PmDraftParams { project_id: h.project, idea: "a greeter".into(), options: None })
-        .await
-        .unwrap();
+    let d =
+        h.mgr.pm_draft(PmDraftParams { project_id: h.project, idea: "a greeter".into(), options: None }).await.unwrap();
     // Keep it small and offline-deterministic: one feature, one story, two tasks.
     let mut epic = d.epic.clone();
     epic.features.truncate(1);
     epic.features[0].stories.truncate(1);
     let d = h.mgr.pm_update(PmUpdateParams { draft_id: d.id.clone(), epic }).await.unwrap();
-    let a = h.mgr.pm_approve(PmApproveParams { draft_id: d.id.clone(), start_run: Some(true), team_id: None }).await.unwrap();
+    let a = h
+        .mgr
+        .pm_approve(PmApproveParams { draft_id: d.id.clone(), start_run: Some(true), team_id: None })
+        .await
+        .unwrap();
     let run = a.run.unwrap();
     assert_eq!(a.draft.run_id, Some(run.id));
     let done = h.mgr.wait_run(run.id, Duration::from_secs(90), |r| final_status(r.status)).await.unwrap();

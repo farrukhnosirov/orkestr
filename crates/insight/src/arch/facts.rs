@@ -144,8 +144,8 @@ pub fn classify(path: &str) -> Role {
     let name = path.rsplit('/').next().unwrap_or(path);
     let lower = name.to_ascii_lowercase();
     let dirs: Vec<&str> = path.split('/').collect();
-    let in_migrations =
-        dirs.len() > 1 && dirs[..dirs.len() - 1].iter().any(|d| MIGRATION_DIRS.contains(&d.to_ascii_lowercase().as_str()));
+    let in_migrations = dirs.len() > 1
+        && dirs[..dirs.len() - 1].iter().any(|d| MIGRATION_DIRS.contains(&d.to_ascii_lowercase().as_str()));
     match lower.as_str() {
         "cargo.toml" => return Role::Cargo,
         "package.json" => return Role::PackageJson,
@@ -205,7 +205,9 @@ pub fn extract(path: &str, role: Role, text: &str) -> FileFacts {
     };
     let manifest = match role {
         Role::Cargo => Some(manifests::parse_cargo(text)),
-        Role::PackageJson => Some(manifests::parse_package_json(text, if dir_name.is_empty() { "root" } else { &dir_name })),
+        Role::PackageJson => {
+            Some(manifests::parse_package_json(text, if dir_name.is_empty() { "root" } else { &dir_name }))
+        }
         Role::Pyproject => Some(manifests::parse_pyproject(text)),
         Role::SetupPy => Some(manifests::parse_setup_py(text)),
         Role::GoMod => Some(manifests::parse_go_mod(text)),
@@ -241,8 +243,7 @@ pub fn extract(path: &str, role: Role, text: &str) -> FileFacts {
 static GO_MAIN: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?m)^\s*package\s+main\b").expect("regex"));
 
 fn docker_from(text: &str) -> Option<String> {
-    static FROM: Lazy<Regex> =
-        Lazy::new(|| Regex::new(r"(?im)^\s*FROM\s+(?:--\S+\s+)*(\S+)").expect("regex"));
+    static FROM: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?im)^\s*FROM\s+(?:--\S+\s+)*(\S+)").expect("regex"));
     FROM.captures_iter(text).filter_map(|c| c.get(1)).map(|m| m.as_str().to_owned()).last()
 }
 
@@ -288,14 +289,16 @@ fn compose_services(text: &str) -> Vec<ComposeService> {
 #[must_use]
 pub fn imports(lang: Lang, text: &str) -> Vec<String> {
     static RUST_USE: Lazy<Regex> = Lazy::new(|| {
-        Regex::new(r"(?m)^\s*(?:pub(?:\([^)]*\))?\s+)?(?:use\s+(?:::)?|extern\s+crate\s+)([A-Za-z_][A-Za-z0-9_]*)").expect("regex")
+        Regex::new(r"(?m)^\s*(?:pub(?:\([^)]*\))?\s+)?(?:use\s+(?:::)?|extern\s+crate\s+)([A-Za-z_][A-Za-z0-9_]*)")
+            .expect("regex")
     });
     static JS: Lazy<Regex> = Lazy::new(|| {
         Regex::new(r#"(?:\bfrom\s+|\bimport\s+|\brequire\(\s*|\bimport\(\s*)['"]([^'"\n]+)['"]"#).expect("regex")
     });
     static PY_IMPORT: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?m)^\s*import\s+([\w\., ]+)").expect("regex"));
     static PY_FROM: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?m)^\s*from\s+(\.*[\w\.]*)\s+import\b").expect("regex"));
-    static GO_SINGLE: Lazy<Regex> = Lazy::new(|| Regex::new(r#"(?m)^\s*import\s+(?:\w+\s+)?"([^"]+)""#).expect("regex"));
+    static GO_SINGLE: Lazy<Regex> =
+        Lazy::new(|| Regex::new(r#"(?m)^\s*import\s+(?:\w+\s+)?"([^"]+)""#).expect("regex"));
     static GO_BLOCK: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?s)import\s*\((.*?)\)").expect("regex"));
     static GO_ITEM: Lazy<Regex> = Lazy::new(|| Regex::new(r#""([^"]+)""#).expect("regex"));
     static CS: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?m)^\s*using\s+(?:static\s+)?([\w\.]+)\s*;").expect("regex"));
@@ -390,9 +393,15 @@ mod tests {
             imports(Lang::JsTs, "import x from './a';\nimport '@acme/ui/styles.css';\nconst y = require(\"lodash\");\nexport * from \"../b\";"),
             vec!["./a", "@acme/ui/styles.css", "lodash", "../b"]
         );
-        assert_eq!(imports(Lang::Python, "import os, sys as s\nfrom .models import A\nfrom pkg.sub import B\n"), vec!["os", "sys", ".models", "pkg.sub"]);
         assert_eq!(
-            imports(Lang::Go, "package main\nimport (\n  \"fmt\"\n  api \"github.com/acme/api/x\"\n)\nimport \"net/http\""),
+            imports(Lang::Python, "import os, sys as s\nfrom .models import A\nfrom pkg.sub import B\n"),
+            vec!["os", "sys", ".models", "pkg.sub"]
+        );
+        assert_eq!(
+            imports(
+                Lang::Go,
+                "package main\nimport (\n  \"fmt\"\n  api \"github.com/acme/api/x\"\n)\nimport \"net/http\""
+            ),
             vec!["net/http", "fmt", "github.com/acme/api/x"]
         );
         assert_eq!(imports(Lang::CSharp, "using System;\nusing Acme.Core.Models;"), vec!["System", "Acme.Core.Models"]);
@@ -400,7 +409,11 @@ mod tests {
 
     #[test]
     fn extract_dockerfile_compose_prisma() {
-        let f = extract("Dockerfile", Role::Dockerfile, "FROM rust:1.80 AS build\nRUN x\nFROM --platform=linux/amd64 debian:bookworm-slim\n");
+        let f = extract(
+            "Dockerfile",
+            Role::Dockerfile,
+            "FROM rust:1.80 AS build\nRUN x\nFROM --platform=linux/amd64 debian:bookworm-slim\n",
+        );
         assert_eq!(f.docker_from.as_deref(), Some("debian:bookworm-slim"));
         let f = extract(
             "docker-compose.yml",
@@ -411,7 +424,11 @@ mod tests {
         assert_eq!(f.compose[0].build.as_deref(), Some("."));
         assert_eq!(f.compose[0].ports, vec!["80:80"]);
         assert_eq!(f.compose[1].image.as_deref(), Some("postgres:16"));
-        let f = extract("prisma/schema.prisma", Role::Prisma, "datasource db {\n  provider = \"postgresql\"\n  url = env(\"X\")\n}");
+        let f = extract(
+            "prisma/schema.prisma",
+            Role::Prisma,
+            "datasource db {\n  provider = \"postgresql\"\n  url = env(\"X\")\n}",
+        );
         assert_eq!(f.prisma_provider.as_deref(), Some("postgresql"));
         let f = extract("Cargo.toml", Role::Cargo, "garbage = [");
         assert!(f.manifest.is_none() && !f.warnings.is_empty());

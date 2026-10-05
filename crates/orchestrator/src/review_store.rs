@@ -113,7 +113,12 @@ impl ReviewStore {
     }
 
     /// Reviews, newest first, filtered by project and/or task.
-    pub async fn reviews(&self, project: Option<ProjectId>, task: Option<TaskId>, limit: u32) -> OrchResult<Vec<Review>> {
+    pub async fn reviews(
+        &self,
+        project: Option<ProjectId>,
+        task: Option<TaskId>,
+        limit: u32,
+    ) -> OrchResult<Vec<Review>> {
         let (p, t) = (project.map(|p| p.to_string()), task.map(|t| t.to_string()));
         let docs: Vec<String> = self
             .db

@@ -85,7 +85,12 @@
     "ApprovalRequested": "Запрос на подтверждение",
     "ApprovalResolved": "Решение по подтверждению",
     "DecisionRecorded": "Решение",
-    "EmergencyStop": "Экстренная остановка"
+    "EmergencyStop": "Экстренная остановка",
+    "ReviewUpdated": "Ревью не выполнено",
+    "ConsensusUpdated": "Консенсус",
+    "TeamLeadRunUpdated": "Лид команды",
+    "MergeProposalUpdated": "Слияние",
+    "MergeRiskDetected": "Риск конфликта слияния"
   },
   "fileChange": {
     "Created": "создан",

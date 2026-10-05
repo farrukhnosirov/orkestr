@@ -403,7 +403,7 @@ function StepRow({
 }
 
 function StepDetail({ step, agent, task }: { step: ReplayStep | null; agent: string | null; task: string | null }) {
-  const { t } = useT(["replay", "common", "logs"]);
+  const { t } = useT(["replay", "common", "logs", "merge", "teams"]);
   const fmt = useFormat();
   if (!step) {
     return (
@@ -417,6 +417,14 @@ function StepDetail({ step, agent, task }: { step: ReplayStep | null; agent: str
     if (step.kind === "FileChanged") return t(`fileChange.${step.detail}` as "fileChange.Created", { defaultValue: step.detail });
     if (step.kind === "ReviewFinished") return t("detail.findings", { count: Number(step.detail) || 0 });
     if (step.kind === "RollbackPerformed") return t("detail.filesRestored", { count: Number(step.detail) || 0 });
+    if (step.kind === "MergeProposalUpdated") {
+      const [status = "", ...rest] = step.detail.split(": ");
+      const label = t(`merge:status.${status}` as "merge:status.Proposed", { defaultValue: status });
+      return rest.length > 0 ? `${label}: ${rest.join(": ")}` : label;
+    }
+    if (step.kind === "TeamLeadRunUpdated") {
+      return t(`teams:leadStatus.${step.detail}` as "teams:leadStatus.Planning", { defaultValue: step.detail });
+    }
     return step.detail;
   })();
   const rows: Array<[string, string]> = [];

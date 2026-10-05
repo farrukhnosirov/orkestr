@@ -32,7 +32,11 @@ async fn db(dir: &Path) -> Db {
 /// npm workspaces + a Python service + Go module + express routes.
 fn polyglot(root: &Path) {
     write(root, "package.json", r#"{"name":"mono","private":true,"workspaces":["packages/*"]}"#);
-    write(root, "packages/core/package.json", r#"{"name":"@mono/core","version":"1.0.0","dependencies":{"lodash":"^4"}}"#);
+    write(
+        root,
+        "packages/core/package.json",
+        r#"{"name":"@mono/core","version":"1.0.0","dependencies":{"lodash":"^4"}}"#,
+    );
     write(root, "packages/core/src/index.ts", "export const core = 1;\n");
     write(
         root,
@@ -44,7 +48,11 @@ fn polyglot(root: &Path) {
         "packages/server/src/app.ts",
         "import express from 'express';\nimport { core } from '@mono/core';\nconst app = express();\napp.get('/api/items', h);\napp.post('/api/items', h);\n",
     );
-    write(root, "worker/pyproject.toml", "[project]\nname = \"worker\"\ndependencies = [\"fastapi\", \"sqlalchemy\"]\n");
+    write(
+        root,
+        "worker/pyproject.toml",
+        "[project]\nname = \"worker\"\ndependencies = [\"fastapi\", \"sqlalchemy\"]\n",
+    );
     write(
         root,
         "worker/worker/main.py",
@@ -87,7 +95,10 @@ async fn polyglot_fixture_scan_incremental_and_diff() {
         "workspace dependency edge: {:?}",
         map.edges
     );
-    assert!(map.nodes.iter().any(|n| n.kind == ArchNodeKind::External && n.dependencies.iter().any(|d| d == "express")));
+    assert!(map
+        .nodes
+        .iter()
+        .any(|n| n.kind == ArchNodeKind::External && n.dependencies.iter().any(|d| d == "express")));
     let parsed_first = map.stats.files_parsed;
     assert!(parsed_first > 0);
 
@@ -105,11 +116,17 @@ async fn polyglot_fixture_scan_incremental_and_diff() {
     );
     let changed = svc.refresh(pid, root.clone(), false, false).await.unwrap();
     assert!(changed.changed);
-    assert!(changed.map.stats.files_parsed < parsed_first, "incremental: {} < {parsed_first}", changed.map.stats.files_parsed);
+    assert!(
+        changed.map.stats.files_parsed < parsed_first,
+        "incremental: {} < {parsed_first}",
+        changed.map.stats.files_parsed
+    );
     let diff = changed.diff.unwrap();
     assert!(diff.added_nodes.is_empty() && diff.removed_nodes.is_empty(), "{diff:?}");
     assert!(
-        diff.changed_nodes.iter().any(|c| c.added_routes.iter().any(|r| r.method == "DELETE" && r.path == "/api/items/:id")),
+        diff.changed_nodes
+            .iter()
+            .any(|c| c.added_routes.iter().any(|r| r.method == "DELETE" && r.path == "/api/items/:id")),
         "{diff:?}"
     );
 
@@ -155,7 +172,8 @@ async fn file_changes_trigger_a_debounced_auto_refresh() {
         min_interval: Duration::from_millis(0),
         poll: Duration::from_millis(50),
     };
-    let handle = spawn_auto_refresh(svc.clone(), bus.clone(), projects as Arc<dyn ProjectRepository>, cfg, shutdown.clone());
+    let handle =
+        spawn_auto_refresh(svc.clone(), bus.clone(), projects as Arc<dyn ProjectRepository>, cfg, shutdown.clone());
     tokio::time::sleep(Duration::from_millis(20)).await;
     assert_eq!(bus.subscriber_count(), 0, "tails the log; never counts as a live listener");
     let mut sub = bus.subscribe_all();

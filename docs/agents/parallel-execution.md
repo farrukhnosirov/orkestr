@@ -107,3 +107,12 @@ waiting counts or settings change; `MergeRiskDetected` (topic `project:<id>`).
   host resources.
 
 Strings: namespace `scheduler` (en/ru).
+
+## Team leads (hierarchy)
+
+A team lead's executor sub-tasks go through the same global scheduler: each
+lead registers its own queue (`admit` with a lead-scoped queue id, the team's
+`maxParallel` as the run cap and the team name for `teamCaps`), so sub-tasks
+compete with every other run for the global / project / provider / model /
+team slots and show up in `scheduler.status` / `scheduler.explain`. The queue
+is unregistered when the lead finishes.

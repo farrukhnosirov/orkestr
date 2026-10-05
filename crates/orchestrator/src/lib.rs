@@ -65,14 +65,14 @@ pub use deps::{
     ManagerHub, ManagerTunables, OrchestratorDeps, ProviderBrief, RegistryHub, ResourceProbe, Unconstrained,
 };
 pub use error::{OrchResult, OrchestratorError};
-pub use review::{gate_of, ReviewGateSource};
-pub use review_store::review_migrations;
 pub use merge::{merge_migrations, MergeDeps, MergeGateSource, MergeManager, MergeQualityRunner};
 pub use parallel::{AutoResumeReport, GatedGateway, ParallelDeps, ParallelScheduler};
+pub use review::{gate_of, ReviewGateSource};
+pub use review_store::review_migrations;
 pub use schema::orchestrator_migrations;
 pub use service::Manager;
 
 #[cfg(test)]
-mod tests;
-#[cfg(test)]
 mod review_tests;
+#[cfg(test)]
+mod tests;

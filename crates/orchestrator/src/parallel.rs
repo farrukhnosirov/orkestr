@@ -52,7 +52,9 @@ use orkestr_protocol::methods::scheduler::{
 };
 use orkestr_protocol::methods::tasks::ListTasksParams;
 use orkestr_protocol::NewEvent;
-use orkestr_providers::{ChatEvent, ChatRequest, ChatStream, HandoffHook, ProviderAdapter, ProviderError, RouteRequest};
+use orkestr_providers::{
+    ChatEvent, ChatRequest, ChatStream, HandoffHook, ProviderAdapter, ProviderError, RouteRequest,
+};
 use orkestr_storage::{Db, Migration};
 use orkestr_task_engine::{
     effective_priority, first_overlap, AgingPolicy, Deferral, ResourceSnapshot, SchedTask, Scheduler, SchedulerLimits,
@@ -94,8 +96,7 @@ pub const MAX_RISK_PREVIEWS: usize = 6;
 const MODEL_CACHE_TTL: Duration = Duration::from_secs(30);
 /// Reason stored on a run that was paused by the user when Orkestr stopped
 /// (such runs are never resumed automatically).
-pub const PAUSED_INTERRUPTED_REASON: &str =
-    "paused by the user when Orkestr stopped — resume it to continue";
+pub const PAUSED_INTERRUPTED_REASON: &str = "paused by the user when Orkestr stopped — resume it to continue";
 
 /// Task statuses that hold an agent slot.
 pub const ACTIVE_STATUSES: [TaskStatus; 2] = [TaskStatus::Running, TaskStatus::Waiting];
@@ -227,7 +228,9 @@ fn u32c(n: usize) -> u32 {
 #[must_use]
 pub fn wait_reason(d: &Deferral) -> WaitReason {
     match d.clone() {
-        Deferral::GlobalLimit { running, limit } => WaitReason::GlobalLimit { running: u32c(running), limit: u32c(limit) },
+        Deferral::GlobalLimit { running, limit } => {
+            WaitReason::GlobalLimit { running: u32c(running), limit: u32c(limit) }
+        }
         Deferral::ProjectLimit { running, limit } => {
             WaitReason::ProjectLimit { running: u32c(running), limit: u32c(limit) }
         }
@@ -329,7 +332,11 @@ impl ParallelScheduler {
             })
             .await?;
         *self.settings.write() = s.clone();
-        tracing::info!(global = s.max_parallel_global, per_project = s.max_parallel_per_project, "scheduler settings updated");
+        tracing::info!(
+            global = s.max_parallel_global,
+            per_project = s.max_parallel_per_project,
+            "scheduler settings updated"
+        );
         let counts = self.counts();
         self.publish(SchedulerUpdatedPayload { counts, settings_changed: true }).await;
         Ok(s)
@@ -381,7 +388,8 @@ impl ParallelScheduler {
     pub fn note_rate_limited(&self, provider: &str, retry_after: Option<u64>) {
         let base = u64::from(self.settings.read().rate_limit_backoff_secs.max(1));
         let mut rate = self.rate.lock();
-        let entry = rate.entry(provider.to_owned()).or_insert(RateState { until: now(), hits: 0, last_hit: Instant::now() });
+        let entry =
+            rate.entry(provider.to_owned()).or_insert(RateState { until: now(), hits: 0, last_hit: Instant::now() });
         if entry.last_hit.elapsed() > BACKOFF_RESET {
             entry.hits = 0;
         }
@@ -554,7 +562,11 @@ impl ParallelScheduler {
             project_overrides,
             team_caps: s.team_caps.iter().map(|c| (c.team.clone(), c.max as usize)).collect(),
             provider_slots,
-            model_slots: s.model_caps.iter().map(|c| (format!("{}/{}", c.provider_id, c.model), c.max as usize)).collect(),
+            model_slots: s
+                .model_caps
+                .iter()
+                .map(|c| (format!("{}/{}", c.provider_id, c.model), c.max as usize))
+                .collect(),
             rate_limited: self.rate_limited(),
             max_cpu_percent: s.max_cpu_percent,
             min_free_ram_mb: s.min_free_ram_mb,
@@ -635,7 +647,14 @@ impl ParallelScheduler {
 
     /// Registers the run's ready tasks as held back for a run-level reason
     /// (paused, agent budget) — they are not admitted and do not reserve slots.
-    pub fn hold(&self, run_id: ManagerRunId, project_id: ProjectId, run_cap: usize, candidates: Vec<Candidate>, why: WaitReason) {
+    pub fn hold(
+        &self,
+        run_id: ManagerRunId,
+        project_id: ProjectId,
+        run_cap: usize,
+        candidates: Vec<Candidate>,
+        why: WaitReason,
+    ) {
         let text = hold_text(&why);
         {
             let mut decisions = self.decisions.lock();
@@ -694,11 +713,8 @@ impl ParallelScheduler {
             return None;
         }
         let decisions = self.decisions.lock();
-        let texts: Vec<String> = q
-            .entries
-            .iter()
-            .filter_map(|e| decisions.get(&e.sched.task_id).and_then(|d| d.text.clone()))
-            .collect();
+        let texts: Vec<String> =
+            q.entries.iter().filter_map(|e| decisions.get(&e.sched.task_id).and_then(|d| d.text.clone())).collect();
         let first = texts.first()?.clone();
         Some(if texts.len() > 1 { format!("{} task(s) {first}", texts.len()) } else { first })
     }
@@ -784,7 +800,9 @@ impl ParallelScheduler {
                     .iter()
                     .filter(|f| first_overlap(std::slice::from_ref(*f), &b.files).is_some())
                     .cloned()
-                    .chain(b.files.iter().filter(|f| first_overlap(std::slice::from_ref(*f), &a.files).is_some()).cloned())
+                    .chain(
+                        b.files.iter().filter(|f| first_overlap(std::slice::from_ref(*f), &a.files).is_some()).cloned(),
+                    )
                     .collect();
                 if overlap.is_empty() {
                     continue;
@@ -812,7 +830,8 @@ impl ParallelScheduler {
                 };
                 let changed = {
                     let mut risks = self.risks.lock();
-                    let changed = risks.get(&key).is_none_or(|old| old.files != risk.files || old.conflicts != risk.conflicts);
+                    let changed =
+                        risks.get(&key).is_none_or(|old| old.files != risk.files || old.conflicts != risk.conflicts);
                     if changed {
                         risks.insert(key, risk.clone());
                     }
@@ -825,7 +844,8 @@ impl ParallelScheduler {
         }
         for r in &fresh {
             tracing::info!(project_id = %r.project_id, task_a = %r.task_a, task_b = %r.task_b, files = r.files.len(), conflicts = r.conflicts.len(), "merge risk detected");
-            let ev = NewEvent::new(EventKind::MergeRiskDetected(MergeRiskPayload { risk: r.clone() })).project(r.project_id);
+            let ev =
+                NewEvent::new(EventKind::MergeRiskDetected(MergeRiskPayload { risk: r.clone() })).project(r.project_id);
             if let Err(e) = self.deps.events.publish(ev).await {
                 tracing::debug!(error = %e, "could not publish MergeRiskDetected");
             }
@@ -998,17 +1018,24 @@ impl ParallelScheduler {
 
         // Projects.
         let mut projects: BTreeMap<ProjectId, ProjectLoad> = BTreeMap::new();
-        let cap = |p: ProjectId| {
-            u32c(limits.project_overrides.get(&p).copied().unwrap_or(limits.max_parallel_per_project))
-        };
+        let cap =
+            |p: ProjectId| u32c(limits.project_overrides.get(&p).copied().unwrap_or(limits.max_parallel_per_project));
         for t in &active {
             projects
                 .entry(t.project_id)
-                .or_insert_with(|| ProjectLoad { project_id: t.project_id, running: 0, queued: 0, limit: cap(t.project_id) })
+                .or_insert_with(|| ProjectLoad {
+                    project_id: t.project_id,
+                    running: 0,
+                    queued: 0,
+                    limit: cap(t.project_id),
+                })
                 .running += 1;
         }
         for (p, n) in project_queued {
-            projects.entry(p).or_insert_with(|| ProjectLoad { project_id: p, running: 0, queued: 0, limit: cap(p) }).queued = n;
+            projects
+                .entry(p)
+                .or_insert_with(|| ProjectLoad { project_id: p, running: 0, queued: 0, limit: cap(p) })
+                .queued = n;
         }
 
         Ok(SchedulerStatus {
@@ -1040,13 +1067,8 @@ impl ParallelScheduler {
         };
         let scheduled = queued_candidate.is_some() || entry.as_ref().is_some_and(|e| e.run_id.is_some());
         let candidate = queued_candidate.unwrap_or_else(|| SchedTask::from_task(&task));
-        let active: Vec<SchedTask> = self
-            .active_tasks()
-            .await?
-            .iter()
-            .filter(|t| t.id != task_id)
-            .map(SchedTask::from_task)
-            .collect();
+        let active: Vec<SchedTask> =
+            self.active_tasks().await?.iter().filter(|t| t.id != task_id).map(SchedTask::from_task).collect();
         let (resources, _) = self.resources_view();
         let checks: Vec<AdmissionCheckResult> = Scheduler::new(self.current_limits())
             .evaluate(&candidate, &active, &resources, now())
@@ -1173,6 +1195,14 @@ impl ModelGateway for GatedGateway {
     fn adapter(&self, id: ProviderId) -> Option<Arc<dyn ProviderAdapter>> {
         self.inner.adapter(id)
     }
+
+    fn context_window(&self, model: &ModelRef) -> Option<u32> {
+        self.inner.context_window(model)
+    }
+
+    async fn configured_model(&self, purpose: &str) -> Option<ModelRef> {
+        self.inner.configured_model(purpose).await
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1241,17 +1271,30 @@ impl Manager {
                 }
             };
             let why_not = if all_stopped {
-                Some(if ru { "активна экстренная остановка" } else { "Stop All AI is active" })
+                Some(if ru {
+                    "активна экстренная остановка"
+                } else {
+                    "Stop All AI is active"
+                })
             } else if paused {
                 Some(if ru { "вы поставили запуск на паузу" } else { "you had paused it" })
             } else if over {
-                Some(if ru { "лимит автоматических возобновлений исчерпан" } else { "the automatic resume limit is reached" })
+                Some(if ru {
+                    "лимит автоматических возобновлений исчерпан"
+                } else {
+                    "the automatic resume limit is reached"
+                })
             } else if !policy_ok {
-                Some(if ru { "политика подтверждений требует вашего решения" } else { "the approval policy asks for your decision" })
+                Some(if ru {
+                    "политика подтверждений требует вашего решения"
+                } else {
+                    "the approval policy asks for your decision"
+                })
             } else {
                 None
             };
-            let extras = || MessageExtras { run_id: Some(run.id), plan_id: Some(run.plan_id), ..MessageExtras::default() };
+            let extras =
+                || MessageExtras { run_id: Some(run.id), plan_id: Some(run.plan_id), ..MessageExtras::default() };
             if why_not.is_none() {
                 match self.start_run(ManagerRunParams { plan_id: None, run_id: Some(run.id), limits: None }).await {
                     Ok(_) => {
@@ -1271,11 +1314,17 @@ impl Manager {
                 }
             }
             report.waiting_runs.push(run.id);
-            let why = why_not.unwrap_or(if ru { "не удалось возобновить" } else { "it could not be resumed" });
+            let why = why_not.unwrap_or(if ru {
+                "не удалось возобновить"
+            } else {
+                "it could not be resumed"
+            });
             let text = if ru {
                 format!("Запуск прерван перезапуском Orkestr и ждёт вас ({why}). Возобновите его, когда будете готовы.")
             } else {
-                format!("The run was interrupted by an Orkestr restart and waits for you ({why}). Resume it when ready.")
+                format!(
+                    "The run was interrupted by an Orkestr restart and waits for you ({why}). Resume it when ready."
+                )
             };
             self.inner.system_event(run.project_id, &text, extras()).await;
         }

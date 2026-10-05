@@ -133,9 +133,12 @@ pub fn parse_package_json(src: &str, dir_name: &str) -> Result<Manifest, String>
     m.name = name.unwrap_or_else(|| dir_name.to_owned());
     m.import_name = Some(m.name.clone());
     m.version = v.get("version").and_then(|n| n.as_str()).map(str::to_owned);
-    for (field, dev) in
-        [("dependencies", false), ("devDependencies", true), ("peerDependencies", false), ("optionalDependencies", false)]
-    {
+    for (field, dev) in [
+        ("dependencies", false),
+        ("devDependencies", true),
+        ("peerDependencies", false),
+        ("optionalDependencies", false),
+    ] {
         if let Some(serde_json::Value::Object(deps)) = v.get(field) {
             for (name, spec) in deps {
                 let path = spec
@@ -257,13 +260,7 @@ pub fn parse_go_mod(src: &str) -> Result<Manifest, String> {
         Lazy::new(|| Regex::new(r"(?m)^\s*(?:replace\s+)?(\S+)(?:\s+\S+)?\s*=>\s*(\.{1,2}/\S*)").expect("regex"));
     let path = MODULE.captures(src).and_then(|c| c.get(1)).map(|m| m.as_str().to_owned()).ok_or("go.mod: no module")?;
     let name = path.rsplit('/').next().unwrap_or(&path).to_owned();
-    let mut m = Manifest {
-        ecosystem: eco::GO,
-        name,
-        import_name: Some(path),
-        has_package: true,
-        ..Default::default()
-    };
+    let mut m = Manifest { ecosystem: eco::GO, name, import_name: Some(path), has_package: true, ..Default::default() };
     let mut in_block = false;
     for line in src.lines() {
         let l = line.split("//").next().unwrap_or("").trim();
@@ -397,7 +394,10 @@ path = "src/bin/serverd.rs"
         assert_eq!(p.import_name.as_deref(), Some("my_service"));
         assert_eq!(p.deps.iter().map(|d| d.name.as_str()).collect::<Vec<_>>(), vec!["fastapi", "SQLAlchemy"]);
         assert_eq!(p.bins, vec!["serve"]);
-        let poetry = parse_pyproject("[tool.poetry]\nname = \"svc\"\n[tool.poetry.dependencies]\npython = \"^3.11\"\nflask = \"*\"\n").unwrap();
+        let poetry = parse_pyproject(
+            "[tool.poetry]\nname = \"svc\"\n[tool.poetry.dependencies]\npython = \"^3.11\"\nflask = \"*\"\n",
+        )
+        .unwrap();
         assert_eq!(poetry.deps.len(), 1);
         assert_eq!(parse_requirements("# c\nrequests==2.0\n-r other.txt\npsycopg2-binary\n").len(), 2);
         let s = parse_setup_py("setup(name='legacy', install_requires=['six', 'redis>=4'])").unwrap();

@@ -210,7 +210,8 @@ pub(crate) async fn structured_call<T>(
             ResponseFormat::Text
         };
         req.max_output_tokens = Some(MAX_OUTPUT_TOKENS);
-        let out = match tokio::time::timeout(CALL_TIMEOUT, stream_chat(&inner.deps, chain.clone(), req, None, cancel)).await
+        let out = match tokio::time::timeout(CALL_TIMEOUT, stream_chat(&inner.deps, chain.clone(), req, None, cancel))
+            .await
         {
             Ok(r) => r?,
             Err(_) => {
@@ -308,9 +309,9 @@ pub(crate) fn text_of(v: &Value, keys: &[&str], max: usize) -> String {
         .filter_map(|k| v.get(*k))
         .find_map(|x| match x {
             Value::String(s) if !s.trim().is_empty() => Some(s.trim().to_owned()),
-            Value::Array(a) if !a.is_empty() => Some(
-                a.iter().filter_map(Value::as_str).collect::<Vec<_>>().join("\n").trim().to_owned(),
-            ),
+            Value::Array(a) if !a.is_empty() => {
+                Some(a.iter().filter_map(Value::as_str).collect::<Vec<_>>().join("\n").trim().to_owned())
+            }
             _ => None,
         })
         .map(|s| cap(&crate::util::redact(&s), max))
@@ -374,7 +375,9 @@ pub(crate) fn parse_findings(doc: &Value) -> Vec<ReviewFinding> {
         .enumerate()
         .map(|(i, f)| {
             let line = f.get("line").and_then(|l| {
-                l.as_u64().or_else(|| l.as_str().and_then(|s| s.trim().parse().ok())).and_then(|n| u32::try_from(n).ok())
+                l.as_u64()
+                    .or_else(|| l.as_str().and_then(|s| s.trim().parse().ok()))
+                    .and_then(|n| u32::try_from(n).ok())
             });
             let file = f
                 .get("file")
@@ -438,7 +441,9 @@ pub(crate) fn align_ac(doc: &Value, task: &Task) -> Vec<AcCheck> {
                     met: x.get("met").and_then(Value::as_bool).unwrap_or(false),
                     evidence: text_of(x, &["evidence", "note"], 1_000),
                 },
-                None => AcCheck { criterion: c.text.clone(), met: false, evidence: "not assessed by the reviewer".into() },
+                None => {
+                    AcCheck { criterion: c.text.clone(), met: false, evidence: "not assessed by the reviewer".into() }
+                }
             }
         })
         .collect()
@@ -519,7 +524,8 @@ pub(crate) struct Change {
 /// with the project's `HEAD` plus uncommitted work in its worktree; without a
 /// worktree, the uncommitted changes of the project folder.
 pub(crate) async fn gather_change(inner: &Inner, project: &Project, task: &Task) -> Change {
-    let none = |why: &str| Change { text: String::new(), stats: ReviewDiffStats { source: why.into(), ..Default::default() } };
+    let none =
+        |why: &str| Change { text: String::new(), stats: ReviewDiffStats { source: why.into(), ..Default::default() } };
     let Some(root) = project.root_path.as_ref().map(PathBuf::from).filter(|p| p.is_dir()) else {
         return none("the project has no folder on this machine");
     };
@@ -770,7 +776,9 @@ impl Inner {
     /// The emergency-aware cancel token of a project.
     pub(crate) fn quality_token(&self, project: ProjectId) -> OrchResult<CancellationToken> {
         if self.deps.security.emergency.flags().all_stopped {
-            return Err(OrchestratorError::Forbidden("Stop All AI is active — reset the emergency controls first".into()));
+            return Err(OrchestratorError::Forbidden(
+                "Stop All AI is active — reset the emergency controls first".into(),
+            ));
         }
         self.deps
             .security
@@ -888,10 +896,8 @@ impl Inner {
                 tracing::warn!(task_id = %task.id, error = %e, "review: could not tick acceptance criteria");
             }
         }
-        let adv_blocking: Vec<&ReviewFinding> = adversarial
-            .filter(|a| a.status == ReviewStatus::Finished)
-            .map(|a| a.blocking())
-            .unwrap_or_default();
+        let adv_blocking: Vec<&ReviewFinding> =
+            adversarial.filter(|a| a.status == ReviewStatus::Finished).map(|a| a.blocking()).unwrap_or_default();
         let effective = if verdict == ReviewVerdict::Approve && !adv_blocking.is_empty() {
             ReviewVerdict::RequestChanges
         } else {
@@ -932,10 +938,18 @@ impl Inner {
                 self.save_review(std).await;
                 let ru = is_ru(&self.deps.config.ui_language.get());
                 let text = match (effective, ru) {
-                    (ReviewVerdict::Approve, false) => format!("Code review approved \"{}\" — it moves to testing.", task.title),
-                    (ReviewVerdict::Approve, true) => format!("Код-ревью одобрило задачу «{}» — она переходит к тестированию.", task.title),
-                    (ReviewVerdict::RequestChanges, false) => format!("Code review requested changes to \"{}\": {}", task.title, top.join("; ")),
-                    (ReviewVerdict::RequestChanges, true) => format!("Код-ревью запросило доработку задачи «{}»: {}", task.title, top.join("; ")),
+                    (ReviewVerdict::Approve, false) => {
+                        format!("Code review approved \"{}\" — it moves to testing.", task.title)
+                    }
+                    (ReviewVerdict::Approve, true) => {
+                        format!("Код-ревью одобрило задачу «{}» — она переходит к тестированию.", task.title)
+                    }
+                    (ReviewVerdict::RequestChanges, false) => {
+                        format!("Code review requested changes to \"{}\": {}", task.title, top.join("; "))
+                    }
+                    (ReviewVerdict::RequestChanges, true) => {
+                        format!("Код-ревью запросило доработку задачи «{}»: {}", task.title, top.join("; "))
+                    }
                     (ReviewVerdict::Reject, false) => format!("Code review rejected \"{}\".", task.title),
                     (ReviewVerdict::Reject, true) => format!("Код-ревью отклонило задачу «{}».", task.title),
                 };
@@ -1215,7 +1229,8 @@ mod unit {
         let ok = inner_review(ReviewKind::Standard, ReviewVerdict::Approve, FindingSeverity::Low, "style");
         let g = gate_of(task.id, std::slice::from_ref(&ok));
         assert!(g.passed && g.reviewer_approved && g.no_critical_security);
-        let adv = inner_review(ReviewKind::Adversarial, ReviewVerdict::RequestChanges, FindingSeverity::Critical, "security");
+        let adv =
+            inner_review(ReviewKind::Adversarial, ReviewVerdict::RequestChanges, FindingSeverity::Critical, "security");
         let g = gate_of(task.id, &[adv, ok]);
         assert!(!g.passed && g.reviewer_approved && !g.no_critical_security);
         assert_eq!(g.blocking_findings, 1);

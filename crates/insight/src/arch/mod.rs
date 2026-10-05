@@ -67,7 +67,10 @@ impl std::fmt::Debug for ArchitectureService {
 
 /// Model digest (blake3 over the canonical JSON of nodes + edges).
 #[must_use]
-pub fn digest(nodes: &[orkestr_protocol::methods::architecture::ArchNode], edges: &[orkestr_protocol::methods::architecture::ArchEdge]) -> String {
+pub fn digest(
+    nodes: &[orkestr_protocol::methods::architecture::ArchNode],
+    edges: &[orkestr_protocol::methods::architecture::ArchEdge],
+) -> String {
     let mut h = blake3::Hasher::new();
     h.update(serde_json::to_string(nodes).unwrap_or_default().as_bytes());
     h.update(b"\n");
@@ -110,7 +113,13 @@ impl ArchitectureService {
 
     /// Scans the project (incrementally unless `full`) and stores a snapshot
     /// when the model changed. Refreshes of one project are serialised.
-    pub async fn refresh(&self, project: ProjectId, root: PathBuf, full: bool, automatic: bool) -> InsightResult<RefreshOutcome> {
+    pub async fn refresh(
+        &self,
+        project: ProjectId,
+        root: PathBuf,
+        full: bool,
+        automatic: bool,
+    ) -> InsightResult<RefreshOutcome> {
         let slot = self.scanner(project, &root);
         let mut guard = slot.lock_owned().await;
         let root_name = root.file_name().map_or_else(|| "project".to_owned(), |n| n.to_string_lossy().into_owned());
@@ -161,7 +170,9 @@ impl ArchitectureService {
                 changed_edges: u32::try_from(d.added_edges.len() + d.removed_edges.len()).unwrap_or(u32::MAX),
                 automatic,
             };
-            if let Err(e) = bus.publish(NewEvent::new(EventKind::ArchitectureMapUpdated(payload)).project(project)).await {
+            if let Err(e) =
+                bus.publish(NewEvent::new(EventKind::ArchitectureMapUpdated(payload)).project(project)).await
+            {
                 tracing::warn!(error = %e, "failed to publish ArchitectureMapUpdated");
             }
         }
@@ -188,10 +199,9 @@ impl ArchitectureService {
         let list = self.inner.store.list(project).await?;
         let to_id = match to {
             Some(t) => t.to_owned(),
-            None => list
-                .first()
-                .map(|s| s.snapshot_id.clone())
-                .ok_or_else(|| InsightError::NotFound("architecture snapshot (run architecture.refresh first)".into()))?,
+            None => list.first().map(|s| s.snapshot_id.clone()).ok_or_else(|| {
+                InsightError::NotFound("architecture snapshot (run architecture.refresh first)".into())
+            })?,
         };
         let to_map = self.inner.store.get(project, &to_id).await?;
         let from_map = match from {

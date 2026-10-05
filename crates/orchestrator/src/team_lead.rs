@@ -174,11 +174,8 @@ pub fn normalize_subtasks(
         let Some(title) = title else {
             return Err(OrchestratorError::Planning(format!("sub-task {key} has no title")));
         };
-        let wanted = t
-            .get("role")
-            .and_then(Value::as_str)
-            .and_then(crate::plan::parse_role)
-            .unwrap_or(AgentRole::Backend);
+        let wanted =
+            t.get("role").and_then(Value::as_str).and_then(crate::plan::parse_role).unwrap_or(AgentRole::Backend);
         // Reviewers are reserved for the final review step.
         let lookup = if wanted == AgentRole::Reviewer { AgentRole::Qa } else { wanted.clone() };
         let execs: Vec<(TeamMember, AgentRole)> =
@@ -193,7 +190,11 @@ pub fn normalize_subtasks(
             key,
             title: cap(title, MAX_TITLE_LEN),
             description: cap(t.get("description").and_then(Value::as_str).unwrap_or("").trim(), MAX_DESCRIPTION_LEN),
-            acceptance: strs(t.get("acceptanceCriteria")).into_iter().take(20).map(|c| cap(&c, MAX_CRITERION_LEN)).collect(),
+            acceptance: strs(t.get("acceptanceCriteria"))
+                .into_iter()
+                .take(20)
+                .map(|c| cap(&c, MAX_CRITERION_LEN))
+                .collect(),
             role,
             member,
             depends_on: strs(t.get("dependsOn")),
@@ -397,6 +398,7 @@ pub(crate) async fn delegate(inner: Arc<Inner>, req: LeadRequest, d: Delegation)
         rolled_up: 0.0,
         model_cost: 0.0,
         live: BTreeMap::new(),
+        sched_id: ManagerRunId::new(),
     };
     let live = LiveLead::register(id);
     tokio::spawn(async move {
@@ -423,6 +425,10 @@ struct LeadDriver {
     model_cost: f64,
     /// Sub-task key → member that executes it.
     live: BTreeMap<String, TeamMember>,
+    /// Queue id of this lead in the global parallel scheduler (its sub-tasks
+    /// compete with every other run for the global / project / provider /
+    /// team slots).
+    sched_id: ManagerRunId,
 }
 
 impl LeadDriver {
@@ -678,9 +684,15 @@ impl LeadDriver {
     async fn create_review(&mut self, member: &TeamMember, role: AgentRole) -> OrchResult<usize> {
         let deps: Vec<TaskId> = self.lead.subtasks.iter().map(|s| s.task_id).collect();
         let (title, ac) = if self.ru() {
-            (format!("Ревью: {}", self.lead.title), vec!["Изменения исполнителей проверены, замечания перечислены".to_owned()])
+            (
+                format!("Ревью: {}", self.lead.title),
+                vec!["Изменения исполнителей проверены, замечания перечислены".to_owned()],
+            )
         } else {
-            (format!("Review: {}", self.lead.title), vec!["The executors' changes are reviewed and findings listed".to_owned()])
+            (
+                format!("Review: {}", self.lead.title),
+                vec!["The executors' changes are reviewed and findings listed".to_owned()],
+            )
         };
         let mut description = String::from("Review the combined work of the team's executors:\n");
         for s in &self.lead.subtasks {
@@ -755,10 +767,7 @@ impl LeadDriver {
             self.refresh().await;
             if let Some(b) = self.lead.budget_usd {
                 if self.lead.cost_usd >= b && (b > 0.0 || self.lead.cost_usd > 0.0) {
-                    return Some(End::Failed(format!(
-                        "budget exhausted: ${:.4} spent of ${b:.2}",
-                        self.lead.cost_usd
-                    )));
+                    return Some(End::Failed(format!("budget exhausted: ${:.4} spent of ${b:.2}", self.lead.cost_usd)));
                 }
             }
             if let Some(end) = self.handle_finished(idx, max_attempts).await {
@@ -830,7 +839,12 @@ impl LeadDriver {
                     } else {
                         (TaskStatus::Failed, "the executor reported a partial result")
                     };
-                    match self.inner.deps.tasks.transition(s.task_id, to, TaskActor::Manager, Some(why.into()), None).await
+                    match self
+                        .inner
+                        .deps
+                        .tasks
+                        .transition(s.task_id, to, TaskActor::Manager, Some(why.into()), None)
+                        .await
                     {
                         Ok(c) => self.lead.subtasks[i].status = c.task.status,
                         Err(e) => tracing::warn!(error = %e, "lead could not decide a sub-task"),
@@ -895,13 +909,12 @@ impl LeadDriver {
         branch
     }
 
-    async fn spawn_ready(&mut self, idx: &[usize], max_attempts: u32) -> Option<End> {
-        let max_parallel = self.req.team.policies.max_parallel.max(1) as usize;
-        let mut live = (0..self.lead.subtasks.len()).filter(|i| self.agent_live(*i)).count();
+    /// Offers the startable sub-tasks to the global parallel scheduler and
+    /// returns the indices it admits now (in order).
+    async fn admitted(&mut self, idx: &[usize], max_attempts: u32, max_parallel: usize) -> Vec<usize> {
+        let git = self.ensure_git().await;
+        let mut offered: Vec<(usize, crate::parallel::Candidate)> = Vec::new();
         for &i in idx {
-            if live >= max_parallel {
-                break;
-            }
             let s = self.lead.subtasks[i].clone();
             if self.agent_live(i) || s.attempts >= max_attempts {
                 continue;
@@ -921,6 +934,51 @@ impl LeadDriver {
             if !startable {
                 continue;
             }
+            let Some(member) = self.live.get(&s.key) else { continue };
+            let mut sched = orkestr_task_engine::SchedTask::from_task(&task);
+            if let Some(m) = member.model.as_ref().or(self.d.model.as_ref()) {
+                sched.provider = Some(m.provider_id.to_string());
+                sched.model = Some(crate::parallel::model_key(m));
+            }
+            sched.team = sched.team.or_else(|| Some(self.req.team.name.clone()));
+            sched.worktree = git.then(|| format!("pending-worktree:{}", task.id));
+            offered.push((i, crate::parallel::Candidate { sched, title: s.title.clone() }));
+        }
+        if offered.is_empty() {
+            return Vec::new();
+        }
+        let active: Vec<orkestr_task_engine::SchedTask> = self
+            .inner
+            .deps
+            .tasks
+            .list(orkestr_protocol::methods::tasks::ListTasksParams {
+                status: Some(crate::parallel::ACTIVE_STATUSES.to_vec()),
+                ..Default::default()
+            })
+            .await
+            .unwrap_or_default()
+            .iter()
+            .map(|t| Inner::active_sched(t, git))
+            .collect();
+        let by_task: HashMap<TaskId, usize> = offered.iter().map(|(i, c)| (c.sched.task_id, *i)).collect();
+        let candidates = offered.into_iter().map(|(_, c)| c).collect();
+        let outcome = self.inner.parallel.admit(self.sched_id, self.project.id, max_parallel, candidates, &active);
+        self.inner.parallel.publish_if_changed().await;
+        outcome.start.iter().filter_map(|t| by_task.get(t).copied()).collect()
+    }
+
+    async fn spawn_ready(&mut self, idx: &[usize], max_attempts: u32) -> Option<End> {
+        let max_parallel = self.req.team.policies.max_parallel.max(1) as usize;
+        let mut live = (0..self.lead.subtasks.len()).filter(|i| self.agent_live(*i)).count();
+        if live >= max_parallel {
+            return None;
+        }
+        let admitted = self.admitted(idx, max_attempts, max_parallel).await;
+        for i in admitted {
+            if live >= max_parallel {
+                break;
+            }
+            let s = self.lead.subtasks[i].clone();
             let Some(member) = self.live.get(&s.key).cloned() else { continue };
             let Ok(template) = self.inner.deps.agents.templates().get(member.template_id).await else {
                 return Some(End::Failed(format!("the template of \"{}\" is missing", s.title)));
@@ -1025,8 +1083,10 @@ impl LeadDriver {
     async fn cancel_open_subtasks(&self, why: &str) {
         for s in &self.lead.subtasks {
             let Ok(t) = self.inner.deps.tasks.get(s.task_id).await else { continue };
-            if matches!(t.status, TaskStatus::Completed | TaskStatus::Cancelled | TaskStatus::Running | TaskStatus::Waiting)
-            {
+            if matches!(
+                t.status,
+                TaskStatus::Completed | TaskStatus::Cancelled | TaskStatus::Running | TaskStatus::Waiting
+            ) {
                 continue;
             }
             let _ = self
@@ -1039,6 +1099,8 @@ impl LeadDriver {
     }
 
     async fn finish(mut self, end: End) {
+        self.inner.parallel.unregister(self.sched_id);
+        self.inner.parallel.publish_if_changed().await;
         let parent = self.lead.parent_task_id;
         let tasks = Arc::clone(&self.inner.deps.tasks);
         let (status, agent_state, target, result, reason) = match end {
@@ -1081,8 +1143,7 @@ impl LeadDriver {
         if let Ok(t) = tasks.get(parent).await {
             if !t.status.is_terminal() && t.status != target {
                 let why = reason.clone().unwrap_or_else(|| "the team lead finished".into());
-                if let Err(e) =
-                    tasks.transition(parent, target, TaskActor::Manager, Some(cap(&why, 1900)), None).await
+                if let Err(e) = tasks.transition(parent, target, TaskActor::Manager, Some(cap(&why, 1900)), None).await
                 {
                     tracing::warn!(task = %parent, error = %e, "could not report the lead's outcome");
                 }
@@ -1147,7 +1208,12 @@ mod tests {
     }
 
     fn team() -> Vec<(TeamMember, AgentRole)> {
-        vec![(m(true), AgentRole::Architect), (m(false), AgentRole::Backend), (m(false), AgentRole::Qa), (m(false), AgentRole::Reviewer)]
+        vec![
+            (m(true), AgentRole::Architect),
+            (m(false), AgentRole::Backend),
+            (m(false), AgentRole::Qa),
+            (m(false), AgentRole::Reviewer),
+        ]
     }
 
     #[test]

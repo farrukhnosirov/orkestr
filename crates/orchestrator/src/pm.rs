@@ -159,7 +159,8 @@ pub fn normalize_pm(doc: &Value) -> OrchResult<(PmEpic, Vec<String>)> {
         let mut stories = Vec::new();
         for st in arr(f, &["stories", "userStories"]) {
             si += 1;
-            let skey = unique_key(s(st.get("key").or_else(|| st.get("id"))), format!("s{si}"), &mut seen, &mut warnings);
+            let skey =
+                unique_key(s(st.get("key").or_else(|| st.get("id"))), format!("s{si}"), &mut seen, &mut warnings);
             let mut tasks = Vec::new();
             for t in arr(st, &["tasks"]) {
                 ti += 1;
@@ -278,7 +279,10 @@ pub fn validate_epic(epic: &PmEpic) -> OrchResult<()> {
                 return bad(format!("story {} needs 1..={MAX_PM_CRITERIA} acceptance criteria", st.key));
             }
             if st.acceptance_criteria.iter().any(|c| c.trim().is_empty() || c.chars().count() > MAX_CRITERION_LEN) {
-                return bad(format!("story {}: every acceptance criterion must be 1..={MAX_CRITERION_LEN} characters", st.key));
+                return bad(format!(
+                    "story {}: every acceptance criterion must be 1..={MAX_CRITERION_LEN} characters",
+                    st.key
+                ));
             }
             if st.tasks.is_empty() {
                 return bad(format!("story {} needs at least one task", st.key));
@@ -383,7 +387,9 @@ impl PmStore {
         let sid = id.to_owned();
         let doc: Option<String> = self
             .db
-            .call(move |c| Ok(c.query_row("SELECT doc FROM pm_drafts WHERE id = ?1", [sid], |r| r.get(0)).optional()?))
+            .call(move |c| {
+                Ok(c.query_row("SELECT doc FROM pm_drafts WHERE id = ?1", [sid], |r| r.get(0)).optional()?)
+            })
             .await?;
         let doc = doc.ok_or_else(|| OrchestratorError::NotFound(format!("product draft {id}")))?;
         serde_json::from_str(&doc).map_err(|e| OrchestratorError::Storage(StorageError::Json(e)))
@@ -442,7 +448,9 @@ impl Inner {
     async fn save_draft(&self, d: &PmDraft) -> OrchResult<()> {
         self.pm_store().save(d).await?;
         self.deps
-            .publish(NewEvent::new(EventKind::PmDraftUpdated(PmDraftPayload { draft: d.clone() })).project(d.project_id))
+            .publish(
+                NewEvent::new(EventKind::PmDraftUpdated(PmDraftPayload { draft: d.clone() })).project(d.project_id),
+            )
             .await;
         Ok(())
     }
@@ -528,7 +536,9 @@ impl Manager {
             return Err(OrchestratorError::Invalid(format!("the idea must be 1..={MAX_PM_IDEA} characters")));
         }
         if self.inner.deps.security.emergency.flags().all_stopped {
-            return Err(OrchestratorError::Forbidden("Stop All AI is active — reset the emergency controls first".into()));
+            return Err(OrchestratorError::Forbidden(
+                "Stop All AI is active — reset the emergency controls first".into(),
+            ));
         }
         let options: ManagerRequestOptions = p.options.unwrap_or_default();
         if let Some(lang) = options.language.as_deref() {
@@ -542,7 +552,11 @@ impl Manager {
                 project.id,
                 None,
                 ManagerMessageRole::User,
-                &if ru { format!("Продакт-менеджер: {idea}") } else { format!("Product Manager: {idea}") },
+                &if ru {
+                    format!("Продакт-менеджер: {idea}")
+                } else {
+                    format!("Product Manager: {idea}")
+                },
                 MessageExtras::default(),
             )
             .await?;
@@ -661,7 +675,10 @@ impl Manager {
         let _g = self.inner.decide.lock().await;
         let mut d = self.inner.pm_store().get(id).await?;
         if d.status != PmDraftStatus::Draft {
-            return Err(OrchestratorError::Conflict(format!("the draft is {:?}; only drafts can be discarded", d.status)));
+            return Err(OrchestratorError::Conflict(format!(
+                "the draft is {:?}; only drafts can be discarded",
+                d.status
+            )));
         }
         d.status = PmDraftStatus::Discarded;
         d.updated_at = now();
@@ -695,10 +712,15 @@ impl Manager {
         let inner = &self.inner;
         let mut d = inner.pm_store().get(&p.draft_id).await?;
         if d.status != PmDraftStatus::Draft {
-            return Err(OrchestratorError::Conflict(format!("the draft is {:?}; only drafts can be approved", d.status)));
+            return Err(OrchestratorError::Conflict(format!(
+                "the draft is {:?}; only drafts can be approved",
+                d.status
+            )));
         }
         if inner.deps.security.emergency.flags().all_stopped {
-            return Err(OrchestratorError::Forbidden("Stop All AI is active — reset the emergency controls first".into()));
+            return Err(OrchestratorError::Forbidden(
+                "Stop All AI is active — reset the emergency controls first".into(),
+            ));
         }
         let project = inner.project(d.project_id).await?;
         validate_epic(&d.epic)?;
@@ -789,29 +811,39 @@ impl Manager {
                 ru_plural(n, "задача создана", "задачи созданы", "задач создано")
             )
         } else {
-            format!("Draft \"{}\" approved — {n} task(s) created under the epic → feature → story hierarchy.", d.epic.title)
+            format!(
+                "Draft \"{}\" approved — {n} task(s) created under the epic → feature → story hierarchy.",
+                d.epic.title
+            )
         };
-        inner.system_event(project.id, &text, MessageExtras { plan_id: Some(plan.id), ..MessageExtras::default() }).await;
+        inner
+            .system_event(project.id, &text, MessageExtras { plan_id: Some(plan.id), ..MessageExtras::default() })
+            .await;
         Ok((d, plan))
     }
 
     async fn create_hierarchy(&self, d: &mut PmDraft, created: &mut Vec<TaskId>, ru: bool) -> OrchResult<()> {
         let tasks = &self.inner.deps.tasks;
         let project_id = d.project_id;
-        let mk = |title: &str, description: &str, parent: Option<TaskId>, tags: Vec<String>, ac: Option<Vec<String>>| {
-            CreateTaskParams {
-                project_id,
-                title: cap(title, MAX_TITLE_LEN),
-                description: Some(cap(description, MAX_DESCRIPTION_LEN)),
-                acceptance_criteria: ac,
-                parent_id: parent,
-                tags: Some(tags),
-                ..CreateTaskParams::default()
-            }
-        };
-        let (l_epic, l_feature, l_story) = if ru { ("Эпик", "Функция", "История") } else { ("Epic", "Feature", "Story") };
+        let mk =
+            |title: &str, description: &str, parent: Option<TaskId>, tags: Vec<String>, ac: Option<Vec<String>>| {
+                CreateTaskParams {
+                    project_id,
+                    title: cap(title, MAX_TITLE_LEN),
+                    description: Some(cap(description, MAX_DESCRIPTION_LEN)),
+                    acceptance_criteria: ac,
+                    parent_id: parent,
+                    tags: Some(tags),
+                    ..CreateTaskParams::default()
+                }
+            };
+        let (l_epic, l_feature, l_story) =
+            if ru { ("Эпик", "Функция", "История") } else { ("Epic", "Feature", "Story") };
         let epic_task = tasks
-            .create(mk(&d.epic.title, &d.epic.description, None, vec!["pm".into(), "epic".into()], None), TaskActor::Manager)
+            .create(
+                mk(&d.epic.title, &d.epic.description, None, vec!["pm".into(), "epic".into()], None),
+                TaskActor::Manager,
+            )
             .await?;
         created.push(epic_task.id);
         d.epic.task_id = Some(epic_task.id);
@@ -819,7 +851,10 @@ impl Manager {
         for f in &mut d.epic.features {
             let desc = format!("{}\n\n_{l_epic}: {epic_title}_", f.description).trim().to_owned();
             let ft = tasks
-                .create(mk(&f.title, &desc, Some(epic_task.id), vec!["pm".into(), "feature".into()], None), TaskActor::Manager)
+                .create(
+                    mk(&f.title, &desc, Some(epic_task.id), vec!["pm".into(), "feature".into()], None),
+                    TaskActor::Manager,
+                )
                 .await?;
             created.push(ft.id);
             f.task_id = Some(ft.id);
@@ -827,7 +862,13 @@ impl Manager {
                 let desc = format!("{}\n\n_{l_feature}: {}_", st.description, f.title).trim().to_owned();
                 let stt = tasks
                     .create(
-                        mk(&st.title, &desc, Some(ft.id), vec!["pm".into(), "story".into()], Some(st.acceptance_criteria.clone())),
+                        mk(
+                            &st.title,
+                            &desc,
+                            Some(ft.id),
+                            vec!["pm".into(), "story".into()],
+                            Some(st.acceptance_criteria.clone()),
+                        ),
                         TaskActor::Manager,
                     )
                     .await?;

@@ -151,7 +151,11 @@ pub const TEAM_TAG_PREFIX: &str = "team:";
 /// Team of a task from its `team:<name>` tag.
 #[must_use]
 pub fn team_of(tags: &[String]) -> Option<String> {
-    tags.iter().find_map(|t| t.strip_prefix(TEAM_TAG_PREFIX)).map(str::trim).filter(|t| !t.is_empty()).map(str::to_owned)
+    tags.iter()
+        .find_map(|t| t.strip_prefix(TEAM_TAG_PREFIX))
+        .map(str::trim)
+        .filter(|t| !t.is_empty())
+        .map(str::to_owned)
 }
 
 impl SchedTask {
@@ -318,7 +322,9 @@ impl std::fmt::Display for Deferral {
             Deferral::LowMemory { free_mb, needed_mb } => {
                 write!(f, "waiting: {free_mb} MiB RAM free, {needed_mb} MiB needed")
             }
-            Deferral::LowDisk { free_mb, min_mb } => write!(f, "waiting: {free_mb} MiB disk free (reserve {min_mb} MiB)"),
+            Deferral::LowDisk { free_mb, min_mb } => {
+                write!(f, "waiting: {free_mb} MiB disk free (reserve {min_mb} MiB)")
+            }
             Deferral::GpuBusy { usage_percent, limit_percent } => {
                 write!(f, "waiting: GPU at {usage_percent:.0}% (limit {limit_percent:.0}%)")
             }
@@ -480,7 +486,13 @@ impl Scheduler {
     }
 
     /// Every admission check for `c` against the current load.
-    fn checks(&self, c: &SchedTask, load: &Load<'_>, resources: &ResourceSnapshot, now: Timestamp) -> Vec<AdmissionCheck> {
+    fn checks(
+        &self,
+        c: &SchedTask,
+        load: &Load<'_>,
+        resources: &ResourceSnapshot,
+        now: Timestamp,
+    ) -> Vec<AdmissionCheck> {
         let l = &self.limits;
         let mut out = Vec::with_capacity(11);
         let mut push = |name: &'static str, deferral: Option<Deferral>| out.push(AdmissionCheck { name, deferral });
@@ -811,11 +823,21 @@ mod tests {
         let plan = s.next_runnable(std::slice::from_ref(&light), &[], &low_disk, t0);
         assert_eq!(plan.deferred, vec![(light.task_id, Deferral::LowDisk { free_mb: 100, min_mb: 1024 })]);
         let busy_gpu = ResourceSnapshot { gpu_usage_percent: Some(99.0), ..res };
-        assert_eq!(s.next_runnable(std::slice::from_ref(&light), &[], &busy_gpu, t0).start.len(), 1, "no GPU limit configured");
-        let s = sched(|l| l.max_gpu_percent = Some(90.0));
-        assert_eq!(s.next_runnable(std::slice::from_ref(&light), &[], &busy_gpu, t0).start.len(), 1, "progress guarantee");
         assert_eq!(
-            s.next_runnable(std::slice::from_ref(&light), std::slice::from_ref(&tiny), &busy_gpu, t0).deferred[0].1.code(),
+            s.next_runnable(std::slice::from_ref(&light), &[], &busy_gpu, t0).start.len(),
+            1,
+            "no GPU limit configured"
+        );
+        let s = sched(|l| l.max_gpu_percent = Some(90.0));
+        assert_eq!(
+            s.next_runnable(std::slice::from_ref(&light), &[], &busy_gpu, t0).start.len(),
+            1,
+            "progress guarantee"
+        );
+        assert_eq!(
+            s.next_runnable(std::slice::from_ref(&light), std::slice::from_ref(&tiny), &busy_gpu, t0).deferred[0]
+                .1
+                .code(),
             "gpuBusy"
         );
     }
@@ -867,7 +889,8 @@ mod tests {
         let t0 = now();
         let (busy, quiet) = (ProjectId::new(), ProjectId::new());
         // The busy project queued 6 tasks first; the quiet one 2 later.
-        let mut cands: Vec<SchedTask> = (0..6).map(|i| task(busy, TaskPriority::Normal, t0 + Duration::milliseconds(i))).collect();
+        let mut cands: Vec<SchedTask> =
+            (0..6).map(|i| task(busy, TaskPriority::Normal, t0 + Duration::milliseconds(i))).collect();
         cands.extend((0..2).map(|i| task(quiet, TaskPriority::Normal, t0 + Duration::seconds(10 + i))));
         let s = sched(|l| {
             l.max_parallel_global = 4;

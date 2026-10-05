@@ -50,7 +50,8 @@ pub(crate) struct AdversaryPlan {
 #[must_use]
 pub fn prefer_other_providers(chain: Vec<ModelRef>, author: Option<&ModelRef>) -> Vec<ModelRef> {
     let Some(a) = author else { return chain };
-    let (mut other, same): (Vec<ModelRef>, Vec<ModelRef>) = chain.into_iter().partition(|m| m.provider_id != a.provider_id);
+    let (mut other, same): (Vec<ModelRef>, Vec<ModelRef>) =
+        chain.into_iter().partition(|m| m.provider_id != a.provider_id);
     other.extend(same);
     other
 }
@@ -79,9 +80,9 @@ pub(crate) async fn prepare(
             Err(e) => return Err(e),
         }
     };
-    let usable_author = author.as_ref().filter(|a| {
-        inner.deps.models.provider(a.provider_id).is_some_and(|i| i.enabled && !i.is_cli_agent())
-    });
+    let usable_author = author
+        .as_ref()
+        .filter(|a| inner.deps.models.provider(a.provider_id).is_some_and(|i| i.enabled && !i.is_cli_agent()));
     let verifier = match usable_author {
         Some(a) => match role_chain(inner, project, "Review", Some(a), &[]).await {
             Ok(c) => c,
@@ -201,9 +202,9 @@ pub(crate) fn apply_verification(findings: &mut [ReviewFinding], doc: &Value) {
 /// Verdict of an adversarial review after verification.
 #[must_use]
 pub fn adversarial_verdict(findings: &[ReviewFinding]) -> ReviewVerdict {
-    let serious = findings.iter().any(|f| {
-        f.is_blocking() || (f.severity == FindingSeverity::High && f.status == FindingStatus::Confirmed)
-    });
+    let serious = findings
+        .iter()
+        .any(|f| f.is_blocking() || (f.severity == FindingSeverity::High && f.status == FindingStatus::Confirmed));
     if serious {
         ReviewVerdict::RequestChanges
     } else {

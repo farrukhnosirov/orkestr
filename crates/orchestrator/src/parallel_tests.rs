@@ -93,16 +93,15 @@ async fn global_slots_are_shared_fairly_between_projects_and_explained() {
     running2.push(started);
     let out_b = sched.admit(run_b, other, 4, b[1..].to_vec(), &running2);
     assert!(out_b.start.is_empty());
-    assert_eq!(
-        crate::parallel::wait_reason(&out_b.deferred[0].1),
-        WaitReason::GlobalLimit { running: 4, limit: 4 }
-    );
+    assert_eq!(crate::parallel::wait_reason(&out_b.deferred[0].1), WaitReason::GlobalLimit { running: 4, limit: 4 });
 
     // Status lists the queue of every project with reasons and positions.
     let status = sched.status(None).await.unwrap();
     let waiting: Vec<_> = status.queue.iter().filter(|e| e.state == SchedEntryState::Waiting).collect();
     assert_eq!(waiting.len(), 5, "{:#?}", status.queue);
-    assert!(waiting.iter().all(|e| e.reason_text.as_deref().is_some_and(|t| t.starts_with("waiting: global parallel limit"))));
+    assert!(waiting
+        .iter()
+        .all(|e| e.reason_text.as_deref().is_some_and(|t| t.starts_with("waiting: global parallel limit"))));
     assert!(waiting.iter().all(|e| e.position.is_some()));
     assert_eq!(status.counts.waiting, 5);
     let only_b = sched.status(Some(other)).await.unwrap();
@@ -339,7 +338,8 @@ async fn api_concurrency_gate_limits_in_flight_requests_per_provider() {
     });
     h.source.adapters.lock().insert(pid, Arc::clone(&counting) as Arc<dyn ProviderAdapter>);
     set(&h, |s| s.provider_caps = vec![ProviderCap { provider_id: pid.to_string(), max: 2 }]).await;
-    let gated = Arc::new(GatedGateway::new(Arc::clone(&h.gateway) as Arc<dyn ModelGateway>, Arc::clone(h.mgr.parallel())));
+    let gated =
+        Arc::new(GatedGateway::new(Arc::clone(&h.gateway) as Arc<dyn ModelGateway>, Arc::clone(h.mgr.parallel())));
     let model = ModelRef { provider_id: pid, model: "mock-smart".into() };
     let mut handles = Vec::new();
     for i in 0..6 {
@@ -466,12 +466,10 @@ async fn interrupted_run(h: &H) -> ManagerRunId {
             ptask("b", "Implement the beta module", AgentRole::Backend, &[]),
         ])
         .await;
-    let r = h.mgr.approve_plan(ApprovePlanParams { plan_id: plan.id, edits: None, start_run: Some(true) }).await.unwrap();
+    let r =
+        h.mgr.approve_plan(ApprovePlanParams { plan_id: plan.id, edits: None, start_run: Some(true) }).await.unwrap();
     let run = r.run.unwrap();
-    h.mgr
-        .wait_run(run.id, Duration::from_secs(30), |r| r.tasks.iter().all(|t| t.agent_id.is_some()))
-        .await
-        .unwrap();
+    h.mgr.wait_run(run.id, Duration::from_secs(30), |r| r.tasks.iter().all(|t| t.agent_id.is_some())).await.unwrap();
     run.id
 }
 
@@ -513,7 +511,10 @@ async fn interrupted_runs_resume_automatically_after_a_restart() {
     if h.git {
         // With git the new agent continued on the interrupted agent's branch.
         let first = &done.tasks[0];
-        let msgs = m.history(orkestr_protocol::methods::manager::ManagerHistoryParams { project_id: h.project, limit: None }).await.unwrap();
+        let msgs = m
+            .history(orkestr_protocol::methods::manager::ManagerHistoryParams { project_id: h.project, limit: None })
+            .await
+            .unwrap();
         assert!(
             msgs.messages.iter().any(|x| x.text.contains("resumed automatically")),
             "a note in the Manager conversation"
@@ -584,15 +585,18 @@ async fn interrupted_stand_alone_agents_resume_with_a_new_agent() {
     let h = harness(true, ApprovalMode::SemiAuto).await;
     let hold = hang(&h);
     let template = h.rt.templates().list(Some(AgentRole::Backend), None).await.unwrap().remove(0);
-    let (agent, task) = h
-        .rt
-        .spawn(SpawnAgentParams {
+    let (agent, task) =
+        h.rt.spawn(SpawnAgentParams {
             project_id: h.project,
             template_id: template.id,
             task_id: None,
             new_task: Some(NewTaskSpec { title: "Implement the alpha module".into(), ..NewTaskSpec::default() }),
             model: None,
-            worktree_policy: Some(if h.git { WorktreePolicy::DedicatedWorktree } else { WorktreePolicy::SharedWorktree }),
+            worktree_policy: Some(if h.git {
+                WorktreePolicy::DedicatedWorktree
+            } else {
+                WorktreePolicy::SharedWorktree
+            }),
             name: None,
             max_turns: None,
             base_branch: None,
@@ -669,7 +673,8 @@ async fn many_agents_create_worktrees_concurrently() {
         agents.iter().map(|a| a.worktree.as_ref().unwrap().branch.clone()).collect();
     assert_eq!(paths.len(), N, "distinct worktrees");
     assert_eq!(branches.len(), N, "distinct branches");
-    let vcs = orkestr_vcs::Vcs::new(Arc::new(orkestr_vcs::GitCli::discover()), h.db.clone(), h.dir.path().join("worktrees"));
+    let vcs =
+        orkestr_vcs::Vcs::new(Arc::new(orkestr_vcs::GitCli::discover()), h.db.clone(), h.dir.path().join("worktrees"));
     let list = vcs.worktrees(h.project, &h.root).await.unwrap();
     assert_eq!(list.len(), N + 1, "main + one per agent");
 

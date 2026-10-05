@@ -200,7 +200,11 @@ fn security_hit(a: &AddedLine, lang: MockLang) -> Option<Hit> {
                 "eval() executes arbitrary strings; any attacker-controlled input becomes code execution.",
                 "eval() выполняет произвольные строки: любые данные злоумышленника превращаются в выполнение кода.",
             ),
-            suggestion: pick(lang, "Parse the input explicitly instead of evaluating it.", "Разбирайте входные данные явно вместо eval()."),
+            suggestion: pick(
+                lang,
+                "Parse the input explicitly instead of evaluating it.",
+                "Разбирайте входные данные явно вместо eval().",
+            ),
             at: a.clone(),
         });
     }
@@ -214,7 +218,11 @@ fn security_hit(a: &AddedLine, lang: MockLang) -> Option<Hit> {
                 "A credential is committed in plain text and will leak through git history.",
                 "Учётные данные записаны открытым текстом и утекут через историю git.",
             ),
-            suggestion: pick(lang, "Load it from the secret store or an environment variable.", "Загружайте его из хранилища секретов или переменной окружения."),
+            suggestion: pick(
+                lang,
+                "Load it from the secret store or an environment variable.",
+                "Загружайте его из хранилища секретов или переменной окружения.",
+            ),
             at: a.clone(),
         });
     }
@@ -235,7 +243,11 @@ fn review_hits(lines: &[AddedLine], lang: MockLang) -> Vec<Hit> {
                 category: "correctness",
                 title: pick(lang, "unwrap() can panic", "unwrap() может вызвать панику"),
                 detail: pick(lang, "The error case is not handled.", "Случай ошибки не обработан."),
-                suggestion: pick(lang, "Propagate the error with `?` or handle it.", "Передайте ошибку через `?` или обработайте её."),
+                suggestion: pick(
+                    lang,
+                    "Propagate the error with `?` or handle it.",
+                    "Передайте ошибку через `?` или обработайте её.",
+                ),
                 at: a.clone(),
             });
         } else if t.contains("TODO") || t.contains("FIXME") {
@@ -253,7 +265,11 @@ fn review_hits(lines: &[AddedLine], lang: MockLang) -> Vec<Hit> {
                 category: "style",
                 title: pick(lang, "Debug logging left in", "Оставлен отладочный вывод"),
                 detail: pick(lang, "console.log output in production code.", "Вывод console.log в рабочем коде."),
-                suggestion: pick(lang, "Remove it or use the project logger.", "Удалите его или используйте логгер проекта."),
+                suggestion: pick(
+                    lang,
+                    "Remove it or use the project logger.",
+                    "Удалите его или используйте логгер проекта.",
+                ),
                 at: a.clone(),
             });
         }
@@ -319,11 +335,19 @@ fn review(user: &str, lang: MockLang) -> Value {
         })
         .collect();
     let summary = match (verdict, lang) {
-        ("approve", MockLang::En) => format!("Looks good: {} file(s) changed, {} finding(s). — Mock (offline demo)", files.len(), findings.len()),
-        ("approve", MockLang::Ru) => format!("Изменения в порядке: файлов — {}, замечаний — {}. — Mock (офлайн-демо)", files.len(), findings.len()),
+        ("approve", MockLang::En) => {
+            format!("Looks good: {} file(s) changed, {} finding(s). — Mock (offline demo)", files.len(), findings.len())
+        }
+        ("approve", MockLang::Ru) => format!(
+            "Изменения в порядке: файлов — {}, замечаний — {}. — Mock (офлайн-демо)",
+            files.len(),
+            findings.len()
+        ),
         ("reject", MockLang::En) => "The approach is rejected. — Mock (offline demo)".to_owned(),
         ("reject", MockLang::Ru) => "Подход отклонён. — Mock (офлайн-демо)".to_owned(),
-        (_, MockLang::En) => format!("Changes requested: {} finding(s) must be addressed. — Mock (offline demo)", findings.len()),
+        (_, MockLang::En) => {
+            format!("Changes requested: {} finding(s) must be addressed. — Mock (offline demo)", findings.len())
+        }
         (_, MockLang::Ru) => format!("Нужны доработки: замечаний — {}. — Mock (офлайн-демо)", findings.len()),
     };
     json!({ "verdict": verdict, "summary": summary, "findings": findings, "acceptanceCriteria": ac })
@@ -344,17 +368,36 @@ fn adversarial(user: &str, lang: MockLang) -> Value {
                 severity: "high",
                 category: "concurrency",
                 title: pick(lang, "Possible race condition", "Возможное состояние гонки"),
-                detail: pick(lang, "Concurrent work touches shared state without synchronisation.", "Параллельная работа меняет общее состояние без синхронизации."),
-                suggestion: pick(lang, "Guard the shared state or make the operation atomic.", "Защитите общее состояние или сделайте операцию атомарной."),
+                detail: pick(
+                    lang,
+                    "Concurrent work touches shared state without synchronisation.",
+                    "Параллельная работа меняет общее состояние без синхронизации.",
+                ),
+                suggestion: pick(
+                    lang,
+                    "Guard the shared state or make the operation atomic.",
+                    "Защитите общее состояние или сделайте операцию атомарной.",
+                ),
                 at: a.clone(),
             }));
-        } else if ["drop table", "rm -rf", "fs.rm", "unlink(", "delete from", "remove_dir_all"].iter().any(|k| lower.contains(k)) {
+        } else if ["drop table", "rm -rf", "fs.rm", "unlink(", "delete from", "remove_dir_all"]
+            .iter()
+            .any(|k| lower.contains(k))
+        {
             findings.push(finding_json(&Hit {
                 severity: "high",
                 category: "data-loss",
                 title: pick(lang, "Destructive operation without a safeguard", "Разрушающая операция без защиты"),
-                detail: pick(lang, "Data is removed without a backup, confirmation or dry run.", "Данные удаляются без резервной копии, подтверждения или пробного запуска."),
-                suggestion: pick(lang, "Add a confirmation, snapshot or soft delete.", "Добавьте подтверждение, снимок или мягкое удаление."),
+                detail: pick(
+                    lang,
+                    "Data is removed without a backup, confirmation or dry run.",
+                    "Данные удаляются без резервной копии, подтверждения или пробного запуска.",
+                ),
+                suggestion: pick(
+                    lang,
+                    "Add a confirmation, snapshot or soft delete.",
+                    "Добавьте подтверждение, снимок или мягкое удаление.",
+                ),
                 at: a.clone(),
             }));
         }
@@ -562,7 +605,10 @@ mod tests {
     fn added_lines_track_files_and_numbers() {
         let lines = added_lines(&diff_block(DIFF));
         assert_eq!(lines.len(), 2);
-        assert_eq!(lines[0], AddedLine { file: "src/a.js".into(), line: 11, text: "const password = \"hunter2\";".into() });
+        assert_eq!(
+            lines[0],
+            AddedLine { file: "src/a.js".into(), line: 11, text: "const password = \"hunter2\";".into() }
+        );
         assert_eq!(lines[1].line, 12);
     }
 

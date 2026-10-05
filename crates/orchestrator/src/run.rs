@@ -27,9 +27,9 @@ use orkestr_protocol::methods::manager::{
     ManagerPlan, ManagerRun, ManagerRunParams, ManagerRunStatus, MergeProposal, PlanStatus, RunLimits, RunLimitsPatch,
     RunReport, RunTask,
 };
+use orkestr_protocol::methods::scheduler::WaitReason;
 use orkestr_protocol::methods::tasks::ListTasksParams;
 use orkestr_protocol::methods::vcs::DiffTarget;
-use orkestr_protocol::methods::scheduler::WaitReason;
 use orkestr_task_engine::SchedTask;
 use parking_lot::Mutex;
 use tokio::sync::{watch, Notify};
@@ -147,8 +147,6 @@ pub fn resolve_limits(
     }
     Ok(l)
 }
-
-const ACTIVE: [TaskStatus; 2] = [TaskStatus::Running, TaskStatus::Waiting];
 
 impl Manager {
     /// Starts a run for an approved plan (`planId`) or continues a paused,
@@ -1031,7 +1029,10 @@ impl Supervisor {
             .inner
             .deps
             .tasks
-            .list(ListTasksParams { status: Some(ACTIVE.to_vec()), ..ListTasksParams::default() })
+            .list(ListTasksParams {
+                status: Some(crate::parallel::ACTIVE_STATUSES.to_vec()),
+                ..ListTasksParams::default()
+            })
             .await
             .unwrap_or_default()
             .iter()
@@ -1088,7 +1089,8 @@ impl Supervisor {
         let fresh = self.inner.parallel.check_merge_risks(&self.project, &items, git).await;
         let ru = crate::util::is_ru(&self.inner.deps.config.ui_language.get());
         for r in fresh {
-            let title = |id| self.run.tasks.iter().find(|t| t.task_id == id).map_or_else(String::new, |t| t.title.clone());
+            let title =
+                |id| self.run.tasks.iter().find(|t| t.task_id == id).map_or_else(String::new, |t| t.title.clone());
             let list = |v: &[String]| v.iter().take(5).map(|f| format!("`{f}`")).collect::<Vec<_>>().join(", ");
             let (a, b) = (title(r.task_a), title(r.task_b));
             let text = match (ru, r.conflicts.is_empty()) {
@@ -1108,7 +1110,11 @@ impl Supervisor {
                 }
             };
             self.inner
-                .system_event(self.project.id, &text, MessageExtras { run_id: Some(self.run.id), ..MessageExtras::default() })
+                .system_event(
+                    self.project.id,
+                    &text,
+                    MessageExtras { run_id: Some(self.run.id), ..MessageExtras::default() },
+                )
                 .await;
         }
     }

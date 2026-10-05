@@ -227,7 +227,7 @@ per task:
   `commit-tree` on dangling commits) and **pairwise** between branches,
   dependency order (task DAG + git ancestry; an explicit order is validated),
   gates (task status, review, tests, acceptance — from `MergeGateSource`,
-  falling back to the task's review state and the agent's last handoff),
+  wired in core to the code reviews and the quality runs, falling back to the task's review state and the agent's last handoff),
   blockers and a recommendation. Persisted in `merge_proposals`; the
   per-project `MergePolicy` in `merge_policies`.
 - `merge.execute` asks for approval (`ApprovalService`, capability Git) unless
@@ -235,7 +235,7 @@ per task:
   green, no conflicts, no blockers). Execution: pre-merge snapshot of the
   target checkout → integration branch `orkestr/integration-<id>` in its own
   worktree → `git merge --no-ff` per branch in order → quality checks
-  (`MergeQualityRunner`, when wired) → guarded fast-forward of the target
+  (`MergeQualityRunner`: the quality runner's build / typecheck / test checks) → guarded fast-forward of the target
   (CAS `update-ref` when not checked out; `merge --ff-only` in a clean
   checkout otherwise) → cleanup per policy (`Keep` / remove worktrees / also
   branches, only when contained in the new target head).

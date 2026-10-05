@@ -3,9 +3,9 @@
 use std::sync::Arc;
 
 use orkestr_domain::{
-    AgentId, AgentInstance, AgentRole, AgentState, Approval, ApprovalId, ApprovalMode, ApprovalStatus,
-    CorrelationId, ManagerPlanId, ManagerRunId, ProjectId, ReviewState, Task, TaskId, TaskStatus, Timestamp,
-    ToolCall, ToolCallId, ToolCallStatus,
+    AgentId, AgentInstance, AgentRole, AgentState, Approval, ApprovalId, ApprovalMode, ApprovalStatus, CorrelationId,
+    ManagerPlanId, ManagerRunId, ProjectId, ReviewState, Task, TaskId, TaskStatus, Timestamp, ToolCall, ToolCallId,
+    ToolCallStatus,
 };
 use orkestr_events::{EventBus, MemoryEventLog};
 use orkestr_protocol::event::*;
@@ -26,7 +26,17 @@ fn agent(id: AgentId, project: ProjectId, task: TaskId, name: &str) -> AgentInst
         "usage": orkestr_domain::UsageSummary::default(), "turnsUsed": 0, "createdAt": ts(0)
     });
     if let Some(o) = v.as_object_mut() {
-        for k in ["templateId", "teamId", "parentAgentId", "model", "worktree", "lastError", "startedAt", "stoppedAt", "lastActivityAt"] {
+        for k in [
+            "templateId",
+            "teamId",
+            "parentAgentId",
+            "model",
+            "worktree",
+            "lastError",
+            "startedAt",
+            "stoppedAt",
+            "lastActivityAt",
+        ] {
             o.insert(k.into(), serde_json::Value::Null);
         }
     }
@@ -107,7 +117,14 @@ fn run_task(id: TaskId, title: &str, status: TaskStatus, agent: Option<AgentId>)
     }
 }
 
-fn run(project: ProjectId, id: ManagerRunId, plan: ManagerPlanId, status: ManagerRunStatus, tasks: Vec<RunTask>, report: Option<RunReport>) -> ManagerRun {
+fn run(
+    project: ProjectId,
+    id: ManagerRunId,
+    plan: ManagerPlanId,
+    status: ManagerRunStatus,
+    tasks: Vec<RunTask>,
+    report: Option<RunReport>,
+) -> ManagerRun {
     ManagerRun {
         id,
         project_id: project,
@@ -162,7 +179,8 @@ async fn fixture() -> (Fixture, EventBus) {
         usage: None,
         created_at: ts(500),
     };
-    let tasks_running = vec![run_task(t1, "Backend", TaskStatus::Running, Some(a1)), run_task(t2, "Frontend", TaskStatus::Ready, None)];
+    let tasks_running =
+        vec![run_task(t1, "Backend", TaskStatus::Running, Some(a1)), run_task(t2, "Frontend", TaskStatus::Ready, None)];
     let report = RunReport {
         summary: "done".into(),
         completed: 2,
@@ -436,11 +454,21 @@ async fn task_subject_and_empty_logs() {
     task.id = f.t1;
     task.status = TaskStatus::Completed;
     task.updated_at = ts(3_500);
-    let s = ReplaySeeds { project_id: f.project, subject: ReplaySubject::Task, run: None, plan: None, request: None, task: Some(task) };
+    let s = ReplaySeeds {
+        project_id: f.project,
+        subject: ReplaySubject::Task,
+        run: None,
+        plan: None,
+        request: None,
+        task: Some(task),
+    };
     let tl = build(&s, &gather_default(&bus, &s).await.unwrap());
     assert_eq!(tl.subject, ReplaySubject::Task);
     assert_eq!(tl.steps.first().unwrap().kind, "TaskCreated");
-    assert!(tl.steps.iter().all(|s| s.task_id == Some(f.t1) || s.agent_id == Some(f.a1) || s.kind == "SnapshotCreated" || s.kind == "ApprovalResolved"));
+    assert!(tl.steps.iter().all(|s| s.task_id == Some(f.t1)
+        || s.agent_id == Some(f.a1)
+        || s.kind == "SnapshotCreated"
+        || s.kind == "ApprovalResolved"));
     assert!(tl.steps.iter().any(|s| s.kind == "ReviewFinished"));
     assert!(!tl.steps.iter().any(|s| s.title == "web/login.tsx"));
 
@@ -487,4 +515,78 @@ fn request_lookup_picks_latest_user_message_before_plan() {
         mk("later", ManagerMessageRole::User, 5_000),
     ];
     assert_eq!(request_for_plan(&p, &msgs).unwrap().text, "this one");
+}
+
+fn proposal(
+    project: ProjectId,
+    id: orkestr_domain::MergeProposalId,
+    run_id: Option<ManagerRunId>,
+    status: orkestr_protocol::methods::merge::MergeProposalStatus,
+) -> orkestr_protocol::methods::merge::MergeManagerProposal {
+    orkestr_protocol::methods::merge::MergeManagerProposal {
+        id,
+        project_id: project,
+        run_id,
+        target: "main".into(),
+        target_commit: "abc".into(),
+        order: vec![],
+        branches: vec![],
+        conflicts: vec![],
+        blockers: vec![],
+        recommendation: orkestr_protocol::methods::merge::MergeRecommendation::default(),
+        status,
+        status_detail: None,
+        policy: orkestr_protocol::methods::merge::MergePolicy::default(),
+        auto_mergeable: false,
+        execution: None,
+        created_at: ts(0),
+        updated_at: ts(0),
+    }
+}
+
+#[tokio::test]
+async fn merge_proposals_of_the_run_become_one_step_per_status() {
+    use orkestr_protocol::methods::merge::MergeProposalStatus as S;
+    let (f, _) = fixture().await;
+    let log = Arc::new(MemoryEventLog::new());
+    // Fixture events up to the run's end, then the merge events, then the rest
+    // (appended in timestamp order with fresh seqs).
+    let (before, after): (Vec<Event>, Vec<Event>) = f.events.iter().cloned().partition(|e| e.ts <= ts(20_000));
+    let mut seq = 0u64;
+    for mut e in before {
+        seq += 1;
+        e.seq = seq;
+        orkestr_events::EventLog::append(log.as_ref(), &e).await.unwrap();
+    }
+    let mine = orkestr_domain::MergeProposalId::new();
+    let other = orkestr_domain::MergeProposalId::new();
+    let extra = [
+        (21_000, proposal(f.project, mine, Some(f.run.id), S::Proposed)),
+        (21_100, proposal(f.project, mine, Some(f.run.id), S::Proposed)),
+        (21_200, proposal(f.project, other, Some(ManagerRunId::new()), S::Completed)),
+        (21_300, proposal(f.project, mine, Some(f.run.id), S::Completed)),
+    ];
+    for (offset, p) in extra {
+        seq += 1;
+        let e = NewEvent::new(EventKind::MergeProposalUpdated(MergeProposalPayload { proposal: p }))
+            .into_event(seq, ts(offset));
+        orkestr_events::EventLog::append(log.as_ref(), &e).await.unwrap();
+    }
+    for mut e in after {
+        seq += 1;
+        e.seq = seq;
+        orkestr_events::EventLog::append(log.as_ref(), &e).await.unwrap();
+    }
+    let bus = EventBus::with_log(log, 64).await.unwrap();
+    let s = seeds(&f);
+    let g = gather_default(&bus, &s).await.unwrap();
+    let t = build(&s, &g);
+    let merges: Vec<_> =
+        t.steps.iter().filter(|s| s.kind == "MergeProposalUpdated").map(|s| (s.status, s.detail.clone())).collect();
+    assert_eq!(
+        merges,
+        vec![(ReplayStepStatus::Info, Some("Proposed".into())), (ReplayStepStatus::Success, Some("Completed".into()))],
+        "one step per status change of this run's proposal; other runs' proposals left out"
+    );
+    assert!(t.steps.iter().filter(|s| s.kind == "MergeProposalUpdated").all(|s| s.phase == ReplayPhase::Merge));
 }

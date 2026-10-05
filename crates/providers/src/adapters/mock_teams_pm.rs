@@ -175,7 +175,8 @@ mod tests {
 
     #[test]
     fn lead_plan_uses_the_executor_roles() {
-        let r = req(&format!("{TEAM_LEAD_MARKER} lead"), "Task: Build the invoice module\nExecutor roles: Frontend, QA");
+        let r =
+            req(&format!("{TEAM_LEAD_MARKER} lead"), "Task: Build the invoice module\nExecutor roles: Frontend, QA");
         let MockScript::Text(t) = super::super::mock::script(&r) else { panic!("text expected") };
         let v: Value = serde_json::from_str(&t).unwrap();
         assert_eq!(v["subtasks"][0]["role"], "Frontend");

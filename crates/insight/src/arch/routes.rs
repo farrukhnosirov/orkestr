@@ -36,7 +36,13 @@ fn join_prefix(prefix: &str, path: &str) -> String {
     match (p.is_empty(), s.is_empty()) {
         (true, true) => "/".into(),
         (true, false) => format!("/{s}"),
-        (false, true) => if p.starts_with('/') { p.to_owned() } else { format!("/{p}") },
+        (false, true) => {
+            if p.starts_with('/') {
+                p.to_owned()
+            } else {
+                format!("/{p}")
+            }
+        }
         (false, false) => {
             if p.starts_with('/') {
                 format!("{p}/{s}")
@@ -72,7 +78,8 @@ fn rust(file: &str, text: &str) -> Vec<ApiRoute> {
     for (i, line) in text.lines().enumerate() {
         if let Some(c) = AXUM.captures(line) {
             let rest = c.get(2).map_or("", |m| m.as_str());
-            let methods: Vec<&str> = AXUM_METHOD.captures_iter(rest).filter_map(|m| m.get(1)).map(|m| m.as_str()).collect();
+            let methods: Vec<&str> =
+                AXUM_METHOD.captures_iter(rest).filter_map(|m| m.get(1)).map(|m| m.as_str()).collect();
             if methods.is_empty() {
                 out.push(route("ANY", &c[1], file, i, "axum"));
             }
@@ -88,10 +95,13 @@ fn rust(file: &str, text: &str) -> Vec<ApiRoute> {
 
 fn js(file: &str, text: &str) -> Vec<ApiRoute> {
     static EXPRESS: Lazy<Regex> = Lazy::new(|| {
-        re(r#"\b(?:app|router|server|api|routes|r|fastify|hono)\.(get|post|put|delete|patch|head|options|all)\(\s*['"`](/[^'"`]*)['"`]"#)
+        re(
+            r#"\b(?:app|router|server|api|routes|r|fastify|hono)\.(get|post|put|delete|patch|head|options|all)\(\s*['"`](/[^'"`]*)['"`]"#,
+        )
     });
     static NEST_CTRL: Lazy<Regex> = Lazy::new(|| re(r#"@Controller\(\s*(?:['"`]([^'"`]*)['"`])?\s*\)"#));
-    static NEST: Lazy<Regex> = Lazy::new(|| re(r#"@(Get|Post|Put|Delete|Patch|Head|Options|All)\(\s*(?:['"`]([^'"`]*)['"`])?\s*\)"#));
+    static NEST: Lazy<Regex> =
+        Lazy::new(|| re(r#"@(Get|Post|Put|Delete|Patch|Head|Options|All)\(\s*(?:['"`]([^'"`]*)['"`])?\s*\)"#));
     static NEXT_HANDLER: Lazy<Regex> =
         Lazy::new(|| re(r"export\s+(?:async\s+)?(?:function|const)\s+(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS)\b"));
     let mut out = Vec::new();
@@ -128,17 +138,18 @@ fn next_route_path(file: &str) -> Option<String> {
         return None;
     }
     let dir = file.rsplit_once('/')?.0;
-    let idx = dir.find("app/").map(|i| i + 4).or_else(|| (dir == "app" || dir.ends_with("/app")).then_some(dir.len()))?;
+    let idx =
+        dir.find("app/").map(|i| i + 4).or_else(|| (dir == "app" || dir.ends_with("/app")).then_some(dir.len()))?;
     let rest = &dir[idx.min(dir.len())..];
     // Route groups `(group)` do not appear in URLs.
-    let segs: Vec<&str> = rest.split('/').filter(|s| !s.is_empty() && !(s.starts_with('(') && s.ends_with(')'))).collect();
+    let segs: Vec<&str> =
+        rest.split('/').filter(|s| !s.is_empty() && !(s.starts_with('(') && s.ends_with(')'))).collect();
     Some(format!("/{}", segs.join("/")))
 }
 
 fn python(file: &str, text: &str) -> Vec<ApiRoute> {
-    static FASTAPI: Lazy<Regex> = Lazy::new(|| {
-        re(r#"@\w+\.(get|post|put|delete|patch|head|options|api_route|websocket)\(\s*['"]([^'"]*)['"]"#)
-    });
+    static FASTAPI: Lazy<Regex> =
+        Lazy::new(|| re(r#"@\w+\.(get|post|put|delete|patch|head|options|api_route|websocket)\(\s*['"]([^'"]*)['"]"#));
     static FLASK: Lazy<Regex> = Lazy::new(|| re(r#"@\w+\.route\(\s*['"]([^'"]*)['"](.*)"#));
     static FLASK_METHODS: Lazy<Regex> = Lazy::new(|| re(r#"['"](GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS)['"]"#));
     static ROUTER_PREFIX: Lazy<Regex> = Lazy::new(|| re(r#"APIRouter\(.*prefix\s*=\s*['"]([^'"]*)['"]"#));
@@ -178,7 +189,8 @@ fn python(file: &str, text: &str) -> Vec<ApiRoute> {
 fn csharp(file: &str, text: &str) -> Vec<ApiRoute> {
     static CLASS: Lazy<Regex> = Lazy::new(|| re(r"\bclass\s+(\w+?)(?:Controller)?\b"));
     static ROUTE_ATTR: Lazy<Regex> = Lazy::new(|| re(r#"^\s*\[Route\(\s*"([^"]*)"\s*\)\]"#));
-    static HTTP_ATTR: Lazy<Regex> = Lazy::new(|| re(r#"\[Http(Get|Post|Put|Delete|Patch|Head|Options)(?:\(\s*"([^"]*)"\s*\))?\]"#));
+    static HTTP_ATTR: Lazy<Regex> =
+        Lazy::new(|| re(r#"\[Http(Get|Post|Put|Delete|Patch|Head|Options)(?:\(\s*"([^"]*)"\s*\))?\]"#));
     static MINIMAL: Lazy<Regex> = Lazy::new(|| re(r#"\.Map(Get|Post|Put|Delete|Patch)\(\s*"([^"]*)""#));
     let mut out = Vec::new();
     let mut pending_route: Option<String> = None;
@@ -317,7 +329,13 @@ async fn login() {}
         let r = extract(Lang::Rust, "src/main.rs", src);
         assert_eq!(
             pairs(&r),
-            vec![p("GET", "/health"), p("GET", "/users/{id}"), p("DELETE", "/users/{id}"), p("ANY", "/rpc"), p("POST", "/login")]
+            vec![
+                p("GET", "/health"),
+                p("GET", "/users/{id}"),
+                p("DELETE", "/users/{id}"),
+                p("ANY", "/rpc"),
+                p("POST", "/login")
+            ]
         );
         assert_eq!(r[0].line, 3);
         assert_eq!(r[0].framework, "axum");
@@ -327,9 +345,17 @@ async fn login() {}
     fn js_express_nest_next() {
         let r = extract(Lang::JsTs, "src/server.ts", "app.get('/a', h)\nrouter.post(\"/b\", h)\nfoo.get('/no')\n");
         assert_eq!(pairs(&r), vec![p("GET", "/a"), p("POST", "/b")]);
-        let r = extract(Lang::JsTs, "src/cats.controller.ts", "@Controller('cats')\nclass C {\n @Get()\n a(){}\n @Post(':id')\n b(){}\n}");
+        let r = extract(
+            Lang::JsTs,
+            "src/cats.controller.ts",
+            "@Controller('cats')\nclass C {\n @Get()\n a(){}\n @Post(':id')\n b(){}\n}",
+        );
         assert_eq!(pairs(&r), vec![p("GET", "/cats"), p("POST", "/cats/:id")]);
-        let r = extract(Lang::JsTs, "web/app/api/(admin)/users/route.ts", "export async function GET(req) {}\nexport const POST = 1;");
+        let r = extract(
+            Lang::JsTs,
+            "web/app/api/(admin)/users/route.ts",
+            "export async function GET(req) {}\nexport const POST = 1;",
+        );
         assert_eq!(pairs(&r), vec![p("GET", "/api/users"), p("POST", "/api/users")]);
     }
 
@@ -353,7 +379,11 @@ async fn login() {}
             "[ApiController]\n[Route(\"api/[controller]\")]\npublic class UsersController : ControllerBase {\n [HttpGet]\n public X A() {}\n [HttpGet(\"{id}\")]\n public X B() {}\n}\napp.MapPost(\"/login\", h);",
         );
         assert_eq!(pairs(&r), vec![p("GET", "/api/users"), p("GET", "/api/users/{id}"), p("POST", "/login")]);
-        let r = extract(Lang::Go, "main.go", "r.GET(\"/ping\", h)\nhttp.HandleFunc(\"/health\", h)\nmux.HandleFunc(\"POST /items\", h)\n");
+        let r = extract(
+            Lang::Go,
+            "main.go",
+            "r.GET(\"/ping\", h)\nhttp.HandleFunc(\"/health\", h)\nmux.HandleFunc(\"POST /items\", h)\n",
+        );
         assert_eq!(pairs(&r), vec![p("GET", "/ping"), p("ANY", "/health"), p("POST", "/items")]);
         let r = extract(
             Lang::Java,

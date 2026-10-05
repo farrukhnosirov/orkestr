@@ -155,7 +155,10 @@ impl ArchStore {
     /// Deletes every snapshot of a project.
     pub async fn delete_project(&self, project: ProjectId) -> InsightResult<u64> {
         let pid = project.to_string();
-        let n = self.db.call(move |c| Ok(c.execute("DELETE FROM architecture_snapshots WHERE project_id = ?1", [pid])?)).await?;
+        let n = self
+            .db
+            .call(move |c| Ok(c.execute("DELETE FROM architecture_snapshots WHERE project_id = ?1", [pid])?))
+            .await?;
         Ok(n as u64)
     }
 }

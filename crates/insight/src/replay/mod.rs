@@ -22,14 +22,16 @@ use orkestr_domain::{
 };
 use orkestr_events::{EventBus, ReplayQuery};
 use orkestr_protocol::event::{Event, EventKind, StopReason};
-use orkestr_protocol::methods::manager::{
-    ManagerChatMessage, ManagerPlan, ManagerRun, ManagerRunStatus, PlanStatus,
-};
+use orkestr_protocol::methods::consensus::ConsensusStatus;
+use orkestr_protocol::methods::manager::{ManagerChatMessage, ManagerPlan, ManagerRun, ManagerRunStatus, PlanStatus};
+use orkestr_protocol::methods::merge::MergeProposalStatus;
 use orkestr_protocol::methods::replay::{
     ReplayAgent, ReplayAgentState, ReplayDirection, ReplayPhase, ReplayPhaseSummary, ReplayRunSummary, ReplayState,
     ReplayStep, ReplayStepResult, ReplayStepStatus, ReplaySubject, ReplayTaskRef, ReplayTaskState, ReplayTimeline,
     MAX_REPLAY_SCAN, MAX_REPLAY_STEPS,
 };
+use orkestr_protocol::methods::reviews::ReviewStatus;
+use orkestr_protocol::methods::teams::TeamLeadStatus;
 
 use crate::error::InsightResult;
 
@@ -98,7 +100,12 @@ pub struct Gathered {
 }
 
 /// Reads every persisted event with `from <= ts <= to` (bounded).
-pub async fn gather(bus: &EventBus, from: Timestamp, to: Option<Timestamp>, max_scan: usize) -> InsightResult<Gathered> {
+pub async fn gather(
+    bus: &EventBus,
+    from: Timestamp,
+    to: Option<Timestamp>,
+    max_scan: usize,
+) -> InsightResult<Gathered> {
     let last = bus.last_seq();
     let mut out = Gathered::default();
     if last == 0 {
@@ -108,7 +115,9 @@ pub async fn gather(bus: &EventBus, from: Timestamp, to: Option<Timestamp>, max_
     let (mut lo, mut hi) = (1u64, last + 1);
     while lo < hi {
         let mid = lo + (hi - lo) / 2;
-        let page = bus.replay(&ReplayQuery { from_seq: mid, to_seq: None, limit: 1, topics: None, newest_first: false }).await?;
+        let page = bus
+            .replay(&ReplayQuery { from_seq: mid, to_seq: None, limit: 1, topics: None, newest_first: false })
+            .await?;
         match page.events.first() {
             Some(e) if e.ts < from => lo = e.seq + 1,
             Some(e) => hi = mid.min(e.seq),
@@ -117,8 +126,9 @@ pub async fn gather(bus: &EventBus, from: Timestamp, to: Option<Timestamp>, max_
     }
     let mut cursor = lo;
     'outer: loop {
-        let page =
-            bus.replay(&ReplayQuery { from_seq: cursor, to_seq: None, limit: PAGE, topics: None, newest_first: false }).await?;
+        let page = bus
+            .replay(&ReplayQuery { from_seq: cursor, to_seq: None, limit: PAGE, topics: None, newest_first: false })
+            .await?;
         if page.events.is_empty() {
             break;
         }
@@ -199,19 +209,51 @@ impl Ctx {
             EventKind::ManagerPlanUpdated(p) => return Some(p.plan.id) == self.plan_id,
             EventKind::ManagerRunUpdated(r) => return Some(r.run.id) == self.run_id,
             EventKind::AgentSpawned(a) => {
-                let hit = a.agent.task_id.is_some_and(|t| self.task_set.contains(&t)) || self.agent_set.contains(&a.agent.id);
+                let hit =
+                    a.agent.task_id.is_some_and(|t| self.task_set.contains(&t)) || self.agent_set.contains(&a.agent.id);
                 if hit {
                     self.add_agent(a.agent.id, &a.agent.name, Some(a.agent.role.clone()), a.agent.task_id);
                 }
                 return hit;
             }
             EventKind::ApprovalResolved(a) => return self.approvals.contains(&a.approval_id),
+            // Phase 2 kinds scoped by their payload rather than the envelope.
+            EventKind::MergeProposalUpdated(m) => {
+                let p = &m.proposal;
+                return (p.run_id.is_some() && p.run_id == self.run_id)
+                    || p.branches.iter().any(|b| b.task_id.is_some_and(|t| self.task_set.contains(&t)));
+            }
+            EventKind::MergeRiskDetected(m) => {
+                return self.task_set.contains(&m.risk.task_a) || self.task_set.contains(&m.risk.task_b);
+            }
+            EventKind::TeamLeadRunUpdated(l) => {
+                let lead = &l.lead;
+                let hit = self.task_set.contains(&lead.parent_task_id)
+                    || (lead.run_id.is_some() && lead.run_id == self.run_id);
+                if hit {
+                    // The lead's sub-tasks (and so their executors) belong to the replay.
+                    for st in &lead.subtasks {
+                        if self.task_set.insert(st.task_id) {
+                            self.tasks.push(ReplayTaskRef {
+                                task_id: st.task_id,
+                                title: st.title.clone(),
+                                status: st.status,
+                            });
+                        }
+                    }
+                    if let Some(a) = lead.lead_agent_id {
+                        self.agent_set.insert(a);
+                    }
+                }
+                return hit;
+            }
             _ => {}
         }
         if !step_worthy(&e.kind) {
             return false;
         }
-        let hit = e.task_id.is_some_and(|t| self.task_set.contains(&t)) || e.agent_id.is_some_and(|a| self.agent_set.contains(&a));
+        let hit = e.task_id.is_some_and(|t| self.task_set.contains(&t))
+            || e.agent_id.is_some_and(|a| self.agent_set.contains(&a));
         if hit {
             if let EventKind::ApprovalRequested(a) = &e.kind {
                 self.approvals.insert(a.approval.id);
@@ -245,8 +287,13 @@ fn step_worthy(kind: &EventKind) -> bool {
         | EventKind::DecisionRecorded(_)
         | EventKind::EmergencyStop(_)
         | EventKind::ManagerPlanUpdated(_)
-        | EventKind::ManagerRunUpdated(_) => true,
-        // Merge events of later phases (append-only kinds) are recognised by name.
+        | EventKind::ManagerRunUpdated(_)
+        | EventKind::ReviewUpdated(_)
+        | EventKind::ConsensusUpdated(_)
+        | EventKind::MergeProposalUpdated(_)
+        | EventKind::MergeRiskDetected(_)
+        | EventKind::TeamLeadRunUpdated(_) => true,
+        // Later append-only merge kinds are still recognised by name.
         other => other.name().contains("Merge"),
     }
 }
@@ -291,7 +338,9 @@ fn run_tone(s: ManagerRunStatus) -> ReplayStepStatus {
     match s {
         ManagerRunStatus::Completed => ReplayStepStatus::Success,
         ManagerRunStatus::Failed => ReplayStepStatus::Error,
-        ManagerRunStatus::Cancelled | ManagerRunStatus::Interrupted | ManagerRunStatus::Paused => ReplayStepStatus::Warning,
+        ManagerRunStatus::Cancelled | ManagerRunStatus::Interrupted | ManagerRunStatus::Paused => {
+            ReplayStepStatus::Warning
+        }
         ManagerRunStatus::Running => ReplayStepStatus::Info,
     }
 }
@@ -342,13 +391,8 @@ pub fn build(seeds: &ReplaySeeds, gathered: &Gathered) -> ReplayTimeline {
 
     // Pass 1: identity; pass 2: shared correlation ids.
     let mut included: Vec<bool> = gathered.events.iter().map(|e| ctx.relevant(e)).collect();
-    let corr: HashSet<CorrelationId> = gathered
-        .events
-        .iter()
-        .zip(&included)
-        .filter(|(_, inc)| **inc)
-        .filter_map(|(e, _)| e.correlation_id)
-        .collect();
+    let corr: HashSet<CorrelationId> =
+        gathered.events.iter().zip(&included).filter(|(_, inc)| **inc).filter_map(|(e, _)| e.correlation_id).collect();
     if !corr.is_empty() {
         for (e, inc) in gathered.events.iter().zip(included.iter_mut()) {
             if !*inc
@@ -364,13 +408,25 @@ pub fn build(seeds: &ReplaySeeds, gathered: &Gathered) -> ReplayTimeline {
 
     let mut steps: Vec<ReplayStep> = Vec::new();
     if let Some(req) = &seeds.request {
-        steps.push(base_step_synthetic(req.created_at, ReplayPhase::Request, "UserRequest", truncate(&req.text, MAX_REQUEST_CHARS)));
+        steps.push(base_step_synthetic(
+            req.created_at,
+            ReplayPhase::Request,
+            "UserRequest",
+            truncate(&req.text, MAX_REQUEST_CHARS),
+        ));
     } else if let Some(plan) = &seeds.plan {
-        steps.push(base_step_synthetic(plan.created_at, ReplayPhase::Request, "UserRequest", truncate(&plan.goal, MAX_REQUEST_CHARS)));
+        steps.push(base_step_synthetic(
+            plan.created_at,
+            ReplayPhase::Request,
+            "UserRequest",
+            truncate(&plan.goal, MAX_REQUEST_CHARS),
+        ));
     }
 
     let mut tool_steps: HashMap<ToolCallId, usize> = HashMap::new();
     let mut approval_titles: HashMap<ApprovalId, String> = HashMap::new();
+    let mut merge_status: HashMap<orkestr_domain::MergeProposalId, MergeProposalStatus> = HashMap::new();
+    let mut lead_status: HashMap<String, TeamLeadStatus> = HashMap::new();
     let mut last_plan_status: Option<PlanStatus> = None;
     let mut last_run_status: Option<ManagerRunStatus> = None;
     let mut merge_reported = false;
@@ -534,10 +590,17 @@ pub fn build(seeds: &ReplaySeeds, gathered: &Gathered) -> ReplayTimeline {
                 s.detail = Some(r.files_restored.to_string());
                 steps.push(s);
             }
-            EventKind::BuildStarted(b) => steps.push(base_step(e, ReplayPhase::Tests, "BuildStarted", b.command.clone())),
+            EventKind::BuildStarted(b) => {
+                steps.push(base_step(e, ReplayPhase::Tests, "BuildStarted", b.command.clone()))
+            }
             EventKind::BuildSucceeded(b) | EventKind::BuildFailed(b) => {
                 let ok = matches!(e.kind, EventKind::BuildSucceeded(_));
-                let mut s = base_step(e, ReplayPhase::Tests, if ok { "BuildSucceeded" } else { "BuildFailed" }, b.summary.clone());
+                let mut s = base_step(
+                    e,
+                    ReplayPhase::Tests,
+                    if ok { "BuildSucceeded" } else { "BuildFailed" },
+                    b.summary.clone(),
+                );
                 s.duration_ms = Some(b.duration_ms);
                 s.status = if ok { ReplayStepStatus::Success } else { ReplayStepStatus::Error };
                 steps.push(s);
@@ -566,7 +629,8 @@ pub fn build(seeds: &ReplaySeeds, gathered: &Gathered) -> ReplayTimeline {
             }
             EventKind::ApprovalRequested(a) => {
                 approval_titles.insert(a.approval.id, a.approval.action_summary.clone());
-                let mut s = base_step(e, ReplayPhase::Approvals, "ApprovalRequested", a.approval.action_summary.clone());
+                let mut s =
+                    base_step(e, ReplayPhase::Approvals, "ApprovalRequested", a.approval.action_summary.clone());
                 s.approval_id = Some(a.approval.id);
                 s.approval_status = Some(a.approval.status);
                 s.detail = Some(a.approval.reason.clone()).filter(|r| !r.is_empty());
@@ -591,6 +655,72 @@ pub fn build(seeds: &ReplaySeeds, gathered: &Gathered) -> ReplayTimeline {
             EventKind::EmergencyStop(_) => {
                 let mut s = base_step(e, ReplayPhase::Run, "EmergencyStop", String::new());
                 s.status = ReplayStepStatus::Error;
+                steps.push(s);
+            }
+            // Failed reviews (finished ones arrive as `ReviewFinished`).
+            EventKind::ReviewUpdated(r) if r.review.status == ReviewStatus::Failed => {
+                let mut s = base_step(e, ReplayPhase::Reviews, "ReviewUpdated", r.review.summary.clone());
+                s.detail = r.review.error.clone();
+                s.status = ReplayStepStatus::Error;
+                steps.push(s);
+            }
+            EventKind::ConsensusUpdated(c) if c.run.status.is_final() => {
+                let mut s = base_step(e, ReplayPhase::Plan, "ConsensusUpdated", truncate(&c.run.question, 200));
+                s.status = if c.run.status == ConsensusStatus::Finished {
+                    ReplayStepStatus::Success
+                } else {
+                    ReplayStepStatus::Error
+                };
+                s.detail = c.run.error.clone();
+                steps.push(s);
+            }
+            EventKind::TeamLeadRunUpdated(l) => {
+                let lead = &l.lead;
+                if lead_status.insert(lead.id.clone(), lead.status) == Some(lead.status) {
+                    continue;
+                }
+                let mut s = base_step(e, ReplayPhase::Delegation, "TeamLeadRunUpdated", lead.title.clone());
+                s.task_id = Some(lead.parent_task_id);
+                s.agent_id = lead.lead_agent_id.or(s.agent_id);
+                s.detail = Some(format!("{:?}", lead.status));
+                s.status = match lead.status {
+                    TeamLeadStatus::Completed => ReplayStepStatus::Success,
+                    TeamLeadStatus::Failed => ReplayStepStatus::Error,
+                    TeamLeadStatus::Cancelled => ReplayStepStatus::Warning,
+                    _ => ReplayStepStatus::Info,
+                };
+                steps.push(s);
+            }
+            EventKind::MergeProposalUpdated(m) => {
+                let p = &m.proposal;
+                // One step per status change, not per progress update.
+                if merge_status.insert(p.id, p.status) == Some(p.status) {
+                    continue;
+                }
+                let mut s = base_step(e, ReplayPhase::Merge, "MergeProposalUpdated", p.target.clone());
+                // `<Status>` or `<Status>: <technical detail>` (the UI translates the status).
+                s.detail = Some(match &p.status_detail {
+                    Some(d) => format!("{:?}: {}", p.status, truncate(d, 300)),
+                    None => format!("{:?}", p.status),
+                });
+                s.files = p.conflicts.iter().flat_map(|c| c.paths.iter().cloned()).take(50).collect();
+                s.status = match p.status {
+                    MergeProposalStatus::Completed => ReplayStepStatus::Success,
+                    MergeProposalStatus::Failed | MergeProposalStatus::Rejected => ReplayStepStatus::Error,
+                    MergeProposalStatus::Conflicted
+                    | MergeProposalStatus::Aborted
+                    | MergeProposalStatus::AwaitingApproval => ReplayStepStatus::Warning,
+                    _ => ReplayStepStatus::Info,
+                };
+                steps.push(s);
+            }
+            EventKind::MergeRiskDetected(m) => {
+                let r = &m.risk;
+                let mut s = base_step(e, ReplayPhase::Merge, "MergeRiskDetected", String::new());
+                s.task_id = Some(r.task_a);
+                s.files = r.files.iter().take(50).cloned().collect();
+                s.detail = Some(format!("{} ↔ {}", ctx.task_title(r.task_a), ctx.task_title(r.task_b)));
+                s.status = ReplayStepStatus::Warning;
                 steps.push(s);
             }
             other if other.name().contains("Merge") => {
@@ -690,7 +820,9 @@ pub fn filter(mut tl: ReplayTimeline, agent: Option<AgentId>, phases: Option<&[R
     tl.steps.retain(|s| {
         let agent_ok = match agent {
             None => true,
-            Some(a) => s.agent_id == Some(a) || (s.agent_id.is_none() && s.task_id.is_some() && s.task_id == agent_task),
+            Some(a) => {
+                s.agent_id == Some(a) || (s.agent_id.is_none() && s.task_id.is_some() && s.task_id == agent_task)
+            }
         };
         let phase_ok = phases.is_none_or(|p| p.is_empty() || p.contains(&s.phase));
         agent_ok && phase_ok
@@ -708,7 +840,11 @@ pub fn filter(mut tl: ReplayTimeline, agent: Option<AgentId>, phases: Option<&[R
 #[must_use]
 pub fn state_at(tl: &ReplayTimeline, index: usize) -> ReplayState {
     let mut st = ReplayState {
-        tasks: tl.tasks.iter().map(|t| ReplayTaskState { task_id: t.task_id, title: t.title.clone(), status: None }).collect(),
+        tasks: tl
+            .tasks
+            .iter()
+            .map(|t| ReplayTaskState { task_id: t.task_id, title: t.title.clone(), status: None })
+            .collect(),
         ..ReplayState::default()
     };
     let names: HashMap<AgentId, String> = tl.agents.iter().map(|a| (a.agent_id, a.name.clone())).collect();
@@ -772,10 +908,22 @@ pub fn state_at(tl: &ReplayTimeline, index: usize) -> ReplayState {
 
 /// Moves the cursor and returns the step with its state.
 #[must_use]
-pub fn step(tl: &ReplayTimeline, index: u32, direction: ReplayDirection, phase: Option<ReplayPhase>) -> ReplayStepResult {
+pub fn step(
+    tl: &ReplayTimeline,
+    index: u32,
+    direction: ReplayDirection,
+    phase: Option<ReplayPhase>,
+) -> ReplayStepResult {
     let total = tl.steps.len();
     if total == 0 {
-        return ReplayStepResult { step: None, index: 0, total: 0, has_prev: false, has_next: false, state: state_at(tl, 0) };
+        return ReplayStepResult {
+            step: None,
+            index: 0,
+            total: 0,
+            has_prev: false,
+            has_next: false,
+            state: state_at(tl, 0),
+        };
     }
     let last = total - 1;
     let cur = (index as usize).min(last);
@@ -792,7 +940,9 @@ pub fn step(tl: &ReplayTimeline, index: u32, direction: ReplayDirection, phase: 
                 .position(|s| s.phase == p && s.index as usize > cur)
                 .or_else(|| tl.steps.iter().position(|s| s.phase == p))
                 .unwrap_or(cur),
-            None => tl.steps.iter().position(|s| s.index as usize > cur && s.phase != tl.steps[cur].phase).unwrap_or(cur),
+            None => {
+                tl.steps.iter().position(|s| s.index as usize > cur && s.phase != tl.steps[cur].phase).unwrap_or(cur)
+            }
         },
     };
     ReplayStepResult {
@@ -815,7 +965,11 @@ pub fn run_summary(run: &ManagerRun) -> ReplayRunSummary {
         status: run.status,
         started_at: run.started_at,
         finished_at: run.finished_at,
-        tasks: run.tasks.iter().map(|t| ReplayTaskRef { task_id: t.task_id, title: t.title.clone(), status: t.status }).collect(),
+        tasks: run
+            .tasks
+            .iter()
+            .map(|t| ReplayTaskRef { task_id: t.task_id, title: t.title.clone(), status: t.status })
+            .collect(),
         agents_spawned: run.agents_spawned,
         cost_usd: run.cost_usd,
     }

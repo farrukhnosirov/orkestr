@@ -30,7 +30,8 @@ impl Model {
     /// Counts (scan fields left at zero).
     #[must_use]
     pub fn stats(&self) -> ArchStats {
-        let count = |k: ArchNodeKind| u32::try_from(self.nodes.iter().filter(|n| n.kind == k).count()).unwrap_or(u32::MAX);
+        let count =
+            |k: ArchNodeKind| u32::try_from(self.nodes.iter().filter(|n| n.kind == k).count()).unwrap_or(u32::MAX);
         ArchStats {
             modules: count(ArchNodeKind::Module),
             services: count(ArchNodeKind::Service),
@@ -38,7 +39,11 @@ impl Model {
             apis: count(ArchNodeKind::Api),
             routes: u32::try_from(self.nodes.iter().map(|n| n.routes.len()).sum::<usize>()).unwrap_or(u32::MAX),
             external_dependencies: u32::try_from(
-                self.nodes.iter().filter(|n| n.kind == ArchNodeKind::External).map(|n| n.dependencies.len()).sum::<usize>(),
+                self.nodes
+                    .iter()
+                    .filter(|n| n.kind == ArchNodeKind::External)
+                    .map(|n| n.dependencies.len())
+                    .sum::<usize>(),
             )
             .unwrap_or(u32::MAX),
             edges: u32::try_from(self.edges.len()).unwrap_or(u32::MAX),
@@ -87,11 +92,32 @@ fn engine_of(name: &str) -> Option<&'static str> {
     let n = n.rsplit('/').next().unwrap_or(&n);
     let n = n.split([':', '@']).next().unwrap_or(n);
     Some(match n {
-        "postgres" | "postgis" | "pg" | "tokio-postgres" | "postgresql" | "psycopg2" | "psycopg2-binary" | "psycopg"
-        | "asyncpg" | "pgx" | "npgsql" | "npgsql.entityframeworkcore.postgresql" | "pq" | "pgvector" | "timescaledb" => "postgres",
+        "postgres"
+        | "postgis"
+        | "pg"
+        | "tokio-postgres"
+        | "postgresql"
+        | "psycopg2"
+        | "psycopg2-binary"
+        | "psycopg"
+        | "asyncpg"
+        | "pgx"
+        | "npgsql"
+        | "npgsql.entityframeworkcore.postgresql"
+        | "pq"
+        | "pgvector"
+        | "timescaledb" => "postgres",
         "mysql" | "mysql2" | "mariadb" | "mysqlclient" | "pymysql" | "mysql_async" | "go-sql-driver" => "mysql",
-        "sqlite" | "sqlite3" | "rusqlite" | "better-sqlite3" | "libsql" | "@libsql" | "sql.js" | "aiosqlite"
-        | "microsoft.data.sqlite" | "go-sqlite3" => "sqlite",
+        "sqlite"
+        | "sqlite3"
+        | "rusqlite"
+        | "better-sqlite3"
+        | "libsql"
+        | "@libsql"
+        | "sql.js"
+        | "aiosqlite"
+        | "microsoft.data.sqlite"
+        | "go-sqlite3" => "sqlite",
         "mongo" | "mongodb" | "mongoose" | "pymongo" | "motor" | "mongo-driver" => "mongodb",
         "redis" | "ioredis" | "redis-py" | "valkey" | "fred" | "go-redis" | "stackexchange.redis" => "redis",
         "elasticsearch" | "opensearch" | "@elastic" => "elasticsearch",
@@ -100,7 +126,9 @@ fn engine_of(name: &str) -> Option<&'static str> {
         "clickhouse" | "clickhouse-server" => "clickhouse",
         "neo4j" => "neo4j",
         "influxdb" => "influxdb",
-        "mssql" | "tedious" | "mcr.microsoft.com" | "sqlserver" | "microsoft.entityframeworkcore.sqlserver" => "sqlserver",
+        "mssql" | "tedious" | "mcr.microsoft.com" | "sqlserver" | "microsoft.entityframeworkcore.sqlserver" => {
+            "sqlserver"
+        }
         "couchdb" => "couchdb",
         "dynamodb-local" => "dynamodb",
         "rabbitmq" | "amqplib" | "lapin" | "pika" => "rabbitmq",
@@ -206,7 +234,8 @@ fn push_file(n: &mut ArchNode, f: &str) {
 }
 
 fn test_like(dir: &str) -> bool {
-    dir.split('/').any(|s| matches!(s, "tests" | "test" | "fixtures" | "__tests__" | "examples" | "example" | "testdata"))
+    dir.split('/')
+        .any(|s| matches!(s, "tests" | "test" | "fixtures" | "__tests__" | "examples" | "example" | "testdata"))
 }
 
 /// Builds the model.
@@ -322,7 +351,9 @@ pub fn build(files: &[String], facts: &BTreeMap<String, Arc<FileFacts>>, root_na
     }
     // Deepest module first, for ownership lookups.
     let mut by_depth: Vec<usize> = (0..modules.len()).collect();
-    by_depth.sort_by_key(|&i| std::cmp::Reverse(if modules[i].dir == "." { 0 } else { modules[i].dir.matches('/').count() + 1 }));
+    by_depth.sort_by_key(|&i| {
+        std::cmp::Reverse(if modules[i].dir == "." { 0 } else { modules[i].dir.matches('/').count() + 1 })
+    });
     let owner = |path: &str| -> Option<usize> { by_depth.iter().copied().find(|&i| is_under(path, &modules[i].dir)) };
 
     // File counts.
@@ -490,7 +521,12 @@ pub fn build(files: &[String], facts: &BTreeMap<String, Arc<FileFacts>>, root_na
             }
             b.add_node(n);
             compose_ids.insert(s.name.clone(), id.clone());
-            compose_pending.push((id, s.depends_on.clone(), s.build.as_ref().and_then(|bd| join(&dir, bd)), dir.clone()));
+            compose_pending.push((
+                id,
+                s.depends_on.clone(),
+                s.build.as_ref().and_then(|bd| join(&dir, bd)),
+                dir.clone(),
+            ));
         }
     }
     for (id, deps, build_dir, _) in &compose_pending {
@@ -553,7 +589,9 @@ pub fn build(files: &[String], facts: &BTreeMap<String, Arc<FileFacts>>, root_na
             continue;
         }
         let segs: Vec<&str> = p.split('/').collect();
-        let cut = segs.iter().position(|s| matches!(s.to_ascii_lowercase().as_str(), "migrations" | "migration" | "migrate" | "alembic"));
+        let cut = segs.iter().position(|s| {
+            matches!(s.to_ascii_lowercase().as_str(), "migrations" | "migration" | "migrate" | "alembic")
+        });
         if let Some(cut) = cut {
             migration_dirs.entry(segs[..=cut].join("/")).or_default().push(p);
         }
@@ -601,7 +639,12 @@ pub fn build(files: &[String], facts: &BTreeMap<String, Arc<FileFacts>>, root_na
             None => orphan_routes.extend(f.routes.iter().cloned()),
         }
     }
-    let add_api = |b: &mut Builder, id: String, name: &str, dir: Option<String>, mut routes: Vec<ApiRoute>, owner_id: Option<String>| {
+    let add_api = |b: &mut Builder,
+                   id: String,
+                   name: &str,
+                   dir: Option<String>,
+                   mut routes: Vec<ApiRoute>,
+                   owner_id: Option<String>| {
         routes.sort();
         routes.dedup();
         routes.truncate(MAX_API_ROUTES);
@@ -689,10 +732,18 @@ pub fn build(files: &[String], facts: &BTreeMap<String, Arc<FileFacts>>, root_na
         .filter(|(_, m)| m.ecosystem == eco::CARGO)
         .filter_map(|(i, m)| m.import_name.clone().map(|n| (n, i)))
         .collect();
-    let npm_names: HashMap<&str, usize> =
-        modules.iter().enumerate().filter(|(_, m)| m.ecosystem == eco::NPM).map(|(i, m)| (m.name.as_str(), i)).collect();
-    let dotnet: Vec<(&str, usize)> =
-        modules.iter().enumerate().filter(|(_, m)| m.ecosystem == eco::DOTNET).map(|(i, m)| (m.name.as_str(), i)).collect();
+    let npm_names: HashMap<&str, usize> = modules
+        .iter()
+        .enumerate()
+        .filter(|(_, m)| m.ecosystem == eco::NPM)
+        .map(|(i, m)| (m.name.as_str(), i))
+        .collect();
+    let dotnet: Vec<(&str, usize)> = modules
+        .iter()
+        .enumerate()
+        .filter(|(_, m)| m.ecosystem == eco::DOTNET)
+        .map(|(i, m)| (m.name.as_str(), i))
+        .collect();
     let python_names: HashMap<String, usize> = modules
         .iter()
         .enumerate()

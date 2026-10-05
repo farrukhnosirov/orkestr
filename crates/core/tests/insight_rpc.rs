@@ -95,9 +95,17 @@ fn fixture(root: &Path) {
         "crates/api/src/main.rs",
         "use axum::{routing::get, Router};\nfn main() {\n    let app = Router::new().route(\"/health\", get(health)).route(\"/users/{id}\", get(user));\n}\n",
     );
-    write(root, "crates/shared/Cargo.toml", "[package]\nname = \"shared\"\nversion = \"0.1.0\"\n\n[dependencies]\nserde = \"1\"\n");
+    write(
+        root,
+        "crates/shared/Cargo.toml",
+        "[package]\nname = \"shared\"\nversion = \"0.1.0\"\n\n[dependencies]\nserde = \"1\"\n",
+    );
     write(root, "crates/shared/src/lib.rs", "pub fn hello() {}\n");
-    write(root, "web/package.json", "{\"name\": \"web\", \"version\": \"1.0.0\", \"dependencies\": {\"react\": \"^18\"}}\n");
+    write(
+        root,
+        "web/package.json",
+        "{\"name\": \"web\", \"version\": \"1.0.0\", \"dependencies\": {\"react\": \"^18\"}}\n",
+    );
     write(root, "web/src/main.ts", "import React from 'react';\nexport const x = 1;\n");
     write(
         root,
@@ -166,22 +174,24 @@ async fn architecture_map_refresh_and_diff_over_ws() {
     assert_eq!(same["changed"], false);
 
     // Add a module with a route → new snapshot + diff.
-    write(&root, "crates/billing/Cargo.toml", "[package]\nname = \"billing\"\nversion = \"0.1.0\"\n\n[dependencies]\nshared = { path = \"../shared\" }\n");
+    write(
+        &root,
+        "crates/billing/Cargo.toml",
+        "[package]\nname = \"billing\"\nversion = \"0.1.0\"\n\n[dependencies]\nshared = { path = \"../shared\" }\n",
+    );
     write(&root, "crates/billing/src/lib.rs", "pub fn bill() {}\n");
     write(&root, "Cargo.toml", "[workspace]\nmembers = [\"crates/api\", \"crates/shared\", \"crates/billing\"]\n");
     let changed = c.ok("architecture.refresh", json!({"projectId": pid})).await;
     assert_eq!(changed["changed"], true, "{changed}");
     let diff = &changed["diff"];
-    assert!(
-        diff["addedNodes"].as_array().unwrap().iter().any(|n| n["name"] == "billing"),
-        "billing added: {diff}"
-    );
+    assert!(diff["addedNodes"].as_array().unwrap().iter().any(|n| n["name"] == "billing"), "billing added: {diff}");
     let second_id = changed["map"]["snapshotId"].as_str().unwrap().to_owned();
     assert_ne!(first_id, second_id);
     let d = c.ok("architecture.diff", json!({"projectId": pid})).await["diff"].clone();
     assert_eq!(d["fromSnapshotId"], first_id.as_str());
     assert_eq!(d["toSnapshotId"], second_id.as_str());
-    let back = c.ok("architecture.diff", json!({"projectId": pid, "from": second_id, "to": first_id})).await["diff"].clone();
+    let back =
+        c.ok("architecture.diff", json!({"projectId": pid, "from": second_id, "to": first_id})).await["diff"].clone();
     assert!(back["removedNodes"].as_array().unwrap().iter().any(|n| n["name"] == "billing"), "{back}");
     let old = c.ok("architecture.map", json!({"projectId": pid, "snapshotId": first_id})).await;
     assert_eq!(old["map"]["snapshotId"], first_id.as_str());
@@ -195,10 +205,7 @@ async fn architecture_map_refresh_and_diff_over_ws() {
     );
 
     // Errors.
-    assert_eq!(
-        c.err("architecture.map", json!({"projectId": pid, "snapshotId": "nope"})).await["code"],
-        "not_found"
-    );
+    assert_eq!(c.err("architecture.map", json!({"projectId": pid, "snapshotId": "nope"})).await["code"], "not_found");
     assert_eq!(c.err("architecture.refresh", json!({})).await["code"], "bad_request");
     let rootless = c.ok("projects.create", json!({"name": "NoRoot"})).await["project"]["id"].clone();
     assert_eq!(c.err("architecture.map", json!({"projectId": rootless})).await["code"], "bad_request");
@@ -227,7 +234,10 @@ async fn replay_of_a_mock_manager_run_over_ws() {
     let core = orkestr_core::start(CoreConfig::with_data_dir(dir.path().join("data"))).await.unwrap();
     let mut c = Client::connect(&core).await;
     let pid = c
-        .ok("projects.create", json!({"name": "Replay", "rootPath": root.to_string_lossy(), "approvalMode": "SemiAuto"}))
+        .ok(
+            "projects.create",
+            json!({"name": "Replay", "rootPath": root.to_string_lossy(), "approvalMode": "SemiAuto"}),
+        )
         .await["project"]["id"]
         .as_str()
         .unwrap()
@@ -235,8 +245,11 @@ async fn replay_of_a_mock_manager_run_over_ws() {
     let providers = c.ok("providers.list", json!({})).await["providers"].as_array().unwrap().clone();
     let mock = providers.iter().find(|p| p["provider"]["kind"] == "Mock").unwrap()["provider"]["id"].clone();
     let model = json!({"providerId": mock, "model": "mock-smart"});
-    c.ok("providers.setManager", json!({"config": {"model": model, "maxParallelAgents": 2, "approvalPolicy": "SemiAuto"}}))
-        .await;
+    c.ok(
+        "providers.setManager",
+        json!({"config": {"model": model, "maxParallelAgents": 2, "approvalPolicy": "SemiAuto"}}),
+    )
+    .await;
     c.ok(
         "providers.setRouting",
         json!({"config": {"mode": "Manual", "rules": [], "defaultFallback": [model], "preferLocal": true, "maxRateLimitWaitSecs": 0}}),
@@ -291,7 +304,8 @@ async fn replay_of_a_mock_manager_run_over_ws() {
     // Agent filter keeps only that agent's steps (or agent-less steps of its task).
     let agent = agents[0]["agentId"].as_str().unwrap().to_owned();
     let agent_task = agents[0]["taskId"].clone();
-    let only = c.ok("replay.timeline", json!({"projectId": pid, "runId": run_id, "agentId": agent})).await["timeline"].clone();
+    let only =
+        c.ok("replay.timeline", json!({"projectId": pid, "runId": run_id, "agentId": agent})).await["timeline"].clone();
     let only_steps = only["steps"].as_array().unwrap();
     assert!(!only_steps.is_empty());
     assert!(only_steps.len() < steps.len());
@@ -299,9 +313,8 @@ async fn replay_of_a_mock_manager_run_over_ws() {
         assert!(s["agentId"] == agent.as_str() || (s["agentId"].is_null() && s["taskId"] == agent_task), "{s}");
     }
     // Phase filter.
-    let plan_only = c
-        .ok("replay.timeline", json!({"projectId": pid, "runId": run_id, "phases": ["Plan"]}))
-        .await["timeline"]
+    let plan_only = c.ok("replay.timeline", json!({"projectId": pid, "runId": run_id, "phases": ["Plan"]})).await
+        ["timeline"]
         .clone();
     assert!(plan_only["steps"].as_array().unwrap().iter().all(|s| s["phase"] == "Plan"));
 
@@ -320,7 +333,10 @@ async fn replay_of_a_mock_manager_run_over_ws() {
     let tasks_at_end = last["state"]["tasks"].as_array().unwrap();
     assert!(tasks_at_end.iter().any(|t| t["status"] == "Completed"), "{last}");
     let jump = c
-        .ok("replay.step", json!({"projectId": pid, "runId": run_id, "index": 0, "direction": "NextPhase", "phase": "Agents"}))
+        .ok(
+            "replay.step",
+            json!({"projectId": pid, "runId": run_id, "index": 0, "direction": "NextPhase", "phase": "Agents"}),
+        )
         .await;
     assert_eq!(jump["step"]["phase"], "Agents");
 
@@ -337,7 +353,8 @@ async fn replay_of_a_mock_manager_run_over_ws() {
         "bad_request"
     );
     assert_eq!(
-        c.err("replay.timeline", json!({"projectId": pid, "runId": "0192a000-0000-7000-8000-000000000000"})).await["code"],
+        c.err("replay.timeline", json!({"projectId": pid, "runId": "0192a000-0000-7000-8000-000000000000"})).await
+            ["code"],
         "not_found"
     );
     let other = c.ok("projects.create", json!({"name": "Other"})).await["project"]["id"].clone();

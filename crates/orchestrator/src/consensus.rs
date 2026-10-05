@@ -211,7 +211,8 @@ impl Inner {
             tracing::error!(consensus_id = %run.id, error = %e, "failed to persist a consensus run");
             return;
         }
-        let mut ev = NewEvent::new(EventKind::ConsensusUpdated(ConsensusPayload { run: run.clone() })).project(run.project_id);
+        let mut ev =
+            NewEvent::new(EventKind::ConsensusUpdated(ConsensusPayload { run: run.clone() })).project(run.project_id);
         if let Some(t) = run.task_id {
             ev = ev.task(t);
         }
@@ -333,10 +334,8 @@ impl Inner {
         user.push_str("\nPropose your solution now.");
         let models: Vec<ModelRef> = run.proposals.iter().map(|p| p.model.clone()).collect();
         let shared = Arc::new(tokio::sync::Mutex::new(run));
-        let calls = models
-            .into_iter()
-            .enumerate()
-            .map(|(i, m)| self.propose(&shared, i, total, m, user.clone(), &cancel));
+        let calls =
+            models.into_iter().enumerate().map(|(i, m)| self.propose(&shared, i, total, m, user.clone(), &cancel));
         futures::future::join_all(calls).await;
 
         let mut run = shared.lock().await.clone();
@@ -454,7 +453,12 @@ impl Inner {
                     proposed_by: Some(cap(&p.answered_by.as_ref().unwrap_or(&p.model).model, 400)),
                     rejected_reason: (d.chosen_index != Some(p.index)).then(|| {
                         p.score_note.clone().unwrap_or_else(|| {
-                            if ru { "арбитр выбрал другой вариант" } else { "not chosen by the synthesizer" }.to_owned()
+                            if ru {
+                                "арбитр выбрал другой вариант"
+                            } else {
+                                "not chosen by the synthesizer"
+                            }
+                            .to_owned()
                         })
                     }),
                 }
@@ -548,7 +552,9 @@ impl Manager {
                 }
                 let distinct = seen.len();
                 if distinct < models.len() {
-                    warnings.push("the same model was picked more than once — it answers with different perspectives".into());
+                    warnings.push(
+                        "the same model was picked more than once — it answers with different perspectives".into(),
+                    );
                 }
                 models.clone()
             }
@@ -653,7 +659,8 @@ mod unit {
 
     #[test]
     fn proposals_and_synthesis_parse_leniently() {
-        let p = parse_proposal(&json!({"summary": "s", "approach": "a", "pros": "- x\n- y", "confidence": 80})).unwrap();
+        let p =
+            parse_proposal(&json!({"summary": "s", "approach": "a", "pros": "- x\n- y", "confidence": 80})).unwrap();
         assert_eq!(p.pros, vec!["x", "y"]);
         assert!((p.confidence - 0.8).abs() < 1e-9);
         assert!(parse_proposal(&json!({"title": "t"})).is_err());

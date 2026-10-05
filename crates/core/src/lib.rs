@@ -22,6 +22,7 @@ pub mod discovery;
 pub mod error;
 pub mod gates;
 pub mod housekeeping;
+pub mod integration;
 pub mod logging;
 pub mod migrations;
 pub mod recovery;
@@ -279,26 +280,29 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
     if let Err(e) = agents.init().await {
         tracing::error!(error = %e, "agent runtime failed to initialise");
     }
-    let manager = orkestr_orchestrator::Manager::with_parallel(orkestr_orchestrator::OrchestratorDeps {
-        db: db.clone(),
-        events: events.clone(),
-        security: Arc::clone(&security),
-        tasks: Arc::clone(&tasks),
-        projects: Arc::clone(&metadata) as Arc<dyn orkestr_storage::ProjectRepository>,
-        vcs: vcs.clone(),
-        snapshots: Arc::clone(&snapshots),
-        memory: memory.clone(),
-        cost: cost.clone(),
-        agents: agents.clone(),
-        models,
-        hub: Arc::new(orkestr_orchestrator::RegistryHub(Arc::clone(&providers))),
-        resources: Arc::new(rpc::manager::NodeResourceProbe(Arc::clone(&nodes))),
-        config: orkestr_orchestrator::ManagerTunables {
-            state_root: paths.data_dir.clone(),
-            ui_language: ui_language.clone(),
-            ..orkestr_orchestrator::ManagerTunables::default()
+    let manager = orkestr_orchestrator::Manager::with_parallel(
+        orkestr_orchestrator::OrchestratorDeps {
+            db: db.clone(),
+            events: events.clone(),
+            security: Arc::clone(&security),
+            tasks: Arc::clone(&tasks),
+            projects: Arc::clone(&metadata) as Arc<dyn orkestr_storage::ProjectRepository>,
+            vcs: vcs.clone(),
+            snapshots: Arc::clone(&snapshots),
+            memory: memory.clone(),
+            cost: cost.clone(),
+            agents: agents.clone(),
+            models,
+            hub: Arc::new(orkestr_orchestrator::RegistryHub(Arc::clone(&providers))),
+            resources: Arc::new(rpc::manager::NodeResourceProbe(Arc::clone(&nodes))),
+            config: orkestr_orchestrator::ManagerTunables {
+                state_root: paths.data_dir.clone(),
+                ui_language: ui_language.clone(),
+                ..orkestr_orchestrator::ManagerTunables::default()
+            },
         },
-    }, parallel);
+        parallel,
+    );
     if let Err(e) = manager.init().await {
         tracing::error!(error = %e, "AI Manager failed to initialise");
     }
@@ -322,16 +326,26 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
     if let Err(e) = quality.init().await {
         tracing::error!(error = %e, "quality service failed to initialise");
     }
+    // Quality gates read the code reviews (reviewer approved / no critical
+    // security finding) instead of only the task's review field.
+    let review_gates = Arc::new(integration::ReviewGates::new(manager.clone()));
+    quality.set_review_source(Arc::clone(&review_gates) as Arc<dyn orkestr_quality::ReviewStatusSource>);
+    quality.set_security_source(review_gates as Arc<dyn orkestr_quality::SecurityFindingsSource>);
 
     let architecture = orkestr_insight::ArchitectureService::new(
         db.clone(),
         Some(events.clone()),
         orkestr_insight::ScanOptions::default(),
     );
-    // Merge Manager (Phase 2, §16): shares the Manager's engines. Gates and
-    // the quality runner default to "unknown" / none until those areas wire
-    // their adapters (`MergeDeps::with_gates` / `with_quality`).
-    let merge = orkestr_orchestrator::MergeManager::new(orkestr_orchestrator::MergeDeps::from_manager(&manager));
+    // Merge Manager (Phase 2, §16): shares the Manager's engines; its review
+    // and tests gates come from the code reviews and the quality runs, and
+    // the integration branch is checked by the quality runner before the
+    // target moves.
+    let merge = orkestr_orchestrator::MergeManager::new(
+        orkestr_orchestrator::MergeDeps::from_manager(&manager)
+            .with_gates(Arc::new(integration::MergeGates::new(manager.clone(), quality.clone())))
+            .with_quality(Arc::new(integration::MergeQuality::new(quality.clone()))),
+    );
     if let Err(e) = merge.init().await {
         tracing::error!(error = %e, "Merge Manager failed to initialise");
     }

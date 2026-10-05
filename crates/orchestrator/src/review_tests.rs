@@ -11,8 +11,8 @@ use std::time::Duration;
 use async_trait::async_trait;
 use orkestr_agent_runtime::{AgentRuntime, ModelGateway, ProviderInfo, RuntimeConfig, RuntimeDeps};
 use orkestr_domain::{
-    now, ManagerConfig, ModelRef, Project, ProjectId, ProviderId, ProviderKind, ReviewState, Task,
-    TaskActor, TaskStatus, WorktreeRef,
+    now, ManagerConfig, ModelRef, Project, ProjectId, ProviderId, ProviderKind, ReviewState, Task, TaskActor,
+    TaskStatus, WorktreeRef,
 };
 use orkestr_events::EventBus;
 use orkestr_protocol::event::EventKind;
@@ -188,7 +188,8 @@ async fn harness() -> H {
     let tasks = Arc::new(orkestr_task_engine::TaskService::new(db.clone(), events.clone()));
     let source = Arc::new(Source::default());
     let gateway = Arc::new(Gateway { source: Arc::clone(&source), chain: Mutex::new(Vec::new()) });
-    let vcs = || orkestr_vcs::Vcs::new(Arc::new(orkestr_vcs::GitCli::discover()), db.clone(), dir.path().join("worktrees"));
+    let vcs =
+        || orkestr_vcs::Vcs::new(Arc::new(orkestr_vcs::GitCli::discover()), db.clone(), dir.path().join("worktrees"));
     let memory = orkestr_memory::MemoryEngine::new(db.clone()).with_events(events.clone());
     let cost = orkestr_cost::CostEngine::new(db.clone()).with_events(events.clone());
     let rt = AgentRuntime::new(RuntimeDeps {
@@ -337,7 +338,8 @@ async fn approved_review_moves_the_task_to_testing_and_ticks_criteria() {
     assert!(kinds.iter().any(|k| matches!(k, EventKind::ReviewFinished(p) if p.verdict == ReviewState::Approved)));
     let gate = h.mgr.review_gate(task.id).await.unwrap();
     assert!(gate.passed && gate.reviewer_approved && gate.no_critical_security, "{gate:?}");
-    let list = h.mgr.list_reviews(ListReviewsParams { task_id: Some(task.id), ..ListReviewsParams::default() }).await.unwrap();
+    let list =
+        h.mgr.list_reviews(ListReviewsParams { task_id: Some(task.id), ..ListReviewsParams::default() }).await.unwrap();
     assert_eq!(list.reviews.len(), 1);
     assert!(list.gate.unwrap().passed);
     assert!(h.mgr.review_feedback(task.id).await.unwrap().is_none());
@@ -393,7 +395,12 @@ async fn critical_findings_request_changes_and_block_the_gate_until_resolved() {
         .review;
     let id1 = critical[1].id.clone();
     h.mgr
-        .resolve_finding(ResolveFindingParams { review_id: after.id, finding_id: id1, status: FindingStatus::Fixed, note: None })
+        .resolve_finding(ResolveFindingParams {
+            review_id: after.id,
+            finding_id: id1,
+            status: FindingStatus::Fixed,
+            note: None,
+        })
         .await
         .unwrap();
     let gate = h.mgr.review_gate(task.id).await.unwrap();
@@ -538,7 +545,9 @@ async fn consensus_runs_participants_in_parallel_and_records_the_decision() {
     assert_eq!(d.decided_by, orkestr_domain::Actor::Manager);
     let kinds = drain(&mut sub).await;
     assert!(kinds.iter().any(|k| matches!(k, EventKind::DecisionRecorded(_))));
-    assert!(kinds.iter().any(|k| matches!(k, EventKind::ConsensusUpdated(c) if c.run.status == ConsensusStatus::Finished)));
+    assert!(kinds
+        .iter()
+        .any(|k| matches!(k, EventKind::ConsensusUpdated(c) if c.run.status == ConsensusStatus::Finished)));
     let list = h.mgr.list_consensus(ListConsensusParams { project_id: h.project, limit: None }).await.unwrap();
     assert_eq!(list.runs.len(), 1);
     assert_eq!(h.mgr.get_consensus(run.id).await.unwrap().run.id, run.id);
@@ -562,7 +571,11 @@ async fn consensus_validates_participants_and_fails_with_too_few_proposals() {
     assert!(matches!(one, OrchestratorError::Invalid(_)));
     let empty = h
         .mgr
-        .run_consensus(RunConsensusParams { project_id: h.project, question: "  ".into(), ..RunConsensusParams::default() })
+        .run_consensus(RunConsensusParams {
+            project_id: h.project,
+            question: "  ".into(),
+            ..RunConsensusParams::default()
+        })
         .await
         .unwrap_err();
     assert!(matches!(empty, OrchestratorError::Invalid(_)));
