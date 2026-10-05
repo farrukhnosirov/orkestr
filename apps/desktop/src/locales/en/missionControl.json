@@ -98,6 +98,7 @@
     "label_other": "Task graph with {{count}} tasks",
     "liveRun": "Live run: {{goal}}",
     "openTasks": "Open tasks",
+    "recentTasks": "Recent tasks (all done)",
     "openTasksPanel": "Open Tasks"
   },
   "nodes": {

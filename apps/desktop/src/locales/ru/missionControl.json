@@ -104,6 +104,7 @@
     "label_other": "Граф задач: {{count}} задачи",
     "liveRun": "Активный запуск: {{goal}}",
     "openTasks": "Открытые задачи",
+    "recentTasks": "Последние задачи (все выполнены)",
     "openTasksPanel": "Открыть «Задачи»"
   },
   "nodes": {

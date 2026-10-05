@@ -2,7 +2,7 @@
 // Phase 3 (mission-control) UI review: starts a headless core (`orkestrd`)
 // in an isolated data dir, seeds it over RPC (project, a finished Manager
 // run, a pending plan, a budget, a terminal), serves the built frontend with
-// `vite preview` in browser-dev mode (`?core=…&token=…`) and drives it in a
+// a small static server in browser-dev mode (`?core=…&token=…`) and drives it in a
 // headless Edge through the DevTools protocol. Captures are DevTools captures
 // of the page only, so no other application's content can leak into the PNGs.
 //
@@ -14,9 +14,11 @@
 //   node scripts/smoke/phase3-mission-control-screenshots.mjs [--out docs/screenshots/phase3-mission-control]
 
 import { execFileSync, spawn } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { createServer } from "node:http";
+import { connect } from "node:net";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { dirname, extname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -48,6 +50,7 @@ git(repoDir, "add", "-A");
 git(repoDir, "commit", "-q", "-m", "initial");
 
 const procs = [];
+const servers = [];
 const launch = (cmd, args, opts = {}) => {
   const p = spawn(cmd, args, { stdio: ["ignore", "pipe", "pipe"], ...opts });
   let log = "";
@@ -193,7 +196,7 @@ try {
   await rpc.open();
   await rpc.sub(["*"]);
 
-  await rpc.call("settings.update", { patch: { profileName: "Demo", onboardingCompleted: true } });
+  await rpc.call("settings.update", { patch: { profileName: "Demo", onboardingCompleted: true, language: "en" } });
   const providers = (await rpc.call("providers.list")).providers.map((p) => p.provider ?? p);
   const mock = providers.find((p) => p.kind === "Mock");
   const smart = { providerId: mock.id, model: "mock-smart" };
@@ -218,7 +221,7 @@ try {
     async () => ["Completed", "Failed", "Cancelled"].includes((await rpc.call("manager.status", { runId: ap.run.id })).runs[0].status),
     120_000,
     "run",
-  );
+  ).catch(() => console.warn("run still going — capturing it live"));
   await chat("Create a greeter module with tests");
   await rpc.call("budgets.set", { name: "Monthly cap", scope: { scope: "Global" }, period: "Monthly", limitUsd: 25, warnAt: 0.8 }).catch((e) => console.warn("budget", e.message));
   await rpc.call("budgets.set", { name: "hello-app daily", scope: { scope: "Project", projectId }, period: "Daily", limitUsd: 2, warnAt: 0.8 }).catch((e) => console.warn("budget", e.message));
@@ -227,16 +230,36 @@ try {
   console.log("seeded");
 
   // Serve the built frontend.
-  const vite = join(repo, "node_modules", "vite", "bin", "vite.js");
-  const web = launch(process.execPath, [vite, "preview", "--port", String(webPort), "--strictPort", "--host", "127.0.0.1"], {
-    cwd: join(repo, "apps", "desktop"),
+  // Serve the built frontend and bridge the RPC WebSocket. The core only
+  // accepts the Tauri / Vite-dev origins, so the bridge (test harness only)
+  // forwards the handshake with the dev origin; the core itself is unchanged.
+  const coreUrl = new URL(info.url);
+  const dist = join(repo, "apps", "desktop", "dist");
+  const types = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".png": "image/png", ".json": "application/json", ".woff2": "font/woff2", ".wasm": "application/wasm" };
+  const server = createServer((req, res) => {
+    const path = decodeURIComponent(new URL(req.url, "http://x").pathname);
+    let file = join(dist, path === "/" ? "index.html" : path);
+    if (!file.startsWith(dist) || !existsSync(file) || statSync(file).isDirectory()) file = join(dist, "index.html");
+    res.writeHead(200, { "content-type": types[extname(file)] ?? "application/octet-stream" });
+    res.end(readFileSync(file));
   });
-  await waitFor(async () => (await fetch(`http://127.0.0.1:${webPort}/`)).ok, 30_000, "vite preview").catch((e) => {
-    console.error(web.log());
-    throw e;
+  server.on("upgrade", (req, socket, head) => {
+    const upstream = connect(Number(coreUrl.port), coreUrl.hostname, () => {
+      const headers = Object.entries(req.headers)
+        .filter(([k]) => !["origin", "host"].includes(k))
+        .map(([k, v]) => `${k}: ${v}`);
+      upstream.write(`GET ${coreUrl.pathname}${coreUrl.search} HTTP/1.1\r\nhost: ${coreUrl.host}\r\norigin: http://127.0.0.1:1420\r\n${headers.join("\r\n")}\r\n\r\n`);
+      if (head?.length) upstream.write(head);
+      upstream.pipe(socket);
+      socket.pipe(upstream);
+    });
+    upstream.on("error", () => socket.destroy());
+    socket.on("error", () => upstream.destroy());
   });
-
-  const url = `http://127.0.0.1:${webPort}/?core=${encodeURIComponent(info.url)}&token=${encodeURIComponent(token)}`;
+  await new Promise((r) => server.listen(webPort, "127.0.0.1", r));
+  servers.push(server);
+  const bridged = `ws://127.0.0.1:${webPort}${coreUrl.pathname}`;
+  const url = `http://127.0.0.1:${webPort}/?core=${encodeURIComponent(bridged)}&token=${encodeURIComponent(token)}`;
   launch(edge, [
     "--headless=new",
     `--remote-debugging-port=${cdpPort}`,
@@ -255,11 +278,16 @@ try {
   await cdp.open();
   await cdp.send("Emulation.setDeviceMetricsOverride", { width: 1600, height: 1000, deviceScaleFactor: 1, mobile: false });
   await cdp.send("Page.navigate", { url });
-  await waitFor(() => cdp.eval("!!document.querySelector('.app__body')"), 60_000, "app shell");
+  await waitFor(() => cdp.eval("!!document.querySelector('.app__body')"), 60_000, "app shell").catch(async (e) => {
+    console.error(await cdp.eval("document.body.innerText.slice(0, 800)").catch(() => ""));
+    console.error(cdp.console.join(" | ").slice(0, 2000));
+    throw e;
+  });
   await sleep(2500);
   await cdp.eval(`document.querySelector('[aria-label="Open project hello-app"]')?.click(), true`);
   await sleep(1500);
-  await cdp.eval(`document.querySelector('.resume-card button[aria-label*="ismiss" i], .resume-card button[aria-label*="lose" i]')?.click(), true`);
+  await sleep(1500);
+  await cdp.eval(`[...document.querySelectorAll('.resume-card button')].find((b) => /dismiss|close|закрыть|скрыть/i.test(b.getAttribute('aria-label') ?? b.textContent ?? ''))?.click(), true`);
 
   await cdp.key("d", { ctrl: true, shift: true });
   await sleep(4000);
@@ -282,8 +310,11 @@ try {
   await capture(cdp, "04-mission-control-docked", "Mission Control docked as a panel in the Coding layout");
 
   // Russian
-  await palette(cdp, "Switch to");
-  await sleep(800);
+  const rpc2 = rpcClient(info.url, token);
+  await rpc2.open();
+  await rpc2.call("settings.update", { patch: { language: "ru" } });
+  rpc2.close();
+  await sleep(1500);
   await cdp.key("d", { ctrl: true, shift: true });
   await sleep(3000);
   await capture(cdp, "05-mission-control-ru", "Mission Control in Russian");
@@ -294,6 +325,7 @@ try {
   exitCode = 1;
   console.error(e.stack ?? e);
 } finally {
+  for (const srv of servers) srv.close();
   for (const p of procs.reverse()) {
     try {
       execFileSync("taskkill", ["/PID", String(p.pid), "/T", "/F"], { stdio: "ignore" });

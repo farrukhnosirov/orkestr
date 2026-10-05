@@ -65,6 +65,7 @@ function MiniDag({ graph, animate }: { graph: TaskGraph; animate: boolean }) {
       className={clsx("mc-dag", animate && "mc-dag--animate")}
       viewBox={`-4 -4 ${w + 8} ${h + 8}`}
       preserveAspectRatio="xMidYMid meet"
+      style={{ maxWidth: w + 8, maxHeight: h + 8 }}
       role="img"
       aria-label={t("graph.label", { count: graph.nodes.length })}
     >
@@ -117,7 +118,11 @@ export function TaskGraphWidget(_props: WidgetProps) {
     <div className="mc-graph">
       <div className="mc-graph__head">
         <span className="mc-graph__project">{project?.name ?? ""}</span>
-        <span className="mc-graph__run">{run ? t("graph.liveRun", { goal: run.goal }) : t("graph.openTasks")}</span>
+        <span className="mc-graph__run">{run
+            ? t("graph.liveRun", { goal: run.goal })
+            : graph.nodes.length > 0 && graph.nodes.every((n) => n.status === "Completed" || n.status === "Cancelled")
+              ? t("graph.recentTasks")
+              : t("graph.openTasks")}</span>
         <button type="button" className="mc-link" onClick={() => workspaceActions.openPanel("tasks")}>
           {t("graph.openTasksPanel")}
         </button>

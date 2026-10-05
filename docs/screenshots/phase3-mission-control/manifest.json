@@ -1,0 +1,27 @@
+[
+  {
+    "name": "01-mission-control-fullscreen.png",
+    "note": "Mission Control full screen (Ctrl+Shift+D)",
+    "consoleErrors": []
+  },
+  {
+    "name": "02-mission-control-customize.png",
+    "note": "Customize mode: drag handles, resize/hide controls",
+    "consoleErrors": []
+  },
+  {
+    "name": "03-monitoring.png",
+    "note": "Monitoring panel (maximized): resources, core services, processes, error tail",
+    "consoleErrors": []
+  },
+  {
+    "name": "04-mission-control-docked.png",
+    "note": "Mission Control docked as a panel in the Coding layout",
+    "consoleErrors": []
+  },
+  {
+    "name": "05-mission-control-ru.png",
+    "note": "Mission Control in Russian",
+    "consoleErrors": []
+  }
+]
