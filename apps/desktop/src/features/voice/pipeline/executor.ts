@@ -8,6 +8,7 @@
 import type { AgentInstance, AgentState, Approval, Task } from "@orkestr/protocol";
 
 import { t } from "../../../i18n";
+import { agentActivity, agentName } from "../../../lib/coreText";
 import type { Intent, PanelTarget, ProjectRef } from "../intent/parser";
 import { EMPTY_QUALITY, projectFacts, type QualitySnapshot, summaryParts, type SummaryPart } from "./summary";
 
@@ -90,7 +91,7 @@ export function summarySentence(p: SummaryPart): string {
     case "agents":
       return t("voice:summary.agents", { count: p.count });
     case "focus":
-      return t("voice:summary.focus", { agent: p.agent, activity: p.activity });
+      return t("voice:summary.focus", { agent: agentName(p.agent), activity: agentActivity(p.activity) });
     case "completedToday":
       return t("voice:summary.completedToday", { count: p.count });
     case "failed":
@@ -199,8 +200,8 @@ export async function executeIntent(intent: Intent, deps: VoiceDeps): Promise<Co
       if (!a) return result("failed", t("voice:reply.agentNotFound", { name: intent.agent.name }), "warn");
       const state = agentStateText(a.state);
       const reply = a.activity
-        ? t("voice:reply.agentDoing", { name: a.name, state, activity: a.activity })
-        : t("voice:reply.agentState", { name: a.name, state });
+        ? t("voice:reply.agentDoing", { name: agentName(a.name), state, activity: agentActivity(a.activity) })
+        : t("voice:reply.agentState", { name: agentName(a.name), state });
       return result("ok", reply, a.state === "Error" ? "error" : "info", a.projectId);
     }
 

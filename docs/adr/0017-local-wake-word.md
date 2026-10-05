@@ -73,3 +73,40 @@
 ## Implementation notes (Phase 0 foundation, 2026-10-02)
 
 Not implemented yet. `orkestr-platform` exposes a `Microphone` trait (`list_devices()`) whose only implementation returns `PlatformError::NotSupported` on every OS until Phase 3. SP-15 (desk study) has not run.
+
+## Implementation notes (Phase 3, voice-sound, 2026-10-05)
+
+Phase 3 ships a **webview-side** pipeline instead of the Rust/ONNX one above.
+SP-15 has not run and no model files can be bundled offline. The decision
+drivers are unchanged: local wake word, push-to-talk as the default, consent
+for cloud STT, the power policy and a visible mic indicator.
+
+- **Wake word:** keyword spotting from the user's own recordings, in an
+  `AudioWorklet` (`apps/desktop/src/features/voice/wake/`). The pipeline:
+  16 kHz resampling → 25/10 ms frames → energy VAD with an adaptive noise
+  floor → 13 MFCCs → segments → DTW (Sakoe–Chiba band, open end, CMN)
+  against 3–5 enrollment samples of the user's phrase ("Jarvis",
+  "Оркестр", …). Sensitivity scales the threshold from the spread of the
+  enrollment samples. Templates live only in the webview's `localStorage`
+  on this device. The worklet tracks its CPU use; over budget, quiet frames
+  skip MFCC extraction ("economy"). Listening pauses in Battery Saver
+  (configurable). The headless `orkestrd` path and the ONNX models are
+  still future work.
+- **STT engines:** `Disabled` (typed commands, the default), `WebSpeech`
+  (the webview's `SpeechRecognition`, detected at runtime) and
+  `OpenAiWhisper` (`voice.transcribe`: a WAV of up to 15 s, captured after
+  push-to-talk or the wake word). Every engine that sends audio off the
+  device needs a consent that only the server can write
+  (`voice.setConsent`, audited). `voice.setConfig` rejects an engine that
+  has no consent.
+- **Push-to-talk:** hold `Ctrl+Space` (configurable) while the window has
+  focus. A system-wide hotkey needs the Tauri global-shortcut plugin, which
+  is not installed yet. This is a follow-up for the integrator.
+- **TTS:** `speechSynthesis` (the offline default) or OpenAI TTS
+  (`voice.synthesize`, needs consent, falls back to the system voice).
+  Voice per agent: the template's `voice`, overridden by
+  `VoiceConfig.agentVoices` (built-in templates are read-only).
+- **Intents:** a local RU/EN grammar with fuzzy matching of project and
+  agent names. Stop, stop all, approve and reject need a spoken or clicked
+  confirmation. Emergency stop runs at once. Everything else goes to
+  `manager.chat`, and the Manager's reply is read out.

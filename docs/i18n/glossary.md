@@ -99,6 +99,10 @@ consistently and add it to this table in the same change.
 | Reasoning effort / context policy | глубина рассуждений / объём контекста | — | |
 | CPU / RAM | ЦП / ОЗУ («Оперативная память» in labels) | — | Not «Память» (clashes with project memory); a CPU core is «ядро ЦП» (not the Orkestr core). |
 | Wake word | фраза активации | — | |
+| Push-to-talk | режим рации | Удерживайте клавиши, пока говорите | Voice settings / HUD. |
+| Voice notifications | голосовые уведомления | — | |
+| Quiet hours | тихие часы | — | |
+| Sound set (preset) | набор звуков | — | Presets: «Как в теме», «Туманность», «Кристалл», «Пульс», «Минимум». |
 | Built-in agent templates | Архитектор ПО, Бэкенд-разработчик, Фронтенд-разработчик, Инженер баз данных, Тестировщик, Аудитор безопасности, DevOps-инженер, UI/UX-дизайнер, Продакт-менеджер, Ревьюер кода, Исследователь | — | Display names only; the core stores the English names (`lib/coreText.ts`). |
 | Epic (task tag) | эпик | — | Tag shown as «эпик: Название». |
 
