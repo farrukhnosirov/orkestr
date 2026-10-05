@@ -167,6 +167,8 @@ define_id!(/// Code review id (automatic or adversarial review of a task, §8, �
     ReviewId, "review");
 define_id!(/// Consensus run id (several models answer one question, §8). Phase 2.
     ConsensusId, "consensus");
+define_id!(/// Merge Manager proposal id (§16).
+    MergeProposalId, "mergeProposal");
 
 #[cfg(test)]
 mod tests {

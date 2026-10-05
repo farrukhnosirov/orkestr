@@ -15,6 +15,7 @@ pub mod events;
 pub mod files;
 pub mod manager;
 pub mod memory;
+pub mod merge;
 pub mod nodes;
 pub mod permissions;
 pub mod projects;
@@ -161,6 +162,7 @@ pub fn build_router() -> RpcRouter {
     router.register(reviews::register).register(consensus::register);
     // architecture map + execution replay (Phase 2)
     router.register(architecture::register).register(replay::register);
+    router.register(merge::register);
     router
 }
 

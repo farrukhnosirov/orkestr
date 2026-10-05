@@ -264,6 +264,11 @@ export function describeEvent(event: Event): string {
         modules: a.stats.modules,
         services: a.stats.services,
         changes: a.addedNodes + a.removedNodes + a.changedNodes + a.changedEdges,
+      });
+    }
+    case "MergeProposalUpdated": {
+      const p = event.payload.proposal;
+      return t("events:mergeProposal", { target: p.target, status: t(`merge:status.${p.status}`) });
     }
   }
 }

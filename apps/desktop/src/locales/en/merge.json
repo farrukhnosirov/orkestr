@@ -1,0 +1,233 @@
+{
+  "commands": {
+    "open": "Open Merge Manager"
+  },
+  "toolbar": {
+    "new": "New proposal",
+    "policy": "Merge policy",
+    "refresh": "Refresh proposals"
+  },
+  "list": {
+    "label": "Merge proposals",
+    "loading": "Loading proposals…",
+    "empty": {
+      "title": "No merge proposals yet",
+      "description": "Create a proposal to analyse agent branches: semantic changes, conflicts, merge order and gates — nothing is merged without your approval."
+    },
+    "into": "into {{target}}",
+    "branches_one": "{{count}} branch",
+    "branches_other": "{{count}} branches"
+  },
+  "detail": {
+    "select": "Select a proposal",
+    "selectHint": "Pick a proposal on the left to see its branches, conflicts and gates.",
+    "target": "Target: {{target}}",
+    "run": "From AI Manager run",
+    "auto": "Auto-merge allowed",
+    "autoHint": "The merge policy is Auto and every gate is green: Execute merges without asking.",
+    "totals": "{{files}} files · +{{additions}} −{{deletions}}",
+    "execute": "Execute merge…",
+    "continue": "Continue merge",
+    "abort": "Abort",
+    "reanalyse": "Re-analyse",
+    "updated": "Updated {{time}}"
+  },
+  "status": {
+    "Proposed": "Proposed",
+    "AwaitingApproval": "Awaiting approval",
+    "Merging": "Merging",
+    "Conflicted": "Stopped on conflicts",
+    "Testing": "Running checks",
+    "Completed": "Merged",
+    "Failed": "Failed",
+    "Aborted": "Aborted",
+    "Rejected": "Rejected"
+  },
+  "recommendation": {
+    "MergeNow": "Ready to merge",
+    "ReviewFirst": "Review first",
+    "ResolveConflicts": "Conflicts expected",
+    "Blocked": "Blocked",
+    "NothingToMerge": "Nothing to merge"
+  },
+  "notice": {
+    "awaitingApproval": "Waiting for your approval. Approve the request in the approvals list to start the merge.",
+    "merging": "Merging into the integration branch {{branch}}. The target stays untouched until everything succeeds.",
+    "testing": "Running build and tests on the integration branch…",
+    "conflicted": "The merge of {{branch}} stopped on conflicts. Resolve every file below, then continue.",
+    "completed": "Merged into {{target}} at {{commit}}.",
+    "failed": "The merge failed and was rolled back. The target branch was not changed.",
+    "aborted": "The merge was aborted. The target branch was not changed.",
+    "rejected": "The merge was rejected.",
+    "detail": "Details: {{detail}}"
+  },
+  "blockers": {
+    "title": "Blockers",
+    "BranchMissing": "Branch {{branch}} does not exist",
+    "TaskNotCompleted": "The task of {{branch}} is not completed",
+    "UncommittedChanges": "{{branch}} has uncommitted changes in its worktree",
+    "MissingDependency": "{{branch}} depends on work that is not merged yet",
+    "GateFailed": "A gate failed for {{branch}}",
+    "TargetMissing": "The target branch does not exist",
+    "TargetDirty": "The target checkout has uncommitted changes",
+    "TargetBusy": "A merge or rebase is in progress in the target checkout"
+  },
+  "conflicts": {
+    "title": "Predicted conflicts",
+    "order": "{{branch}} conflicts when merged in this order",
+    "pair": "{{branch}} conflicts with {{other}}",
+    "none": "No conflicts predicted."
+  },
+  "order": {
+    "title": "Merge order",
+    "hint": "Drag the cards (or use the arrows) to change the order. A branch must merge after the branches it depends on.",
+    "apply": "Apply order",
+    "reset": "Reset",
+    "violation": "{{branch}} must merge after {{dependsOn}}",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "drag": "Drag to reorder"
+  },
+  "branch": {
+    "commits_one": "{{count}} commit ahead",
+    "commits_other": "{{count}} commits ahead",
+    "upToDateTarget": "already in the target",
+    "dependsOn": "After: {{branches}}",
+    "dirty": "Uncommitted changes",
+    "filesTitle": "Files",
+    "symbolsTitle": "Symbols",
+    "showDetails": "Show details",
+    "hideDetails": "Hide details",
+    "hunks_one": "{{count}} hunk",
+    "hunks_other": "{{count}} hunks",
+    "binary": "binary",
+    "truncated": "The change is large; only part of it was analysed.",
+    "symbols": "Symbols: +{{added}} ~{{changed}} −{{removed}}",
+    "noSymbols": "No symbol changes detected.",
+    "public": "public",
+    "signature": "signature changed",
+    "predicted": "Conflicts: {{paths}}",
+    "state": {
+      "Pending": "Pending",
+      "Merged": "Merged",
+      "UpToDate": "Up to date",
+      "Conflicted": "Conflicted"
+    }
+  },
+  "symbolChange": {
+    "Added": "added",
+    "Changed": "changed",
+    "Removed": "removed"
+  },
+  "gates": {
+    "task": "Task",
+    "review": "Review",
+    "tests": "Tests",
+    "acceptance": "Acceptance",
+    "status": {
+      "Passed": "passed",
+      "Failed": "failed",
+      "Pending": "pending",
+      "Unknown": "unknown",
+      "NotRequired": "not required"
+    },
+    "label": "{{gate}}: {{status}}"
+  },
+  "risks": {
+    "Migration": "Migration",
+    "PublicApi": "Public API",
+    "Lockfile": "Lockfile",
+    "Config": "Config",
+    "Ci": "CI",
+    "Security": "Security",
+    "Deletion": "Deletion",
+    "Binary": "Binary",
+    "LargeChange": "Large change"
+  },
+  "execution": {
+    "title": "Execution",
+    "snapshot": "Pre-merge snapshot",
+    "integration": "Integration branch",
+    "final": "Final commit",
+    "auto": "Started automatically by the Auto policy",
+    "quality": "Checks on the integration branch",
+    "qualityPassed": "passed",
+    "qualityFailed": "failed",
+    "cleaned": "Cleaned up: {{items}}"
+  },
+  "resolve": {
+    "title": "Conflicts",
+    "open_one": "{{count}} file left to resolve",
+    "open_other": "{{count}} files left to resolve",
+    "allResolved": "All conflicts are resolved. Continue the merge.",
+    "resolved": "Resolved",
+    "unresolved": "Unresolved",
+    "binary": "This is a binary file: keep our or their version.",
+    "selectFile": "Select a conflicted file.",
+    "views": "Conflict views",
+    "viewDiff": "Ours ↔ theirs",
+    "viewBase": "Base ↔ result",
+    "viewResult": "Result",
+    "ours": "Ours (integration)",
+    "theirs": "Theirs ({{branch}})",
+    "base": "Base",
+    "result": "Result",
+    "useOurs": "Use ours",
+    "useTheirs": "Use theirs",
+    "askAi": "Suggest with AI",
+    "aiNote": "AI note: {{note}}",
+    "aiReady": "The AI suggested a resolution. Review it in the result editor and save it if it is right.",
+    "useSuggestion": "Load AI suggestion",
+    "save": "Save resolution",
+    "markers": "The result still contains conflict markers (<<<<<<<, =======, >>>>>>>).",
+    "editorLoading": "Loading the editor…",
+    "missing": "(the file does not exist on this side)"
+  },
+  "propose": {
+    "title": "New merge proposal",
+    "description": "Choose the branches to merge. The Merge Manager analyses them without touching any worktree.",
+    "target": "Target branch",
+    "run": "AI Manager run",
+    "noRun": "No run — choose branches manually",
+    "runBranches_one": "{{count}} agent branch",
+    "runBranches_other": "{{count}} agent branches",
+    "branches": "Branches",
+    "loadingBranches": "Loading branches…",
+    "noBranches": "There are no other local branches.",
+    "agentBranch": "agent",
+    "submit": "Analyse"
+  },
+  "policy": {
+    "title": "Merge policy",
+    "description": "How this project merges agent branches.",
+    "mode": "Mode",
+    "manual": "Ask every time",
+    "manualHint": "Every merge needs your explicit approval.",
+    "auto": "Automatic when green",
+    "autoHint": "Merge without asking only when every gate is green, no conflicts are expected and nothing blocks it.",
+    "target": "Default target branch",
+    "targetPlaceholder": "Current branch",
+    "requireReview": "Require an approved review",
+    "requireTests": "Require passing tests",
+    "requireAcceptance": "Require met acceptance criteria",
+    "runQuality": "Run build and tests on the integration branch",
+    "cleanup": "After merging",
+    "cleanupKeep": "Keep agent worktrees and branches",
+    "cleanupWorktrees": "Remove agent worktrees",
+    "cleanupAll": "Remove agent worktrees and branches",
+    "saved": "Merge policy saved."
+  },
+  "abortDialog": {
+    "title": "Abort this merge?",
+    "description": "The integration branch is discarded; the target branch stays as it was.",
+    "reason": "Reason (optional)",
+    "confirm": "Abort merge"
+  },
+  "executeDialog": {
+    "title": "Execute the merge into {{target}}?",
+    "description": "A snapshot is taken first. Branches merge one by one (no fast-forward) into an integration branch, checks run there, and only then the target moves.",
+    "approval": "You will be asked to approve the request.",
+    "auto": "The Auto policy allows this merge without another approval.",
+    "confirm": "Execute"
+  }
+}

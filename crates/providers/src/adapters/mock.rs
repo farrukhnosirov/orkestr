@@ -803,6 +803,10 @@ pub fn script(req: &ChatRequest) -> MockScript {
     if let Some(s) = super::mock_review::script(req) {
         return s;
     }
+    // Extension scripts keyed by a system-prompt marker (Phase 2 areas).
+    if let Some(s) = super::mock_merge::script(req) {
+        return s;
+    }
     if is_plan_request(req) {
         return MockScript::Text(demo_plan_in(&plan_goal(req), reply_lang(req)).to_string());
     }

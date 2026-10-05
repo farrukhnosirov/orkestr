@@ -657,6 +657,8 @@ pub struct ConsensusPayload {
 
 /// `ArchitectureMapUpdated` — a scan stored a new architecture snapshot.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
 pub struct ArchitectureMapUpdatedPayload {
     /// Project.
     pub project_id: ProjectId,
@@ -674,6 +676,15 @@ pub struct ArchitectureMapUpdatedPayload {
     pub changed_edges: u32,
     /// The refresh was triggered by file changes (not by a user request).
     pub automatic: bool,
+}
+
+/// Payload of `MergeProposalUpdated`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct MergeProposalPayload {
+    /// The proposal after the change.
+    pub proposal: crate::methods::merge::MergeManagerProposal,
 }
 
 // ---------------------------------------------------------------------------
@@ -819,6 +830,8 @@ event_kinds! {
     ConsensusUpdated(ConsensusPayload),
     /// A new Architecture Map snapshot was stored (§21). Phase 2, appended.
     ArchitectureMapUpdated(ArchitectureMapUpdatedPayload),
+    /// A Merge Manager proposal changed (analysis, approval, progress, conflicts, result). Phase 2, appended.
+    MergeProposalUpdated(MergeProposalPayload),
 }
 
 // ---------------------------------------------------------------------------
@@ -976,6 +989,7 @@ impl NewEvent {
                 self.task_id = c.run.task_id;
             }
             EventKind::ArchitectureMapUpdated(a) => self.project_id = Some(a.project_id),
+            EventKind::MergeProposalUpdated(m) => self.project_id = Some(m.proposal.project_id),
             EventKind::Notification(n) => {
                 self.project_id = n.notification.project_id;
                 self.task_id = n.notification.task_id;

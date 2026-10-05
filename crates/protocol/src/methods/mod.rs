@@ -26,6 +26,7 @@ pub mod events;
 pub mod files;
 pub mod manager;
 pub mod memory;
+pub mod merge;
 pub mod nodes;
 pub mod permissions;
 pub mod projects;
@@ -320,6 +321,16 @@ pub fn registry() -> Vec<MethodDescriptor> {
         MethodDescriptor::of::<replay::Runs>(),
         MethodDescriptor::of::<replay::Timeline>(),
         MethodDescriptor::of::<replay::Step>(),
+        // Merge Manager (Phase 2)
+        MethodDescriptor::of::<merge::Propose>(),
+        MethodDescriptor::of::<merge::Get>(),
+        MethodDescriptor::of::<merge::List>(),
+        MethodDescriptor::of::<merge::Reorder>(),
+        MethodDescriptor::of::<merge::Execute>(),
+        MethodDescriptor::of::<merge::Abort>(),
+        MethodDescriptor::of::<merge::ResolveConflict>(),
+        MethodDescriptor::of::<merge::Policy>(),
+        MethodDescriptor::of::<merge::SetPolicy>(),
     ]
 }
 

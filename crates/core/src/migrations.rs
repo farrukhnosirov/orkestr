@@ -39,6 +39,7 @@ pub fn all() -> Vec<Migration> {
     // Phase 2 (review-consensus)
     all.extend(orkestr_orchestrator::review_migrations());
     all.extend(orkestr_insight::insight_migrations());
+    all.extend(orkestr_orchestrator::merge_migrations());
     all
 }
 

@@ -23,6 +23,7 @@
 
 pub mod cli;
 pub mod error;
+pub mod integration;
 pub mod naming;
 pub mod parse;
 pub mod runner;
@@ -31,6 +32,7 @@ pub mod store;
 
 pub use cli::{DiffRequest, GitCli, RepoInfo, RepoLocks};
 pub use error::{VcsError, VcsResult};
+pub use integration::{BlobText, SimulatedStep, TreeMerge};
 pub use parse::GitVersion;
 pub use runner::{GitOutput, GitRunner, RunOptions};
 pub use service::{AddWorktreeRequest, Vcs};

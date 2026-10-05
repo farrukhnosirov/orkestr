@@ -313,6 +313,13 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
         Some(events.clone()),
         orkestr_insight::ScanOptions::default(),
     );
+    // Merge Manager (Phase 2, §16): shares the Manager's engines. Gates and
+    // the quality runner default to "unknown" / none until those areas wire
+    // their adapters (`MergeDeps::with_gates` / `with_quality`).
+    let merge = orkestr_orchestrator::MergeManager::new(orkestr_orchestrator::MergeDeps::from_manager(&manager));
+    if let Err(e) = merge.init().await {
+        tracing::error!(error = %e, "Merge Manager failed to initialise");
+    }
 
     let services = Arc::new(Services {
         version: VERSION.to_owned(),
@@ -343,6 +350,7 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
         seq_high_water,
         agents,
         manager,
+        merge,
         ui_language,
         quality,
         architecture,

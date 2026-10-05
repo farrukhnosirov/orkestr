@@ -67,5 +67,6 @@
     "Failed": "failed"
   },
   "consensusUpdated": "Consensus “{{question}}”: {{status}}",
-  "architectureMapUpdated": "Architecture map updated: {{modules}} modules, {{services}} services, {{changes}} changes"
+  "architectureMapUpdated": "Architecture map updated: {{modules}} modules, {{services}} services, {{changes}} changes",
+  "mergeProposal": "Merge into {{target}}: {{status}}"
 }
