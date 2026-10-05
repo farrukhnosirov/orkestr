@@ -7,7 +7,7 @@ import type {
   CheckDef,
   CheckKind,
   CheckResult,
-  CheckStatus,
+  QualityCheckStatus,
   Diagnostic,
   GateStatus,
   QualityRun,
@@ -27,12 +27,12 @@ export const TEST_RUN_KINDS: CheckKind[] = ["Test"];
 export const BUILD_RUN_KINDS: CheckKind[] = ["Build"];
 
 /** Whether a check / run status is final. */
-export function isFinal(status: CheckStatus): boolean {
+export function isFinal(status: QualityCheckStatus): boolean {
   return status !== "Queued" && status !== "Running";
 }
 
 /** Badge tone of a check / run status. */
-export function checkTone(status: CheckStatus): Tone {
+export function checkTone(status: QualityCheckStatus): Tone {
   switch (status) {
     case "Passed":
       return "success";
@@ -67,7 +67,7 @@ export function gateTone(status: GateStatus): Tone {
 }
 
 /** Status dot (`@orkestr/ui` `Status`) for the status bar indicator. */
-export function statusDot(status: CheckStatus | null): "online" | "error" | "busy" | "warning" | "idle" {
+export function statusDot(status: QualityCheckStatus | null): "online" | "error" | "busy" | "warning" | "idle" {
   if (status === null) return "idle";
   switch (status) {
     case "Passed":
@@ -196,7 +196,7 @@ export function locationOf(
 }
 
 /** Most recent final status per kind across runs (newest first) — used for the status bar. */
-export function latestStatus(runs: readonly QualityRun[], kinds: ReadonlySet<CheckKind>): { status: CheckStatus; run: QualityRun } | null {
+export function latestStatus(runs: readonly QualityRun[], kinds: ReadonlySet<CheckKind>): { status: QualityCheckStatus; run: QualityRun } | null {
   for (const run of runs) {
     const relevant = run.results.filter((r) => kinds.has(r.kind));
     if (relevant.length === 0) continue;
