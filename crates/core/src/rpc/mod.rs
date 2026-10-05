@@ -8,6 +8,7 @@ pub mod agents;
 pub mod approvals;
 pub mod audit;
 pub mod cost;
+pub mod dashboard;
 pub mod emergency;
 pub mod events;
 pub mod files;
@@ -151,6 +152,8 @@ pub fn build_router() -> RpcRouter {
     router.register(settings::register).register(nodes::register);
     router.register(templates::register).register(agents::register);
     router.register(manager::register);
+    // mission-control (Phase 3)
+    router.register(dashboard::register);
     router
 }
 

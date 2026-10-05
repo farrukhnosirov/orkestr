@@ -19,6 +19,7 @@ pub mod agents;
 pub mod approvals;
 pub mod audit;
 pub mod cost;
+pub mod dashboard;
 pub mod emergency;
 pub mod events;
 pub mod files;
@@ -288,6 +289,9 @@ pub fn registry() -> Vec<MethodDescriptor> {
         MethodDescriptor::of::<manager::Cancel>(),
         MethodDescriptor::of::<manager::Status>(),
         MethodDescriptor::of::<manager::ResumeSummaryMethod>(),
+        // mission-control (Phase 3)
+        MethodDescriptor::of::<dashboard::Snapshot>(),
+        MethodDescriptor::of::<dashboard::Health>(),
     ]
 }
 

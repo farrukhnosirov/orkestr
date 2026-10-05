@@ -23,6 +23,7 @@ import type { CheckParams } from "./CheckParams";
 import type { CheckoutParams } from "./CheckoutParams";
 import type { CommitParams } from "./CommitParams";
 import type { CommitResult } from "./CommitResult";
+import type { CoreHealthResult } from "./CoreHealthResult";
 import type { CostByDimensionParams } from "./CostByDimensionParams";
 import type { CostByDimensionResult } from "./CostByDimensionResult";
 import type { CostRecordsParams } from "./CostRecordsParams";
@@ -40,6 +41,8 @@ import type { CreateProviderParams } from "./CreateProviderParams";
 import type { CreateSnapshotParams } from "./CreateSnapshotParams";
 import type { CreateTaskParams } from "./CreateTaskParams";
 import type { CreateTemplateParams } from "./CreateTemplateParams";
+import type { DashboardSnapshot } from "./DashboardSnapshot";
+import type { DashboardSnapshotParams } from "./DashboardSnapshotParams";
 import type { DecisionIdParams } from "./DecisionIdParams";
 import type { DecisionListResult } from "./DecisionListResult";
 import type { DecisionResult } from "./DecisionResult";
@@ -417,6 +420,8 @@ export type Methods = {
   "manager.cancel": [ManagerRunIdParams, ManagerRunResult];
   "manager.status": [ManagerStatusParams, ManagerStatusResult];
   "manager.resumeSummary": [ManagerProjectParams, ManagerResumeSummary];
+  "dashboard.snapshot": [DashboardSnapshotParams, DashboardSnapshot];
+  "dashboard.health": [Empty, CoreHealthResult];
 };
 
 /** All implemented method names. */
@@ -592,6 +597,8 @@ export const METHOD_NAMES = [
   "manager.cancel",
   "manager.status",
   "manager.resumeSummary",
+  "dashboard.snapshot",
+  "dashboard.health",
 ] as const;
 
 /** Wire protocol version (see orkestr-protocol PROTOCOL_VERSION). */
