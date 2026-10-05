@@ -86,6 +86,8 @@ pub const MAX_BACKOFF_SECS: u64 = 600;
 pub const BACKOFF_RESET: Duration = Duration::from_secs(600);
 /// Minimum interval between merge-risk checks of one project.
 pub const RISK_CHECK_INTERVAL: Duration = Duration::from_secs(15);
+/// The rate-limit listener stops after this long without registered runs.
+pub const LISTENER_IDLE: Duration = Duration::from_secs(5);
 /// Max worktree pairs `git merge-tree`d per check.
 pub const MAX_RISK_PREVIEWS: usize = 6;
 /// How long a predicted head model is cached per (project, role).
@@ -408,8 +410,11 @@ impl ParallelScheduler {
         self.rate.lock().remove(provider);
     }
 
-    /// Listens for `ProviderRateLimited` events (idempotent; ends with the bus
-    /// or when the scheduler is dropped).
+    /// Listens for `ProviderRateLimited` events while Manager runs are
+    /// registered (idempotent). The subscription ends once no run has been
+    /// registered for [`LISTENER_IDLE`]: a permanent bus subscriber would keep
+    /// the core's "somebody is listening" heuristics (node heartbeats) on.
+    /// Requests through the [`GatedGateway`] record rate limits regardless.
     pub fn spawn_rate_listener(self: &Arc<Self>) {
         {
             let mut l = self.listening.lock();
@@ -422,16 +427,37 @@ impl ParallelScheduler {
             Ok(s) => s,
             Err(e) => {
                 tracing::warn!(error = %e, "scheduler: cannot listen for rate limits");
+                *self.listening.lock() = false;
                 return;
             }
         };
         let weak: Weak<Self> = Arc::downgrade(self);
         tokio::spawn(async move {
-            while let Some(r) = sub.recv().await {
-                let orkestr_events::Received::Event(ev) = r else { continue };
-                let EventKind::ProviderRateLimited(p) = &ev.kind else { continue };
+            let mut idle_since: Option<Instant> = None;
+            loop {
+                let next = tokio::time::timeout(Duration::from_secs(1), sub.recv()).await;
                 let Some(me) = weak.upgrade() else { break };
-                me.note_rate_limited(&p.provider_id.to_string(), p.retry_after_secs);
+                match next {
+                    Ok(Some(orkestr_events::Received::Event(ev))) => {
+                        if let EventKind::ProviderRateLimited(p) = &ev.kind {
+                            me.note_rate_limited(&p.provider_id.to_string(), p.retry_after_secs);
+                        }
+                    }
+                    Ok(Some(_)) | Err(_) => {}
+                    Ok(None) => {
+                        *me.listening.lock() = false;
+                        break;
+                    }
+                }
+                if me.queues.lock().is_empty() {
+                    let since = *idle_since.get_or_insert_with(Instant::now);
+                    if since.elapsed() >= LISTENER_IDLE {
+                        *me.listening.lock() = false;
+                        break;
+                    }
+                } else {
+                    idle_since = None;
+                }
             }
         });
     }

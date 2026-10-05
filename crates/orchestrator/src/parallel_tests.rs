@@ -257,7 +257,10 @@ async fn rate_limited_providers_back_off_with_growing_delays() {
     let out = sched.admit(run, h.project, 4, vec![c1], &[]);
     assert_eq!(out.start.len(), 1, "back-off over → admitted");
 
-    // `ProviderRateLimited` events from the provider layer feed the back-off.
+    // `ProviderRateLimited` events from the provider layer feed the back-off
+    // (the listener runs while runs are registered; started by supervisors).
+    sched.hold(ManagerRunId::new(), h.project, 1, vec![cand(h.project, "keeps a run registered")], WaitReason::Paused);
+    sched.spawn_rate_listener();
     let pid = ProviderId::new();
     h.events
         .publish(NewEvent::new(EventKind::ProviderRateLimited(ProviderRateLimitedPayload {

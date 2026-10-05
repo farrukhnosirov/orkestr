@@ -114,7 +114,6 @@ impl Manager {
         if let Err(e) = self.inner.parallel.load_settings().await {
             tracing::warn!(error = %e, "scheduler settings could not be loaded; using defaults");
         }
-        self.inner.parallel.spawn_rate_listener();
         let stale =
             self.inner.store.runs(None, Some(vec![ManagerRunStatus::Running, ManagerRunStatus::Paused]), 1000).await?;
         for mut run in stale {

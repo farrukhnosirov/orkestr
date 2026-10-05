@@ -1010,6 +1010,8 @@ impl Supervisor {
         let max_parallel = self.run.limits.max_parallel_agents as usize;
         let git = self.ensure_git().await;
         let candidates = self.candidates(git).await;
+        // Provider rate-limit events feed the back-off while runs are live.
+        self.inner.parallel.spawn_rate_listener();
         if !candidates.is_empty() && self.run.agents_spawned >= self.run.limits.max_agents {
             if live == 0 {
                 return Some(format!("agent limit reached ({} agents spawned)", self.run.agents_spawned));
