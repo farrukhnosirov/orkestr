@@ -32,6 +32,8 @@ use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent}
 use tauri::{AppHandle, Emitter, Manager, RunEvent, WindowEvent};
 use tokio::sync::{watch, Mutex};
 
+pub mod robots;
+
 /// Label of the main window (see `tauri.conf.json`).
 const MAIN_WINDOW: &str = "main";
 /// Command-line flag used by the autostart entry: start hidden in the tray.
@@ -274,6 +276,7 @@ pub fn run() {
             quitting: AtomicBool::new(false),
             language: std::sync::Mutex::new("en".to_owned()),
         })
+        .manage(robots::RobotsState::default())
         .setup(move |app| {
             if let Err(e) = build_tray(app) {
                 // Without a tray, hiding would strand the user: disable close-to-tray.
@@ -296,6 +299,7 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
+            robots::on_window_event(window, event);
             if let WindowEvent::CloseRequested { api, .. } = event {
                 let state = window.app_handle().state::<ShellState>();
                 if window.label() == MAIN_WINDOW
@@ -308,7 +312,18 @@ pub fn run() {
                 }
             }
         })
-        .invoke_handler(tauri::generate_handler![core_connection, shell_set_prefs, shell_quit, set_ui_language]);
+        .invoke_handler(tauri::generate_handler![
+            core_connection,
+            shell_set_prefs,
+            shell_quit,
+            set_ui_language,
+            robots::robot_open,
+            robots::robot_close,
+            robots::robot_close_all,
+            robots::robot_set_shape,
+            robots::robot_set_drop_zones,
+            robots::robot_to_main
+        ]);
 
     let app = match builder.build(tauri::generate_context!()) {
         Ok(app) => app,

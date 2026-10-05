@@ -97,6 +97,8 @@ import type { ListNodesResult } from "./ListNodesResult";
 import type { ListProjectsParams } from "./ListProjectsParams";
 import type { ListProjectsResult } from "./ListProjectsResult";
 import type { ListProvidersResult } from "./ListProvidersResult";
+import type { ListRobotsParams } from "./ListRobotsParams";
+import type { ListRobotsResult } from "./ListRobotsResult";
 import type { ListRulesParams } from "./ListRulesParams";
 import type { ListRulesResult } from "./ListRulesResult";
 import type { ListSecretsParams } from "./ListSecretsParams";
@@ -176,6 +178,7 @@ import type { RestoreFileResult } from "./RestoreFileResult";
 import type { RestoreTrashedParams } from "./RestoreTrashedParams";
 import type { ResumeSummary } from "./ResumeSummary";
 import type { ResumeSummaryParams } from "./ResumeSummaryParams";
+import type { RobotsConfigResult } from "./RobotsConfigResult";
 import type { RollbackPlan } from "./RollbackPlan";
 import type { RollbackResult } from "./RollbackResult";
 import type { RollbackTaskParams } from "./RollbackTaskParams";
@@ -194,6 +197,7 @@ import type { SecretResult } from "./SecretResult";
 import type { SetBudgetParams } from "./SetBudgetParams";
 import type { SetCredentialParams } from "./SetCredentialParams";
 import type { SetModeParams } from "./SetModeParams";
+import type { SetRobotsConfigParams } from "./SetRobotsConfigParams";
 import type { SetRuleParams } from "./SetRuleParams";
 import type { SetSecretParams } from "./SetSecretParams";
 import type { SettingsResult } from "./SettingsResult";
@@ -405,6 +409,9 @@ export type Methods = {
   "agents.transcript": [TranscriptParams, AgentTranscriptResult];
   "agents.handoff": [AgentIdParams, AgentHandoffsResult];
   "agents.stats": [AgentStatsParams, AgentStats];
+  "robots.list": [ListRobotsParams, ListRobotsResult];
+  "robots.config": [Empty, RobotsConfigResult];
+  "robots.setConfig": [SetRobotsConfigParams, RobotsConfigResult];
   "manager.chat": [ManagerChatParams, ManagerChatResult];
   "manager.history": [ManagerHistoryParams, ManagerHistoryResult];
   "manager.clear": [ManagerProjectParams, ManagerClearResult];
@@ -580,6 +587,9 @@ export const METHOD_NAMES = [
   "agents.transcript",
   "agents.handoff",
   "agents.stats",
+  "robots.list",
+  "robots.config",
+  "robots.setConfig",
   "manager.chat",
   "manager.history",
   "manager.clear",

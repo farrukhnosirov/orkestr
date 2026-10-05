@@ -35,6 +35,7 @@ pub fn all() -> Vec<Migration> {
     all.extend_from_slice(crate::settings_store::SETTINGS_MIGRATIONS);
     all.extend(orkestr_agent_runtime::agent_migrations());
     all.extend(orkestr_orchestrator::orchestrator_migrations());
+    all.extend_from_slice(crate::rpc::robots::ROBOTS_MIGRATIONS);
     all
 }
 

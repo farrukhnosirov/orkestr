@@ -1,0 +1,10 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "robots",
+  "description": "Floating robot windows (ADR-0016): transparent always-on-top windows bound to an agent. They may only drag themselves and listen to shell events; business data goes over the RPC protocol like every other window.",
+  "windows": ["robot-*"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-start-dragging"
+  ]
+}
