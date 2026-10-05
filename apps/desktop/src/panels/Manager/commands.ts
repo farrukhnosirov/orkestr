@@ -1,8 +1,9 @@
 /** Commands contributed by the Manager panel (command registry §54). */
-import { ClipboardCheck, Sparkles } from "lucide-react";
+import { ClipboardCheck, Scale, Sparkles } from "lucide-react";
 
 import { workspaceActions } from "../../components/workspaceActions";
 import type { AppCommand } from "../../features/commands/registry";
+import { useConsensusUi } from "../../features/reviews/store";
 import { t } from "../../i18n";
 import { errorMessage, managerActions } from "./data";
 import { useManagerUi } from "./store";
@@ -14,6 +15,22 @@ export function approveTarget(projectId: string | null): string | null {
 }
 
 export const managerCommands: AppCommand[] = [
+  {
+    id: "manager.consensus",
+    get title() {
+      return t("consensus:command");
+    },
+    get group() {
+      return t("manager:commands.group");
+    },
+    icon: Scale,
+    keywords: ["consensus", "models", "decision", "compare", "консенсус", "модели", "решение", "сравнить"],
+    enabled: (ctx) => ctx.projectId !== null,
+    run: () => {
+      workspaceActions.openPanel("manager");
+      useConsensusUi.getState().setOpen(true);
+    },
+  },
   {
     id: "manager.ask",
     get title() {

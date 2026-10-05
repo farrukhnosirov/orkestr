@@ -10,10 +10,12 @@
   "running": "Reviewing the changes…",
   "verifying": "Checking the findings with the author's model…",
   "failed": "The review failed: {{error}}",
+  "inProgress": "A review of this task is already running.",
   "kind": {
     "Standard": "Code review",
     "Adversarial": "Adversarial review"
   },
+  "adversarialBadge": "Adversarial",
   "verdict": {
     "Approve": "Approved",
     "RequestChanges": "Changes requested",
@@ -73,5 +75,6 @@
   "earlier_one": "{{count}} earlier review",
   "earlier_other": "{{count}} earlier reviews",
   "cost": "Cost: {{cost}}",
-  "linked": "Ran together with an adversarial review"
+  "linked": "Ran together with an adversarial review",
+  "updated": "Finding updated"
 }

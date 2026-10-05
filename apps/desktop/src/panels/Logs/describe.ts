@@ -246,6 +246,18 @@ export function describeEvent(event: Event): string {
       const done = r.tasks.filter((x) => x.status === "Completed").length;
       return t("events:managerRun", { status: t(`logs:enums.runStatus.${r.status}`), done, total: r.tasks.length });
     }
+    case "ReviewUpdated": {
+      const r = event.payload.review;
+      return t("events:reviewUpdated", {
+        kind: t(`reviews:kind.${r.kind}`),
+        status: r.verdict && r.status === "Finished" ? t(`reviews:verdict.${r.verdict}`) : t(`events:reviewStatus.${r.status}`),
+        count: r.findings.length,
+      });
+    }
+    case "ConsensusUpdated": {
+      const c = event.payload.run;
+      return t("events:consensusUpdated", { status: t(`consensus:status.${c.status}`), question: c.question.slice(0, 120) });
+    }
   }
 }
 

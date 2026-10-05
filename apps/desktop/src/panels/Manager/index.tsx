@@ -11,9 +11,11 @@ import "./manager.css";
 
 import type { ChatAttachment, ManagerRequestOptions } from "@orkestr/protocol";
 import { Button, EmptyState, IconButton, Spinner, Tabs } from "@orkestr/ui";
-import { Eraser, FolderOpen, RefreshCw, Sparkles, TriangleAlert } from "lucide-react";
+import { Eraser, FolderOpen, RefreshCw, Scale, Sparkles, TriangleAlert } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { ConsensusDialog } from "../../features/reviews/ConsensusDialog";
+import { useConsensusUi } from "../../features/reviews/store";
 import { t as translate, useT } from "../../i18n";
 import type { PanelProps } from "../types";
 import { Composer } from "./Composer";
@@ -31,7 +33,7 @@ type Row = ChatItem | { kind: "thinking"; id: string };
 const rowKey = (r: Row) => r.id;
 
 export default function ManagerPanel({ projectId }: PanelProps) {
-  const { t } = useT(["manager", "common"]);
+  const { t } = useT(["manager", "common", "consensus"]);
   const { state, loading, error, reload, setConfig } = useManagerChat(projectId);
   const summary = useResumeSummary(projectId);
   const mode = useManagerUi((s) => s.mode);
@@ -47,6 +49,8 @@ export default function ManagerPanel({ projectId }: PanelProps) {
   const [attachment, setAttachment] = useState<ChatAttachment | null>(null);
   const [pending, setPending] = useState(false);
   const [clearing, setClearing] = useState(false);
+  const consensusOpen = useConsensusUi((s) => s.open);
+  const setConsensusOpen = useConsensusUi((s) => s.setOpen);
   const modes = MODE_IDS.map((id) => ({ id, label: t(`modes.${id}`) }));
 
   // Consume a request from the Code panel ("Ask Manager about selection").
@@ -186,6 +190,12 @@ export default function ManagerPanel({ projectId }: PanelProps) {
         <div className="mgr-toolbar__spacer" />
         <Tabs aria-label={t("modes.label")} items={modes} value={mode} onChange={setMode} />
         <IconButton
+          label={t("consensus:actionHint")}
+          icon={<Scale size={14} />}
+          onClick={() => setConsensusOpen(true)}
+          tooltip="bottom"
+        />
+        <IconButton
           label={t("toolbar.newConversation")}
           icon={clearing ? <Spinner size={14} /> : <Eraser size={14} />}
           disabled={clearing || state.busy || state.messages.length === 0}
@@ -226,6 +236,7 @@ export default function ManagerPanel({ projectId }: PanelProps) {
         onSend={send}
       />
       <Toasts />
+      {consensusOpen && <ConsensusDialog projectId={projectId} onClose={() => setConsensusOpen(false)} />}
     </div>
   );
 }

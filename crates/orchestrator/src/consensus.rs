@@ -454,7 +454,7 @@ impl Inner {
                     proposed_by: Some(cap(&p.answered_by.as_ref().unwrap_or(&p.model).model, 400)),
                     rejected_reason: (d.chosen_index != Some(p.index)).then(|| {
                         p.score_note.clone().unwrap_or_else(|| {
-                            if ru { "синтезатор выбрал другой вариант" } else { "not chosen by the synthesizer" }.to_owned()
+                            if ru { "арбитр выбрал другой вариант" } else { "not chosen by the synthesizer" }.to_owned()
                         })
                     }),
                 }

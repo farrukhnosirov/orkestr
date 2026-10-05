@@ -67,5 +67,16 @@
   "managerPlan_few": "План Менеджера «{{goal}}»: {{status}} ({{count}} задачи)",
   "managerPlan_many": "План Менеджера «{{goal}}»: {{status}} ({{count}} задач)",
   "managerPlan_other": "План Менеджера «{{goal}}»: {{status}} ({{count}} задачи)",
-  "managerRun": "Запуск Менеджера ({{status}}): выполнено задач — {{done}} из {{total}}"
+  "managerRun": "Запуск Менеджера ({{status}}): выполнено задач — {{done}} из {{total}}",
+  "reviewUpdated_one": "{{kind}}: {{status}} ({{count}} замечание)",
+  "reviewUpdated_few": "{{kind}}: {{status}} ({{count}} замечания)",
+  "reviewUpdated_many": "{{kind}}: {{status}} ({{count}} замечаний)",
+  "reviewUpdated_other": "{{kind}}: {{status}} ({{count}} замечания)",
+  "reviewStatus": {
+    "Running": "идёт",
+    "Verifying": "проверка замечаний",
+    "Finished": "завершено",
+    "Failed": "сбой"
+  },
+  "consensusUpdated": "Консенсус «{{question}}»: {{status}}"
 }

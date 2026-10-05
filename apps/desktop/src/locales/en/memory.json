@@ -100,6 +100,7 @@
     "context": "Context",
     "alternatives": "Alternatives",
     "notChosen": "(not chosen: {{reason}})",
+    "alternativeDetails": "Full proposal",
     "reasoning": "Reasoning summary",
     "consequences": "Consequences",
     "relatedTasks_one": "{{count}} related task",

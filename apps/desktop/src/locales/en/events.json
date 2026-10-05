@@ -57,5 +57,14 @@
   },
   "managerPlan_one": "Manager plan “{{goal}}” {{status}} ({{count}} task)",
   "managerPlan_other": "Manager plan “{{goal}}” {{status}} ({{count}} tasks)",
-  "managerRun": "Manager run {{status}}: {{done}}/{{total}} tasks done"
+  "managerRun": "Manager run {{status}}: {{done}}/{{total}} tasks done",
+  "reviewUpdated_one": "{{kind}}: {{status}} ({{count}} finding)",
+  "reviewUpdated_other": "{{kind}}: {{status}} ({{count}} findings)",
+  "reviewStatus": {
+    "Running": "in progress",
+    "Verifying": "verifying findings",
+    "Finished": "finished",
+    "Failed": "failed"
+  },
+  "consensusUpdated": "Consensus “{{question}}”: {{status}}"
 }
