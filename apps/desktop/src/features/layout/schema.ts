@@ -15,6 +15,9 @@ export const LAYOUT_SCHEMA_VERSION = 1;
 export const MAX_DOCK_BYTES = 256 * 1024;
 export const MAX_POPOUTS = 16;
 export const MAX_PANELS = 64;
+/** Mirrors `MAX_WIDGET_STATES` / `MAX_WIDGET_STATE_BYTES`. */
+export const MAX_WIDGET_STATES = 16;
+export const MAX_WIDGET_STATE_BYTES = 16 * 1024;
 /** Pre-Phase-3 layout cache (dockview JSON in localStorage); migrated once into the core. */
 export const LEGACY_LAYOUT_KEY = "orkestr.layout.v3";
 /** Marker of an exported layout file. */
@@ -171,7 +174,7 @@ export function sanitizeDock(raw: unknown, isKnownPanel: (component: string) => 
 export interface LayoutIssue {
   path: string;
   /** i18n key suffix under `layout:issues.*`. */
-  code: "schemaVersion" | "id" | "name" | "basedOn" | "dock" | "dockSize" | "panels" | "panelId" | "popouts" | "duplicate" | "bounds" | "empty";
+  code: "schemaVersion" | "id" | "name" | "basedOn" | "dock" | "dockSize" | "panels" | "panelId" | "popouts" | "duplicate" | "bounds" | "empty" | "widgets";
 }
 
 function rectOk(r: LayoutRect | undefined): boolean {
@@ -203,6 +206,13 @@ export function validateLayoutDocument(doc: LayoutDocument): LayoutIssue[] {
     seen.add(p.panelId);
     if (!rectOk(p.bounds)) issues.push({ path: `windows.popouts.${i}.bounds`, code: "bounds" });
   });
+  if (doc.widgets) {
+    const entries = Object.entries(doc.widgets);
+    if (entries.length > MAX_WIDGET_STATES) issues.push({ path: "widgets", code: "widgets" });
+    for (const [k, v] of entries) {
+      if (!isValidPanelId(k) || typeof v !== "string" || v.length > MAX_WIDGET_STATE_BYTES) issues.push({ path: `widgets.${k}`, code: "widgets" });
+    }
+  }
   if (doc.panels.length === 0 && w.popouts.length === 0) issues.push({ path: "panels", code: "empty" });
   return issues;
 }
@@ -273,6 +283,11 @@ export function migrateLayoutDocument(raw: unknown, fallback: { id: string; name
   };
   if (typeof raw["basedOn"] === "string") doc.basedOn = raw["basedOn"];
   if (typeof raw["updatedAt"] === "string") doc.updatedAt = raw["updatedAt"];
+  const widgets = raw["widgets"];
+  if (isObj(widgets)) {
+    const kept = Object.fromEntries(Object.entries(widgets).filter((e): e is [string, string] => typeof e[1] === "string"));
+    if (Object.keys(kept).length > 0) doc.widgets = kept;
+  }
   return doc;
 }
 
@@ -318,7 +333,7 @@ export function layoutSignature(doc: LayoutDocument): string {
     }),
   );
   const dock = isObj(doc.dock) ? sorted({ ...doc.dock, panels: null }) : doc.dock;
-  return JSON.stringify([doc.id, dock, sorted(panels), doc.panels, doc.locked, sorted(doc.windows)]);
+  return JSON.stringify([doc.id, dock, sorted(panels), doc.panels, doc.locked, sorted(doc.windows), sorted(doc.widgets ?? {})]);
 }
 
 /** Serialises a layout for a file (`.orkestr-layout.json`). Device-specific fields are kept; import re-validates. */

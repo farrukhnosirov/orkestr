@@ -17,7 +17,15 @@ use ts_rs::TS;
 
 /// Current schema version. Increment on breaking changes and add a migration
 /// in both the Rust validator and the TS theme engine.
-pub const UI_CONFIG_SCHEMA_VERSION: u32 = 1;
+///
+/// v2 (Phase 3): theme sections (background, motion, sounds, robot), shell
+/// `prefs` (density, panels, widgets, HUD). Every v2 addition is optional with
+/// defaults, so v1 documents still validate and are upgraded on read
+/// ([`UiConfig::upgrade`]).
+pub const UI_CONFIG_SCHEMA_VERSION: u32 = 2;
+
+/// Oldest schema version still accepted (upgraded in place on read).
+pub const UI_CONFIG_MIN_SCHEMA_VERSION: u32 = 1;
 
 /// Max number of tokens in a theme.
 pub const MAX_TOKENS: usize = 256;
@@ -265,13 +273,24 @@ fn check_range(issues: &mut Vec<UiConfigIssue>, path: &str, v: f32, min: f32, ma
 }
 
 impl UiConfig {
+    /// Upgrades an older (accepted) document to [`UI_CONFIG_SCHEMA_VERSION`].
+    /// v1 → v2 is additive: missing sections already deserialize to defaults.
+    pub fn upgrade(&mut self) {
+        if (UI_CONFIG_MIN_SCHEMA_VERSION..UI_CONFIG_SCHEMA_VERSION).contains(&self.schema_version) {
+            self.schema_version = UI_CONFIG_SCHEMA_VERSION;
+        }
+    }
+
     /// Validates the document. Returns all issues found.
     pub fn validate(&self) -> Result<(), Vec<UiConfigIssue>> {
         let mut issues = Vec::new();
-        if self.schema_version != UI_CONFIG_SCHEMA_VERSION {
+        if !(UI_CONFIG_MIN_SCHEMA_VERSION..=UI_CONFIG_SCHEMA_VERSION).contains(&self.schema_version) {
             issues.push(issue(
                 "schemaVersion",
-                format!("unsupported schema version {} (expected {UI_CONFIG_SCHEMA_VERSION})", self.schema_version),
+                format!(
+                    "unsupported schema version {} (expected {UI_CONFIG_MIN_SCHEMA_VERSION}..={UI_CONFIG_SCHEMA_VERSION})",
+                    self.schema_version
+                ),
             ));
         }
         self.theme.validate_into(&mut issues);
@@ -335,5 +354,17 @@ mod tests {
         cfg.theme.effects.glow_intensity = 3.0;
         let issues = cfg.validate().unwrap_err();
         assert_eq!(issues.len(), 4, "{issues:?}");
+    }
+
+    #[test]
+    fn v1_documents_validate_and_upgrade() {
+        let mut cfg = UiConfig { schema_version: 1, ..UiConfig::default() };
+        assert!(cfg.validate().is_ok());
+        cfg.upgrade();
+        assert_eq!(cfg.schema_version, UI_CONFIG_SCHEMA_VERSION);
+        let zero = UiConfig { schema_version: 0, ..UiConfig::default() };
+        assert!(zero.validate().is_err());
+        let next = UiConfig { schema_version: UI_CONFIG_SCHEMA_VERSION + 1, ..UiConfig::default() };
+        assert!(next.validate().is_err());
     }
 }

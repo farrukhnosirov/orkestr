@@ -7,7 +7,7 @@
  */
 import "./layout.css";
 
-import { BUILTIN_THEMES, applyTheme, EmptyState } from "@orkestr/ui";
+import { EmptyState } from "@orkestr/ui";
 import { Copy, Minus, PanelLeftOpen, Square, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
@@ -24,23 +24,9 @@ import { EmergencyStopButton } from "../security/EmergencyStop";
 import { ApprovalsBadge } from "../security/ApprovalsInbox";
 import { SecurityLayer } from "../security/SecurityLayer";
 import { useSettingsStore } from "../settings/settingsStore";
+import { useThemeEngine } from "../theme/ThemeRuntime";
 import type { DetachedRoute } from "./route";
 import { windowsApi } from "./windowsApi";
-
-// INTEGRATOR(P3 theme-engine): switch to the shared theme hook once the theme
-// engine exposes one, so detached windows follow live theme edits too.
-function useDetachedTheme() {
-  const themeId = useAppStore((s) => s.themeId);
-  useEffect(() => {
-    const theme = BUILTIN_THEMES[themeId] ?? BUILTIN_THEMES["nebula"];
-    if (!theme) return;
-    try {
-      applyTheme(theme);
-    } catch (e) {
-      console.error("failed to apply theme", e);
-    }
-  }, [themeId]);
-}
 
 /** Follows settings (language, theme) like the main window, without its side effects (onboarding, tray, resume). */
 function useDetachedSettings(ready: boolean) {
@@ -150,7 +136,7 @@ function DetachedBody({ route }: { route: DetachedRoute }) {
 
 export function DetachedPanelApp({ route }: { route: DetachedRoute }) {
   const [ready, setReady] = useState(false);
-  useDetachedTheme();
+  useThemeEngine(ready);
   useDetachedSettings(ready);
   const boot = useCallback(() => {
     bootstrapCore().then(

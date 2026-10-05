@@ -17,7 +17,8 @@ async fn send(ws: &mut Ws, v: Value) {
 
 async fn recv(ws: &mut Ws) -> Value {
     loop {
-        let msg = tokio::time::timeout(Duration::from_secs(30), ws.next()).await.expect("timeout").expect("closed").unwrap();
+        let msg =
+            tokio::time::timeout(Duration::from_secs(30), ws.next()).await.expect("timeout").expect("closed").unwrap();
         match msg {
             Message::Text(t) => return serde_json::from_str(t.as_str()).unwrap(),
             Message::Ping(_) | Message::Pong(_) => continue,
@@ -90,7 +91,9 @@ async fn layouts_roundtrip_per_device_and_across_restarts() {
     assert_eq!(s["layouts"].as_array().unwrap().len(), 0);
 
     // Save + activate a user layout, customise a built-in without activating it.
-    let s = ok(&mut ws, "s1", "ui.layoutsSave", json!({"layout": layout("u-deep-work", "Deep work"), "activate": true})).await;
+    let s =
+        ok(&mut ws, "s1", "ui.layoutsSave", json!({"layout": layout("u-deep-work", "Deep work"), "activate": true}))
+            .await;
     assert_eq!(s["activeId"], "u-deep-work");
     let s = ok(&mut ws, "s2", "ui.layoutsSave", json!({"layout": layout("focus", "Focus"), "activate": false})).await;
     assert_eq!(s["activeId"], "u-deep-work");

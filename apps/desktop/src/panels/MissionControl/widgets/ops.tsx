@@ -125,7 +125,7 @@ function QualityRow({ r }: { r: QualityRun }) {
   );
 }
 
-/** Latest builds and test runs. INTEGRATOR(P2): bind quality-pipeline runs (see `feed.ts`). */
+/** Latest builds and test runs (quality runner history + live events, see `useMissionFeed`). */
 export function QualityWidget(_props: WidgetProps) {
   const { t } = useT("missionControl");
   const { quality } = useMissionFeed();

@@ -18,6 +18,7 @@ import { RobotView } from "../render/RobotView";
 import { ClusterWindow } from "./ClusterWindow";
 import { useRobotEnv } from "./env";
 import { RobotWindow } from "./RobotWindow";
+import { useThemeEngine } from "../../theme/ThemeRuntime";
 import { SpeechBubble } from "./SpeechBubble";
 
 const PREVIEW_BUBBLES: Partial<Record<ReturnType<typeof previewStateAt>, BubbleSpec>> = {
@@ -53,6 +54,7 @@ export function RobotApp() {
   const { t } = useT("robots");
   const [route] = useState(() => parseRobotRoute(window.location.hash));
   const env = useRobotEnv();
+  useThemeEngine(env.ready);
   const reducedMotion = useReducedMotion();
 
   let content;

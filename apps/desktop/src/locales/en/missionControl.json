@@ -16,7 +16,8 @@
     "approvals": "Pending approvals",
     "quality": "Builds & tests",
     "deployments": "Deployments",
-    "alerts": "Alerts"
+    "alerts": "Alerts",
+    "reviews": "Reviews & merges"
   },
   "toolbar": {
     "updated": "Live · updated {{time}}",
@@ -196,11 +197,36 @@
       "approval": "{{risk}}: approval needed",
       "reviewFindings_one": "Review requested changes: {{count}} finding",
       "reviewFindings_other": "Review requested changes: {{count}} findings",
-      "coreError": "Core error in {{target}}"
+      "coreError": "Core error in {{target}}",
+      "securityFindings_one": "Security review: {{count}} finding",
+      "securityFindings_other": "Security review: {{count}} findings",
+      "mergeConflict_one": "Merge into {{target}} stopped: {{count}} conflict",
+      "mergeConflict_other": "Merge into {{target}} stopped: {{count}} conflicts",
+      "mergeFailed": "Merge into {{target}} failed"
     }
   },
   "overlay": {
     "label": "Mission Control, full screen",
     "close": "Close Mission Control (Esc)"
+  },
+  "reviews": {
+    "noProject": "Open a project to see its reviews",
+    "empty": "No reviews or merges yet",
+    "emptyHint": "Code and security reviews and Merge Manager proposals of the quality pipeline appear here.",
+    "listLabel": "Reviews and merges",
+    "open": "Open reviews",
+    "merges": "Merges in flight",
+    "findings_one": "{{count}} finding",
+    "findings_other": "{{count}} findings",
+    "conflicts_one": "{{count}} conflict",
+    "conflicts_other": "{{count}} conflicts",
+    "mergeInto_one": "Merge {{count}} branch into {{target}}",
+    "mergeInto_other": "Merge {{count}} branches into {{target}}",
+    "status": {
+      "Running": "Reviewing",
+      "Verifying": "Verifying",
+      "Finished": "Finished",
+      "Failed": "Failed"
+    }
   }
 }

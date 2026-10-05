@@ -25,7 +25,9 @@ export type BubbleKey =
   | "reviewChanges"
   | "reviewRejected"
   | "buildSucceeded"
-  | "buildFailed";
+  | "buildFailed"
+  | "testsFailedAny"
+  | "securityFindings";
 
 export type BubbleTone = "info" | "success" | "warning" | "danger";
 
@@ -89,8 +91,33 @@ export function bubbleForEvent(ev: Event): BubbleSpec | null {
       return null;
     case "ApprovalRequested":
       return spec("approval", "warning", 0, { important: true });
-    // INTEGRATOR(P2): quality-pipeline events (tests, reviews, builds) carry the
-    // agent in the envelope (`agentId`) once Phase 2 publishes them per agent.
+    // Quality pipeline (Phase 2): the robot window also listens on its agent's
+    // task topic, so stage changes and reviews of that task reach it.
+    case "PipelineStageChanged": {
+      const { stage, status } = ev.payload;
+      if (status === "Running") {
+        if (stage === "Review" || stage === "Security") return spec("reviewing", "info", 5000);
+        if (stage === "Build" || stage === "Test") return spec("testing", "info", 5000);
+        return null;
+      }
+      if (status === "Failed") {
+        if (stage === "Build") return spec("buildFailed", "danger", 12000, { important: true });
+        if (stage === "Test") return spec("testsFailedAny", "danger", 15000, { important: true });
+      }
+      return null;
+    }
+    case "ReviewUpdated": {
+      const r = ev.payload.review;
+      if (r.status !== "Finished" || !r.verdict) return null;
+      if (r.kind === "Adversarial" && r.findings.length > 0) {
+        return spec("securityFindings", "warning", 12000, { important: true, values: { count: r.findings.length } });
+      }
+      if (r.verdict === "Approve") return spec("reviewApproved", "success", 12000, { important: true });
+      if (r.verdict === "RequestChanges") {
+        return spec("reviewChanges", "warning", 12000, { important: true, values: { count: r.findings.length } });
+      }
+      return spec("reviewRejected", "danger", 12000, { important: true });
+    }
     case "TestRunFinished":
       return ev.payload.failed > 0
         ? spec("testsFailed", "danger", 15000, { important: true, values: { count: ev.payload.failed } })

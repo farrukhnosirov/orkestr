@@ -145,7 +145,7 @@ describe("executor", () => {
     expect(pre?.outcome).toBe("failed");
   });
 
-  it("run QA without a quality pipeline goes to the Manager (INTEGRATOR(P2) hook otherwise)", async () => {
+  it("run QA without a quality runner dependency goes to the Manager", async () => {
     const deps = fakeDeps();
     const r = await executeIntent(parseIntent("запусти QA по Schoolify", CTX), deps);
     expect(r.outcome).toBe("sentToManager");

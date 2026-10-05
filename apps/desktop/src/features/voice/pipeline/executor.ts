@@ -33,14 +33,13 @@ export interface VoiceDeps {
   switchProject: (projectId: string) => Promise<void>;
   setDnd: (on: boolean) => Promise<boolean>;
   askManager: (projectId: string, text: string) => Promise<{ replyMessageId: string }>;
-  /** Recent build failures of a project (event log; INTEGRATOR(P2): quality pipeline). */
+  /** Recent build failures of a project (quality runner, then the event log). */
   buildErrors: (projectId: string) => Promise<BuildError[]>;
-  /** Phase 2 quality snapshot (INTEGRATOR(P2)); Phase 1 returns `EMPTY_QUALITY` + event-log builds. */
+  /** Quality snapshot: quality runner builds / tests + open reviews (Phase 2). */
   quality: (projectId: string) => Promise<QualitySnapshot>;
   /**
-   * Starts a QA run. INTEGRATOR(P2): wire to the quality pipeline. When
-   * absent, the request goes to the Manager, which plans and runs the QA
-   * work with Phase 1 agents.
+   * Starts a QA run through the quality runner (`quality.run`). When absent,
+   * the request goes to the Manager, which plans and runs the QA work.
    */
   runQa?: (projectId: string) => Promise<void>;
 }
@@ -106,6 +105,8 @@ export function summarySentence(p: SummaryPart): string {
       return t("voice:summary.buildOk");
     case "testsFailed":
       return t("voice:summary.testsFailed", { count: p.count });
+    case "openReviews":
+      return t("voice:summary.openReviews", { count: p.count });
   }
 }
 

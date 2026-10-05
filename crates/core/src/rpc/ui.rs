@@ -21,8 +21,9 @@ use orkestr_protocol::event::{
     EventKind, SettingsChangedPayload, UiConfigChangedPayload, UiConfigPatchedPayload, UiThemesChangedPayload,
 };
 use orkestr_protocol::methods::ui::{
-    self as m, is_valid_device_id, ApplyUiPatchParams, ApplyUiPatchResult, DeleteThemeParams, DeleteThemeResult, GetUiConfigParams, SaveThemeParams,
-    PreviewUiPatchParams, PreviewUiPatchResult, SaveThemeResult, SetUiConfigParams, ThemeEntry, ThemesResult, UiConfigResult, UiConfigScope,
+    self as m, is_valid_device_id, ApplyUiPatchParams, ApplyUiPatchResult, DeleteThemeParams, DeleteThemeResult,
+    GetUiConfigParams, PreviewUiPatchParams, PreviewUiPatchResult, SaveThemeParams, SaveThemeResult, SetUiConfigParams,
+    ThemeEntry, ThemesResult, UiConfigResult, UiConfigScope,
 };
 use orkestr_protocol::ui_config::{ThemeConfig, UiConfig, UiConfigIssue};
 use orkestr_protocol::ui_patch::{apply_ui_patch, PatchMode};
@@ -141,7 +142,8 @@ async fn set_config(ctx: RpcContext, p: SetUiConfigParams) -> Result<UiConfigRes
             let version = store::put_config(&services.db, &scope, config).await.map_err(storage_to_rpc)?;
             tracing::info!(scope = %scope, version, theme = %config.theme.id, "UI config updated");
             sync_performance_mode(services, config).await?;
-            let payload = UiConfigChangedPayload { device_id: p.device_id.clone(), config: Some(config.clone()), version };
+            let payload =
+                UiConfigChangedPayload { device_id: p.device_id.clone(), config: Some(config.clone()), version };
             publish(services, EventKind::UiConfigChanged(payload)).await?;
         }
         None => {
@@ -166,11 +168,7 @@ async fn themes(ctx: RpcContext) -> Result<ThemesResult, RpcError> {
 }
 
 /// Applies `f` to every stored config whose theme id is `id`; returns how many changed.
-async fn rewrite_configs_using(
-    services: &Arc<Services>,
-    id: &str,
-    f: impl Fn(&mut UiConfig),
-) -> Result<u32, RpcError> {
+async fn rewrite_configs_using(services: &Arc<Services>, id: &str, f: impl Fn(&mut UiConfig)) -> Result<u32, RpcError> {
     let mut n = 0u32;
     for (scope, stored) in store::all_configs(&services.db).await.map_err(storage_to_rpc)? {
         if stored.config.theme.id != id {
@@ -211,8 +209,11 @@ async fn save_theme(ctx: RpcContext, p: SaveThemeParams) -> Result<SaveThemeResu
     let entry = store::put_theme(&services.db, &theme).await.map_err(storage_to_rpc)?;
     let configs_updated = rewrite_configs_using(services, &theme.id, |cfg| cfg.theme = theme.clone()).await?;
     tracing::info!(theme = %theme.id, configs_updated, "theme saved");
-    publish(services, EventKind::UiThemesChanged(UiThemesChangedPayload { theme_id: theme.id.clone(), deleted: false }))
-        .await?;
+    publish(
+        services,
+        EventKind::UiThemesChanged(UiThemesChangedPayload { theme_id: theme.id.clone(), deleted: false }),
+    )
+    .await?;
     Ok(SaveThemeResult { contrast: contrast_report(&theme), entry, configs_updated })
 }
 

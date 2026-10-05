@@ -5,7 +5,6 @@
  * live, and remembers where the user put it. Proposals of UI changes are
  * reviewed in the main window only.
  */
-import { BUILTIN_THEMES, applyTheme } from "@orkestr/ui";
 import type { Event } from "@orkestr/protocol";
 import { TOPIC_GLOBAL } from "@orkestr/protocol";
 import { useEffect, useState } from "react";
@@ -17,25 +16,15 @@ import { useAiUiRuntime } from "../aiui/useAiUiRuntime";
 import { usePerformanceRuntime } from "../performance/usePerformanceRuntime";
 import { initSecurityLive } from "../security/store";
 import { useSettingsStore } from "../settings/settingsStore";
+import { useThemeEngine } from "../theme/ThemeRuntime";
+import { HudVoiceIndicator } from "../voice/ui/HudVoiceIndicator";
 import { Hud } from "./Hud";
+import { registerHudVoiceSlot } from "./hudData";
 import { hudControls } from "./hudWindow";
 import { useHudShortcut } from "./commands";
 
 /** Key under which the main window stores the active project (`store/app.ts`). */
 const ACTIVE_PROJECT_STORAGE_KEY = "orkestr.activeProject";
-
-function useHudTheme() {
-  const themeId = useAppStore((s) => s.themeId);
-  useEffect(() => {
-    const theme = BUILTIN_THEMES[themeId] ?? BUILTIN_THEMES["nebula"];
-    if (!theme) return;
-    try {
-      applyTheme(theme);
-    } catch (e) {
-      console.error("failed to apply theme", e);
-    }
-  }, [themeId]);
-}
 
 /** Settings (language, theme, performance mode) for the HUD window. */
 function useHudSettings(ready: boolean) {
@@ -62,10 +51,12 @@ function useHudSettings(ready: boolean) {
   }, [ready]);
 }
 
+registerHudVoiceSlot(HudVoiceIndicator);
+
 export function HudApp() {
   const [ready, setReady] = useState(false);
   const connected = useAppStore((s) => s.connection.state === "open");
-  useHudTheme();
+  useThemeEngine(ready);
   useHudSettings(ready);
   usePerformanceRuntime(connected);
   useAiUiRuntime(connected, false);

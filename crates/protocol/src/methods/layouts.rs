@@ -33,6 +33,10 @@ pub const MAX_LAYOUTS_PER_DEVICE: usize = 64;
 pub const MAX_POPOUTS: usize = 16;
 /// Max panel ids in a layout.
 pub const MAX_PANELS: usize = 64;
+/// Max entries in [`LayoutDocument::widgets`].
+pub const MAX_WIDGET_STATES: usize = 16;
+/// Max size of one widget state value (bytes).
+pub const MAX_WIDGET_STATE_BYTES: usize = 16 * 1024;
 
 /// Built-in preset ids (§29). Order = `Ctrl+1..5` shortcuts (`custom` has none).
 pub const BUILTIN_LAYOUT_IDS: &[&str] = &["coding", "mission-control", "monitoring", "focus", "review", "custom"];
@@ -134,6 +138,12 @@ pub struct LayoutDocument {
     /// Window arrangement (detached panels, monitors).
     #[serde(default)]
     pub windows: WindowArrangement,
+    /// View state of panels in this layout, keyed by panel id (e.g. the
+    /// Mission Control widget arrangement under `missionControl`). Opaque
+    /// strings owned by the panel; Phase 3, additive (absent = none).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub widgets: Option<std::collections::BTreeMap<String, String>>,
     /// Last change (set by the core on save).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
@@ -263,6 +273,18 @@ impl LayoutDocument {
             }
             if let Some(r) = &p.bounds {
                 check_rect(&mut issues, &format!("{base}.bounds"), r);
+            }
+        }
+        if let Some(widgets) = &self.widgets {
+            if widgets.len() > MAX_WIDGET_STATES {
+                issues.push(issue("widgets", format!("at most {MAX_WIDGET_STATES} widget states")));
+            }
+            for (k, v) in widgets {
+                if !is_valid_panel_id(k) {
+                    issues.push(issue(format!("widgets.{k}"), "invalid panel id"));
+                } else if v.len() > MAX_WIDGET_STATE_BYTES {
+                    issues.push(issue(format!("widgets.{k}"), "widget state too large (max 16 KiB)"));
+                }
             }
         }
         if self.panels.is_empty() && w.popouts.is_empty() {
@@ -405,8 +427,21 @@ mod tests {
                     maximized: true,
                 }],
             },
+            widgets: Some([("missionControl".to_owned(), "{\"v\":1}".to_owned())].into_iter().collect()),
             updated_at: None,
         }
+    }
+
+    #[test]
+    fn widget_states_are_bounded() {
+        let mut d = doc();
+        let mut w = std::collections::BTreeMap::new();
+        w.insert("bad id".to_owned(), "x".to_owned());
+        w.insert("missionControl".to_owned(), "x".repeat(MAX_WIDGET_STATE_BYTES + 1));
+        d.widgets = Some(w);
+        let paths: Vec<String> = d.validate().unwrap_err().into_iter().map(|i| i.path).collect();
+        assert!(paths.contains(&"widgets.bad id".to_owned()), "{paths:?}");
+        assert!(paths.contains(&"widgets.missionControl".to_owned()), "{paths:?}");
     }
 
     #[test]
@@ -444,9 +479,16 @@ mod tests {
         d.windows.popouts[0].bounds = Some(LayoutRect { x: 0, y: 0, width: 0, height: 10 });
         let issues = d.validate().unwrap_err();
         let paths: Vec<_> = issues.iter().map(|i| i.path.as_str()).collect();
-        for want in
-            ["schemaVersion", "id", "name", "basedOn", "dock", "panels.2", "windows.popouts.1.panelId", "windows.popouts.0.bounds"]
-        {
+        for want in [
+            "schemaVersion",
+            "id",
+            "name",
+            "basedOn",
+            "dock",
+            "panels.2",
+            "windows.popouts.1.panelId",
+            "windows.popouts.0.bounds",
+        ] {
             assert!(paths.contains(&want), "missing {want} in {paths:?}");
         }
     }

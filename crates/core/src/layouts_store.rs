@@ -249,7 +249,12 @@ impl LayoutsStore {
     }
 }
 
-fn set_active_tx(tx: &orkestr_storage::rusqlite::Transaction<'_>, device: &str, id: &str, ts: &str) -> StorageResult<()> {
+fn set_active_tx(
+    tx: &orkestr_storage::rusqlite::Transaction<'_>,
+    device: &str,
+    id: &str,
+    ts: &str,
+) -> StorageResult<()> {
     tx.execute(
         "INSERT INTO ui_layout_state (device_id, active_id, updated_at) VALUES (?1, ?2, ?3)
          ON CONFLICT(device_id) DO UPDATE SET active_id = excluded.active_id, updated_at = excluded.updated_at",
@@ -281,6 +286,7 @@ mod tests {
             panels: vec!["code".into()],
             locked: false,
             windows: Default::default(),
+            widgets: None,
             updated_at: None,
         }
     }

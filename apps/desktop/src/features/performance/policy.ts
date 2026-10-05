@@ -100,7 +100,7 @@ const TABLE: Readonly<Record<PerformanceMode, ModeTable>> = {
     motion: "off",
     durationScale: 0,
     backgroundAnimation: false,
-    robotFps: 10,
+    robotFps: 0,
     robots3d: false,
     chartRefreshMs: 10000,
     gpuEffects: false,

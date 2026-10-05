@@ -51,5 +51,5 @@
       "task.completed": "chime-soft"
     }
   },
-  "robot": { "skin": "orbit", "scale": 1, "accent": "#b45309" }
+  "robot": { "skin": "sunrise", "scale": 1, "accent": "#b45309" }
 }

@@ -62,6 +62,21 @@ export function isHexColor(s: string): boolean {
   return /^#[0-9a-fA-F]{6}$/.test(s);
 }
 
+/**
+ * Applies the active theme's robot defaults (`ThemeConfig.robot`, §29) to a
+ * design that still uses the factory look: the theme picks the skin and the
+ * accent of every robot the user has not styled. Scale stays with the design
+ * (it sizes the robot window, which the main window plans).
+ */
+export function withThemeRobotDefaults(design: RobotDesign, theme: { skin: string; accent: string | null } | null | undefined): RobotDesign {
+  if (!theme) return design;
+  const factory = defaultDesign();
+  if (design.skin !== factory.skin || design.accent !== factory.accent) return design;
+  const skin = isSkinId(theme.skin) ? theme.skin : design.skin;
+  const accent = theme.accent && isHexColor(theme.accent) ? theme.accent : design.accent;
+  return skin === design.skin && accent === design.accent ? design : { ...design, skin, accent };
+}
+
 export function defaultDesign(): RobotDesign {
   return {
     mode: "TwoD",

@@ -60,5 +60,18 @@
   "titleBar": {
     "collapse": "Свернуть в HUD",
     "collapseTitle": "Свернуть в HUD (переключение — {{keys}})"
+  },
+  "quality": {
+    "running": "Идут проверки…",
+    "buildFailed": "Сборка упала",
+    "buildOk": "Сборка в порядке",
+    "testsFailed_one": "Падает {{count}} тест",
+    "testsFailed_few": "Падают {{count}} теста",
+    "testsFailed_many": "Падают {{count}} тестов",
+    "testsFailed_other": "Падают {{count}} теста",
+    "testsPassed_one": "Проходит {{count}} тест",
+    "testsPassed_few": "Проходят {{count}} теста",
+    "testsPassed_many": "Проходят {{count}} тестов",
+    "testsPassed_other": "Проходят {{count}} теста"
   }
 }

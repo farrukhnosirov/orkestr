@@ -56,5 +56,14 @@
   "titleBar": {
     "collapse": "Collapse into HUD",
     "collapseTitle": "Collapse into HUD ({{keys}} toggles it)"
+  },
+  "quality": {
+    "running": "Checks running…",
+    "buildFailed": "Build failed",
+    "buildOk": "Build OK",
+    "testsFailed_one": "{{count}} test failing",
+    "testsFailed_other": "{{count}} tests failing",
+    "testsPassed_one": "{{count}} test passing",
+    "testsPassed_other": "{{count}} tests passing"
   }
 }

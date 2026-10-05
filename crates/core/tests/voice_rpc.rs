@@ -124,7 +124,9 @@ async fn voice_config_consent_cloud_speech_and_command_log() {
     assert_eq!(c.ok("voice.getConfig", json!({})).await["config"]["notifications"]["quietHours"]["end"], "07:30");
 
     // Consent → engine switches; audited.
-    let r = c.ok("voice.setConsent", json!({"scope": "SpeechRecognition", "engine": "OpenAiWhisper", "granted": true})).await;
+    let r = c
+        .ok("voice.setConsent", json!({"scope": "SpeechRecognition", "engine": "OpenAiWhisper", "granted": true}))
+        .await;
     assert_eq!(r["config"]["sttEngine"], "OpenAiWhisper");
     assert_eq!(r["config"]["sttConsent"]["engine"], "OpenAiWhisper");
     assert_eq!(r["config"]["wake"]["phrase"], "Оркестр", "consent keeps other settings");
@@ -142,9 +144,14 @@ async fn voice_config_consent_cloud_speech_and_command_log() {
     c.ok("providers.create", json!({"kind": "OpenAi", "name": "OpenAI", "baseUrl": base, "apiKey": "sk-test"})).await;
     let providers = c.ok("voice.getConfig", json!({})).await["cloudProviders"].clone();
     assert_eq!(providers.as_array().unwrap().len(), 1);
-    let t = c.ok("voice.transcribe", json!({"audioBase64": "UklGRnh4eHg=", "mimeType": "audio/wav", "language": "ru"})).await;
+    let t = c
+        .ok("voice.transcribe", json!({"audioBase64": "UklGRnh4eHg=", "mimeType": "audio/wav", "language": "ru"}))
+        .await;
     assert_eq!(t["text"], "что происходит со Schoolify");
-    assert_eq!(c.err_code("voice.transcribe", json!({"audioBase64": "@@@", "mimeType": "audio/wav"})).await, "bad_request");
+    assert_eq!(
+        c.err_code("voice.transcribe", json!({"audioBase64": "@@@", "mimeType": "audio/wav"})).await,
+        "bad_request"
+    );
 
     // Cloud TTS needs its own consent.
     assert_eq!(c.err_code("voice.synthesize", json!({"text": "Готово"})).await, "forbidden");
@@ -175,10 +182,8 @@ async fn voice_config_consent_cloud_speech_and_command_log() {
         "bad_request"
     );
     let replay = c.ok("events.replay", json!({"limit": 500})).await;
-    let found = replay["events"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .any(|e| e["kind"] == "VoiceCommand" && e["payload"]["intent"] == "stopProject" && e["payload"]["source"] == "WakeWord");
+    let found = replay["events"].as_array().unwrap().iter().any(|e| {
+        e["kind"] == "VoiceCommand" && e["payload"]["intent"] == "stopProject" && e["payload"]["source"] == "WakeWord"
+    });
     assert!(found, "VoiceCommand event persisted");
 }

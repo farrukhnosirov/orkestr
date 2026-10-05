@@ -13,6 +13,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { workspaceActions } from "../../../components/workspaceActions";
 import { maybeClient } from "../../../core/client";
 import { useAppStore } from "../../../store/app";
+import { t } from "../../../i18n";
+import { registerRobotVoices, speakAsAgent } from "../../voice/agentVoices";
+import { bubbleFor } from "../model/bubble";
 import { collectDropZones } from "../model/layout";
 import {
   applyRobotEvent,
@@ -31,6 +34,26 @@ import { AssignDialog } from "./AssignDialog";
 import { focusAgent } from "./focus";
 
 const EMPTY: RobotSlots = new Map();
+
+/** Min gap between two spoken lines of the same robot. */
+const SPEAK_GAP_MS = 4000;
+const lastSpoken = new Map<string, number>();
+
+/** A robot with its voice on says its important bubbles aloud (with the agent's voice). */
+function speakForRobot(ev: Event, slots: RobotSlots, config: RobotsConfig | null): void {
+  const agentId = ev.agentId ?? (ev.kind === "AgentStateChanged" || ev.kind === "AgentStopped" ? ev.payload.agentId : null);
+  if (!agentId || !config?.enabled) return;
+  const slot = slots.get(agentId);
+  if (!slot) return;
+  const design = slotDesign(slot, config);
+  if (!design.voice.enabled) return;
+  const spec = bubbleFor(ev, design.behaviour.bubble);
+  if (!spec?.important) return;
+  const now = Date.now();
+  if (now - (lastSpoken.get(agentId) ?? 0) < SPEAK_GAP_MS) return;
+  lastSpoken.set(agentId, now);
+  void speakAsAgent(agentId, t(`robots:bubble.${spec.key}`, spec.values)).catch(() => undefined);
+}
 
 async function fetchEntries(agentIds: string[] | null) {
   const c = maybeClient();
@@ -60,6 +83,18 @@ export function RobotHost() {
     if (connected) void useRobotsStore.getState().load();
   }, [connected]);
 
+  // Voice per agent: the robot design's voice (on/off + voice id) of agents on screen.
+  useEffect(() => {
+    registerRobotVoices((agentId) => {
+      const cfg = configRef.current;
+      const slot = slotsRef.current.get(agentId);
+      if (!cfg || !slot || !cfg.enabled) return null;
+      const v = slotDesign(slot, cfg).voice;
+      return { enabled: v.enabled, voiceId: v.voiceId };
+    });
+    return () => registerRobotVoices(null);
+  }, []);
+
   // Active agents (+ fresh designs whenever the designs change; positions do not matter here).
   const designsKey = config ? JSON.stringify([config.defaultDesign, config.designs]) : null;
   useEffect(() => {
@@ -85,6 +120,7 @@ export function RobotHost() {
     return c.subscribe(topics, (ev: Event) => {
       if (!ROBOT_AGENT_EVENTS.has(ev.kind)) return;
       setSlots((prev) => applyRobotEvent(prev, ev, Date.now()));
+      speakForRobot(ev, slotsRef.current, configRef.current);
       if (ev.kind === "AgentSpawned") {
         fetchEntries([ev.payload.agent.id])
           .then((entries) => setSlots((prev) => mergeRobotEntries(prev, entries, Date.now())))
@@ -168,9 +204,8 @@ export function RobotHost() {
       open.current.clear();
       clusterOpen.current = false;
       void robotShell.closeAll().catch(() => undefined);
-    },
-    [],
-  );
+    };
+  }, []);
 
   // Drop zones = project tiles in the rail (re-measured while robots are out).
   const anyOut = selection.visible.length > 0;
@@ -206,7 +241,7 @@ export function RobotHost() {
         if (!cfg || !slot) return;
         const design = slotDesign(slot, cfg);
         const next = { ...design, voice: { ...design.voice, enabled: p.enabled } };
-        // INTEGRATOR(voice-sound): the voice engine reads `design.voice` (enabled + voiceId) per robot.
+        // The voice engine reads `design.voice` (enabled + voiceId) per robot (`registerRobotVoices`).
         void useRobotsStore
           .getState()
           .saveDesign(slot.templateId ? { kind: "template", templateId: slot.templateId } : { kind: "default" }, next);

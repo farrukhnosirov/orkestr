@@ -186,6 +186,11 @@
     "reviewChanges_other": "Ревью: запрошено {{count}} изменения",
     "reviewRejected": "Ревью не пройдено",
     "buildSucceeded": "Сборка прошла успешно ✓",
-    "buildFailed": "Сборка не удалась"
+    "buildFailed": "Сборка не удалась",
+    "testsFailedAny": "Тесты не прошли",
+    "securityFindings_one": "Проверка безопасности: {{count}} замечание",
+    "securityFindings_few": "Проверка безопасности: {{count}} замечания",
+    "securityFindings_many": "Проверка безопасности: {{count}} замечаний",
+    "securityFindings_other": "Проверка безопасности: {{count}} замечания"
   }
 }

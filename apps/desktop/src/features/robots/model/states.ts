@@ -3,7 +3,7 @@
  * reports (`AgentStateChanged`). The robot never invents a state: what it
  * shows is what the agent is doing.
  */
-import type { AgentState } from "@orkestr/protocol";
+import type { AgentState, Event } from "@orkestr/protocol";
 
 export const ROBOT_STATES = [
   "Idle",
@@ -91,4 +91,26 @@ export function stateHex(state: RobotState, accent: string): string {
 export function previewStateAt(t: number, periodMs = 2600): RobotState {
   const i = Math.floor(Math.max(0, t) / periodMs) % ROBOT_STATES.length;
   return ROBOT_STATES[i] ?? "Idle";
+}
+
+/**
+ * Robot state implied by a quality-pipeline event of the agent's task
+ * (Phase 2): Build / Test stages running → `Testing`, Review / Security →
+ * `Reviewing`. `null` clears the override (the stage finished), `undefined`
+ * means the event says nothing about it.
+ */
+export function pipelineStateFor(ev: Event): RobotState | null | undefined {
+  if (ev.kind !== "PipelineStageChanged") return undefined;
+  const { stage, status } = ev.payload;
+  if (status !== "Running") return null;
+  if (stage === "Build" || stage === "Test") return "Testing";
+  if (stage === "Review" || stage === "Security") return "Reviewing";
+  return null;
+}
+
+/** The visual state with a pipeline override (only while the agent itself is not in a problem / result state). */
+export function withPipelineState(visual: RobotVisual, override: RobotState | null): RobotVisual {
+  if (!override || visual.asleep) return visual;
+  if (visual.state === "Error" || visual.state === "Waiting") return visual;
+  return { state: override, asleep: false };
 }

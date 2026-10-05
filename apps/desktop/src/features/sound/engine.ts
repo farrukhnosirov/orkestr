@@ -9,13 +9,15 @@
  * - What may play is decided by `policy.ts` from a context getter that the
  *   app registers (`configureSound`), so this module has no store imports.
  */
-import type { SoundPreset } from "@orkestr/protocol";
+import type { SoundPreset, ThemeSounds } from "@orkestr/protocol";
 
-import { masterGain, shouldPlaySound, soundQuality, type SoundContext } from "./policy";
-import { recipeFor, resolvePreset, type ResolvedPreset, type SoundCue, type SoundQuality, type SoundRecipe } from "./recipes";
+import { CRITICAL_CUES, masterGain, shouldPlaySound, soundQuality, type SoundContext } from "./policy";
+import { recipeFor, resolvePreset, THEME_SOUND_PRESETS, themeCueOverride, type ResolvedPreset, type SoundCue, type SoundQuality, type SoundRecipe } from "./recipes";
 
 export interface SoundEnvironment extends SoundContext {
   themeId: string;
+  /** The active theme's sound mapping (§29); absent = engine defaults. */
+  themeSounds?: ThemeSounds | null;
 }
 
 let getEnvironment: (() => SoundEnvironment | null) | null = null;
@@ -162,15 +164,19 @@ export function playSound(cue: SoundCue, opts: PlayOptions = {}): boolean {
   const env = getEnvironment?.() ?? null;
   if (!env) return false;
   if (!shouldPlaySound(cue, { ...env, test: opts.test ?? false })) return false;
+  // The theme may silence or re-voice a cue (critical alerts are never silenced).
+  const theme = opts.test || opts.preset ? null : themeCueOverride(cue, env.themeSounds);
+  if (theme?.mute && !CRITICAL_CUES.has(cue)) return false;
   const now = Date.now();
   if (!opts.test && now - (lastPlayed.get(cue) ?? 0) < CUE_COOLDOWN_MS) return false;
   const c = audioContext();
   if (!c) return false;
   lastPlayed.set(cue, now);
   if (c.state === "suspended") void c.resume().catch(() => {});
-  const preset: ResolvedPreset = resolvePreset(opts.preset ?? env.config.preset, env.themeId);
+  const preset: ResolvedPreset = theme?.preset ?? resolvePreset(opts.preset ?? env.config.preset, env.themeId);
+  const gain = masterGain(env.config.volumePct) * (theme && !theme.mute ? theme.volume : 1);
   try {
-    renderRecipe(c, recipeFor(cue, preset, opts.quality ?? soundQuality(env.performanceMode)), masterGain(env.config.volumePct));
+    renderRecipe(c, recipeFor(cue, preset, opts.quality ?? soundQuality(env.performanceMode)), gain);
     return true;
   } catch (e) {
     console.warn("sound engine", e);
@@ -181,4 +187,25 @@ export function playSound(cue: SoundCue, opts: PlayOptions = {}): boolean {
 /** Test helper: forget cooldowns. */
 export function resetSoundCooldowns(): void {
   lastPlayed = new Map();
+}
+
+/**
+ * Previews a theme preset id (theme editor play buttons): plays `cue` with
+ * the engine voice behind `presetId` at `volume` (0..1), ignoring DND.
+ */
+export function playThemePreset(presetId: string, cue: SoundCue, volume: number): boolean {
+  const voice = THEME_SOUND_PRESETS[presetId];
+  if (!voice) return false;
+  const env = getEnvironment?.() ?? null;
+  const c = audioContext();
+  if (!c) return false;
+  if (c.state === "suspended") void c.resume().catch(() => {});
+  const base = env ? masterGain(env.config.volumePct) : 0.5;
+  try {
+    renderRecipe(c, recipeFor(cue, voice, soundQuality(env?.performanceMode ?? "Balanced")), base * Math.min(1, Math.max(0, volume)));
+    return true;
+  } catch (err) {
+    console.warn("sound preview", err);
+    return false;
+  }
 }

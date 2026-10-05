@@ -281,13 +281,13 @@ import type { RunCommandParams } from "./RunCommandParams";
 import type { RunCommandResult } from "./RunCommandResult";
 import type { RunConsensusParams } from "./RunConsensusParams";
 import type { RunIdParams } from "./RunIdParams";
+import type { SaveLayoutParams } from "./SaveLayoutParams";
+import type { SaveThemeParams } from "./SaveThemeParams";
+import type { SaveThemeResult } from "./SaveThemeResult";
 import type { SchedulerExplainParams } from "./SchedulerExplainParams";
 import type { SchedulerExplanation } from "./SchedulerExplanation";
 import type { SchedulerStatus } from "./SchedulerStatus";
 import type { SchedulerStatusParams } from "./SchedulerStatusParams";
-import type { SaveThemeParams } from "./SaveThemeParams";
-import type { SaveThemeResult } from "./SaveThemeResult";
-import type { SaveLayoutParams } from "./SaveLayoutParams";
 import type { SearchFilesParams } from "./SearchFilesParams";
 import type { SearchFilesResult } from "./SearchFilesResult";
 import type { SearchKnowledgeParams } from "./SearchKnowledgeParams";
@@ -956,4 +956,6 @@ export const EVENT_KINDS = [
 ] as const;
 
 /** UI config schema version (see orkestr-protocol ui_config). */
-export const UI_CONFIG_SCHEMA_VERSION = 1;
+export const UI_CONFIG_SCHEMA_VERSION = 2;
+/** Oldest UI config schema version still accepted (upgraded on read). */
+export const UI_CONFIG_MIN_SCHEMA_VERSION = 1;

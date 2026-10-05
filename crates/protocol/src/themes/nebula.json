@@ -25,5 +25,5 @@
       "task.completed": "chime-soft"
     }
   },
-  "robot": { "skin": "orbit", "scale": 1, "accent": null }
+  "robot": { "skin": "nebula", "scale": 1, "accent": null }
 }

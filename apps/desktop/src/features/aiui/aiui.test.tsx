@@ -1,4 +1,6 @@
 import type { Event, PreviewUiPatchResult, UiConfig, UiPatchOp } from "@orkestr/protocol";
+import { UI_CONFIG_SCHEMA_VERSION } from "@orkestr/protocol";
+import { defaultTheme } from "@orkestr/ui";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -11,8 +13,8 @@ import { EMPTY_UNDO, canRedo, canUndo, completeRedo, completeUndo, MAX_UNDO, rec
 // ── fake core ────────────────────────────────────────────
 
 const BASE: UiConfig = {
-  schemaVersion: 1,
-  theme: { id: "nebula", name: "Nebula", mode: "Dark", tokens: {}, effects: { blurPx: 18, glowIntensity: 0.6, panelOpacity: 0.72, animations: true } },
+  schemaVersion: UI_CONFIG_SCHEMA_VERSION,
+  theme: { ...defaultTheme(), id: "nebula", name: "Nebula", mode: "Dark", tokens: {}, effects: { blurPx: 18, glowIntensity: 0.6, panelOpacity: 0.72, animations: true } },
   layout: { preset: "Coding", docking: null },
   performanceMode: "Balanced",
 };

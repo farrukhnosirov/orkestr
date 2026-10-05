@@ -87,7 +87,9 @@ pub fn extension_for(mime: &str) -> &'static str {
 pub fn multipart_body(boundary: &str, fields: &[(&str, &str)], file: (&str, &str, &[u8])) -> (String, Vec<u8>) {
     let mut body = Vec::with_capacity(file.2.len() + 512);
     for (name, value) in fields {
-        body.extend_from_slice(format!("--{boundary}\r\nContent-Disposition: form-data; name=\"{name}\"\r\n\r\n").as_bytes());
+        body.extend_from_slice(
+            format!("--{boundary}\r\nContent-Disposition: form-data; name=\"{name}\"\r\n\r\n").as_bytes(),
+        );
         body.extend_from_slice(value.as_bytes());
         body.extend_from_slice(b"\r\n");
     }
@@ -125,7 +127,8 @@ pub async fn openai_transcribe(
     let model = req.model.unwrap_or_else(|| DEFAULT_STT_MODEL.to_owned());
     let mut fields: Vec<(&str, &str)> = vec![("model", model.as_str()), ("response_format", "json")];
     let lang = req.language.as_deref().map(|l| l.split('-').next().unwrap_or(l).to_ascii_lowercase());
-    if let Some(l) = lang.as_deref().filter(|l| (2..=3).contains(&l.len()) && l.chars().all(|c| c.is_ascii_lowercase())) {
+    if let Some(l) = lang.as_deref().filter(|l| (2..=3).contains(&l.len()) && l.chars().all(|c| c.is_ascii_lowercase()))
+    {
         fields.push(("language", l));
     }
     let boundary = format!("orkestr-{}", uuid_like());

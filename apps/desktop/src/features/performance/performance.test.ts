@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-import { makeParticles, mulberry32 } from "./AmbientField";
 import { motionOffset, scaledTransition } from "./motion";
 import { usePerfStore } from "./perfStore";
 import { FrameBudgetMonitor, PERF_MODES, canDegrade, effectiveMode, resolvePolicy, rootAttributes, applyPolicyToRoot } from "./policy";
@@ -20,7 +19,7 @@ describe("performance policy", () => {
     expect(policies[0]).toMatchObject({ mode: "UltraVisual", robots3d: true, gpuEffects: true, robotFps: 60 });
     expect(policies[1]).toMatchObject({ mode: "Balanced", robots3d: false, gpuEffects: false, blur: true });
     expect(policies[2]).toMatchObject({ mode: "Performance", blur: false, glow: false, motion: "reduced", backgroundAnimation: false });
-    expect(policies[3]).toMatchObject({ mode: "BatterySaver", motion: "off", durationScale: 0, robotFps: 10 });
+    expect(policies[3]).toMatchObject({ mode: "BatterySaver", motion: "off", durationScale: 0, robotFps: 0 });
   });
 
   it("GPU-heavy effects only in Ultra Visual", () => {
@@ -120,10 +119,4 @@ describe("motion system", () => {
     expect([motionOffset("full"), motionOffset("reduced"), motionOffset("off")]).toEqual([10, 4, 0]);
   });
 
-  it("ambient particles are deterministic and inside the unit square", () => {
-    const a = makeParticles(20, mulberry32(7));
-    const b = makeParticles(20, mulberry32(7));
-    expect(a).toEqual(b);
-    expect(a.every((p) => p.x >= 0 && p.x < 1 && p.y >= 0 && p.y < 1 && p.r > 0)).toBe(true);
-  });
 });

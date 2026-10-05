@@ -26,6 +26,8 @@ import { create } from "zustand";
 import { maybeClient } from "../../core/client";
 import { describeError } from "../../i18n/errors";
 import { type RpcQuery, useRpcQuery } from "../../lib/rpcQuery";
+import { mergeMissionRows, missionRowsOf } from "../../features/quality/signals";
+import { useQualityLive } from "../../features/quality/store";
 import { useAppStore } from "../../store/app";
 import { applyAgentEvent, isActive } from "../Agents/model";
 import {
@@ -224,10 +226,9 @@ function startFeed(topics: readonly string[]): () => void {
 
 /** Joins the shared feed while mounted. */
 /**
- * Quality runs published by an external source.
- * INTEGRATOR(P2): when the quality pipeline lands, feed its latest runs here
- * (`setQualityRuns(runs)` after `quality.*` RPC loads / events); `null`
- * returns to the event-derived list. The widget prefers the published list.
+ * Quality runs loaded from the Phase 2 quality runner (`quality.runs`, see
+ * `useMissionQualityBridge`); merged with the rows derived from live
+ * `Build*` / `TestRunFinished` events (same `<runId>:<checkId>` ids).
  */
 export const useQualityRunsStore = create<{ runs: QualityRun[] | null }>()(() => ({ runs: null }));
 
@@ -259,7 +260,7 @@ export function useMissionFeed(): Pick<FeedState, "alerts" | "quality" | "loaded
   const alerts = useFeedStore((s) => s.alerts);
   const derived = useFeedStore((s) => s.quality);
   const published = useQualityRunsStore((s) => s.runs);
-  const quality = published ?? derived;
+  const quality = useMemo(() => (published ? mergeMissionRows(derived, published) : derived), [derived, published]);
   const loaded = useFeedStore((s) => s.loaded);
   return { alerts, quality, loaded };
 }
@@ -319,4 +320,13 @@ export function useMiniGraph(projectId: string | null): MiniGraph {
   );
   const graph = q.data?.graph ? focusGraph(q.data.graph, q.data.run) : null;
   return { graph, run: q.data?.run ?? null, loading: q.loading, error: q.error };
+}
+
+/** Publishes the focus project's quality-runner runs to the Builds & tests widget while mounted. */
+export function useMissionQualityBridge(projectId: string | null): void {
+  const { runs } = useQualityLive(projectId);
+  useEffect(() => {
+    setQualityRuns(projectId ? missionRowsOf(runs) : null);
+  }, [projectId, runs]);
+  useEffect(() => () => setQualityRuns(null), []);
 }

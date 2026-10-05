@@ -3,13 +3,10 @@
  * theme overrides to the DOM — data only, never code (§29).
  *
  * Root contract: `data-ok-density` (`comfortable|compact`) on `<html>`, and
- * `--ok-bg-dim` (0..0.9). Theme token / effect overrides of the stored
- * configuration are written as CSS variables on `<body>`, so they layer over
- * the built-in theme applied to `<html>` without fighting it.
- *
- * INTEGRATOR(P3 theme-engine): once the theme engine applies
- * `UiConfig.theme` itself, drop `applyThemeOverlay` and route previews
- * through it.
+ * `--ok-bg-dim` (0..0.9). The stored theme is applied by the theme engine
+ * (`ui.getConfig` → `useThemeEngine`, the same document `ui.applyPatch`
+ * writes); `applyThemeOverlay` only layers a proposal's token / effect
+ * changes on `<body>` while its live preview is shown.
  */
 import type { PanelSide, ThemeEffects, UiConfig, UiPrefs } from "@orkestr/protocol";
 import { isValidTokenName, isValidTokenValue } from "@orkestr/ui";

@@ -45,7 +45,10 @@ impl Rect {
     fn contains(&self, x: i32, y: i32) -> bool {
         let right = i64::from(self.x) + i64::from(self.w);
         let bottom = i64::from(self.y) + i64::from(self.h);
-        i64::from(x) >= i64::from(self.x) && i64::from(x) < right && i64::from(y) >= i64::from(self.y) && i64::from(y) < bottom
+        i64::from(x) >= i64::from(self.x)
+            && i64::from(x) < right
+            && i64::from(y) >= i64::from(self.y)
+            && i64::from(y) < bottom
     }
 }
 
@@ -53,7 +56,12 @@ impl Rect {
 /// window (its top-left 48×48 px) is on a monitor, otherwise the top-right
 /// corner of `primary` with a margin.
 #[must_use]
-pub fn resolve_position(saved: Option<HudPosition>, monitors: &[Rect], primary: Option<Rect>, size: (u32, u32)) -> Option<HudPosition> {
+pub fn resolve_position(
+    saved: Option<HudPosition>,
+    monitors: &[Rect],
+    primary: Option<Rect>,
+    size: (u32, u32),
+) -> Option<HudPosition> {
     if let Some(p) = saved {
         if monitors.iter().any(|m| m.contains(p.x + 24, p.y + 24)) {
             return Some(p);

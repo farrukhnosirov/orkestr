@@ -6,6 +6,9 @@
 import type { ThemeConfig, UiConfigIssue } from "@orkestr/protocol";
 import { isBuiltinTheme, isValidTokenName, normalizeTheme, plainNumber, validateTheme } from "@orkestr/ui";
 
+import { SKIN_IDS } from "../robots/model/design";
+import { THEME_SOUND_EVENTS, THEME_SOUND_PRESETS } from "../sound/recipes";
+
 // ---------------------------------------------------------------------------
 // Token groups shown by the editor (labels: `theme:tokens.<token>`)
 // ---------------------------------------------------------------------------
@@ -134,23 +137,14 @@ export const SHADOW_PRESETS: Readonly<Record<ShadowPreset, Record<string, string
   },
 };
 
-/** Sound events the theme can map (§33). INTEGRATOR(voice-sound): keep in sync with the Sound Engine's event keys. */
-export const SOUND_EVENTS: readonly string[] = [
-  "wake",
-  "task.started",
-  "task.completed",
-  "agent.error",
-  "approval.requested",
-  "build.failed",
-  "deploy.finished",
-  "alert",
-];
+/** Sound events the theme can map (§33) — the Sound Engine's catalogue. */
+export const SOUND_EVENTS: readonly string[] = Object.keys(THEME_SOUND_EVENTS);
 
-/** Sound preset ids. INTEGRATOR(voice-sound): replace with the Sound Engine's preset catalogue. */
-export const SOUND_PRESETS: readonly string[] = ["none", "chime-soft", "chime-bright", "ping", "pulse", "thud", "alert-soft", "alert-strong", "whoosh"];
+/** Sound preset ids — the Sound Engine's theme preset catalogue. */
+export const SOUND_PRESETS: readonly string[] = Object.keys(THEME_SOUND_PRESETS);
 
-/** Robot skin ids. INTEGRATOR(robots): replace with the Robot Designer's skin catalogue. */
-export const ROBOT_SKINS: readonly string[] = ["orbit", "pixel", "nova", "drone"];
+/** Robot skin ids — the Robot Designer's skin catalogue. */
+export const ROBOT_SKINS: readonly string[] = SKIN_IDS;
 
 // ---------------------------------------------------------------------------
 // Scales

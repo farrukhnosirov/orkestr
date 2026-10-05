@@ -89,7 +89,13 @@ pub struct WakeWordConfig {
 
 impl Default for WakeWordConfig {
     fn default() -> Self {
-        Self { enabled: false, phrase: "Jarvis".into(), sensitivity: 50, cpu_budget_pct: 2, pause_on_battery_saver: true }
+        Self {
+            enabled: false,
+            phrase: "Jarvis".into(),
+            sensitivity: 50,
+            cpu_budget_pct: 2,
+            pause_on_battery_saver: true,
+        }
     }
 }
 
@@ -588,7 +594,8 @@ mod tests {
     #[test]
     fn missing_and_unknown_fields_default() {
         let c: VoiceConfig =
-            serde_json::from_str(r#"{"wake": {"enabled": true}, "futureField": 1, "sound": {"volumePct": 10}}"#).unwrap();
+            serde_json::from_str(r#"{"wake": {"enabled": true}, "futureField": 1, "sound": {"volumePct": 10}}"#)
+                .unwrap();
         assert!(c.wake.enabled);
         assert_eq!(c.wake.phrase, "Jarvis");
         assert_eq!(c.sound.volume_pct, 10);
@@ -610,7 +617,9 @@ mod tests {
     #[test]
     fn validation_rejects_bad_values() {
         assert!(is_clock_time("00:00") && is_clock_time("23:59"));
-        assert!(!is_clock_time("24:00") && !is_clock_time("7:00") && !is_clock_time("12:60") && !is_clock_time("ab:cd"));
+        assert!(
+            !is_clock_time("24:00") && !is_clock_time("7:00") && !is_clock_time("12:60") && !is_clock_time("ab:cd")
+        );
         let bad = |f: &dyn Fn(&mut VoiceConfig)| {
             let mut c = VoiceConfig::default();
             f(&mut c);

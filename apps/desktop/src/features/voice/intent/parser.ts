@@ -26,6 +26,7 @@ export type PanelTarget =
   | "memory"
   | "costs"
   | "monitoring"
+  | "missionControl"
   | "settings";
 
 export interface ProjectRef {
@@ -74,7 +75,8 @@ export function parseConfirmation(utterance: string, wakePhrases: readonly strin
 }
 
 const PANEL_WORDS: ReadonlyArray<readonly [PanelTarget, readonly string[]]> = [
-  ["monitoring", ["mission control", "центр управления", "мониторинг", "monitoring", "dashboard", "дашборд"]],
+  ["missionControl", ["mission control", "центр управления", "миссия контроль", "dashboard", "дашборд"]],
+  ["monitoring", ["мониторинг", "monitoring"]],
   ["manager", ["manager", "менеджер", "менеджера", "чат", "chat", "ai manager"]],
   ["code", ["code", "editor", "код", "редактор"]],
   ["files", ["files", "file tree", "файлы", "файл", "проводник"]],

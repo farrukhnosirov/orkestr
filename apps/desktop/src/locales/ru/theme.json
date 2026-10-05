@@ -195,7 +195,8 @@
     "applyJson": "Применить JSON",
     "refreshJson": "Обновить из редактора",
     "copyJson": "Копировать",
-    "copied": "Скопировано"
+    "copied": "Скопировано",
+    "soundPreview": "Прослушать звук: {{event}}"
   },
   "groups": {
     "backgrounds": "Слои фона",
@@ -327,9 +328,13 @@
     "whoosh": "Свист"
   },
   "robotSkins": {
-    "orbit": "Орбита",
-    "pixel": "Пиксель",
-    "nova": "Нова",
-    "drone": "Дрон"
+    "nebula": "Туманность",
+    "ember": "Уголёк",
+    "mint": "Мята",
+    "chrome": "Хром",
+    "sakura": "Сакура",
+    "obsidian": "Обсидиан",
+    "sunrise": "Рассвет",
+    "glacier": "Ледник"
   }
 }

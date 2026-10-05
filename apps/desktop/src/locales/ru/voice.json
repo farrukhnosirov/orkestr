@@ -120,7 +120,11 @@
     "testsFailed_one": "Падает {{count}} тест.",
     "testsFailed_few": "Падают {{count}} теста.",
     "testsFailed_many": "Падают {{count}} тестов.",
-    "testsFailed_other": "Падают {{count}} теста."
+    "testsFailed_other": "Падают {{count}} теста.",
+    "openReviews_one": "Открыто {{count}} ревью.",
+    "openReviews_few": "Открыто {{count}} ревью.",
+    "openReviews_many": "Открыто {{count}} ревью.",
+    "openReviews_other": "Открыто {{count}} ревью."
   },
   "confirm": {
     "stopProject": "Остановить всю работу AI в проекте {{name}}?",

@@ -166,6 +166,9 @@
     "reviewChanges_other": "Review: {{count}} changes requested",
     "reviewRejected": "Review rejected",
     "buildSucceeded": "Build succeeded ✓",
-    "buildFailed": "Build failed"
+    "buildFailed": "Build failed",
+    "testsFailedAny": "Tests failed",
+    "securityFindings_one": "Security review: {{count}} finding",
+    "securityFindings_other": "Security review: {{count}} findings"
   }
 }

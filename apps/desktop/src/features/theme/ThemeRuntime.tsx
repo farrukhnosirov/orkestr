@@ -10,6 +10,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { create } from "zustand";
 
 import { useAppStore } from "../../store/app";
+import { usePerfStore } from "../performance/perfStore";
 import { useSettingsStore } from "../settings/settingsStore";
 import { type SceneHandle, type SceneParams, runScene, scenePalette } from "./backgrounds/scene";
 import { activeTheme, useThemeStore } from "./themeStore";
@@ -42,7 +43,12 @@ export function useThemeEngine(ready: boolean): void {
   const theme = useThemeStore(activeTheme);
   const settingsMode = useSettingsStore((s) => s.settings?.performanceMode);
   const configMode = useThemeStore((s) => s.config?.performanceMode);
-  const performanceMode: PerformanceMode = settingsMode ?? configMode ?? "Balanced";
+  // The perf store's effective mode (battery / frame-budget auto-switching)
+  // wins once it follows the settings; before the first settings load fall
+  // back to the stored choice.
+  const perfMode = usePerfStore((s) => s.mode);
+  const perfReady = useSettingsStore((s) => s.settings !== null);
+  const performanceMode: PerformanceMode = perfReady ? perfMode : (settingsMode ?? configMode ?? "Balanced");
   const reducedMotion = useReducedMotion();
 
   useLayoutEffect(() => {
@@ -120,7 +126,10 @@ export function BackgroundCanvas({ visuals, className }: { visuals: EffectiveVis
 
 /** The app background (replaces the static `.app__backdrop`). */
 export function ThemeBackdrop() {
-  const visuals = useVisualsStore((s) => s.visuals);
+  const applied = useVisualsStore((s) => s.visuals);
+  // Hidden / minimized window: freeze the scene (one static frame).
+  const paused = usePerfStore((s) => s.policy.paused);
+  const visuals = applied && paused ? { ...applied, background: { ...applied.background, animated: false } } : applied;
   return (
     <div className="app__backdrop" aria-hidden="true">
       {visuals && <BackgroundCanvas visuals={visuals} className="ok-backdrop__canvas" />}

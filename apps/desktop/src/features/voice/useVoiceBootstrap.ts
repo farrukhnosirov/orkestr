@@ -12,12 +12,15 @@ import { t } from "../../i18n";
 import { useAppStore } from "../../store/app";
 import { useSettingsStore } from "../settings/settingsStore";
 import { notificationTopics } from "../settings/useShellBootstrap";
+import { usePerfStore } from "../performance/perfStore";
 import { configureSound, playSound } from "../sound/engine";
-import { assistantOptions, speakAsAgent } from "./agentVoices";
+import { activeTheme, useThemeStore } from "../theme/themeStore";
+import { assistantOptions, robotVoiceFor, speakAsAgent } from "./agentVoices";
 import { shutdownVoice, startListening, stopListening, syncWakeListener } from "./controller";
 import { isHoldEnd, isHoldStart, parseHotkey } from "./hotkey";
 import { noticeFromEvent, phraseId, PhraseLimiter, speakDecision } from "./notify/policy";
 import { useVoiceStore } from "./store";
+import { startVoiceBroadcast } from "./ui/voiceBridge";
 
 /** Events older than this (replays after reconnect) are never announced. */
 const MAX_EVENT_AGE_MS = 60_000;
@@ -39,6 +42,8 @@ function announce(ev: Event): void {
     now: new Date(),
   });
   if (decision !== "speak") return;
+  // A robot with its voice on speaks for its agent (RobotHost).
+  if (robotVoiceFor(n.agentId ?? null)?.enabled) return;
   // Never talk over the user or a reply in progress.
   if (v.phase !== "idle" || v.speaking) return;
   if (!limiter.admit(n.id, Date.now())) return;
@@ -59,8 +64,9 @@ export function useVoiceBootstrap(ready: boolean): void {
       return {
         config: c.sound,
         doNotDisturb: s?.doNotDisturb ?? false,
-        performanceMode: s?.performanceMode ?? "Balanced",
+        performanceMode: usePerfStore.getState().mode,
         themeId: useAppStore.getState().themeId,
+        themeSounds: activeTheme(useThemeStore.getState()).sounds,
       };
     });
     void useVoiceStore
@@ -70,11 +76,13 @@ export function useVoiceBootstrap(ready: boolean): void {
     const offVoice = useVoiceStore.subscribe((s, prev) => {
       if (s.config !== prev.config) void syncWakeListener();
     });
+    const offBridge = startVoiceBroadcast();
     const offSettings = useSettingsStore.subscribe((s, prev) => {
       if (s.settings?.performanceMode !== prev.settings?.performanceMode) void syncWakeListener();
     });
     return () => {
       offVoice();
+      offBridge();
       offSettings();
       configureSound(() => null);
       shutdownVoice();

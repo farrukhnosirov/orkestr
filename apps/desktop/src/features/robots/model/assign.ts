@@ -5,8 +5,8 @@
  * robot's template as a new agent in the target project; the original agent
  * keeps running where it is.
  *
- * INTEGRATOR(P2): if Phase 2 (teams/PM) adds `agents.assign {agentId,
- * projectId}`, switch the "spawn" plan to it.
+ * Phase 2 added `teams.assign`, which assigns a whole Agent Team to a
+ * project; a single agent instance still cannot move, so "spawn" stays.
  */
 export type AssignPlan =
   | { kind: "spawn"; templateId: string; projectId: string }

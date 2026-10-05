@@ -15,6 +15,7 @@ import type {
   ThemeSounds,
   UiConfig,
   UiConfigIssue,
+  UiPrefs,
 } from "@orkestr/protocol";
 import {
   MAX_BACKGROUND_COLORS,
@@ -22,6 +23,7 @@ import {
   MAX_TOKENS,
   THEME_FILE_FORMAT,
   THEME_SCHEMA_VERSION,
+  UI_CONFIG_MIN_SCHEMA_VERSION,
   UI_CONFIG_SCHEMA_VERSION,
 } from "@orkestr/protocol";
 
@@ -39,7 +41,7 @@ export const DEFAULT_BACKGROUND: Readonly<ThemeBackground> = {
 };
 export const DEFAULT_MOTION: Readonly<ThemeMotion> = { intensity: 1, speed: 1 };
 export const DEFAULT_SOUNDS: Readonly<ThemeSounds> = { enabled: true, volume: 0.6, events: {} };
-export const DEFAULT_ROBOT: Readonly<ThemeRobotDefaults> = { skin: "orbit", scale: 1, accent: null };
+export const DEFAULT_ROBOT: Readonly<ThemeRobotDefaults> = { skin: "nebula", scale: 1, accent: null };
 
 const PERFORMANCE_MODES: readonly PerformanceMode[] = ["UltraVisual", "Balanced", "Performance", "BatterySaver"];
 const BACKGROUND_KINDS: readonly ThemeBackground["kind"][] = ["Solid", "Gradient", "Nebula", "Grid", "Particles"];
@@ -170,15 +172,48 @@ export function validateTheme(theme: ThemeConfig): UiConfigIssue[] {
   return issues;
 }
 
+/** Max entries in `UiPrefs.panels` (mirrors `MAX_PANEL_PREFS`). */
+export const MAX_PANEL_PREFS = 64;
+/** Max entries in `UiPrefs.hiddenWidgets` (mirrors `MAX_HIDDEN_WIDGETS`). */
+export const MAX_HIDDEN_WIDGETS = 128;
+
+/** Panel / widget id grammar `^[a-z][A-Za-z0-9.-]{0,63}` + end (mirrors `is_valid_ui_id`). */
+export function isValidUiId(id: string): boolean {
+  return /^[a-z][A-Za-z0-9.-]{0,63}$/.test(id);
+}
+
+/** Validates shell preferences — mirrors `UiPrefs::validate_into` rule for rule. */
+export function validatePrefs(prefs: Partial<UiPrefs>): UiConfigIssue[] {
+  const issues: UiConfigIssue[] = [];
+  const push = (path: string, message: string) => issues.push({ path, message });
+  const panels = prefs.panels ?? {};
+  const panelIds = Object.keys(panels);
+  if (panelIds.length > MAX_PANEL_PREFS) push("prefs.panels", "too many panel entries");
+  for (const id of panelIds) if (!isValidUiId(id)) push(`prefs.panels.${id}`, "invalid panel id");
+  const hidden = prefs.hiddenWidgets ?? [];
+  if (hidden.length > MAX_HIDDEN_WIDGETS) push("prefs.hiddenWidgets", "too many hidden widgets");
+  hidden.forEach((id, i) => {
+    if (!isValidUiId(id)) push(`prefs.hiddenWidgets.${i}`, "invalid widget id");
+  });
+  if (!inRange(prefs.backgroundDim ?? 0, 0, 0.9)) push("prefs.backgroundDim", "must be between 0 and 0.9");
+  if (!inRange(prefs.hud?.opacity ?? 0.82, 0.4, 1)) push("prefs.hud.opacity", "must be between 0.4 and 1");
+  return issues;
+}
+
 /** Validates a whole UI config document. */
 export function validateUiConfig(input: unknown): { ok: true; config: UiConfig } | { ok: false; issues: UiConfigIssue[] } {
   if (!isObj(input)) return { ok: false, issues: [{ path: "", message: "must be an object" }] };
   const cfg = input as unknown as UiConfig;
   const issues: UiConfigIssue[] = [];
-  if (cfg.schemaVersion !== UI_CONFIG_SCHEMA_VERSION) {
+  if (
+    typeof cfg.schemaVersion !== "number" ||
+    !Number.isInteger(cfg.schemaVersion) ||
+    cfg.schemaVersion < UI_CONFIG_MIN_SCHEMA_VERSION ||
+    cfg.schemaVersion > UI_CONFIG_SCHEMA_VERSION
+  ) {
     issues.push({
       path: "schemaVersion",
-      message: `unsupported schema version ${String(cfg.schemaVersion)} (expected ${UI_CONFIG_SCHEMA_VERSION})`,
+      message: `unsupported schema version ${String(cfg.schemaVersion)} (expected ${UI_CONFIG_MIN_SCHEMA_VERSION}..=${UI_CONFIG_SCHEMA_VERSION})`,
     });
   }
   if (!isObj(cfg.theme)) issues.push({ path: "theme", message: "required" });
@@ -189,6 +224,7 @@ export function validateUiConfig(input: unknown): { ok: true; config: UiConfig }
   if (cfg.layout?.docking != null && JSON.stringify(cfg.layout.docking).length > 256 * 1024) {
     issues.push({ path: "layout.docking", message: "docking layout too large (max 256 KiB)" });
   }
+  if (cfg.prefs != null) issues.push(...validatePrefs(cfg.prefs));
   return issues.length === 0 ? { ok: true, config: cfg } : { ok: false, issues };
 }
 

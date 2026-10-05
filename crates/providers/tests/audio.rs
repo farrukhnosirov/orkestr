@@ -32,10 +32,11 @@ async fn handler(State(m): State<Mock>, uri: Uri, headers: HeaderMap, body: Byte
         return (StatusCode::from_u16(status).unwrap(), r#"{"error":{"message":"nope"}}"#).into_response();
     }
     match uri.path() {
-        "/v1/audio/transcriptions" => {
-            ([("content-type", "application/json")], json!({"text": " Jarvis, what is up? ", "language": "english"}).to_string())
-                .into_response()
-        }
+        "/v1/audio/transcriptions" => (
+            [("content-type", "application/json")],
+            json!({"text": " Jarvis, what is up? ", "language": "english"}).to_string(),
+        )
+            .into_response(),
         "/v1/audio/speech" => ([("content-type", "audio/mpeg")], vec![0xFF_u8, 0xFB, 0x90, 0x00]).into_response(),
         _ => (StatusCode::NOT_FOUND, "").into_response(),
     }

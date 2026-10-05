@@ -11,6 +11,8 @@ import { stopAllAi } from "../../commands/coreCommands";
 import { resolveApproval } from "../../security/store";
 import { useSecurityStore } from "../../security/store";
 import { useSettingsStore } from "../../settings/settingsStore";
+import { startRun } from "../../quality/store";
+import { buildErrorsOf, fetchReviews, fetchRuns, openReviewCount, qualityFactsOf } from "../../quality/signals";
 import type { BuildError, VoiceDeps } from "./executor";
 import { EMPTY_QUALITY, type QualitySnapshot } from "./summary";
 
@@ -24,8 +26,33 @@ async function buildErrorsFromLog(projectId: string): Promise<BuildError[]> {
   return out.sort((a, b) => b.at.localeCompare(a.at));
 }
 
+/**
+ * Build failures: the quality runner's failed build / typecheck checks (with
+ * the first diagnostic), falling back to `BuildFailed` events of the log.
+ */
+async function buildErrors(projectId: string): Promise<BuildError[]> {
+  try {
+    const errors = buildErrorsOf(await fetchRuns(projectId));
+    if (errors.length > 0) return errors;
+  } catch (e) {
+    console.debug("quality.runs unavailable; using the event log", e);
+  }
+  return buildErrorsFromLog(projectId);
+}
+
+/** Phase 2 quality: latest build / tests from the quality runner + open reviews. */
+async function quality(projectId: string): Promise<QualitySnapshot> {
+  const [runs, reviews] = await Promise.all([fetchRuns(projectId).catch(() => null), fetchReviews(projectId).catch(() => null)]);
+  const facts = runs ? qualityFactsOf(runs) : null;
+  const fromLog = !facts || (!facts.lastBuild && !facts.lastTests) ? await qualityFromLog(projectId) : EMPTY_QUALITY;
+  return {
+    lastBuild: facts?.lastBuild ?? fromLog.lastBuild,
+    lastTests: facts?.lastTests ?? fromLog.lastTests,
+    openReviews: reviews ? openReviewCount(reviews) : null,
+  };
+}
+
 async function qualityFromLog(projectId: string): Promise<QualitySnapshot> {
-  // INTEGRATOR(P2): replace with the quality pipeline's latest build/test/review state.
   const r = await getClient().call("events.replay", { topics: [topic.project(projectId)], newestFirst: true, limit: 300 });
   let lastBuild: QualitySnapshot["lastBuild"] = null;
   let lastTests: QualitySnapshot["lastTests"] = null;
@@ -58,8 +85,12 @@ export function realVoiceDeps(): VoiceDeps {
       const r = await getClient().call("manager.chat", { projectId, text });
       return { replyMessageId: r.replyMessageId };
     },
-    buildErrors: buildErrorsFromLog,
-    quality: qualityFromLog,
-    // INTEGRATOR(P2): runQa: (projectId) => getClient().call("quality.run", { projectId, … })
+    buildErrors,
+    quality,
+    // QA through the Phase 2 quality runner (the project's enabled checks).
+    runQa: async (projectId) => {
+      await startRun(projectId);
+      workspaceActions.openPanel("tasks");
+    },
   };
 }

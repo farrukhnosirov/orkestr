@@ -424,7 +424,8 @@ pub fn window_redock_panel(
 #[tauri::command]
 pub fn window_list_panels(app: AppHandle, state: tauri::State<'_, PanelWindows>) -> Result<Vec<WindowInfo>, String> {
     let open = state.open.lock().map_err(|_| "window state poisoned".to_owned())?.clone();
-    let mut list: Vec<WindowInfo> = open.iter().filter_map(|(label, meta)| window_info(&app, label, Some(meta))).collect();
+    let mut list: Vec<WindowInfo> =
+        open.iter().filter_map(|(label, meta)| window_info(&app, label, Some(meta))).collect();
     list.sort_by(|a, b| a.label.cmp(&b.label));
     Ok(list)
 }
@@ -544,8 +545,9 @@ mod tests {
 
     #[test]
     fn places_on_the_requested_monitor() {
-        let p = resolve_placement(&setup(), Some("DISPLAY2"), Some(Rect { x: 100, y: 50, width: 800, height: 600 }), 0.6)
-            .unwrap();
+        let p =
+            resolve_placement(&setup(), Some("DISPLAY2"), Some(Rect { x: 100, y: 50, width: 800, height: 600 }), 0.6)
+                .unwrap();
         assert_eq!(p.monitor, "DISPLAY2");
         assert!(!p.fell_back);
         assert_eq!(p.absolute, Rect { x: 2020, y: 50, width: 800, height: 600 });
@@ -554,8 +556,13 @@ mod tests {
 
     #[test]
     fn falls_back_to_primary_when_monitor_is_gone_and_clamps() {
-        let p = resolve_placement(&setup(), Some("DISPLAY3"), Some(Rect { x: 2000, y: 900, width: 2500, height: 600 }), 0.6)
-            .unwrap();
+        let p = resolve_placement(
+            &setup(),
+            Some("DISPLAY3"),
+            Some(Rect { x: 2000, y: 900, width: 2500, height: 600 }),
+            0.6,
+        )
+        .unwrap();
         assert_eq!(p.monitor, "DISPLAY1");
         assert!(p.fell_back);
         // Width clamped to the work area, position clamped inside it.
@@ -575,7 +582,8 @@ mod tests {
 
     #[test]
     fn tiny_bounds_grow_to_the_minimum() {
-        let p = resolve_placement(&setup(), Some("DISPLAY1"), Some(Rect { x: 5, y: 5, width: 10, height: 10 }), 0.6).unwrap();
+        let p = resolve_placement(&setup(), Some("DISPLAY1"), Some(Rect { x: 5, y: 5, width: 10, height: 10 }), 0.6)
+            .unwrap();
         assert_eq!((p.absolute.width, p.absolute.height), (MIN_W, MIN_H));
     }
 

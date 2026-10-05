@@ -1,11 +1,11 @@
 /**
  * Environment of a robot window: connects to the core (same `core_connection`
- * as the main window), mirrors the settings it needs — Performance Mode,
- * language, theme — and keeps them live via `SettingsChanged`.
+ * as the main window), mirrors the settings it needs — Performance Mode and
+ * language — and keeps them live via `SettingsChanged`. The theme (tokens the
+ * robots are drawn with) comes from the shared theme engine (`RobotApp`).
  */
 import type { AppSettings, Event, PerformanceMode } from "@orkestr/protocol";
 import { TOPIC_GLOBAL } from "@orkestr/protocol";
-import { applyTheme, BUILTIN_THEMES } from "@orkestr/ui";
 import { useEffect, useState } from "react";
 
 import { bootstrapCore, maybeClient } from "../../../core/client";
@@ -19,14 +19,6 @@ export interface RobotEnv {
 
 function applySettings(s: AppSettings): void {
   if (s.language !== languagePreference()) void applyLanguagePreference(s.language);
-  const theme = BUILTIN_THEMES[s.themeId] ?? BUILTIN_THEMES["nebula"];
-  if (theme) {
-    try {
-      applyTheme(theme);
-    } catch (e) {
-      console.warn("robot theme", e);
-    }
-  }
 }
 
 export function useRobotEnv(): RobotEnv {

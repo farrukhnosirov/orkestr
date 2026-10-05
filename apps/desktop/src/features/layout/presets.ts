@@ -49,12 +49,13 @@ export interface BuiltinPreset {
   spread: readonly MonitorHint[];
 }
 
-// INTEGRATOR(P3 mission-control): the Mission Control panel id. Slots with it
-// are skipped until that panel is registered.
+/** The Mission Control panel id (slots with an unregistered panel are skipped). */
 export const MISSION_CONTROL_PANEL = "missionControl";
-// INTEGRATOR(P2): the code review panel of Phase 2 (reviews / merge status).
-// Slots with it are skipped until that panel is registered.
-export const REVIEW_PANEL = "reviews";
+/**
+ * Where Phase 2 review / merge status lives: the Git panel (Merge Manager
+ * tab); per-task code and security reviews are in the task drawer.
+ */
+export const REVIEW_PANEL = "git";
 
 const CODING: BuiltinPreset = {
   id: "coding",
@@ -151,9 +152,8 @@ const REVIEW: BuiltinPreset = {
   shortcut: "Ctrl+5",
   slots: [
     { panel: REVIEW_PANEL },
-    { panel: "git", position: { referencePanel: REVIEW_PANEL, direction: "within" } },
-    { panel: "code", position: { referencePanel: "git", direction: "right" } },
-    { panel: "tasks", position: { referencePanel: "git", direction: "left" } },
+    { panel: "code", position: { referencePanel: REVIEW_PANEL, direction: "right" } },
+    { panel: "tasks", position: { referencePanel: REVIEW_PANEL, direction: "left" } },
     { panel: "logs", position: { referencePanel: "code", direction: "below" } },
     { panel: "terminal", position: { referencePanel: "logs", direction: "within" } },
   ],
@@ -162,7 +162,7 @@ const REVIEW: BuiltinPreset = {
     { panel: "code", width: 0.45 },
     { panel: "logs", height: 0.28 },
   ],
-  focus: [REVIEW_PANEL, "git"],
+  focus: [REVIEW_PANEL],
   spread: [{ panel: "code", monitor: 2 }],
 };
 

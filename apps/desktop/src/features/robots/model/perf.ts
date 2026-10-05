@@ -6,14 +6,15 @@
  */
 import type { PerformanceMode } from "@orkestr/protocol";
 
+import { PERF_MODES, resolvePolicy } from "../../performance/policy";
 import type { RobotState } from "./states";
 
-export const FPS_BY_MODE: Readonly<Record<PerformanceMode, number>> = {
-  UltraVisual: 60,
-  Balanced: 30,
-  Performance: 15,
-  BatterySaver: 0,
-};
+const STEADY = { reducedMotion: false, hidden: false };
+
+/** Robot frame-rate caps — the central Performance Mode table (`policy.ts`). */
+export const FPS_BY_MODE: Readonly<Record<PerformanceMode, number>> = Object.fromEntries(
+  PERF_MODES.map((m) => [m, resolvePolicy(m, STEADY).robotFps]),
+) as Record<PerformanceMode, number>;
 
 export interface FpsInput {
   mode: PerformanceMode;
@@ -49,10 +50,11 @@ export interface RobotEffects {
 }
 
 export function robotEffects(mode: PerformanceMode, reducedMotion: boolean): RobotEffects {
+  const p = resolvePolicy(mode, STEADY);
   return {
-    glow: mode === "UltraVisual" || mode === "Balanced",
-    particles: !reducedMotion && mode !== "BatterySaver",
-    threeD: mode === "UltraVisual" && !reducedMotion,
+    glow: p.glow,
+    particles: !reducedMotion && p.motion !== "off",
+    threeD: p.robots3d && !reducedMotion,
   };
 }
 

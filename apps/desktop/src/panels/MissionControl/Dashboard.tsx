@@ -8,7 +8,9 @@ import { useFormat, useT } from "../../i18n";
 import { useAppStore } from "../../store/app";
 import { SIZE_COLUMNS, type WidgetPlacement } from "./arrangement";
 import { MissionContext, type MissionContextValue } from "./context";
-import { useDashboardSnapshot } from "./data";
+import { useUiPrefs } from "../../features/aiui/aiuiStore";
+import { isWidgetHidden } from "../../features/aiui/prefs";
+import { useDashboardSnapshot, useMissionQualityBridge } from "./data";
 import { useMissionControlStore } from "./store";
 import { useVisualBudget } from "./visual";
 import { getWidget } from "./widgets/registry";
@@ -95,6 +97,16 @@ function WidgetFrame({ placement, dragOver, onDragOverId }: { placement: WidgetP
   );
 }
 
+/** UI-preference ids that hide a widget: `missionControl.<id>` plus the Manager's chart names. */
+const WIDGET_PREF_ALIASES: Readonly<Record<string, readonly string[]>> = {
+  budgets: ["missionControl.costChart", "missionControl.tokenChart"],
+  nodes: ["missionControl.resources"],
+};
+
+export function widgetPrefIds(id: string): string[] {
+  return [`missionControl.${id}`, ...(WIDGET_PREF_ALIASES[id] ?? [])];
+}
+
 /** The Mission Control dashboard (panel body and full-screen view). */
 export function MissionDashboard({ variant }: { variant: "panel" | "fullscreen" }) {
   const { t } = useT("missionControl");
@@ -120,7 +132,11 @@ export function MissionDashboard({ variant }: { variant: "panel" | "fullscreen" 
     () => ({ snapshot, budget, focusProjectId, setFocusProjectId: setPickedProject }),
     [snapshot, budget, focusProjectId],
   );
-  const visible = arrangement.widgets.filter((w) => !w.hidden && getWidget(w.id));
+  useMissionQualityBridge(focusProjectId);
+  const prefs = useUiPrefs();
+  // The AI-editable UI (§29) hides widgets by id; aliases cover the names the Manager uses.
+  const prefHidden = (id: string) => widgetPrefIds(id).some((pid) => isWidgetHidden(prefs, pid));
+  const visible = arrangement.widgets.filter((w) => !w.hidden && !prefHidden(w.id) && getWidget(w.id));
   const hidden = arrangement.widgets.filter((w) => w.hidden && getWidget(w.id));
   const live = snapshot.data && !snapshot.error;
 

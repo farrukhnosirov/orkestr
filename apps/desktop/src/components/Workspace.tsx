@@ -11,7 +11,7 @@ import {
   type IWatermarkPanelProps,
 } from "dockview-react";
 import { X } from "lucide-react";
-import { type FunctionComponent, useCallback, useEffect, useRef } from "react";
+import { type FunctionComponent, useEffect, useRef } from "react";
 
 import * as layout from "../features/layout/controller";
 import { GroupActions } from "../features/layout/GroupActions";

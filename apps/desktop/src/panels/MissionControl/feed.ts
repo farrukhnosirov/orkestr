@@ -23,6 +23,9 @@ export type AlertKind =
   | "emergency"
   | "approval"
   | "reviewFindings"
+  | "securityFindings"
+  | "mergeConflict"
+  | "mergeFailed"
   | "coreError";
 
 export type AlertSeverity = "critical" | "warning" | "info";
@@ -91,8 +94,24 @@ export function alertFromEvent(ev: Event): Alert | null {
       if (risk !== "High" && risk !== "Critical") return null;
       return base(ev, "approval", risk === "Critical" ? "critical" : "warning", { risk }, ev.payload.approval.actionSummary);
     }
+    case "ReviewUpdated": {
+      // Adversarial (security) reviews of the quality pipeline: one alert per finished review.
+      const r = ev.payload.review;
+      if (r.kind !== "Adversarial" || r.status !== "Finished" || r.findings.length === 0) return null;
+      const severe = r.findings.some((f) => f.severity === "Critical" || f.severity === "High");
+      return { ...base(ev, "securityFindings", severe ? "critical" : "warning", { count: r.findings.length }, r.summary || null), id: `review:${r.id}` };
+    }
+    case "MergeProposalUpdated": {
+      const p = ev.payload.proposal;
+      if (p.status === "Conflicted") {
+        return { ...base(ev, "mergeConflict", "warning", { target: p.target, count: p.conflicts.length }, p.statusDetail ?? null), id: `merge:${p.id}:Conflicted` };
+      }
+      if (p.status === "Failed") {
+        return { ...base(ev, "mergeFailed", "critical", { target: p.target }, p.statusDetail ?? null), id: `merge:${p.id}:Failed` };
+      }
+      return null;
+    }
     case "ReviewFinished":
-      // INTEGRATOR(P2): security findings get their own event kind in the quality pipeline; map it here.
       return ev.payload.verdict === "Rejected" || ev.payload.verdict === "ChangesRequested"
         ? base(ev, "reviewFindings", ev.payload.verdict === "Rejected" ? "critical" : "warning", { count: ev.payload.findings }, ev.payload.summary || null)
         : null;
@@ -123,10 +142,8 @@ export type QualityKind = "build" | "test";
 export type QualityStatus = "running" | "passed" | "failed";
 
 /**
- * A build or test run as Mission Control shows it.
- * INTEGRATOR(P2): the quality pipeline exposes runs over RPC (`quality.*`);
- * publish them with `setQualityRuns` in `data.ts` — this shape is the
- * contract the widget renders.
+ * A build or test run as Mission Control shows it (from live events here,
+ * and from `quality.runs` via `features/quality/signals.ts#missionRowsOf`).
  */
 export interface QualityRun {
   id: string;
@@ -215,6 +232,8 @@ export const FEED_EVENT_KINDS: ReadonlySet<Event["kind"]> = new Set<Event["kind"
   "BuildSucceeded",
   "TestRunFinished",
   "ReviewFinished",
+  "ReviewUpdated",
+  "MergeProposalUpdated",
   "ProviderRateLimited",
   "ProviderStatusChanged",
   "BudgetThreshold",

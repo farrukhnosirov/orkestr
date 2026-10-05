@@ -17,8 +17,8 @@ use orkestr_domain::{AuditOutcome, ProviderKind};
 use orkestr_protocol::event::{EventKind, VoiceCommandPayload};
 use orkestr_protocol::methods::voice::{
     self as m, RecordVoiceCommandParams, SetVoiceConfigParams, SetVoiceConsentParams, SttConsent, SttEngine,
-    SynthesizeParams, SynthesizeResult, TranscribeParams, TranscribeResult, TtsEngine, VoiceCloudProvider,
-    VoiceConfig, VoiceConfigResult, VoiceConsentScope, MAX_SYNTHESIZE_CHARS, MAX_TRANSCRIBE_BYTES,
+    SynthesizeParams, SynthesizeResult, TranscribeParams, TranscribeResult, TtsEngine, VoiceCloudProvider, VoiceConfig,
+    VoiceConfigResult, VoiceConsentScope, MAX_SYNTHESIZE_CHARS, MAX_TRANSCRIBE_BYTES,
 };
 use orkestr_protocol::methods::Empty;
 use orkestr_protocol::{NewEvent, RpcError};
@@ -78,7 +78,8 @@ async fn load(ctx: &RpcContext) -> Result<VoiceConfig, RpcError> {
 }
 
 async fn save(ctx: &RpcContext, config: &VoiceConfig) -> Result<(), RpcError> {
-    let value = serde_json::to_string(config).map_err(|e| RpcError::internal(format!("serialize voice config: {e}")))?;
+    let value =
+        serde_json::to_string(config).map_err(|e| RpcError::internal(format!("serialize voice config: {e}")))?;
     let now = chrono::Utc::now().to_rfc3339();
     ctx.services
         .db

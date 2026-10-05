@@ -22,8 +22,8 @@
 //! tooltip are rebuilt in that language (see [`tray_texts`]).
 #![forbid(unsafe_code)]
 
-pub mod windows;
 mod hud;
+pub mod windows;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;

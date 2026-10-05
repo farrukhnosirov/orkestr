@@ -3,7 +3,7 @@
  * No audio files: every cue is a small list of oscillator tones and noise
  * bursts that `engine.ts` renders with WebAudio. Pure data, unit-tested.
  */
-import type { SoundPreset } from "@orkestr/protocol";
+import type { SoundPreset, ThemeSounds } from "@orkestr/protocol";
 
 export type SoundCue =
   | "wake"
@@ -217,4 +217,67 @@ export function presetForTheme(themeId: string): ResolvedPreset {
 
 export function resolvePreset(preset: SoundPreset, themeId: string): ResolvedPreset {
   return preset === "Auto" ? presetForTheme(themeId) : preset;
+}
+
+// ---------------------------------------------------------------------------
+// Theme sounds (§29): `ThemeConfig.sounds` maps event keys to preset ids.
+// ---------------------------------------------------------------------------
+
+/** Event keys a theme can map, and the Sound Engine cue each one drives. */
+export const THEME_SOUND_EVENTS: Readonly<Record<string, SoundCue>> = {
+  wake: "wake",
+  "task.started": "start",
+  "task.completed": "completion",
+  "agent.error": "error",
+  "approval.requested": "approval",
+  "build.failed": "error",
+  "deploy.finished": "deploy",
+  alert: "alert",
+};
+
+/**
+ * Theme preset ids -> engine voice (`null` = silent). The ids are the theme
+ * schema's catalogue (the built-in themes use them); each one renders with
+ * one of the engine's procedural presets.
+ */
+export const THEME_SOUND_PRESETS: Readonly<Record<string, ResolvedPreset | null>> = {
+  none: null,
+  "chime-soft": "Crystal",
+  "chime-bright": "Crystal",
+  ping: "Minimal",
+  pulse: "Pulse",
+  thud: "Pulse",
+  "alert-soft": "Nebula",
+  "alert-strong": "Pulse",
+  whoosh: "Nebula",
+};
+
+export interface ThemeCueOverride {
+  /** The theme silences this cue. */
+  mute: boolean;
+  /** Preset chosen by the theme for this cue (`null` = the user's preset). */
+  preset: ResolvedPreset | null;
+  /** Theme volume multiplier (0..1). */
+  volume: number;
+}
+
+/** How the active theme's sound mapping changes a cue (pure). */
+export function themeCueOverride(cue: SoundCue, sounds: ThemeSounds | null | undefined): ThemeCueOverride {
+  if (!sounds) return { mute: false, preset: null, volume: 1 };
+  if (!sounds.enabled) return { mute: true, preset: null, volume: 0 };
+  let preset: ResolvedPreset | null = null;
+  let mute = false;
+  for (const [key, mapped] of Object.entries(THEME_SOUND_EVENTS)) {
+    if (mapped !== cue) continue;
+    const id = sounds.events[key];
+    if (id === undefined) continue;
+    const voice = THEME_SOUND_PRESETS[id];
+    if (voice === null) mute = true;
+    else if (voice !== undefined) {
+      preset = voice;
+      mute = false;
+      break;
+    }
+  }
+  return { mute, preset, volume: Math.min(1, Math.max(0, sounds.volume)) };
 }

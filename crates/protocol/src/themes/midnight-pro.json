@@ -44,5 +44,5 @@
       "task.completed": "click-soft"
     }
   },
-  "robot": { "skin": "orbit", "scale": 0.9, "accent": null }
+  "robot": { "skin": "obsidian", "scale": 0.9, "accent": null }
 }

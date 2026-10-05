@@ -191,7 +191,8 @@
     "applyJson": "Apply JSON",
     "refreshJson": "Refresh from editor",
     "copyJson": "Copy",
-    "copied": "Copied"
+    "copied": "Copied",
+    "soundPreview": "Preview sound: {{event}}"
   },
   "groups": {
     "backgrounds": "Background layers",
@@ -323,9 +324,13 @@
     "whoosh": "Whoosh"
   },
   "robotSkins": {
-    "orbit": "Orbit",
-    "pixel": "Pixel",
-    "nova": "Nova",
-    "drone": "Drone"
+    "nebula": "Nebula",
+    "ember": "Ember",
+    "mint": "Mint",
+    "chrome": "Chrome",
+    "sakura": "Sakura",
+    "obsidian": "Obsidian",
+    "sunrise": "Sunrise",
+    "glacier": "Glacier"
   }
 }

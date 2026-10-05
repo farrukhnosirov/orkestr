@@ -213,7 +213,7 @@ export const BUILTIN_THEME_LIST: readonly ThemeConfig[] = [
     "robot": {
       "accent": null,
       "scale": 1.0,
-      "skin": "orbit"
+      "skin": "nebula"
     },
     "sounds": {
       "enabled": true,
@@ -257,7 +257,7 @@ export const BUILTIN_THEME_LIST: readonly ThemeConfig[] = [
     "robot": {
       "accent": null,
       "scale": 0.8999999761581421,
-      "skin": "orbit"
+      "skin": "obsidian"
     },
     "sounds": {
       "enabled": true,
@@ -321,7 +321,7 @@ export const BUILTIN_THEME_LIST: readonly ThemeConfig[] = [
     "robot": {
       "accent": "#2dd4bf",
       "scale": 1.0,
-      "skin": "orbit"
+      "skin": "mint"
     },
     "sounds": {
       "enabled": true,
@@ -384,7 +384,7 @@ export const BUILTIN_THEME_LIST: readonly ThemeConfig[] = [
     "robot": {
       "accent": "#f59e0b",
       "scale": 0.8999999761581421,
-      "skin": "block"
+      "skin": "ember"
     },
     "sounds": {
       "enabled": true,
@@ -450,7 +450,7 @@ export const BUILTIN_THEME_LIST: readonly ThemeConfig[] = [
     "robot": {
       "accent": "#b45309",
       "scale": 1.0,
-      "skin": "orbit"
+      "skin": "sunrise"
     },
     "sounds": {
       "enabled": true,
@@ -517,7 +517,7 @@ export const BUILTIN_THEME_LIST: readonly ThemeConfig[] = [
     "robot": {
       "accent": "#ffd60a",
       "scale": 1.100000023841858,
-      "skin": "block"
+      "skin": "sunrise"
     },
     "sounds": {
       "enabled": true,

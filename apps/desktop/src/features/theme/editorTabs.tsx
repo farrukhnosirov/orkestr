@@ -13,7 +13,7 @@ import {
   tokenKind,
 } from "@orkestr/ui";
 import { clsx } from "clsx";
-import { Check, Plus, Sparkles, X } from "lucide-react";
+import { Check, Play, Plus, Sparkles, X } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { useFormat, useT } from "../../i18n";
@@ -40,6 +40,8 @@ import {
   withToken,
 } from "./logic";
 import { BackgroundCanvas, useEffectiveVisuals, useThemeRevision } from "./ThemeRuntime";
+import { playThemePreset } from "../sound/engine";
+import { THEME_SOUND_EVENTS } from "../sound/recipes";
 
 export type Edit = (fn: (t: ThemeConfig) => ThemeConfig) => void;
 
@@ -492,7 +494,7 @@ export function BackgroundTab({ draft, edit }: TabProps) {
 }
 
 // ---------------------------------------------------------------------------
-// Sounds (schema only — the Sound Engine lives in the voice-sound area)
+// Sounds (mapping of theme events to Sound Engine presets; previews play through the engine)
 // ---------------------------------------------------------------------------
 
 export function SoundsTab({ draft, edit }: TabProps) {
@@ -527,9 +529,22 @@ export function SoundsTab({ draft, edit }: TabProps) {
                 })
               }
             />
+            <button
+              type="button"
+              className="th-icon-btn"
+              disabled={!s.enabled || (s.events[ev] ?? "none") === "none"}
+              aria-label={t("editor.soundPreview", { event: t(`soundEvents.${ev}` as never) })}
+              title={t("editor.soundPreview", { event: t(`soundEvents.${ev}` as never) })}
+              onClick={(e) => {
+                e.preventDefault();
+                const cue = THEME_SOUND_EVENTS[ev];
+                if (cue) playThemePreset(s.events[ev] ?? "none", cue, s.volume);
+              }}
+            >
+              <Play size={13} aria-hidden="true" />
+            </button>
           </label>
         ))}
-        {/* INTEGRATOR(voice-sound): add a ▶ preview per row once the Sound Engine exposes playPreset(id, volume). */}
         <p className="th-hint">{t("editor.soundsHint")}</p>
       </section>
     </div>
@@ -571,7 +586,7 @@ export function RobotTab({ draft, edit }: TabProps) {
           <Switch label={t("editor.robotUseAccent")} checked={r.accent === null} onChange={(v) => setRobot({ accent: v ? null : value("color-accent") })} />
         </div>
         {r.accent !== null && <ColorPicker value={r.accent} allowAlpha={false} onChange={(v) => setRobot({ accent: v })} />}
-        {/* INTEGRATOR(robots): the floating robot engine reads theme.robot as its defaults. */}
+        {/* The floating robots use theme.robot (skin, scale, accent) as the defaults of every robot without its own design. */}
         <p className="th-hint">{t("editor.robotHint")}</p>
       </section>
     </div>

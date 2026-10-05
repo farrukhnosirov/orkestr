@@ -3,13 +3,14 @@
  * Performance Mode and `prefers-reduced-motion`, and never at the cost of
  * the AI workload.
  *
- * INTEGRATOR(P3 theme-engine/hud-perf): when the theme engine exposes a
- * shared visual-budget hook, delegate `useVisualBudget` to it.
+ * `useVisualBudget` follows the central Performance Mode store (effective
+ * mode after battery / frame-budget auto-switching, reduced motion, paused
+ * windows) — the same policy the theme backgrounds, robots and HUD use.
  */
 import type { PerformanceMode } from "@orkestr/protocol";
 import { useEffect, useState } from "react";
 
-import { useSettingsStore } from "../../features/settings/settingsStore";
+import { usePerfStore } from "../../features/performance/perfStore";
 
 export interface VisualBudget {
   mode: PerformanceMode;
@@ -60,7 +61,9 @@ export function usePrefersReducedMotion(): boolean {
 }
 
 export function useVisualBudget(): VisualBudget {
-  const mode = useSettingsStore((s) => s.settings?.performanceMode ?? "Balanced");
+  const mode = usePerfStore((s) => s.mode);
+  const paused = usePerfStore((s) => s.policy.paused);
   const reduced = usePrefersReducedMotion();
-  return visualBudget(mode, reduced);
+  const budget = visualBudget(mode, reduced);
+  return paused ? { ...budget, animate: false } : budget;
 }

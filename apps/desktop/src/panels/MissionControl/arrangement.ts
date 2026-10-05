@@ -142,8 +142,10 @@ export function setHidden(a: Arrangement, id: string, hidden: boolean): Arrangem
 // ── storage binding ────────────────────────────────────────────────────
 
 /**
- * Where arrangements live. INTEGRATOR(P3 layout): bind the layout area's
- * per-device / per-monitor store here with `setArrangementStorage`.
+ * Where arrangements live. The app binds the layout area's per-device store
+ * (`LayoutDocument.widgets`, saved with the active layout) through
+ * `setArrangementStorage`; localStorage is the fallback (tests, detached
+ * windows before the layout loads).
  */
 export interface ArrangementStorage {
   load(key: string): string | null;

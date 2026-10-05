@@ -1,11 +1,10 @@
 /**
  * Visual budget for voice UI (§31, §70): animation frame rate and effects
- * from the performance mode and `prefers-reduced-motion`. Pure + a hook.
+ * from the effective performance mode and `prefers-reduced-motion` (central
+ * perf store, shared with the theme, robots, HUD and Mission Control).
  */
 import type { PerformanceMode } from "@orkestr/protocol";
-import { useEffect, useState } from "react";
-
-import { useSettingsStore } from "../../settings/settingsStore";
+import { usePerfStore } from "../../performance/perfStore";
 
 export interface VisualBudget {
   /** Waveform redraw rate; 0 = static. */
@@ -30,19 +29,11 @@ export function visualBudget(mode: PerformanceMode, reducedMotion: boolean): Vis
   }
 }
 
-function prefersReducedMotion(): boolean {
-  return typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-}
-
+/** Live budget from the central Performance Mode store (effective mode, reduced motion, paused window). */
 export function useVisualBudget(): VisualBudget {
-  const mode = useSettingsStore((s) => s.settings?.performanceMode ?? "Balanced");
-  const [reduced, setReduced] = useState(prefersReducedMotion);
-  useEffect(() => {
-    if (typeof window.matchMedia !== "function") return;
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const on = () => setReduced(mq.matches);
-    mq.addEventListener?.("change", on);
-    return () => mq.removeEventListener?.("change", on);
-  }, []);
-  return visualBudget(mode, reduced);
+  const mode = usePerfStore((s) => s.mode);
+  const reduced = usePerfStore((s) => s.reducedMotion);
+  const paused = usePerfStore((s) => s.policy.paused);
+  const budget = visualBudget(mode, reduced);
+  return paused ? { ...budget, fps: 0 } : budget;
 }

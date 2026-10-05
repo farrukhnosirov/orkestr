@@ -18,8 +18,9 @@ import { bubbleFor, type BubbleSpec, initialBubble, mayReplace } from "../model/
 import { defaultDesign } from "../model/design";
 import { type Box, hitShapeFor, isDragGesture, robotWindowLayout } from "../model/layout";
 import { isRunning, robotMenu, type RobotMenuItemId } from "../model/menu";
-import { stateColor, visualStateFor } from "../model/states";
-import { accentOf } from "../model/design";
+import { stateColor, visualStateFor, pipelineStateFor, type RobotState, withPipelineState } from "../model/states";
+import { accentOf, withThemeRobotDefaults } from "../model/design";
+import { activeTheme, useThemeStore } from "../../theme/themeStore";
 import { useReducedMotion } from "../render/hooks";
 import { RobotView } from "../render/RobotView";
 import { ROBOT_EVENTS, type RobotMoved, robotShell } from "../shell";
@@ -59,10 +60,13 @@ export function RobotWindow({ agentId, mode }: { agentId: string; mode: Performa
   const [dragging, setDragging] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [shown, setShown] = useState<Shown | null>(null);
+  const [pipelineState, setPipelineState] = useState<RobotState | null>(null);
   const [bubbleBox, setBubbleBox] = useState<Box | null>(null);
   const bubbleRef = useRef<HTMLDivElement | null>(null);
   const press = useRef<{ x: number; y: number; dragged: boolean } | null>(null);
   const announced = useRef(false);
+  const themeRobot = useThemeStore((st) => activeTheme(st).robot);
+  const look = useMemo(() => withThemeRobotDefaults(design, themeRobot), [design, themeRobot]);
   const designRef = useRef(design);
   designRef.current = design;
   const reducedMotion = useReducedMotion();
@@ -92,12 +96,17 @@ export function RobotWindow({ agentId, mode }: { agentId: string; mode: Performa
     return () => void off.then((f) => f());
   }, [load]);
 
-  // Live agent events → state + bubbles.
+  // Live agent events (+ the quality pipeline of its task) → state + bubbles.
+  const taskId = agent?.taskId ?? null;
   useEffect(() => {
     const c = robotClient();
     if (!c) return undefined;
-    return c.subscribe([topic.agent(agentId)], (ev: Event) => {
+    setPipelineState(null);
+    const topics = taskId ? [topic.agent(agentId), topic.task(taskId)] : [topic.agent(agentId)];
+    return c.subscribe(topics, (ev: Event) => {
       setAgent((prev) => applyAgent(prev, ev));
+      const ps = pipelineStateFor(ev);
+      if (ps !== undefined) setPipelineState(ps);
       const spec = bubbleFor(ev, designRef.current.behaviour.bubble);
       if (!spec) return;
       setShown((cur) => {
@@ -105,7 +114,7 @@ export function RobotWindow({ agentId, mode }: { agentId: string; mode: Performa
         return mayReplace(cur, spec, now) ? { spec, shownAt: now, nonce: (cur?.nonce ?? 0) + 1 } : cur;
       });
     });
-  }, [agentId]);
+  }, [agentId, taskId]);
 
   // Bubble auto-hide.
   useEffect(() => {
@@ -133,7 +142,7 @@ export function RobotWindow({ agentId, mode }: { agentId: string; mode: Performa
   }, [agent?.templateId]);
 
   const layout = useMemo(() => robotWindowLayout(design.scale), [design.scale]);
-  const visual = visualStateFor(agent?.state ?? "Idle");
+  const visual = withPipelineState(visualStateFor(agent?.state ?? "Idle"), pipelineState);
   const passThrough = design.behaviour.clickThroughIdle && (visual.state === "Idle" || visual.asleep) && !shown && !menuOpen;
 
   // Measure the bubble after it renders (it animates in; re-measure once settled).
@@ -208,7 +217,7 @@ export function RobotWindow({ agentId, mode }: { agentId: string; mode: Performa
     assignableProjects: assignable.length,
     hasTemplate: Boolean(agent?.templateId),
   });
-  const accent = accentOf(design);
+  const accent = accentOf(look);
   const color = stateColor(visual.state, accent);
   const name = agent?.name ?? t("robot.unknownAgent");
   const stateLabel = visual.asleep ? t("common:status.agent.Stopped") : t(`common:status.agent.${visual.state}`);
@@ -243,7 +252,7 @@ export function RobotWindow({ agentId, mode }: { agentId: string; mode: Performa
         }}
       >
         <span className="robot-window__halo" aria-hidden="true" />
-        <RobotView design={design} state={visual.state} asleep={visual.asleep} size={layout.robot.w} mode={mode} hovered={hovered || dragging} />
+        <RobotView design={look} state={visual.state} asleep={visual.asleep} size={layout.robot.w} mode={mode} hovered={hovered || dragging} />
         <span className="robot-window__tag" aria-hidden="true">
           <span className="robot-window__tag-dot" />
           {name}

@@ -7,10 +7,9 @@
 import type { AgentInstance, AgentState, Task } from "@orkestr/protocol";
 
 /**
- * Phase 2 quality data for a project (latest build / test run / reviews).
- * INTEGRATOR(P2): fill from the quality pipeline (`quality.*` / builds RPC)
- * once Phase 2 is merged; until then only `BuildFailed` events from the
- * event log feed `lastBuild`.
+ * Phase 2 quality data for a project (latest build / test run / open
+ * reviews) from the quality runner (`quality.runs`) and `reviews.list`; the
+ * event log fills in when the runner has no runs yet.
  */
 export interface QualitySnapshot {
   lastBuild: { ok: boolean; at: string; summary: string } | null;
@@ -79,7 +78,8 @@ export type SummaryPart =
   | { id: "approvals"; count: number }
   | { id: "buildFailed" }
   | { id: "buildOk" }
-  | { id: "testsFailed"; count: number };
+  | { id: "testsFailed"; count: number }
+  | { id: "openReviews"; count: number };
 
 /**
  * The few most useful sentences, most urgent first, at most `max` (spoken
@@ -100,6 +100,7 @@ export function summaryParts(f: ProjectFacts, max = 4): SummaryPart[] {
   if (f.activeAgents > 0) progress.push({ id: "agents", count: f.activeAgents });
   if (f.focus?.activity) progress.push({ id: "focus", agent: f.focus.agent, activity: f.focus.activity });
   if (f.completedToday > 0) progress.push({ id: "completedToday", count: f.completedToday });
+  if (f.quality.openReviews) progress.push({ id: "openReviews", count: f.quality.openReviews });
   if (f.quality.lastBuild?.ok && urgent.length === 0) progress.push({ id: "buildOk" });
 
   // Progress first (context), then what needs attention; cap the length but keep urgent items.

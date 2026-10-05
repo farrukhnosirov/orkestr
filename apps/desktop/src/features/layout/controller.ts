@@ -118,6 +118,40 @@ function setDockLocked(locked: boolean): void {
   store().patch({ locked });
 }
 
+// ── widget state (per layout, per device) ───────────────────────────────────
+
+/**
+ * View state panels keep with the active layout (`LayoutDocument.widgets`),
+ * e.g. the Mission Control widget arrangement: stored per device in the core
+ * with the layout, restored when the layout is applied.
+ */
+let widgetState: Record<string, string> = {};
+const widgetListeners = new Set<() => void>();
+
+export function getWidgetState(key: string): string | null {
+  return widgetState[key] ?? null;
+}
+
+/** Updates one panel's view state and autosaves the active layout. */
+export function setWidgetState(key: string, value: string | null): void {
+  const next = { ...widgetState };
+  if (value === null) delete next[key];
+  else next[key] = value;
+  widgetState = next;
+  scheduleSave();
+}
+
+/** Called after a layout is applied (its widget state replaced the previous one). */
+export function onWidgetStateReplaced(listener: () => void): () => void {
+  widgetListeners.add(listener);
+  return () => widgetListeners.delete(listener);
+}
+
+function replaceWidgetState(doc: LayoutDocument | null): void {
+  widgetState = { ...(doc?.widgets ?? {}) };
+  widgetListeners.forEach((l) => l());
+}
+
 // ── capture / apply ──────────────────────────────────────────────────────────
 
 /** The current layout as a document (id/name of the active layout). */
@@ -142,6 +176,7 @@ export async function captureCurrent(): Promise<LayoutDocument | null> {
   };
   const basedOn = isBuiltinLayoutId(id) ? id : existing?.basedOn;
   if (basedOn) doc.basedOn = basedOn;
+  if (Object.keys(widgetState).length > 0) doc.widgets = { ...widgetState };
   return doc;
 }
 
@@ -237,6 +272,7 @@ async function applyPlan(plan: LayoutPlan, opts: { restoreWindows: boolean }): P
     store().patch({ activeId: plan.id });
     dirty = false;
     setDockLocked(doc?.locked ?? false);
+    replaceWidgetState(doc);
     if (opts.restoreWindows) await restoreWindows(doc);
     syncDockSummary();
   } finally {

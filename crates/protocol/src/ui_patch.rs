@@ -227,7 +227,9 @@ pub fn is_safe_text(s: &str) -> bool {
 
 fn check_strings(v: &Value, at: &str, issues: &mut Vec<UiConfigIssue>) {
     match v {
-        Value::String(s) if !is_safe_text(s) => issues.push(issue(at, "unsafe text in value (markup or code is not allowed)")),
+        Value::String(s) if !is_safe_text(s) => {
+            issues.push(issue(at, "unsafe text in value (markup or code is not allowed)"))
+        }
         Value::Array(items) => items.iter().for_each(|i| check_strings(i, at, issues)),
         Value::Object(m) => {
             for (k, i) in m {
@@ -421,7 +423,8 @@ pub fn apply_ui_patch(
                 issues.push(issue(op.path.clone(), "value too large"));
                 continue;
             }
-            if segs.first().map(String::as_str) != Some("layout") || segs.get(1).map(String::as_str) != Some("docking") {
+            if segs.first().map(String::as_str) != Some("layout") || segs.get(1).map(String::as_str) != Some("docking")
+            {
                 check_strings(v, &op.path, &mut issues);
             }
         }
@@ -435,8 +438,8 @@ pub fn apply_ui_patch(
             return Err(vec![issue(op.path.clone(), e)]);
         }
     }
-    let mut config: UiConfig =
-        serde_json::from_value(doc.clone()).map_err(|e| vec![issue("", format!("does not match the UI schema: {e}"))])?;
+    let mut config: UiConfig = serde_json::from_value(doc.clone())
+        .map_err(|e| vec![issue("", format!("does not match the UI schema: {e}"))])?;
     let typed = serde_json::to_value(&config).unwrap_or(Value::Null);
     if let Some(path) = unknown_member(&doc, &typed, &mut Vec::new()) {
         return Err(vec![issue(path, "unknown setting")]);
@@ -613,8 +616,9 @@ mod tests {
     #[test]
     fn limits_and_dedupe() {
         let base = UiConfig::default();
-        let many: Vec<Value> =
-            (0..=MAX_PATCH_OPS).map(|_| json!({"op": "replace", "path": "/prefs/density", "value": "Compact"})).collect();
+        let many: Vec<Value> = (0..=MAX_PATCH_OPS)
+            .map(|_| json!({"op": "replace", "path": "/prefs/density", "value": "Compact"}))
+            .collect();
         assert!(manager(&base, Value::Array(many)).is_err());
         let out = manager(
             &base,

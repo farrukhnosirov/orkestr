@@ -2,17 +2,19 @@
  * HUD data (RPC + events only): Manager runs of the active project, plus
  * typed slots other areas plug into.
  *
- * - Voice: INTEGRATOR(P3 voice-sound): call `registerHudVoiceSlot()` with
- *   the live voice indicator component; until then the HUD shows a muted mic.
- * - Quality: INTEGRATOR(P2): wire `useHudQuality` to the quality pipeline
- *   (latest build / test result of the active project). Returns `null`
- *   (chip hidden) until then.
+ * - Voice: the voice area registers its indicator (`registerHudVoiceSlot`,
+ *   `HudApp`); it mirrors the main window's microphone over a channel.
+ * - Quality: `useHudQuality` — latest build / test result of the active
+ *   project from the Phase 2 quality runner (`quality.runs` + live events).
  */
 import type { Event, ManagerRun } from "@orkestr/protocol";
 import { topic } from "@orkestr/protocol";
-import { useEffect, useState, useSyncExternalStore, type ComponentType } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore, type ComponentType } from "react";
 
 import { maybeClient } from "../../core/client";
+import { t } from "../../i18n";
+import { hudStateOf, qualityFactsOf } from "../quality/signals";
+import { useQualityLive } from "../quality/store";
 import { useAppStore } from "../../store/app";
 
 /** Manager runs of a project, kept live by `ManagerRunUpdated`. */
@@ -80,7 +82,24 @@ export interface HudQuality {
   label: string;
 }
 
-/** INTEGRATOR(P2): latest build/test status of the project. */
-export function useHudQuality(_projectId: string | null): HudQuality | null {
-  return null;
+/** Latest build / test status of the project (quality runner, live). */
+export function useHudQuality(projectId: string | null): HudQuality | null {
+  const { runs } = useQualityLive(projectId);
+  return useMemo(() => {
+    const facts = qualityFactsOf(runs);
+    const state = hudStateOf(facts);
+    if (!state) return null;
+    const tests = facts.lastTests;
+    const label =
+      state === "running"
+        ? t("hud:quality.running")
+        : state === "failing"
+          ? facts.lastBuild && !facts.lastBuild.ok
+            ? t("hud:quality.buildFailed")
+            : t("hud:quality.testsFailed", { count: tests?.failed ?? 0 })
+          : tests
+            ? t("hud:quality.testsPassed", { count: tests.passed })
+            : t("hud:quality.buildOk");
+    return { state, label };
+  }, [runs]);
 }

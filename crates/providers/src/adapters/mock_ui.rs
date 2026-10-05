@@ -110,11 +110,13 @@ pub fn ui_intent_patch(text: &str, ru: bool) -> Option<(String, Value)> {
     let mut parts_en: Vec<String> = Vec::new();
     let mut parts_ru: Vec<String> = Vec::new();
 
-    if ["компактн", "компактнее", "плотнее", "compact", "denser", "tighter"].iter().any(|w| lower.contains(w)) {
+    if ["компактн", "компактнее", "плотнее", "compact", "denser", "tighter"].iter().any(|w| lower.contains(w))
+    {
         ops.push(json!({"op": "replace", "path": "/prefs/density", "value": "Compact"}));
         parts_en.push("compact density".into());
         parts_ru.push("компактная плотность".into());
-    } else if ["просторн", "свободнее", "spacious", "comfortable", "roomier"].iter().any(|w| lower.contains(w)) {
+    } else if ["просторн", "свободнее", "spacious", "comfortable", "roomier"].iter().any(|w| lower.contains(w))
+    {
         ops.push(json!({"op": "replace", "path": "/prefs/density", "value": "Comfortable"}));
         parts_en.push("comfortable density".into());
         parts_ru.push("просторная плотность".into());
@@ -206,7 +208,8 @@ mod tests {
 
     #[test]
     fn english_and_non_ui_requests() {
-        let (summary, patch) = ui_intent_patch("Make the UI compact and put the terminal at the bottom", false).unwrap();
+        let (summary, patch) =
+            ui_intent_patch("Make the UI compact and put the terminal at the bottom", false).unwrap();
         assert_eq!(patch.as_array().unwrap().len(), 2);
         assert!(summary.starts_with("Compact density"), "{summary}");
         assert!(ui_intent_patch("Create a hello module with tests", false).is_none());

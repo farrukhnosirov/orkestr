@@ -11,9 +11,7 @@ use std::path::Path;
 use std::sync::OnceLock;
 use std::time::Instant;
 
-use orkestr_domain::{
-    AgentInstance, AgentState, Approval, ApprovalStatus, Project, ProjectId, Task, TaskStatus,
-};
+use orkestr_domain::{AgentInstance, AgentState, Approval, ApprovalStatus, Project, ProjectId, Task, TaskStatus};
 use orkestr_protocol::methods::agents::ListAgentsParams;
 use orkestr_protocol::methods::dashboard::{
     self as m, CoreHealthResult, DashboardSnapshot, DashboardSnapshotParams, DashboardTotals, OrkestrProcess,

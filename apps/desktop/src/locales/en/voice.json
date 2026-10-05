@@ -102,7 +102,9 @@
     "buildFailed": "The last build failed.",
     "buildOk": "The last build passed.",
     "testsFailed_one": "{{count}} test is failing.",
-    "testsFailed_other": "{{count}} tests are failing."
+    "testsFailed_other": "{{count}} tests are failing.",
+    "openReviews_one": "{{count}} review is open.",
+    "openReviews_other": "{{count}} reviews are open."
   },
   "confirm": {
     "stopProject": "Stop all AI work in {{name}}?",

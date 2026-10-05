@@ -1081,11 +1081,7 @@ async fn ui_requests_become_validated_ui_patch_proposals() {
         })
         .await
         .unwrap();
-    assert!(
-        reply.tool_events.iter().any(|e| e.name == "update_ui_config" && !e.is_error),
-        "{:?}",
-        reply.tool_events
-    );
+    assert!(reply.tool_events.iter().any(|e| e.name == "update_ui_config" && !e.is_error), "{:?}", reply.tool_events);
     assert!(reply.plan_id.is_none(), "a UI request is not a build plan");
     assert!(reply.text.contains("предпросмотр"), "{}", reply.text);
     let mut proposal = None;

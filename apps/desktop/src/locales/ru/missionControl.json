@@ -16,7 +16,8 @@
     "approvals": "Ожидают подтверждения",
     "quality": "Сборки и тесты",
     "deployments": "Развёртывания",
-    "alerts": "Оповещения"
+    "alerts": "Оповещения",
+    "reviews": "Ревью и слияния"
   },
   "toolbar": {
     "updated": "В реальном времени · обновлено в {{time}}",
@@ -214,11 +215,46 @@
       "reviewFindings_few": "Ревью требует изменений: {{count}} замечания",
       "reviewFindings_many": "Ревью требует изменений: {{count}} замечаний",
       "reviewFindings_other": "Ревью требует изменений: {{count}} замечания",
-      "coreError": "Ошибка ядра в {{target}}"
+      "coreError": "Ошибка ядра в {{target}}",
+      "securityFindings_one": "Проверка безопасности: {{count}} замечание",
+      "securityFindings_few": "Проверка безопасности: {{count}} замечания",
+      "securityFindings_many": "Проверка безопасности: {{count}} замечаний",
+      "securityFindings_other": "Проверка безопасности: {{count}} замечания",
+      "mergeConflict_one": "Слияние в {{target}} остановлено: {{count}} конфликт",
+      "mergeConflict_few": "Слияние в {{target}} остановлено: {{count}} конфликта",
+      "mergeConflict_many": "Слияние в {{target}} остановлено: {{count}} конфликтов",
+      "mergeConflict_other": "Слияние в {{target}} остановлено: {{count}} конфликта",
+      "mergeFailed": "Слияние в {{target}} не удалось"
     }
   },
   "overlay": {
     "label": "Центр управления во весь экран",
     "close": "Закрыть центр управления (Esc)"
+  },
+  "reviews": {
+    "noProject": "Откройте проект, чтобы увидеть его ревью",
+    "empty": "Ревью и слияний пока нет",
+    "emptyHint": "Здесь появятся ревью кода и безопасности и предложения Merge Manager из конвейера качества.",
+    "listLabel": "Ревью и слияния",
+    "open": "Открытые ревью",
+    "merges": "Слияния в работе",
+    "findings_one": "{{count}} замечание",
+    "findings_few": "{{count}} замечания",
+    "findings_many": "{{count}} замечаний",
+    "findings_other": "{{count}} замечания",
+    "conflicts_one": "{{count}} конфликт",
+    "conflicts_few": "{{count}} конфликта",
+    "conflicts_many": "{{count}} конфликтов",
+    "conflicts_other": "{{count}} конфликта",
+    "mergeInto_one": "Слияние {{count}} ветки в {{target}}",
+    "mergeInto_few": "Слияние {{count}} веток в {{target}}",
+    "mergeInto_many": "Слияние {{count}} веток в {{target}}",
+    "mergeInto_other": "Слияние {{count}} ветки в {{target}}",
+    "status": {
+      "Running": "Идёт ревью",
+      "Verifying": "Проверка",
+      "Finished": "Завершено",
+      "Failed": "Сбой"
+    }
   }
 }

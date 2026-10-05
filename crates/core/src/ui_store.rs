@@ -52,8 +52,10 @@ pub struct StoredConfig {
 }
 
 fn parse_config(raw: &str) -> Option<UiConfig> {
-    let cfg: UiConfig = serde_json::from_str(raw).ok()?;
-    cfg.validate().ok().map(|()| cfg)
+    let mut cfg: UiConfig = serde_json::from_str(raw).ok()?;
+    cfg.validate().ok()?;
+    cfg.upgrade();
+    Some(cfg)
 }
 
 fn parse_theme(raw: &str) -> Option<ThemeConfig> {
@@ -133,7 +135,9 @@ pub async fn all_configs(db: &Db) -> StorageResult<Vec<(String, StoredConfig)>> 
         .await?;
     Ok(rows
         .into_iter()
-        .filter_map(|(scope, raw, v)| parse_config(&raw).map(|config| (scope, StoredConfig { config, version: to_u64(v) })))
+        .filter_map(|(scope, raw, v)| {
+            parse_config(&raw).map(|config| (scope, StoredConfig { config, version: to_u64(v) }))
+        })
         .collect())
 }
 

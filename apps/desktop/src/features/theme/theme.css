@@ -1193,3 +1193,25 @@
     width: calc(100vw - 20px);
   }
 }
+
+/* Sound preview button of the theme editor's sound rows. */
+.th-icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  border: 1px solid var(--ok-color-border);
+  border-radius: var(--ok-radius-sm, 6px);
+  background: transparent;
+  color: var(--ok-color-text-muted);
+  cursor: pointer;
+}
+.th-icon-btn:hover:not(:disabled) {
+  background: var(--ok-color-surface-hover);
+  color: var(--ok-color-text);
+}
+.th-icon-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}

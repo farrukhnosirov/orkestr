@@ -41,6 +41,12 @@ locked: boolean,
  */
 windows: WindowArrangement, 
 /**
+ * View state of panels in this layout, keyed by panel id (e.g. the
+ * Mission Control widget arrangement under `missionControl`). Opaque
+ * strings owned by the panel; Phase 3, additive (absent = none).
+ */
+widgets?: { [key in string]: string }, 
+/**
  * Last change (set by the core on save).
  */
 updatedAt?: string, };

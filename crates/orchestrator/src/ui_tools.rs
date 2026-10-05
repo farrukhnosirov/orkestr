@@ -78,9 +78,8 @@ pub fn check_args(args: &Value) -> Result<(Vec<UiPatchOp>, String), String> {
     if patch.is_empty() {
         return Err("the patch is empty".into());
     }
-    apply_ui_patch(&UiConfig::default(), &patch, UiPatchActor::Manager, PatchMode::Lenient).map_err(|issues| {
-        issues.iter().map(|i| format!("{}: {}", i.path, i.message)).collect::<Vec<_>>().join("; ")
-    })?;
+    apply_ui_patch(&UiConfig::default(), &patch, UiPatchActor::Manager, PatchMode::Lenient)
+        .map_err(|issues| issues.iter().map(|i| format!("{}: {}", i.path, i.message)).collect::<Vec<_>>().join("; "))?;
     Ok((patch, summary))
 }
 
@@ -153,6 +152,8 @@ mod tests {
         ] {
             assert!(check_args(&json!({"summary": "x", "patch": patch})).is_err());
         }
-        assert!(check_args(&json!({"patch": [{"op": "replace", "path": "/prefs/density", "value": "Compact"}]})).is_err());
+        assert!(
+            check_args(&json!({"patch": [{"op": "replace", "path": "/prefs/density", "value": "Compact"}]})).is_err()
+        );
     }
 }

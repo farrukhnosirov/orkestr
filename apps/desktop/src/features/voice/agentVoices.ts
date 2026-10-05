@@ -73,10 +73,39 @@ export function assistantOptions(): SpeakOptions | null {
   return optionsFromConfig(c, currentLanguage());
 }
 
+/** A floating robot's voice settings (robot design `voice`), when the agent has a robot. */
+export interface RobotVoice {
+  enabled: boolean;
+  voiceId: string | null;
+}
+
+let robotVoiceOf: ((agentId: string) => RobotVoice | null) | null = null;
+
+/** The robots area registers how to look up an agent's robot voice (main window). */
+export function registerRobotVoices(resolver: ((agentId: string) => RobotVoice | null) | null): void {
+  robotVoiceOf = resolver;
+}
+
+/** The robot voice of an agent (null = no robot on screen / no override). */
+export function robotVoiceFor(agentId: string | null): RobotVoice | null {
+  return agentId && robotVoiceOf ? robotVoiceOf(agentId) : null;
+}
+
+/**
+ * Speak options of an agent: its template's voice profile (or the user's
+ * override), then the robot design's voice id on top (system or cloud voice
+ * name, depending on the engine).
+ */
+export function agentSpeakOptions(profile: VoiceProfile | null, base: SpeakOptions, robot: RobotVoice | null): SpeakOptions {
+  const opts = optionsForProfile(profile, base);
+  if (!robot?.voiceId) return opts;
+  return opts.engine === "OpenAi" ? { ...opts, cloudVoice: robot.voiceId } : { ...opts, systemVoice: robot.voiceId };
+}
+
 /** Speaks `text` with an agent's voice (falls back to the assistant voice). */
 export async function speakAsAgent(agentId: string | null, text: string): Promise<void> {
   const base = assistantOptions();
   if (!base) return;
   const profile = agentId ? await voiceProfileForAgent(agentId) : null;
-  await speak(text, optionsForProfile(profile, base));
+  await speak(text, agentSpeakOptions(profile, base, robotVoiceFor(agentId)));
 }

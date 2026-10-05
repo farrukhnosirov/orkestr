@@ -75,7 +75,7 @@ async fn ui_patches_preview_apply_conflict_and_undo() {
     // Empty preview = current document (defaults, version 0).
     let cur = ok(&mut ws, "1", "ui.previewPatch", json!({"patch": []}), &mut events).await;
     assert_eq!(cur["version"], 0);
-    assert_eq!(cur["base"]["schemaVersion"], 1);
+    assert_eq!(cur["base"]["schemaVersion"], 2);
 
     let patch = json!([
         {"op": "replace", "path": "/prefs/density", "value": "Compact"},

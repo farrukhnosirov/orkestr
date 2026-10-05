@@ -9,7 +9,7 @@
 //! validator — the UI validates to give instant feedback.
 //!
 //! Sections are additive to `ThemeConfig` (v1 documents without them load
-//! with defaults), so `UI_CONFIG_SCHEMA_VERSION` stays 1. Exported theme
+//! with defaults; `UI_CONFIG_SCHEMA_VERSION` 2 still accepts v1). Exported theme
 //! files carry their own [`THEME_SCHEMA_VERSION`].
 
 use std::collections::BTreeMap;
@@ -74,7 +74,14 @@ pub struct ThemeBackground {
 
 impl Default for ThemeBackground {
     fn default() -> Self {
-        Self { kind: BackgroundKind::Nebula, colors: Vec::new(), intensity: 0.6, speed: 0.35, density: 0.5, webgl: true }
+        Self {
+            kind: BackgroundKind::Nebula,
+            colors: Vec::new(),
+            intensity: 0.6,
+            speed: 0.35,
+            density: 0.5,
+            webgl: true,
+        }
     }
 }
 
@@ -130,7 +137,7 @@ pub struct ThemeRobotDefaults {
 
 impl Default for ThemeRobotDefaults {
     fn default() -> Self {
-        Self { skin: "orbit".into(), scale: 1.0, accent: None }
+        Self { skin: "nebula".into(), scale: 1.0, accent: None }
     }
 }
 
@@ -267,10 +274,7 @@ fn plain_number(s: &str) -> Option<f64> {
 /// `var(--ok-<token>)`.
 #[must_use]
 pub fn is_var_ref(s: &str) -> bool {
-    s.trim()
-        .strip_prefix("var(--ok-")
-        .and_then(|r| r.strip_suffix(')'))
-        .is_some_and(is_valid_token_name)
+    s.trim().strip_prefix("var(--ok-").and_then(|r| r.strip_suffix(')')).is_some_and(is_valid_token_name)
 }
 
 /// An sRGB color with straight alpha. Channels are 0..=255 (not rounded).
@@ -425,8 +429,13 @@ fn split_top_level(s: &str) -> Vec<&str> {
     out
 }
 
-const GRADIENT_FNS: &[&str] =
-    &["linear-gradient(", "radial-gradient(", "conic-gradient(", "repeating-linear-gradient(", "repeating-radial-gradient("];
+const GRADIENT_FNS: &[&str] = &[
+    "linear-gradient(",
+    "radial-gradient(",
+    "conic-gradient(",
+    "repeating-linear-gradient(",
+    "repeating-radial-gradient(",
+];
 
 fn is_length(s: &str) -> bool {
     let s = s.trim();
