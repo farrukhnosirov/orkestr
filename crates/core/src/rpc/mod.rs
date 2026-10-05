@@ -15,6 +15,7 @@ pub mod manager;
 pub mod memory;
 pub mod nodes;
 pub mod permissions;
+pub mod pm;
 pub mod projects;
 pub mod providers;
 pub mod secrets;
@@ -22,6 +23,7 @@ pub mod settings;
 pub mod snapshots;
 pub mod system;
 pub mod tasks;
+pub mod teams;
 pub mod templates;
 pub mod terminal;
 pub mod vcs;
@@ -151,6 +153,7 @@ pub fn build_router() -> RpcRouter {
     router.register(settings::register).register(nodes::register);
     router.register(templates::register).register(agents::register);
     router.register(manager::register);
+    router.register(teams::register).register(pm::register);
     router
 }
 
