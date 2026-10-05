@@ -16,9 +16,12 @@ use orkestr_providers::{AdapterDeps, CredentialResolver, MemoryCredentials, Prov
 use parking_lot::Mutex;
 use serde_json::{json, Value};
 
+/// A recorded request: path, headers, body.
+type Seen = (String, HeaderMap, Vec<u8>);
+
 #[derive(Clone, Default)]
 struct Mock {
-    seen: Arc<Mutex<Vec<(String, HeaderMap, Vec<u8>)>>>,
+    seen: Arc<Mutex<Vec<Seen>>>,
     status: Arc<Mutex<u16>>,
 }
 
