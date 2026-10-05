@@ -4,7 +4,7 @@
  * (`BuildStarted`, `BuildSucceeded`, `BuildFailed`, `TestRunFinished` carry
  * `<runId>:<checkId>` build ids → `quality.getRun`).
  */
-import type { CheckDef, CheckKind, DodSetting, Event, GateReport, GateSetting, QualityRun, RunTarget } from "@orkestr/protocol";
+import type { CheckDef, CheckKind, DodSetting, Event, GateReport, GateSetting, QualityRun, RunChecksParams, RunTarget } from "@orkestr/protocol";
 import { topic } from "@orkestr/protocol";
 import { useEffect } from "react";
 import { create } from "zustand";
@@ -53,7 +53,7 @@ export const useQualityStore = create<QualityState>()((set, get) => ({
     if (!client) return;
     set((s) => ({ byProject: { ...s.byProject, [projectId]: { ...(s.byProject[projectId] ?? EMPTY), loading: true, error: null } } }));
     try {
-      const { runs } = await client.call("quality.runs", { projectId, taskId: null, limit: KEEP_RUNS });
+      const { runs } = await client.call("quality.runs", { projectId, limit: KEEP_RUNS });
       set((s) => ({
         byProject: { ...s.byProject, [projectId]: { runs, loading: false, error: null, loaded: true } },
         version: s.version + 1,
@@ -131,15 +131,11 @@ export function useQualityLive(projectId: string | null): ProjectRuns {
 
 /** Starts checks (returns the initial run state). */
 export async function startRun(projectId: string, opts: { kinds?: CheckKind[]; target?: RunTarget; checkIds?: string[] } = {}): Promise<QualityRun> {
-  const run = await getClient().call("quality.run", {
-    projectId,
-    kinds: opts.kinds ?? null,
-    checkIds: opts.checkIds ?? null,
-    target: opts.target ?? null,
-    agentId: null,
-    budgetSecs: null,
-    wait: null,
-  });
+  const params: RunChecksParams = { projectId };
+  if (opts.kinds) params.kinds = opts.kinds;
+  if (opts.checkIds) params.checkIds = opts.checkIds;
+  if (opts.target) params.target = opts.target;
+  const run = await getClient().call("quality.run", params);
   useQualityStore.getState().upsertRun(run);
   return run;
 }
@@ -152,7 +148,7 @@ export async function cancelRun(runId: string): Promise<boolean> {
 
 /** Evaluates gates + DoD of a task (or the project). */
 export function evaluate(projectId: string, taskId: string | null): Promise<GateReport> {
-  return getClient().call("quality.evaluate", { projectId, taskId });
+  return getClient().call("quality.evaluate", taskId ? { projectId, taskId } : { projectId });
 }
 
 export const qualityApi = {

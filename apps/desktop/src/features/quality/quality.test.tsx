@@ -41,7 +41,6 @@ function result(patch: Partial<CheckResult> = {}): CheckResult {
     diagnostics: [],
     rawTail: "",
     summary: "3 passed, 0 failed, 0 skipped",
-    approvalId: null,
     startedAt: "2026-10-05T10:00:00Z",
     ...patch,
   };
@@ -51,8 +50,6 @@ function run(id: string, startedAt: string, results: CheckResult[], patch: Parti
   return {
     id,
     projectId: PROJECT,
-    taskId: null,
-    agentId: null,
     target: { type: "project" },
     workspace: "C:/work/demo",
     kinds: [],
@@ -97,8 +94,8 @@ describe("quality logic", () => {
     const r = result({ cwd: "web" });
     const ws = run("r", "2026-10-05T10:00:00Z", [r]);
     expect(locationOf({ file: "src/a.ts", line: 12, column: 4 }, r, ws)).toEqual({ path: "web/src/a.ts", line: 12, column: 4 });
-    expect(locationOf({ file: "src/a.ts", line: null }, r, ws)).toEqual({ path: "web/src/a.ts", line: 1 });
-    expect(locationOf({ file: null, line: 3 }, r, ws)).toBeNull();
+    expect(locationOf({ file: "src/a.ts" }, r, ws)).toEqual({ path: "web/src/a.ts", line: 1 });
+    expect(locationOf({ line: 3 }, r, ws)).toBeNull();
   });
 
   it("extracts run ids from build ids and events", () => {
@@ -124,7 +121,7 @@ describe("quality logic", () => {
   });
 
   it("aggregates totals and the latest status per kind", () => {
-    const failingBuild = result({ checkId: "b", kind: "Build", status: "Failed", passed: 0, diagnostics: [{ severity: "Error", message: "x", file: "a.rs", line: 1, column: 1, code: null }] });
+    const failingBuild = result({ checkId: "b", kind: "Build", status: "Failed", passed: 0, diagnostics: [{ severity: "Error", message: "x", file: "a.rs", line: 1, column: 1 }] });
     const older = run("old", "2026-10-05T09:00:00Z", [result()]);
     const newer = run("new", "2026-10-05T10:00:00Z", [failingBuild]);
     const totals = runTotals(newer.results);

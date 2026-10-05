@@ -17,6 +17,7 @@ import type { BranchesResult } from "./BranchesResult";
 import type { BudgetIdParams } from "./BudgetIdParams";
 import type { BudgetListResult } from "./BudgetListResult";
 import type { BudgetResult } from "./BudgetResult";
+import type { CancelRunResult } from "./CancelRunResult";
 import type { CheckBudgetParams } from "./CheckBudgetParams";
 import type { CheckBudgetResult } from "./CheckBudgetResult";
 import type { CheckParams } from "./CheckParams";
@@ -58,6 +59,7 @@ import type { DeleteSnapshotResult } from "./DeleteSnapshotResult";
 import type { DeleteTaskResult } from "./DeleteTaskResult";
 import type { DeleteTemplateResult } from "./DeleteTemplateResult";
 import type { DeletedResult } from "./DeletedResult";
+import type { Detection } from "./Detection";
 import type { DiffParams } from "./DiffParams";
 import type { DiffResult } from "./DiffResult";
 import type { DiscardParams } from "./DiscardParams";
@@ -67,12 +69,15 @@ import type { EffectiveRulesResult } from "./EffectiveRulesResult";
 import type { EmergencyStatusResult } from "./EmergencyStatusResult";
 import type { EmergencyStopResult } from "./EmergencyStopResult";
 import type { Empty } from "./Empty";
+import type { EvaluateParams } from "./EvaluateParams";
 import type { ExecLineParams } from "./ExecLineParams";
 import type { ExportTemplateResult } from "./ExportTemplateResult";
 import type { FileEntryResult } from "./FileEntryResult";
 import type { FilePathParams } from "./FilePathParams";
 import type { FindFilesParams } from "./FindFilesParams";
 import type { FindFilesResult } from "./FindFilesResult";
+import type { GateConfig } from "./GateConfig";
+import type { GateReport } from "./GateReport";
 import type { GetModeParams } from "./GetModeParams";
 import type { HealthResult } from "./HealthResult";
 import type { ImportTemplateParams } from "./ImportTemplateParams";
@@ -99,6 +104,8 @@ import type { ListProjectsResult } from "./ListProjectsResult";
 import type { ListProvidersResult } from "./ListProvidersResult";
 import type { ListRulesParams } from "./ListRulesParams";
 import type { ListRulesResult } from "./ListRulesResult";
+import type { ListRunsParams } from "./ListRunsParams";
+import type { ListRunsResult } from "./ListRunsResult";
 import type { ListSecretsParams } from "./ListSecretsParams";
 import type { ListSecretsResult } from "./ListSecretsResult";
 import type { ListShellsParams } from "./ListShellsParams";
@@ -155,6 +162,9 @@ import type { ProviderModelsParams } from "./ProviderModelsParams";
 import type { ProviderModelsResult } from "./ProviderModelsResult";
 import type { ProviderStatusResult } from "./ProviderStatusResult";
 import type { ProviderViewResult } from "./ProviderViewResult";
+import type { QualityProfile } from "./QualityProfile";
+import type { QualityProjectParams } from "./QualityProjectParams";
+import type { QualityRun } from "./QualityRun";
 import type { ReadFileParams } from "./ReadFileParams";
 import type { ReadFileResult } from "./ReadFileResult";
 import type { RejectPlanParams } from "./RejectPlanParams";
@@ -182,8 +192,10 @@ import type { RollbackTaskParams } from "./RollbackTaskParams";
 import type { RollbackWorkspaceParams } from "./RollbackWorkspaceParams";
 import type { RoutingConfigPayload } from "./RoutingConfigPayload";
 import type { RuleResult } from "./RuleResult";
+import type { RunChecksParams } from "./RunChecksParams";
 import type { RunCommandParams } from "./RunCommandParams";
 import type { RunCommandResult } from "./RunCommandResult";
+import type { RunIdParams } from "./RunIdParams";
 import type { SearchFilesParams } from "./SearchFilesParams";
 import type { SearchFilesResult } from "./SearchFilesResult";
 import type { SearchKnowledgeParams } from "./SearchKnowledgeParams";
@@ -193,7 +205,9 @@ import type { SearchMemoryResult } from "./SearchMemoryResult";
 import type { SecretResult } from "./SecretResult";
 import type { SetBudgetParams } from "./SetBudgetParams";
 import type { SetCredentialParams } from "./SetCredentialParams";
+import type { SetGatesParams } from "./SetGatesParams";
 import type { SetModeParams } from "./SetModeParams";
+import type { SetProfileParams } from "./SetProfileParams";
 import type { SetRuleParams } from "./SetRuleParams";
 import type { SetSecretParams } from "./SetSecretParams";
 import type { SettingsResult } from "./SettingsResult";
@@ -417,6 +431,16 @@ export type Methods = {
   "manager.cancel": [ManagerRunIdParams, ManagerRunResult];
   "manager.status": [ManagerStatusParams, ManagerStatusResult];
   "manager.resumeSummary": [ManagerProjectParams, ManagerResumeSummary];
+  "quality.detect": [QualityProjectParams, Detection];
+  "quality.getProfile": [QualityProjectParams, QualityProfile];
+  "quality.setProfile": [SetProfileParams, QualityProfile];
+  "quality.run": [RunChecksParams, QualityRun];
+  "quality.runs": [ListRunsParams, ListRunsResult];
+  "quality.getRun": [RunIdParams, QualityRun];
+  "quality.cancel": [RunIdParams, CancelRunResult];
+  "quality.gates": [QualityProjectParams, GateConfig];
+  "quality.setGates": [SetGatesParams, GateConfig];
+  "quality.evaluate": [EvaluateParams, GateReport];
 };
 
 /** All implemented method names. */
@@ -592,6 +616,16 @@ export const METHOD_NAMES = [
   "manager.cancel",
   "manager.status",
   "manager.resumeSummary",
+  "quality.detect",
+  "quality.getProfile",
+  "quality.setProfile",
+  "quality.run",
+  "quality.runs",
+  "quality.getRun",
+  "quality.cancel",
+  "quality.gates",
+  "quality.setGates",
+  "quality.evaluate",
 ] as const;
 
 /** Wire protocol version (see orkestr-protocol PROTOCOL_VERSION). */

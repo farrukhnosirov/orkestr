@@ -37,13 +37,13 @@ function ResultSummary({ result }: { result: CheckResult }) {
     return <span className="q-result__summary">{t("result.diagnostics", { errors, warnings })}</span>;
   }
   if (result.status === "Passed") return <span className="q-result__summary">{t("result.clean")}</span>;
-  if (result.exitCode !== null) return <span className="q-result__summary">{t("result.exitCode", { code: result.exitCode })}</span>;
+  if (result.exitCode != null) return <span className="q-result__summary">{t("result.exitCode", { code: result.exitCode })}</span>;
   return null;
 }
 
-function Location({ file, line, column, result, run }: { file: string | null; line: number | null; column?: number | null; result: CheckResult; run: QualityRun }) {
+function Location({ file, line, column, result, run }: { file?: string | undefined; line?: number | undefined; column?: number | undefined; result: CheckResult; run: QualityRun }) {
   const { t } = useT("quality");
-  const loc = locationOf({ file, line, column: column ?? null }, result, run);
+  const loc = locationOf({ file, line, column }, result, run);
   if (!file) return null;
   const text = `${file}${line != null ? `:${line}` : ""}${column != null ? `:${column}` : ""}`;
   if (!loc) return <span className="q-loc q-mono">{text}</span>;

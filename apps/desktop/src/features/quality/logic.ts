@@ -8,7 +8,6 @@ import type {
   CheckKind,
   CheckResult,
   QualityCheckStatus,
-  Diagnostic,
   GateStatus,
   QualityRun,
   RunTarget,
@@ -183,7 +182,7 @@ export function workspaceRelative(file: string, cwd: string, workspace: string):
 
 /** Location to open for a diagnostic / failure, or null. */
 export function locationOf(
-  item: Pick<Diagnostic, "file" | "line"> & { column?: number | null },
+  item: { file?: string | undefined; line?: number | undefined; column?: number | undefined },
   result: Pick<CheckResult, "cwd">,
   run: Pick<QualityRun, "workspace">,
 ): { path: string; line: number; column?: number } | null {
@@ -265,7 +264,6 @@ export function blankCheck(existing: readonly CheckDef[], kind: CheckKind = "Tes
     command: "",
     cwd: ".",
     enabled: true,
-    timeoutSecs: null,
     source: "User",
   };
 }

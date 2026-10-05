@@ -178,7 +178,7 @@ function ChecksEditor({ projectId, profile, onChange }: { projectId: string; pro
                   error={problem?.key === "timeout" ? t("settings.errors.timeout") : undefined}
                   onChange={(e) => {
                     const v = e.target.value.trim();
-                    patch(i, { timeoutSecs: v === "" ? null : Number(v) });
+                    patch(i, { timeoutSecs: v === "" ? undefined : Number(v) });
                   }}
                 />
               </div>
