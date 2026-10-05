@@ -160,9 +160,11 @@ export function RobotHost() {
     }
   }, [selection, slots, config]);
 
-  // Close every robot when the main window goes away (reload / quit).
-  useEffect(
-    () => () => {
+  // Start from a clean desktop (windows left over from a reloaded main window
+  // would otherwise be orphaned) and close every robot when the host goes away.
+  useEffect(() => {
+    void robotShell.closeAll().catch(() => undefined);
+    return () => {
       open.current.clear();
       clusterOpen.current = false;
       void robotShell.closeAll().catch(() => undefined);

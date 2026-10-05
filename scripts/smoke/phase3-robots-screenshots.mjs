@@ -157,9 +157,12 @@ const shots = [];
 async function capture(cdp, name, note, { backdrop = false } = {}) {
   await sleep(1200);
   // Robot windows are transparent: paint a desktop-like backdrop behind them for the PNG only.
-  if (backdrop) await cdp.send("Emulation.setDefaultBackgroundColorOverride", { color: { r: 24, g: 30, b: 52, a: 1 } });
+  const paint = (on) =>
+    cdp.eval(`(() => { const s = document.documentElement.style; ${on ? "s.setProperty('background', 'radial-gradient(circle at 30% 20%, #2a3566, #11162b 70%)', 'important')" : "s.removeProperty('background')"}; return true; })()`);
+  if (backdrop) await paint(true);
+  await sleep(150);
   const { data } = await cdp.send("Page.captureScreenshot", { format: "png" });
-  if (backdrop) await cdp.send("Emulation.setDefaultBackgroundColorOverride", {});
+  if (backdrop) await paint(false);
   const file = join(outDir, `${name}.png`);
   writeFileSync(file, Buffer.from(data, "base64"));
   const errors = cdp.console.splice(0);
@@ -193,7 +196,7 @@ try {
   const rpc = rpcClient(info.url, token);
   await rpc.open();
   await rpc.sub(["*"]);
-  await rpc.call("settings.update", { patch: { profileName: "Demo", onboardingCompleted: true, performanceMode: "UltraVisual" } });
+  await rpc.call("settings.update", { patch: { profileName: "Demo", onboardingCompleted: true, performanceMode: "UltraVisual", language: "en" } });
   const providers = (await rpc.call("providers.list")).providers.map((p) => p.provider ?? p);
   const mock = providers.find((p) => p.kind === "Mock");
   const smart = { providerId: mock.id, model: "mock-smart" };
@@ -227,8 +230,12 @@ try {
   });
 
   const cdpMain = await attach((t) => !t.url.includes("robot.html") && /tauri\.localhost|127\.0\.0\.1:1420/.test(t.url), "main webview");
+  // Reload so the shell starts with the seeded settings (no onboarding wizard, English).
+  await cdpMain.send("Page.reload", { ignoreCache: true });
   await waitFor(() => cdpMain.eval("!!document.querySelector('.app__body')"), 60_000, "app shell");
-  await sleep(2000);
+  await sleep(2500);
+  await cdpMain.eval(`document.querySelector('[aria-label="Open project Schoolify"]')?.click(), true`);
+  await sleep(800);
 
   // Scenario H: the QA agent runs and completes.
   const qa = await rpc.call("agents.spawn", {
@@ -289,9 +296,8 @@ try {
   await capture(cdpMain, "07-designer-ru", "Дизайнер роботов (русский интерфейс, режим «Баланс»)");
   await capture(qaRobot, "08-qa-robot-ru", "QA-робот на русском", { backdrop: true });
 
-  // Overflow cluster: one visible robot, the rest gather in the cluster.
-  await rpc2.call("robots.setConfig", { maxVisible: 1 });
-  await cdpMain.eval("location.reload(), true");
+  // Overflow cluster: one visible robot (Settings → Robots), the rest gather in the cluster.
+  await cdpMain.eval(`(() => { const r = [...document.querySelectorAll('.ok-segmented button')].find((b) => b.textContent.trim() === '1'); r?.click(); return !!r; })()`);
   const cluster = await attach((t) => t.url.includes("robot.html#/cluster"), "cluster window");
   await waitFor(() => cluster.eval("!!document.querySelector('.robot-cluster svg')"), 30_000, "cluster drawn");
   await capture(cluster, "09-cluster", "Overflow cluster (+N robots)", { backdrop: true });
