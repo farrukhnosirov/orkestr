@@ -5,6 +5,7 @@ use std::path::{Component, Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
+use crate::imports::extract_imports;
 use crate::symbols::{extract_symbols, Language, Symbol};
 use crate::tokens::{estimate_code_tokens, estimate_tokens};
 use crate::ContextError;
@@ -52,6 +53,34 @@ pub struct IndexedFile {
     /// First characters of the content (ranking only).
     #[serde(skip)]
     pub sample: String,
+    /// Raw import specifiers (see [`crate::imports`]).
+    #[serde(default)]
+    pub imports: Vec<String>,
+    /// Distinct identifiers (≥ 3 chars) used in the file, sorted — the
+    /// symbol-reference index.
+    #[serde(skip)]
+    pub idents: Vec<String>,
+    /// Modification time (unix seconds) when indexed from disk.
+    #[serde(default)]
+    pub mtime: Option<i64>,
+}
+
+/// Max identifiers kept per file.
+pub const MAX_IDENTS: usize = 4000;
+
+/// Distinct identifiers of `text` (sorted, capped).
+#[must_use]
+pub fn identifiers(text: &str) -> Vec<String> {
+    let mut set = std::collections::BTreeSet::new();
+    for word in text.split(|c: char| !(c.is_alphanumeric() || c == '_')) {
+        if word.len() >= 3 && word.chars().next().is_some_and(|c| c.is_alphabetic() || c == '_') {
+            set.insert(word.to_owned());
+            if set.len() >= MAX_IDENTS {
+                break;
+            }
+        }
+    }
+    set.into_iter().collect()
 }
 
 impl IndexedFile {
@@ -67,8 +96,66 @@ impl IndexedFile {
             est_tokens,
             symbols: extract_symbols(language, content),
             sample: content.chars().take(sample_chars).collect(),
+            imports: extract_imports(language, content),
+            idents: identifiers(content),
+            mtime: None,
         }
     }
+
+    /// Whether the file uses identifier `name`.
+    #[must_use]
+    pub fn uses_ident(&self, name: &str) -> bool {
+        self.idents.binary_search_by(|i| i.as_str().cmp(name)).is_ok()
+    }
+}
+
+fn mtime_secs(meta: &std::fs::Metadata) -> Option<i64> {
+    let t = meta.modified().ok()?;
+    let d = t.duration_since(std::time::UNIX_EPOCH).ok()?;
+    i64::try_from(d.as_secs()).ok()
+}
+
+/// Indexes one file from disk (`None` when binary / unreadable).
+fn index_disk_file(path: &Path, rel: String, opts: IndexOptions) -> Option<IndexedFile> {
+    let meta = std::fs::metadata(path).ok()?;
+    if !meta.is_file() {
+        return None;
+    }
+    if meta.len() > opts.max_file_bytes {
+        let language = Language::from_path(&rel);
+        #[allow(clippy::cast_possible_truncation)]
+        let est = (meta.len() / 3).min(u64::from(u32::MAX)) as u32;
+        return Some(IndexedFile {
+            path: rel,
+            language,
+            size_bytes: meta.len(),
+            est_tokens: est,
+            symbols: Vec::new(),
+            sample: String::new(),
+            imports: Vec::new(),
+            idents: Vec::new(),
+            mtime: mtime_secs(&meta),
+        });
+    }
+    match std::fs::read(path) {
+        Ok(bytes) if !bytes.iter().take(8192).any(|b| *b == 0) => {
+            let text = String::from_utf8_lossy(&bytes);
+            let mut f = IndexedFile::from_content(&rel, &text, opts.sample_chars);
+            f.mtime = mtime_secs(&meta);
+            Some(f)
+        }
+        _ => None,
+    }
+}
+
+/// Whether a relative path has an indexed extension.
+#[must_use]
+pub fn is_indexed_path(rel: &str) -> bool {
+    Path::new(rel)
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(str::to_ascii_lowercase)
+        .is_some_and(|e| INDEXED_EXTENSIONS.contains(&e.as_str()))
 }
 
 /// The index of one project.
@@ -123,30 +210,9 @@ impl FileIndex {
         }
         for path in paths {
             let rel = normalize(&path.strip_prefix(root).unwrap_or(&path).to_string_lossy());
-            let Ok(meta) = std::fs::metadata(&path) else {
-                index.skipped += 1;
-                continue;
-            };
-            if meta.len() > opts.max_file_bytes {
-                let language = Language::from_path(&rel);
-                #[allow(clippy::cast_possible_truncation)]
-                let est = (meta.len() / 3).min(u64::from(u32::MAX)) as u32;
-                index.files.push(IndexedFile {
-                    path: rel,
-                    language,
-                    size_bytes: meta.len(),
-                    est_tokens: est,
-                    symbols: Vec::new(),
-                    sample: String::new(),
-                });
-                continue;
-            }
-            match std::fs::read(&path) {
-                Ok(bytes) if !bytes.iter().take(8192).any(|b| *b == 0) => {
-                    let text = String::from_utf8_lossy(&bytes);
-                    index.files.push(IndexedFile::from_content(&rel, &text, opts.sample_chars));
-                }
-                _ => index.skipped += 1,
+            match index_disk_file(&path, rel, opts) {
+                Some(f) => index.files.push(f),
+                None => index.skipped += 1,
             }
         }
         tracing::debug!(root = %root.display(), files = index.files.len(), skipped = index.skipped, "context index built");
@@ -161,6 +227,47 @@ impl FileIndex {
             sources.into_iter().map(|(p, c)| IndexedFile::from_content(p, c, opts.sample_chars)).collect();
         files.sort_by(|a, b| a.path.cmp(&b.path));
         Self { files, skipped: 0, truncated: false }
+    }
+
+    /// Re-indexes one project-relative file from disk under `root`: updates,
+    /// inserts or (when it is gone / no longer indexable) removes it. Returns
+    /// true when the index changed. Paths escaping the root are ignored.
+    pub fn refresh_path(&mut self, root: &Path, rel: &str, opts: IndexOptions) -> bool {
+        let rel = normalize(rel);
+        if rel.is_empty()
+            || Path::new(&rel).components().any(|c| !matches!(c, Component::Normal(_) | Component::CurDir))
+        {
+            return false;
+        }
+        let fresh = if is_indexed_path(&rel) { index_disk_file(&root.join(&rel), rel.clone(), opts) } else { None };
+        match (self.files.binary_search_by(|f| f.path.as_str().cmp(&rel)), fresh) {
+            (Ok(i), Some(f)) => {
+                if self.files[i] == f {
+                    return false;
+                }
+                self.files[i] = f;
+                true
+            }
+            (Ok(i), None) => {
+                self.files.remove(i);
+                true
+            }
+            (Err(i), Some(f)) => {
+                if self.files.len() >= opts.max_files {
+                    self.truncated = true;
+                    return false;
+                }
+                self.files.insert(i, f);
+                true
+            }
+            (Err(_), None) => {
+                // A directory: drop indexed files under it that no longer exist.
+                let prefix = format!("{rel}/");
+                let before = self.files.len();
+                self.files.retain(|f| !f.path.starts_with(&prefix) || root.join(&f.path).is_file());
+                before != self.files.len()
+            }
+        }
     }
 
     /// Looks a file up by relative path.

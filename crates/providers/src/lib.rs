@@ -29,6 +29,7 @@ pub mod catalog;
 pub mod credentials;
 pub mod factory;
 pub mod fallback;
+pub mod history;
 pub mod http;
 pub mod limits;
 pub mod pricing;
@@ -47,6 +48,7 @@ pub const UI_LANGUAGE_MARKER: &str = "User interface language:";
 pub use catalog::{kind_info, kind_slug, parse_kind, KindInfo, MOCK_DISPLAY_NAME, PHASE1_KINDS};
 pub use credentials::{CredentialError, CredentialResolver, MemoryCredentials};
 pub use factory::AdapterDeps;
+pub use history::{ModelHistory, ModelStatsSource};
 pub use fallback::{
     chat_with_fallback, AdapterSource, AttemptOutcome, FallbackOptions, HandoffContext, HandoffHook, NullSink,
     ProviderEvent, ProviderEventSink,

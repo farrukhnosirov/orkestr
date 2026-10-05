@@ -18,6 +18,8 @@ use ts_rs::TS;
 pub mod agents;
 pub mod approvals;
 pub mod audit;
+pub mod benchmarks;
+pub mod context;
 pub mod cost;
 pub mod emergency;
 pub mod events;
@@ -288,6 +290,12 @@ pub fn registry() -> Vec<MethodDescriptor> {
         MethodDescriptor::of::<manager::Cancel>(),
         MethodDescriptor::of::<manager::Status>(),
         MethodDescriptor::of::<manager::ResumeSummaryMethod>(),
+        // context optimizer + benchmarks (Phase 2)
+        MethodDescriptor::of::<context::Preview>(),
+        MethodDescriptor::of::<context::Explain>(),
+        MethodDescriptor::of::<benchmarks::Models>(),
+        MethodDescriptor::of::<benchmarks::Agents>(),
+        MethodDescriptor::of::<benchmarks::Records>(),
     ]
 }
 

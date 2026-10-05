@@ -1,44 +1,29 @@
-//! Budget packer and prompt renderer.
+//! Context bundle types, the compatibility entry point [`build_bundle`] and
+//! the prompt renderer.
 //!
-//! Allocation (deterministic, all estimates in tokens of `budget`):
+//! Allocation (deterministic, all estimates in tokens of `budget`; see
+//! [`crate::optimizer`] for the full pipeline):
 //!
 //! 1. **Task** — always included; truncated to 25 % of the budget.
 //! 2. **Handoff** — up to 20 %.
-//! 3. **Rules** (effective project/global rules, pinned first) — up to 20 %,
-//!    each note capped at 300 tokens.
-//! 4. **Memory** (relevant items, pinned first) — up to 15 %, same cap.
-//! 5. **Files** — everything left, in rank order: small files whole, larger
-//!    files as excerpts around matching symbols / lines (merged windows).
+//! 3. **Rules** (project over global, pinned first) — up to 20 %, each note
+//!    capped at 300 tokens.
+//! 4. **Memory** (relevance × kind weight, mistakes / known issues first) —
+//!    up to 15 %, same cap.
+//! 5. **Files** — everything left, in score order (task relevance, import
+//!    neighbours, symbol references, churn): small files whole, larger files
+//!    as excerpts around matching / referenced symbols (merged windows).
 //!
 //! Whatever does not fit is listed in `omitted`. Every item carries a fixed
 //! rendering overhead so `estimate_tokens(bundle.render())` stays within the
 //! budget.
 
-use std::collections::BTreeSet;
-
 use orkestr_domain::{MemoryItem, MemoryKind};
 use serde::{Deserialize, Serialize};
 
 use crate::index::{FileIndex, FileReader};
-use crate::rank::{rank_files, terms};
+use crate::optimizer::{optimize, MemoryInput, OptimizeRequest, Reason, RuleInput, Signals};
 use crate::symbols::Language;
-use crate::tokens::{estimate_code_tokens, estimate_tokens, truncate_to_tokens};
-
-/// Rendering overhead per section header.
-const SECTION_OVERHEAD: u32 = 6;
-/// Rendering overhead per note.
-const NOTE_OVERHEAD: u32 = 8;
-/// Rendering overhead per excerpt (header line + fences).
-const EXCERPT_OVERHEAD: u32 = 24;
-/// Max tokens of one rule / memory note.
-const NOTE_CAP: u32 = 300;
-/// Files up to this size are included whole.
-const WHOLE_FILE_TOKENS: u32 = 600;
-/// Lines of context around an anchor line.
-const WINDOW_BEFORE: usize = 3;
-const WINDOW_AFTER: usize = 12;
-/// Max anchors per file.
-const MAX_ANCHORS: usize = 6;
 
 /// What to build context for.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -71,6 +56,9 @@ pub struct ContextNote {
     pub body: String,
     /// Estimated tokens incl. overhead.
     pub tokens: u32,
+    /// Why it was included.
+    #[serde(default)]
+    pub reasons: Vec<Reason>,
 }
 
 /// A line range of a file.
@@ -103,6 +91,9 @@ pub struct ContextFile {
     pub excerpts: Vec<Excerpt>,
     /// Estimated tokens incl. overhead.
     pub tokens: u32,
+    /// Structured reasons (see `reason` for the summary).
+    #[serde(default)]
+    pub reasons: Vec<Reason>,
 }
 
 /// The assembled context.
@@ -127,210 +118,25 @@ pub struct ContextBundle {
     pub omitted: Vec<String>,
 }
 
-fn pct(budget: u32, p: u32) -> u32 {
-    u32::try_from(u64::from(budget) * u64::from(p) / 100).unwrap_or(u32::MAX)
-}
-
-fn notes(
-    items: &[MemoryItem],
-    cap: u32,
-    remaining: &mut u32,
-    omitted: &mut Vec<String>,
-    prefix: &str,
-) -> Vec<ContextNote> {
-    let mut out = Vec::new();
-    let mut used = 0u32;
-    for item in items {
-        let body = truncate_to_tokens(item.content.trim(), NOTE_CAP);
-        let tokens = estimate_tokens(&item.title) + estimate_tokens(&body) + NOTE_OVERHEAD;
-        if used + tokens > cap || tokens > *remaining {
-            omitted.push(format!("{prefix}:{}", item.id));
-            continue;
-        }
-        used += tokens;
-        *remaining -= tokens;
-        out.push(ContextNote {
-            source: format!("memory:{}", item.id),
-            kind: item.kind,
-            title: item.title.clone(),
-            body,
-            tokens,
-        });
-    }
-    out
-}
-
-fn excerpt_tokens(lang: Language, text: &str) -> u32 {
-    (if lang.is_code() { estimate_code_tokens(text) } else { estimate_tokens(text) }) + EXCERPT_OVERHEAD
-}
-
-/// Anchor lines (0-based): symbol definitions whose name shares a query
-/// term, then lines containing a query term.
-fn anchors(content_lines: &[&str], symbols: &[crate::symbols::Symbol], query: &BTreeSet<String>) -> Vec<usize> {
-    let mut out: Vec<usize> = Vec::new();
-    for s in symbols {
-        if terms(&s.name).iter().any(|t| query.contains(t)) {
-            let line = (s.line as usize).saturating_sub(1);
-            if !out.contains(&line) {
-                out.push(line);
-            }
-        }
-        if out.len() >= MAX_ANCHORS {
-            return out;
+impl From<&ContextRequest> for OptimizeRequest {
+    fn from(req: &ContextRequest) -> Self {
+        OptimizeRequest {
+            task: req.task.clone(),
+            token_budget: req.token_budget,
+            rules: req.rules.iter().map(|i| RuleInput { item: i.clone(), key: i.key.clone() }).collect(),
+            memory: req.memory.iter().map(|i| MemoryInput { item: i.clone(), relevance: 0.0 }).collect(),
+            handoff: req.handoff.clone(),
+            max_files: req.max_files,
+            focus_paths: Vec::new(),
         }
     }
-    for (i, line) in content_lines.iter().enumerate() {
-        if out.len() >= MAX_ANCHORS {
-            break;
-        }
-        if !out.contains(&i) && terms(line).iter().any(|t| query.contains(t)) {
-            out.push(i);
-        }
-    }
-    out
 }
 
-/// Merged `[start, end]` 0-based inclusive windows around anchors.
-fn windows(anchors: &[usize], line_count: usize) -> Vec<(usize, usize)> {
-    let mut ws: Vec<(usize, usize)> = anchors
-        .iter()
-        .map(|&a| (a.saturating_sub(WINDOW_BEFORE), (a + WINDOW_AFTER).min(line_count.saturating_sub(1))))
-        .collect();
-    ws.sort_unstable();
-    let mut merged: Vec<(usize, usize)> = Vec::new();
-    for (s, e) in ws {
-        match merged.last_mut() {
-            Some(last) if s <= last.1 + 1 => last.1 = last.1.max(e),
-            _ => merged.push((s, e)),
-        }
-    }
-    merged
-}
-
-fn make_excerpt(lines: &[&str], start: usize, end: usize) -> Excerpt {
-    Excerpt {
-        start_line: u32::try_from(start + 1).unwrap_or(u32::MAX),
-        end_line: u32::try_from(end + 1).unwrap_or(u32::MAX),
-        text: lines.get(start..=end).map(|l| l.join("\n")).unwrap_or_default(),
-    }
-}
-
-/// Builds a bundle for `req` from `index`, reading file contents via `reader`.
+/// Builds a bundle for `req` from `index`, reading file contents via `reader`
+/// (full optimizer with the import graph built from the index; no churn).
 #[must_use]
 pub fn build_bundle(index: &FileIndex, reader: &dyn FileReader, req: &ContextRequest) -> ContextBundle {
-    let budget = req.token_budget;
-    let mut remaining = budget;
-    let mut omitted = Vec::new();
-
-    let task = truncate_to_tokens(req.task.trim(), pct(budget, 25).max(1));
-    let task_tokens = (estimate_tokens(&task) + SECTION_OVERHEAD).min(remaining);
-    remaining -= task_tokens;
-
-    let handoff = req.handoff.as_deref().map(str::trim).filter(|h| !h.is_empty()).and_then(|h| {
-        let cap = pct(budget, 20).min(remaining.saturating_sub(SECTION_OVERHEAD));
-        if cap < 16 {
-            return None;
-        }
-        let text = truncate_to_tokens(h, cap);
-        remaining = remaining.saturating_sub(estimate_tokens(&text) + SECTION_OVERHEAD);
-        Some(text)
-    });
-
-    let mut rules = Vec::new();
-    if !req.rules.is_empty() && remaining > SECTION_OVERHEAD {
-        remaining -= SECTION_OVERHEAD;
-        rules = notes(&req.rules, pct(budget, 20), &mut remaining, &mut omitted, "rule");
-    }
-    let mut memory = Vec::new();
-    if !req.memory.is_empty() && remaining > SECTION_OVERHEAD {
-        remaining -= SECTION_OVERHEAD;
-        memory = notes(&req.memory, pct(budget, 15), &mut remaining, &mut omitted, "memory");
-    }
-
-    let max_files = if req.max_files == 0 { 12 } else { req.max_files };
-    let ranked = rank_files(index, &req.task, max_files);
-    let query: BTreeSet<String> = terms(&req.task).into_iter().collect();
-    let mut files = Vec::new();
-    if !ranked.is_empty() && remaining > SECTION_OVERHEAD {
-        remaining -= SECTION_OVERHEAD;
-    }
-    for rf in ranked {
-        let Some(meta) = index.get(&rf.path) else { continue };
-        let Some(content) = reader.read(&rf.path) else {
-            omitted.push(format!("file:{}", rf.path));
-            continue;
-        };
-        let reason = if rf.mentioned {
-            "mentioned in task".to_owned()
-        } else {
-            format!("matches: {}", rf.matched_terms.join(", "))
-        };
-        let lines: Vec<&str> = content.lines().collect();
-        if lines.is_empty() {
-            continue;
-        }
-        let whole = excerpt_tokens(meta.language, &content);
-        if whole <= WHOLE_FILE_TOKENS.max(EXCERPT_OVERHEAD + 1) && whole <= remaining {
-            remaining -= whole;
-            files.push(ContextFile {
-                path: rf.path,
-                language: meta.language,
-                reason,
-                score: rf.score,
-                whole_file: true,
-                excerpts: vec![make_excerpt(&lines, 0, lines.len() - 1)],
-                tokens: whole,
-            });
-            continue;
-        }
-        let mut anchor_lines = anchors(&lines, &meta.symbols, &query);
-        if anchor_lines.is_empty() {
-            anchor_lines.push(0);
-        }
-        let mut excerpts = Vec::new();
-        let mut used = 0u32;
-        for (s, e) in windows(&anchor_lines, lines.len()) {
-            let mut ex = make_excerpt(&lines, s, e);
-            let mut cost = excerpt_tokens(meta.language, &ex.text);
-            // Shrink the window from the end until it fits (keep ≥ 1 line).
-            let mut end = e;
-            while cost > remaining && end > s {
-                end -= 1;
-                ex = make_excerpt(&lines, s, end);
-                cost = excerpt_tokens(meta.language, &ex.text);
-            }
-            if cost > remaining {
-                break;
-            }
-            remaining -= cost;
-            used += cost;
-            excerpts.push(ex);
-        }
-        if excerpts.is_empty() {
-            omitted.push(format!("file:{}", rf.path));
-            continue;
-        }
-        files.push(ContextFile {
-            path: rf.path,
-            language: meta.language,
-            reason,
-            score: rf.score,
-            whole_file: false,
-            excerpts,
-            tokens: used,
-        });
-    }
-
-    ContextBundle {
-        task,
-        rules,
-        memory,
-        files,
-        handoff,
-        total_tokens: budget.saturating_sub(remaining),
-        budget,
-        omitted,
-    }
+    optimize(index, reader, &OptimizeRequest::from(req), Signals::default()).bundle
 }
 
 impl ContextBundle {
@@ -387,6 +193,7 @@ impl ContextBundle {
 mod tests {
     use super::*;
     use crate::index::MemReader;
+    use crate::tokens::estimate_tokens;
     use orkestr_domain::{now, MemoryItemId, MemoryScope};
 
     fn mem(title: &str, body: &str, kind: MemoryKind) -> MemoryItem {
@@ -502,6 +309,7 @@ mod tests {
 
     #[test]
     fn window_merging() {
+        use crate::optimizer::windows;
         assert_eq!(windows(&[10, 12], 100), vec![(7, 24)]);
         assert_eq!(windows(&[0, 50], 100), vec![(0, 12), (47, 62)]);
         assert_eq!(windows(&[98], 100), vec![(95, 99)]);
