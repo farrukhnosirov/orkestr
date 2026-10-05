@@ -53,9 +53,24 @@ export type Intent =
 
 export type IntentKind = Intent["kind"];
 
-/** Intents that change state and need a confirmation first (ADR-0017). */
+/**
+ * Intents that change state and need a confirmation first (ADR-0017, §70):
+ * stopping work and resolving approvals. Emergency stop is the exception —
+ * it runs at once (§52).
+ */
 export function needsConfirmation(intent: Intent): boolean {
-  return intent.kind === "stopProject" || intent.kind === "reject";
+  return intent.kind === "stopProject" || intent.kind === "stopAll" || intent.kind === "approve" || intent.kind === "reject";
+}
+
+const YES = /^(?:yes|yeah|yep|confirm|confirmed|do it|go ahead|ok|okay|да|ага|подтверждаю|подтвердить|давай|делай|выполняй|конечно)$/;
+const NO = /^(?:no|nope|cancel|stop|never mind|nevermind|нет|отмена|отмени|не надо|не нужно|стоп)$/;
+
+/** A spoken answer to a pending confirmation, or `null` when it is not one. */
+export function parseConfirmation(utterance: string, wakePhrases: readonly string[] = []): "yes" | "no" | null {
+  const text = stripWakePhrase(utterance, wakePhrases).replace(/^(please|пожалуйста)\s+/, "").replace(/\s+(please|пожалуйста)$/, "");
+  if (YES.test(text)) return "yes";
+  if (NO.test(text)) return "no";
+  return null;
 }
 
 const PANEL_WORDS: ReadonlyArray<readonly [PanelTarget, readonly string[]]> = [

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { type Intent, type IntentContext, needsConfirmation, parseIntent } from "./parser";
+import { type Intent, type IntentContext, needsConfirmation, parseConfirmation, parseIntent } from "./parser";
 import { bestMatch, normalize, phoneticKey, similarity, stripWakePhrase, transliterate } from "./text";
 
 const SCHOOLIFY = { id: "p1", name: "Schoolify" };
@@ -119,7 +119,9 @@ describe("parseIntent — table (RU + EN)", () => {
   it("destructive intents need confirmation", () => {
     expect(needsConfirmation(parseIntent("stop Schoolify", CTX))).toBe(true);
     expect(needsConfirmation(parseIntent("reject", CTX))).toBe(true);
-    expect(needsConfirmation(parseIntent("approve", CTX))).toBe(false);
+    expect(needsConfirmation(parseIntent("approve", CTX))).toBe(true);
+    expect(needsConfirmation(parseIntent("stop all", CTX))).toBe(true);
+    expect(needsConfirmation(parseIntent("покажи ошибки сборки", CTX))).toBe(false);
     expect(needsConfirmation(parseIntent("emergency stop", CTX))).toBe(false);
   });
 });
@@ -147,5 +149,21 @@ describe("text helpers", () => {
     expect(stripWakePhrase("Эй, Джарвис, статус")).toBe("статус");
     expect(stripWakePhrase("Компьютер, статус", ["Компьютер"])).toBe("статус");
     expect(stripWakePhrase("jarvisville rocks")).toBe("jarvisville rocks");
+  });
+});
+
+describe("parseConfirmation", () => {
+  it.each([
+    ["yes", "yes"],
+    ["Да", "yes"],
+    ["Jarvis, подтверждаю", "yes"],
+    ["go ahead", "yes"],
+    ["нет", "no"],
+    ["отмена", "no"],
+    ["cancel please", "no"],
+    ["what is happening", null],
+    ["останови Schoolify", null],
+  ] as const)("%s → %s", (text, want) => {
+    expect(parseConfirmation(text, ["Jarvis"])).toBe(want);
   });
 });
