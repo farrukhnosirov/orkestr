@@ -523,6 +523,23 @@ impl TaskService {
         .await
     }
 
+    /// Sets the review state shown on the task (Phase 2: written by the
+    /// automatic code review; never changes the status).
+    pub async fn set_review_state(&self, id: TaskId, state: orkestr_domain::ReviewState) -> Result<Task, TaskError> {
+        self.write(move |tx| {
+            let mut task = store::require_task(tx.c, id)?;
+            if task.review_state == state {
+                return Ok(task);
+            }
+            task.review_state = state;
+            task.updated_at = tx.now;
+            store::save_task(tx.c, &mut task)?;
+            tx.fx.updated.insert(task.id, task.clone());
+            Ok(task)
+        })
+        .await
+    }
+
     /// Deletes a `Planned` or `Cancelled` task. Dependents are re-evaluated
     /// (removing a prerequisite may unblock them); children become roots.
     pub async fn delete(&self, id: TaskId) -> Result<TaskId, TaskError> {

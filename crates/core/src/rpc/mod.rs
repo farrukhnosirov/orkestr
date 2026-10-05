@@ -7,6 +7,7 @@
 pub mod agents;
 pub mod approvals;
 pub mod audit;
+pub mod consensus;
 pub mod cost;
 pub mod emergency;
 pub mod events;
@@ -17,6 +18,7 @@ pub mod nodes;
 pub mod permissions;
 pub mod projects;
 pub mod providers;
+pub mod reviews;
 pub mod secrets;
 pub mod settings;
 pub mod snapshots;
@@ -151,6 +153,8 @@ pub fn build_router() -> RpcRouter {
     router.register(settings::register).register(nodes::register);
     router.register(templates::register).register(agents::register);
     router.register(manager::register);
+    // review-consensus (Phase 2)
+    router.register(reviews::register).register(consensus::register);
     router
 }
 

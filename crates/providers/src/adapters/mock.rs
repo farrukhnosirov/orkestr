@@ -799,6 +799,10 @@ pub fn script(req: &ChatRequest) -> MockScript {
         return MockScript::Text("Tool round-trip complete.".into());
     }
     // mock-smart / mock-slow / anything else.
+    // Phase 2 review / adversarial / consensus prompts (role markers).
+    if let Some(s) = super::mock_review::script(req) {
+        return s;
+    }
     if is_plan_request(req) {
         return MockScript::Text(demo_plan_in(&plan_goal(req), reply_lang(req)).to_string());
     }

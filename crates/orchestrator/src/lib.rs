@@ -22,18 +22,24 @@
 //!   branch), result acceptance by approval policy, bounded retries, pause /
 //!   resume / cancel, emergency stop, final report + merge proposals.
 //! * [`resume`] — "Last session" summary (§57).
+//! * [`review`] + [`adversarial`] — automatic code review and adversarial
+//!   review with verification (§8, §17); [`consensus`] — Consensus Mode (§8).
 //!
 //! The orchestrator composes engines through their public APIs; it is not a
 //! god service (§64).
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod adversarial;
 pub mod chat;
+pub mod consensus;
 pub mod deps;
 pub mod error;
 pub mod plan;
 pub mod planner;
 pub mod resume;
+pub mod review;
+pub mod review_store;
 pub mod run;
 pub mod schema;
 pub mod service;
@@ -45,8 +51,12 @@ pub use deps::{
     ManagerHub, ManagerTunables, OrchestratorDeps, ProviderBrief, RegistryHub, ResourceProbe, Unconstrained,
 };
 pub use error::{OrchResult, OrchestratorError};
+pub use review::{gate_of, ReviewGateSource};
+pub use review_store::review_migrations;
 pub use schema::orchestrator_migrations;
 pub use service::Manager;
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod review_tests;
