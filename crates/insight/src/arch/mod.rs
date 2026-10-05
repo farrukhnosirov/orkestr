@@ -21,7 +21,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use orkestr_domain::{now, ProjectId};
-use orkestr_events::{EventBus, Received};
+use orkestr_events::{EventBus, ReplayQuery};
 use orkestr_protocol::event::{ArchitectureMapUpdatedPayload, EventKind, NewEvent};
 use orkestr_protocol::methods::architecture::{ArchDiff, ArchSnapshotInfo, ArchitectureMap};
 use orkestr_storage::{Db, ProjectRepository};
@@ -220,17 +220,56 @@ pub struct AutoRefreshConfig {
     pub debounce: Duration,
     /// Minimum time between two automatic scans of one project.
     pub min_interval: Duration,
+    /// How often the persisted event log is checked for new `FileChanged`
+    /// events (a cheap in-memory `last_seq` comparison when nothing happened).
+    pub poll: Duration,
 }
 
 impl Default for AutoRefreshConfig {
     fn default() -> Self {
-        Self { debounce: Duration::from_secs(3), min_interval: Duration::from_secs(10) }
+        Self { debounce: Duration::from_secs(3), min_interval: Duration::from_secs(10), poll: Duration::from_secs(1) }
     }
+}
+
+/// Max events read from the log per poll (the rest is read on the next poll).
+const TAIL_PAGE: u32 = 1000;
+const TAIL_MAX_PAGES: usize = 20;
+
+/// Projects with new `FileChanged` events in `(cursor, last]`; returns the new cursor.
+async fn tail_file_changes(bus: &EventBus, cursor: u64, out: &mut Vec<ProjectId>) -> InsightResult<u64> {
+    let last_before = bus.last_seq();
+    let mut from = cursor + 1;
+    let mut finished = false;
+    for _ in 0..TAIL_MAX_PAGES {
+        let page = bus
+            .replay(&ReplayQuery { from_seq: from, to_seq: None, limit: TAIL_PAGE, topics: None, newest_first: false })
+            .await?;
+        for ev in &page.events {
+            from = ev.seq + 1;
+            if let (EventKind::FileChanged(_), Some(pid)) = (&ev.kind, ev.project_id) {
+                if !out.contains(&pid) {
+                    out.push(pid);
+                }
+            }
+        }
+        if !page.has_more || page.events.is_empty() {
+            finished = true;
+            break;
+        }
+    }
+    let read_up_to = from.saturating_sub(1).max(cursor);
+    // Ephemeral events are never persisted: once the log is drained, skip
+    // their seqs too (everything up to `last_before` was either read or not stored).
+    Ok(if finished { read_up_to.max(last_before) } else { read_up_to })
 }
 
 /// Refreshes maps after `FileChanged` events (debounced, rate-limited). Only
 /// projects that already have a snapshot are refreshed — nothing is scanned
 /// for projects whose map was never opened.
+///
+/// The task tails the persisted event log (it does not hold a live bus
+/// subscription, so it never counts as a connected listener — the core skips
+/// work such as node heartbeats while nobody listens).
 pub fn spawn_auto_refresh(
     service: ArchitectureService,
     bus: EventBus,
@@ -238,60 +277,62 @@ pub fn spawn_auto_refresh(
     cfg: AutoRefreshConfig,
     shutdown: CancellationToken,
 ) -> JoinHandle<()> {
-    let mut sub = bus.subscribe_all();
     tokio::spawn(async move {
         use tokio::time::Instant;
+        if !bus.is_persistent() {
+            tracing::warn!("architecture auto-refresh disabled: the event bus has no persistent log");
+            return;
+        }
+        let mut cursor = bus.last_seq();
         let mut due: HashMap<ProjectId, Instant> = HashMap::new();
         let mut last_run: HashMap<ProjectId, Instant> = HashMap::new();
         loop {
-            let next = due.values().min().copied();
-            let sleep = async {
-                match next {
-                    Some(t) => tokio::time::sleep_until(t).await,
-                    None => std::future::pending::<()>().await,
-                }
-            };
+            let next_poll = Instant::now() + cfg.poll;
+            let wake = due.values().min().copied().map_or(next_poll, |t| t.min(next_poll));
             tokio::select! {
                 () = shutdown.cancelled() => break,
-                received = sub.recv() => match received {
-                    None => break,
-                    Some(Received::Lagged(_)) => {}
-                    Some(Received::Event(ev)) => {
-                        if let (EventKind::FileChanged(_), Some(pid)) = (&ev.kind, ev.project_id) {
-                            let earliest = last_run.get(&pid).map(|t| *t + cfg.min_interval);
-                            let mut at = Instant::now() + cfg.debounce;
-                            if let Some(e) = earliest {
-                                at = at.max(e);
-                            }
-                            due.insert(pid, at);
-                        }
+                () = tokio::time::sleep_until(wake) => {}
+            }
+            let last = bus.last_seq();
+            if last > cursor {
+                let mut changed = Vec::new();
+                match tail_file_changes(&bus, cursor, &mut changed).await {
+                    Ok(c) => cursor = c.max(cursor),
+                    Err(e) => {
+                        tracing::warn!(error = %e, "architecture auto-refresh: reading the event log failed");
+                        cursor = last;
                     }
-                },
-                () = sleep => {
-                    let now_i = Instant::now();
-                    let ready: Vec<ProjectId> = due.iter().filter(|(_, t)| **t <= now_i).map(|(p, _)| *p).collect();
-                    for pid in ready {
-                        due.remove(&pid);
-                        last_run.insert(pid, now_i);
-                        match service.store().has_any(pid).await {
-                            Ok(true) => {}
-                            Ok(false) => continue,
-                            Err(e) => {
-                                tracing::warn!(error = %e, "architecture auto-refresh: store check failed");
-                                continue;
-                            }
-                        }
-                        let root = match projects.get(pid).await {
-                            Ok(Some(p)) => p.root_path.filter(|r| !r.trim().is_empty()).map(PathBuf::from),
-                            _ => None,
-                        };
-                        let Some(root) = root.filter(|r| r.is_dir()) else { continue };
-                        match service.refresh(pid, root, false, true).await {
-                            Ok(o) if o.changed => tracing::debug!(project = %pid, "architecture map auto-refreshed"),
-                            Ok(_) => {}
-                            Err(e) => tracing::warn!(project = %pid, error = %e, "architecture auto-refresh failed"),
-                        }
+                }
+                for pid in changed {
+                    let mut at = Instant::now() + cfg.debounce;
+                    if let Some(prev) = last_run.get(&pid) {
+                        at = at.max(*prev + cfg.min_interval);
                     }
+                    due.insert(pid, at);
+                }
+            }
+            let now_i = Instant::now();
+            let ready: Vec<ProjectId> = due.iter().filter(|(_, t)| **t <= now_i).map(|(p, _)| *p).collect();
+            for pid in ready {
+                due.remove(&pid);
+                last_run.insert(pid, now_i);
+                match service.store().has_any(pid).await {
+                    Ok(true) => {}
+                    Ok(false) => continue,
+                    Err(e) => {
+                        tracing::warn!(error = %e, "architecture auto-refresh: store check failed");
+                        continue;
+                    }
+                }
+                let root = match projects.get(pid).await {
+                    Ok(Some(p)) => p.root_path.filter(|r| !r.trim().is_empty()).map(PathBuf::from),
+                    _ => None,
+                };
+                let Some(root) = root.filter(|r| r.is_dir()) else { continue };
+                match service.refresh(pid, root, false, true).await {
+                    Ok(o) if o.changed => tracing::debug!(project = %pid, "architecture map auto-refreshed"),
+                    Ok(_) => {}
+                    Err(e) => tracing::warn!(project = %pid, error = %e, "architecture auto-refresh failed"),
                 }
             }
         }

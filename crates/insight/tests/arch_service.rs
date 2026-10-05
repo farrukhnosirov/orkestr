@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use orkestr_domain::{now, Project, ProjectId};
-use orkestr_events::{EventBus, Received};
+use orkestr_events::{EventBus, MemoryEventLog, Received};
 use orkestr_insight::arch::{spawn_auto_refresh, AutoRefreshConfig};
 use orkestr_insight::{insight_migrations, ArchitectureService, ScanOptions};
 use orkestr_protocol::event::{EventKind, FileChangeActor, FileChangeKind, FileChangedPayload, NewEvent};
@@ -147,11 +147,17 @@ async fn file_changes_trigger_a_debounced_auto_refresh() {
     projects.insert(&never_opened).await.unwrap();
     let pid = project.id;
 
-    let bus = EventBus::in_memory(256);
+    let bus = EventBus::with_log(Arc::new(MemoryEventLog::new()), 256).await.unwrap();
     let svc = ArchitectureService::new(db, Some(bus.clone()), ScanOptions::default());
     let shutdown = CancellationToken::new();
-    let cfg = AutoRefreshConfig { debounce: Duration::from_millis(150), min_interval: Duration::from_millis(0) };
+    let cfg = AutoRefreshConfig {
+        debounce: Duration::from_millis(150),
+        min_interval: Duration::from_millis(0),
+        poll: Duration::from_millis(50),
+    };
     let handle = spawn_auto_refresh(svc.clone(), bus.clone(), projects as Arc<dyn ProjectRepository>, cfg, shutdown.clone());
+    tokio::time::sleep(Duration::from_millis(20)).await;
+    assert_eq!(bus.subscriber_count(), 0, "tails the log; never counts as a live listener");
     let mut sub = bus.subscribe_all();
 
     // Opened once (snapshot exists) → eligible for auto refresh.
