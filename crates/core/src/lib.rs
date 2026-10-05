@@ -21,6 +21,7 @@ pub mod discovery;
 pub mod error;
 pub mod gates;
 pub mod housekeeping;
+pub mod layouts_store;
 pub mod logging;
 pub mod migrations;
 pub mod recovery;

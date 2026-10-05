@@ -58,6 +58,7 @@ import type { DeleteSnapshotResult } from "./DeleteSnapshotResult";
 import type { DeleteTaskResult } from "./DeleteTaskResult";
 import type { DeleteTemplateResult } from "./DeleteTemplateResult";
 import type { DeletedResult } from "./DeletedResult";
+import type { DeviceInfoResult } from "./DeviceInfoResult";
 import type { DiffParams } from "./DiffParams";
 import type { DiffResult } from "./DiffResult";
 import type { DiscardParams } from "./DiscardParams";
@@ -81,6 +82,9 @@ import type { InitParams } from "./InitParams";
 import type { KnowledgeIdParams } from "./KnowledgeIdParams";
 import type { KnowledgeListResult } from "./KnowledgeListResult";
 import type { KnowledgeSourceResult } from "./KnowledgeSourceResult";
+import type { LayoutIdParams } from "./LayoutIdParams";
+import type { LayoutsDeviceParams } from "./LayoutsDeviceParams";
+import type { LayoutsState } from "./LayoutsState";
 import type { ListAgentsParams } from "./ListAgentsParams";
 import type { ListAgentsResult } from "./ListAgentsResult";
 import type { ListApprovalsParams } from "./ListApprovalsParams";
@@ -164,6 +168,7 @@ import type { RemoveWorktreeParams } from "./RemoveWorktreeParams";
 import type { RemoveWorktreeResult } from "./RemoveWorktreeResult";
 import type { RenameFileParams } from "./RenameFileParams";
 import type { RenameFileResult } from "./RenameFileResult";
+import type { RenameLayoutParams } from "./RenameLayoutParams";
 import type { RenameTerminalParams } from "./RenameTerminalParams";
 import type { ReplayParams } from "./ReplayParams";
 import type { ReplayResult } from "./ReplayResult";
@@ -184,6 +189,7 @@ import type { RoutingConfigPayload } from "./RoutingConfigPayload";
 import type { RuleResult } from "./RuleResult";
 import type { RunCommandParams } from "./RunCommandParams";
 import type { RunCommandResult } from "./RunCommandResult";
+import type { SaveLayoutParams } from "./SaveLayoutParams";
 import type { SearchFilesParams } from "./SearchFilesParams";
 import type { SearchFilesResult } from "./SearchFilesResult";
 import type { SearchKnowledgeParams } from "./SearchKnowledgeParams";
@@ -417,6 +423,12 @@ export type Methods = {
   "manager.cancel": [ManagerRunIdParams, ManagerRunResult];
   "manager.status": [ManagerStatusParams, ManagerStatusResult];
   "manager.resumeSummary": [ManagerProjectParams, ManagerResumeSummary];
+  "ui.device": [Empty, DeviceInfoResult];
+  "ui.layoutsList": [LayoutsDeviceParams, LayoutsState];
+  "ui.layoutsSave": [SaveLayoutParams, LayoutsState];
+  "ui.layoutsDelete": [LayoutIdParams, LayoutsState];
+  "ui.layoutsRename": [RenameLayoutParams, LayoutsState];
+  "ui.layoutsSetActive": [LayoutIdParams, LayoutsState];
 };
 
 /** All implemented method names. */
@@ -592,6 +604,12 @@ export const METHOD_NAMES = [
   "manager.cancel",
   "manager.status",
   "manager.resumeSummary",
+  "ui.device",
+  "ui.layoutsList",
+  "ui.layoutsSave",
+  "ui.layoutsDelete",
+  "ui.layoutsRename",
+  "ui.layoutsSetActive",
 ] as const;
 
 /** Wire protocol version (see orkestr-protocol PROTOCOL_VERSION). */

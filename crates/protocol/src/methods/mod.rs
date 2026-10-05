@@ -22,6 +22,7 @@ pub mod cost;
 pub mod emergency;
 pub mod events;
 pub mod files;
+pub mod layouts;
 pub mod manager;
 pub mod memory;
 pub mod nodes;
@@ -288,6 +289,13 @@ pub fn registry() -> Vec<MethodDescriptor> {
         MethodDescriptor::of::<manager::Cancel>(),
         MethodDescriptor::of::<manager::Status>(),
         MethodDescriptor::of::<manager::ResumeSummaryMethod>(),
+        // layout-multimonitor (Phase 3): layouts per device
+        MethodDescriptor::of::<layouts::Device>(),
+        MethodDescriptor::of::<layouts::List>(),
+        MethodDescriptor::of::<layouts::Save>(),
+        MethodDescriptor::of::<layouts::Delete>(),
+        MethodDescriptor::of::<layouts::Rename>(),
+        MethodDescriptor::of::<layouts::SetActive>(),
     ]
 }
 

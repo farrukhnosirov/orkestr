@@ -35,6 +35,8 @@ pub fn all() -> Vec<Migration> {
     all.extend_from_slice(crate::settings_store::SETTINGS_MIGRATIONS);
     all.extend(orkestr_agent_runtime::agent_migrations());
     all.extend(orkestr_orchestrator::orchestrator_migrations());
+    // layout-multimonitor (Phase 3): per-device docking layouts
+    all.extend_from_slice(crate::layouts_store::LAYOUT_MIGRATIONS);
     all
 }
 

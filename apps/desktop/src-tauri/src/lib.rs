@@ -20,6 +20,8 @@
 //! tooltip are rebuilt in that language (see [`tray_texts`]).
 #![forbid(unsafe_code)]
 
+pub mod windows;
+
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -295,7 +297,10 @@ pub fn run() {
             });
             Ok(())
         })
+        // Detached panel windows / multi-monitor (Phase 3, `windows.rs`).
+        .manage(windows::PanelWindows::default())
         .on_window_event(|window, event| {
+            windows::on_panel_window_event(window, event);
             if let WindowEvent::CloseRequested { api, .. } = event {
                 let state = window.app_handle().state::<ShellState>();
                 if window.label() == MAIN_WINDOW
@@ -308,7 +313,20 @@ pub fn run() {
                 }
             }
         })
-        .invoke_handler(tauri::generate_handler![core_connection, shell_set_prefs, shell_quit, set_ui_language]);
+        .invoke_handler(tauri::generate_handler![
+            core_connection,
+            shell_set_prefs,
+            shell_quit,
+            set_ui_language,
+            windows::window_list_monitors,
+            windows::window_open_panel,
+            windows::window_close_panel,
+            windows::window_redock_panel,
+            windows::window_list_panels,
+            windows::window_main_placement,
+            windows::window_move_to_monitor,
+            windows::window_reconcile
+        ]);
 
     let app = match builder.build(tauri::generate_context!()) {
         Ok(app) => app,
