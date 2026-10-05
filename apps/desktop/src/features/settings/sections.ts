@@ -9,6 +9,7 @@ import { t } from "../../i18n";
 import { visualSettingsSection } from "../performance/section";
 import { managerSettingsSection, providersSettingsSection } from "../providers";
 import { qualitySettingsSection } from "../quality";
+import { soundSettingsSection, voiceSettingsSection } from "../voice";
 import { AboutSection } from "./sections/AboutSection";
 import { GeneralSection } from "./sections/GeneralSection";
 import { SystemSection } from "./sections/SystemSection";
@@ -62,6 +63,8 @@ settingsSections.push(providersSettingsSection, managerSettingsSection);
 settingsSections.push(qualitySettingsSection);
 // Phase 3: Interface (Performance Mode, density, HUD, UI change history).
 settingsSections.push(visualSettingsSection);
+// voice-sound (Phase 3)
+settingsSections.push(voiceSettingsSection, soundSettingsSection);
 
 /** Sections in display order (stable for equal `order`). */
 export function orderedSections(list: readonly SettingsSection[] = settingsSections): SettingsSection[] {

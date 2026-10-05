@@ -1,0 +1,368 @@
+{
+  "commands": {
+    "group": "Voice",
+    "open": "Open voice commands",
+    "settings": "Voice settings",
+    "soundsOff": "Turn interface sounds off",
+    "soundsOn": "Turn interface sounds on"
+  },
+  "indicator": {
+    "open": "Voice commands",
+    "disabled": "Voice commands are off",
+    "wakePaused": "Voice commands (wake word paused in Battery Saver)",
+    "micOn": "Microphone is on: {{purposes}}",
+    "purposes": {
+      "command": "Listening",
+      "wake": "Wake word",
+      "enroll": "Recording",
+      "meter": "Mic test"
+    }
+  },
+  "hud": {
+    "title": "Voice commands",
+    "settings": "Voice settings",
+    "phases": {
+      "idle": "Ready",
+      "listening": "Listening",
+      "transcribing": "Recognizing",
+      "thinking": "Working on it",
+      "confirm": "Confirmation needed",
+      "result": "Done",
+      "error": "Something went wrong"
+    },
+    "speaking": "Speaking",
+    "speakNow": "Speak now…",
+    "prompt": "Ask about a project or give a command",
+    "privacyLocal": "The wake word is detected on this device; no audio leaves it",
+    "privacyCloud": "Your command is recognized by {{engine}}",
+    "typedOnly": "Speech recognition is off. Type a command, or choose an engine in Voice settings.",
+    "placeholder": "Type a command…",
+    "send": "Send",
+    "talk": "Talk",
+    "stop": "Stop",
+    "hold": "Hold",
+    "sayWake": "or say “{{phrase}}”",
+    "confirmHint": "Say “yes” or “no”, or use the buttons.",
+    "yes": "Yes, do it",
+    "no": "Cancel",
+    "examples": {
+      "ex1": "What's happening?",
+      "ex2": "Show build errors",
+      "ex3": "Open tasks",
+      "ex4": "Stop all"
+    }
+  },
+  "reply": {
+    "didNotHear": "I didn't catch that.",
+    "projectNotFound": "I couldn't find a project called “{{name}}”.",
+    "noProject": "Open a project first, or name one.",
+    "agentNotFound": "I couldn't find an agent called “{{name}}”.",
+    "stoppedAll": "All AI work is stopped.",
+    "stopFailed": "I couldn't stop the AI work. Use the emergency stop button.",
+    "stoppedProject_one": "Stopped {{name}}: {{count}} agent halted.",
+    "stoppedProject_other": "Stopped {{name}}: {{count}} agents halted.",
+    "qaStarted": "QA is running for {{name}}.",
+    "qaSentToManager": "I've asked the Manager to run QA for {{name}}.",
+    "agentDoing": "{{name}} ({{state}}): {{activity}}",
+    "agentState": "{{name}}: status “{{state}}”.",
+    "statusOf": "{{name}}: {{body}}",
+    "noBuildErrors": "No failed builds in {{name}}.",
+    "buildErrors_one": "{{name}} has one failed build: {{summary}}",
+    "buildErrors_other": "{{name}} has {{count}} failed builds. The latest: {{summary}}",
+    "noSummary": "no details",
+    "opened": "Opened {{panel}}.",
+    "switched": "Switched to {{name}}.",
+    "noApprovals": "There are no pending approval requests.",
+    "approved": "Approved: {{action}}",
+    "rejected": "Rejected: {{action}}",
+    "dndOn": "Do Not Disturb is on.",
+    "dndOff": "Do Not Disturb is off.",
+    "dndFailed": "I couldn't change Do Not Disturb.",
+    "askNeedsProject": "Open a project so I can pass this to its Manager.",
+    "sentToManager": "Passed to the Manager. I'll read out the answer.",
+    "cancelled": "Cancelled.",
+    "failed": "That didn't work: {{error}}"
+  },
+  "summary": {
+    "idle": "Nothing is running right now.",
+    "noTasks": "There are no tasks yet.",
+    "running_one": "{{count}} task in progress.",
+    "running_other": "{{count}} tasks in progress.",
+    "agents_one": "{{count}} agent is working.",
+    "agents_other": "{{count}} agents are working.",
+    "focus": "{{agent}}: {{activity}}.",
+    "completedToday_one": "{{count}} task completed today.",
+    "completedToday_other": "{{count}} tasks completed today.",
+    "failed_one": "{{count}} task failed.",
+    "failed_other": "{{count}} tasks failed.",
+    "blocked_one": "{{count}} task is blocked.",
+    "blocked_other": "{{count}} tasks are blocked.",
+    "approvals_one": "{{count}} request waits for your approval.",
+    "approvals_other": "{{count}} requests wait for your approval.",
+    "buildFailed": "The last build failed.",
+    "buildOk": "The last build passed.",
+    "testsFailed_one": "{{count}} test is failing.",
+    "testsFailed_other": "{{count}} tests are failing."
+  },
+  "confirm": {
+    "stopProject": "Stop all AI work in {{name}}?",
+    "stopAll": "Stop all AI work in every project?",
+    "approve": "Approve: {{action}}?",
+    "reject": "Reject: {{action}}?",
+    "sayYesNo": "Say yes or no."
+  },
+  "managerPrompts": {
+    "runQa": "Run QA for the project {{name}}: build it, run the test suite, review the latest changes and report the problems you find."
+  },
+  "notify": {
+    "enabled": "Spoken notifications",
+    "enabledDesc": "Short phrases for important events, in the agent's voice when it has one.",
+    "events": {
+      "taskCompleted": "Task completed",
+      "taskFailed": "Task failed",
+      "approvalNeeded": "Approval needed",
+      "buildFailed": "Build failed",
+      "budgetThreshold": "Budget threshold",
+      "deployFinished": "Deployment finished"
+    },
+    "eventsDesc": {
+      "taskCompleted": "An agent finished a task.",
+      "taskFailed": "A task ended with an error.",
+      "approvalNeeded": "An action waits for your confirmation.",
+      "buildFailed": "A build of a project failed.",
+      "budgetThreshold": "Spending reached a budget warning level or the limit.",
+      "deployFinished": "A deployment succeeded or failed."
+    },
+    "quietHours": "Quiet hours",
+    "quietHoursDesc": "No spoken notifications during these hours (local time).",
+    "quietFrom": "Quiet from",
+    "quietTo": "Quiet until",
+    "criticalNote": "A budget overrun is announced even in Do Not Disturb and quiet hours.",
+    "withProject": "{{project}}: {{phrase}}",
+    "phrases": {
+      "taskCompleted": "Task completed.",
+      "taskFailed": "A task failed.",
+      "approvalNeeded": "Your approval is needed.",
+      "buildFailed": "The build failed.",
+      "budgetWarn": "Budget is at {{percent}} percent.",
+      "budgetOver": "Budget limit exceeded.",
+      "deployOk": "Deployment succeeded.",
+      "deployFailed": "Deployment failed."
+    }
+  },
+  "errors": {
+    "micDenied": "Microphone access was denied. Allow it in your system privacy settings.",
+    "micNotFound": "No microphone found.",
+    "micUnsupported": "Microphone capture isn't available here.",
+    "micFailed": "Couldn't open the microphone.",
+    "noSpeech": "I didn't hear anything.",
+    "sttNetwork": "The speech service is unreachable.",
+    "sttUnsupported": "This speech engine isn't available here.",
+    "sttFailed": "Speech recognition failed."
+  },
+  "settings": {
+    "title": "Voice",
+    "unavailable": "Voice settings are unavailable",
+    "groups": {
+      "commands": "Voice commands",
+      "microphone": "Microphone",
+      "stt": "Speech recognition",
+      "wake": "Wake word",
+      "tts": "Assistant voice",
+      "cloud": "Cloud speech provider",
+      "agents": "Agent voices"
+    },
+    "general": {
+      "enabled": "Voice commands",
+      "enabledDesc": "Push-to-talk, the voice panel and the wake word.",
+      "hotkey": "Push-to-talk",
+      "hotkeyDesc": "Hold the keys while you speak; release to run the command.",
+      "language": "Language",
+      "languageDesc": "For recognition and spoken replies.",
+      "spokenReplies": "Spoken replies",
+      "spokenRepliesDesc": "Read short answers to voice commands aloud."
+    },
+    "languages": {
+      "auto": "Same as the interface",
+      "ru-RU": "Russian",
+      "en-US": "English (US)",
+      "en-GB": "English (UK)"
+    },
+    "mic": {
+      "device": "Input device",
+      "deviceDesc": "Used for push-to-talk, the wake word and enrollment.",
+      "deviceNoLabels": "Device names appear after you allow microphone access once (run a test).",
+      "systemDefault": "System default",
+      "unnamed": "Microphone {{n}}",
+      "test": "Microphone test",
+      "testDesc": "Check the input level. Nothing is recorded or sent.",
+      "testing": "Listening on {{device}}",
+      "startTest": "Start test",
+      "stopTest": "Stop test",
+      "level": "Input level",
+      "speech": "Speech",
+      "silence": "Silence"
+    },
+    "stt": {
+      "engine": "Engine",
+      "engineDesc": "Recognition starts only after push-to-talk or the wake word — never continuously.",
+      "engines": {
+        "Disabled": "Off (typed commands)",
+        "WebSpeech": "Web Speech",
+        "OpenAiWhisper": "OpenAI Whisper"
+      },
+      "engineHints": {
+        "Disabled": "No audio leaves this device",
+        "WebSpeech": "Built into the webview; audio goes to the browser's speech service",
+        "OpenAiWhisper": "Audio goes to OpenAI through your provider key"
+      },
+      "webSpeechMissing": "Web Speech recognition isn't available in this webview",
+      "disabledNote": "With recognition off, use the voice panel to type commands. The wake word still opens it."
+    },
+    "consent": {
+      "sttTitle": "Send your voice commands to {{engine}}?",
+      "sttText": {
+        "WebSpeech": "After push-to-talk or the wake word, the audio of your command is sent to the speech service of the webview (Microsoft or Google). The wake word itself is always detected on this device.",
+        "OpenAiWhisper": "After push-to-talk or the wake word, the audio of your command (up to 15 seconds) is sent to OpenAI with your API key and deleted from memory right after recognition. The wake word itself is always detected on this device."
+      },
+      "ttsTitle": "Use OpenAI voices?",
+      "ttsText": "The text of replies and notifications is sent to OpenAI to synthesize speech. No audio from your microphone is sent.",
+      "allow": "Allow and turn on",
+      "given": "Consent given",
+      "givenDesc": "{{engine}} · {{date}}",
+      "ttsGiven": "Consent for cloud voices given",
+      "revoke": "Revoke"
+    },
+    "wake": {
+      "privacyTitle": "Detected on this device",
+      "privacyText": "Your samples and the detector stay on this computer. Audio is analysed locally and discarded; nothing is sent until the wake word is heard.",
+      "enabled": "Listen for the wake word",
+      "enabledDesc": "Record samples first. The microphone indicator stays on while listening.",
+      "status": {
+        "off": "Off",
+        "needsEnrollment": "Needs samples",
+        "starting": "Starting",
+        "listening": "Listening",
+        "pausedBattery": "Paused: Battery Saver",
+        "pausedBusy": "Paused",
+        "error": "Error"
+      },
+      "phrase": "Wake phrase",
+      "phraseDesc": "A short word that's easy to recognize, e.g. “Jarvis” or “Оркестр”.",
+      "enrollTitle": "Samples of “{{phrase}}”",
+      "enrollHint": "Say the phrase {{min}}–{{max}} times, pausing between repetitions.",
+      "enrollRecording": "Say “{{phrase}}”, then pause. Repeat until the circles fill.",
+      "enrolledCount_one": "{{count}} sample recorded.",
+      "enrolledCount_other": "{{count}} samples recorded.",
+      "samples": "Recorded samples",
+      "sampleOk_one": "Got it — {{count}} sample.",
+      "sampleOk_other": "Got it — {{count}} samples.",
+      "problems": {
+        "tooShort": "Too short. Say the whole phrase.",
+        "tooLong": "Too long. Say only the phrase, then pause.",
+        "tooQuiet": "Too quiet. Speak a little louder or move closer.",
+        "inconsistent": "That sounded different from the other samples. Try again."
+      },
+      "needMore": "Record at least {{count}} samples.",
+      "saved": "Samples saved on this device.",
+      "phraseChanged": "The phrase changed. Record new samples.",
+      "record": "Record samples",
+      "reRecord": "Record again",
+      "finish": "Done",
+      "test": "Test detection",
+      "stopTest": "Stop test",
+      "testSay": "Say “{{phrase}}” to test.",
+      "testHit": "Detected (distance {{ratio}} of the threshold).",
+      "testMiss": "Not detected (distance {{ratio}} of the threshold).",
+      "delete": "Delete samples",
+      "sensitivity": "Sensitivity",
+      "sensitivityDesc": "Higher reacts more easily but triggers by mistake more often.",
+      "cpuBudget": "CPU budget",
+      "cpuBudgetDesc": "Average share of one CPU core the detector may use.",
+      "cpuBudgetLoad": "Current load: {{load}} of one CPU core.",
+      "pauseOnBattery": "Pause in Battery Saver",
+      "pauseOnBatteryDesc": "Push-to-talk keeps working."
+    },
+    "tts": {
+      "engine": "Engine",
+      "engineDesc": "System voices work offline.",
+      "engines": {
+        "System": "System voices",
+        "OpenAi": "OpenAI voices"
+      },
+      "voice": "Voice",
+      "voiceDesc_one": "{{count}} voice for this language.",
+      "voiceDesc_other": "{{count}} voices for this language.",
+      "noVoices": "No system voices found.",
+      "autoVoice": "Automatic",
+      "cloudVoice": "OpenAI voice",
+      "cloudVoiceDesc": "Falls back to the system voice when the service is unavailable.",
+      "rate": "Speed",
+      "pitch": "Pitch",
+      "test": "Test",
+      "testDesc": "Plays a sample with the current settings.",
+      "testButton": "Play sample",
+      "sample": "Hello! All agents are working, and nothing needs your attention right now."
+    },
+    "cloud": {
+      "provider": "Provider",
+      "providerDesc": "An OpenAI provider with an API key.",
+      "none": "Add an OpenAI provider in Settings → AI Providers.",
+      "autoProvider": "Automatic",
+      "noKey": "{{name}} (no key)"
+    },
+    "agents": {
+      "desc": "Each agent can speak in its own voice in notifications and robot speech bubbles.",
+      "empty": "No agent templates",
+      "assistantVoice": "Assistant voice",
+      "engine": "Engine",
+      "voice": "Voice",
+      "style": "Style",
+      "stylePlaceholder": "e.g. calm and concise",
+      "reset": "Use the template's voice",
+      "test": "Test the voice of {{name}}",
+      "sample": "Hi, I'm {{name}}. The task is done."
+    },
+    "privacy": {
+      "title": "Privacy",
+      "text": "Only transcripts of commands are logged, never audio. The microphone indicator in the title bar is on whenever the microphone is in use."
+    }
+  },
+  "sound": {
+    "title": "Sounds and notifications",
+    "groups": {
+      "sounds": "Interface sounds",
+      "notifications": "Spoken notifications"
+    },
+    "enabled": "Interface sounds",
+    "enabledDesc": "Synthesized on the fly; quieter and simpler in Performance and Battery Saver modes.",
+    "volume": "Volume",
+    "preset": "Sound set",
+    "presetDesc": "“Theme” follows the colour theme.",
+    "presets": {
+      "Auto": "Theme",
+      "Nebula": "Nebula",
+      "Crystal": "Crystal",
+      "Pulse": "Pulse",
+      "Minimal": "Minimal"
+    },
+    "preview": "Preview",
+    "previewDesc": "Click a sound to hear it.",
+    "previewLite": "Simplified sounds play in the current performance mode.",
+    "cues": {
+      "wake": "Wake word",
+      "listenStart": "Start listening",
+      "listenEnd": "Stop listening",
+      "start": "Task started",
+      "completion": "Completed",
+      "error": "Error",
+      "approval": "Approval",
+      "deploy": "Deployment",
+      "alert": "Alert"
+    },
+    "muteInDnd": "Mute in Do Not Disturb",
+    "muteInDndDesc": "Alerts still play.",
+    "dndOn": "Do Not Disturb is on",
+    "dndOnText": "Sounds and spoken notifications are muted, except alerts. Change it in General."
+  }
+}

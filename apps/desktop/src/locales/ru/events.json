@@ -98,5 +98,6 @@
   "pipelineStage": "Этап конвейера «{{stage}}»: {{status}}",
   "healingAttempt": "Попытка самовосстановления {{n}}: {{summary}}",
   "uiPatchProposed": "Предложено изменение интерфейса: {{summary}}",
-  "uiConfigPatched": "Настройки интерфейса сохранены (версия {{version}}): {{summary}}"
+  "uiConfigPatched": "Настройки интерфейса сохранены (версия {{version}}): {{summary}}",
+  "voiceCommand": "Голосовая команда «{{transcript}}» → {{intent}}"
 }

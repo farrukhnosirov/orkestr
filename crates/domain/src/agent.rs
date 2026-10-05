@@ -129,6 +129,14 @@ pub struct VoiceProfile {
     pub language: String,
     /// Optional speaking style.
     pub style: Option<String>,
+    /// Speaking rate in percent of normal (50..=200). Phase 3, additive.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub rate_pct: Option<u16>,
+    /// Pitch in percent of normal (50..=200). Phase 3, additive.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub pitch_pct: Option<u16>,
 }
 
 /// Visual representation of an agent (§30 floating robots).

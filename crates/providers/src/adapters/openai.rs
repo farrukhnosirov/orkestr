@@ -446,6 +446,34 @@ impl ProviderAdapter for OpenAiAdapter {
         }
     }
 
+    async fn transcribe(
+        &self,
+        request: crate::audio::TranscriptionRequest,
+    ) -> Result<crate::audio::Transcription, ProviderError> {
+        if self.flavor == OpenAiFlavor::DeepSeek {
+            return Err(ProviderError::Unsupported("DeepSeek has no speech-to-text".into()));
+        }
+        let key = match self.flavor {
+            OpenAiFlavor::Compatible { .. } => self.cfg.api_key().await?,
+            _ => Some(self.cfg.require_api_key().await?),
+        };
+        crate::audio::openai_transcribe(&self.cfg, key, request).await
+    }
+
+    async fn synthesize_speech(
+        &self,
+        request: crate::audio::SpeechRequest,
+    ) -> Result<crate::audio::SpeechAudio, ProviderError> {
+        if self.flavor == OpenAiFlavor::DeepSeek {
+            return Err(ProviderError::Unsupported("DeepSeek has no text-to-speech".into()));
+        }
+        let key = match self.flavor {
+            OpenAiFlavor::Compatible { .. } => self.cfg.api_key().await?,
+            _ => Some(self.cfg.require_api_key().await?),
+        };
+        crate::audio::openai_speech(&self.cfg, key, request).await
+    }
+
     async fn chat(&self, request: ChatRequest, cancel: CancellationToken) -> Result<ChatStream, ProviderError> {
         let body = build_body(&request, self.flavor);
         let rb = self.authed(self.cfg.client.post(self.cfg.url("chat/completions")).json(&body)).await?;

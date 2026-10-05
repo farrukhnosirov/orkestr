@@ -14,6 +14,7 @@ import { terminalCommands } from "../../panels/Terminal/commands";
 import { FILE_COMMANDS } from "../files/commands";
 import { qualityCommands } from "../quality";
 import { hudCommands } from "../hud/commands";
+import { voiceCommands } from "../voice";
 
 export interface CommandContext {
   projectId: string | null;
@@ -70,3 +71,5 @@ commands.push(...FILE_COMMANDS);
 commands.push(...qualityCommands);
 // HUD, Performance Mode, AI-editable UI (Phase 3)
 commands.push(...hudCommands);
+// voice-sound (Phase 3)
+commands.push(...voiceCommands);

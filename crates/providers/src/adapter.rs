@@ -4,6 +4,7 @@ use async_trait::async_trait;
 use orkestr_domain::{Model, ProviderId};
 use tokio_util::sync::CancellationToken;
 
+use crate::audio::{SpeechAudio, SpeechRequest, Transcription, TranscriptionRequest};
 use crate::types::{
     AuthStatus, ChatRequest, ChatStream, CodingAgentRequest, CodingAgentStream, HealthReport, ProviderDescriptor,
     ProviderError,
@@ -44,5 +45,15 @@ pub trait ProviderAdapter: Send + Sync + 'static {
         _cancel: CancellationToken,
     ) -> Result<CodingAgentStream, ProviderError> {
         Err(ProviderError::Unsupported(format!("{:?} has no coding-agent mode", self.descriptor().kind)))
+    }
+
+    /// Speech-to-text (§33); default: unsupported. Callers enforce consent.
+    async fn transcribe(&self, _request: TranscriptionRequest) -> Result<Transcription, ProviderError> {
+        Err(ProviderError::Unsupported(format!("{:?} has no speech-to-text", self.descriptor().kind)))
+    }
+
+    /// Text-to-speech (§33); default: unsupported. Callers enforce consent.
+    async fn synthesize_speech(&self, _request: SpeechRequest) -> Result<SpeechAudio, ProviderError> {
+        Err(ProviderError::Unsupported(format!("{:?} has no text-to-speech", self.descriptor().kind)))
     }
 }

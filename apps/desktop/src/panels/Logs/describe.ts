@@ -336,6 +336,8 @@ export function describeEvent(event: Event): string {
       return t("events:uiPatchProposed", { summary: event.payload.summary });
     case "UiConfigPatched":
       return t("events:uiConfigPatched", { summary: event.payload.summary, version: event.payload.version });
+    case "VoiceCommand":
+      return t("events:voiceCommand", { transcript: event.payload.transcript.slice(0, 120), intent: event.payload.intent });
   }
 }
 

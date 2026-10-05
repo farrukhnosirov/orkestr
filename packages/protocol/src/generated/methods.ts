@@ -239,6 +239,7 @@ import type { QualityProjectParams } from "./QualityProjectParams";
 import type { QualityRun } from "./QualityRun";
 import type { ReadFileParams } from "./ReadFileParams";
 import type { ReadFileResult } from "./ReadFileResult";
+import type { RecordVoiceCommandParams } from "./RecordVoiceCommandParams";
 import type { RejectPlanParams } from "./RejectPlanParams";
 import type { RemoveDependencyParams } from "./RemoveDependencyParams";
 import type { RemoveKnowledgeResult } from "./RemoveKnowledgeResult";
@@ -306,6 +307,8 @@ import type { SetSchedulerLimitsParams } from "./SetSchedulerLimitsParams";
 import type { SetSchedulerLimitsResult } from "./SetSchedulerLimitsResult";
 import type { SetSecretParams } from "./SetSecretParams";
 import type { SetUiConfigParams } from "./SetUiConfigParams";
+import type { SetVoiceConfigParams } from "./SetVoiceConfigParams";
+import type { SetVoiceConsentParams } from "./SetVoiceConsentParams";
 import type { SettingsResult } from "./SettingsResult";
 import type { ShowParams } from "./ShowParams";
 import type { ShowResult } from "./ShowResult";
@@ -322,6 +325,8 @@ import type { SpawnAgentResult } from "./SpawnAgentResult";
 import type { StartPipelineParams } from "./StartPipelineParams";
 import type { StopAgentParams } from "./StopAgentParams";
 import type { StopProjectParams } from "./StopProjectParams";
+import type { SynthesizeParams } from "./SynthesizeParams";
+import type { SynthesizeResult } from "./SynthesizeResult";
 import type { SystemChecksResult } from "./SystemChecksResult";
 import type { SystemInfo } from "./SystemInfo";
 import type { TaskChangeResult } from "./TaskChangeResult";
@@ -341,6 +346,8 @@ import type { TestProviderParams } from "./TestProviderParams";
 import type { TestProviderResult } from "./TestProviderResult";
 import type { ThemesResult } from "./ThemesResult";
 import type { ToggleParams } from "./ToggleParams";
+import type { TranscribeParams } from "./TranscribeParams";
+import type { TranscribeResult } from "./TranscribeResult";
 import type { TranscriptParams } from "./TranscriptParams";
 import type { TransitionTaskParams } from "./TransitionTaskParams";
 import type { UiConfigResult } from "./UiConfigResult";
@@ -353,6 +360,7 @@ import type { UpdateTaskParams } from "./UpdateTaskParams";
 import type { UpdateTeamParams } from "./UpdateTeamParams";
 import type { UpdateTemplateParams } from "./UpdateTemplateParams";
 import type { VaultStatusResult } from "./VaultStatusResult";
+import type { VoiceConfigResult } from "./VoiceConfigResult";
 import type { WatchFilesParams } from "./WatchFilesParams";
 import type { WatchFilesResult } from "./WatchFilesResult";
 import type { WorktreeResult } from "./WorktreeResult";
@@ -611,6 +619,12 @@ export type Methods = {
   "nodes.power": [Empty, PowerStatusView];
   "dashboard.snapshot": [DashboardSnapshotParams, DashboardSnapshot];
   "dashboard.health": [Empty, CoreHealthResult];
+  "voice.getConfig": [Empty, VoiceConfigResult];
+  "voice.setConfig": [SetVoiceConfigParams, VoiceConfigResult];
+  "voice.setConsent": [SetVoiceConsentParams, VoiceConfigResult];
+  "voice.transcribe": [TranscribeParams, TranscribeResult];
+  "voice.synthesize": [SynthesizeParams, SynthesizeResult];
+  "voice.recordCommand": [RecordVoiceCommandParams, Empty];
 };
 
 /** All implemented method names. */
@@ -863,6 +877,12 @@ export const METHOD_NAMES = [
   "nodes.power",
   "dashboard.snapshot",
   "dashboard.health",
+  "voice.getConfig",
+  "voice.setConfig",
+  "voice.setConsent",
+  "voice.transcribe",
+  "voice.synthesize",
+  "voice.recordCommand",
 ] as const;
 
 /** Wire protocol version (see orkestr-protocol PROTOCOL_VERSION). */
@@ -932,6 +952,7 @@ export const EVENT_KINDS = [
   "UiThemesChanged",
   "UiPatchProposed",
   "UiConfigPatched",
+  "VoiceCommand",
 ] as const;
 
 /** UI config schema version (see orkestr-protocol ui_config). */

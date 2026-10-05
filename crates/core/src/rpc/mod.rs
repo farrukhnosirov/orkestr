@@ -41,6 +41,7 @@ pub mod templates;
 pub mod terminal;
 pub mod ui;
 pub mod vcs;
+pub mod voice;
 
 use std::collections::BTreeMap;
 use std::future::Future;
@@ -185,6 +186,8 @@ pub fn build_router() -> RpcRouter {
     // mission-control (Phase 3)
     router.register(dashboard::register);
     router.register(robots::register);
+    // voice-sound (Phase 3)
+    router.register(voice::register);
     router
 }
 

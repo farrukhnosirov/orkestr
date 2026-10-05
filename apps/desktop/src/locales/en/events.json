@@ -82,5 +82,6 @@
   "pipelineStage": "Pipeline stage {{stage}}: {{status}}",
   "healingAttempt": "Self-healing attempt {{n}}: {{summary}}",
   "uiPatchProposed": "UI change proposed: {{summary}}",
-  "uiConfigPatched": "Interface settings saved (version {{version}}): {{summary}}"
+  "uiConfigPatched": "Interface settings saved (version {{version}}): {{summary}}",
+  "voiceCommand": "Voice command “{{transcript}}” → {{intent}}"
 }

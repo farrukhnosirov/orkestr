@@ -8,6 +8,7 @@ import { NotificationBell } from "../features/notifications/NotificationCenter";
 import { ApprovalsBadge } from "../features/security/ApprovalsInbox";
 import { EmergencyStopButton } from "../features/security/EmergencyStop";
 import { useSettingsStore } from "../features/settings/settingsStore";
+import { MicIndicator } from "../features/voice";
 import { useT } from "../i18n";
 import { isTauri, windowControls } from "../lib/tauri";
 import { useActiveProject, useAppStore } from "../store/app";
@@ -76,6 +77,7 @@ export function TitleBar() {
       </div>
 
       <div className="titlebar__controls">
+        <MicIndicator />
         <NotificationBell />
         {native && (
           <button

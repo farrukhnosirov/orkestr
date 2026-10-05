@@ -26,6 +26,7 @@ import { registerThemeFeature } from "./features/theme/register";
 import { ThemeEditor } from "./features/theme/ThemeEditor";
 import { ThemeBackdrop, useThemeEngine } from "./features/theme/ThemeRuntime";
 import { MissionControlOverlay } from "./panels/MissionControl";
+import { useVoiceBootstrap, VoiceHud } from "./features/voice";
 import { useAppStore } from "./store/app";
 
 registerSecurityFeature();
@@ -64,6 +65,7 @@ export function App() {
   useThemeEngine(ready);
   useGlobalShortcuts();
   useShellBootstrap(ready);
+  useVoiceBootstrap(ready); // voice-sound (Phase 3)
 
   const boot = useCallback(() => {
     bootstrapCore().then(
@@ -105,6 +107,7 @@ export function App() {
           <LayoutDialogs />
           <MissionControlOverlay />
           <RobotHost />
+          <VoiceHud />
         </>
       )}
       {ready && <AiUiLayer connected={ready} />}

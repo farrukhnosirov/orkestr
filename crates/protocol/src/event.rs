@@ -842,6 +842,22 @@ pub struct UiConfigPatchedPayload {
     pub proposal_id: Option<String>,
 }
 
+/// `VoiceCommand` — a voice (or HUD-typed) command was handled (§33). Carries
+/// the transcript and the parsed intent only; audio is never stored.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct VoiceCommandPayload {
+    /// What the user said.
+    pub transcript: String,
+    /// Parsed intent id.
+    pub intent: String,
+    /// Outcome code.
+    pub outcome: String,
+    /// How the command started.
+    pub source: crate::methods::voice::VoiceCommandSource,
+}
+
 // ---------------------------------------------------------------------------
 // Kinds
 // ---------------------------------------------------------------------------
@@ -1014,6 +1030,8 @@ event_kinds! {
     UiPatchProposed(UiPatchProposedPayload),
     /// A UI config patch was stored. Phase 3, appended.
     UiConfigPatched(UiConfigPatchedPayload),
+    /// A voice command was handled (transcript + intent, never audio). Phase 3, appended.
+    VoiceCommand(VoiceCommandPayload),
 }
 
 // ---------------------------------------------------------------------------
