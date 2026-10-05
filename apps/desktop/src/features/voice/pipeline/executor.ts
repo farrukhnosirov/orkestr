@@ -209,7 +209,7 @@ export async function executeIntent(intent: Intent, deps: VoiceDeps): Promise<Co
       return projectStatus(intent.project, deps);
 
     case "showBuildErrors": {
-      if (!intent.project) return missingProject(intent);
+      if (!intent.project) return missingProject({});
       const errors = await deps.buildErrors(intent.project.id);
       deps.openPanel("logs");
       const last = errors[0];

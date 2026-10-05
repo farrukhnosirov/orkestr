@@ -17,6 +17,7 @@ import { OnboardingWizard } from "./features/onboarding/OnboardingWizard";
 import { ResumeCard } from "./features/resume/ResumeCard";
 import { SettingsView } from "./features/settings/SettingsView";
 import { useShellBootstrap } from "./features/settings/useShellBootstrap";
+import { useVoiceBootstrap, VoiceHud } from "./features/voice";
 import { useAppStore } from "./store/app";
 
 registerSecurityFeature();
@@ -64,6 +65,7 @@ export function App() {
   useTheme();
   useGlobalShortcuts();
   useShellBootstrap(ready);
+  useVoiceBootstrap(ready); // voice-sound (Phase 3)
 
   const boot = useCallback(() => {
     bootstrapCore().then(
@@ -99,6 +101,7 @@ export function App() {
           <SettingsView />
           <OnboardingWizard />
           <ResumeCard />
+          <VoiceHud />
         </>
       )}
       <Toasts />

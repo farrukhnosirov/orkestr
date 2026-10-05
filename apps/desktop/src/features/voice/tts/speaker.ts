@@ -161,7 +161,7 @@ async function speakCloud(text: string, o: SpeakOptions, seq: number): Promise<v
   const r = await client.call("voice.synthesize", { text, voice: o.cloudVoice, ...(o.style ? { style: o.style } : {}) }, { timeoutMs: 30_000 });
   if (seq !== speakSeq) return;
   const bytes = fromBase64(r.audioBase64);
-  const url = URL.createObjectURL(new Blob([bytes], { type: r.mimeType }));
+  const url = URL.createObjectURL(new Blob([bytes.buffer as ArrayBuffer], { type: r.mimeType }));
   currentUrl = url;
   const audio = new Audio(url);
   audio.playbackRate = Math.min(2, Math.max(0.5, o.ratePct / 100));

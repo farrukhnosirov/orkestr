@@ -21,7 +21,6 @@ import { playSound } from "../sound/engine";
 import { assistantOptions } from "./agentVoices";
 import type { MicCapture } from "./audio/mic";
 import { type Intent, intentId, needsConfirmation, parseConfirmation, parseIntent } from "./intent/parser";
-import { WAKE_ALIASES } from "./intent/text";
 import { realVoiceDeps } from "./pipeline/deps";
 import { type CommandResult, confirmationPrompt, executeIntent, precheck, type VoiceDeps } from "./pipeline/executor";
 import { isBusy, type MachineEvent, nextPhase } from "./pipeline/machine";
@@ -107,6 +106,11 @@ function releaseMic(purpose: MicPurpose): void {
   const store = useVoiceStore.getState();
   store.micOff(purpose);
   if (useVoiceStore.getState().mic.length === 0) closeMic();
+}
+
+/** The live analyser of the open microphone (HUD waveform), if any. */
+export function currentAnalyser(): AnalyserNode | null {
+  return mic && !mic.isClosed ? mic.analyser : null;
 }
 
 /** Subscribes to the mic (Settings meter / enrollment). Returns the capture and a release function. */
@@ -243,7 +247,7 @@ export async function stopListening(): Promise<void> {
   }
   useVoiceStore.getState().setRuntime({ transcript: text });
   emit({ type: "transcript", text });
-  await handleText(text, source, true);
+  await handleText(text, source);
 }
 
 /** Cancels whatever the pipeline is doing (Esc, HUD close). */
@@ -266,7 +270,7 @@ export async function submitTyped(text: string): Promise<void> {
   stopSpeaking();
   if (!emit({ type: "typed", text: clean })) return;
   useVoiceStore.getState().setRuntime({ source: "Typed", transcript: clean, reply: null });
-  await handleText(clean, "Typed", true);
+  await handleText(clean, "Typed");
 }
 
 /** Confirmation via the HUD buttons. */
@@ -304,7 +308,7 @@ async function intentContext() {
   };
 }
 
-async function handleText(text: string, source: VoiceCommandSource, _fromPipeline: boolean): Promise<void> {
+async function handleText(text: string, source: VoiceCommandSource): Promise<void> {
   const s = useVoiceStore.getState();
   // An answer to a pending confirmation?
   if (pending) {
@@ -466,8 +470,8 @@ export async function syncWakeListener(): Promise<void> {
     const unsub = m.subscribe((msg) => {
       if (msg.type !== "segment" || !spotter) return;
       const st = useVoiceStore.getState();
-      // While a command is being captured or processed, segments are not wake candidates.
-      if (st.phase === "listening" || isBusy(st.phase)) return;
+      // While a command is captured/processed, or during enrollment, segments are not wake candidates.
+      if (st.phase === "listening" || isBusy(st.phase) || st.mic.includes("enroll")) return;
       const hit = spotter.detect(segmentFrames(msg), Date.now(), msg.early);
       if (hit) onWake();
     });
@@ -502,6 +506,3 @@ export function shutdownVoice(): void {
   closeMic();
   useVoiceStore.getState().setRuntime({ wakeStatus: "off" });
 }
-
-/** Wake aliases recognized in transcripts (for the HUD hint). */
-export const KNOWN_WAKE_ALIASES = WAKE_ALIASES;

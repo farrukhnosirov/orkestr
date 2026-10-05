@@ -53,7 +53,7 @@ describe("noticeFromEvent", () => {
   });
 
   it("ignores unrelated events", () => {
-    expect(noticeFromEvent(ev({ kind: "Log", payload: { level: "Info", target: "x", message: "m" } } as EventKind))).toBeNull();
+    expect(noticeFromEvent(ev({ kind: "Log", payload: { level: "Info", target: "x", message: "m" } } as unknown as EventKind))).toBeNull();
   });
 });
 

@@ -7,6 +7,7 @@ import type { ComponentType } from "react";
 
 import { t } from "../../i18n";
 import { managerSettingsSection, providersSettingsSection } from "../providers";
+import { soundSettingsSection, voiceSettingsSection } from "../voice";
 import { AboutSection } from "./sections/AboutSection";
 import { GeneralSection } from "./sections/GeneralSection";
 import { SystemSection } from "./sections/SystemSection";
@@ -57,6 +58,8 @@ export const settingsSections: SettingsSection[] = [
   },
 ];
 settingsSections.push(providersSettingsSection, managerSettingsSection);
+// voice-sound (Phase 3)
+settingsSections.push(voiceSettingsSection, soundSettingsSection);
 
 /** Sections in display order (stable for equal `order`). */
 export function orderedSections(list: readonly SettingsSection[] = settingsSections): SettingsSection[] {
