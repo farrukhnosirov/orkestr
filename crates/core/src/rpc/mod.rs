@@ -6,6 +6,7 @@
 
 pub mod agents;
 pub mod approvals;
+pub mod architecture;
 pub mod audit;
 pub mod consensus;
 pub mod cost;
@@ -20,6 +21,7 @@ pub mod projects;
 pub mod providers;
 pub mod quality;
 pub mod reviews;
+pub mod replay;
 pub mod secrets;
 pub mod settings;
 pub mod snapshots;
@@ -157,6 +159,8 @@ pub fn build_router() -> RpcRouter {
     router.register(quality::register);
     // review-consensus (Phase 2)
     router.register(reviews::register).register(consensus::register);
+    // architecture map + execution replay (Phase 2)
+    router.register(architecture::register).register(replay::register);
     router
 }
 

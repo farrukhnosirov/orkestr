@@ -603,6 +603,23 @@ body {
 }
 
 /* ── Logs panel ────────────────────────────────────────── */
+.logs-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.logs-shell__tabs {
+  padding: var(--ok-space-1) var(--ok-space-3) 0;
+  border-bottom: 1px solid var(--ok-color-border);
+}
+
+.logs-shell > .logs-panel {
+  flex: 1;
+  min-height: 0;
+}
+
 .logs-panel {
   display: flex;
   flex-direction: column;

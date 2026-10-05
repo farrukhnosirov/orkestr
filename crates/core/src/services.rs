@@ -78,6 +78,8 @@ pub struct Services {
     pub ui_language: orkestr_agent_runtime::UiLanguage,
     /// Quality runner + gates (§17, §58).
     pub quality: orkestr_quality::QualityService,
+    /// Architecture Map: scans, snapshots, diffs (§21, Phase 2).
+    pub architecture: orkestr_insight::ArchitectureService,
     /// Persistent event seq reservation.
     pub seq_high_water: Arc<crate::housekeeping::SeqHighWater>,
 }

@@ -655,6 +655,27 @@ pub struct ConsensusPayload {
     pub run: crate::methods::consensus::ConsensusRun,
 }
 
+/// `ArchitectureMapUpdated` — a scan stored a new architecture snapshot.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+pub struct ArchitectureMapUpdatedPayload {
+    /// Project.
+    pub project_id: ProjectId,
+    /// New snapshot.
+    pub snapshot_id: String,
+    /// Counts of the new map.
+    pub stats: crate::methods::architecture::ArchStats,
+    /// Nodes added versus the previous snapshot.
+    pub added_nodes: u32,
+    /// Nodes removed versus the previous snapshot.
+    pub removed_nodes: u32,
+    /// Nodes changed versus the previous snapshot.
+    pub changed_nodes: u32,
+    /// Edges added or removed versus the previous snapshot.
+    pub changed_edges: u32,
+    /// The refresh was triggered by file changes (not by a user request).
+    pub automatic: bool,
+}
+
 // ---------------------------------------------------------------------------
 // Kinds
 // ---------------------------------------------------------------------------
@@ -796,6 +817,8 @@ event_kinds! {
     ReviewUpdated(ReviewPayload),
     /// A consensus run was created or changed. Phase 2, appended.
     ConsensusUpdated(ConsensusPayload),
+    /// A new Architecture Map snapshot was stored (§21). Phase 2, appended.
+    ArchitectureMapUpdated(ArchitectureMapUpdatedPayload),
 }
 
 // ---------------------------------------------------------------------------
@@ -952,6 +975,7 @@ impl NewEvent {
                 self.project_id = Some(c.run.project_id);
                 self.task_id = c.run.task_id;
             }
+            EventKind::ArchitectureMapUpdated(a) => self.project_id = Some(a.project_id),
             EventKind::Notification(n) => {
                 self.project_id = n.notification.project_id;
                 self.task_id = n.notification.task_id;

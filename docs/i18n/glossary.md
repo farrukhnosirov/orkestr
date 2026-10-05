@@ -78,6 +78,10 @@ consistently and add it to this table in the same change.
 | Call (model / tool call) | вызов | — | «1 вызов, 3 вызова, 5 вызовов». |
 | Estimated (cost) | оценка, оценочный | — | «оценка — 1,20 $»; badge «С учётом оценок». |
 | Unattributed (cost) | без привязки | — | |
+| Architecture Map | карта архитектуры | Обновить карту | Nodes: «сервис», «модуль», «API», «база данных», «внешние зависимости». Architecture snapshot — «снимок». |
+| Route (HTTP) | маршрут | — | «3 маршрута». |
+| Execution Replay | воспроизведение | Воспроизвести | Tab in the Logs panel. Timeline — «хронология», step — «шаг», phase — «этап». |
+| Delegation | делегирование | — | Replay phase. |
 | Decision status: Proposed / Accepted / Rejected / Superseded | Предложено / Принято / Отклонено / Заменено | Принять / Отклонить | Neuter — agrees with «решение». |
 | AI Manager (short form) | Менеджер | Спросить Менеджера | Capitalised everywhere as the name of the feature («чат с Менеджером», «модель Менеджера»); lowercase only inside «AI-менеджер» and job titles («Продакт-менеджер»). |
 | Acceptance criteria | критерии приёмки | Добавить критерий | Per task. Not the same as quality gates («критерии качества»). |

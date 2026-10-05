@@ -66,5 +66,6 @@
     "Finished": "finished",
     "Failed": "failed"
   },
-  "consensusUpdated": "Consensus “{{question}}”: {{status}}"
+  "consensusUpdated": "Consensus “{{question}}”: {{status}}",
+  "architectureMapUpdated": "Architecture map updated: {{modules}} modules, {{services}} services, {{changes}} changes"
 }

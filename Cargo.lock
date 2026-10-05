@@ -3000,6 +3000,7 @@ dependencies = [
  "orkestr-domain",
  "orkestr-events",
  "orkestr-files",
+ "orkestr-insight",
  "orkestr-memory",
  "orkestr-node",
  "orkestr-orchestrator",
@@ -3110,6 +3111,32 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.21",
  "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "orkestr-insight"
+version = "0.1.0"
+dependencies = [
+ "blake3",
+ "chrono",
+ "globset",
+ "ignore",
+ "once_cell",
+ "orkestr-domain",
+ "orkestr-events",
+ "orkestr-protocol",
+ "orkestr-storage",
+ "parking_lot",
+ "regex",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.21",
+ "tokio",
+ "tokio-util",
+ "toml 1.1.6+spec-1.1.0",
  "tracing",
  "uuid",
 ]

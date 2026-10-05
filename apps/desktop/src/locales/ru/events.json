@@ -78,5 +78,6 @@
     "Finished": "завершено",
     "Failed": "сбой"
   },
-  "consensusUpdated": "Консенсус «{{question}}»: {{status}}"
+  "consensusUpdated": "Консенсус «{{question}}»: {{status}}",
+  "architectureMapUpdated": "Карта архитектуры обновлена: модулей — {{modules}}, сервисов — {{services}}, изменений — {{changes}}"
 }

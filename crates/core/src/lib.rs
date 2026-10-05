@@ -308,6 +308,12 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
         tracing::error!(error = %e, "quality service failed to initialise");
     }
 
+    let architecture = orkestr_insight::ArchitectureService::new(
+        db.clone(),
+        Some(events.clone()),
+        orkestr_insight::ScanOptions::default(),
+    );
+
     let services = Arc::new(Services {
         version: VERSION.to_owned(),
         started_at: chrono::Utc::now(),
@@ -339,6 +345,7 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
         manager,
         ui_language,
         quality,
+        architecture,
     });
     logging::attach_event_bus(services.events.clone());
 
@@ -365,6 +372,14 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
         });
     }
     services.providers.spawn_health_loop(shutdown.clone());
+    // Architecture Map: debounced incremental refresh after file changes (§21).
+    orkestr_insight::arch::spawn_auto_refresh(
+        services.architecture.clone(),
+        services.events.clone(),
+        Arc::clone(&services.projects),
+        orkestr_insight::arch::AutoRefreshConfig::default(),
+        shutdown.clone(),
+    );
     let router = Arc::new(rpc::build_router());
     let app = server::app(
         server::AppState::new(Arc::clone(&services), token.clone(), router, shutdown.clone()).with_port(addr.port()),

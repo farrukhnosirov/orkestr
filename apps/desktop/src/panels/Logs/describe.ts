@@ -258,6 +258,13 @@ export function describeEvent(event: Event): string {
       const c = event.payload.run;
       return t("events:consensusUpdated", { status: t(`consensus:status.${c.status}`), question: c.question.slice(0, 120) });
     }
+    case "ArchitectureMapUpdated": {
+      const a = event.payload;
+      return t("events:architectureMapUpdated", {
+        modules: a.stats.modules,
+        services: a.stats.services,
+        changes: a.addedNodes + a.removedNodes + a.changedNodes + a.changedEdges,
+    }
   }
 }
 
