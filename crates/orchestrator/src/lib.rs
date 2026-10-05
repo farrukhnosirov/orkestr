@@ -28,6 +28,10 @@
 //! * [`merge`] — the AI Merge Manager (§16, Phase 2): semantic diff,
 //!   conflict detection, dependency order, gates, approval-gated merge via an
 //!   integration branch, conflict resolution, rollback.
+//! * [`parallel`] — the global parallel-execution scheduler shared by all
+//!   runs (caps, provider/model concurrency, rate-limit back-off, resources,
+//!   file-conflict avoidance, fairness, merge-risk checks), the API
+//!   concurrency gate around the model gateway, and restart auto-resume.
 //!
 //! The orchestrator composes engines through their public APIs; it is not a
 //! god service (§64).
@@ -40,6 +44,7 @@ pub mod consensus;
 pub mod deps;
 pub mod error;
 pub mod merge;
+pub mod parallel;
 pub mod plan;
 pub mod planner;
 pub mod resume;
@@ -59,6 +64,7 @@ pub use error::{OrchResult, OrchestratorError};
 pub use review::{gate_of, ReviewGateSource};
 pub use review_store::review_migrations;
 pub use merge::{merge_migrations, MergeDeps, MergeGateSource, MergeManager, MergeQualityRunner};
+pub use parallel::{AutoResumeReport, GatedGateway, ParallelDeps, ParallelScheduler};
 pub use schema::orchestrator_migrations;
 pub use service::Manager;
 

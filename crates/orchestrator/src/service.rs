@@ -54,6 +54,8 @@ pub(crate) struct Inner {
     pub runs: Mutex<HashMap<ManagerRunId, Arc<RunControl>>>,
     /// Serialises plan decisions and run starts.
     pub decide: tokio::sync::Mutex<()>,
+    /// Global parallel scheduler (shared by every run, §11).
+    pub parallel: Arc<crate::parallel::ParallelScheduler>,
 }
 
 /// The AI Manager service (cheap to clone).
@@ -72,6 +74,21 @@ impl Manager {
     /// Creates the service.
     #[must_use]
     pub fn new(deps: OrchestratorDeps) -> Self {
+        let parallel = Arc::new(crate::parallel::ParallelScheduler::new(crate::parallel::ParallelDeps {
+            db: deps.db.clone(),
+            events: deps.events.clone(),
+            tasks: Arc::clone(&deps.tasks),
+            hub: Arc::clone(&deps.hub),
+            resources: Arc::clone(&deps.resources),
+            vcs: deps.vcs.clone(),
+        }));
+        Self::with_parallel(deps, parallel)
+    }
+
+    /// Creates the service around a shared scheduler (the core also wraps the
+    /// model gateway with it, see [`crate::parallel::GatedGateway`]).
+    #[must_use]
+    pub fn with_parallel(deps: OrchestratorDeps, parallel: Arc<crate::parallel::ParallelScheduler>) -> Self {
         let store = ManagerStore::new(deps.db.clone());
         Self {
             inner: Arc::new(Inner {
@@ -80,6 +97,7 @@ impl Manager {
                 busy: Mutex::new(HashMap::new()),
                 runs: Mutex::new(HashMap::new()),
                 decide: tokio::sync::Mutex::new(()),
+                parallel,
             }),
         }
     }
@@ -93,14 +111,22 @@ impl Manager {
     /// Marks runs that were active when the core stopped as `Interrupted`
     /// (resumable with `manager.resume` / `manager.run {runId}`).
     pub async fn init(&self) -> OrchResult<()> {
+        if let Err(e) = self.inner.parallel.load_settings().await {
+            tracing::warn!(error = %e, "scheduler settings could not be loaded; using defaults");
+        }
         let stale =
             self.inner.store.runs(None, Some(vec![ManagerRunStatus::Running, ManagerRunStatus::Paused]), 1000).await?;
         for mut run in stale {
             if self.inner.runs.lock().contains_key(&run.id) {
                 continue;
             }
+            let was_paused = run.status == ManagerRunStatus::Paused;
             run.status = ManagerRunStatus::Interrupted;
-            run.status_reason = Some("Orkestr stopped while the run was active — resume it to continue".into());
+            run.status_reason = Some(if was_paused {
+                crate::parallel::PAUSED_INTERRUPTED_REASON.into()
+            } else {
+                "Orkestr stopped while the run was active — resume it to continue".into()
+            });
             run.updated_at = now();
             self.inner.save_run(&run).await;
             tracing::warn!(run_id = %run.id, "manager run from a previous session marked interrupted");

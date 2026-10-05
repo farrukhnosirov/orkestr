@@ -719,6 +719,7 @@ macro_rules! event_kinds {
                         | EventKind::NodeStatus(_)
                         | EventKind::AgentUpdated(_)
                         | EventKind::ManagerMessageAdded(_)
+                        | EventKind::SchedulerUpdated(_)
                 )
             }
 
@@ -832,6 +833,10 @@ event_kinds! {
     ArchitectureMapUpdated(ArchitectureMapUpdatedPayload),
     /// A Merge Manager proposal changed (analysis, approval, progress, conflicts, result). Phase 2, appended.
     MergeProposalUpdated(MergeProposalPayload),
+    /// The parallel scheduler's running / queued / waiting picture or its settings changed. Phase 2, appended.
+    SchedulerUpdated(crate::methods::scheduler::SchedulerUpdatedPayload),
+    /// Two agents in separate worktrees are predicted to conflict on merge. Phase 2, appended.
+    MergeRiskDetected(crate::methods::scheduler::MergeRiskPayload),
 }
 
 // ---------------------------------------------------------------------------

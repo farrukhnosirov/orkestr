@@ -242,6 +242,10 @@ import type { RunCommandParams } from "./RunCommandParams";
 import type { RunCommandResult } from "./RunCommandResult";
 import type { RunIdParams } from "./RunIdParams";
 import type { RunConsensusParams } from "./RunConsensusParams";
+import type { SchedulerExplainParams } from "./SchedulerExplainParams";
+import type { SchedulerExplanation } from "./SchedulerExplanation";
+import type { SchedulerStatus } from "./SchedulerStatus";
+import type { SchedulerStatusParams } from "./SchedulerStatusParams";
 import type { SearchFilesParams } from "./SearchFilesParams";
 import type { SearchFilesResult } from "./SearchFilesResult";
 import type { SearchKnowledgeParams } from "./SearchKnowledgeParams";
@@ -255,6 +259,8 @@ import type { SetGatesParams } from "./SetGatesParams";
 import type { SetModeParams } from "./SetModeParams";
 import type { SetProfileParams } from "./SetProfileParams";
 import type { SetRuleParams } from "./SetRuleParams";
+import type { SetSchedulerLimitsParams } from "./SetSchedulerLimitsParams";
+import type { SetSchedulerLimitsResult } from "./SetSchedulerLimitsResult";
 import type { SetSecretParams } from "./SetSecretParams";
 import type { SettingsResult } from "./SettingsResult";
 import type { ShowParams } from "./ShowParams";
@@ -515,6 +521,9 @@ export type Methods = {
   "benchmarks.models": [ModelBenchmarksParams, ModelBenchmarksResult];
   "benchmarks.agents": [AgentPerformanceParams, AgentPerformanceResult];
   "benchmarks.records": [BenchmarkRecordsParams, BenchmarkRecordsResult];
+  "scheduler.status": [SchedulerStatusParams, SchedulerStatus];
+  "scheduler.setLimits": [SetSchedulerLimitsParams, SetSchedulerLimitsResult];
+  "scheduler.explain": [SchedulerExplainParams, SchedulerExplanation];
 };
 
 /** All implemented method names. */
@@ -728,6 +737,9 @@ export const METHOD_NAMES = [
   "benchmarks.models",
   "benchmarks.agents",
   "benchmarks.records",
+  "scheduler.status",
+  "scheduler.setLimits",
+  "scheduler.explain",
 ] as const;
 
 /** Wire protocol version (see orkestr-protocol PROTOCOL_VERSION). */
@@ -784,6 +796,8 @@ export const EVENT_KINDS = [
   "ConsensusUpdated",
   "ArchitectureMapUpdated",
   "MergeProposalUpdated",
+  "SchedulerUpdated",
+  "MergeRiskDetected",
 ] as const;
 
 /** UI config schema version (see orkestr-protocol ui_config). */

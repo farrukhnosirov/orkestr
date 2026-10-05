@@ -29,12 +29,14 @@ use orkestr_protocol::methods::manager::{
 };
 use orkestr_protocol::methods::tasks::ListTasksParams;
 use orkestr_protocol::methods::vcs::DiffTarget;
-use orkestr_task_engine::{SchedTask, Scheduler, SchedulerLimits};
+use orkestr_protocol::methods::scheduler::WaitReason;
+use orkestr_task_engine::SchedTask;
 use parking_lot::Mutex;
 use tokio::sync::{watch, Notify};
 use tokio_util::sync::CancellationToken;
 
 use crate::error::{OrchResult, OrchestratorError};
+use crate::parallel::{model_key, Candidate, RiskItem};
 use crate::service::{Inner, Manager, MessageExtras};
 use crate::util::{cap, one_line, role_name};
 
@@ -361,6 +363,14 @@ impl Inner {
         // Unfinished work gets a fresh chance (attempt counters are kept).
         for t in &mut run.tasks {
             let Ok(task) = self.deps.tasks.get(t.task_id).await else { continue };
+            if task.status == TaskStatus::Interrupted {
+                // Resume from the last checkpoint: the new agent's worktree is
+                // based on the interrupted agent's branch (its handoff is
+                // injected by the runtime).
+                if let Some(b) = t.branch.clone() {
+                    self.parallel.mark_resume(t.task_id, b);
+                }
+            }
             if matches!(task.status, TaskStatus::Failed | TaskStatus::Interrupted) {
                 match self.deps.tasks.retry(t.task_id, TaskActor::Manager).await {
                     Ok(c) => t.status = c.task.status,
@@ -410,6 +420,8 @@ impl Inner {
             let sup = Supervisor::new(Arc::clone(&inner), plan, project, run, Arc::clone(&control), Instant::now());
             sup.drive().await;
             inner.runs.lock().remove(&id);
+            inner.parallel.unregister(id);
+            inner.parallel.publish_if_changed().await;
             let _ = control.finished.send(true);
         });
         snapshot
@@ -498,9 +510,13 @@ impl Supervisor {
                     }
                     StopKind::Shutdown => {
                         self.refresh().await;
+                        let paused = *self.control.paused.borrow();
                         self.run.status = ManagerRunStatus::Interrupted;
-                        self.run.status_reason =
-                            Some("Orkestr stopped while the run was active — resume it to continue".into());
+                        self.run.status_reason = Some(if paused {
+                            crate::parallel::PAUSED_INTERRUPTED_REASON.into()
+                        } else {
+                            "Orkestr stopped while the run was active — resume it to continue".into()
+                        });
                         self.publish_if_changed().await;
                     }
                 }
@@ -534,6 +550,11 @@ impl Supervisor {
             if paused {
                 self.run.status = ManagerRunStatus::Paused;
                 self.run.status_reason = Some("paused by the user — no new agents start".into());
+                let git = self.ensure_git().await;
+                let candidates = self.candidates(git).await;
+                let cap = self.run.limits.max_parallel_agents as usize;
+                self.inner.parallel.hold(self.run.id, self.project.id, cap, candidates, WaitReason::Paused);
+                self.inner.parallel.publish_if_changed().await;
             } else {
                 self.run.status = ManagerRunStatus::Running;
                 if let Some(fatal) = self.schedule().await {
@@ -856,6 +877,9 @@ impl Supervisor {
             parts.push(format!("{waiting} agent(s) wait for an approval"));
         }
         parts.extend(self.notes.iter().take(2).cloned());
+        if let Some(w) = self.inner.parallel.run_wait_summary(self.run.id) {
+            parts.push(w);
+        }
         (!parts.is_empty()).then(|| parts.join("; "))
     }
 
@@ -930,45 +954,72 @@ impl Supervisor {
         ok
     }
 
-    /// Scheduler pass: starts agents for admissible ready tasks. Returns a
-    /// fatal reason when the run cannot continue (no model, forbidden, …).
+    /// Ready tasks of the run as scheduler candidates: predicted (plan) ∪
+    /// touched files, where each will run (own worktree with git, else the
+    /// shared checkout), predicted provider/model and team tag.
+    async fn candidates(&self, git: bool) -> Vec<Candidate> {
+        let mut out = Vec::new();
+        for rt in &self.run.tasks {
+            if rt.status != TaskStatus::Ready || rt.agent_id.is_some_and(|a| self.inner.deps.agents.is_live(a)) {
+                continue;
+            }
+            let Ok(task) = self.inner.deps.tasks.get(rt.task_id).await else { continue };
+            let template = self.template_for(&rt.role).await;
+            let read_only = template.as_ref().is_some_and(|t| t.worktree_policy == WorktreePolicy::ReadOnlyMain)
+                && (!git || self.base_branch(&rt.key).0.is_none());
+            let mut s = SchedTask::from_task(&task);
+            if let Some(pt) = self.plan.tasks.iter().find(|p| p.key == rt.key) {
+                for f in &pt.files {
+                    if !s.files.contains(f) {
+                        s.files.push(f.clone());
+                    }
+                }
+            }
+            if read_only {
+                s.files.clear();
+            }
+            // With git every writing agent gets its own worktree: no same-file
+            // conflict, but overlaps are flagged as merge risks.
+            s.worktree = (git && !read_only).then(|| format!("pending-worktree:{}", task.id));
+            let model = self
+                .inner
+                .parallel
+                .predict_model(
+                    &self.inner.deps.models,
+                    &self.project,
+                    &rt.role,
+                    self.plan.options.model.clone(),
+                    template.as_ref().and_then(|t| t.preferred_model.clone()),
+                )
+                .await;
+            if let Some(m) = &model {
+                s.provider = Some(m.provider_id.to_string());
+                s.model = Some(model_key(m));
+            }
+            out.push(Candidate { sched: s, title: task.title.clone() });
+        }
+        out
+    }
+
+    /// Scheduler pass: asks the global scheduler which ready tasks may start
+    /// (caps, provider/model slots, rate limits, resources, file conflicts,
+    /// fairness across projects) and starts agents for them. Returns a fatal
+    /// reason when the run cannot continue (no model, forbidden, …).
     async fn schedule(&mut self) -> Option<String> {
         let live = self.live_agents();
         let max_parallel = self.run.limits.max_parallel_agents as usize;
-        if live >= max_parallel {
-            return None;
-        }
-        let candidates: Vec<usize> = (0..self.run.tasks.len())
-            .filter(|i| {
-                let t = &self.run.tasks[*i];
-                t.status == TaskStatus::Ready && !t.agent_id.is_some_and(|a| self.inner.deps.agents.is_live(a))
-            })
-            .collect();
-        if candidates.is_empty() {
-            return None;
-        }
-        if self.run.agents_spawned >= self.run.limits.max_agents {
+        let git = self.ensure_git().await;
+        let candidates = self.candidates(git).await;
+        // Provider rate-limit events feed the back-off while runs are live.
+        self.inner.parallel.spawn_rate_listener();
+        if !candidates.is_empty() && self.run.agents_spawned >= self.run.limits.max_agents {
             if live == 0 {
                 return Some(format!("agent limit reached ({} agents spawned)", self.run.agents_spawned));
             }
+            let why = WaitReason::AgentBudget { spawned: self.run.agents_spawned, limit: self.run.limits.max_agents };
+            self.inner.parallel.hold(self.run.id, self.project.id, max_parallel, candidates, why);
+            self.inner.parallel.publish_if_changed().await;
             return None;
-        }
-        let git = self.ensure_git().await;
-        let at = now();
-        let mut sched: Vec<SchedTask> = Vec::new();
-        for i in &candidates {
-            let Ok(task) = self.inner.deps.tasks.get(self.run.tasks[*i].task_id).await else { continue };
-            sched.push(SchedTask {
-                task_id: task.id,
-                project_id: task.project_id,
-                priority: task.priority,
-                enqueued_at: task.ready_since.unwrap_or(task.updated_at),
-                provider: None,
-                files: task.files_touched.clone(),
-                worktree: None,
-                ram_mb: None,
-                cpu_weight: None,
-            });
         }
         let active: Vec<SchedTask> = self
             .inner
@@ -978,31 +1029,11 @@ impl Supervisor {
             .await
             .unwrap_or_default()
             .iter()
-            .map(|t| SchedTask {
-                task_id: t.id,
-                project_id: t.project_id,
-                priority: t.priority,
-                enqueued_at: t.ready_since.unwrap_or(t.updated_at),
-                provider: t.model.as_ref().map(|m| m.provider_id.to_string()),
-                files: t.files_touched.clone(),
-                // Agents with their own worktree never conflict on files.
-                worktree: t.worktree.as_ref().filter(|_| git).map(|w| w.path.clone()),
-                ram_mb: None,
-                cpu_weight: None,
-            })
+            .map(|t| Inner::active_sched(t, git))
             .collect();
-        let mut project_overrides = BTreeMap::new();
-        project_overrides.insert(self.project.id, max_parallel);
-        let limits = SchedulerLimits {
-            max_parallel_global: 16,
-            max_parallel_per_project: max_parallel,
-            project_overrides,
-            provider_slots: self.inner.deps.hub.provider_slots(),
-            ..SchedulerLimits::default()
-        };
-        let plan = Scheduler::new(limits).next_runnable(&sched, &active, &self.inner.deps.resources.snapshot(), at);
+        let outcome = self.inner.parallel.admit(self.run.id, self.project.id, max_parallel, candidates, &active);
         let mut started = 0usize;
-        for task_id in plan.start {
+        for task_id in outcome.start {
             if live + started >= max_parallel || self.run.agents_spawned >= self.run.limits.max_agents {
                 break;
             }
@@ -1012,9 +1043,68 @@ impl Supervisor {
                 Err(Fatal(reason)) => return Some(reason),
             }
         }
+        if let Some((_, first)) = outcome.deferred.first() {
+            tracing::debug!(run_id = %self.run.id, deferred = outcome.deferred.len(), first = %first, "tasks held back by the scheduler");
+        }
         let parallel = u32::try_from(self.live_agents()).unwrap_or(u32::MAX);
         self.run.peak_parallel = self.run.peak_parallel.max(parallel);
+        self.inner.parallel.publish_if_changed().await;
+        self.check_merge_risks(git).await;
         None
+    }
+
+    /// Flags agents in separate worktrees that touch the same files (early
+    /// merge-conflict warning, confirmed with `git merge-tree`).
+    async fn check_merge_risks(&mut self, git: bool) {
+        let in_flight = |s: TaskStatus| {
+            matches!(s, TaskStatus::Running | TaskStatus::Waiting | TaskStatus::Review | TaskStatus::Testing)
+        };
+        let items: Vec<RiskItem> = self
+            .run
+            .tasks
+            .iter()
+            .filter(|t| in_flight(t.status) && t.agent_id.is_some())
+            .map(|t| {
+                let mut files = t.files_changed.clone();
+                if let Some(pt) = self.plan.tasks.iter().find(|p| p.key == t.key) {
+                    for f in &pt.files {
+                        if !files.contains(f) {
+                            files.push(f.clone());
+                        }
+                    }
+                }
+                RiskItem { task_id: t.task_id, branch: t.branch.clone(), worktree: t.worktree_path.clone(), files }
+            })
+            .collect();
+        if items.len() < 2 {
+            return;
+        }
+        let fresh = self.inner.parallel.check_merge_risks(&self.project, &items, git).await;
+        let ru = crate::util::is_ru(&self.inner.deps.config.ui_language.get());
+        for r in fresh {
+            let title = |id| self.run.tasks.iter().find(|t| t.task_id == id).map_or_else(String::new, |t| t.title.clone());
+            let list = |v: &[String]| v.iter().take(5).map(|f| format!("`{f}`")).collect::<Vec<_>>().join(", ");
+            let (a, b) = (title(r.task_a), title(r.task_b));
+            let text = match (ru, r.conflicts.is_empty()) {
+                (true, true) => format!(
+                    "Возможный конфликт слияния: «{a}» и «{b}» меняют одни и те же файлы в разных рабочих копиях (worktree): {}.",
+                    list(&r.files)
+                ),
+                (true, false) => {
+                    format!("Конфликт слияния подтверждён git merge-tree: «{a}» и «{b}» ({}).", list(&r.conflicts))
+                }
+                (false, true) => format!(
+                    "Possible merge conflict: \"{a}\" and \"{b}\" change the same files in separate worktrees ({}).",
+                    list(&r.files)
+                ),
+                (false, false) => {
+                    format!("Merge conflict confirmed by git merge-tree: \"{a}\" and \"{b}\" ({}).", list(&r.conflicts))
+                }
+            };
+            self.inner
+                .system_event(self.project.id, &text, MessageExtras { run_id: Some(self.run.id), ..MessageExtras::default() })
+                .await;
+        }
     }
 
     async fn template_for(&self, role: &AgentRole) -> Option<orkestr_domain::AgentTemplate> {
@@ -1057,7 +1147,14 @@ impl Supervisor {
         let Some(template) = self.template_for(&role).await else {
             return Err(Fatal("no agent template is installed".into()));
         };
-        let (base, note) = if git { self.base_branch(&key) } else { (None, None) };
+        let (base, note) = match (git, self.inner.parallel.take_resume(task_id)) {
+            (true, Some(branch)) => {
+                let note = format!("resumed from `{branch}` (last checkpoint + handoff)");
+                (Some(branch), Some(note))
+            }
+            (true, None) => self.base_branch(&key),
+            (false, _) => (None, None),
+        };
         let policy = if git {
             if template.worktree_policy == WorktreePolicy::ReadOnlyMain && base.is_none() {
                 WorktreePolicy::ReadOnlyMain

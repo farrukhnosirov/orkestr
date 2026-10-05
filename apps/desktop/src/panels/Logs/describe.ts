@@ -53,6 +53,7 @@ export function severityOf(event: Event): EventSeverity {
       return "error";
     case "ProviderRateLimited":
     case "ProviderFallback":
+    case "MergeRiskDetected":
     case "BudgetThreshold":
     case "ApprovalRequested":
     case "RollbackPerformed":
@@ -269,6 +270,14 @@ export function describeEvent(event: Event): string {
     case "MergeProposalUpdated": {
       const p = event.payload.proposal;
       return t("events:mergeProposal", { target: p.target, status: t(`merge:status.${p.status}`) });
+    }
+    case "SchedulerUpdated":
+      return event.payload.settingsChanged
+        ? t("events:schedulerSettings")
+        : t("events:schedulerUpdated", { ...event.payload.counts });
+    case "MergeRiskDetected": {
+      const r = event.payload.risk;
+      return t("events:mergeRisk", { count: Math.max(r.files.length, r.conflicts.length) });
     }
   }
 }

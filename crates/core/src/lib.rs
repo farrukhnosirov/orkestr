@@ -245,6 +245,20 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
 
     let ui_language = orkestr_agent_runtime::UiLanguage::default();
     ui_language.set(&settings.get().language);
+    // Global parallel scheduler (§11): admission for every Manager run and the
+    // API-concurrency gate around the model gateway (agents + Manager).
+    let parallel = Arc::new(orkestr_orchestrator::ParallelScheduler::new(orkestr_orchestrator::ParallelDeps {
+        db: db.clone(),
+        events: events.clone(),
+        tasks: Arc::clone(&tasks),
+        hub: Arc::new(orkestr_orchestrator::RegistryHub(Arc::clone(&providers))),
+        resources: Arc::new(rpc::manager::NodeResourceProbe(Arc::clone(&nodes))),
+        vcs: vcs.clone(),
+    }));
+    let models: Arc<dyn orkestr_agent_runtime::ModelGateway> = Arc::new(orkestr_orchestrator::GatedGateway::new(
+        Arc::new(orkestr_agent_runtime::RegistryGateway(Arc::clone(&providers))),
+        Arc::clone(&parallel),
+    ));
     let agents = orkestr_agent_runtime::AgentRuntime::new(orkestr_agent_runtime::RuntimeDeps {
         db: db.clone(),
         events: events.clone(),
@@ -256,7 +270,7 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
         terminals: terminals.clone(),
         memory: memory.clone(),
         cost: cost.clone(),
-        models: Arc::new(orkestr_agent_runtime::RegistryGateway(Arc::clone(&providers))),
+        models: Arc::clone(&models),
         config: orkestr_agent_runtime::RuntimeConfig {
             ui_language: ui_language.clone(),
             ..orkestr_agent_runtime::RuntimeConfig::default()
@@ -265,7 +279,7 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
     if let Err(e) = agents.init().await {
         tracing::error!(error = %e, "agent runtime failed to initialise");
     }
-    let manager = orkestr_orchestrator::Manager::new(orkestr_orchestrator::OrchestratorDeps {
+    let manager = orkestr_orchestrator::Manager::with_parallel(orkestr_orchestrator::OrchestratorDeps {
         db: db.clone(),
         events: events.clone(),
         security: Arc::clone(&security),
@@ -276,7 +290,7 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
         memory: memory.clone(),
         cost: cost.clone(),
         agents: agents.clone(),
-        models: Arc::new(orkestr_agent_runtime::RegistryGateway(Arc::clone(&providers))),
+        models,
         hub: Arc::new(orkestr_orchestrator::RegistryHub(Arc::clone(&providers))),
         resources: Arc::new(rpc::manager::NodeResourceProbe(Arc::clone(&nodes))),
         config: orkestr_orchestrator::ManagerTunables {
@@ -284,7 +298,7 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
             ui_language: ui_language.clone(),
             ..orkestr_orchestrator::ManagerTunables::default()
         },
-    });
+    }, parallel);
     if let Err(e) = manager.init().await {
         tracing::error!(error = %e, "AI Manager failed to initialise");
     }
@@ -361,6 +375,15 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
 
     // Crash recovery hooks (task-engine etc. register theirs here later).
     recovery::run(&services, &previous_session, &recovery::default_hooks()).await;
+    // Background agents (§12): interrupted work resumes on its own when the
+    // scheduler's auto-resume policy allows; otherwise it waits for the user.
+    {
+        let manager = services.manager.clone();
+        tokio::spawn(async move {
+            let report = manager.auto_resume_interrupted().await;
+            tracing::debug!(?report, "auto-resume after start");
+        });
+    }
 
     // RPC server.
     let token = config.token.clone().unwrap_or_else(auth::generate_token);

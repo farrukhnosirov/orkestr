@@ -25,6 +25,7 @@ pub mod providers;
 pub mod quality;
 pub mod reviews;
 pub mod replay;
+pub mod scheduler;
 pub mod secrets;
 pub mod settings;
 pub mod snapshots;
@@ -167,6 +168,7 @@ pub fn build_router() -> RpcRouter {
     router.register(merge::register);
     // Phase 2: context optimizer + benchmarks.
     router.register(context::register).register(benchmarks::register);
+    router.register(scheduler::register);
     router
 }
 

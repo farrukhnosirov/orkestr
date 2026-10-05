@@ -68,5 +68,9 @@
   },
   "consensusUpdated": "Consensus “{{question}}”: {{status}}",
   "architectureMapUpdated": "Architecture map updated: {{modules}} modules, {{services}} services, {{changes}} changes",
-  "mergeProposal": "Merge into {{target}}: {{status}}"
+  "mergeProposal": "Merge into {{target}}: {{status}}",
+  "schedulerUpdated": "Scheduler: {{running}} running, {{queued}} queued, {{waiting}} waiting",
+  "schedulerSettings": "Scheduler limits changed",
+  "mergeRisk_one": "Possible merge conflict between two agents ({{count}} file)",
+  "mergeRisk_other": "Possible merge conflict between two agents ({{count}} files)"
 }

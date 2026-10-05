@@ -36,6 +36,7 @@ pub mod providers;
 pub mod quality;
 pub mod reviews;
 pub mod replay;
+pub mod scheduler;
 pub mod secrets;
 pub mod settings;
 pub mod snapshots;
@@ -339,6 +340,10 @@ pub fn registry() -> Vec<MethodDescriptor> {
         MethodDescriptor::of::<benchmarks::Models>(),
         MethodDescriptor::of::<benchmarks::Agents>(),
         MethodDescriptor::of::<benchmarks::Records>(),
+        // parallel execution scheduler (Phase 2)
+        MethodDescriptor::of::<scheduler::Status>(),
+        MethodDescriptor::of::<scheduler::SetLimits>(),
+        MethodDescriptor::of::<scheduler::Explain>(),
     ]
 }
 

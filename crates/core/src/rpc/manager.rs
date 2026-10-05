@@ -97,6 +97,8 @@ impl orkestr_orchestrator::ResourceProbe for NodeResourceProbe {
                 logical_cores: u32::try_from(s.per_core_percent.len()).unwrap_or(1).max(1),
                 ram_total_mb: s.memory_total_bytes / (1024 * 1024),
                 ram_available_mb: s.memory_total_bytes.saturating_sub(s.memory_used_bytes) / (1024 * 1024),
+                disk_free_mb: (s.disk_total_bytes > 0).then_some(s.disk_free_bytes / (1024 * 1024)),
+                gpu_usage_percent: None,
             },
             None => ResourceSnapshot::unconstrained(),
         }
