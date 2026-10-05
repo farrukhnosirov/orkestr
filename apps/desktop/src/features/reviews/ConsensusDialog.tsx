@@ -6,7 +6,7 @@
  */
 import "./reviews.css";
 
-import type { ModelRef, RunConsensusParams } from "@orkestr/protocol";
+import type { ConsensusRun, ModelRef, RunConsensusParams } from "@orkestr/protocol";
 import { Badge, Button, IconButton, Spinner } from "@orkestr/ui";
 import { ArrowLeft, Plus, Scale, X } from "lucide-react";
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
@@ -46,7 +46,12 @@ export function ConsensusDialog({ projectId, onClose }: { projectId: string; onC
     requestAnimationFrame(() => questionRef.current?.focus());
   }, []);
 
-  const viewed = useMemo(() => runs.find((r) => r.id === viewId) ?? null, [runs, viewId]);
+  // The run just started is shown at once, then replaced by its live version from the list.
+  const [started, setStarted] = useState<ConsensusRun | null>(null);
+  const viewed = useMemo(
+    () => runs.find((r) => r.id === viewId) ?? (started && started.id === viewId ? started : null),
+    [runs, viewId, started],
+  );
   const picked = models.filter((m): m is ModelRef => m !== null && m.model.trim() !== "");
 
   const close = () => {
@@ -74,6 +79,7 @@ export function ConsensusDialog({ projectId, onClose }: { projectId: string; onC
     setError(null);
     try {
       const run = await reviewActions.runConsensus(params);
+      setStarted(run);
       setViewId(run.id);
       setQuestion("");
       setContext("");
