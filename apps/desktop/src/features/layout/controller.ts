@@ -21,6 +21,7 @@ import {
   importLayout as parseImportedLayout,
   isBuiltinLayoutId,
   LAYOUT_SCHEMA_VERSION,
+  layoutSignature,
   LEGACY_LAYOUT_KEY,
   newLayoutId,
   sanitizeDock,
@@ -47,6 +48,8 @@ let disposers: (() => void)[] = [];
 let started = false;
 /** The active layout changed since it was applied or saved (only then is it stored — visiting a preset never "customises" it). */
 let dirty = false;
+/** Signature of the active layout as applied / last saved. */
+let baseline: string | null = null;
 
 // ── core persistence ─────────────────────────────────────────────────────────
 
@@ -155,6 +158,10 @@ async function saveNow(): Promise<void> {
   dirty = false;
   const doc = await captureCurrent();
   if (!doc) return;
+  const sig = layoutSignature(doc);
+  // Title refreshes (language switch) and no-op events do not customise a preset.
+  if (sig === baseline) return;
+  baseline = sig;
   adopt(await rpc((c) => c.call("ui.layoutsSave", { layout: doc, activate: false })));
 }
 
@@ -236,6 +243,10 @@ async function applyPlan(plan: LayoutPlan, opts: { restoreWindows: boolean }): P
     // dockview emits layout changes synchronously and on the next frame: ignore both.
     setTimeout(() => {
       applying = Math.max(0, applying - 1);
+      // What was just applied is the baseline: only real edits are stored.
+      void captureCurrent().then((d) => {
+        baseline = d ? layoutSignature(d) : null;
+      });
     }, 50);
   }
 }

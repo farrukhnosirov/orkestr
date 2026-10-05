@@ -10,6 +10,7 @@ import {
   importLayout,
   isValidLayoutName,
   LAYOUT_SCHEMA_VERSION,
+  layoutSignature,
   MAX_DOCK_BYTES,
   migrateLayoutDocument,
   newLayoutId,
@@ -254,6 +255,23 @@ describe("export / import", () => {
     const r = importLayout(text, { existingIds: [], isKnownPanel: isKnown });
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.doc.basedOn).toBeUndefined();
+  });
+});
+
+describe("layoutSignature", () => {
+  it("ignores panel titles, key order and updatedAt but not real changes", () => {
+    const a = doc();
+    const renamed = structuredClone(a);
+    const panels = (renamed.dock as { panels: Record<string, { title: string }> }).panels;
+    for (const p of Object.values(panels)) p.title = `Панель ${p.title}`;
+    renamed.updatedAt = "2026-10-05T00:00:00Z";
+    expect(layoutSignature(renamed)).toBe(layoutSignature(a));
+    const reordered = { ...a, windows: { popouts: [], mainMaximized: false } };
+    expect(layoutSignature(reordered)).toBe(layoutSignature(a));
+    expect(layoutSignature({ ...a, locked: true })).not.toBe(layoutSignature(a));
+    const resized = structuredClone(a);
+    (resized.dock as { grid: { root: { size: number } } }).grid.root.size = 650;
+    expect(layoutSignature(resized)).not.toBe(layoutSignature(a));
   });
 });
 

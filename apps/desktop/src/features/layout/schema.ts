@@ -297,6 +297,30 @@ export function repairLayoutDocument(
   return { doc: next, dropped: [...(clean?.dropped ?? []), ...droppedPopouts] };
 }
 
+/**
+ * What makes two layouts "the same" for autosave: structure, sizes, panels,
+ * lock and windows — not the panel titles dockview stores (they follow the
+ * UI language) nor `updatedAt`.
+ */
+export function layoutSignature(doc: LayoutDocument): string {
+  /** Key-sorted copy, so property order never matters. */
+  const sorted = (v: unknown): unknown => {
+    if (Array.isArray(v)) return v.map(sorted);
+    if (!isObj(v)) return v;
+    return Object.fromEntries(Object.keys(v).sort().map((k) => [k, sorted(v[k])]));
+  };
+  const dockPanels = isObj(doc.dock) && isObj(doc.dock["panels"]) ? doc.dock["panels"] : {};
+  const panels = Object.fromEntries(
+    Object.entries(dockPanels).map(([id, p]) => {
+      if (!isObj(p)) return [id, p];
+      const { title: _title, ...rest } = p;
+      return [id, sorted(rest)];
+    }),
+  );
+  const dock = isObj(doc.dock) ? sorted({ ...doc.dock, panels: null }) : doc.dock;
+  return JSON.stringify([doc.id, dock, sorted(panels), doc.panels, doc.locked, sorted(doc.windows)]);
+}
+
 /** Serialises a layout for a file (`.orkestr-layout.json`). Device-specific fields are kept; import re-validates. */
 export function exportLayout(doc: LayoutDocument): string {
   const { updatedAt: _updatedAt, ...rest } = doc;

@@ -1,1 +1,67 @@
-[]
+[
+  {
+    "name": "01-coding",
+    "note": "Default Coding preset with dock group actions (float / detach / maximize)",
+    "errors": []
+  },
+  {
+    "name": "02-switcher",
+    "note": "Title-bar layout switcher: presets with Ctrl+1..5, my layouts, save / lock / editor",
+    "errors": []
+  },
+  {
+    "name": "03-focus",
+    "note": "Ctrl+4: Focus preset",
+    "errors": []
+  },
+  {
+    "name": "04-monitoring",
+    "note": "Ctrl+3: Monitoring preset",
+    "errors": []
+  },
+  {
+    "name": "05-editor",
+    "note": "Layout Editor: grid overlay, presets, panel picker, monitor map, lock",
+    "errors": []
+  },
+  {
+    "name": "06-editor-ru",
+    "note": "Layout Editor in Russian",
+    "errors": []
+  },
+  {
+    "name": "07-locked-ru",
+    "note": "Layout locked: no close/float/detach controls",
+    "errors": []
+  },
+  {
+    "name": "08-save-dialog",
+    "note": "Save layout as…",
+    "errors": []
+  },
+  {
+    "name": "09-floating",
+    "note": "Saved as «Deep work»; a floating in-app panel",
+    "errors": []
+  },
+  {
+    "name": "10a-after-detach-click",
+    "note": "Main window right after the detach click",
+    "errors": []
+  },
+  {
+    "name": "10-detached-window",
+    "note": "Detached panel window (/panel/manager?projectId=01a10b33-1362-74b8-8ba2-254bf0183a0d): custom title bar with re-dock",
+    "errors": []
+  },
+  {
+    "name": "11-main-after-detach",
+    "note": "Main window after detaching",
+    "errors": []
+  },
+  {
+    "name": "12-redocked",
+    "note": "Panel re-docked into the main window",
+    "errors": []
+  }
+]

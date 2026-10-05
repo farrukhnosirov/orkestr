@@ -517,6 +517,21 @@
   color: var(--ok-color-text-subtle);
 }
 
+.lyt-preset__icon {
+  position: relative;
+}
+
+.lyt-preset__icon .lyt-dot {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+}
+
+.lyt-preset__kbd {
+  flex-shrink: 0;
+  margin-left: 2px;
+}
+
 .lyt-preset--active .lyt-preset__icon {
   color: var(--ok-color-accent);
 }
@@ -524,6 +539,7 @@
 .lyt-preset__name {
   flex: 1;
   min-width: 0;
+  overflow-wrap: anywhere;
   line-height: 1.25;
 }
 
