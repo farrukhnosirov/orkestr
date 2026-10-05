@@ -20,7 +20,9 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use orkestr_domain::{ProjectId, ProviderId, Timestamp};
+use std::collections::BTreeMap;
+
+use orkestr_domain::{ProjectId, ProviderId, Timestamp, VoiceProfile};
 
 use super::method;
 
@@ -227,7 +229,14 @@ pub struct VoiceConfig {
     pub notifications: VoiceNotificationConfig,
     /// Sound engine.
     pub sound: SoundConfig,
+    /// Voice per agent: template id → voice profile. Overrides the
+    /// template's own `voice` (built-in templates are read-only, so the
+    /// user's choice lives here). Phase 3, additive.
+    pub agent_voices: BTreeMap<String, VoiceProfile>,
 }
+
+/// Max entries in `VoiceConfig::agent_voices`.
+pub const MAX_AGENT_VOICES: usize = 256;
 
 impl Default for VoiceConfig {
     fn default() -> Self {
@@ -249,6 +258,7 @@ impl Default for VoiceConfig {
             wake: WakeWordConfig::default(),
             notifications: VoiceNotificationConfig::default(),
             sound: SoundConfig::default(),
+            agent_voices: BTreeMap::new(),
         }
     }
 }
@@ -291,6 +301,26 @@ fn is_language(s: &str) -> bool {
 
 fn printable(s: &str, max: usize) -> bool {
     s.chars().count() <= max && !s.chars().any(char::is_control)
+}
+
+/// Validates a voice profile used for an agent (`provider` is `system` or `openai`).
+pub fn validate_profile(p: &VoiceProfile) -> Result<(), VoiceConfigError> {
+    if p.provider != "system" && p.provider != "openai" {
+        return Err(invalid("agentVoices.provider", "expected `system` or `openai`"));
+    }
+    if !printable(&p.voice, 200) {
+        return Err(invalid("agentVoices.voice", "at most 200 printable characters"));
+    }
+    if !is_language(&p.language) {
+        return Err(invalid("agentVoices.language", "expected `auto` or a language tag like `ru` or `en-US`"));
+    }
+    if p.style.as_deref().is_some_and(|s| !printable(s, 200)) {
+        return Err(invalid("agentVoices.style", "at most 200 printable characters"));
+    }
+    if p.rate_pct.is_some_and(|r| !(50..=200).contains(&r)) || p.pitch_pct.is_some_and(|r| !(50..=200).contains(&r)) {
+        return Err(invalid("agentVoices.ratePct", "rate and pitch must be between 50 and 200"));
+    }
+    Ok(())
 }
 
 impl VoiceConfig {
@@ -342,6 +372,15 @@ impl VoiceConfig {
         }
         if self.sound.volume_pct > 100 {
             return Err(invalid("sound.volumePct", "must be between 0 and 100"));
+        }
+        if self.agent_voices.len() > MAX_AGENT_VOICES {
+            return Err(invalid("agentVoices", format!("at most {MAX_AGENT_VOICES} entries")));
+        }
+        for (template_id, p) in &self.agent_voices {
+            if template_id.is_empty() || !printable(template_id, 64) {
+                return Err(invalid("agentVoices", "template ids are 1..=64 printable characters"));
+            }
+            validate_profile(p)?;
         }
         Ok(())
     }
@@ -587,7 +626,26 @@ mod tests {
         assert!(bad(&|c| c.sound.volume_pct = 200));
         assert!(bad(&|c| c.cloud_voice = "a b".into()));
         assert!(bad(&|c| c.push_to_talk_hotkey = String::new()));
+        let profile = |provider: &str, rate: Option<u16>| VoiceProfile {
+            provider: provider.into(),
+            voice: "Microsoft Irina".into(),
+            language: "ru-RU".into(),
+            style: None,
+            rate_pct: rate,
+            pitch_pct: None,
+        };
+        assert!(bad(&|c| {
+            c.agent_voices.insert("t1".into(), profile("elevenlabs", None));
+        }));
+        assert!(bad(&|c| {
+            c.agent_voices.insert("t1".into(), profile("system", Some(20)));
+        }));
+        assert!(bad(&|c| {
+            c.agent_voices.insert(String::new(), profile("system", None));
+        }));
         let mut ok = VoiceConfig::default();
+        ok.agent_voices.insert("t1".into(), profile("system", Some(120)));
+        ok.agent_voices.insert("t2".into(), profile("openai", None));
         ok.language = "ru".into();
         ok.wake.phrase = "Оркестр".into();
         ok.validate().unwrap();

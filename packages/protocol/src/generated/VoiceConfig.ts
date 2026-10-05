@@ -5,6 +5,7 @@ import type { SttConsent } from "./SttConsent";
 import type { SttEngine } from "./SttEngine";
 import type { TtsEngine } from "./TtsEngine";
 import type { VoiceNotificationConfig } from "./VoiceNotificationConfig";
+import type { VoiceProfile } from "./VoiceProfile";
 import type { WakeWordConfig } from "./WakeWordConfig";
 
 /**
@@ -78,4 +79,10 @@ notifications: VoiceNotificationConfig,
 /**
  * Sound engine.
  */
-sound: SoundConfig, };
+sound: SoundConfig, 
+/**
+ * Voice per agent: template id → voice profile. Overrides the
+ * template's own `voice` (built-in templates are read-only, so the
+ * user's choice lives here). Phase 3, additive.
+ */
+agentVoices: { [key in string]: VoiceProfile }, };
