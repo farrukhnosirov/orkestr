@@ -1005,6 +1005,17 @@ impl ProviderRegistry {
         *self.stats.write() = Some(source);
     }
 
+    /// Context window (tokens) of `model` from the cached model list or the
+    /// provider descriptor (model-aware context budgeting, §20).
+    #[must_use]
+    pub fn model_context_window(&self, model: &ModelRef) -> Option<u32> {
+        self.candidates(std::slice::from_ref(model))
+            .into_iter()
+            .find(|c| &c.model == model)
+            .map(|c| c.context_window)
+            .filter(|w| *w > 0)
+    }
+
     /// Candidates with historical statistics for `purpose` attached.
     #[must_use]
     pub fn candidates_with_history(&self, extra: &[ModelRef], purpose: Option<&str>) -> Vec<Candidate> {

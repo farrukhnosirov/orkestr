@@ -6,5 +6,6 @@ pub mod cli;
 pub mod codex;
 pub mod gemini;
 pub mod mock;
+pub mod mock_summarize;
 pub mod ollama;
 pub mod openai;

@@ -786,6 +786,10 @@ pub fn script(req: &ChatRequest) -> MockScript {
         }
         _ => {}
     }
+    // Phase 2 extension point: handoff summaries (context optimizer).
+    if let Some(s) = super::mock_summarize::script(req) {
+        return s;
+    }
     let user = last_user(req);
     let last = req.messages.iter().rev().find(|m| m.role != Role::System);
     let after_tool = last.is_some_and(|m| m.role == Role::Tool);

@@ -68,8 +68,54 @@ pub const BUDGETS: Migration = Migration {
            DROP TABLE IF EXISTS budgets;",
 };
 
+/// Execution benchmark records (§22 model benchmarks / agent performance)
+/// and the event cursor of the collector. One row per agent instance (the
+/// runtime spawns one instance per task run); usage (tokens, cost, latency)
+/// is joined from `usage_records` by `agent_id` at query time.
+pub const BENCHMARKS: Migration = Migration {
+    id: "cost_0003_benchmark_executions",
+    owner: "cost",
+    up: "CREATE TABLE benchmark_executions (
+            agent_id          TEXT PRIMARY KEY NOT NULL,
+            agent_name        TEXT NOT NULL,
+            template_id       TEXT,
+            template_name     TEXT NOT NULL,
+            role              TEXT NOT NULL,
+            project_id        TEXT,
+            task_id           TEXT,
+            provider_id       TEXT,
+            model             TEXT,
+            started_at        TEXT NOT NULL,
+            ended_at          TEXT,
+            outcome           TEXT NOT NULL,
+            stop_reason       TEXT,
+            task_status       TEXT,
+            first_pass        INTEGER,
+            builds_ok         INTEGER NOT NULL DEFAULT 0,
+            builds_failed     INTEGER NOT NULL DEFAULT 0,
+            test_runs         INTEGER NOT NULL DEFAULT 0,
+            tests_failed      INTEGER NOT NULL DEFAULT 0,
+            reviews           INTEGER NOT NULL DEFAULT 0,
+            review_rejections INTEGER NOT NULL DEFAULT 0,
+            review_findings   INTEGER NOT NULL DEFAULT 0,
+            fix_loops         INTEGER NOT NULL DEFAULT 0,
+            retries           INTEGER NOT NULL DEFAULT 0,
+            post_merge_bugs   INTEGER NOT NULL DEFAULT 0,
+            updated_at        TEXT NOT NULL
+         );
+         CREATE INDEX benchmark_executions_task ON benchmark_executions(task_id, started_at);
+         CREATE INDEX benchmark_executions_started ON benchmark_executions(started_at);
+         CREATE INDEX usage_records_agent ON usage_records(agent_id);
+         CREATE TABLE benchmark_meta (key TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL);",
+    down: "DROP TABLE IF EXISTS benchmark_meta;
+           DROP INDEX IF EXISTS usage_records_agent;
+           DROP INDEX IF EXISTS benchmark_executions_started;
+           DROP INDEX IF EXISTS benchmark_executions_task;
+           DROP TABLE IF EXISTS benchmark_executions;",
+};
+
 /// All cost migrations in order.
 #[must_use]
 pub fn cost_migrations() -> Vec<orkestr_storage::Migration> {
-    vec![USAGE, BUDGETS]
+    vec![USAGE, BUDGETS, BENCHMARKS]
 }

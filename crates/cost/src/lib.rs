@@ -12,15 +12,17 @@
 //!   periods Daily / Monthly / Total / PerTask, a USD limit or an explicit
 //!   *unrestricted* flag. [`CostEngine::check`] evaluates the whole scope chain
 //!   for an estimated call → Allow | Warn | Exceeded.
-//! * Statistics skeletons ([`stats`]): model benchmarks and agent performance
-//!   computed from usage records; quality signals (first-pass success,
-//!   retries, review rejections) are fed by the task engine later.
+//! * Benchmarks ([`benchmarks`]): per-execution quality signals collected
+//!   from events (first-pass success, builds, defects, retries, review
+//!   rejections, post-merge bugs) joined with usage → model benchmark table,
+//!   agent performance per template / instance and router statistics.
 //!
 //! Calendar periods use the core's local UTC offset at startup
 //! ([`Calendar::local`]); keys are stored with each record.
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod benchmarks;
 pub mod budget;
 pub mod calendar;
 pub mod schema;
