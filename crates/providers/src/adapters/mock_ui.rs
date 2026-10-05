@@ -13,8 +13,11 @@ const UI_CONTEXT: &[&str] = &[
     "mission control",
     "миссион",
     "панел",
-    "фон",
-    "тем",
+    " фон",
+    " тема",
+    " тему",
+    " темы",
+    " темой",
     "график",
     "виджет",
     "раскладк",
@@ -132,7 +135,7 @@ pub fn ui_intent_patch(text: &str, ru: bool) -> Option<(String, Value)> {
         }
     }
 
-    let background = lower.contains("фон") || lower.contains("background");
+    let background = lower.contains(" фон") || lower.contains("background");
     if background && ["темнее", "тёмн", "темн", "darker", "dark"].iter().any(|w| lower.contains(w)) {
         ops.push(json!({"op": "replace", "path": "/prefs/backgroundDim", "value": 0.55}));
         ops.push(json!({"op": "add", "path": "/theme/tokens/color-bg", "value": "#020308"}));
@@ -187,5 +190,7 @@ mod tests {
         assert!(summary.starts_with("Compact density"), "{summary}");
         assert!(ui_intent_patch("Create a hello module with tests", false).is_none());
         assert!(ui_intent_patch("Сделай модуль авторизации", true).is_none());
+        // Substrings of unrelated words must not trigger (систем-а, теле-фон).
+        assert!(ui_intent_patch("Почини систему оплаты по телефону", true).is_none());
     }
 }
