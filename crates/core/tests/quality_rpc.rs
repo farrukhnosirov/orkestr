@@ -111,12 +111,16 @@ async fn quality_over_websocket() {
     let prof = c.call("quality.getProfile", json!({"projectId": pid})).await;
     assert_eq!(prof["customized"], false);
 
-    // Overrides: fast shell-agnostic commands (single quotes work in PowerShell and POSIX shells).
-    let checks = json!([
-        check("build", "Build", "exit 0"),
-        check("lint", "Lint", "exit 2"),
-        check("test", "Test", "echo 'test result: ok. 3 passed; 0 failed; 1 ignored; 0 measured'"),
-    ]);
+    // Overrides: fast commands. Checks run in the platform command shell —
+    // cmd.exe on Windows (echo prints quotes verbatim, `;` is literal), sh
+    // elsewhere (needs quotes around `;`).
+    let test_echo = if cfg!(windows) {
+        "echo test result: ok. 3 passed; 0 failed; 1 ignored; 0 measured"
+    } else {
+        "echo 'test result: ok. 3 passed; 0 failed; 1 ignored; 0 measured'"
+    };
+    let checks =
+        json!([check("build", "Build", "exit 0"), check("lint", "Lint", "exit 2"), check("test", "Test", test_echo),]);
     let saved = c.call("quality.setProfile", json!({"projectId": pid, "checks": checks})).await;
     assert_eq!(saved["customized"], true);
     assert_eq!(saved["checks"].as_array().unwrap().len(), 3);

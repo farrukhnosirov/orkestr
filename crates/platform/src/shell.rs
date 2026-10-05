@@ -198,6 +198,66 @@ pub fn classify(path: &Path) -> Option<ShellKind> {
     })
 }
 
+/// Programs that JavaScript package managers install on Windows as a trio of
+/// shims: an extension-less sh script, `<name>.cmd` and `<name>.ps1`.
+///
+/// PowerShell resolves a bare `npm` to `npm.ps1` first, and under the default
+/// Windows execution policy (`Restricted`) that script is refused ("running
+/// scripts is disabled on this system"), so `npm run test` fails before it
+/// starts. The `.cmd` shim does exactly the same thing without needing script
+/// execution, so non-interactive runs route these names to it. Orkestr never
+/// relaxes or bypasses the user's execution policy.
+pub const SCRIPT_SHIMS: &[&str] = &[
+    "npm", "npx", "pnpm", "pnpx", "yarn", "yarnpkg", "corepack", "node-gyp", "tsc", "tsx", "ts-node", "eslint",
+    "prettier", "vite", "vitest", "jest", "turbo", "nx",
+];
+
+/// Shell kinds preferred for non-interactive *program* commands (quality
+/// checks such as `npm run test`, `cargo test`), most preferred first. An
+/// empty slice means "the default shell".
+///
+/// On Windows that is `cmd.exe`: it resolves programs through `PATHEXT`
+/// (`npm` → `npm.cmd`) and is unaffected by the PowerShell execution policy.
+/// macOS/Linux keep the user's default shell.
+#[must_use]
+pub fn command_shell_preference() -> &'static [ShellKind] {
+    command_shell_preference_for(cfg!(windows))
+}
+
+fn command_shell_preference_for(windows: bool) -> &'static [ShellKind] {
+    if windows {
+        &[ShellKind::Cmd]
+    } else {
+        &[]
+    }
+}
+
+/// PowerShell statements to prepend to a non-interactive `-Command` run so
+/// that every [`SCRIPT_SHIMS`] name found on `PATH` as `<name>.cmd` is
+/// aliased to that `.cmd` shim (instead of the policy-blocked `.ps1`).
+///
+/// Only names with an existing `.cmd` are aliased, existing aliases are left
+/// alone, and the helper variables are removed afterwards. Empty on
+/// non-Windows systems (no shims, no execution policy).
+#[must_use]
+pub fn powershell_shim_prelude() -> &'static str {
+    static PRELUDE: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    PRELUDE.get_or_init(|| powershell_shim_prelude_for(cfg!(windows)))
+}
+
+fn powershell_shim_prelude_for(windows: bool) -> String {
+    if !windows {
+        return String::new();
+    }
+    let names = SCRIPT_SHIMS.iter().map(|n| format!("'{n}.cmd'")).collect::<Vec<_>>().join(",");
+    format!(
+        "foreach($__orkShim in @(Get-Command -Name @({names}) -CommandType Application -ErrorAction SilentlyContinue))\
+         {{$__orkName=[System.IO.Path]::GetFileNameWithoutExtension($__orkShim.Name);\
+         if(-not (Test-Path -LiteralPath \"alias:$__orkName\")){{Set-Alias -Name $__orkName -Value $__orkShim.Source}}}};\
+         Remove-Variable __orkShim,__orkName -ErrorAction SilentlyContinue;"
+    )
+}
+
 impl ShellDetector for NativeShellDetector {
     fn detect(&self) -> Vec<ShellInfo> {
         let mut shells = detect_native();
@@ -230,6 +290,29 @@ mod tests {
         if let Some(gb) = shells.iter().find(|s| s.kind == ShellKind::GitBash) {
             assert!(!gb.path.to_string_lossy().to_ascii_lowercase().contains("system32"));
         }
+    }
+
+    #[test]
+    fn command_shell_preference_is_cmd_on_windows_only() {
+        assert_eq!(command_shell_preference_for(true), &[ShellKind::Cmd]);
+        assert!(command_shell_preference_for(false).is_empty());
+        assert_eq!(command_shell_preference(), command_shell_preference_for(cfg!(windows)));
+    }
+
+    #[test]
+    fn powershell_prelude_aliases_cmd_shims_without_touching_policy() {
+        assert_eq!(powershell_shim_prelude_for(false), "");
+        let p = powershell_shim_prelude_for(true);
+        for n in ["npm", "npx", "pnpm", "yarn"] {
+            assert!(p.contains(&format!("'{n}.cmd'")), "{n} missing: {p}");
+        }
+        assert!(p.contains("-CommandType Application"));
+        assert!(p.contains("Set-Alias"));
+        assert!(p.trim_end().ends_with(';'));
+        assert!(!p.contains(['\n', '\r']));
+        let lower = p.to_ascii_lowercase();
+        assert!(!lower.contains("executionpolicy") && !lower.contains("bypass"), "{p}");
+        assert_eq!(powershell_shim_prelude(), powershell_shim_prelude_for(cfg!(windows)));
     }
 
     #[test]

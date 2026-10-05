@@ -102,6 +102,12 @@ pub enum ShellSpec {
     /// The platform default shell.
     #[default]
     Default,
+    /// The platform's preferred shell for non-interactive *program*
+    /// commands (quality checks, build/test runners): `cmd.exe` on Windows,
+    /// which resolves `npm` to `npm.cmd` via `PATHEXT` and is not subject to
+    /// the PowerShell execution policy; the default shell elsewhere. See
+    /// [`orkestr_platform::shell::command_shell_preference`].
+    Command,
     /// A detected shell by id.
     Id(String),
     /// A custom program with interactive arguments.
@@ -212,6 +218,16 @@ impl ShellCatalog {
                 .or_else(|| self.shells.first())
                 .map(from_option)
                 .ok_or_else(|| TerminalError::NoShell("no shell detected on this system".into())),
+            ShellSpec::Command => {
+                let preferred = orkestr_platform::shell::command_shell_preference()
+                    .iter()
+                    .map(|k| ShellKind::from(*k))
+                    .find_map(|kind| self.shells.iter().find(|s| s.kind == kind));
+                match preferred {
+                    Some(s) => Ok(from_option(s)),
+                    None => self.resolve(&ShellSpec::Default),
+                }
+            }
             ShellSpec::Id(id) => self.get(id).map(from_option).ok_or_else(|| TerminalError::UnknownShell(id.clone())),
             ShellSpec::Custom { program, args } => {
                 if program.as_os_str().is_empty() {
@@ -265,8 +281,13 @@ pub fn command_line(shell: &ResolvedShell, command: &str) -> TerminalResult<Comm
             }
         }
         ShellKind::PowerShell7 | ShellKind::WindowsPowerShell => {
+            // On Windows, route `npm`/`npx`/`pnpm`/`yarn`… to their `.cmd`
+            // shims: the `.ps1` ones are refused under the default execution
+            // policy, which Orkestr never relaxes. The gate still classifies
+            // the caller's `command` alone (the prelude is ours).
+            let shims = orkestr_platform::shell::powershell_shim_prelude();
             let mut args = os(&["-NoLogo", "-NoProfile", "-NonInteractive", "-Command"]);
-            args.push(OsString::from(format!("{PS_UTF8_PREFIX} {command}")));
+            args.push(OsString::from(format!("{PS_UTF8_PREFIX}{shims} {command}")));
             CommandLine { program, args, raw_tail: None }
         }
         ShellKind::GitBash | ShellKind::Bash | ShellKind::Zsh | ShellKind::Fish | ShellKind::Sh => {
@@ -329,6 +350,65 @@ mod tests {
         let err = ShellCatalog::default()
             .resolve(&ShellSpec::Custom { program: PathBuf::from("definitely-missing-shell-xyz"), args: vec![] });
         assert!(matches!(err, Err(TerminalError::NoShell(_))));
+    }
+
+    #[test]
+    fn command_spec_prefers_cmd_on_windows_and_default_elsewhere() {
+        let cat = ShellCatalog::from_infos(vec![
+            info(P::WindowsPowerShell, "Windows PowerShell", "C:/ps/powershell.exe", true),
+            info(P::Cmd, "Command Prompt", "C:/Windows/System32/cmd.exe", false),
+            info(P::Bash, "bash", "/bin/bash", false),
+        ]);
+        let r = cat.resolve(&ShellSpec::Command).unwrap();
+        if cfg!(windows) {
+            assert_eq!(r.kind, ShellKind::Cmd);
+            assert_eq!(r.id, "cmd");
+        } else {
+            assert_eq!(r.kind, ShellKind::WindowsPowerShell, "non-Windows keeps the default shell");
+        }
+        // No preferred shell detected -> default shell.
+        let only_ps = ShellCatalog::from_infos(vec![info(P::WindowsPowerShell, "ps", "C:/ps/powershell.exe", true)]);
+        assert_eq!(only_ps.resolve(&ShellSpec::Command).unwrap().kind, ShellKind::WindowsPowerShell);
+        assert!(ShellCatalog::default().resolve(&ShellSpec::Command).is_err());
+    }
+
+    #[test]
+    fn real_command_shell_resolves() {
+        let cat = ShellCatalog::detect(&orkestr_platform::NativeShellDetector::default());
+        let r = cat.resolve(&ShellSpec::Command).unwrap();
+        if cfg!(windows) {
+            assert_eq!(r.kind, ShellKind::Cmd);
+        } else {
+            assert_eq!(r, cat.resolve(&ShellSpec::Default).unwrap());
+        }
+    }
+
+    #[test]
+    fn cmd_command_line_wraps_npm_verbatim() {
+        let c = command_line(&resolved(ShellKind::Cmd, "C:/Windows/System32/cmd.exe"), "npm run test").unwrap();
+        assert_eq!(c.args, vec![OsString::from("/d"), OsString::from("/s"), OsString::from("/c")]);
+        assert_eq!(c.raw_tail.as_deref(), Some("\"chcp 65001>nul & npm run test\""));
+        let q = command_line(&resolved(ShellKind::Cmd, "cmd.exe"), "npm run test -- --grep \"a b\"").unwrap();
+        assert_eq!(q.raw_tail.as_deref(), Some("\"chcp 65001>nul & npm run test -- --grep \"a b\"\""));
+    }
+
+    #[test]
+    fn powershell_command_line_routes_shims_on_windows_only() {
+        let p = command_line(&resolved(ShellKind::WindowsPowerShell, "powershell.exe"), "npm run test").unwrap();
+        let script = p.args[4].to_string_lossy().into_owned();
+        assert!(script.starts_with(PS_UTF8_PREFIX));
+        assert!(script.ends_with(" npm run test"));
+        if cfg!(windows) {
+            assert!(script.contains("'npm.cmd'") && script.contains("Set-Alias"), "{script}");
+        } else {
+            assert!(!script.contains("Set-Alias"), "{script}");
+        }
+        let lower = script.to_ascii_lowercase();
+        assert!(!lower.contains("executionpolicy") && !lower.contains("bypass"));
+        assert!(!p.args.iter().any(|a| a.to_string_lossy().eq_ignore_ascii_case("-ExecutionPolicy")));
+        // POSIX shells are untouched.
+        let b = command_line(&resolved(ShellKind::Bash, "/bin/bash"), "npm run test").unwrap();
+        assert_eq!(b.args, vec![OsString::from("-c"), OsString::from("npm run test")]);
     }
 
     fn resolved(kind: ShellKind, program: &str) -> ResolvedShell {

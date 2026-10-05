@@ -26,3 +26,24 @@ are there. Use this folder for per-OS operational material.
   limitations) belong in this folder. Testing strategy:
   `platform-abstraction.md` §4. None has been written yet, because none of
   those capabilities is implemented.
+
+## Windows: npm/pnpm/yarn shims and the PowerShell execution policy
+
+Node package managers install three shims per program on Windows: `npm`
+(sh), `npm.cmd` and `npm.ps1`. Windows PowerShell resolves a bare `npm` to
+`npm.ps1`, and the default execution policy (`Restricted`) refuses it
+("running scripts is disabled on this system"). Orkestr never passes
+`-ExecutionPolicy` and never changes the user's policy. Instead:
+
+- **Quality checks** (`orkestr-quality` `TerminalExecutor`) run with
+  `ShellSpec::Command`, the platform's non-interactive command shell from
+  `orkestr_platform::shell::command_shell_preference()`. On Windows that is
+  `cmd.exe /d /s /c "…"`, which resolves `npm` to `npm.cmd` through
+  `PATHEXT`. macOS and Linux keep the default shell.
+- **Non-PTY PowerShell runs** (agent `run_command`, `terminal.run`) prepend
+  `orkestr_platform::shell::powershell_shim_prelude()`. For each name in
+  `SCRIPT_SHIMS` with a `.cmd` on `PATH`, it aliases the name to that
+  `.cmd`. The prelude is empty on other OSes.
+- The command gate and `DangerousActionGuard` still classify the caller's own
+  command, in the dialect of the shell that runs it. The guard also unwraps
+  `cmd /d /s /c "…"` forms.

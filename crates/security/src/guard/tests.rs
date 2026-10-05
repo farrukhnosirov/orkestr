@@ -625,3 +625,38 @@ fn shell_kind_parsing() {
     assert_eq!(ShellKind::from(orkestr_platform::ShellKind::GitBash), ShellKind::Bash);
     let _ = (AnyF,);
 }
+
+/// Windows check/agent commands may run as `cmd.exe /d /s /c "chcp 65001>nul & <command>"`
+/// (the terminal's non-interactive cmd form). Whether the guard sees the inner
+/// command (Cmd dialect) or the whole wrapped line (from any shell), it must
+/// classify the inner command.
+#[test]
+fn cmd_wrapped_command_form_classifies_inner_command() {
+    let wrap = |inner: &str| format!("cmd.exe /d /s /c \"chcp 65001>nul & {inner}\"");
+    // The inner command alone, in the Cmd dialect (what the gate receives).
+    check(
+        ShellKind::Cmd,
+        &[
+            ("npm run test", Safe),
+            ("npm.cmd run build", Safe),
+            ("npx tsc --noEmit", Safe),
+            ("pnpm test && yarn build", Safe),
+            ("npm test & git push --force", D(C::GitDestructive)),
+            ("npm run build & rd /s /q dist", D(C::RecursiveDelete)),
+        ],
+    );
+    // The fully wrapped line, as typed into any shell.
+    for shell in [ShellKind::Cmd, ShellKind::PowerShell, ShellKind::Bash] {
+        check(
+            shell,
+            &[
+                (&wrap("npm run test"), Safe),
+                (&wrap("npm test & git push --force"), D(C::GitDestructive)),
+                (&wrap("git reset --hard"), D(C::GitDestructive)),
+                (&wrap("rd /s /q dist"), D(C::RecursiveDelete)),
+                ("cmd /c \"npm run test\"", Safe),
+                ("cmd /d /s /c \"git clean -fd\"", D(C::GitDestructive)),
+            ],
+        );
+    }
+}

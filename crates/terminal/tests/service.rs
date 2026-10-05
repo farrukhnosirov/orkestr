@@ -420,3 +420,81 @@ async fn session_limit_and_shutdown() {
     assert!(svc.list(None).is_empty());
     assert!(matches!(svc.open(open_req(dir.path())).await, Err(TerminalError::ShuttingDown)));
 }
+
+// ------------------------------------------------- Windows npm shim execution
+
+/// Records what the gate was asked to classify.
+#[derive(Default)]
+struct RecordingGate(parking_lot::Mutex<Vec<(orkestr_terminal::ShellKind, String)>>);
+
+#[async_trait]
+impl CommandGate for RecordingGate {
+    async fn check(&self, request: &GateRequest) -> GateDecision {
+        self.0.lock().push((request.shell, request.command.clone()));
+        GateDecision::Allow
+    }
+}
+
+#[tokio::test]
+async fn command_shell_runs_program_commands_and_gate_sees_inner_command() {
+    let dir = tempfile::tempdir().unwrap();
+    let gate = Arc::new(RecordingGate::default());
+    let (svc, _rx) = service(gate.clone());
+    let req = RunRequest {
+        root: Some(dir.path().to_path_buf()),
+        shell: ShellSpec::Command,
+        command: "echo checked".into(),
+        stream_to_view: Some(false),
+        ..RunRequest::default()
+    };
+    let out = svc.run(req, CancellationToken::new()).await.unwrap();
+    assert_eq!(out.exit_code, Some(0), "{out:?}");
+    assert_eq!(out.stdout.trim(), "checked");
+    let seen = gate.0.lock().clone();
+    assert_eq!(seen.len(), 1);
+    // The gate classifies the caller's command verbatim, in the command shell's dialect.
+    assert_eq!(seen[0].1, "echo checked");
+    if cfg!(windows) {
+        assert_eq!(seen[0].0, orkestr_terminal::ShellKind::Cmd);
+    }
+}
+
+/// `npm` must run on Windows regardless of the PowerShell execution policy
+/// (default `Restricted` refuses `npm.ps1`). Skipped when npm is not installed.
+#[cfg(windows)]
+#[tokio::test]
+async fn windows_npm_runs_via_command_shell_and_powershell() {
+    if orkestr_platform::process::which("npm.cmd").is_none() {
+        eprintln!("npm not installed; skipping");
+        return;
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let (svc, _rx) = service(Arc::new(AllowAllGate));
+    let is_version = |s: &str| {
+        let v = s.trim();
+        !v.is_empty() && v.split('.').count() >= 2 && v.chars().all(|c| c.is_ascii_digit() || c == '.')
+    };
+    let mut shells = vec![ShellSpec::Command, ShellSpec::Id("cmd".into())];
+    for id in ["powershell", "pwsh"] {
+        if svc.shells(false).iter().any(|s| s.id == id) {
+            shells.push(ShellSpec::Id(id.into()));
+        }
+    }
+    for shell in shells {
+        for command in ["npm --version", "npx --version"] {
+            let req = RunRequest {
+                root: Some(dir.path().to_path_buf()),
+                shell: shell.clone(),
+                command: command.into(),
+                timeout: Some(Duration::from_secs(120)),
+                stream_to_view: Some(false),
+                ..RunRequest::default()
+            };
+            let out = svc.run(req, CancellationToken::new()).await.unwrap();
+            assert_eq!(out.exit_code, Some(0), "{shell:?} `{command}`: {out:?}");
+            assert!(is_version(&out.stdout), "{shell:?} `{command}` stdout: {:?} stderr: {:?}", out.stdout, out.stderr);
+            assert!(!out.stderr.contains("about_Execution_Policies"), "{shell:?}: {}", out.stderr);
+        }
+    }
+    svc.shutdown().await;
+}

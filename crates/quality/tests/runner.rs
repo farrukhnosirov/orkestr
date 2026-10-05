@@ -367,3 +367,60 @@ async fn terminal_executor_runs_real_commands_through_the_gate() {
     assert_eq!(done.results[0].status, CheckStatus::Blocked, "{:?}", done.results[0]);
     terminals.shutdown().await;
 }
+
+/// Records gate requests (shell family + command).
+#[derive(Default)]
+struct RecordingGate(Mutex<Vec<(orkestr_terminal::ShellKind, String)>>);
+
+#[async_trait]
+impl orkestr_terminal::CommandGate for RecordingGate {
+    async fn check(&self, request: &orkestr_terminal::GateRequest) -> orkestr_terminal::GateDecision {
+        self.0.lock().push((request.shell, request.command.clone()));
+        orkestr_terminal::GateDecision::Allow
+    }
+}
+
+/// Checks run in the platform command shell (`cmd.exe` on Windows) and the
+/// gate classifies the detected command itself, not a wrapper.
+#[tokio::test]
+async fn terminal_executor_uses_command_shell_and_gates_inner_command() {
+    let gate = Arc::new(RecordingGate::default());
+    let terminals = orkestr_terminal::TerminalService::builder().gate(gate.clone()).build();
+    let (svc, _) = service(Arc::new(TerminalExecutor::new(terminals.clone()))).await;
+    let ws = tempfile::tempdir().unwrap();
+    let run =
+        svc.start(start(ProjectId::new(), ws.path(), vec![check("ok", CheckKind::Build, "echo built")])).await.unwrap();
+    let done = tokio::time::timeout(Duration::from_secs(60), svc.wait(&run.id)).await.unwrap().unwrap();
+    assert_eq!(done.results[0].status, CheckStatus::Passed, "{:?}", done.results[0]);
+    let seen = gate.0.lock().clone();
+    assert_eq!(seen.len(), 1);
+    assert_eq!(seen[0].1, "echo built");
+    if cfg!(windows) {
+        assert_eq!(seen[0].0, orkestr_terminal::ShellKind::Cmd);
+    }
+    terminals.shutdown().await;
+}
+
+/// Regression (Phase 2 acceptance): on Windows `npm …` checks failed before
+/// running because PowerShell's default execution policy refuses `npm.ps1`.
+/// Skipped when npm is not installed.
+#[cfg(windows)]
+#[tokio::test]
+async fn windows_npm_check_runs_without_execution_policy_error() {
+    if orkestr_platform::process::which("npm.cmd").is_none() {
+        eprintln!("npm not installed; skipping");
+        return;
+    }
+    let terminals = orkestr_terminal::TerminalService::builder().gate(Arc::new(orkestr_terminal::AllowAllGate)).build();
+    let (svc, _) = service(Arc::new(TerminalExecutor::new(terminals.clone()))).await;
+    let ws = tempfile::tempdir().unwrap();
+    let run = svc
+        .start(start(ProjectId::new(), ws.path(), vec![check("npm", CheckKind::Build, "npm --version")]))
+        .await
+        .unwrap();
+    let done = tokio::time::timeout(Duration::from_secs(120), svc.wait(&run.id)).await.unwrap().unwrap();
+    let r = &done.results[0];
+    assert_eq!(r.status, CheckStatus::Passed, "{r:?}");
+    assert_eq!(r.exit_code, Some(0), "{r:?}");
+    terminals.shutdown().await;
+}

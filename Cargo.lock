@@ -3279,6 +3279,7 @@ dependencies = [
  "once_cell",
  "orkestr-domain",
  "orkestr-events",
+ "orkestr-platform",
  "orkestr-protocol",
  "orkestr-storage",
  "orkestr-terminal",

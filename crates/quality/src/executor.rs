@@ -110,7 +110,12 @@ impl CheckExecutor for TerminalExecutor {
             root: Some(req.root),
             cwd: Some(req.cwd),
             owner,
-            shell: ShellSpec::Default,
+            // Detected checks are program invocations (`npm run test`,
+            // `cargo test`, …): run them in the platform's command shell —
+            // `cmd.exe` on Windows, so `npm` resolves to `npm.cmd` instead of
+            // the execution-policy-blocked `npm.ps1`; the default shell on
+            // macOS/Linux. The gate classifies `command` in that dialect.
+            shell: ShellSpec::Command,
             command: req.command,
             // Non-interactive, colorless output: runners stay in single-run
             // mode and parsers see plain text.
