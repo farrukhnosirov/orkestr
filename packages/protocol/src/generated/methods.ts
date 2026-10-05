@@ -11,6 +11,8 @@ import type { AgentStats } from "./AgentStats";
 import type { AgentStatsParams } from "./AgentStatsParams";
 import type { AgentStopParams } from "./AgentStopParams";
 import type { AgentTranscriptResult } from "./AgentTranscriptResult";
+import type { ApplyUiPatchParams } from "./ApplyUiPatchParams";
+import type { ApplyUiPatchResult } from "./ApplyUiPatchResult";
 import type { ApprovalIdParams } from "./ApprovalIdParams";
 import type { ApprovalResult } from "./ApprovalResult";
 import type { ApprovePlanParams } from "./ApprovePlanParams";
@@ -216,6 +218,9 @@ import type { PmDraftParams } from "./PmDraftParams";
 import type { PmListParams } from "./PmListParams";
 import type { PmListResult } from "./PmListResult";
 import type { PmUpdateParams } from "./PmUpdateParams";
+import type { PowerStatusView } from "./PowerStatusView";
+import type { PreviewUiPatchParams } from "./PreviewUiPatchParams";
+import type { PreviewUiPatchResult } from "./PreviewUiPatchResult";
 import type { ProjectIdParams } from "./ProjectIdParams";
 import type { ProjectResult } from "./ProjectResult";
 import type { ProviderIdParams } from "./ProviderIdParams";
@@ -591,6 +596,9 @@ export type Methods = {
   "ui.layoutsDelete": [LayoutIdParams, LayoutsState];
   "ui.layoutsRename": [RenameLayoutParams, LayoutsState];
   "ui.layoutsSetActive": [LayoutIdParams, LayoutsState];
+  "ui.previewPatch": [PreviewUiPatchParams, PreviewUiPatchResult];
+  "ui.applyPatch": [ApplyUiPatchParams, ApplyUiPatchResult];
+  "nodes.power": [Empty, PowerStatusView];
 };
 
 /** All implemented method names. */
@@ -835,6 +843,9 @@ export const METHOD_NAMES = [
   "ui.layoutsDelete",
   "ui.layoutsRename",
   "ui.layoutsSetActive",
+  "ui.previewPatch",
+  "ui.applyPatch",
+  "nodes.power",
 ] as const;
 
 /** Wire protocol version (see orkestr-protocol PROTOCOL_VERSION). */
@@ -902,6 +913,8 @@ export const EVENT_KINDS = [
   "HealingAttemptStarted",
   "UiConfigChanged",
   "UiThemesChanged",
+  "UiPatchProposed",
+  "UiConfigPatched",
 ] as const;
 
 /** UI config schema version (see orkestr-protocol ui_config). */

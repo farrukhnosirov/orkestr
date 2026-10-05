@@ -1,0 +1,17 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "hud",
+  "description": "HUD / Ambient window (Phase 3, §34): dragging, hide/show, focus and position memory. Business data never flows through Tauri — the HUD talks to the core over the RPC protocol like the main window.",
+  "windows": ["hud"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-start-dragging",
+    "core:window:allow-hide",
+    "core:window:allow-show",
+    "core:window:allow-set-focus",
+    "core:window:allow-set-position",
+    "core:window:allow-outer-position",
+    "core:window:allow-set-always-on-top",
+    "core:window:allow-set-size"
+  ]
+}

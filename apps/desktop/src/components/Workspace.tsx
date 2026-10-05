@@ -1,5 +1,5 @@
-import { Button, EmptyState } from "@orkestr/ui";
 import { clsx } from "clsx";
+import { Button, EmptyState, Illustration } from "@orkestr/ui";
 import {
   type DockviewApi,
   DockviewReact,
@@ -10,8 +10,8 @@ import {
   type IDockviewPanelProps,
   type IWatermarkPanelProps,
 } from "dockview-react";
-import { LayoutGrid, X } from "lucide-react";
-import { type FunctionComponent, useEffect, useRef } from "react";
+import { X } from "lucide-react";
+import { type FunctionComponent, useCallback, useEffect, useRef } from "react";
 
 import * as layout from "../features/layout/controller";
 import { GroupActions } from "../features/layout/GroupActions";
@@ -118,7 +118,7 @@ function Watermark(_props: IWatermarkPanelProps) {
   const popouts = useLayoutStore((s) => s.popouts.length);
   return (
     <EmptyState
-      icon={<LayoutGrid size={26} strokeWidth={1.6} />}
+      icon={<Illustration kind="orbit" size={56} />}
       title={t("workspace.emptyTitle")}
       description={popouts > 0 ? translate("layout:workspace.allDetached", { count: popouts }) : t("workspace.emptyDescription")}
       action={

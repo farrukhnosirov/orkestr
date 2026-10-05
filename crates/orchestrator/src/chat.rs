@@ -46,6 +46,7 @@ pub fn system_prompt(
             orkestr_domain::ApprovalMode::FullAuto => " — plans are approved and run automatically",
         }
     );
+    s.push_str(crate::ui_tools::PROMPT_LINE);
     s.push_str(&format!("Max parallel agents: {}.\n", cfg.max_parallel_agents));
     s.push('\n');
     s.push_str(&orkestr_agent_runtime::reply_language_instruction(language));

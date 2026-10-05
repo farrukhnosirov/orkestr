@@ -331,6 +331,11 @@ export function describeEvent(event: Event): string {
       return event.payload.deleted
         ? t("theme:events.themeDeleted", { id: event.payload.themeId })
         : t("theme:events.themeSaved", { id: event.payload.themeId });
+    // Phase 3: AI-editable UI.
+    case "UiPatchProposed":
+      return t("events:uiPatchProposed", { summary: event.payload.summary });
+    case "UiConfigPatched":
+      return t("events:uiConfigPatched", { summary: event.payload.summary, version: event.payload.version });
   }
 }
 

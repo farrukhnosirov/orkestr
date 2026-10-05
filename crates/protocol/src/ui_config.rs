@@ -188,6 +188,12 @@ pub struct UiConfig {
     pub layout: LayoutConfig,
     /// Performance mode.
     pub performance_mode: PerformanceMode,
+    /// Shell preferences (density, panel placement, hidden widgets,
+    /// background dim, HUD). Appended in Phase 3 (schema v1, additive:
+    /// absent = defaults). See [`crate::ui_prefs`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub prefs: Option<crate::ui_prefs::UiPrefs>,
 }
 
 impl Default for UiConfig {
@@ -209,6 +215,7 @@ impl Default for UiConfig {
             },
             layout: LayoutConfig::default(),
             performance_mode: PerformanceMode::default(),
+            prefs: None,
         }
     }
 }
@@ -273,6 +280,9 @@ impl UiConfig {
             if size > 256 * 1024 {
                 issues.push(issue("layout.docking", "docking layout too large (max 256 KiB)"));
             }
+        }
+        if let Some(prefs) = &self.prefs {
+            prefs.validate_into(&mut issues);
         }
         if issues.is_empty() {
             Ok(())

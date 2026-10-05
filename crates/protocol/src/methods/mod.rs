@@ -381,6 +381,10 @@ pub fn registry() -> Vec<MethodDescriptor> {
         MethodDescriptor::of::<layouts::Delete>(),
         MethodDescriptor::of::<layouts::Rename>(),
         MethodDescriptor::of::<layouts::SetActive>(),
+        // Phase 3 (hud-perf-aiui): validated UI patches + host power.
+        MethodDescriptor::of::<ui::PreviewPatch>(),
+        MethodDescriptor::of::<ui::ApplyPatch>(),
+        MethodDescriptor::of::<nodes::Power>(),
     ]
 }
 

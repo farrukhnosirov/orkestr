@@ -1,0 +1,387 @@
+/* HUD / Ambient window (§34). Tokens only. */
+
+/* The HUD window is transparent: only the rounded glass card is visible. */
+[data-ok-window="hud"],
+[data-ok-window="hud"] body,
+[data-ok-window="hud"] #root {
+  background: transparent !important;
+}
+
+.hud-root {
+  height: 100vh;
+  padding: 6px;
+  display: flex;
+}
+
+.hud {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-2);
+  padding: var(--ok-space-2) var(--ok-space-3) var(--ok-space-3);
+  border-radius: var(--ok-radius-lg);
+  border: 1px solid var(--ok-color-border-strong);
+  background:
+    var(--ok-gradient-panel),
+    color-mix(in srgb, var(--ok-color-bg-elevated) calc(var(--ok-hud-opacity, 0.82) * 100%), transparent);
+  backdrop-filter: blur(var(--ok-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--ok-blur)) saturate(150%);
+  box-shadow: var(--ok-shadow-md), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Top rim glows while a run is live. */
+.hud::before {
+  content: "";
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  top: 0;
+  height: 1px;
+  background: var(--ok-gradient-accent);
+  opacity: calc(0.25 + 0.35 * var(--ok-glow-intensity));
+  pointer-events: none;
+}
+
+.hud--live::before {
+  opacity: calc(0.5 + 0.5 * var(--ok-glow-intensity));
+  box-shadow: var(--ok-glow-accent);
+}
+
+.hud__bar {
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-2);
+  min-height: 32px;
+}
+
+.hud__grip {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 28px;
+  margin-left: -6px;
+  color: var(--ok-color-text-subtle);
+  cursor: grab;
+}
+
+.hud__grip:active {
+  cursor: grabbing;
+}
+
+.hud__orb {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--ok-color-surface-sunken);
+  box-shadow: inset 0 0 0 1px var(--ok-color-border);
+  flex-shrink: 0;
+}
+
+.hud--live .hud__orb {
+  box-shadow: inset 0 0 0 1px var(--ok-color-border-accent), var(--ok-glow-accent);
+}
+
+.hud__status {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.hud__project {
+  font-weight: var(--ok-font-weight-semibold);
+  font-size: var(--ok-font-size-md);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hud__run {
+  font-size: var(--ok-font-size-xs);
+  color: var(--ok-color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hud--live .hud__run {
+  color: var(--ok-color-accent);
+}
+
+.hud__voice {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  color: var(--ok-color-text-subtle);
+}
+
+.hud__muted {
+  color: var(--ok-color-text-muted);
+  font-size: var(--ok-font-size-sm);
+}
+
+/* Chips and buttons. */
+.hud-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: var(--ok-radius-pill);
+  font-size: var(--ok-font-size-xs);
+  font-weight: var(--ok-font-weight-medium);
+  white-space: nowrap;
+}
+
+.hud-chip--muted {
+  color: var(--ok-color-text-subtle);
+  background: var(--ok-color-surface-sunken);
+}
+
+.hud-chip--warning {
+  color: var(--ok-color-warning);
+  background: var(--ok-color-warning-soft);
+  box-shadow: 0 0 calc(12px * var(--ok-glow-intensity)) var(--ok-color-warning-soft);
+}
+
+.hud-chip--danger {
+  color: var(--ok-color-danger);
+  background: var(--ok-color-danger-soft);
+}
+
+.hud-approvals {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.hud-icon-btn,
+.hud-text-btn {
+  display: inline-grid;
+  place-items: center;
+  height: 26px;
+  min-width: 26px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--ok-radius-sm);
+  background: transparent;
+  color: var(--ok-color-text-muted);
+  cursor: pointer;
+  transition:
+    background var(--ok-duration-fast) var(--ok-ease),
+    color var(--ok-duration-fast) var(--ok-ease),
+    border-color var(--ok-duration-fast) var(--ok-ease);
+}
+
+.hud-text-btn {
+  padding: 0 8px;
+  font-size: var(--ok-font-size-xs);
+  border-color: var(--ok-color-border-strong);
+}
+
+.hud-icon-btn:hover:not(:disabled),
+.hud-text-btn:hover:not(:disabled) {
+  background: var(--ok-color-surface-hover);
+  color: var(--ok-color-text);
+}
+
+.hud-icon-btn--ok {
+  color: var(--ok-color-success);
+  border-color: color-mix(in srgb, var(--ok-color-success) 40%, transparent);
+}
+
+.hud-icon-btn--ok:hover:not(:disabled) {
+  background: var(--ok-color-success-soft);
+  color: var(--ok-color-success);
+}
+
+.hud-icon-btn:disabled,
+.hud-text-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* Agent strip. */
+.hud__agents {
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-3);
+  min-height: 30px;
+}
+
+.hud__avatars {
+  display: flex;
+  align-items: center;
+}
+
+.hud-agent {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  margin-right: -6px;
+  --hud-tone: var(--ok-color-accent);
+}
+
+.hud-agent--violet {
+  --hud-tone: var(--ok-color-violet);
+}
+.hud-agent--magenta {
+  --hud-tone: var(--ok-color-magenta);
+}
+.hud-agent--info {
+  --hud-tone: var(--ok-color-info);
+}
+.hud-agent--success {
+  --hud-tone: var(--ok-color-success);
+}
+.hud-agent--error {
+  --hud-tone: var(--ok-color-danger);
+}
+
+.hud-agent svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.hud-agent__ring {
+  fill: none;
+  stroke: var(--hud-tone);
+  stroke-width: 1.5;
+  stroke-dasharray: 70 22;
+  opacity: 0.85;
+  transform-origin: 16px 16px;
+}
+
+.hud-agent__core {
+  fill: color-mix(in srgb, var(--hud-tone) 22%, var(--ok-color-bg-elevated));
+  stroke: var(--ok-color-bg-elevated);
+  stroke-width: 2;
+}
+
+.hud-agent__initials {
+  position: relative;
+  font-size: 10px;
+  font-weight: var(--ok-font-weight-semibold);
+  color: var(--ok-color-text);
+  letter-spacing: 0.02em;
+}
+
+.hud-agent--working .hud-agent__ring {
+  filter: drop-shadow(0 0 calc(4px * var(--ok-glow-intensity)) var(--hud-tone));
+  animation: hud-orbit calc(2.4s / max(var(--ok-motion-scale, 1), 0.01)) linear infinite;
+}
+
+[data-ok-motion="off"] .hud-agent--working .hud-agent__ring,
+[data-ok-paused="on"] .hud-agent--working .hud-agent__ring {
+  animation: none;
+}
+
+.hud-agent--more {
+  border-radius: 50%;
+  background: var(--ok-color-surface-sunken);
+  box-shadow: inset 0 0 0 1px var(--ok-color-border-strong);
+  font-size: var(--ok-font-size-xs);
+  color: var(--ok-color-text-muted);
+  margin-right: 0;
+}
+
+.hud__avatars + .hud__muted {
+  margin-left: 6px;
+}
+
+@keyframes hud-orbit {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Mini Manager input. */
+.hud-input {
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-2);
+  height: 32px;
+  padding: 0 4px 0 10px;
+  border-radius: var(--ok-radius-md);
+  border: 1px solid var(--ok-color-border);
+  background: var(--ok-color-surface-sunken);
+  transition:
+    border-color var(--ok-duration-fast) var(--ok-ease),
+    box-shadow var(--ok-duration-base) var(--ok-ease);
+}
+
+.hud-input:focus-within {
+  border-color: var(--ok-color-border-accent);
+  box-shadow: var(--ok-glow-accent);
+}
+
+.hud-input__field {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  font-size: var(--ok-font-size-sm);
+}
+
+.hud-input__field::placeholder {
+  color: var(--ok-color-text-subtle);
+}
+
+.hud-input__field:focus-visible {
+  box-shadow: none;
+}
+
+.hud-input__note {
+  font-size: var(--ok-font-size-xs);
+  white-space: nowrap;
+  max-width: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hud-input__note--ok {
+  color: var(--ok-color-success);
+}
+
+.hud-input__note--error {
+  color: var(--ok-color-danger);
+}
+
+.hud-input__send {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 24px;
+  border: 0;
+  border-radius: var(--ok-radius-sm);
+  background: var(--ok-gradient-accent);
+  color: var(--ok-color-text-inverse);
+  cursor: pointer;
+}
+
+.hud-input__send:disabled {
+  background: var(--ok-color-surface-hover);
+  color: var(--ok-color-text-subtle);
+  cursor: default;
+}
+
+/* Compact density tightens the HUD as well. */
+[data-ok-density="compact"] .hud {
+  gap: 6px;
+  padding: 6px var(--ok-space-2) var(--ok-space-2);
+}

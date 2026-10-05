@@ -176,7 +176,7 @@ pub fn build_router() -> RpcRouter {
     router.register(context::register).register(benchmarks::register);
     router.register(scheduler::register);
     router.register(teams::register).register(pm::register);
-    // theme engine (Phase 3)
+    // theme engine + AI-editable UI patches (Phase 3)
     router.register(ui::register);
     // layout-multimonitor (Phase 3)
     router.register(layouts::register);

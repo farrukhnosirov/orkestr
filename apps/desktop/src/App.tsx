@@ -11,6 +11,8 @@ import { bootstrapCore } from "./core/client";
 import { LayoutDialogs } from "./features/layout/LayoutDialogs";
 import { LayoutEditorPanel } from "./features/layout/LayoutEditor";
 import { registerLayoutFeature } from "./features/layout/register";
+import { AiUiLayer } from "./features/aiui/AiUiLayer";
+import { VisualLayer } from "./features/performance/VisualLayer";
 import { registerSecurityFeature } from "./features/security/register";
 import { SecurityLayer } from "./features/security/SecurityLayer";
 import { commands, matchesShortcut } from "./features/commands/registry";
@@ -74,6 +76,7 @@ export function App() {
   return (
     <div className="app">
       <ThemeBackdrop />
+      <VisualLayer connected={ready} />
       <TitleBar />
       {ready ? (
         <div className="app__body">
@@ -99,6 +102,7 @@ export function App() {
           <LayoutDialogs />
         </>
       )}
+      {ready && <AiUiLayer connected={ready} />}
       <Toasts />
     </div>
   );

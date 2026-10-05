@@ -80,5 +80,7 @@
   "pmDraft": "Product draft “{{title}}”: {{status}}",
   "pipelineUpdated": "Quality pipeline (task {{task}}): {{status}}",
   "pipelineStage": "Pipeline stage {{stage}}: {{status}}",
-  "healingAttempt": "Self-healing attempt {{n}}: {{summary}}"
+  "healingAttempt": "Self-healing attempt {{n}}: {{summary}}",
+  "uiPatchProposed": "UI change proposed: {{summary}}",
+  "uiConfigPatched": "Interface settings saved (version {{version}}): {{summary}}"
 }

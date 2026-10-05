@@ -8,6 +8,8 @@ import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { DetachedPanelApp } from "./features/layout/DetachedPanelApp";
 import { parseDetachedRoute } from "./features/layout/route";
+import { HudApp } from "./features/hud/HudApp";
+import { isHudWindow } from "./features/hud/hudWindow";
 import "./i18n";
 import { installLanguageEffects } from "./lib/language";
 
@@ -22,5 +24,6 @@ const detached = parseDetachedRoute(window.location.hash);
 createRoot(root).render(
   <StrictMode>
     {detached ? <DetachedPanelApp route={detached} /> : <App />}
+    {isHudWindow() ? <HudApp /> : <App />}
   </StrictMode>,
 );

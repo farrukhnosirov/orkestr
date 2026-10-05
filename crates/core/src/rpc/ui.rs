@@ -9,15 +9,23 @@
 //! The performance mode has a single source of truth: `AppSettings`
 //! (`settings.*`). `ui.getConfig` reports it inside the config and
 //! `ui.setConfig` forwards a changed value to the settings store.
+//!
+//! `ui.previewPatch` / `ui.applyPatch` (§29 AI-editable UI) validate patches
+//! with [`orkestr_protocol::ui_patch::apply_ui_patch`] against the global
+//! document and store accepted ones through the same store and lock, so the
+//! theme engine, layouts and AI patches share one versioned document.
 
 use std::sync::{Arc, OnceLock};
 
-use orkestr_protocol::event::{EventKind, SettingsChangedPayload, UiConfigChangedPayload, UiThemesChangedPayload};
+use orkestr_protocol::event::{
+    EventKind, SettingsChangedPayload, UiConfigChangedPayload, UiConfigPatchedPayload, UiThemesChangedPayload,
+};
 use orkestr_protocol::methods::ui::{
-    self as m, is_valid_device_id, DeleteThemeParams, DeleteThemeResult, GetUiConfigParams, SaveThemeParams,
-    SaveThemeResult, SetUiConfigParams, ThemeEntry, ThemesResult, UiConfigResult, UiConfigScope,
+    self as m, is_valid_device_id, ApplyUiPatchParams, ApplyUiPatchResult, DeleteThemeParams, DeleteThemeResult, GetUiConfigParams, SaveThemeParams,
+    PreviewUiPatchParams, PreviewUiPatchResult, SaveThemeResult, SetUiConfigParams, ThemeEntry, ThemesResult, UiConfigResult, UiConfigScope,
 };
 use orkestr_protocol::ui_config::{ThemeConfig, UiConfig, UiConfigIssue};
+use orkestr_protocol::ui_patch::{apply_ui_patch, PatchMode};
 use orkestr_protocol::ui_theme::{builtin_themes, contrast_report, is_builtin_theme, MAX_USER_THEMES};
 use orkestr_protocol::{NewEvent, RpcError};
 
@@ -33,7 +41,9 @@ pub fn register(router: &mut RpcRouter) {
         .method::<m::SetConfig, _, _>(set_config)
         .method::<m::Themes, _, _>(|ctx: RpcContext, _| themes(ctx))
         .method::<m::SaveTheme, _, _>(save_theme)
-        .method::<m::DeleteTheme, _, _>(delete_theme);
+        .method::<m::DeleteTheme, _, _>(delete_theme)
+        .method::<m::PreviewPatch, _, _>(preview_patch)
+        .method::<m::ApplyPatch, _, _>(apply_patch);
 }
 
 /// Serializes read-modify-write cycles of the UI store (one per process; the
@@ -222,4 +232,81 @@ async fn delete_theme(ctx: RpcContext, p: DeleteThemeParams) -> Result<DeleteThe
     publish(services, EventKind::UiThemesChanged(UiThemesChangedPayload { theme_id: p.id.clone(), deleted: true }))
         .await?;
     Ok(DeleteThemeResult { deleted: true, configs_reset })
+}
+
+fn rejected(issues: &[UiConfigIssue]) -> RpcError {
+    let first = issues.first().map_or_else(String::new, |i| format!("{}: {}", i.path, i.message));
+    RpcError::bad_request(format!("the UI change was rejected ({first})"))
+        .with_data(serde_json::to_value(issues).unwrap_or(serde_json::Value::Null))
+}
+
+/// The global document with the live performance mode (the patch base).
+async fn patch_base(services: &Arc<Services>) -> Result<(UiConfig, u64), RpcError> {
+    let (mut base, version) = global(services).await?;
+    base.performance_mode = services.settings.get().performance_mode;
+    Ok((base, version))
+}
+
+async fn preview_patch(ctx: RpcContext, p: PreviewUiPatchParams) -> Result<PreviewUiPatchResult, RpcError> {
+    let (base, version) = patch_base(&ctx.services).await?;
+    let author = p.author.unwrap_or_default();
+    let out = apply_ui_patch(&base, &p.patch, author, PatchMode::Strict).map_err(|i| rejected(&i))?;
+    Ok(PreviewUiPatchResult {
+        base,
+        version,
+        config: out.config,
+        changes: out.changes,
+        inverse: out.inverse,
+        warnings: out.warnings,
+    })
+}
+
+async fn apply_patch(ctx: RpcContext, p: ApplyUiPatchParams) -> Result<ApplyUiPatchResult, RpcError> {
+    if p.patch.is_empty() {
+        return Err(RpcError::bad_request("the patch is empty"));
+    }
+    let services = &ctx.services;
+    let _guard = write_lock().lock().await;
+    let (base, version) = patch_base(services).await?;
+    if let Some(expected) = p.base_version {
+        if expected != version {
+            return Err(RpcError::conflict(format!(
+                "the UI configuration changed meanwhile (version {version}, expected {expected}); preview again"
+            )));
+        }
+    }
+    let author = p.author.unwrap_or_default();
+    let out = apply_ui_patch(&base, &p.patch, author, PatchMode::Strict).map_err(|i| rejected(&i))?;
+    if out.changes.is_empty() {
+        return Ok(ApplyUiPatchResult {
+            config: base,
+            version,
+            changes: Vec::new(),
+            inverse: Vec::new(),
+            warnings: out.warnings,
+        });
+    }
+    out.config.validate().map_err(|i| rejected(&i))?;
+    let summary = p.summary.as_deref().map(str::trim).filter(|s| !s.is_empty()).unwrap_or("UI change");
+    let summary: String = summary.chars().take(200).collect();
+    let new_version = store::put_config(&services.db, GLOBAL_SCOPE, &out.config).await.map_err(storage_to_rpc)?;
+    tracing::info!(version = new_version, ?author, changes = out.changes.len(), "UI config patched");
+    sync_performance_mode(services, &out.config).await?;
+    let changed = UiConfigChangedPayload { device_id: None, config: Some(out.config.clone()), version: new_version };
+    publish(services, EventKind::UiConfigChanged(changed)).await?;
+    let payload = UiConfigPatchedPayload {
+        version: new_version,
+        author,
+        summary,
+        config: out.config.clone(),
+        proposal_id: p.proposal_id.clone(),
+    };
+    publish(services, EventKind::UiConfigPatched(payload)).await?;
+    Ok(ApplyUiPatchResult {
+        config: out.config,
+        version: new_version,
+        changes: out.changes,
+        inverse: out.inverse,
+        warnings: out.warnings,
+    })
 }

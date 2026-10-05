@@ -47,8 +47,17 @@ pub const STATE_TOOLS: [&str; 12] = [
 ];
 
 /// Names of the action tools.
-pub const ACTION_TOOLS: [&str; 7] =
-    ["propose_plan", "create_tasks", "spawn_agent", "stop_agent", "request_approval", "record_decision", "answer_user"];
+pub const ACTION_TOOLS: [&str; 8] = [
+    "propose_plan",
+    "create_tasks",
+    "spawn_agent",
+    "stop_agent",
+    "request_approval",
+    "record_decision",
+    "answer_user",
+    // Phase 3: AI-editable UI (`crate::ui_tools`).
+    "update_ui_config",
+];
 
 fn obj(props: Value, required: &[&str]) -> Value {
     json!({ "type": "object", "properties": props, "required": required, "additionalProperties": false })
@@ -195,6 +204,8 @@ pub fn tool_specs() -> Vec<ToolSpec> {
             "Give the final answer to the user (markdown) and end your turn.",
             obj(json!({ "text": {"type": "string"} }), &["text"]),
         ),
+        // Phase 3: AI-editable UI (validated UI config patches, never code).
+        crate::ui_tools::spec(),
     ]
 }
 
@@ -230,11 +241,11 @@ pub struct ToolOutcome {
 }
 
 impl ToolOutcome {
-    fn ok(content: impl Into<String>, summary: impl Into<String>) -> Self {
+    pub(crate) fn ok(content: impl Into<String>, summary: impl Into<String>) -> Self {
         Self { content: content.into(), summary: summary.into(), ..Self::default() }
     }
 
-    fn err(msg: impl Into<String>) -> Self {
+    pub(crate) fn err(msg: impl Into<String>) -> Self {
         let m = msg.into();
         Self { content: format!("error: {m}"), summary: m, is_error: true, ..Self::default() }
     }
@@ -692,6 +703,7 @@ impl Inner {
                     Err(e) => ToolOutcome::err(e.to_string()),
                 }
             }
+            crate::ui_tools::UPDATE_UI_CONFIG => self.update_ui_config_tool(ctx, args).await,
             "answer_user" => {
                 let text = arg_str(args, "text").unwrap_or_default().to_owned();
                 ToolOutcome {

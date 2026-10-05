@@ -1,8 +1,9 @@
 import { Kbd } from "@orkestr/ui";
-import { Copy, Minus, Search, Settings, Square, X } from "lucide-react";
+import { Copy, Minus, PictureInPicture2, Search, Settings, Square, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { LayoutSwitcher } from "../features/layout/LayoutSwitcher";
+import { hudControls } from "../features/hud/hudWindow";
 import { NotificationBell } from "../features/notifications/NotificationCenter";
 import { ApprovalsBadge } from "../features/security/ApprovalsInbox";
 import { EmergencyStopButton } from "../features/security/EmergencyStop";
@@ -20,6 +21,7 @@ export function TitleBar() {
   const [maximized, setMaximized] = useState(false);
   const native = isTauri();
   const { t } = useT("shell");
+  const { t: tHud } = useT("hud");
 
   useEffect(() => {
     if (!native) return;
@@ -75,6 +77,17 @@ export function TitleBar() {
 
       <div className="titlebar__controls">
         <NotificationBell />
+        {native && (
+          <button
+            type="button"
+            className="titlebar__ctl titlebar__hud"
+            aria-label={tHud("titleBar.collapse")}
+            title={tHud("titleBar.collapseTitle", { keys: "Ctrl+Shift+H" })}
+            onClick={() => void hudControls.collapse()}
+          >
+            <PictureInPicture2 size={15} />
+          </button>
+        )}
         <button type="button" className="titlebar__ctl" aria-label={t("titleBar.settings")} title={t("titleBar.settings")} onClick={() => openSettings()}>
           <Settings size={15} />
         </button>

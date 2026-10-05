@@ -6,6 +6,7 @@ import { Info, MonitorCog, SlidersHorizontal, type LucideIcon } from "lucide-rea
 import type { ComponentType } from "react";
 
 import { t } from "../../i18n";
+import { visualSettingsSection } from "../performance/section";
 import { managerSettingsSection, providersSettingsSection } from "../providers";
 import { qualitySettingsSection } from "../quality";
 import { AboutSection } from "./sections/AboutSection";
@@ -59,6 +60,8 @@ export const settingsSections: SettingsSection[] = [
 ];
 settingsSections.push(providersSettingsSection, managerSettingsSection);
 settingsSections.push(qualitySettingsSection);
+// Phase 3: Interface (Performance Mode, density, HUD, UI change history).
+settingsSections.push(visualSettingsSection);
 
 /** Sections in display order (stable for equal `order`). */
 export function orderedSections(list: readonly SettingsSection[] = settingsSections): SettingsSection[] {

@@ -96,5 +96,7 @@
   "pmDraft": "Черновик продукта «{{title}}»: {{status}}",
   "pipelineUpdated": "Конвейер качества (задача {{task}}): {{status}}",
   "pipelineStage": "Этап конвейера «{{stage}}»: {{status}}",
-  "healingAttempt": "Попытка самовосстановления {{n}}: {{summary}}"
+  "healingAttempt": "Попытка самовосстановления {{n}}: {{summary}}",
+  "uiPatchProposed": "Предложено изменение интерфейса: {{summary}}",
+  "uiConfigPatched": "Настройки интерфейса сохранены (версия {{version}}): {{summary}}"
 }

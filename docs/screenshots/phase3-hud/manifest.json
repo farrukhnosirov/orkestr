@@ -1,0 +1,32 @@
+[
+  {
+    "name": "01-main-balanced",
+    "note": "Main window, Balanced mode: chrome, status bar performance chip, HUD button",
+    "errors": []
+  },
+  {
+    "name": "02-settings-interface",
+    "note": "Settings → Interface: Performance Mode cards, policy, auto switching, density, HUD, history",
+    "errors": []
+  },
+  {
+    "name": "05-hud",
+    "note": "HUD window: run status, agent strip, approvals, voice slot, mini Manager input",
+    "errors": []
+  },
+  {
+    "name": "03-aiui-proposal-ru",
+    "note": "Manager proposal card with the diff summary; the live preview is applied (compact, darker)",
+    "errors": []
+  },
+  {
+    "name": "04-aiui-applied-ru",
+    "note": "After Keep: stored as a new UI config version, with Undo",
+    "errors": []
+  },
+  {
+    "name": "06-battery-saver",
+    "note": "Battery Saver: no blur/glow, no motion, static background",
+    "errors": []
+  }
+]
