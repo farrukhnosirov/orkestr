@@ -1085,7 +1085,7 @@ impl Supervisor {
             let (a, b) = (title(r.task_a), title(r.task_b));
             let text = match (ru, r.conflicts.is_empty()) {
                 (true, true) => format!(
-                    "Возможный конфликт слияния: «{a}» и «{b}» меняют одни и те же файлы в разных рабочих деревьях ({}).",
+                    "Возможный конфликт слияния: «{a}» и «{b}» меняют одни и те же файлы в разных рабочих копиях (worktree): {}.",
                     list(&r.files)
                 ),
                 (true, false) => {

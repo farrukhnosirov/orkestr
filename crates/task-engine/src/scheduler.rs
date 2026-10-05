@@ -525,10 +525,14 @@ impl Scheduler {
                 (running >= limit).then(|| Deferral::ModelBusy { model: m.clone(), running, limit })
             }),
         );
+        // Progress guarantee: CPU / GPU load caused by other programs never
+        // blocks the first agent (nothing of ours runs), otherwise a busy host
+        // would starve the queue forever. RAM and disk reserves always hold.
+        let idle = load.running.is_empty();
         let projected = load.cpu + self.cpu_percent(c, resources.logical_cores);
         push(
             "cpu",
-            (projected > l.max_cpu_percent)
+            (!idle && projected > l.max_cpu_percent)
                 .then_some(Deferral::CpuBusy { projected_percent: projected, limit_percent: l.max_cpu_percent }),
         );
         let needed = self.ram(c).saturating_add(l.min_free_ram_mb);
@@ -547,7 +551,7 @@ impl Scheduler {
         push(
             "gpu",
             match (resources.gpu_usage_percent, l.max_gpu_percent) {
-                (Some(usage), Some(limit)) if usage > limit => {
+                (Some(usage), Some(limit)) if !idle && usage > limit => {
                     Some(Deferral::GpuBusy { usage_percent: usage, limit_percent: limit })
                 }
                 _ => None,
@@ -774,9 +778,18 @@ mod tests {
             gpu_usage_percent: None,
         };
         let s = sched(|_| {});
-        let plan = s.next_runnable(&[heavy.clone(), light.clone()], &[], &res, t0);
+        // One agent already runs (cheap): the heavy one would exceed 85 %.
+        let busy = task(p, TaskPriority::Normal, t0);
+        let mut tiny = busy.clone();
+        tiny.cpu_weight = Some(0.0);
+        let plan = s.next_runnable(&[heavy.clone(), light.clone()], std::slice::from_ref(&tiny), &res, t0);
         assert_eq!(plan.start, vec![light.task_id]);
         assert_eq!(plan.deferred[0].1.code(), "cpuBusy");
+        // Nothing of ours runs: host load never starves the queue.
+        let hot = ResourceSnapshot { cpu_usage_percent: 99.0, ..res };
+        let plan = s.next_runnable(&[heavy.clone(), light.clone()], &[], &hot, t0);
+        assert_eq!(plan.start, vec![heavy.task_id], "the first agent always starts");
+        assert_eq!(plan.deferred[0].1.code(), "cpuBusy", "but not a second one");
 
         let mut big = task(p, TaskPriority::High, t0);
         big.ram_mb = Some(6_500);
@@ -800,7 +813,11 @@ mod tests {
         let busy_gpu = ResourceSnapshot { gpu_usage_percent: Some(99.0), ..res };
         assert_eq!(s.next_runnable(std::slice::from_ref(&light), &[], &busy_gpu, t0).start.len(), 1, "no GPU limit configured");
         let s = sched(|l| l.max_gpu_percent = Some(90.0));
-        assert_eq!(s.next_runnable(std::slice::from_ref(&light), &[], &busy_gpu, t0).deferred[0].1.code(), "gpuBusy");
+        assert_eq!(s.next_runnable(std::slice::from_ref(&light), &[], &busy_gpu, t0).start.len(), 1, "progress guarantee");
+        assert_eq!(
+            s.next_runnable(std::slice::from_ref(&light), std::slice::from_ref(&tiny), &busy_gpu, t0).deferred[0].1.code(),
+            "gpuBusy"
+        );
     }
 
     #[test]
