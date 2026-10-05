@@ -3006,6 +3006,7 @@ dependencies = [
  "orkestr-platform",
  "orkestr-protocol",
  "orkestr-providers",
+ "orkestr-quality",
  "orkestr-security",
  "orkestr-snapshots",
  "orkestr-storage",
@@ -3233,6 +3234,30 @@ dependencies = [
  "tokio-stream",
  "tokio-util",
  "tracing",
+]
+
+[[package]]
+name = "orkestr-quality"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "once_cell",
+ "orkestr-domain",
+ "orkestr-events",
+ "orkestr-protocol",
+ "orkestr-storage",
+ "orkestr-terminal",
+ "parking_lot",
+ "regex",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.21",
+ "tokio",
+ "tokio-util",
+ "tracing",
+ "uuid",
 ]
 
 [[package]]

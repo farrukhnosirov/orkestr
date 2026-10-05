@@ -18,12 +18,14 @@ pub fn register(router: &mut RpcRouter) {
             let sec = &ctx.services.security;
             let out = sec.stop_all(sec.user()).await.map_err(security_to_rpc)?;
             let terminals = ctx.services.terminals.stop_all_agents().await;
+            let terminals = terminals + ctx.services.quality.cancel_all();
             Ok(stop_result(&ctx, out, terminals))
         })
         .method::<m::StopProject, _, _>(|ctx: RpcContext, p: StopProjectParams| async move {
             let sec = &ctx.services.security;
             let out = sec.stop_project(p.project_id, sec.user()).await.map_err(security_to_rpc)?;
             let terminals = ctx.services.terminals.stop_project_agents(p.project_id).await;
+            let terminals = terminals + ctx.services.quality.cancel_project(p.project_id);
             Ok(stop_result(&ctx, out, terminals))
         })
         .method::<m::StopAgent, _, _>(|ctx: RpcContext, p: StopAgentParams| async move {

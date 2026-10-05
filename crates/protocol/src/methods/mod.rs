@@ -28,6 +28,7 @@ pub mod nodes;
 pub mod permissions;
 pub mod projects;
 pub mod providers;
+pub mod quality;
 pub mod secrets;
 pub mod settings;
 pub mod snapshots;
@@ -288,6 +289,17 @@ pub fn registry() -> Vec<MethodDescriptor> {
         MethodDescriptor::of::<manager::Cancel>(),
         MethodDescriptor::of::<manager::Status>(),
         MethodDescriptor::of::<manager::ResumeSummaryMethod>(),
+        // quality runner + gates (Phase 2)
+        MethodDescriptor::of::<quality::Detect>(),
+        MethodDescriptor::of::<quality::GetProfile>(),
+        MethodDescriptor::of::<quality::SetProfile>(),
+        MethodDescriptor::of::<quality::Run>(),
+        MethodDescriptor::of::<quality::Runs>(),
+        MethodDescriptor::of::<quality::GetRun>(),
+        MethodDescriptor::of::<quality::Cancel>(),
+        MethodDescriptor::of::<quality::Gates>(),
+        MethodDescriptor::of::<quality::SetGates>(),
+        MethodDescriptor::of::<quality::Evaluate>(),
     ]
 }
 

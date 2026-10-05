@@ -4,6 +4,7 @@ import { clsx } from "clsx";
 import { Check, Coins, FileCode2, GitFork, History, Plus, RotateCcw, Trash2, X } from "lucide-react";
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 
+import { QualitySection } from "../../features/quality";
 import { t as translate, useFormat, useT } from "../../i18n";
 import { errorMessage, taskActions } from "./data";
 import { PRIORITIES, TRANSITIONS, shortId, statusColor } from "./model";
@@ -280,6 +281,8 @@ export function TaskDrawer({ task, tasks }: { task: Task; tasks: Task[] }) {
             <IconButton type="submit" size="sm" label={t("drawer.addCriterion")} icon={<Plus size={13} />} disabled={!newCriterion.trim()} />
           </form>
         </section>
+
+        <QualitySection task={task} />
 
         <section className="tasks-section">
           <h4 className="tasks-section__title">

@@ -98,6 +98,7 @@ impl CoreHandle {
         // agent runs (their commands are killed with the terminals).
         self.services.manager.shutdown().await;
         self.services.agents.shutdown().await;
+        self.services.quality.shutdown().await;
         // Kill terminal process trees before the server goes away.
         self.services.terminals.shutdown().await;
         if let Some(server) = self.server.take() {
@@ -287,6 +288,23 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
         tracing::error!(error = %e, "AI Manager failed to initialise");
     }
 
+    let quality = orkestr_quality::QualityService::new(orkestr_quality::QualityDeps {
+        db: db.clone(),
+        events: events.clone(),
+        executor: Arc::new(orkestr_quality::TerminalExecutor::new(terminals.clone())),
+        redact: Arc::new(|s: &str| redact::redact(s)),
+        config: orkestr_quality::QualityConfig {
+            detect: orkestr_quality::DetectOptions {
+                windows: platform.info().os == orkestr_domain::OsKind::Windows,
+                ..orkestr_quality::DetectOptions::default()
+            },
+            ..orkestr_quality::QualityConfig::default()
+        },
+    });
+    if let Err(e) = quality.init().await {
+        tracing::error!(error = %e, "quality service failed to initialise");
+    }
+
     let services = Arc::new(Services {
         version: VERSION.to_owned(),
         started_at: chrono::Utc::now(),
@@ -317,6 +335,7 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
         agents,
         manager,
         ui_language,
+        quality,
     });
     logging::attach_event_bus(services.events.clone());
 
