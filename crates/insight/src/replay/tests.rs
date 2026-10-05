@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use orkestr_domain::{
-    now, AgentId, AgentInstance, AgentRole, AgentState, Approval, ApprovalId, ApprovalMode, ApprovalStatus,
+    AgentId, AgentInstance, AgentRole, AgentState, Approval, ApprovalId, ApprovalMode, ApprovalStatus,
     CorrelationId, ManagerPlanId, ManagerRunId, ProjectId, ReviewState, Task, TaskId, TaskStatus, Timestamp,
     ToolCall, ToolCallId, ToolCallStatus,
 };
@@ -214,8 +214,8 @@ async fn fixture() -> (Fixture, EventBus) {
         // Correlated with an included tool call but carrying no task/agent ids.
         (2_850, NewEvent::new(EventKind::SnapshotCreated(SnapshotCreatedPayload { snapshot: serde_json::from_value(json!({
             "id": orkestr_domain::SnapshotId::new(), "projectId": project, "workspaceId": orkestr_domain::WorkspaceId::new(), "taskId": null,
-            "label": "before tool", "reason": "BeforeAgentChange", "baseCommit": null, "manifestObjectId": "x", "includesUncommitted": true,
-            "fileCount": 1, "sizeBytes": 1, "createdBy": {"kind": "System"}, "createdAt": ts(2_850)
+            "label": "before tool", "reason": "BeforeRiskyAction", "baseCommit": null, "manifestObjectId": "x", "includesUncommitted": true,
+            "fileCount": 1, "sizeBytes": 1, "createdBy": {"type": "System"}, "createdAt": ts(2_850)
         })).unwrap_or_else(|e| panic!("snapshot json: {e}")) })).correlation(corr)),
         (2_900, NewEvent::new(EventKind::ApprovalResolved(ApprovalResolvedPayload { approval_id: ap, status: ApprovalStatus::Approved, resolved_by: None })).project(project)),
         (3_000, NewEvent::new(EventKind::ToolCallStarted(ToolCallStartedPayload { tool_call: tool_call(tc2, a1, t1, "terminal.run") })).project(project)),

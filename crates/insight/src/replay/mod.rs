@@ -183,7 +183,9 @@ impl Ctx {
             if a.name.is_empty() {
                 name.clone_into(&mut a.name);
             }
-            a.role = a.role.or(role);
+            if a.role.is_none() {
+                a.role = role;
+            }
             a.task_id = a.task_id.or(task);
         } else {
             self.agents.push(ReplayAgent { agent_id: id, name: name.to_owned(), role, task_id: task, steps: 0 });
@@ -199,7 +201,7 @@ impl Ctx {
             EventKind::AgentSpawned(a) => {
                 let hit = a.agent.task_id.is_some_and(|t| self.task_set.contains(&t)) || self.agent_set.contains(&a.agent.id);
                 if hit {
-                    self.add_agent(a.agent.id, &a.agent.name, Some(a.agent.role), a.agent.task_id);
+                    self.add_agent(a.agent.id, &a.agent.name, Some(a.agent.role.clone()), a.agent.task_id);
                 }
                 return hit;
             }
@@ -324,7 +326,7 @@ pub fn build(seeds: &ReplaySeeds, gathered: &Gathered) -> ReplayTimeline {
             ctx.tasks.push(ReplayTaskRef { task_id: t.task_id, title: t.title.clone(), status: t.status });
             ctx.task_set.insert(t.task_id);
             if let Some(a) = t.agent_id {
-                ctx.add_agent(a, "", Some(t.role), Some(t.task_id));
+                ctx.add_agent(a, "", Some(t.role.clone()), Some(t.task_id));
             }
         }
     }

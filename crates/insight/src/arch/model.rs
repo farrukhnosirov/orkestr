@@ -601,7 +601,7 @@ pub fn build(files: &[String], facts: &BTreeMap<String, Arc<FileFacts>>, root_na
             None => orphan_routes.extend(f.routes.iter().cloned()),
         }
     }
-    let mut add_api = |b: &mut Builder, id: String, name: &str, dir: Option<String>, mut routes: Vec<ApiRoute>, owner_id: Option<String>| {
+    let add_api = |b: &mut Builder, id: String, name: &str, dir: Option<String>, mut routes: Vec<ApiRoute>, owner_id: Option<String>| {
         routes.sort();
         routes.dedup();
         routes.truncate(MAX_API_ROUTES);
