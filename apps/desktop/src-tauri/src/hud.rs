@@ -116,21 +116,24 @@ fn hud_visible(app: &AppHandle) -> bool {
     app.get_webview_window(HUD_WINDOW).and_then(|w| w.is_visible().ok()).unwrap_or(false)
 }
 
+// The commands are `async` on purpose: synchronous commands run on the main
+// thread, and creating a webview window there deadlocks on Windows (WebView2).
+
 /// Shows the HUD at the remembered position.
 #[tauri::command]
-pub fn hud_show(app: AppHandle, position: Option<HudPosition>) -> Result<(), String> {
+pub async fn hud_show(app: AppHandle, position: Option<HudPosition>) -> Result<(), String> {
     show(&app, position)
 }
 
 /// Hides the HUD.
 #[tauri::command]
-pub fn hud_hide(app: AppHandle) {
+pub async fn hud_hide(app: AppHandle) {
     hide(&app);
 }
 
 /// Toggles the HUD; returns whether it is visible afterwards.
 #[tauri::command]
-pub fn hud_toggle(app: AppHandle, position: Option<HudPosition>) -> Result<bool, String> {
+pub async fn hud_toggle(app: AppHandle, position: Option<HudPosition>) -> Result<bool, String> {
     if hud_visible(&app) {
         hide(&app);
         Ok(false)
@@ -142,7 +145,7 @@ pub fn hud_toggle(app: AppHandle, position: Option<HudPosition>) -> Result<bool,
 
 /// Collapses the main window into the HUD (main hidden, agents keep running).
 #[tauri::command]
-pub fn hud_collapse(app: AppHandle, position: Option<HudPosition>) -> Result<(), String> {
+pub async fn hud_collapse(app: AppHandle, position: Option<HudPosition>) -> Result<(), String> {
     show(&app, position)?;
     if let Some(main) = app.get_webview_window(crate::MAIN_WINDOW) {
         let _ = main.hide();
@@ -152,7 +155,7 @@ pub fn hud_collapse(app: AppHandle, position: Option<HudPosition>) -> Result<(),
 
 /// Brings the main window back and hides the HUD.
 #[tauri::command]
-pub fn hud_expand(app: AppHandle) {
+pub async fn hud_expand(app: AppHandle) {
     crate::show_main(&app);
     hide(&app);
 }

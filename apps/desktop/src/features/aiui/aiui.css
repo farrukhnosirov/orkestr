@@ -13,7 +13,7 @@
   border: 1px solid var(--ok-color-border-strong);
   background:
     var(--ok-gradient-panel),
-    var(--ok-color-surface-strong);
+    color-mix(in srgb, var(--ok-color-bg-elevated) 94%, transparent);
   backdrop-filter: blur(calc(var(--ok-blur) * 1.2)) saturate(140%);
   -webkit-backdrop-filter: blur(calc(var(--ok-blur) * 1.2)) saturate(140%);
   box-shadow: var(--ok-shadow-panel), var(--ok-glow-violet);

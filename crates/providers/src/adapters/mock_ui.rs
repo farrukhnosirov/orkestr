@@ -59,6 +59,27 @@ const WIDGETS: &[(&[&str], &str)] = &[
 const HIDE_WORDS: &[&str] = &["убери", "скрой", "спрячь", "удали", "hide", "remove", "get rid"];
 const SHOW_WORDS: &[&str] = &["покажи", "верни", "show", "bring back"];
 
+/// Human name of a panel / widget id suffix for the summary.
+fn label(id: &str, ru: bool) -> &str {
+    match (id, ru) {
+        ("claude", _) => "Claude",
+        ("openai", _) => "OpenAI",
+        ("gemini", _) => "Gemini",
+        ("terminal", true) => "терминал",
+        ("logs", true) => "журнал",
+        ("agents", true) => "агенты",
+        ("tasks", true) => "задачи",
+        ("tokenChart", true) => "график токенов",
+        ("tokenChart", false) => "token chart",
+        ("costChart", true) => "график расходов",
+        ("costChart", false) => "cost chart",
+        ("taskGraph", true) => "граф задач",
+        ("taskGraph", false) => "task graph",
+        ("resources", true) => "ресурсы",
+        (other, _) => other,
+    }
+}
+
 fn side_of(text: &str, at: usize) -> Option<&'static str> {
     // Look at the words right after the panel name.
     let tail: String = text[at..].chars().take(40).collect();
@@ -108,11 +129,11 @@ pub fn ui_intent_patch(text: &str, ru: bool) -> Option<(String, Value)> {
         let widget = format!("{}{id}", if scope.is_empty() { "missionControl." } else { scope });
         if hide {
             ops.push(json!({"op": "add", "path": "/prefs/hiddenWidgets/-", "value": widget}));
-            parts_en.push(format!("hide {id}"));
-            parts_ru.push(format!("скрыть «{id}»"));
+            parts_en.push(format!("hide the {}", label(id, false)));
+            parts_ru.push(format!("скрыть {}", label(id, true)));
         } else if show {
-            parts_en.push(format!("show {id}"));
-            parts_ru.push(format!("показать «{id}»"));
+            parts_en.push(format!("show the {}", label(id, false)));
+            parts_ru.push(format!("показать {}", label(id, true)));
             // Showing = removing from the hidden list; the mock cannot know
             // the index, so it resets the list (the preview makes it visible).
             ops.push(json!({"op": "replace", "path": "/prefs/hiddenWidgets", "value": []}));
@@ -124,14 +145,14 @@ pub fn ui_intent_patch(text: &str, ru: bool) -> Option<(String, Value)> {
         if let Some(side) = side_of(&lower, at) {
             let panel = format!("{scope}{id}");
             ops.push(json!({"op": "add", "path": format!("/prefs/panels/{panel}"), "value": {"side": side, "hidden": false}}));
-            parts_en.push(format!("{id} on the {}", side.to_lowercase()));
+            parts_en.push(format!("{} on the {}", label(id, false), side.to_lowercase()));
             let side_ru = match side {
                 "Right" => "справа",
                 "Left" => "слева",
                 "Bottom" => "снизу",
                 _ => "в центре",
             };
-            parts_ru.push(format!("{id} {side_ru}"));
+            parts_ru.push(format!("{} {side_ru}", label(id, true)));
         }
     }
 
