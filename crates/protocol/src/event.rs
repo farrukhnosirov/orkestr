@@ -637,6 +637,42 @@ pub struct ManagerRunPayload {
     pub run: crate::methods::manager::ManagerRun,
 }
 
+/// `TeamUpdated`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct TeamPayload {
+    /// The team after the change.
+    pub team: crate::methods::teams::TeamView,
+}
+
+/// `TeamDeleted`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct TeamDeletedPayload {
+    /// Deleted team.
+    pub team_id: orkestr_domain::AgentTeamId,
+}
+
+/// `TeamLeadRunUpdated`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct TeamLeadRunPayload {
+    /// The lead run after the change.
+    pub lead: crate::methods::teams::TeamLeadRun,
+}
+
+/// `PmDraftUpdated`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct PmDraftPayload {
+    /// The draft after the change.
+    pub draft: crate::methods::pm::PmDraft,
+}
+
 // ---------------------------------------------------------------------------
 // Kinds
 // ---------------------------------------------------------------------------
@@ -774,6 +810,14 @@ event_kinds! {
     ManagerPlanUpdated(ManagerPlanPayload),
     /// A Manager run changed (progress, status, report). Phase 1, appended.
     ManagerRunUpdated(ManagerRunPayload),
+    /// An Agent Team was created or changed (members, policies, assignments). Phase 2, appended.
+    TeamUpdated(TeamPayload),
+    /// An Agent Team was deleted. Phase 2, appended.
+    TeamDeleted(TeamDeletedPayload),
+    /// A team lead's delegated task changed (sub-tasks, status). Phase 2, appended.
+    TeamLeadRunUpdated(TeamLeadRunPayload),
+    /// An AI Product Manager draft was created, edited, approved or discarded. Phase 2, appended.
+    PmDraftUpdated(PmDraftPayload),
 }
 
 // ---------------------------------------------------------------------------

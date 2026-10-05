@@ -307,10 +307,54 @@ pub struct TeamMember {
     pub is_lead: bool,
     /// How many instances to spawn.
     pub count: u32,
+    /// Model override for this member (otherwise the template's preference,
+    /// then routing). Phase 2, additive.
+    #[serde(default)]
+    pub model: Option<ModelRef>,
+}
+
+/// Default policies of a team (§6, §17, §64): every loop a team runs is
+/// bounded by these numbers. Phase 2, additive.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase", default)]
+#[ts(export)]
+pub struct TeamPolicies {
+    /// Delegate whole plan tasks to the team lead (Manager → Lead →
+    /// Executors → Reviewers) instead of spawning one member per task.
+    pub hierarchy: bool,
+    /// Max executor sub-tasks a lead may create for one delegated task.
+    pub max_fan_out: u32,
+    /// Max executors of one lead running at once.
+    pub max_parallel: u32,
+    /// Attempts per executor sub-task (self-healing bound).
+    pub max_attempts: u32,
+    /// A reviewer member checks the lead's result before it is accepted.
+    pub require_review: bool,
+    /// Approval-mode cap for the team's agents (only tightens).
+    pub approval_mode: Option<crate::capability::ApprovalMode>,
+    /// Budget (USD) of one delegated task (split between its executors).
+    pub budget_usd: Option<f64>,
+    /// Wall-clock limit of one delegated task, minutes.
+    pub time_limit_mins: u32,
+}
+
+impl Default for TeamPolicies {
+    fn default() -> Self {
+        Self {
+            hierarchy: false,
+            max_fan_out: 4,
+            max_parallel: 2,
+            max_attempts: 2,
+            require_review: true,
+            approval_mode: None,
+            budget_usd: None,
+            time_limit_mins: 60,
+        }
+    }
 }
 
 /// Agent team (§6).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export)]
 pub struct AgentTeam {
@@ -328,6 +372,15 @@ pub struct AgentTeam {
     pub project_id: Option<ProjectId>,
     /// Creation time.
     pub created_at: Timestamp,
+    /// Default policies (Phase 2, additive).
+    #[serde(default)]
+    pub policies: TeamPolicies,
+    /// Shipped with Orkestr (seeded on first use; editable).
+    #[serde(default)]
+    pub builtin: bool,
+    /// Last modification (Phase 2, additive).
+    #[serde(default)]
+    pub updated_at: Option<Timestamp>,
 }
 
 #[cfg(test)]

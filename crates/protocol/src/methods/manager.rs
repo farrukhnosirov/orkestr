@@ -168,6 +168,12 @@ pub struct ManagerRequestOptions {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub language: Option<String>,
+    /// Delegate the run started from this request to an Agent Team (§6):
+    /// its members execute the tasks, and with the team's hierarchy policy
+    /// its lead decomposes each task for executors and a reviewer. Phase 2.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub team_id: Option<orkestr_domain::AgentTeamId>,
 }
 
 /// Params of `manager.chat`.

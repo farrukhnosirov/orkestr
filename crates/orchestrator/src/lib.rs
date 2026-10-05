@@ -33,11 +33,15 @@ pub mod deps;
 pub mod error;
 pub mod plan;
 pub mod planner;
+pub mod pm;
 pub mod resume;
 pub mod run;
 pub mod schema;
 pub mod service;
 pub mod store;
+pub mod structured;
+pub mod team_lead;
+pub mod teams;
 pub mod tools;
 pub mod util;
 

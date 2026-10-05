@@ -30,6 +30,21 @@ use crate::store::{AgentFilter, AgentStore};
 use crate::templates::{TemplateService, MAX_TURNS_LIMIT};
 use crate::tools::{descriptor, ToolEnv};
 
+/// Orchestrator-only spawn options (not on the wire): team membership,
+/// hierarchy parent and narrowing permission rules (§6, §68.27). Phase 2.
+#[derive(Debug, Clone, Default)]
+pub struct SpawnExtras {
+    /// Team the agent belongs to.
+    pub team_id: Option<orkestr_domain::AgentTeamId>,
+    /// Parent agent in the hierarchy (the team lead).
+    pub parent_agent_id: Option<AgentId>,
+    /// Extra rules installed at agent scope before the agent runs. `Allow`
+    /// rules are ignored: extras only narrow (no privilege escalation).
+    pub rules: Vec<PermissionRule>,
+    /// Note stored with those rules.
+    pub rule_note: Option<String>,
+}
+
 struct Live {
     control: Arc<RunControl>,
     project_id: orkestr_domain::ProjectId,
@@ -316,8 +331,14 @@ impl AgentRuntime {
     }
 
     /// Spawns an agent and starts its run.
-    #[allow(clippy::too_many_lines)]
     pub async fn spawn(&self, p: SpawnAgentParams) -> AgentResult<(AgentInstance, Task)> {
+        self.spawn_with(p, SpawnExtras::default()).await
+    }
+
+    /// Spawns an agent with orchestrator-only extras (team membership,
+    /// hierarchy parent, narrowing permission rules). Phase 2.
+    #[allow(clippy::too_many_lines)]
+    pub async fn spawn_with(&self, p: SpawnAgentParams, extras: SpawnExtras) -> AgentResult<(AgentInstance, Task)> {
         if let Some(n) = &p.name {
             if n.trim().is_empty() || n.chars().count() > MAX_AGENT_NAME_LEN {
                 return Err(AgentError::Invalid(format!("name must be 1..={MAX_AGENT_NAME_LEN} characters")));
@@ -425,8 +446,8 @@ impl AgentRuntime {
             template_id: Some(template.id),
             project_id: project.id,
             task_id: Some(task.id),
-            team_id: None,
-            parent_agent_id: None,
+            team_id: extras.team_id,
+            parent_agent_id: extras.parent_agent_id,
             name: p.name.as_deref().map_or_else(|| format!("{} #{n}", template.name), |s| s.trim().to_owned()),
             role: template.role.clone(),
             state: AgentState::Idle,
@@ -448,6 +469,20 @@ impl AgentRuntime {
             cli_session: None,
             activity: Some("Spawned".into()),
         };
+        // Orchestrator scoping (team assignment of the project): only `Deny`
+        // / `Ask` rules are accepted, so extras can never widen a grant. They
+        // are installed before the agent exists anywhere else (fail closed).
+        for rule in extras.rules.iter().filter(|r| r.effect != orkestr_domain::PermissionEffect::Allow) {
+            let scoped = PermissionRule { scope: PermissionScope::Agent { agent_id }, ..rule.clone() };
+            let note = extras.rule_note.clone().unwrap_or_else(|| "team scope".into());
+            if let Err(e) =
+                self.deps.security.permissions.set(None, scoped, Some(note), None, self.deps.security.user()).await
+            {
+                tracing::error!(agent_id = %agent_id, error = %e, "could not install a team scope rule");
+                unregister(self);
+                return Err(AgentError::Forbidden(format!("could not install the agent's permission scope: {e}")));
+            }
+        }
         if let Err(e) = self.store.save(&agent).await {
             unregister(self);
             return Err(e);
