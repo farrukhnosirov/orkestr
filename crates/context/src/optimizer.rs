@@ -463,6 +463,11 @@ fn resolve_rules(rules: &[RuleInput]) -> (Vec<RankedNote>, Vec<NoteCandidate>) {
             if r.item.pinned {
                 reasons.push(Reason::Pinned);
             }
+            match r.item.kind {
+                MemoryKind::Mistake => reasons.push(Reason::Mistake),
+                MemoryKind::KnownIssue => reasons.push(Reason::KnownIssue),
+                _ => {}
+            }
             (r.item.clone(), if r.item.pinned { 2.0 } else { 1.0 }, reasons)
         })
         .collect();

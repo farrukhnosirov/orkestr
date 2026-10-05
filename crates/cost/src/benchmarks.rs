@@ -21,8 +21,10 @@
 //! | `TaskCreated` of a bug task linked to a completed task | post-merge bug of that task's author |
 //!
 //! The *author* of a task is its most recent non-reviewer execution. A bug
-//! task is linked through tags `fixes:<taskId>`, `bug-of:<taskId>`,
-//! `regression-of:<taskId>` or `caused-by:<taskId>`, or through `parentId`
+//! task is linked through a tag `bug:<taskId>` (fits the 40-character task
+//! tag limit; `fixes:` / `bug-of:` / `regression-of:` / `caused-by:` are
+//! accepted where longer tags are allowed),
+//! or through `parentId`
 //! when it carries a `bug` / `regression` tag ([`is_bug_task`],
 //! [`linked_tasks`]).
 //!
@@ -59,7 +61,7 @@ pub const DEFAULT_DAYS: u32 = 30;
 /// Max analytics window (days).
 pub const MAX_DAYS: u32 = 365;
 /// Tag prefixes linking a bug task to the task that introduced the bug.
-pub const BUG_LINK_PREFIXES: &[&str] = &["fixes:", "bug-of:", "regression-of:", "caused-by:"];
+pub const BUG_LINK_PREFIXES: &[&str] = &["bug:", "fixes:", "bug-of:", "regression-of:", "caused-by:"];
 /// Max executions loaded for one aggregate.
 const MAX_AGGREGATE_ROWS: u32 = 50_000;
 
@@ -246,7 +248,7 @@ pub fn apply_event(c: &Connection, ev: &Event) -> rusqlite::Result<(bool, bool)>
         EventKind::AgentStopped(p) => {
             let n = c.execute(
                 "UPDATE benchmark_executions SET ended_at = ?2, stop_reason = ?3, outcome = ?4, updated_at = ?2
-                 WHERE agent_id = ?1",
+                 WHERE agent_id = ?1 AND ended_at IS NULL",
                 params![
                     p.agent_id.to_string(),
                     now,
@@ -1090,7 +1092,7 @@ mod tests {
 
         // A bug filed against t1 after it completed.
         let mut bug = Task::new(project, "Regression in t1", now());
-        bug.tags = vec!["bug".into(), format!("regression-of:{t1}")];
+        bug.tags = vec![format!("bug:{t1}")];
         evs.push(seq.ev(EventKind::TaskCreated(TaskPayload { task: bug }), None, None));
 
         let report = eng.apply_benchmark_events(evs.clone()).await.unwrap();
@@ -1100,6 +1102,14 @@ mod tests {
         let again = eng.apply_benchmark_events(evs).await.unwrap();
         assert_eq!(again.applied, 0);
         assert_eq!(eng.benchmark_cursor().await.unwrap(), seq.0);
+        // A late stop notice (e.g. `agents.stop` on a finished agent) does not
+        // rewrite a finished execution.
+        let late = seq.ev(
+            EventKind::AgentStopped(AgentStoppedPayload { agent_id: a1.id, reason: StopReason::UserRequested, detail: None }),
+            None,
+            Some(a1.id),
+        );
+        assert_eq!(eng.apply_benchmark_events(vec![late]).await.unwrap().changed, 0);
 
         // Usage joined by agent: a1 switched to `smart` for its last call.
         let ts = Utc::now().to_rfc3339();
