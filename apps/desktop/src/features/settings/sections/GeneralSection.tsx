@@ -1,16 +1,15 @@
 import type { AppSettings, PerformanceMode } from "@orkestr/protocol";
-import { BUILTIN_THEMES, Button, EmptyState, Input, Spinner } from "@orkestr/ui";
-import { clsx } from "clsx";
-import { AlertTriangle, Wand2 } from "lucide-react";
+import { Button, EmptyState, Input, Spinner } from "@orkestr/ui";
+import { AlertTriangle, Palette, Wand2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { LanguageSelect } from "../../../components/LanguageSelect";
 import { t, useT } from "../../../i18n";
-import { useAppStore } from "../../../store/app";
 import { useOnboardingStore } from "../../onboarding/onboardingStore";
 import { Segmented, SettingGroup, SettingRow, Switch } from "../controls";
 import type { SettingsSectionProps } from "../sections";
 import { useSettingsStore } from "../settingsStore";
+import { useThemeStore } from "../../theme/themeStore";
 
 /** Retention presets in days (0 = forever). */
 export const RETENTION_PRESETS: readonly string[] = ["30", "90", "180", "365", "0"];
@@ -28,11 +27,12 @@ export function retentionLabel(days: string): string {
 /** Settings → General. */
 export function GeneralSection(_props: SettingsSectionProps) {
   const { settings, loading, error, saving, autostartSupported, update, load } = useSettingsStore();
-  const setThemeId = useAppStore((s) => s.setThemeId);
+  const setSection = useSettingsStore((s) => s.setSection);
+  const activeThemeName = useThemeStore((s) => s.config?.theme.name ?? s.fallback.name);
   const openWizard = useOnboardingStore((s) => s.openWizard);
   const closeSettings = useSettingsStore((s) => s.closeSettings);
   const [name, setName] = useState("");
-  useT(["settings", "common"]); // re-render on language change
+  useT(["settings", "common", "theme"]); // re-render on language change
 
   const profileName = settings?.profileName;
   useEffect(() => {
@@ -117,25 +117,10 @@ export function GeneralSection(_props: SettingsSectionProps) {
       </SettingGroup>
 
       <SettingGroup title={t("settings:general.appearance")}>
-        <SettingRow title={t("settings:general.theme")} stacked>
-          <div className="set-themes" role="radiogroup" aria-label={t("settings:general.theme")}>
-            {Object.values(BUILTIN_THEMES).map((theme) => (
-              <button
-                key={theme.id}
-                type="button"
-                role="radio"
-                aria-checked={settings.themeId === theme.id}
-                className={clsx("set-theme", settings.themeId === theme.id && "set-theme--active")}
-                onClick={() => {
-                  setThemeId(theme.id);
-                  set("themeId", theme.id);
-                }}
-              >
-                <span className={clsx("set-theme__swatch", `set-theme__swatch--${theme.mode.toLowerCase()}`)} />
-                {theme.name}
-              </button>
-            ))}
-          </div>
+        <SettingRow title={t("settings:general.theme")} description={activeThemeName}>
+          <Button size="sm" leftIcon={<Palette size={14} />} onClick={() => setSection("appearance")}>
+            {t("theme:commands.openAppearance")}
+          </Button>
         </SettingRow>
         <SettingRow title={t("settings:general.performanceMode")} description={t("settings:general.performanceModeDesc")} stacked>
           <Segmented

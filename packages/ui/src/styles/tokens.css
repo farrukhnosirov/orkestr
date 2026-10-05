@@ -62,12 +62,18 @@
   --ok-blur: 18px;
   --ok-glow-intensity: 0.6;
   --ok-panel-opacity: 0.72;
-  --ok-glow-accent: 0 0 calc(28px * var(--ok-glow-intensity)) rgba(34, 211, 238, calc(0.55 * var(--ok-glow-intensity)));
-  --ok-glow-violet: 0 0 calc(30px * var(--ok-glow-intensity)) rgba(167, 139, 250, calc(0.55 * var(--ok-glow-intensity)));
+  /* Glows follow the theme's accent/violet automatically (color-mix). */
+  --ok-glow-accent: 0 0 calc(28px * var(--ok-glow-intensity))
+    color-mix(in srgb, var(--ok-color-accent) calc(55% * var(--ok-glow-intensity)), transparent);
+  --ok-glow-violet: 0 0 calc(30px * var(--ok-glow-intensity))
+    color-mix(in srgb, var(--ok-color-violet) calc(55% * var(--ok-glow-intensity)), transparent);
   --ok-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
   --ok-shadow-md: 0 8px 24px rgba(0, 0, 0, 0.38);
   --ok-shadow-panel: 0 18px 48px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  --ok-focus-ring: 0 0 0 2px rgba(4, 5, 13, 1), 0 0 0 4px rgba(34, 211, 238, 0.7);
+  --ok-focus-ring: 0 0 0 2px var(--ok-color-bg), 0 0 0 4px color-mix(in srgb, var(--ok-color-accent) 70%, transparent);
+  /* Theme engine runtime knobs (set inline by applyTheme). */
+  --ok-motion-intensity: 1;
+  --ok-bg-intensity: 0.6;
 
   /* ── shape ────────────────────────────────────────────── */
   --ok-radius-xs: 4px;
@@ -135,12 +141,22 @@
   --ok-color-text-muted: #4b5378;
   --ok-color-text-subtle: #7d84a6;
   --ok-color-text-inverse: #ffffff;
+  /* Contrast-safe status/accent bases (= BASE_LIGHT in orkestr_protocol::ui_theme). */
+  --ok-color-accent: #0e7490;
+  --ok-color-accent-strong: #155e75;
+  --ok-color-accent-soft: rgba(14, 116, 144, 0.12);
+  --ok-color-border-accent: rgba(14, 116, 144, 0.45);
+  --ok-color-danger: #be123c;
+  --ok-color-danger-soft: rgba(190, 18, 60, 0.1);
+  --ok-color-success: #047857;
+  --ok-color-success-soft: rgba(4, 120, 87, 0.1);
+  --ok-color-warning: #a16207;
+  --ok-color-warning-soft: rgba(161, 98, 7, 0.1);
   --ok-gradient-space:
     radial-gradient(1200px 700px at 10% -10%, rgba(139, 92, 246, 0.16) 0%, rgba(238, 241, 251, 0) 60%),
     radial-gradient(900px 600px at 105% 15%, rgba(6, 182, 212, 0.14) 0%, rgba(238, 241, 251, 0) 55%),
     linear-gradient(180deg, #f4f6fd 0%, #eceffa 100%);
   --ok-shadow-panel: 0 12px 36px rgba(30, 40, 90, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.6);
-  --ok-focus-ring: 0 0 0 2px #ffffff, 0 0 0 4px rgba(6, 182, 212, 0.7);
 }
 
 /* Performance modes (§31): effects scale down without changing layout. */

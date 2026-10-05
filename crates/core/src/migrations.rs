@@ -42,6 +42,7 @@ pub fn all() -> Vec<Migration> {
     all.extend(orkestr_orchestrator::merge_migrations());
     // Phase 2 (quality pipeline + self-healing)
     all.extend(orkestr_orchestrator::pipeline_migrations());
+    all.extend_from_slice(crate::ui_store::UI_MIGRATIONS);
     all
 }
 

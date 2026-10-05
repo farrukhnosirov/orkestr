@@ -18,7 +18,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { t as i18nT, useT } from "../../i18n";
 import { terminalTitle } from "../../lib/coreText";
-import { useAppStore } from "../../store/app";
+import { useThemeRevision } from "../../features/theme/useThemeRevision";
 import { dedupeChunk, errorMessage, isReadOnly, terminalFontFamily, themeFromTokens } from "./logic";
 
 export interface TerminalViewProps {
@@ -39,7 +39,8 @@ export function TerminalView({ client, session, active, onExited }: TerminalView
   const fitRef = useRef<FitAddon | null>(null);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const themeId = useAppStore((s) => s.themeId);
+  // Re-derive from tokens on every theme apply (switches and live editor previews).
+  const themeId = useThemeRevision();
   const onExitedRef = useRef(onExited);
   onExitedRef.current = onExited;
   const readOnly = isReadOnly(session);

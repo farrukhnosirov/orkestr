@@ -1,4 +1,3 @@
-import { BUILTIN_THEMES, applyTheme } from "@orkestr/ui";
 import { useCallback, useEffect, useState } from "react";
 
 import { CommandPalette } from "./components/CommandPalette";
@@ -17,22 +16,13 @@ import { OnboardingWizard } from "./features/onboarding/OnboardingWizard";
 import { ResumeCard } from "./features/resume/ResumeCard";
 import { SettingsView } from "./features/settings/SettingsView";
 import { useShellBootstrap } from "./features/settings/useShellBootstrap";
+import { registerThemeFeature } from "./features/theme/register";
+import { ThemeEditor } from "./features/theme/ThemeEditor";
+import { ThemeBackdrop, useThemeEngine } from "./features/theme/ThemeRuntime";
 import { useAppStore } from "./store/app";
 
 registerSecurityFeature();
-
-function useTheme() {
-  const themeId = useAppStore((s) => s.themeId);
-  useEffect(() => {
-    const theme = BUILTIN_THEMES[themeId] ?? BUILTIN_THEMES["nebula"];
-    if (!theme) return;
-    try {
-      applyTheme(theme);
-    } catch (e) {
-      console.error("failed to apply theme", e);
-    }
-  }, [themeId]);
-}
+registerThemeFeature();
 
 function useGlobalShortcuts() {
   const setPaletteOpen = useAppStore((s) => s.setPaletteOpen);
@@ -61,7 +51,7 @@ function useGlobalShortcuts() {
 
 export function App() {
   const [ready, setReady] = useState(false);
-  useTheme();
+  useThemeEngine(ready);
   useGlobalShortcuts();
   useShellBootstrap(ready);
 
@@ -78,7 +68,7 @@ export function App() {
 
   return (
     <div className="app">
-      <div className="app__backdrop" aria-hidden="true" />
+      <ThemeBackdrop />
       <TitleBar />
       {ready ? (
         <div className="app__body">
@@ -99,6 +89,7 @@ export function App() {
           <SettingsView />
           <OnboardingWizard />
           <ResumeCard />
+          <ThemeEditor />
         </>
       )}
       <Toasts />

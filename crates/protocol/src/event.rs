@@ -782,6 +782,30 @@ pub struct HealingAttemptPayload {
     pub escalated: bool,
 }
 
+/// `UiConfigChanged` (Phase 3 theme engine).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct UiConfigChangedPayload {
+    /// `null` = the global config; otherwise the device whose override changed.
+    pub device_id: Option<String>,
+    /// The stored document after the change (`null` = device override removed).
+    pub config: Option<crate::ui_config::UiConfig>,
+    /// Version after the change.
+    pub version: u64,
+}
+
+/// `UiThemesChanged` (Phase 3 theme engine).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct UiThemesChangedPayload {
+    /// Theme id.
+    pub theme_id: String,
+    /// Deleted (otherwise saved).
+    pub deleted: bool,
+}
+
 // ---------------------------------------------------------------------------
 // Kinds
 // ---------------------------------------------------------------------------
@@ -946,6 +970,10 @@ event_kinds! {
     PipelineStageChanged(PipelineStagePayload),
     /// A Self-Healing fix attempt started. Phase 2, appended.
     HealingAttemptStarted(HealingAttemptPayload),
+    /// The UI config (global or one device override) changed. Phase 3, appended.
+    UiConfigChanged(UiConfigChangedPayload),
+    /// A user theme was saved or deleted. Phase 3, appended.
+    UiThemesChanged(UiThemesChangedPayload),
 }
 
 // ---------------------------------------------------------------------------

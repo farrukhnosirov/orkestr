@@ -22,7 +22,7 @@ pub const UI_CONFIG_SCHEMA_VERSION: u32 = 1;
 /// Max number of tokens in a theme.
 pub const MAX_TOKENS: usize = 256;
 /// Max length of a token value.
-pub const MAX_TOKEN_VALUE_LEN: usize = 256;
+pub const MAX_TOKEN_VALUE_LEN: usize = 512;
 
 /// Light or dark base.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
@@ -72,6 +72,63 @@ pub struct ThemeConfig {
     pub tokens: BTreeMap<String, String>,
     /// Effects.
     pub effects: ThemeEffects,
+    // --- Theme schema v2 sections (additive; v1 documents load with defaults).
+    /// Short description (≤ 280 chars).
+    #[serde(default)]
+    pub description: String,
+    /// Author (≤ 80 chars).
+    #[serde(default)]
+    pub author: String,
+    /// App background (§29 backgrounds).
+    #[serde(default)]
+    pub background: crate::ui_theme::ThemeBackground,
+    /// Motion knobs (§29 animations; durations/easings are tokens).
+    #[serde(default)]
+    pub motion: crate::ui_theme::ThemeMotion,
+    /// Event → sound preset mapping (§29 sounds; the engine lives in the voice/sound area).
+    #[serde(default)]
+    pub sounds: crate::ui_theme::ThemeSounds,
+    /// Floating robot defaults (§30).
+    #[serde(default)]
+    pub robot: crate::ui_theme::ThemeRobotDefaults,
+}
+
+impl ThemeConfig {
+    /// Validates the theme alone (the same rules [`UiConfig::validate`] applies to `theme`).
+    pub fn validate(&self) -> Result<(), Vec<UiConfigIssue>> {
+        let mut issues = Vec::new();
+        self.validate_into(&mut issues);
+        if issues.is_empty() {
+            Ok(())
+        } else {
+            Err(issues)
+        }
+    }
+
+    fn validate_into(&self, issues: &mut Vec<UiConfigIssue>) {
+        let t = self;
+        if !is_valid_token_name(&t.id) {
+            issues.push(issue("theme.id", "must match ^[a-z][a-z0-9-]{0,63}$"));
+        }
+        if t.name.trim().is_empty() || t.name.chars().count() > 80 {
+            issues.push(issue("theme.name", "must be 1..=80 characters"));
+        }
+        if t.tokens.len() > MAX_TOKENS {
+            issues.push(issue("theme.tokens", format!("at most {MAX_TOKENS} tokens")));
+        }
+        for (k, v) in &t.tokens {
+            if !is_valid_token_name(k) {
+                issues.push(issue(format!("theme.tokens.{k}"), "invalid token name"));
+            }
+            if !is_valid_token_value(v) {
+                issues.push(issue(format!("theme.tokens.{k}"), "invalid or unsafe token value"));
+            }
+        }
+        check_range(issues, "theme.effects.blurPx", t.effects.blur_px, 0.0, 64.0);
+        check_range(issues, "theme.effects.glowIntensity", t.effects.glow_intensity, 0.0, 1.0);
+        check_range(issues, "theme.effects.panelOpacity", t.effects.panel_opacity, 0.2, 1.0);
+        crate::ui_theme::validate_theme_details(t, issues);
+    }
 }
 
 /// Layout presets (§29).
@@ -143,6 +200,12 @@ impl Default for UiConfig {
                 mode: ThemeMode::Dark,
                 tokens: BTreeMap::new(),
                 effects: ThemeEffects::default(),
+                description: String::new(),
+                author: String::new(),
+                background: crate::ui_theme::ThemeBackground::default(),
+                motion: crate::ui_theme::ThemeMotion::default(),
+                sounds: crate::ui_theme::ThemeSounds::default(),
+                robot: crate::ui_theme::ThemeRobotDefaults::default(),
             },
             layout: LayoutConfig::default(),
             performance_mode: PerformanceMode::default(),
@@ -204,27 +267,7 @@ impl UiConfig {
                 format!("unsupported schema version {} (expected {UI_CONFIG_SCHEMA_VERSION})", self.schema_version),
             ));
         }
-        let t = &self.theme;
-        if !is_valid_token_name(&t.id) {
-            issues.push(issue("theme.id", "must match ^[a-z][a-z0-9-]{0,63}$"));
-        }
-        if t.name.trim().is_empty() || t.name.chars().count() > 80 {
-            issues.push(issue("theme.name", "must be 1..=80 characters"));
-        }
-        if t.tokens.len() > MAX_TOKENS {
-            issues.push(issue("theme.tokens", format!("at most {MAX_TOKENS} tokens")));
-        }
-        for (k, v) in &t.tokens {
-            if !is_valid_token_name(k) {
-                issues.push(issue(format!("theme.tokens.{k}"), "invalid token name"));
-            }
-            if !is_valid_token_value(v) {
-                issues.push(issue(format!("theme.tokens.{k}"), "invalid or unsafe token value"));
-            }
-        }
-        check_range(&mut issues, "theme.effects.blurPx", t.effects.blur_px, 0.0, 64.0);
-        check_range(&mut issues, "theme.effects.glowIntensity", t.effects.glow_intensity, 0.0, 1.0);
-        check_range(&mut issues, "theme.effects.panelOpacity", t.effects.panel_opacity, 0.2, 1.0);
+        self.theme.validate_into(&mut issues);
         if let Some(docking) = &self.layout.docking {
             let size = serde_json::to_vec(docking).map(|v| v.len()).unwrap_or(usize::MAX);
             if size > 256 * 1024 {

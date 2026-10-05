@@ -1,6 +1,6 @@
 /**
  * Wires the platform-shell features once the core connection is ready:
- * settings load + live `SettingsChanged`, theme/DND sync, first-run
+ * settings load + live `SettingsChanged`, language/DND sync, first-run
  * onboarding, notification events, the tray "Stop All AI" item, Session
  * Resume and global keyboard shortcuts.
  */
@@ -44,8 +44,7 @@ export function useShellBootstrap(ready: boolean): void {
       useNotificationsStore.getState().setDoNotDisturb(s.doNotDisturb);
       // Language: live switch whenever the stored preference changes (any client may change it).
       if (s.language !== languagePreference()) void applyLanguagePreference(s.language);
-      const app = useAppStore.getState();
-      if (s.themeId && s.themeId !== app.themeId) app.setThemeId(s.themeId);
+      // Theme: owned by the theme engine (ui.getConfig, features/theme), not AppSettings.themeId.
       if (!onboardingChecked) {
         onboardingChecked = true;
         if (!s.onboardingCompleted) useOnboardingStore.getState().openWizard(0);
@@ -54,17 +53,9 @@ export function useShellBootstrap(ready: boolean): void {
     const offSettings = useSettingsStore.subscribe((s, prev) => {
       if (s.settings !== prev.settings) applySettings();
     });
-    // Theme picked locally (palette) → persist to settings.
-    const offTheme = useAppStore.subscribe((s, prev) => {
-      const settings = useSettingsStore.getState().settings;
-      if (s.themeId !== prev.themeId && settings && settings.themeId !== s.themeId) {
-        void useSettingsStore.getState().update({ themeId: s.themeId });
-      }
-    });
     void useSettingsStore.getState().load();
     return () => {
       offSettings();
-      offTheme();
     };
   }, [ready]);
 

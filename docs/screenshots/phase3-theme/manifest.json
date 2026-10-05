@@ -1,0 +1,74 @@
+[
+  {
+    "name": "01-nebula-ultra.png",
+    "note": "Nebula (default) in Ultra Visual: WebGL nebula background",
+    "capture": "devtools",
+    "consoleErrors": []
+  },
+  {
+    "name": "02-appearance-gallery.png",
+    "note": "Settings → Appearance: theme gallery with live miniatures and contrast tags",
+    "capture": "devtools",
+    "consoleErrors": []
+  },
+  {
+    "name": "03-appearance-solar-light.png",
+    "note": "Solar Light (light theme, WCAG AA) applied from the gallery",
+    "capture": "devtools",
+    "consoleErrors": []
+  },
+  {
+    "name": "04-solar-light-workspace.png",
+    "note": "Workspace in Solar Light",
+    "capture": "devtools",
+    "consoleErrors": []
+  },
+  {
+    "name": "05-editor-colors.png",
+    "note": "Theme editor (live preview) — Colors tab with the WCAG contrast check",
+    "capture": "devtools",
+    "consoleErrors": []
+  },
+  {
+    "name": "06-editor-picker.png",
+    "note": "Custom HSV color picker",
+    "capture": "devtools",
+    "consoleErrors": []
+  },
+  {
+    "name": "07-editor-background.png",
+    "note": "Background tab: procedural particles preview (live on the app too)",
+    "capture": "devtools",
+    "consoleErrors": []
+  },
+  {
+    "name": "08-editor-effects.png",
+    "note": "Effects tab: radius, spacing, glass blur, glow, shadows",
+    "capture": "devtools",
+    "consoleErrors": []
+  },
+  {
+    "name": "09-ru-appearance-aurora-performance.png",
+    "note": "Russian UI: Aurora in Performance mode (static background, no blur)",
+    "capture": "devtools",
+    "consoleErrors": []
+  },
+  {
+    "name": "10-ru-editor.png",
+    "note": "Russian UI: theme editor",
+    "capture": "devtools",
+    "consoleErrors": []
+  },
+  {
+    "name": "11-high-contrast.png",
+    "note": "High Contrast (accessibility, AAA) workspace",
+    "capture": "devtools",
+    "consoleErrors": []
+  },
+  {
+    "name": "12-carbon-grid.png",
+    "note": "Carbon: perspective grid background (Balanced, canvas 30 fps)",
+    "capture": "devtools",
+    "consoleErrors": []
+  }
+]

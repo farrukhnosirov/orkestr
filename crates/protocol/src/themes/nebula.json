@@ -1,0 +1,29 @@
+{
+  "id": "nebula",
+  "name": "Nebula",
+  "mode": "Dark",
+  "description": "Deep-space glass with cyan and violet light. The Orkestr default.",
+  "author": "Orkestr",
+  "tokens": {},
+  "effects": { "blurPx": 18, "glowIntensity": 0.6, "panelOpacity": 0.72, "animations": true },
+  "background": {
+    "kind": "Nebula",
+    "colors": ["#4c3db4", "#0e7490", "#5b21b6"],
+    "intensity": 0.65,
+    "speed": 0.35,
+    "density": 0.5,
+    "webgl": true
+  },
+  "motion": { "intensity": 1, "speed": 1 },
+  "sounds": {
+    "enabled": true,
+    "volume": 0.6,
+    "events": {
+      "agent.error": "alert-soft",
+      "approval.requested": "ping",
+      "build.failed": "thud",
+      "task.completed": "chime-soft"
+    }
+  },
+  "robot": { "skin": "orbit", "scale": 1, "accent": null }
+}

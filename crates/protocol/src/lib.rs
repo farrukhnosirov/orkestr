@@ -21,6 +21,7 @@ pub mod frames;
 pub mod methods;
 pub mod topic;
 pub mod ui_config;
+pub mod ui_theme;
 
 #[cfg(test)]
 mod export;

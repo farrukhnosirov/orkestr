@@ -36,6 +36,7 @@ pub mod tasks;
 pub mod teams;
 pub mod templates;
 pub mod terminal;
+pub mod ui;
 pub mod vcs;
 
 use std::collections::BTreeMap;
@@ -174,6 +175,8 @@ pub fn build_router() -> RpcRouter {
     router.register(context::register).register(benchmarks::register);
     router.register(scheduler::register);
     router.register(teams::register).register(pm::register);
+    // theme engine (Phase 3)
+    router.register(ui::register);
     router
 }
 
