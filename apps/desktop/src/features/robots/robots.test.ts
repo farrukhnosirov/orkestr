@@ -2,7 +2,7 @@ import type { AgentInstance, AgentState, Event, RobotsConfig } from "@orkestr/pr
 import { describe, expect, it } from "vitest";
 
 import { planAssign } from "./model/assign";
-import { bubbleFor, bubbleForEvent, mayReplace, passesVerbosity } from "./model/bubble";
+import { bubbleFor, bubbleForEvent, initialBubble, mayReplace, passesVerbosity } from "./model/bubble";
 import { accentOf, defaultDesign, defaultRobotsConfig, normalizeDesign, toggleAccessory, validateDesign } from "./model/design";
 import { collectDropZones, hitShapeFor, hitTest, isDragGesture, robotWindowLayout } from "./model/layout";
 import { isRunning, nextEnabled, robotMenu } from "./model/menu";
@@ -275,6 +275,13 @@ describe("speech bubbles", () => {
     const failed = bubbleForEvent(ev("TestRunFinished", { runId: "r", passed: 1, failed: 3, skipped: 0, durationMs: 1, summary: "" }, id));
     expect(failed).toMatchObject({ key: "testsFailed", values: { count: 3 }, tone: "danger" });
     expect(bubbleForEvent(stateChanged(id, "Coding", "Error", "cargo failed"))).toMatchObject({ key: "errorDetail", values: { detail: "cargo failed" } });
+  });
+
+  it("a robot opened on a finished agent still announces the result", () => {
+    expect(initialBubble("Completed", null, "Normal")).toMatchObject({ key: "completed" });
+    expect(initialBubble("Error", "boom", "Minimal")).toMatchObject({ key: "errorDetail", values: { detail: "boom" } });
+    expect(initialBubble("Coding", null, "Chatty")).toBeNull();
+    expect(initialBubble("Completed", null, "Off")).toBeNull();
   });
 
   it("filters by verbosity", () => {

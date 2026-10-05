@@ -14,7 +14,7 @@ import { type PointerEvent as ReactPointerEvent, useCallback, useEffect, useMemo
 
 import { useT } from "../../../i18n";
 import { useAppStore } from "../../../store/app";
-import { bubbleFor, type BubbleSpec, mayReplace } from "../model/bubble";
+import { bubbleFor, type BubbleSpec, initialBubble, mayReplace } from "../model/bubble";
 import { defaultDesign } from "../model/design";
 import { type Box, hitShapeFor, isDragGesture, robotWindowLayout } from "../model/layout";
 import { isRunning, robotMenu, type RobotMenuItemId } from "../model/menu";
@@ -62,6 +62,7 @@ export function RobotWindow({ agentId, mode }: { agentId: string; mode: Performa
   const [bubbleBox, setBubbleBox] = useState<Box | null>(null);
   const bubbleRef = useRef<HTMLDivElement | null>(null);
   const press = useRef<{ x: number; y: number; dragged: boolean } | null>(null);
+  const announced = useRef(false);
   const designRef = useRef(design);
   designRef.current = design;
   const reducedMotion = useReducedMotion();
@@ -76,6 +77,11 @@ export function RobotWindow({ agentId, mode }: { agentId: string; mode: Performa
         if (!entry) return;
         setAgent(entry.agent);
         setDesign(entry.design);
+        if (!announced.current) {
+          announced.current = true;
+          const spec = initialBubble(entry.agent.state, entry.agent.activity, entry.design.behaviour.bubble);
+          if (spec) setShown((cur) => cur ?? { spec, shownAt: Date.now(), nonce: 1 });
+        }
       })
       .catch((e: unknown) => console.warn("robots.list failed", e));
   }, [agentId]);

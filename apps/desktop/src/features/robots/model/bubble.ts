@@ -3,7 +3,7 @@
  * (design `behaviour.bubble`) and for how long. Pure — the robot window
  * renders the returned i18n key (namespace `robots`, `bubble.*`).
  */
-import type { BubbleVerbosity, Event } from "@orkestr/protocol";
+import type { AgentState, BubbleVerbosity, Event } from "@orkestr/protocol";
 
 export type BubbleKey =
   | "completed"
@@ -109,6 +109,28 @@ export function bubbleForEvent(ev: Event): BubbleSpec | null {
     default:
       return null;
   }
+}
+
+/**
+ * The bubble a robot shows when its window opens on an agent that already
+ * finished or needs the user (the events happened before the window
+ * subscribed): Scenario H must still end with "done" next to the robot.
+ */
+export function initialBubble(state: AgentState, activity: string | null, verbosity: BubbleVerbosity): BubbleSpec | null {
+  if (state !== "Completed" && state !== "Error" && state !== "Waiting") return null;
+  const b = bubbleForEvent({
+    seq: 0,
+    id: "",
+    ts: "",
+    projectId: null,
+    taskId: null,
+    agentId: null,
+    nodeId: null,
+    correlationId: null,
+    kind: "AgentStateChanged",
+    payload: { agentId: "", from: "Idle", to: state, activity },
+  });
+  return b && passesVerbosity(b, verbosity) ? b : null;
 }
 
 /** Whether a bubble passes the design's verbosity. */
