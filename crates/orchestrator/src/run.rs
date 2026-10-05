@@ -86,7 +86,7 @@ impl RunControl {
         self.stop_token.cancel();
     }
 
-    fn stop_kind(&self) -> Option<StopKind> {
+    pub(crate) fn stop_kind(&self) -> Option<StopKind> {
         self.stop.lock().clone()
     }
 }
@@ -635,7 +635,7 @@ impl Supervisor {
                 continue;
             };
             let agent = self.run.tasks[i].agent_id;
-            let agent_live = agent.is_some_and(|a| self.inner.deps.agents.is_live(a));
+            let agent_live = agent.is_some_and(|a| self.agent_live(a));
             {
                 let rt = &mut self.run.tasks[i];
                 rt.status = task.status;
@@ -729,7 +729,7 @@ impl Supervisor {
                 self.run.tasks[i].awaiting_review = false;
                 continue;
             }
-            if rt.agent_id.is_some_and(|a| self.inner.deps.agents.is_live(a)) {
+            if rt.agent_id.is_some_and(|a| self.agent_live(a)) {
                 continue;
             }
             let Ok(task) = self.inner.deps.tasks.get(rt.task_id).await else { continue };
@@ -784,8 +784,14 @@ impl Supervisor {
         }
     }
 
+    /// A run agent is live while its runtime run lasts — or, for a task
+    /// delegated to a team lead (Phase 2), while the lead works.
+    fn agent_live(&self, a: orkestr_domain::AgentId) -> bool {
+        self.inner.deps.agents.is_live(a) || crate::team_lead::is_lead_live(a)
+    }
+
     fn live_agents(&self) -> usize {
-        self.run.tasks.iter().filter(|t| t.agent_id.is_some_and(|a| self.inner.deps.agents.is_live(a))).count()
+        self.run.tasks.iter().filter(|t| t.agent_id.is_some_and(|a| self.agent_live(a))).count()
     }
 
     fn check_bounds(&self) -> Option<(ManagerRunStatus, String)> {
@@ -960,7 +966,7 @@ impl Supervisor {
     async fn candidates(&self, git: bool) -> Vec<Candidate> {
         let mut out = Vec::new();
         for rt in &self.run.tasks {
-            if rt.status != TaskStatus::Ready || rt.agent_id.is_some_and(|a| self.inner.deps.agents.is_live(a)) {
+            if rt.status != TaskStatus::Ready || rt.agent_id.is_some_and(|a| self.agent_live(a)) {
                 continue;
             }
             let Ok(task) = self.inner.deps.tasks.get(rt.task_id).await else { continue };
@@ -1144,7 +1150,25 @@ impl Supervisor {
             let t = &self.run.tasks[i];
             (t.key.clone(), t.role.clone(), t.task_id)
         };
-        let Some(template) = self.template_for(&role).await else {
+        // Phase 2: a plan delegated to an Agent Team (crate::teams).
+        let route = match self.inner.team_route(&self.plan, self.project.id, &role).await {
+            Ok(r) => r,
+            Err(e) => return Err(Fatal(format!("team delegation failed: {e}"))),
+        };
+        let member = match route {
+            Some(crate::teams::TeamRoute::Lead(lead)) => return self.delegate_to_lead(i, lead).await,
+            Some(crate::teams::TeamRoute::Member(m)) => Some(m),
+            None => None,
+        };
+        let team_template = match &member {
+            Some(m) => self.inner.deps.agents.templates().get(m.template_id).await.ok(),
+            None => None,
+        };
+        let template = match team_template {
+            Some(t) => Some(t),
+            None => self.template_for(&role).await,
+        };
+        let Some(template) = template else {
             return Err(Fatal("no agent template is installed".into()));
         };
         let (base, note) = match (git, self.inner.parallel.take_resume(task_id)) {
@@ -1175,16 +1199,21 @@ impl Supervisor {
             template_id: template.id,
             task_id: Some(task_id),
             new_task: None,
-            // Expert-mode model of the request applies to its agents too.
-            model: self.plan.options.model.clone(),
+            // Expert-mode model of the request applies to its agents too
+            // (a team member's own model override wins).
+            model: member.as_ref().and_then(|m| m.model.clone()).or_else(|| self.plan.options.model.clone()),
             worktree_policy: Some(policy),
             name: None,
             max_turns: None,
             base_branch: base.clone(),
-            approval_mode: Some(self.run.approval_policy),
+            approval_mode: Some(match member.as_ref().and_then(|m| m.approval_cap) {
+                Some(c) => orkestr_agent_runtime::runtime::stricter_mode(self.run.approval_policy, c),
+                None => self.run.approval_policy,
+            }),
             budget,
         };
-        match self.inner.deps.agents.spawn(params).await {
+        let extras = member.map(|m| m.extras).unwrap_or_default();
+        match self.inner.deps.agents.spawn_with(params, extras).await {
             Ok((agent, _task)) => {
                 self.run.agents_spawned += 1;
                 let rt = &mut self.run.tasks[i];
@@ -1236,6 +1265,37 @@ impl Supervisor {
                     }
                 }
             }
+        }
+    }
+
+    /// Phase 2 hierarchy: hands a ready task to its team's lead
+    /// (crate::team_lead). The lead's agent record stands in for the task's
+    /// agent, so failures are retried by the normal attempt bounds.
+    async fn delegate_to_lead(&mut self, i: usize, lead: crate::teams::LeadRequest) -> Result<(), Fatal> {
+        let task_id = self.run.tasks[i].task_id;
+        let d = crate::team_lead::Delegation {
+            parent_task: task_id,
+            run_id: Some(self.run.id),
+            budget_usd: self.run.limits.max_cost_usd.map(|m| (m - self.run.cost_usd).max(0.0)),
+            approval_mode: self.run.approval_policy,
+            model: self.plan.options.model.clone(),
+            control: Some(Arc::clone(&self.control)),
+            cancel: self.control.cancel.child_token(),
+        };
+        match crate::team_lead::delegate(Arc::clone(&self.inner), lead, d).await {
+            Ok(agent) => {
+                self.run.agents_spawned += 1;
+                let rt = &mut self.run.tasks[i];
+                rt.agent_id = Some(agent);
+                rt.attempts += 1;
+                rt.last_error = None;
+                Ok(())
+            }
+            Err(OrchestratorError::Conflict(m)) => {
+                self.run.tasks[i].last_error = Some(one_line(&m, 300));
+                Ok(())
+            }
+            Err(e) => Err(Fatal(format!("could not delegate \"{}\" to the team lead: {e}", self.run.tasks[i].title))),
         }
     }
 

@@ -6,7 +6,7 @@
  */
 import type { ChatAttachment, ManagerRequestOptions, ModelRef } from "@orkestr/protocol";
 import { Button, IconButton, Kbd } from "@orkestr/ui";
-import { FileCode, SendHorizontal, X } from "lucide-react";
+import { ClipboardList, FileCode, SendHorizontal, X } from "lucide-react";
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 import { Trans } from "react-i18next";
 
@@ -24,11 +24,14 @@ export interface ComposerProps {
   attachment: ChatAttachment | null;
   onClearAttachment: () => void;
   onSend: (text: string, options: ManagerRequestOptions | undefined) => Promise<boolean>;
+  /** AI Product Manager mode (§9): the text is an idea for a product breakdown, not a chat message. */
+  pmMode?: boolean;
+  onTogglePm?: () => void;
 }
 
 const MAX = 20_000;
 
-export function Composer({ disabled, busy, expert, focusNonce, text, onText, attachment, onClearAttachment, onSend }: ComposerProps) {
+export function Composer({ disabled, busy, expert, focusNonce, text, onText, attachment, onClearAttachment, onSend, pmMode = false, onTogglePm }: ComposerProps) {
   const { t } = useT("manager");
   const area = useRef<HTMLTextAreaElement>(null);
   const [fields, setFields] = useState<ExpertFields>(EMPTY_EXPERT);
@@ -111,6 +114,17 @@ export function Composer({ disabled, busy, expert, focusNonce, text, onText, att
         </div>
       )}
       <div className="mgr-composer__row">
+        {onTogglePm && (
+          <IconButton
+            label={pmMode ? t("composer.pmModeOff") : t("composer.pmModeOn")}
+            icon={<ClipboardList size={15} />}
+            active={pmMode}
+            aria-pressed={pmMode}
+            disabled={disabled}
+            onClick={onTogglePm}
+            tooltip="top"
+          />
+        )}
         <textarea
           ref={area}
           className="mgr-composer__input"
@@ -119,12 +133,12 @@ export function Composer({ disabled, busy, expert, focusNonce, text, onText, att
           maxLength={MAX}
           disabled={disabled}
           aria-label={t("composer.inputLabel")}
-          placeholder={disabled ? t("composer.placeholderNoProject") : t("composer.placeholder")}
+          placeholder={disabled ? t("composer.placeholderNoProject") : pmMode ? t("composer.placeholderPm") : t("composer.placeholder")}
           onChange={(e) => onText(e.target.value)}
           onKeyDown={onKeyDown}
         />
         <Button variant="primary" leftIcon={<SendHorizontal size={14} />} disabled={!canSend} loading={sending} onClick={() => void send()} aria-label={t("composer.send")}>
-          {t("composer.send")}
+          {pmMode ? t("composer.sendPm") : t("composer.send")}
         </Button>
       </div>
       <div className="mgr-composer__hint">
@@ -133,7 +147,9 @@ export function Composer({ disabled, busy, expert, focusNonce, text, onText, att
             {error}
           </span>
         ) : busy ? (
-          <span className="mgr-muted">{t("composer.answering")}</span>
+          <span className="mgr-muted">{pmMode ? t("composer.pmThinking") : t("composer.answering")}</span>
+        ) : pmMode ? (
+          <span className="mgr-muted">{t("composer.pmHint")}</span>
         ) : (
           <span className="mgr-muted">
             <Trans t={t} i18nKey="composer.hint" components={{ kbd: <Kbd /> }} />

@@ -20,6 +20,7 @@ pub mod memory;
 pub mod merge;
 pub mod nodes;
 pub mod permissions;
+pub mod pm;
 pub mod projects;
 pub mod providers;
 pub mod quality;
@@ -31,6 +32,7 @@ pub mod settings;
 pub mod snapshots;
 pub mod system;
 pub mod tasks;
+pub mod teams;
 pub mod templates;
 pub mod terminal;
 pub mod vcs;
@@ -169,6 +171,7 @@ pub fn build_router() -> RpcRouter {
     // Phase 2: context optimizer + benchmarks.
     router.register(context::register).register(benchmarks::register);
     router.register(scheduler::register);
+    router.register(teams::register).register(pm::register);
     router
 }
 

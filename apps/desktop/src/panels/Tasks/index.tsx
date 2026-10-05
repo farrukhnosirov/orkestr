@@ -7,7 +7,7 @@ import "./tasks.css";
 
 import { Badge, Button, EmptyState, IconButton, Input, Spinner, Tabs } from "@orkestr/ui";
 import { clsx } from "clsx";
-import { Filter, FolderOpen, KanbanSquare, List, ListTodo, Network, Plus, RefreshCw, Search, TriangleAlert } from "lucide-react";
+import { ClipboardList, Filter, FolderOpen, KanbanSquare, List, ListTodo, Network, Plus, RefreshCw, Search, TriangleAlert } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { SchedulerBar } from "../../features/scheduler/SchedulerBar";
@@ -18,6 +18,7 @@ import { CreateTaskDialog } from "./CreateTaskDialog";
 import { useProjectTasks } from "./data";
 import { GraphView } from "./GraphView";
 import { ListView } from "./ListView";
+import { ProductView } from "./product/ProductView";
 import { ALL_STATUSES, PRIORITIES, filterTasks, isFilterActive } from "./model";
 import { PriorityChip, StatusBadge, Toasts } from "./parts";
 import { type TasksView, useTasksUi } from "./store";
@@ -27,8 +28,9 @@ const VIEW_ICONS: Record<TasksView, JSX.Element> = {
   list: <List size={14} />,
   board: <KanbanSquare size={14} />,
   graph: <Network size={14} />,
+  product: <ClipboardList size={14} />,
 };
-const VIEW_IDS: readonly TasksView[] = ["list", "board", "graph"];
+const VIEW_IDS: readonly TasksView[] = ["list", "board", "graph", "product"];
 
 function toggle<T>(list: readonly T[], item: T): T[] {
   return list.includes(item) ? list.filter((x) => x !== item) : [...list, item];
@@ -77,7 +79,10 @@ export default function TasksPanel({ projectId }: PanelProps) {
   const attention = tasks.filter((t) => t.status === "Failed" || t.status === "Interrupted").length;
 
   let content: JSX.Element;
-  if (loading && tasks.length === 0) {
+  if (view === "product") {
+    // The AI Product Manager works before any task exists.
+    content = <ProductView projectId={projectId} tasks={tasks} />;
+  } else if (loading && tasks.length === 0) {
     content = (
       <div className="tasks-loading">
         <Spinner size={18} /> {t("loading")}
@@ -206,7 +211,7 @@ export default function TasksPanel({ projectId }: PanelProps) {
       )}
 
       <div className="tasks-body">
-        <div className={clsx("tasks-main", view === "graph" && "tasks-main--graph")}>{content}</div>
+        <div className={clsx("tasks-main", (view === "graph" || view === "product") && "tasks-main--graph")}>{content}</div>
         {selected && <TaskDrawer task={selected} tasks={tasks} />}
       </div>
       <Toasts />

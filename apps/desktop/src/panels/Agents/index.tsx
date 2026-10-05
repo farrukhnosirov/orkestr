@@ -8,7 +8,7 @@
 import "./agents.css";
 
 import { Badge, Button, EmptyState, IconButton, Spinner, Tabs } from "@orkestr/ui";
-import { Bot, FolderOpen, LayoutTemplate, ListOrdered, Plus, RefreshCw, TriangleAlert } from "lucide-react";
+import { Bot, FolderOpen, LayoutTemplate, ListOrdered, Plus, RefreshCw, TriangleAlert, Users } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { QueueView } from "../../features/scheduler/QueueView";
@@ -22,14 +22,16 @@ import { isActive } from "./model";
 import { Toasts } from "./parts";
 import { SpawnDialog } from "./SpawnDialog";
 import { type AgentsTab, useAgentsUi } from "./store";
+import { TeamsTab } from "./TeamsTab";
 import { TemplatesTab } from "./TemplatesTab";
 
 const TAB_ICONS: Record<AgentsTab, JSX.Element> = {
   agents: <Bot size={14} />,
   queue: <ListOrdered size={14} />,
   templates: <LayoutTemplate size={14} />,
+  teams: <Users size={14} />,
 };
-const TAB_IDS: readonly AgentsTab[] = ["agents", "queue", "templates"];
+const TAB_IDS: readonly AgentsTab[] = ["agents", "queue", "templates", "teams"];
 
 function useNow(active: boolean): number {
   const [now, setNow] = useState(() => Date.now());
@@ -79,6 +81,8 @@ export default function AgentsPanel({ projectId }: PanelProps) {
   let content: JSX.Element;
   if (tab === "queue") {
     content = <QueueView projectId={projectId} />;
+  } else if (tab === "teams") {
+    content = <TeamsTab projectId={projectId} templates={templates.templates} />;
   } else if (tab === "templates") {
     content = <TemplatesTab templates={templates.templates} loading={templates.loading} error={templates.error} reload={templates.reload} />;
   } else if (loading && agents.length === 0) {

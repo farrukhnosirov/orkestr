@@ -111,6 +111,15 @@ consistently and add it to this table in the same change.
 | Consensus (mode) | консенсус, режим консенсуса | Запустить консенсус | |
 | Proposal (consensus) | предложение | — | |
 | Synthesizer (consensus) | арбитр | — | The model that turns proposals into one decision. |
+| Agent team | команда (агентов) | Назначить проекту / Снять с проекта | Built-in names: «ERP-команда», «Веб-команда», «Мобильная команда», «Команда безопасности», «Команда быстрых прототипов». |
+| Team lead | лид (команды) | — | Hierarchy levels: Менеджер → Лид → Исполнитель → Ревьюер. Not «тимлид». |
+| Executor (team member) | исполнитель | — | |
+| Hierarchy (team policy) | иерархия | — | |
+| Sub-task | подзадача | — | «до 4 подзадач на лида». |
+| AI Product Manager | AI-продакт-менеджер | — | Composer toggle «Режим продакт-менеджера». |
+| Feature (product breakdown) | функция | Добавить функцию | Epic → функции → истории → критерии приёмки → задачи. |
+| User story | пользовательская история, история | Добавить историю | «Как пользователь, я могу …». |
+| Product draft | черновик продукта | Подтвердить / Отклонить | Statuses: Черновик / Подтверждён / Отклонён. |
 
 Task statuses: Запланирована, Готова к работе, Выполняется, Ожидает,
 Заблокирована, На ревью, Тестируется, Выполнена, Сбой, Отменена, Прервана,

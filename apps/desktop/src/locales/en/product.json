@@ -1,0 +1,92 @@
+{
+  "loading": "Loading product drafts…",
+  "loadFailed": "Could not load product drafts",
+  "empty": {
+    "title": "No product drafts yet",
+    "description": "Describe an idea and the AI Product Manager breaks it into an epic, features, user stories with acceptance criteria and tasks with dependencies. You edit the draft, then approve it to create the tasks."
+  },
+  "draftsLabel": "Product drafts",
+  "status": {
+    "Draft": "Draft",
+    "Approved": "Approved",
+    "Discarded": "Discarded"
+  },
+  "progress": "{{percent}}% done",
+  "progressLabel": "Progress of the approved tasks",
+  "drafted": "Draft \"{{title}}\" is ready to edit.",
+  "idea": {
+    "label": "Idea",
+    "placeholder": "For example: a payroll module for small shops with monthly payslips",
+    "submit": "Break down",
+    "thinking": "Breaking down…"
+  },
+  "count": {
+    "features_one": "{{count}} feature",
+    "features_other": "{{count}} features",
+    "stories_one": "{{count}} story",
+    "stories_other": "{{count}} stories",
+    "tasks_one": "{{count}} task",
+    "tasks_other": "{{count}} tasks"
+  },
+  "ideaPrefix": "Idea:",
+  "warningsLabel": "Notes on the draft",
+  "treeLabel": "Epic, features, stories and tasks",
+  "save": "Save",
+  "saved": "Draft saved.",
+  "discard": "Discard",
+  "confirmDiscard": "Discard the draft \"{{title}}\"?",
+  "approved_one": "Approved — {{count}} task created.",
+  "approved_other": "Approved — {{count}} tasks created.",
+  "approvedRun_one": "Approved — {{count}} task created and handed to the Manager.",
+  "approvedRun_other": "Approved — {{count}} tasks created and handed to the Manager.",
+  "kind": {
+    "epic": "Epic",
+    "feature": "Feature",
+    "story": "Story",
+    "criteria": "Acceptance criteria"
+  },
+  "field": {
+    "epicTitle": "Epic title",
+    "description": "Description",
+    "featureTitle": "Feature title",
+    "storyTitle": "User story",
+    "criterion": "Acceptance criterion",
+    "taskTitle": "Task title",
+    "role": "Agent role",
+    "priority": "Priority",
+    "dependsOn": "Depends on"
+  },
+  "add": {
+    "feature": "Add feature",
+    "story": "Add story",
+    "criterion": "Add criterion",
+    "task": "Add task"
+  },
+  "remove": {
+    "feature": "Remove feature",
+    "story": "Remove story",
+    "criterion": "Remove criterion",
+    "task": "Remove task"
+  },
+  "approve": {
+    "team": "Agent team",
+    "noTeam": "No team (Manager picks agents)",
+    "startRun": "Start a Manager run after approval",
+    "button_one": "Approve and create {{count}} task",
+    "button_other": "Approve and create {{count}} tasks"
+  },
+  "validation": {
+    "epicTitle": "The epic needs a title.",
+    "features": "An epic needs 1–{{max}} features.",
+    "featureTitle": "Every feature needs a title.",
+    "key": "The key \"{{key}}\" is empty or used twice.",
+    "stories": "The feature \"{{title}}\" needs 1–{{max}} stories.",
+    "storyTitle": "Every story needs a title.",
+    "criteria": "The story \"{{title}}\" needs acceptance criteria, and none may be empty.",
+    "tasks": "The story \"{{title}}\" needs at least one task.",
+    "taskTitle": "Every task needs a title.",
+    "tooManyTasks": "At most {{max}} tasks are allowed.",
+    "unknownDep": "Task {{key}} depends on an unknown task \"{{dep}}\".",
+    "cycle": "The task dependencies contain a cycle."
+  }
+}

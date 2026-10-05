@@ -86,5 +86,12 @@
   "mergeRisk_one": "Возможный конфликт слияния двух агентов ({{count}} файл)",
   "mergeRisk_few": "Возможный конфликт слияния двух агентов ({{count}} файла)",
   "mergeRisk_many": "Возможный конфликт слияния двух агентов ({{count}} файлов)",
-  "mergeRisk_other": "Возможный конфликт слияния двух агентов ({{count}} файла)"
+  "mergeRisk_other": "Возможный конфликт слияния двух агентов ({{count}} файла)",
+  "teamUpdated": "Команда «{{name}}» обновлена",
+  "teamDeleted": "Команда {{id}} удалена",
+  "teamLeadRun_one": "Лид команды над «{{title}}»: {{status}} ({{count}} подзадача)",
+  "teamLeadRun_few": "Лид команды над «{{title}}»: {{status}} ({{count}} подзадачи)",
+  "teamLeadRun_many": "Лид команды над «{{title}}»: {{status}} ({{count}} подзадач)",
+  "teamLeadRun_other": "Лид команды над «{{title}}»: {{status}} ({{count}} подзадачи)",
+  "pmDraft": "Черновик продукта «{{title}}»: {{status}}"
 }

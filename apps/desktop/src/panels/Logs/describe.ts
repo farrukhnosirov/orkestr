@@ -279,6 +279,19 @@ export function describeEvent(event: Event): string {
       const r = event.payload.risk;
       return t("events:mergeRisk", { count: Math.max(r.files.length, r.conflicts.length) });
     }
+    // Phase 2: Agent Teams and the AI Product Manager.
+    case "TeamUpdated":
+      return t("events:teamUpdated", { name: event.payload.team.team.name });
+    case "TeamDeleted":
+      return t("events:teamDeleted", { id: short(event.payload.teamId) });
+    case "TeamLeadRunUpdated":
+      return t("events:teamLeadRun", {
+        title: event.payload.lead.title,
+        status: t(`teams:leadStatus.${event.payload.lead.status}`),
+        count: event.payload.lead.subtasks.length,
+      });
+    case "PmDraftUpdated":
+      return t("events:pmDraft", { title: event.payload.draft.epic.title, status: t(`product:status.${event.payload.draft.status}`) });
   }
 }
 

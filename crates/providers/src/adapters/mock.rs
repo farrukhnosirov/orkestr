@@ -790,6 +790,10 @@ pub fn script(req: &ChatRequest) -> MockScript {
     if let Some(s) = super::mock_summarize::script(req) {
         return s;
     }
+    // Phase 2 extension point: teams / AI Product Manager scripts (marker-keyed).
+    if let Some(s) = super::mock_teams_pm::script(req) {
+        return s;
+    }
     let user = last_user(req);
     let last = req.messages.iter().rev().find(|m| m.role != Role::System);
     let after_tool = last.is_some_and(|m| m.role == Role::Tool);

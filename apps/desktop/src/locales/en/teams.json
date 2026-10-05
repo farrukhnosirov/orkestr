@@ -1,0 +1,142 @@
+{
+  "intro": "Persistent teams of agents with a lead, members and default policies. Assign a team to this project, then let the Manager delegate a plan to it.",
+  "loading": "Loading teams…",
+  "loadFailed": "Could not load teams",
+  "empty": {
+    "title": "No teams yet",
+    "description": "Create a team from agent templates: pick a lead, executors and a reviewer, and bound its fan-out, attempts and budget."
+  },
+  "new": "New team",
+  "listLabel": "Agent teams",
+  "builtinBadge": "Built-in",
+  "hierarchyBadge": "Hierarchy",
+  "assignedBadge": "Assigned",
+  "activeLeads_one": "{{count}} lead working",
+  "activeLeads_other": "{{count}} leads working",
+  "showHierarchy": "Show the hierarchy",
+  "hideHierarchy": "Hide the hierarchy",
+  "edit": "Edit team",
+  "delete": "Delete team",
+  "confirmDelete": "Delete the team \"{{name}}\"? Its assignments are removed too.",
+  "deleted": "Team \"{{name}}\" deleted.",
+  "saved": "Team \"{{name}}\" saved.",
+  "noDescription": "No description.",
+  "membersLabel_one": "{{count}} agent in the team",
+  "membersLabel_other": "{{count}} agents in the team",
+  "leadMark": "Team lead",
+  "members_one": "{{count}} agent",
+  "members_other": "{{count}} agents",
+  "policy": {
+    "fanOut_one": "up to {{count}} sub-task per lead",
+    "fanOut_other": "up to {{count}} sub-tasks per lead",
+    "parallel_one": "{{count}} at a time",
+    "parallel_other": "{{count}} at a time",
+    "attempts_one": "{{count}} attempt",
+    "attempts_other": "{{count}} attempts",
+    "review": "reviewed",
+    "noReview": "no review",
+    "budget": "budget {{amount}}",
+    "approval": "approvals: {{mode}}"
+  },
+  "approvalMode": {
+    "Ask": "Ask",
+    "SemiAuto": "Semi-Auto",
+    "FullAuto": "Full Auto"
+  },
+  "otherProjects_one": "also in {{count}} other project",
+  "otherProjects_other": "also in {{count}} other projects",
+  "assign": "Assign to this project",
+  "unassign": "Unassign",
+  "assigned": "Team \"{{name}}\" assigned to the project.",
+  "unassigned": "Team \"{{name}}\" removed from the project.",
+  "secretsAllowed": "May use this project's secrets",
+  "scopeHint": "Team agents never see secrets of other projects.",
+  "leadStatus": {
+    "Planning": "Planning",
+    "Executing": "Executing",
+    "Reviewing": "Reviewing",
+    "Completed": "Completed",
+    "Failed": "Failed",
+    "Cancelled": "Cancelled"
+  },
+  "tree": {
+    "label": "Team hierarchy",
+    "manager": "AI Manager",
+    "empty": "No delegated tasks yet. When the Manager delegates a plan to this team, its lead splits each task for the executors here.",
+    "noLead": "This team has no lead: the Manager gives each task to one member directly.",
+    "attempts_one": "attempt {{count}}",
+    "attempts_other": "attempt {{count}}",
+    "level": {
+      "manager": "Manager",
+      "lead": "Lead",
+      "executor": "Executor",
+      "reviewer": "Reviewer"
+    }
+  },
+  "editor": {
+    "newTitle": "New team",
+    "editTitle": "Edit team",
+    "subtitle": "Members come from agent templates. The lead decomposes delegated tasks; executors do them; a reviewer checks the result.",
+    "name": "Name",
+    "description": "Description",
+    "members": "Members",
+    "noMembers": "Add at least one member.",
+    "template": "Template",
+    "count": "Count",
+    "lead": "Lead",
+    "model": "Model override",
+    "removeMember": "Remove member",
+    "addMember": "Add member",
+    "noLead": "No lead",
+    "policies": "Default policies",
+    "hierarchy": "Hierarchy: the lead decomposes each task for executors",
+    "hierarchyHint": "Needs a lead and at least one executor. Depth is bounded: Manager → lead → executors.",
+    "requireReview": "A reviewer checks the combined result",
+    "fanOut": "Max sub-tasks per lead",
+    "parallel": "Max executors at once",
+    "attempts": "Attempts per sub-task",
+    "timeLimit": "Time limit, min",
+    "budget": "Budget per task, $",
+    "budgetPlaceholder": "No limit",
+    "approval": "Approval cap",
+    "approvalInherit": "Same as the run",
+    "projectOnly": "Only for this project",
+    "save": "Save team"
+  },
+  "validation": {
+    "name": "The name must be 1–{{max}} characters.",
+    "description": "The description must be at most {{max}} characters.",
+    "members": "A team needs 1–{{max}} members.",
+    "count": "Each member count must be 1–{{max}}.",
+    "oneLead": "A team has at most one lead.",
+    "leadCount": "The lead slot has exactly one agent.",
+    "fanOut": "Max sub-tasks must be 1–{{max}}.",
+    "parallel": "Max executors at once must be 1–{{max}}.",
+    "attempts": "Attempts must be 1–{{max}}.",
+    "timeLimit": "The time limit must be 1–{{max}} minutes.",
+    "budget": "The budget must be a non-negative number.",
+    "hierarchy": "The hierarchy needs a lead and at least one executor (not a reviewer)."
+  },
+  "builtin": {
+    "erp": {
+      "name": "ERP Team",
+      "description": "Business modules (accounting, payroll, inventory): an architect lead splits each feature for backend and database engineers; QA tests, a reviewer checks."
+    },
+    "web": {
+      "name": "Web Team",
+      "description": "Web applications: frontend and backend engineers with a UI/UX designer under an architect lead; QA and a reviewer close each feature."
+    },
+    "mobile": {
+      "name": "Mobile Team",
+      "description": "Mobile apps: client and API engineers under an architect lead, with QA and review."
+    },
+    "security": {
+      "name": "Security Team",
+      "description": "Security audits and fixes: security reviewers and a researcher; every result is reviewed."
+    },
+    "rapid": {
+      "name": "Rapid Prototype Team",
+      "description": "Fast prototypes: a backend and a frontend engineer, no review step."
+    }
+  }
+}

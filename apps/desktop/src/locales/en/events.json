@@ -72,5 +72,10 @@
   "schedulerUpdated": "Scheduler: {{running}} running, {{queued}} queued, {{waiting}} waiting",
   "schedulerSettings": "Scheduler limits changed",
   "mergeRisk_one": "Possible merge conflict between two agents ({{count}} file)",
-  "mergeRisk_other": "Possible merge conflict between two agents ({{count}} files)"
+  "mergeRisk_other": "Possible merge conflict between two agents ({{count}} files)",
+  "teamUpdated": "Team “{{name}}” updated",
+  "teamDeleted": "Team {{id}} deleted",
+  "teamLeadRun_one": "Team lead on “{{title}}”: {{status}} ({{count}} sub-task)",
+  "teamLeadRun_other": "Team lead on “{{title}}”: {{status}} ({{count}} sub-tasks)",
+  "pmDraft": "Product draft “{{title}}”: {{status}}"
 }

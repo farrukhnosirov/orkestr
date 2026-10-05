@@ -22,7 +22,8 @@
     "label": "Вид задач",
     "list": "Список",
     "board": "Доска",
-    "graph": "Граф"
+    "graph": "Граф",
+    "product": "Продукт"
   },
   "search": {
     "placeholder": "Поиск задач…",

@@ -6,7 +6,7 @@ import { create } from "zustand";
 
 import { EMPTY_FILTER, type SortDir, type SortKey, type TaskFilter } from "./model";
 
-export type TasksView = "list" | "board" | "graph";
+export type TasksView = "list" | "board" | "graph" | "product";
 
 export interface Toast {
   id: number;
@@ -37,7 +37,7 @@ const VIEW_KEY = "orkestr.tasks.view";
 function readView(): TasksView {
   try {
     const v = window.localStorage.getItem(VIEW_KEY);
-    return v === "board" || v === "graph" || v === "list" ? v : "list";
+    return v === "board" || v === "graph" || v === "list" || v === "product" ? v : "list";
   } catch {
     return "list";
   }

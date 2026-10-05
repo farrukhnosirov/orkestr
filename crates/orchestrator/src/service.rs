@@ -131,6 +131,7 @@ impl Manager {
             self.inner.save_run(&run).await;
             tracing::warn!(run_id = %run.id, "manager run from a previous session marked interrupted");
         }
+        crate::teams::recover_leads(&self.inner).await;
         Ok(())
     }
 

@@ -31,6 +31,7 @@ pub mod memory;
 pub mod merge;
 pub mod nodes;
 pub mod permissions;
+pub mod pm;
 pub mod projects;
 pub mod providers;
 pub mod quality;
@@ -42,6 +43,7 @@ pub mod settings;
 pub mod snapshots;
 pub mod system;
 pub mod tasks;
+pub mod teams;
 pub mod templates;
 pub mod terminal;
 pub mod vcs;
@@ -344,6 +346,19 @@ pub fn registry() -> Vec<MethodDescriptor> {
         MethodDescriptor::of::<scheduler::Status>(),
         MethodDescriptor::of::<scheduler::SetLimits>(),
         MethodDescriptor::of::<scheduler::Explain>(),
+        // teams + AI Product Manager (Phase 2)
+        MethodDescriptor::of::<teams::List>(),
+        MethodDescriptor::of::<teams::Get>(),
+        MethodDescriptor::of::<teams::Create>(),
+        MethodDescriptor::of::<teams::Update>(),
+        MethodDescriptor::of::<teams::Delete>(),
+        MethodDescriptor::of::<teams::Assign>(),
+        MethodDescriptor::of::<pm::Draft>(),
+        MethodDescriptor::of::<pm::Get>(),
+        MethodDescriptor::of::<pm::List>(),
+        MethodDescriptor::of::<pm::Update>(),
+        MethodDescriptor::of::<pm::Approve>(),
+        MethodDescriptor::of::<pm::Discard>(),
     ]
 }
 

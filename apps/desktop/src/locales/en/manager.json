@@ -46,7 +46,13 @@
     "placeholderNoProject": "Open a project to talk to the Manager",
     "send": "Send",
     "answering": "The Manager is answering…",
-    "hint": "<kbd>Enter</kbd> send · <kbd>Shift</kbd>+<kbd>Enter</kbd> new line · <kbd>Ctrl</kbd>+<kbd>Enter</kbd> send"
+    "hint": "<kbd>Enter</kbd> send · <kbd>Shift</kbd>+<kbd>Enter</kbd> new line · <kbd>Ctrl</kbd>+<kbd>Enter</kbd> send",
+    "pmModeOn": "Product Manager mode: turn an idea into epics, stories and tasks",
+    "pmModeOff": "Back to chatting with the Manager",
+    "placeholderPm": "Describe the product idea — the AI Product Manager breaks it into epics, features, stories and tasks…",
+    "sendPm": "Draft",
+    "pmThinking": "The AI Product Manager is breaking the idea down…",
+    "pmHint": "Product Manager mode: the draft opens in Tasks → Product for editing and approval."
   },
   "validation": {
     "budget": "Budget must be a non-negative number of dollars.",
@@ -168,5 +174,8 @@
     "group": "AI Manager",
     "ask": "Ask Manager",
     "approvePlan": "Approve Plan"
+  },
+  "pm": {
+    "drafted": "Draft \"{{title}}\" is ready in Tasks → Product."
   }
 }

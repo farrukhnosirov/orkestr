@@ -1059,3 +1059,5 @@ async fn invalid_requests_are_rejected() {
 
 #[path = "parallel_tests.rs"]
 mod parallel_tests;
+// Phase 2: Agent Teams, hierarchy, cross-project scoping, AI Product Manager.
+mod teams_pm;

@@ -3,6 +3,7 @@ import type { AgentTeamId } from "./AgentTeamId";
 import type { ProjectId } from "./ProjectId";
 import type { TeamKind } from "./TeamKind";
 import type { TeamMember } from "./TeamMember";
+import type { TeamPolicies } from "./TeamPolicies";
 
 /**
  * Agent team (§6).
@@ -35,4 +36,16 @@ projectId: ProjectId | null,
 /**
  * Creation time.
  */
-createdAt: string, };
+createdAt: string, 
+/**
+ * Default policies (Phase 2, additive).
+ */
+policies: TeamPolicies, 
+/**
+ * Shipped with Orkestr (seeded on first use; editable).
+ */
+builtin: boolean, 
+/**
+ * Last modification (Phase 2, additive).
+ */
+updatedAt: string | null, };

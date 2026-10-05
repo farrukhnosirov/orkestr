@@ -16,7 +16,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { ConsensusDialog } from "../../features/reviews/ConsensusDialog";
 import { useConsensusUi } from "../../features/reviews/store";
+import { workspaceActions } from "../../components/workspaceActions";
 import { t as translate, useT } from "../../i18n";
+import { pmActions } from "../Tasks/product/pmData";
+import { useTasksUi } from "../Tasks/store";
 import type { PanelProps } from "../types";
 import { Composer } from "./Composer";
 import { errorMessage, managerActions, useManagerChat, useResumeSummary } from "./data";
@@ -51,6 +54,8 @@ export default function ManagerPanel({ projectId }: PanelProps) {
   const [clearing, setClearing] = useState(false);
   const consensusOpen = useConsensusUi((s) => s.open);
   const setConsensusOpen = useConsensusUi((s) => s.setOpen);
+  const [pmMode, setPmMode] = useState(false);
+  const [pmBusy, setPmBusy] = useState(false);
   const modes = MODE_IDS.map((id) => ({ id, label: t(`modes.${id}`) }));
 
   // Consume a request from the Code panel ("Ask Manager about selection").
@@ -93,8 +98,28 @@ export default function ManagerPanel({ projectId }: PanelProps) {
     [state],
   );
 
+  /** Product Manager mode: the idea becomes an editable breakdown in Tasks → Product. */
+  const draftProduct = async (idea: string, options: ManagerRequestOptions | undefined): Promise<boolean> => {
+    if (!projectId) return false;
+    setPmBusy(true);
+    try {
+      const d = await pmActions.draft(projectId, idea, options);
+      setText("");
+      toast("success", t("pm.drafted", { title: d.epic.title }));
+      useTasksUi.getState().setView("product");
+      workspaceActions.openPanel("tasks");
+      return true;
+    } catch (e) {
+      toast("danger", errorMessage(e));
+      return false;
+    } finally {
+      setPmBusy(false);
+    }
+  };
+
   const send = async (body: string, options: ManagerRequestOptions | undefined): Promise<boolean> => {
     if (!projectId) return false;
+    if (pmMode) return draftProduct(body, options);
     setPending(true);
     try {
       await managerActions.chat(projectId, body, attachment, options);
@@ -226,7 +251,7 @@ export default function ManagerPanel({ projectId }: PanelProps) {
       )}
       <Composer
         disabled={false}
-        busy={state.busy || pending}
+        busy={state.busy || pending || pmBusy}
         expert={mode === "expert"}
         focusNonce={focusNonce}
         text={text}
@@ -234,6 +259,8 @@ export default function ManagerPanel({ projectId }: PanelProps) {
         attachment={attachment}
         onClearAttachment={() => setAttachment(null)}
         onSend={send}
+        pmMode={pmMode}
+        onTogglePm={() => setPmMode((m) => !m)}
       />
       <Toasts />
       {consensusOpen && <ConsensusDialog projectId={projectId} onClose={() => setConsensusOpen(false)} />}
