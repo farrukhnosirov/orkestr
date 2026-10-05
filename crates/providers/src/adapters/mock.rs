@@ -396,7 +396,7 @@ pub fn demo_plan_in(goal: &str, lang: MockLang) -> Value {
     let ru = lang == MockLang::Ru;
     let tr = |en: String, ru_text: String| if ru { ru_text } else { en };
     let epic = tr(format!("{name} module"), format!("Модуль {s}"));
-    json!({
+    let mut plan = json!({
         "goal": g,
         "summary": tr(
             format!("Demo plan (Mock, offline) for: {g}. An architect designs the {s} module first; then a backend agent implements it while a product manager writes the usage docs in parallel; finally QA adds tests and runs them."),
@@ -488,7 +488,35 @@ pub fn demo_plan_in(goal: &str, lang: MockLang) -> Value {
                 "estimatedTokens": 8000
             }
         ]
-    })
+    });
+    // A goal that asks for a security review gets a Security task after the
+    // implementation (adversarial review of the backend change).
+    let lower = goal.to_lowercase();
+    if lower.contains("security") || lower.contains("безопасн") {
+        let task = json!({
+            "key": "t5",
+            "title": tr(format!("Security review of the {s} module"), format!("Проверка безопасности модуля {s}")),
+            "description": tr(
+                format!("Review src/{s}.mjs for injection, unsafe input handling and secrets; list concrete findings."),
+                format!("Проверить src/{s}.mjs на инъекции, небезопасную обработку ввода и секреты; перечислить конкретные замечания."),
+            ),
+            "acceptanceCriteria": [tr(
+                "Every finding names a file and a concrete risk".to_owned(),
+                "Каждое замечание указывает файл и конкретный риск".to_owned(),
+            )],
+            "role": "Security",
+            "dependsOn": ["t2"],
+            "priority": "Normal",
+            "epic": epic,
+            "feature": tr("Quality".into(), "Качество".into()),
+            "files": [],
+            "estimatedTokens": 6000
+        });
+        if let Some(tasks) = plan["tasks"].as_array_mut() {
+            tasks.push(task);
+        }
+    }
+    plan
 }
 
 fn has_tool(req: &ChatRequest, name: &str) -> bool {
@@ -1149,6 +1177,20 @@ Context…",
             ResponseFormat::JsonSchema { name: "orkestr_plan".into(), schema: json!({"type":"object"}) };
         let MockScript::Text(t) = script(&r) else { panic!() };
         assert_eq!(serde_json::from_str::<Value>(&t).unwrap()["tasks"][1]["title"], "Implement the hello module");
+    }
+
+    #[test]
+    fn demo_plan_adds_a_security_review_when_the_goal_asks_for_one() {
+        let v = demo_plan("Create a payroll module: architecture review, backend, tests, security review");
+        let tasks = v["tasks"].as_array().unwrap();
+        assert_eq!(tasks.len(), 5);
+        assert_eq!(tasks[4]["role"], "Security");
+        assert_eq!(tasks[4]["dependsOn"], json!(["t2"]));
+        assert_eq!(tasks[1]["files"], json!(["src/payroll.mjs"]));
+        let roles: Vec<&str> = tasks.iter().filter_map(|t| t["role"].as_str()).collect();
+        for r in ["Architect", "Backend", "QA", "Security"] {
+            assert!(roles.contains(&r), "{roles:?}");
+        }
     }
 
     fn agent_req(role: &str, title: &str, tools: &[&str]) -> ChatRequest {
