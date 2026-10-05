@@ -76,6 +76,8 @@ pub struct Services {
     /// `system` (then the UI reports the resolved language with each Manager
     /// request).
     pub ui_language: orkestr_agent_runtime::UiLanguage,
+    /// Quality runner + gates (§17, §58).
+    pub quality: orkestr_quality::QualityService,
     /// Persistent event seq reservation.
     pub seq_high_water: Arc<crate::housekeeping::SeqHighWater>,
 }
