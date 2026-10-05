@@ -163,6 +163,8 @@ define_id!(/// AI Manager supervised run id (§1 steps 5–13).
     ManagerRunId, "managerRun");
 define_id!(/// AI Manager conversation id (one active conversation per project).
     ConversationId, "conversation");
+define_id!(/// Merge Manager proposal id (§16).
+    MergeProposalId, "mergeProposal");
 
 #[cfg(test)]
 mod tests {

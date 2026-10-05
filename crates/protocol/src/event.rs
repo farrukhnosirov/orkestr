@@ -637,6 +637,15 @@ pub struct ManagerRunPayload {
     pub run: crate::methods::manager::ManagerRun,
 }
 
+/// Payload of `MergeProposalUpdated`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct MergeProposalPayload {
+    /// The proposal after the change.
+    pub proposal: crate::methods::merge::MergeManagerProposal,
+}
+
 // ---------------------------------------------------------------------------
 // Kinds
 // ---------------------------------------------------------------------------
@@ -774,6 +783,8 @@ event_kinds! {
     ManagerPlanUpdated(ManagerPlanPayload),
     /// A Manager run changed (progress, status, report). Phase 1, appended.
     ManagerRunUpdated(ManagerRunPayload),
+    /// A Merge Manager proposal changed (analysis, approval, progress, conflicts, result). Phase 2, appended.
+    MergeProposalUpdated(MergeProposalPayload),
 }
 
 // ---------------------------------------------------------------------------
@@ -922,6 +933,7 @@ impl NewEvent {
             EventKind::ManagerMessageAdded(m) => self.project_id = Some(m.message.project_id),
             EventKind::ManagerPlanUpdated(p) => self.project_id = Some(p.plan.project_id),
             EventKind::ManagerRunUpdated(r) => self.project_id = Some(r.run.project_id),
+            EventKind::MergeProposalUpdated(m) => self.project_id = Some(m.proposal.project_id),
             EventKind::Notification(n) => {
                 self.project_id = n.notification.project_id;
                 self.task_id = n.notification.task_id;

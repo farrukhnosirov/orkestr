@@ -23,6 +23,10 @@
 //!   resume / cancel, emergency stop, final report + merge proposals.
 //! * [`resume`] — "Last session" summary (§57).
 //!
+//! * [`merge`] — the AI Merge Manager (§16, Phase 2): semantic diff,
+//!   conflict detection, dependency order, gates, approval-gated merge via an
+//!   integration branch, conflict resolution, rollback.
+//!
 //! The orchestrator composes engines through their public APIs; it is not a
 //! god service (§64).
 #![forbid(unsafe_code)]
@@ -31,6 +35,7 @@
 pub mod chat;
 pub mod deps;
 pub mod error;
+pub mod merge;
 pub mod plan;
 pub mod planner;
 pub mod resume;
@@ -45,6 +50,7 @@ pub use deps::{
     ManagerHub, ManagerTunables, OrchestratorDeps, ProviderBrief, RegistryHub, ResourceProbe, Unconstrained,
 };
 pub use error::{OrchResult, OrchestratorError};
+pub use merge::{merge_migrations, MergeDeps, MergeGateSource, MergeManager, MergeQualityRunner};
 pub use schema::orchestrator_migrations;
 pub use service::Manager;
 
