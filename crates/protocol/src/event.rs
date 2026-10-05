@@ -637,6 +637,42 @@ pub struct ManagerRunPayload {
     pub run: crate::methods::manager::ManagerRun,
 }
 
+/// `UiPatchProposed` — the AI Manager proposes a UI configuration change
+/// (§29). The UI previews it and the user keeps (`ui.applyPatch`) or
+/// discards it. Published on `global` (the project is in the payload).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct UiPatchProposedPayload {
+    /// Proposal id (UUID v7).
+    pub proposal_id: String,
+    /// Project whose Manager proposed it.
+    pub project_id: Option<ProjectId>,
+    /// Author.
+    pub author: crate::ui_patch::UiPatchActor,
+    /// One-line, user-facing summary.
+    pub summary: String,
+    /// The patch (already shape-checked against the schema).
+    pub patch: Vec<crate::ui_patch::UiPatchOp>,
+}
+
+/// `UiConfigPatched` — a validated patch was stored as a new version.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct UiConfigPatchedPayload {
+    /// New version.
+    pub version: u64,
+    /// Author.
+    pub author: crate::ui_patch::UiPatchActor,
+    /// Summary.
+    pub summary: String,
+    /// The stored document.
+    pub config: crate::ui_config::UiConfig,
+    /// The proposal it applied, if any.
+    pub proposal_id: Option<String>,
+}
+
 // ---------------------------------------------------------------------------
 // Kinds
 // ---------------------------------------------------------------------------
@@ -774,6 +810,10 @@ event_kinds! {
     ManagerPlanUpdated(ManagerPlanPayload),
     /// A Manager run changed (progress, status, report). Phase 1, appended.
     ManagerRunUpdated(ManagerRunPayload),
+    /// The AI Manager proposed a UI change (preview, then keep / discard). Phase 3, appended.
+    UiPatchProposed(UiPatchProposedPayload),
+    /// A UI config patch was stored. Phase 3, appended.
+    UiConfigPatched(UiConfigPatchedPayload),
 }
 
 // ---------------------------------------------------------------------------

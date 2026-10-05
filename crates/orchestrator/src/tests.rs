@@ -1056,3 +1056,46 @@ async fn invalid_requests_are_rejected() {
         .unwrap_err();
     assert!(err.to_string().contains("maxParallelAgents"), "{err}");
 }
+
+#[tokio::test]
+async fn ui_requests_become_validated_ui_patch_proposals() {
+    let h = harness(false, ApprovalMode::SemiAuto).await;
+    h.mock("mock-smart");
+    let mut sub = h.events.subscribe([orkestr_protocol::topic::GLOBAL]).unwrap();
+    let (_, reply) = h
+        .mgr
+        .chat_and_wait(ManagerChatParams {
+            project_id: h.project,
+            text: "Сделай Mission Control компактнее, Claude справа, убери график токенов, сделай фон темнее".into(),
+            attachment: None,
+            options: None,
+        })
+        .await
+        .unwrap();
+    assert!(
+        reply.tool_events.iter().any(|e| e.name == "update_ui_config" && !e.is_error),
+        "{:?}",
+        reply.tool_events
+    );
+    assert!(reply.plan_id.is_none(), "a UI request is not a build plan");
+    assert!(reply.text.contains("предпросмотр"), "{}", reply.text);
+    let mut proposal = None;
+    while let Ok(Some(orkestr_events::Received::Event(ev))) =
+        tokio::time::timeout(Duration::from_millis(100), sub.recv()).await
+    {
+        if let orkestr_protocol::EventKind::UiPatchProposed(p) = &ev.kind {
+            proposal = Some(p.clone());
+        }
+    }
+    let p = proposal.expect("UiPatchProposed published on global");
+    assert_eq!(p.project_id, Some(h.project));
+    assert_eq!(p.patch.len(), 5);
+    // The proposal is valid against the real (default) document.
+    orkestr_protocol::ui_patch::apply_ui_patch(
+        &orkestr_protocol::ui_config::UiConfig::default(),
+        &p.patch,
+        orkestr_protocol::ui_patch::UiPatchActor::Manager,
+        orkestr_protocol::ui_patch::PatchMode::Strict,
+    )
+    .unwrap();
+}

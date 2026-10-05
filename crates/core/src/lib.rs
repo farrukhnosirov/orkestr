@@ -30,6 +30,7 @@ pub mod rpc;
 pub mod server;
 pub mod services;
 pub mod settings_store;
+pub mod ui_store;
 
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -234,6 +235,7 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
     let cost = orkestr_cost::CostEngine::new(db.clone()).with_events(events.clone());
     let previous_session_started_at = housekeeping::rotate_session(&db, chrono::Utc::now()).await?;
     let settings = Arc::new(settings_store::SettingsStore::load(db.clone()).await?);
+    let ui_config = Arc::new(ui_store::UiConfigStore::load(db.clone()).await?);
     let nodes = Arc::new(orkestr_node::NodeMonitor::new(
         node_id,
         Arc::clone(&platform),
@@ -314,6 +316,7 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
         autostart: config.autostart.clone(),
         node_sample_interval: config.node_sample_interval,
         seq_high_water,
+        ui_config,
         agents,
         manager,
         ui_language,

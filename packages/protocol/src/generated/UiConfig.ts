@@ -2,6 +2,7 @@
 import type { LayoutConfig } from "./LayoutConfig";
 import type { PerformanceMode } from "./PerformanceMode";
 import type { ThemeConfig } from "./ThemeConfig";
+import type { UiPrefs } from "./UiPrefs";
 
 /**
  * The whole UI configuration document.
@@ -22,4 +23,10 @@ layout: LayoutConfig,
 /**
  * Performance mode.
  */
-performanceMode: PerformanceMode, };
+performanceMode: PerformanceMode, 
+/**
+ * Shell preferences (density, panel placement, hidden widgets,
+ * background dim, HUD). Appended in Phase 3 (schema v1, additive:
+ * absent = defaults). See [`crate::ui_prefs`].
+ */
+prefs?: UiPrefs, };

@@ -15,10 +15,14 @@
 //!   as `<this exe> --autostart`; such launches start hidden in the tray.
 //! * **Single instance** — a second launch focuses the existing window.
 //!
+//! HUD / Ambient (§34, Phase 3): a compact always-on-top window, see [`hud`].
+//!
 //! Localization: the webview reports the resolved UI language through
 //! `set_ui_language` (at startup and on every switch); the tray menu and
 //! tooltip are rebuilt in that language (see [`tray_texts`]).
 #![forbid(unsafe_code)]
+
+mod hud;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -308,7 +312,17 @@ pub fn run() {
                 }
             }
         })
-        .invoke_handler(tauri::generate_handler![core_connection, shell_set_prefs, shell_quit, set_ui_language]);
+        .invoke_handler(tauri::generate_handler![
+            core_connection,
+            shell_set_prefs,
+            shell_quit,
+            set_ui_language,
+            hud::hud_show,
+            hud::hud_hide,
+            hud::hud_toggle,
+            hud::hud_collapse,
+            hud::hud_expand
+        ]);
 
     let app = match builder.build(tauri::generate_context!()) {
         Ok(app) => app,

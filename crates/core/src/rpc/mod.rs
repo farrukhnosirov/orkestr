@@ -24,6 +24,7 @@ pub mod system;
 pub mod tasks;
 pub mod templates;
 pub mod terminal;
+pub mod ui;
 pub mod vcs;
 
 use std::collections::BTreeMap;
@@ -151,6 +152,8 @@ pub fn build_router() -> RpcRouter {
     router.register(settings::register).register(nodes::register);
     router.register(templates::register).register(agents::register);
     router.register(manager::register);
+    // Phase 3 (hud-perf-aiui): validated UI config patches.
+    router.register(ui::register);
     router
 }
 

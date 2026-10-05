@@ -8,6 +8,8 @@ import type { AgentStats } from "./AgentStats";
 import type { AgentStatsParams } from "./AgentStatsParams";
 import type { AgentStopParams } from "./AgentStopParams";
 import type { AgentTranscriptResult } from "./AgentTranscriptResult";
+import type { ApplyUiPatchParams } from "./ApplyUiPatchParams";
+import type { ApplyUiPatchResult } from "./ApplyUiPatchResult";
 import type { ApprovalIdParams } from "./ApprovalIdParams";
 import type { ApprovalResult } from "./ApprovalResult";
 import type { ApprovePlanParams } from "./ApprovePlanParams";
@@ -147,6 +149,9 @@ import type { OpenExternalResult } from "./OpenExternalResult";
 import type { OpenTerminalParams } from "./OpenTerminalParams";
 import type { PathsParams } from "./PathsParams";
 import type { PlanRollbackParams } from "./PlanRollbackParams";
+import type { PowerStatusView } from "./PowerStatusView";
+import type { PreviewUiPatchParams } from "./PreviewUiPatchParams";
+import type { PreviewUiPatchResult } from "./PreviewUiPatchResult";
 import type { ProjectIdParams } from "./ProjectIdParams";
 import type { ProjectResult } from "./ProjectResult";
 import type { ProviderIdParams } from "./ProviderIdParams";
@@ -417,6 +422,9 @@ export type Methods = {
   "manager.cancel": [ManagerRunIdParams, ManagerRunResult];
   "manager.status": [ManagerStatusParams, ManagerStatusResult];
   "manager.resumeSummary": [ManagerProjectParams, ManagerResumeSummary];
+  "ui.previewPatch": [PreviewUiPatchParams, PreviewUiPatchResult];
+  "ui.applyPatch": [ApplyUiPatchParams, ApplyUiPatchResult];
+  "nodes.power": [Empty, PowerStatusView];
 };
 
 /** All implemented method names. */
@@ -592,6 +600,9 @@ export const METHOD_NAMES = [
   "manager.cancel",
   "manager.status",
   "manager.resumeSummary",
+  "ui.previewPatch",
+  "ui.applyPatch",
+  "nodes.power",
 ] as const;
 
 /** Wire protocol version (see orkestr-protocol PROTOCOL_VERSION). */
@@ -644,6 +655,8 @@ export const EVENT_KINDS = [
   "ManagerMessageAdded",
   "ManagerPlanUpdated",
   "ManagerRunUpdated",
+  "UiPatchProposed",
+  "UiConfigPatched",
 ] as const;
 
 /** UI config schema version (see orkestr-protocol ui_config). */

@@ -249,3 +249,24 @@ method!(
     /// `nodes.resources`.
     Resources, "nodes.resources", super::Empty, NodeResourcesResult
 );
+
+/// Host power state (result of `nodes.power`; §31 Performance Mode — the UI
+/// switches to Battery Saver on battery when the user allows it).
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct PowerStatusView {
+    /// `true` on AC power, `false` on battery, `None` unknown.
+    pub on_ac_power: Option<bool>,
+    /// Battery charge 0..=100, when known.
+    pub battery_percent: Option<f32>,
+    /// Whether a battery is present.
+    pub has_battery: bool,
+    /// Whether this host can report its power state at all.
+    pub supported: bool,
+}
+
+method!(
+    /// `nodes.power` — power / battery state of the local node (Phase 3).
+    Power, "nodes.power", super::Empty, PowerStatusView
+);

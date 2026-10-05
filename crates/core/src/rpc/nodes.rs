@@ -2,7 +2,9 @@
 
 use std::sync::Arc;
 
-use orkestr_protocol::methods::nodes::{self as m, ListNodesResult, NodeInfo, NodeInfoParams, NodeResourcesResult};
+use orkestr_protocol::methods::nodes::{
+    self as m, ListNodesResult, NodeInfo, NodeInfoParams, NodeResourcesResult, PowerStatusView,
+};
 use orkestr_protocol::RpcError;
 
 use super::{RpcContext, RpcRouter};
@@ -17,7 +19,8 @@ pub fn register(router: &mut RpcRouter) {
             Ok(ListNodesResult { nodes: vec![ctx.services.nodes.local_node()] })
         })
         .method::<m::Info, _, _>(info)
-        .method::<m::Resources, _, _>(|ctx: RpcContext, _| resources(ctx));
+        .method::<m::Resources, _, _>(|ctx: RpcContext, _| resources(ctx))
+        .method::<m::Power, _, _>(|ctx: RpcContext, _| power(ctx));
 }
 
 async fn info(ctx: RpcContext, p: NodeInfoParams) -> Result<NodeInfo, RpcError> {
@@ -40,4 +43,25 @@ async fn resources(ctx: RpcContext) -> Result<NodeResourcesResult, RpcError> {
     };
     let interval_ms = u64::try_from(ctx.services.node_sample_interval.as_millis()).unwrap_or(u64::MAX);
     Ok(NodeResourcesResult { sample, interval_ms })
+}
+
+/// `nodes.power` (Phase 3, §31): power / battery state of this host.
+/// Unsupported hosts answer `supported: false` instead of an error.
+async fn power(ctx: RpcContext) -> Result<PowerStatusView, RpcError> {
+    let platform = Arc::clone(&ctx.services.platform);
+    let status = tokio::task::spawn_blocking(move || platform.power().status())
+        .await
+        .map_err(|e| RpcError::internal(format!("power probe failed: {e}")))?;
+    Ok(match status {
+        Ok(s) => PowerStatusView {
+            on_ac_power: s.on_ac_power,
+            battery_percent: s.battery_percent,
+            has_battery: s.has_battery,
+            supported: true,
+        },
+        Err(e) => {
+            tracing::debug!(error = %e, "power status unavailable");
+            PowerStatusView { on_ac_power: None, battery_percent: None, has_battery: false, supported: false }
+        }
+    })
 }

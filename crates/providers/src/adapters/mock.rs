@@ -691,6 +691,15 @@ fn manager_script(req: &ChatRequest) -> MockScript {
                 format!("I could not complete that: {result}\n\n_— Mock (offline demo)_"),
                 format!("Не получилось это выполнить: {result}\n\n_— Mock (офлайн-демо)_"),
             )
+        } else if tool == "update_ui_config" {
+            lang.pick(
+                "I prepared the UI change. You can already see the **live preview** — keep it or revert it in the card; nothing is saved until you keep it.
+
+_— Mock (offline demo)_".to_owned(),
+                "Я подготовил изменение интерфейса. Вы уже видите **предпросмотр** — оставьте его или отмените в карточке; пока вы не нажмёте «Оставить», ничего не сохраняется.
+
+_— Mock (офлайн-демо)_".to_owned(),
+            )
         } else if tool == "propose_plan" {
             lang.pick(
                 format!("I studied the project and drafted a plan: {result}\n\nReview the **plan card** below — approve it to start the agents (each works in its own worktree), edit task titles or remove tasks first, or reject it.\n\n_— Mock (offline demo)_"),
@@ -706,6 +715,15 @@ fn manager_script(req: &ChatRequest) -> MockScript {
     let user = last_user(req);
     let request = user.split("\n\n[Attached").next().unwrap_or_default().trim().to_owned();
     let lower = request.to_lowercase();
+    // Phase 3: UI requests → a validated UI config patch (never code).
+    if has_tool(req, "update_ui_config") {
+        if let Some((summary, patch)) = super::mock_ui::ui_intent_patch(&request, reply_lang(req) == MockLang::Ru) {
+            return MockScript::Tool {
+                name: "update_ui_config".into(),
+                arguments: json!({ "summary": summary, "patch": patch }),
+            };
+        }
+    }
     if has_tool(req, "propose_plan") && BUILD_WORDS.iter().any(|w| lower.contains(w)) {
         return MockScript::Tool { name: "propose_plan".into(), arguments: json!({ "goal": request }) };
     }

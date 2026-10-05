@@ -11,6 +11,8 @@
 //!   permission-checked state tools and acts through action tools
 //!   (`propose_plan`, `create_tasks`, `spawn_agent`, `stop_agent`,
 //!   `request_approval`, `record_decision`, `answer_user`).
+//! * [`ui_tools`] — `update_ui_config`: the Manager changes the UI only via
+//!   validated UI config patches that the user previews and keeps (§29).
 //! * [`planner`] + [`plan`] — study the project (memory, file index, git,
 //!   open tasks) → structured plan (JSON schema with provider structured
 //!   output, or robust extraction + one repair round) → normalise, validate,
@@ -39,6 +41,7 @@ pub mod schema;
 pub mod service;
 pub mod store;
 pub mod tools;
+pub mod ui_tools;
 pub mod util;
 
 pub use deps::{
