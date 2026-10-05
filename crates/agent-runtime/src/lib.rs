@@ -30,6 +30,7 @@
 #![warn(missing_docs)]
 
 pub mod cli;
+pub mod context_plan;
 pub mod deps;
 pub mod error;
 pub mod gateway;

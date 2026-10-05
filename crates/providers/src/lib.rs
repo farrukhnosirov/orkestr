@@ -48,6 +48,7 @@ pub const UI_LANGUAGE_MARKER: &str = "User interface language:";
 pub use catalog::{kind_info, kind_slug, parse_kind, KindInfo, MOCK_DISPLAY_NAME, PHASE1_KINDS};
 pub use credentials::{CredentialError, CredentialResolver, MemoryCredentials};
 pub use factory::AdapterDeps;
+pub use adapters::mock_summarize::HANDOFF_SUMMARY_MARKER;
 pub use history::{ModelHistory, ModelStatsSource};
 pub use fallback::{
     chat_with_fallback, AdapterSource, AttemptOutcome, FallbackOptions, HandoffContext, HandoffHook, NullSink,
