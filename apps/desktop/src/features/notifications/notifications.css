@@ -43,7 +43,8 @@
   max-height: min(520px, 70vh);
   border: 1px solid var(--ok-color-border-strong);
   border-radius: var(--ok-radius-lg);
-  background: var(--ok-gradient-panel), var(--ok-color-surface-strong);
+  /* opaque base: text underneath must not ghost through */
+  background: var(--ok-gradient-panel), linear-gradient(var(--ok-color-surface-strong), var(--ok-color-surface-strong)), var(--ok-color-bg);
   backdrop-filter: blur(var(--ok-blur)) saturate(150%);
   -webkit-backdrop-filter: blur(var(--ok-blur)) saturate(150%);
   box-shadow: var(--ok-shadow-panel), var(--ok-glow-violet);
@@ -169,7 +170,8 @@
   border: 1px solid var(--ok-color-border-strong);
   border-left: 3px solid var(--ok-color-info);
   border-radius: var(--ok-radius-lg);
-  background: var(--ok-gradient-panel), var(--ok-color-surface-strong);
+  /* opaque base: content behind a floating surface must not ghost through */
+  background: var(--ok-gradient-panel), linear-gradient(var(--ok-color-surface-strong), var(--ok-color-surface-strong)), var(--ok-color-bg);
   backdrop-filter: blur(var(--ok-blur)) saturate(150%);
   -webkit-backdrop-filter: blur(var(--ok-blur)) saturate(150%);
   box-shadow: var(--ok-shadow-md);

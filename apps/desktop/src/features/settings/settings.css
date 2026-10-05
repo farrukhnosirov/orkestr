@@ -29,7 +29,8 @@
   gap: var(--ok-space-1);
   padding: var(--ok-space-5) var(--ok-space-3);
   border-right: 1px solid var(--ok-color-border);
-  background: var(--ok-gradient-panel), var(--ok-color-surface);
+  /* opaque base: the workspace behind the overlay must not show through the nav */
+  background: var(--ok-gradient-panel), linear-gradient(var(--ok-color-surface), var(--ok-color-surface)), var(--ok-color-bg);
 }
 
 .settings-nav__head {

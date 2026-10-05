@@ -90,7 +90,8 @@
 
 .hud__status {
   flex: 1;
-  min-width: 0;
+  /* never squeeze the project name to a couple of letters */
+  min-width: 96px;
   display: flex;
   flex-direction: column;
   line-height: 1.2;
@@ -384,4 +385,9 @@
 [data-ok-density="compact"] .hud {
   gap: 6px;
   padding: 6px var(--ok-space-2) var(--ok-space-2);
+}
+
+.hud__agents-end {
+  margin-left: auto;
+  flex: none;
 }

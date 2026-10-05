@@ -7,6 +7,13 @@ import { humanizeId, idKey, type ChangeSummary } from "./patch";
 const HUD_FIELDS = ["opacity", "showAgents", "showManagerInput"] as const;
 const EFFECTS = ["blurPx", "glowIntensity", "panelOpacity", "animations"] as const;
 const PRESETS = ["Coding", "MissionControl", "Monitoring", "Focus", "Custom"] as const;
+const TOKENS = ["color-bg", "color-bg-elevated", "color-surface", "color-accent", "color-text", "color-text-muted", "color-border"] as const;
+
+/** A readable name for a theme token (`color-bg` → "background"); unknown tokens keep their id. */
+function tokenLabel(name: string): string {
+  const k = pick(TOKENS, name);
+  return k ? t(`aiui:tokenName.${k}`) : name;
+}
 const PERF = ["UltraVisual", "Balanced", "Performance", "BatterySaver"] as const;
 
 function pick<T extends string>(list: readonly T[], v: string): T | null {
@@ -48,7 +55,9 @@ export function changeText(c: ChangeSummary): string {
       return t("aiui:change.hud", { field: t(f ? `aiui:hudField.${f}` : "aiui:hudField.unknown") });
     }
     case "token":
-      return c.to === null ? t("aiui:change.tokenRemoved", { name: c.name }) : t("aiui:change.token", { name: c.name });
+      return c.to === null
+        ? t("aiui:change.tokenRemoved", { name: tokenLabel(c.name) })
+        : t("aiui:change.token", { name: tokenLabel(c.name) });
     case "effect": {
       const f = pick(EFFECTS, c.field);
       return t("aiui:change.effect", { name: t(f ? `aiui:effect.${f}` : "aiui:effect.unknown") });

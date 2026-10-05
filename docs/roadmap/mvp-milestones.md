@@ -383,6 +383,80 @@ showed a phantom horizontal scrollbar.
 
 ## Phase 3: Visual OS
 
+### Status: Phase 3 delivered for Windows (acceptance 2026-10-05). G and H pass; several exit criteria are still open
+
+**How it was built**
+- Six areas were built in parallel worktrees:
+  - theme engine;
+  - layouts / multi-monitor;
+  - HUD, performance and AI-UI;
+  - Mission Control;
+  - robots;
+  - voice and sound.
+- They were integrated in `138ca8a`.
+- An acceptance and visual-QA pass then followed.
+
+**How it was checked**
+- `scripts/smoke/phase3-acceptance.mjs` drives the real desktop app:
+  - debug build with the bundled frontend;
+  - isolated `ORKESTR_HOME`;
+  - mock providers;
+  - a temp git project named «Schoolify».
+- Result: **64/64 checks pass** on the final build. The two runs before it, on the build just before the last CSS and preset fixes, each passed 63/63.
+- Screenshots and `acceptance.json` are in `docs/screenshots/phase3/`.
+- These are green: `cargo build`, `cargo test --workspace` (1796 tests), clippy `-D warnings`, `cargo fmt --check`, `npm run typecheck`, `npm test` (740 desktop tests) and `npm run build`.
+- The architecture is described in `docs/architecture/visual-os.md`.
+
+**Scenario results**
+- **H** (§63H): passes.
+  1. A Manager run spawns a floating robot window for every agent, and the robots change state during the run (Coding → Reviewing → Completed).
+  2. A QA agent completes, and its robot shows the Completed pose with a «Done! ✓» bubble.
+  3. A click on the robot opens the agent's result in the Agents panel.
+  4. The robot windows are verified to be layered, topmost and click-through (`WS_EX_TRANSPARENT`) while not hovered.
+  5. They have fully transparent corners: no box around the robot.
+- **G** (§63G): passes **without microphone hardware**.
+  1. The transcript «Jarvis, что происходит со Schoolify?» is fed through the post-STT path via a debug-flagged seam.
+  2. It resolves to `projectStatus`.
+  3. The reply is «Schoolify: … tasks in progress … agent is working … approvals … failing test».
+  4. TTS (`speechSynthesis`, stubbed silent) is called with the reply.
+  5. `VoiceCommand` records only the transcript.
+- **Real speech recognition was not exercised.** The default STT engine is «Disabled», which means typed commands. The other engines are WebSpeech and OpenAI Whisper (cloud, consent).
+
+| Milestone | Delivered | Open (exit criteria not met or not measured) |
+|---|---|---|
+| M3.1 Mission Control | Live widgets from events: projects, agents, task graph, node CPU/RAM/GPU, provider health, limits, spend, approvals (approve/reject inline), quality-runner builds/tests, reviews & merges, alerts. Customizable arrangement saved per device. | 200-node graph ≥ 50 fps not measured. Charts refresh on an interval policy, not purely event-driven. |
+| M3.2 Theme / layout / AI-UI | Six built-in themes; Theme Editor with live preview and WCAG report. Layout presets Coding / Mission Control / Monitoring / Focus / Review / Custom (Ctrl+1…5). Layout Editor. Manager patch → preview → Keep / Revert → Undo with version history. | A patch that lowers contrast is **not rejected** (contrast is only reported). No `--safe-ui` recovery. AI patches change only the global config, not a device override. |
+| M3.3 Robots + Robot Designer | Scenario H. States, bubbles, context menu, drag/snap, drop-on-project assignment, overflow cluster. Designer: 2D/3D, skin, material, accent, size, accessories, voice, sounds, behaviour. | Per-robot CPU/RAM vs the SP-04 budget not measured. Linux Wayland fallback not built. Robot windows do not follow the battery / frame-rate auto-downgrade. Robot scale is not taken from the theme. |
+| M3.4 Voice + Sound | Push-to-talk, typed HUD, local intent parser (ru/en, fuzzy names), confirmations for destructive intents, local wake word (DTW, opt-in), consent-gated cloud STT/TTS, voice per agent, voice notifications with DND, sound engine cues. | **No local Whisper STT.** Zero-network-before-wake not verified by packet capture. SP-15 budgets not measured. G passed via the transcript seam only. |
+| M3.5 HUD, multi-monitor | HUD window (status, agents, build/test chip, approvals, voice indicator, mini Manager). Detach a panel to its own window and re-dock (verified). Layouts and popouts persisted per device with monitor ids. | Restore after an app restart on two monitors not verified (single-monitor host). HUD voice indicator relies on `BroadcastChannel` between windows; the click path is not verified in the running app. Autostart (from Phase 1) not re-verified after a reboot. |
+| M3.6 Performance modes, cross-OS | One policy table drives blur, glow, motion, backgrounds, robots, charts and HUD. Battery Saver holds robots still. The policy is verified on `<html>` for all four modes. | UI CPU < 3 % with 5 agents not measured. **No macOS / Linux packaging.** |
+
+**Defects found and fixed in the acceptance pass**
+- **Every window mounted two React roots.** The `main.tsx` merge rendered `<App/>` twice. This stacked two shells (the page scrolled, every store and subscription ran twice) and drew the full shell behind the HUD and detached windows. A guard test was added.
+- **Command enablement in the palette went stale.** The palette memoized `enabled()` at mount, so a command disabled at startup stayed disabled and Enter silently did nothing. This was flaky: «Open voice commands» was hit by it. A regression test was added.
+- **Ctrl+K also reached Monaco**, where it starts a chord.
+- **The Coding preset tabbed Code and the Manager into one group**, so only one was ever visible. They are now side by side.
+- **The shell could be scrolled away.** `AgentDetail` used `scrollIntoView`, which also scrolled `overflow:hidden` ancestors. The fix scrolls only the transcript, and `.app` now uses `overflow: clip`.
+- **Robot speech bubbles shrank to one letter wide** when an old bubble was leaving as a new one arrived.
+- **The robot context menu showed the bubble through it.**
+- **Translucent overlays let panel text ghost through.** Affected: Settings nav, Theme Editor, Layout Editor, onboarding, AI-UI card and toasts.
+- **Each approval produced two toasts that overlapped.** The passive notification toast is now skipped, and security toasts sit at the top-right.
+- **The HUD squeezed the project name to «Sc…».** The build/test chip moved to the agents row.
+- **«Monitoring» was split mid-word in the Layout Editor.**
+- **The Manager run card wrapped its stats into a narrow column.**
+- **Mission Control's spend tile was orphaned on a second row.**
+- **Approval buttons had no gap between icon and label, and «just now» was truncated.**
+- **The AI-UI change list showed raw token ids** («color-bg»).
+- **A flaky Git merge-tab test** had too short a `findBy` timeout under load.
+
+**Open issue (not changed, needs a decision)**
+- On this Windows host, agent and quality commands that call `npm` fail inside PowerShell, because the default execution policy blocks `npm.ps1`.
+- As a result, the seed project for the acceptance run has no `npm test` script.
+- A process-scoped `-ExecutionPolicy RemoteSigned` for agent commands was prepared but **not applied**: it relaxes a security setting and needs an explicit owner decision.
+- Possible alternatives: resolve `npm.cmd`, or run Node tooling through `cmd`.
+
+**Not re-run on the Phase 3 build:** scenarios A, B and J.
+
 ### M3.1 Mission Control and visual task graph
 - **Scope:** Mission Control preset/panel (§32): projects, active agents, task graph, node resources, provider health, limits, spend, approvals, builds, alerts. An interactive task graph (create, link, reprioritize, open; @xyflow/react), with all actions through RPC.
 - **Exit criteria:** a 200-node graph renders at ≥ 50 fps pan/zoom; every tile updates live from events with no polling.

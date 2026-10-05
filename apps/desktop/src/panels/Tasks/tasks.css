@@ -484,7 +484,8 @@
   border: 1px solid var(--ok-color-border-strong);
   border-left: 3px solid var(--status-color);
   border-radius: var(--ok-radius-md);
-  background: var(--ok-gradient-panel), var(--ok-color-surface-strong);
+  /* opaque base: content behind a floating surface must not ghost through */
+  background: var(--ok-gradient-panel), linear-gradient(var(--ok-color-surface-strong), var(--ok-color-surface-strong)), var(--ok-color-bg);
   color: var(--ok-color-text);
   box-shadow: var(--ok-shadow-md);
   font-size: var(--ok-font-size-sm);
@@ -568,7 +569,8 @@
   flex-direction: column;
   min-height: 0;
   border-left: 1px solid var(--ok-color-border-strong);
-  background: var(--ok-gradient-panel), var(--ok-color-surface-strong);
+  /* opaque base: content behind a floating surface must not ghost through */
+  background: var(--ok-gradient-panel), linear-gradient(var(--ok-color-surface-strong), var(--ok-color-surface-strong)), var(--ok-color-bg);
   backdrop-filter: blur(var(--ok-blur));
   -webkit-backdrop-filter: blur(var(--ok-blur));
   box-shadow: var(--ok-shadow-panel);

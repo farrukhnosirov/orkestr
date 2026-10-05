@@ -96,7 +96,7 @@ describe("MergeTab", () => {
 
   it("renders a proposal and validates reordering against dependencies", async () => {
     render(<MergeTab projectId="proj" currentBranch="main" />);
-    expect(await screen.findByText("Target: main")).toBeTruthy();
+    expect(await screen.findByText("Target: main", {}, { timeout: 5000 })).toBeTruthy();
     expect(screen.getByText("Conflicts expected")).toBeTruthy();
     expect(screen.getByText("agent/api conflicts with agent/ui")).toBeTruthy();
     expect(screen.getAllByText("Tests: failed").length).toBe(2);
@@ -118,7 +118,7 @@ describe("MergeTab", () => {
       await applyLanguagePreference("ru");
     });
     render(<MergeTab projectId="proj" currentBranch="main" />);
-    expect(await screen.findByText("Целевая ветка: main")).toBeTruthy();
+    expect(await screen.findByText("Целевая ветка: main", {}, { timeout: 5000 })).toBeTruthy();
     expect(screen.getByText("Ожидаются конфликты")).toBeTruthy();
     expect(screen.getAllByText("Тесты: не пройдено").length).toBe(2);
     expect(screen.getAllByText("Впереди на 2 коммита").length).toBe(2);

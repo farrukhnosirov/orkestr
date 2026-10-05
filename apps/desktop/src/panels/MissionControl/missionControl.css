@@ -422,7 +422,8 @@
 
 .mc-kpis {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  /* 118px: all seven tiles fit one row in a ~880px widget (130px left the spend tile alone on a second row) */
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
   gap: var(--ok-space-2);
 }
 
@@ -1200,12 +1201,21 @@
 
 .mc-approval__foot {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--ok-space-1);
 }
 
+.mc-approval__actions {
+  /* Reject + Approve wrap together, right-aligned */
+  display: flex;
+  gap: var(--ok-space-1);
+  margin-left: auto;
+}
+
 .mc-approval__meta {
-  flex: 1;
+  /* the project + age stay readable: buttons wrap to the next line first */
+  flex: 1 1 120px;
   min-width: 0;
   font-size: 11px;
   color: var(--ok-color-text-subtle);

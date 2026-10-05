@@ -11,9 +11,11 @@
   padding: var(--ok-space-4);
   border-radius: var(--ok-radius-lg);
   border: 1px solid var(--ok-color-border-strong);
+  /* Opaque base: panel text must not ghost through the card. */
   background:
     var(--ok-gradient-panel),
-    color-mix(in srgb, var(--ok-color-bg-elevated) 94%, transparent);
+    linear-gradient(var(--ok-color-bg-elevated), var(--ok-color-bg-elevated)),
+    var(--ok-color-bg);
   backdrop-filter: blur(calc(var(--ok-blur) * 1.2)) saturate(140%);
   -webkit-backdrop-filter: blur(calc(var(--ok-blur) * 1.2)) saturate(140%);
   box-shadow: var(--ok-shadow-panel), var(--ok-glow-violet);

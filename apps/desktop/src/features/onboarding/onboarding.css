@@ -12,7 +12,8 @@
   overflow: hidden;
   border-radius: var(--ok-radius-xl);
   border: 1px solid var(--ok-color-border-strong);
-  background: var(--ok-gradient-panel), var(--ok-color-surface-strong);
+  /* opaque base: the workspace behind the wizard must not show through */
+  background: var(--ok-gradient-panel), linear-gradient(var(--ok-color-surface-strong), var(--ok-color-surface-strong)), var(--ok-color-bg);
   backdrop-filter: blur(var(--ok-blur)) saturate(150%);
   -webkit-backdrop-filter: blur(var(--ok-blur)) saturate(150%);
   box-shadow: var(--ok-shadow-panel), var(--ok-glow-violet);

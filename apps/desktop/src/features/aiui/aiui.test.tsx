@@ -140,7 +140,7 @@ describe("UI patch validation (client mirror)", () => {
       "Hide widget Token chart",
       "Claude lane: move to the right",
       "Darker background (55% dimming)",
-      "Theme color «color-bg»",
+      "Theme color «background»",
     ]);
     await i18n.changeLanguage("ru");
     expect(changeText(summary[2]!)).toBe("Дорожка Claude: переместить вправо");

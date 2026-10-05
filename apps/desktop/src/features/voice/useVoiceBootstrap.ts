@@ -16,7 +16,7 @@ import { usePerfStore } from "../performance/perfStore";
 import { configureSound, playSound } from "../sound/engine";
 import { activeTheme, useThemeStore } from "../theme/themeStore";
 import { assistantOptions, robotVoiceFor, speakAsAgent } from "./agentVoices";
-import { shutdownVoice, startListening, stopListening, syncWakeListener } from "./controller";
+import { installVoiceDebugHook, shutdownVoice, startListening, stopListening, syncWakeListener } from "./controller";
 import { isHoldEnd, isHoldStart, parseHotkey } from "./hotkey";
 import { noticeFromEvent, phraseId, PhraseLimiter, speakDecision } from "./notify/policy";
 import { useVoiceStore } from "./store";
@@ -77,12 +77,14 @@ export function useVoiceBootstrap(ready: boolean): void {
       if (s.config !== prev.config) void syncWakeListener();
     });
     const offBridge = startVoiceBroadcast();
+    const offDebug = installVoiceDebugHook();
     const offSettings = useSettingsStore.subscribe((s, prev) => {
       if (s.settings?.performanceMode !== prev.settings?.performanceMode) void syncWakeListener();
     });
     return () => {
       offVoice();
       offBridge();
+      offDebug();
       offSettings();
       configureSound(() => null);
       shutdownVoice();

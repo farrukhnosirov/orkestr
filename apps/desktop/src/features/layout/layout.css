@@ -82,7 +82,8 @@
   padding: 6px;
   border: 1px solid var(--ok-color-border-strong);
   border-radius: var(--ok-radius-lg);
-  background: var(--ok-gradient-panel), color-mix(in srgb, var(--ok-color-bg-elevated) 95%, transparent);
+  /* opaque base: panels behind the menu must not ghost through */
+  background: var(--ok-gradient-panel), linear-gradient(var(--ok-color-bg-elevated), var(--ok-color-bg-elevated)), var(--ok-color-bg);
   backdrop-filter: blur(var(--ok-blur)) saturate(150%);
   -webkit-backdrop-filter: blur(var(--ok-blur)) saturate(150%);
   box-shadow: var(--ok-shadow-panel), var(--ok-glow-violet);
@@ -310,7 +311,8 @@
   width: min(380px, calc(100vw - 32px));
   border: 1px solid var(--ok-color-border-strong);
   border-radius: var(--ok-radius-xl);
-  background: var(--ok-gradient-panel), color-mix(in srgb, var(--ok-color-bg-elevated) 95%, transparent);
+  /* opaque base: panels behind the sheet must not ghost through */
+  background: var(--ok-gradient-panel), linear-gradient(var(--ok-color-bg-elevated), var(--ok-color-bg-elevated)), var(--ok-color-bg);
   backdrop-filter: blur(var(--ok-blur)) saturate(150%);
   -webkit-backdrop-filter: blur(var(--ok-blur)) saturate(150%);
   box-shadow: var(--ok-shadow-panel), var(--ok-glow-violet);
@@ -536,10 +538,28 @@
   color: var(--ok-color-accent);
 }
 
-.lyt-preset__name {
+.lyt-preset__text {
+  /* name above its shortcut: a side-by-side kbd cut «Monitoring» to «Monitori…» */
   flex: 1;
   min-width: 0;
-  overflow-wrap: anywhere;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+}
+
+.lyt-preset__text .lyt-preset__kbd {
+  font-size: 10px;
+}
+
+.lyt-preset__name {
+  max-width: 100%;
+  min-width: 0;
+  /* wrap between words only ("Mission / Control"), never inside one ("Monitorin / g") */
+  overflow-wrap: normal;
+  word-break: normal;
+  overflow: hidden;
+  text-overflow: ellipsis;
   line-height: 1.25;
 }
 
@@ -863,7 +883,8 @@
 .dockview-theme-nebula .dv-resize-container {
   overflow: hidden;
   border-radius: var(--ok-radius-lg);
-  background: var(--ok-gradient-panel), color-mix(in srgb, var(--ok-color-bg-elevated) 96%, transparent);
+  /* opaque base: content behind a floating surface must not ghost through */
+  background: var(--ok-gradient-panel), linear-gradient(var(--ok-color-bg-elevated), var(--ok-color-bg-elevated)), var(--ok-color-bg);
   box-shadow: var(--ok-shadow-panel), var(--ok-glow-violet);
 }
 

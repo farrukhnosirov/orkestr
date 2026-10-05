@@ -208,7 +208,8 @@
   border: 1px solid color-mix(in srgb, var(--arch-kind-color) 45%, var(--ok-color-border));
   border-left: 3px solid var(--arch-kind-color);
   border-radius: var(--ok-radius-md);
-  background: var(--ok-gradient-panel), var(--ok-color-surface-strong);
+  /* opaque base: content behind a floating surface must not ghost through */
+  background: var(--ok-gradient-panel), linear-gradient(var(--ok-color-surface-strong), var(--ok-color-surface-strong)), var(--ok-color-bg);
   color: var(--ok-color-text);
   box-shadow: var(--ok-shadow-md);
   font-size: var(--ok-font-size-sm);

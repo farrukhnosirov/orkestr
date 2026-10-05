@@ -168,6 +168,8 @@ describe("notifications", () => {
     expect(useNotificationsStore.getState().items).toHaveLength(MAX_HISTORY);
     expect(shouldToast(n("y"), true)).toBe(false);
     expect(shouldToast(n("z", "Critical"), true)).toBe(true);
+    // Approvals are toasted once, by the actionable security toast.
+    expect(shouldToast({ ...n("a"), source: "ApprovalRequested" }, false)).toBe(false);
   });
 
   it("formats relative times", () => {

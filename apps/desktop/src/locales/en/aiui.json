@@ -120,5 +120,14 @@
     "hudOpacity": "HUD opacity: {{percent}}",
     "hudAgents": "HUD agent strip",
     "hudInput": "HUD Manager input"
+  },
+  "tokenName": {
+    "color-bg": "background",
+    "color-bg-elevated": "raised background",
+    "color-surface": "panel surface",
+    "color-accent": "accent",
+    "color-text": "text",
+    "color-text-muted": "secondary text",
+    "color-border": "borders"
   }
 }

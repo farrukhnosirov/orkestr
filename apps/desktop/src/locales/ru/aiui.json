@@ -124,5 +124,14 @@
     "hudOpacity": "Непрозрачность HUD: {{percent}}",
     "hudAgents": "Полоса агентов в HUD",
     "hudInput": "Поле для Менеджера в HUD"
+  },
+  "tokenName": {
+    "color-bg": "фон",
+    "color-bg-elevated": "приподнятый фон",
+    "color-surface": "поверхность панелей",
+    "color-accent": "акцент",
+    "color-text": "текст",
+    "color-text-muted": "вторичный текст",
+    "color-border": "границы"
   }
 }

@@ -23,7 +23,7 @@ const detached = parseDetachedRoute(window.location.hash);
 
 createRoot(root).render(
   <StrictMode>
-    {detached ? <DetachedPanelApp route={detached} /> : <App />}
-    {isHudWindow() ? <HudApp /> : <App />}
+    {/* Exactly one root per window: detached panel, HUD, or the main shell. */}
+    {detached ? <DetachedPanelApp route={detached} /> : isHudWindow() ? <HudApp /> : <App />}
   </StrictMode>,
 );

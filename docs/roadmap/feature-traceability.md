@@ -42,6 +42,39 @@ in separate panels.
 | — | Background service | Partial | Partial | `orkestrd` + tray keep-running; no Job Object supervisor, so child processes of a hard-killed core are not reaped by the OS. |
 | — | Installer / CI | (M1.1, M1.8) | — | No signed installer, auto-update or CI matrix yet. |
 
+**As built at Phase 3 acceptance (2026-10-05):** this table covers the
+Visual OS items that have a P3 commitment. The evidence is:
+- `scripts/smoke/phase3-acceptance.mjs`, 64/64 checks against the real desktop app;
+- the screenshot review in `docs/screenshots/phase3/`;
+- the Rust and TS test suites.
+
+The architecture is described in `docs/architecture/visual-os.md`. Items not
+listed here were not re-verified in the Phase 3 pass. Windows was the only OS
+tested.
+
+| # | Feature | Planned P3 | Delivered P3 | Difference / evidence |
+|---|---|---|---|---|
+| 22 | Mission Control | Full | Partial | Widgets cover the planned set: projects, agents, task graph, local node CPU/RAM/GPU, provider health, limits, spend, approvals, quality builds/tests, reviews & merges, alerts. Live from events, with the arrangement saved per device. Missing: the 200-node / 50 fps exit check was not measured, and the charts poll on the performance-policy interval. |
+| 23 | Visual Task Graph | Full | Partial | Interactive graph (link, delete dependency, open) in Tasks and the Mission Control widget. Reprioritize-by-drag and the 200-node performance bar were not verified. |
+| 26 | Background Agents | Full | Partial | Tray keep-running and the autostart entry date from P1. The reboot check of M3.5 was not run. |
+| 28 | Voice Command Center | Full | Partial | Scenario G passes through the post-STT path (`simulateTranscript` seam, TTS called), and typed HUD commands work, e.g. «show build errors» answered from the quality runner. Push-to-talk and destructive-intent confirmations work. STT is WebSpeech or OpenAI Whisper (cloud, consent-gated); **no local Whisper**. A real microphone was not exercised in acceptance. |
+| 29 | Wake Word | Full | Partial | Local MFCC/DTW spotter with enrollment, opt-in, VAD-gated, paused in Battery Saver. SP-15 budgets and the zero-network packet capture were not measured. |
+| 30 | Voice Notifications | Full | Full | Spoken notifications with DND / quiet hours. Robots with voice on speak for their agent, with no double announcement. |
+| 34 | Rollback Everything | Full | Full (UI part) | Every UI config change is versioned; AI patches carry an exact inverse patch, and Undo is verified. Scenario J was not re-run on the Phase 3 build. |
+| 45 | Live Infrastructure Monitor | Partial | Partial | Local node resources shown in Monitoring and Mission Control. |
+| — | Custom Visual OS | Full | Full | Frameless shell and custom controls. Transparent robot windows, verified: alpha-0 corners, `WS_EX_LAYERED|TRANSPARENT`, topmost. Floating and detached panels. |
+| — | Floating robots | Full | Partial | Scenario H passes: robot per agent, live states, completion pose + bubble, click opens the result. Click-through, context menu, drag/snap, drop-on-project and overflow cluster all work. Missing: per-robot CPU/RAM budget not measured; no Linux Wayland fallback; robot windows do not follow the battery / frame-rate auto-downgrade. |
+| — | Robot Designer | Full | Full | 2D/3D, skin, material, accent, size, accessories, animation intensity, voice, sounds, behaviour. Stored per template. The theme supplies defaults for unstyled robots. |
+| — | Theme Engine | Full | Full | Six built-in themes, all screenshotted on Mission Control. Live editor with WCAG report, sounds and robot defaults. Applied in every window (main, HUD, robots, detached). |
+| — | Layout Editor | Full | Full | Presets Coding / Mission Control / Monitoring / Focus / Review / Custom (Ctrl+1…5), save as, lock, export/import, per-panel placement. Persisted per device. |
+| — | Docking (detach to OS windows) | Full | Partial | Detach and re-dock verified. Restoring popouts on a second monitor after a restart was not verified (single-monitor host). |
+| — | HUD / Ambient | Full | Full | Status, agents, build/test chip, approvals, voice indicator, mini Manager. The voice indicator's cross-window click was not exercised. |
+| — | AI-editable UI | Full | Partial | Manager patch → preview → Keep → Undo verified, behind the allowlist + safe-text + typed-schema validation. Missing: patches that lower contrast are not rejected; no `--safe-ui` recovery; device overrides are not patchable. |
+| — | Voice per agent | Full | Full | Template voice profile + per-user override + robot voice id. |
+| — | Performance Mode | Full | Full | One policy table for blur, glow, motion, backgrounds, robots, charts, HUD and voice visuals. All four modes verified on `<html>`. Auto Battery Saver and frame-budget step-down. Not measured: the UI CPU budget. |
+| — | Windows-first + macOS/Linux | Full | Partial | Windows only. **No macOS / Linux packages.** |
+| — | Onboarding | Partial (+9 voice) | Partial | The voice step is shown as P3 in the wizard. |
+
 **Crate names** drop the `orkestr-` prefix. "client" means `@orkestr/client`, "ui" means `@orkestr/ui`.
 
 ## A. Numbered inventory (§68 #1–#50)

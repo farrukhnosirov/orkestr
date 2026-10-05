@@ -64,17 +64,19 @@ const CODING: BuiltinPreset = {
   shortcut: "Ctrl+1",
   slots: [
     { panel: "code" },
-    { panel: "manager", position: { referencePanel: "code", direction: "within" } },
+    // Editor and Manager side by side (as tabs of one group only one was ever visible).
+    { panel: "manager", position: { referencePanel: "code", direction: "right" } },
     { panel: "files", position: { referencePanel: "code", direction: "left" } },
-    { panel: "agents", position: { referencePanel: "code", direction: "right" } },
+    { panel: "agents", position: { referencePanel: "manager", direction: "right" } },
     { panel: "tasks", position: { referencePanel: "agents", direction: "within" } },
     { panel: "logs", position: { referencePanel: "code", direction: "below" } },
     { panel: "terminal", position: { referencePanel: "logs", direction: "within" } },
     { panel: "git", position: { referencePanel: "logs", direction: "within" } },
   ],
   sizes: [
-    { panel: "files", width: 0.2 },
-    { panel: "agents", width: 0.27 },
+    { panel: "files", width: 0.16 },
+    { panel: "manager", width: 0.27 },
+    { panel: "agents", width: 0.22 },
     { panel: "logs", height: 0.3 },
   ],
   focus: ["manager"],

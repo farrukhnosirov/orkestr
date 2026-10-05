@@ -157,6 +157,10 @@ export function Hud() {
         ? t("hud:run.Running", { done: line.done, total: line.total })
         : t(`hud:run.${line.status}`);
 
+  const qualityChip = quality ? (
+    <span className={clsx("hud-chip", quality.state === "failing" ? "hud-chip--danger" : "hud-chip--muted")}>{quality.label}</span>
+  ) : null;
+
   return (
     <section className={clsx("hud", line.kind === "run" && line.status === "Running" && "hud--live")} aria-label={t("hud:regionLabel")}>
       <header className="hud__bar" data-tauri-drag-region>
@@ -181,7 +185,8 @@ export function Hud() {
             {status}
           </span>
         </div>
-        {quality && <span className={clsx("hud-chip", quality.state === "failing" ? "hud-chip--danger" : "hud-chip--muted")}>{quality.label}</span>}
+        {/* The build/test chip lives in the agents row when it is shown, so the project name keeps its room. */}
+        {!prefs.hud.showAgents && qualityChip}
         <Approvals />
         <span className="hud__voice" title={VoiceSlot ? t("hud:voice") : t("hud:voiceUnavailable")}>
           {VoiceSlot ? <VoiceSlot size={18} /> : <MicOff size={14} aria-label={t("hud:voiceUnavailable")} />}
@@ -209,6 +214,7 @@ export function Hud() {
               <span className="hud__muted">{t("hud:agents", { count: strip.working })}</span>
             </>
           )}
+          {qualityChip && <span className="hud__agents-end">{qualityChip}</span>}
         </div>
       )}
 

@@ -170,7 +170,7 @@
   /* Never squeeze the conversation away in a short panel. */
   flex-shrink: 0;
   box-sizing: border-box;
-  max-height: 104px;
+  max-height: 136px;
   overflow-y: auto;
 }
 
@@ -452,6 +452,7 @@
 .mgr-plan__head,
 .mgr-run__head {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   gap: var(--ok-space-2);
 }
@@ -612,6 +613,12 @@
 .mgr-run__actions {
   display: flex;
   gap: var(--ok-space-1);
+  /* In a narrow panel the buttons wrap below instead of squeezing the stats. */
+  margin-left: auto;
+}
+
+.mgr-run__head > .mgr-run__title {
+  flex: 1 1 220px;
 }
 
 .mgr-run__reason {

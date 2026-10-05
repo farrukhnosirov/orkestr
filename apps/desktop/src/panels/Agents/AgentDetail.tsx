@@ -99,7 +99,11 @@ export function AgentDetail({ agent, taskTitle, now }: { agent: AgentInstance; t
   const paused = agent.state === "Waiting" && agent.activity === PAUSED_ACTIVITY;
 
   useEffect(() => {
-    bottom.current?.scrollIntoView?.({ block: "end" });
+    // Scroll only the transcript itself: `scrollIntoView` would also scroll
+    // every overflow-hidden ancestor (dock groups, the app frame) and shift
+    // the whole shell out of the window.
+    const log = bottom.current?.parentElement;
+    if (log) log.scrollTop = log.scrollHeight;
   }, [items.length]);
 
   const act = async (what: string, fn: () => Promise<AgentInstance>) => {

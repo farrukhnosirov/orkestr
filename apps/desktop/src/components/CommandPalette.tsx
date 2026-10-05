@@ -217,9 +217,12 @@ export function CommandPalette() {
 
   const allItems = useMemo<PaletteItem[]>(
     () => [...registryCommands.map((c) => fromCommand(c, projectId)), ...builtinItems(themes, (id) => void useThemeStore.getState().selectTheme(id))],
+    // `open`: `enabled()` and dynamic titles are evaluated each time the palette
+    // opens — memoized once, a command disabled at startup (voice config not
+    // loaded yet) stayed disabled and Enter silently did nothing.
     // `language`: titles and groups are re-read when the UI language changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [projectId, themes, language],
+    [open, projectId, themes, language],
   );
 
   const results = useMemo<PaletteItem[]>(() => {

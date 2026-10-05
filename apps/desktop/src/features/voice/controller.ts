@@ -273,6 +273,51 @@ export async function submitTyped(text: string): Promise<void> {
   await handleText(clean, "Typed");
 }
 
+/**
+ * Acceptance seam (§63 G without microphone hardware): runs a transcript
+ * through exactly the path a finished speech recognition takes
+ * (listen → speechEnd → transcript → intent → execute → spoken reply).
+ * No audio is opened. Exposed on `window.__orkestrDebug` only when the
+ * `orkestr.debugHooks` local-storage flag is set (see `installVoiceDebugHook`).
+ */
+export async function simulateTranscript(text: string, source: VoiceCommandSource = "PushToTalk"): Promise<void> {
+  const clean = text.trim();
+  if (!clean || !useVoiceStore.getState().config?.enabled) return;
+  clearDismiss();
+  stopSpeaking();
+  if (!emit({ type: "listen" })) return;
+  useVoiceStore.getState().setRuntime({ source, transcript: "", reply: null });
+  emit({ type: "speechEnd" });
+  useVoiceStore.getState().setRuntime({ transcript: clean });
+  emit({ type: "transcript", text: clean });
+  await handleText(clean, source);
+}
+
+/** Installs `window.__orkestrDebug.voice` when the debug-hooks flag is on. */
+export function installVoiceDebugHook(): () => void {
+  let on = false;
+  try {
+    on = window.localStorage.getItem("orkestr.debugHooks") === "1";
+  } catch {
+    on = false;
+  }
+  if (!on) return () => undefined;
+  const w = window as unknown as { __orkestrDebug?: Record<string, unknown> };
+  w.__orkestrDebug = {
+    ...(w.__orkestrDebug ?? {}),
+    voice: {
+      simulateTranscript,
+      state: () => {
+        const s = useVoiceStore.getState();
+        return { enabled: !!s.config?.enabled, phase: s.phase, transcript: s.transcript, reply: s.reply, speaking: s.speaking, hudOpen: s.hudOpen };
+      },
+    },
+  };
+  return () => {
+    if (w.__orkestrDebug) delete w.__orkestrDebug.voice;
+  };
+}
+
 /** Confirmation via the HUD buttons. */
 export async function answerConfirmation(yes: boolean): Promise<void> {
   if (useVoiceStore.getState().phase !== "confirm" || !pending) return;

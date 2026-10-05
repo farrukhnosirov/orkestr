@@ -133,7 +133,8 @@
   flex-direction: column;
   width: min(460px, 100vw);
   border-left: 1px solid var(--ok-color-border-strong);
-  background: var(--ok-gradient-panel), var(--ok-color-surface-strong);
+  /* opaque base: content behind a floating surface must not ghost through */
+  background: var(--ok-gradient-panel), linear-gradient(var(--ok-color-surface-strong), var(--ok-color-surface-strong)), var(--ok-color-bg);
   backdrop-filter: blur(var(--ok-blur)) saturate(150%);
   -webkit-backdrop-filter: blur(var(--ok-blur)) saturate(150%);
   box-shadow: var(--ok-shadow-panel), var(--ok-glow-violet);
@@ -290,9 +291,11 @@
 
 /* ── Toasts ───────────────────────────────────────────── */
 .sec-toasts {
+  /* Top-right under the title bar, so it never overlaps the notification
+     toasts stacked bottom-right. */
   position: fixed;
   right: var(--ok-space-4);
-  bottom: calc(var(--ok-space-8) + 4px);
+  top: calc(var(--ok-titlebar-height) + var(--ok-space-4));
   z-index: var(--ok-z-tooltip);
   display: flex;
   flex-direction: column;
@@ -307,7 +310,8 @@
   padding: var(--ok-space-3);
   border-radius: var(--ok-radius-md);
   border: 1px solid var(--ok-color-border-strong);
-  background: var(--ok-gradient-panel), var(--ok-color-surface-strong);
+  /* opaque base: text underneath must not ghost through */
+  background: var(--ok-gradient-panel), linear-gradient(var(--ok-color-surface-strong), var(--ok-color-surface-strong)), var(--ok-color-bg);
   backdrop-filter: blur(var(--ok-blur));
   -webkit-backdrop-filter: blur(var(--ok-blur));
   box-shadow: var(--ok-shadow-md);

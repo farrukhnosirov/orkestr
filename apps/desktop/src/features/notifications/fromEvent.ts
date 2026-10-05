@@ -99,6 +99,9 @@ export function notificationFromEvent(ev: Event): AppNotification | null {
 /** Whether a notification should pop up as a toast (history always records it). */
 export function shouldToast(n: AppNotification, doNotDisturb: boolean): boolean {
   if (n.read) return false;
+  // Approvals already pop up as the actionable security toast (Review /
+  // Approve); a second, passive toast for the same request only stacks up.
+  if (n.source === "ApprovalRequested") return false;
   // Critical notices (emergency stop, security) break through Do Not Disturb.
   if (doNotDisturb) return n.level === "Critical";
   return true;

@@ -93,7 +93,8 @@
   .agents-split__list {
     flex: 0 0 auto;
     max-width: none;
-    max-height: 38%;
+    /* enough for two agent cards; the detail keeps the rest */
+    max-height: 46%;
     border-right: none;
     border-bottom: 1px solid var(--ok-color-border);
   }

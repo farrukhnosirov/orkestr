@@ -60,14 +60,28 @@ function ApprovalRow({ a }: { a: Approval }) {
           {project ? `${project} · ` : ""}
           {fmt.relative(a.requestedAt)}
         </span>
-        <Button size="sm" variant="ghost" disabled={busy !== null} onClick={() => void decide("Reject")} aria-label={t("approvals.rejectLabel", { action: a.actionSummary })}>
-          <X size={13} aria-hidden="true" />
-          {t("common:actions.reject")}
-        </Button>
-        <Button size="sm" variant="primary" disabled={busy !== null} onClick={() => void decide("Approve")} aria-label={t("approvals.approveLabel", { action: a.actionSummary })}>
-          <Check size={13} aria-hidden="true" />
-          {t("common:actions.approve")}
-        </Button>
+        <span className="mc-approval__actions">
+          <Button
+            size="sm"
+            variant="ghost"
+            leftIcon={<X size={13} aria-hidden="true" />}
+            disabled={busy !== null}
+            onClick={() => void decide("Reject")}
+            aria-label={t("approvals.rejectLabel", { action: a.actionSummary })}
+          >
+            {t("common:actions.reject")}
+          </Button>
+          <Button
+            size="sm"
+            variant="primary"
+            leftIcon={<Check size={13} aria-hidden="true" />}
+            disabled={busy !== null}
+            onClick={() => void decide("Approve")}
+            aria-label={t("approvals.approveLabel", { action: a.actionSummary })}
+          >
+            {t("common:actions.approve")}
+          </Button>
+        </span>
       </div>
       {error && <div className="mc-error" role="alert">{error}</div>}
     </li>

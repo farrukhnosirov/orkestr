@@ -80,8 +80,10 @@ function PresetsSection() {
                 <Icon size={16} />
                 {entry?.customised && <span className="lyt-dot" title={t("switcher.customised")} />}
               </span>
-              <span className="lyt-preset__name">{layoutName(p.id)}</span>
-              {p.shortcut && <kbd className="lyt-kbd lyt-preset__kbd">{p.shortcut}</kbd>}
+              <span className="lyt-preset__text">
+                <span className="lyt-preset__name">{layoutName(p.id)}</span>
+                {p.shortcut && <kbd className="lyt-kbd lyt-preset__kbd">{p.shortcut}</kbd>}
+              </span>
             </button>
           );
         })}
