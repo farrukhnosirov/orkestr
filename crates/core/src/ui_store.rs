@@ -157,8 +157,7 @@ mod tests {
         let (_dir, db) = db().await;
         let store = UiConfigStore::load(db.clone()).await.unwrap();
         assert_eq!(store.current(), (UiConfig::default(), 0));
-        let mut cfg = UiConfig::default();
-        cfg.prefs = Some(UiPrefs { density: Density::Compact, ..UiPrefs::default() });
+        let cfg = UiConfig { prefs: Some(UiPrefs { density: Density::Compact, ..UiPrefs::default() }), ..UiConfig::default() };
         let _g = store.lock().await;
         assert_eq!(store.commit(cfg.clone(), UiPatchActor::Manager, "compact").await.unwrap(), 1);
         let reloaded = UiConfigStore::load(db.clone()).await.unwrap();
