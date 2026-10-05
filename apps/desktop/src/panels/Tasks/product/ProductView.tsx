@@ -187,7 +187,7 @@ function DraftEditor({ draft, projectId, tasks }: { draft: PmDraft; projectId: s
     <div className="pm-editor">
       <div className="pm-editor__bar">
         <Badge tone={draft.status === "Approved" ? "success" : draft.status === "Discarded" ? "neutral" : "accent"}>{t(`status.${draft.status}`)}</Badge>
-        <span className="tasks-muted">{t("summary", { features: c.features, stories: c.stories, tasks: c.tasks })}</span>
+        <span className="tasks-muted">{[t("count.features", { count: c.features }), t("count.stories", { count: c.stories }), t("count.tasks", { count: c.tasks })].join(" · ")}</span>
         {draft.status === "Approved" && (
           <span className="pm-progress" aria-label={t("progressLabel")}>
             <span className="pm-progress__bar" style={{ width: `${progressPercent(draft)}%` }} />

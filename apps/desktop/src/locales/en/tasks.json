@@ -22,7 +22,8 @@
     "label": "Task view",
     "list": "List",
     "board": "Board",
-    "graph": "Graph"
+    "graph": "Graph",
+    "product": "Product"
   },
   "search": {
     "placeholder": "Search tasks…",

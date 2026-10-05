@@ -2,7 +2,8 @@
   "tabs": {
     "label": "Agents view",
     "agents": "Agents",
-    "templates": "Templates"
+    "templates": "Templates",
+    "teams": "Teams"
   },
   "noProject": {
     "title": "No project open",

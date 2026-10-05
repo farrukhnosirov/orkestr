@@ -8,7 +8,7 @@
 import "./agents.css";
 
 import { Badge, Button, EmptyState, IconButton, Spinner, Tabs } from "@orkestr/ui";
-import { Bot, FolderOpen, LayoutTemplate, Plus, RefreshCw, TriangleAlert } from "lucide-react";
+import { Bot, FolderOpen, LayoutTemplate, Plus, RefreshCw, TriangleAlert, Users } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { useT } from "../../i18n";
@@ -21,13 +21,15 @@ import { isActive } from "./model";
 import { Toasts } from "./parts";
 import { SpawnDialog } from "./SpawnDialog";
 import { type AgentsTab, useAgentsUi } from "./store";
+import { TeamsTab } from "./TeamsTab";
 import { TemplatesTab } from "./TemplatesTab";
 
 const TAB_ICONS: Record<AgentsTab, JSX.Element> = {
   agents: <Bot size={14} />,
   templates: <LayoutTemplate size={14} />,
+  teams: <Users size={14} />,
 };
-const TAB_IDS: readonly AgentsTab[] = ["agents", "templates"];
+const TAB_IDS: readonly AgentsTab[] = ["agents", "templates", "teams"];
 
 function useNow(active: boolean): number {
   const [now, setNow] = useState(() => Date.now());
@@ -75,7 +77,9 @@ export default function AgentsPanel({ projectId }: PanelProps) {
   const tabs = TAB_IDS.map((id) => ({ id, label: t(`tabs.${id}`), icon: TAB_ICONS[id] }));
 
   let content: JSX.Element;
-  if (tab === "templates") {
+  if (tab === "teams") {
+    content = <TeamsTab projectId={projectId} templates={templates.templates} />;
+  } else if (tab === "templates") {
     content = <TemplatesTab templates={templates.templates} loading={templates.loading} error={templates.error} reload={templates.reload} />;
   } else if (loading && agents.length === 0) {
     content = (

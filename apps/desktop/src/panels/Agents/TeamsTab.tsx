@@ -17,7 +17,7 @@ import { create } from "zustand";
 import { ModelPicker } from "../../features/providers/ModelPicker";
 import { useProvidersLive } from "../../features/providers/store";
 import { templateName } from "../../lib/coreText";
-import { useFormat, useT } from "../../i18n";
+import { t as translate, useFormat, useT } from "../../i18n";
 import { errorMessage } from "./data";
 import { roleLabel } from "./model";
 import { RoleAvatar } from "./parts";
@@ -265,15 +265,15 @@ function HierarchyTree({ view, templates }: { view: TeamView; templates: readonl
   );
 }
 
-function statusText(t: ReturnType<typeof useT>["t"], node: TreeNode): string | null {
+function statusText(node: TreeNode): string | null {
   if (!node.status) return null;
-  if (node.level === "lead") return t(`teams:leadStatus.${node.status as "Planning"}`);
-  return t(`common:status.task.${node.status as "Running"}`);
+  if (node.level === "lead") return translate(`teams:leadStatus.${node.status as "Planning"}`);
+  return translate(`common:status.task.${node.status as "Running"}`);
 }
 
 function TreeRow({ node, depth }: { node: TreeNode; depth: number }) {
   const { t } = useT(["teams", "common"]);
-  const status = statusText(t, node);
+  const status = statusText(node);
   const tone = node.level === "lead" && node.status ? LEAD_STATUS_TONE[node.status as keyof typeof LEAD_STATUS_TONE] : "neutral";
   return (
     <div role="treeitem" aria-level={depth + 1} aria-expanded={node.children.length > 0 ? true : undefined}>

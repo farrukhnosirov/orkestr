@@ -67,5 +67,12 @@
   "managerPlan_few": "План Менеджера «{{goal}}»: {{status}} ({{count}} задачи)",
   "managerPlan_many": "План Менеджера «{{goal}}»: {{status}} ({{count}} задач)",
   "managerPlan_other": "План Менеджера «{{goal}}»: {{status}} ({{count}} задачи)",
-  "managerRun": "Запуск Менеджера ({{status}}): выполнено задач — {{done}} из {{total}}"
+  "managerRun": "Запуск Менеджера ({{status}}): выполнено задач — {{done}} из {{total}}",
+  "teamUpdated": "Команда «{{name}}» обновлена",
+  "teamDeleted": "Команда {{id}} удалена",
+  "teamLeadRun_one": "Лид команды над «{{title}}»: {{status}} ({{count}} подзадача)",
+  "teamLeadRun_few": "Лид команды над «{{title}}»: {{status}} ({{count}} подзадачи)",
+  "teamLeadRun_many": "Лид команды над «{{title}}»: {{status}} ({{count}} подзадач)",
+  "teamLeadRun_other": "Лид команды над «{{title}}»: {{status}} ({{count}} подзадачи)",
+  "pmDraft": "Черновик продукта «{{title}}»: {{status}}"
 }

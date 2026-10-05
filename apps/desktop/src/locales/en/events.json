@@ -57,5 +57,10 @@
   },
   "managerPlan_one": "Manager plan “{{goal}}” {{status}} ({{count}} task)",
   "managerPlan_other": "Manager plan “{{goal}}” {{status}} ({{count}} tasks)",
-  "managerRun": "Manager run {{status}}: {{done}}/{{total}} tasks done"
+  "managerRun": "Manager run {{status}}: {{done}}/{{total}} tasks done",
+  "teamUpdated": "Team “{{name}}” updated",
+  "teamDeleted": "Team {{id}} deleted",
+  "teamLeadRun_one": "Team lead on “{{title}}”: {{status}} ({{count}} sub-task)",
+  "teamLeadRun_other": "Team lead on “{{title}}”: {{status}} ({{count}} sub-tasks)",
+  "pmDraft": "Product draft “{{title}}”: {{status}}"
 }

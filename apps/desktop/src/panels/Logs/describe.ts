@@ -246,6 +246,19 @@ export function describeEvent(event: Event): string {
       const done = r.tasks.filter((x) => x.status === "Completed").length;
       return t("events:managerRun", { status: t(`logs:enums.runStatus.${r.status}`), done, total: r.tasks.length });
     }
+    // Phase 2: Agent Teams and the AI Product Manager.
+    case "TeamUpdated":
+      return t("events:teamUpdated", { name: event.payload.team.team.name });
+    case "TeamDeleted":
+      return t("events:teamDeleted", { id: short(event.payload.teamId) });
+    case "TeamLeadRunUpdated":
+      return t("events:teamLeadRun", {
+        title: event.payload.lead.title,
+        status: t(`teams:leadStatus.${event.payload.lead.status}`),
+        count: event.payload.lead.subtasks.length,
+      });
+    case "PmDraftUpdated":
+      return t("events:pmDraft", { title: event.payload.draft.epic.title, status: t(`product:status.${event.payload.draft.status}`) });
   }
 }
 

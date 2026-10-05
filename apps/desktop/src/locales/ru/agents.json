@@ -2,7 +2,8 @@
   "tabs": {
     "label": "Раздел агентов",
     "agents": "Агенты",
-    "templates": "Шаблоны"
+    "templates": "Шаблоны",
+    "teams": "Команды"
   },
   "noProject": {
     "title": "Проект не открыт",

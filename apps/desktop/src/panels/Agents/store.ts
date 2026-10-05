@@ -6,7 +6,7 @@
 import type { AgentTemplate, TemplateDraft } from "@orkestr/protocol";
 import { create } from "zustand";
 
-export type AgentsTab = "agents" | "templates";
+export type AgentsTab = "agents" | "templates" | "teams";
 
 export interface AgentsToast {
   id: number;
