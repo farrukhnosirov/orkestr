@@ -22,6 +22,10 @@
 //!   branch), result acceptance by approval policy, bounded retries, pause /
 //!   resume / cancel, emergency stop, final report + merge proposals.
 //! * [`resume`] — "Last session" summary (§57).
+//! * [`parallel`] — the global parallel-execution scheduler shared by all
+//!   runs (caps, provider/model concurrency, rate-limit back-off, resources,
+//!   file-conflict avoidance, fairness, merge-risk checks), the API
+//!   concurrency gate around the model gateway, and restart auto-resume.
 //!
 //! The orchestrator composes engines through their public APIs; it is not a
 //! god service (§64).
@@ -31,6 +35,7 @@
 pub mod chat;
 pub mod deps;
 pub mod error;
+pub mod parallel;
 pub mod plan;
 pub mod planner;
 pub mod resume;
@@ -45,6 +50,7 @@ pub use deps::{
     ManagerHub, ManagerTunables, OrchestratorDeps, ProviderBrief, RegistryHub, ResourceProbe, Unconstrained,
 };
 pub use error::{OrchResult, OrchestratorError};
+pub use parallel::{AutoResumeReport, GatedGateway, ParallelDeps, ParallelScheduler};
 pub use schema::orchestrator_migrations;
 pub use service::Manager;
 

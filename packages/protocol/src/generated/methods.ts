@@ -184,6 +184,10 @@ import type { RoutingConfigPayload } from "./RoutingConfigPayload";
 import type { RuleResult } from "./RuleResult";
 import type { RunCommandParams } from "./RunCommandParams";
 import type { RunCommandResult } from "./RunCommandResult";
+import type { SchedulerExplainParams } from "./SchedulerExplainParams";
+import type { SchedulerExplanation } from "./SchedulerExplanation";
+import type { SchedulerStatus } from "./SchedulerStatus";
+import type { SchedulerStatusParams } from "./SchedulerStatusParams";
 import type { SearchFilesParams } from "./SearchFilesParams";
 import type { SearchFilesResult } from "./SearchFilesResult";
 import type { SearchKnowledgeParams } from "./SearchKnowledgeParams";
@@ -195,6 +199,8 @@ import type { SetBudgetParams } from "./SetBudgetParams";
 import type { SetCredentialParams } from "./SetCredentialParams";
 import type { SetModeParams } from "./SetModeParams";
 import type { SetRuleParams } from "./SetRuleParams";
+import type { SetSchedulerLimitsParams } from "./SetSchedulerLimitsParams";
+import type { SetSchedulerLimitsResult } from "./SetSchedulerLimitsResult";
 import type { SetSecretParams } from "./SetSecretParams";
 import type { SettingsResult } from "./SettingsResult";
 import type { ShowParams } from "./ShowParams";
@@ -417,6 +423,9 @@ export type Methods = {
   "manager.cancel": [ManagerRunIdParams, ManagerRunResult];
   "manager.status": [ManagerStatusParams, ManagerStatusResult];
   "manager.resumeSummary": [ManagerProjectParams, ManagerResumeSummary];
+  "scheduler.status": [SchedulerStatusParams, SchedulerStatus];
+  "scheduler.setLimits": [SetSchedulerLimitsParams, SetSchedulerLimitsResult];
+  "scheduler.explain": [SchedulerExplainParams, SchedulerExplanation];
 };
 
 /** All implemented method names. */
@@ -592,6 +601,9 @@ export const METHOD_NAMES = [
   "manager.cancel",
   "manager.status",
   "manager.resumeSummary",
+  "scheduler.status",
+  "scheduler.setLimits",
+  "scheduler.explain",
 ] as const;
 
 /** Wire protocol version (see orkestr-protocol PROTOCOL_VERSION). */
@@ -644,6 +656,8 @@ export const EVENT_KINDS = [
   "ManagerMessageAdded",
   "ManagerPlanUpdated",
   "ManagerRunUpdated",
+  "SchedulerUpdated",
+  "MergeRiskDetected",
 ] as const;
 
 /** UI config schema version (see orkestr-protocol ui_config). */

@@ -812,17 +812,7 @@ impl TaskService {
                     ..TaskFilter::default()
                 },
             )?;
-            let to_sched = |t: &Task| SchedTask {
-                task_id: t.id,
-                project_id: t.project_id,
-                priority: t.priority,
-                enqueued_at: t.ready_since.unwrap_or(t.updated_at),
-                provider: t.model.as_ref().map(|m| m.provider_id.to_string()),
-                files: t.files_touched.clone(),
-                worktree: t.worktree.as_ref().map(|w| w.path.clone()),
-                ram_mb: None,
-                cpu_weight: None,
-            };
+            let to_sched = SchedTask::from_task;
             let candidates: Vec<SchedTask> = ready.iter().map(to_sched).collect();
             let running: Vec<SchedTask> = active.iter().map(to_sched).collect();
             Ok(scheduler.next_runnable(&candidates, &running, &resources, at))

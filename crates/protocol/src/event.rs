@@ -669,6 +669,7 @@ macro_rules! event_kinds {
                         | EventKind::NodeStatus(_)
                         | EventKind::AgentUpdated(_)
                         | EventKind::ManagerMessageAdded(_)
+                        | EventKind::SchedulerUpdated(_)
                 )
             }
 
@@ -774,6 +775,10 @@ event_kinds! {
     ManagerPlanUpdated(ManagerPlanPayload),
     /// A Manager run changed (progress, status, report). Phase 1, appended.
     ManagerRunUpdated(ManagerRunPayload),
+    /// The parallel scheduler's running / queued / waiting picture or its settings changed. Phase 2, appended.
+    SchedulerUpdated(crate::methods::scheduler::SchedulerUpdatedPayload),
+    /// Two agents in separate worktrees are predicted to conflict on merge. Phase 2, appended.
+    MergeRiskDetected(crate::methods::scheduler::MergeRiskPayload),
 }
 
 // ---------------------------------------------------------------------------

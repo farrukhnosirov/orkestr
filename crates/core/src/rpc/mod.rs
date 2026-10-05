@@ -17,6 +17,7 @@ pub mod nodes;
 pub mod permissions;
 pub mod projects;
 pub mod providers;
+pub mod scheduler;
 pub mod secrets;
 pub mod settings;
 pub mod snapshots;
@@ -151,6 +152,7 @@ pub fn build_router() -> RpcRouter {
     router.register(settings::register).register(nodes::register);
     router.register(templates::register).register(agents::register);
     router.register(manager::register);
+    router.register(scheduler::register);
     router
 }
 

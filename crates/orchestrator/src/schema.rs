@@ -61,5 +61,7 @@ pub const MIGRATIONS: &[Migration] = &[Migration {
 /// Migrations of the orchestrator.
 #[must_use]
 pub fn orchestrator_migrations() -> Vec<Migration> {
-    MIGRATIONS.to_vec()
+    let mut all = MIGRATIONS.to_vec();
+    all.extend_from_slice(crate::parallel::PARALLEL_MIGRATIONS);
+    all
 }
