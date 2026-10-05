@@ -45,6 +45,7 @@ pub fn all() -> Vec<Migration> {
     all.extend_from_slice(crate::ui_store::UI_MIGRATIONS);
     // layout-multimonitor (Phase 3): per-device docking layouts
     all.extend_from_slice(crate::layouts_store::LAYOUT_MIGRATIONS);
+    all.extend_from_slice(crate::rpc::robots::ROBOTS_MIGRATIONS);
     all
 }
 

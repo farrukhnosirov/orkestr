@@ -30,5 +30,12 @@ export default defineConfig({
     emptyOutDir: true,
     sourcemap: true,
     chunkSizeWarningLimit: 2048,
+    rollupOptions: {
+      // Main window + the small floating-robot entry (ADR-0016).
+      input: {
+        main: fileURLToPath(new URL("./index.html", import.meta.url)),
+        robot: fileURLToPath(new URL("./robot.html", import.meta.url)),
+      },
+    },
   },
 });

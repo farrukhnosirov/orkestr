@@ -143,6 +143,8 @@ import type { ListProjectsResult } from "./ListProjectsResult";
 import type { ListProvidersResult } from "./ListProvidersResult";
 import type { ListReviewsParams } from "./ListReviewsParams";
 import type { ListReviewsResult } from "./ListReviewsResult";
+import type { ListRobotsParams } from "./ListRobotsParams";
+import type { ListRobotsResult } from "./ListRobotsResult";
 import type { ListRulesParams } from "./ListRulesParams";
 import type { ListRulesResult } from "./ListRulesResult";
 import type { ListRunsParams } from "./ListRunsParams";
@@ -266,6 +268,7 @@ import type { RestoreTrashedParams } from "./RestoreTrashedParams";
 import type { ResumeSummary } from "./ResumeSummary";
 import type { ResumeSummaryParams } from "./ResumeSummaryParams";
 import type { ReviewResult } from "./ReviewResult";
+import type { RobotsConfigResult } from "./RobotsConfigResult";
 import type { RollbackPlan } from "./RollbackPlan";
 import type { RollbackResult } from "./RollbackResult";
 import type { RollbackTaskParams } from "./RollbackTaskParams";
@@ -297,6 +300,7 @@ import type { SetGatesParams } from "./SetGatesParams";
 import type { SetModeParams } from "./SetModeParams";
 import type { SetPipelineConfigParams } from "./SetPipelineConfigParams";
 import type { SetProfileParams } from "./SetProfileParams";
+import type { SetRobotsConfigParams } from "./SetRobotsConfigParams";
 import type { SetRuleParams } from "./SetRuleParams";
 import type { SetSchedulerLimitsParams } from "./SetSchedulerLimitsParams";
 import type { SetSchedulerLimitsResult } from "./SetSchedulerLimitsResult";
@@ -518,6 +522,9 @@ export type Methods = {
   "agents.transcript": [TranscriptParams, AgentTranscriptResult];
   "agents.handoff": [AgentIdParams, AgentHandoffsResult];
   "agents.stats": [AgentStatsParams, AgentStats];
+  "robots.list": [ListRobotsParams, ListRobotsResult];
+  "robots.config": [Empty, RobotsConfigResult];
+  "robots.setConfig": [SetRobotsConfigParams, RobotsConfigResult];
   "manager.chat": [ManagerChatParams, ManagerChatResult];
   "manager.history": [ManagerHistoryParams, ManagerHistoryResult];
   "manager.clear": [ManagerProjectParams, ManagerClearResult];
@@ -767,6 +774,9 @@ export const METHOD_NAMES = [
   "agents.transcript",
   "agents.handoff",
   "agents.stats",
+  "robots.list",
+  "robots.config",
+  "robots.setConfig",
   "manager.chat",
   "manager.history",
   "manager.clear",

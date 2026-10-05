@@ -79,3 +79,12 @@ Each floating robot represents a real `AgentId` (§30). It lives on the OS deskt
 ## Implementation notes (Phase 0 foundation, 2026-10-02)
 
 Not implemented yet. The main window already uses `transparent: true` with WebView2 (the app paints its own opaque background); floating, always-on-top, click-through windows and their Tauri commands do not exist. SP-04 has not run; macOS/Linux behaviour is unverified (`../spikes/foundation-tauri-websocket.md`, finding 7).
+
+## Implementation notes (Phase 3, robots area)
+
+- **Shell:** `apps/desktop/src-tauri/src/robots.rs` (commands `robot_open`, `robot_close`, `robot_close_all`, `robot_set_shape`, `robot_set_drop_zones`, `robot_to_main`; capability `capabilities/robots.json` for `robot-*`). Windows are `robot-<agentId>` plus `robot-cluster`, loading the separate entry `robot.html` (`#/agent/<id>`, `#/cluster`, `#/preview`). The name `window_open_overlay` from the decision above was not used.
+- **Click-through:** a 30 Hz cursor poller (running only while robots are open) hit-tests the ellipse plus the bubble/menu rectangles that the robot webview reports. Pass-through (idle robots, `behaviour.clickThroughIdle`) needs a 600 ms hover. The Alt-modifier variant is not implemented.
+- **Drag / snap / drop:** `startDragging()` starts after a 4 px move, and a drag ends after 400 ms without moves. The cursor is then hit-tested against ProjectRail tiles (`data-robot-drop`, reported by the main window). A hit sends `orkestr://robot/drop`, which opens the assign dialog. Otherwise the robot snaps (16 px) to work-area edges and corners and to other robots. There is no `agents.assign` RPC yet, so assigning spawns the robot's template in the target project (`features/robots/model/assign.ts`).
+- **Data:** `robots.list`, `robots.config` and `robots.setConfig` use the core table `robots_config`, which holds one validated document: on/off, `maxVisible` (default 6), `lingerSeconds`, the default design and per-template designs, and positions per template id (physical px, with the monitor name). Positions live there instead of `UiConfig.robots`.
+- **Rendering:** a procedural SVG robot (2D) and a lazy three.js low-poly robot (3D, Ultra Visual only), both drawing the same pose function. There are no Rive or Lottie assets. FPS tiers are Ultra 60, Balanced 30, Performance 15 and Battery Saver static. Idle robots rest unless hovered, and `prefers-reduced-motion` makes robots static.
+- **Not verified:** macOS and Linux, the SP-04 memory/CPU budget measurements, and hiding robots while a fullscreen app is focused.

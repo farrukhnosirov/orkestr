@@ -41,6 +41,7 @@ pub mod quality;
 pub mod replay;
 pub mod reviews;
 pub mod scheduler;
+pub mod robots;
 pub mod secrets;
 pub mod settings;
 pub mod snapshots;
@@ -290,6 +291,10 @@ pub fn registry() -> Vec<MethodDescriptor> {
         MethodDescriptor::of::<agents::Transcript>(),
         MethodDescriptor::of::<agents::HandoffList>(),
         MethodDescriptor::of::<agents::Stats>(),
+        // robots (Phase 3)
+        MethodDescriptor::of::<robots::List>(),
+        MethodDescriptor::of::<robots::Config>(),
+        MethodDescriptor::of::<robots::SetConfig>(),
         // AI Manager (Phase 1)
         MethodDescriptor::of::<manager::Chat>(),
         MethodDescriptor::of::<manager::History>(),

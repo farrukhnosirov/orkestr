@@ -30,6 +30,7 @@ pub mod quality;
 pub mod replay;
 pub mod reviews;
 pub mod scheduler;
+pub mod robots;
 pub mod secrets;
 pub mod settings;
 pub mod snapshots;
@@ -183,6 +184,7 @@ pub fn build_router() -> RpcRouter {
     router.register(layouts::register);
     // mission-control (Phase 3)
     router.register(dashboard::register);
+    router.register(robots::register);
     router
 }
 

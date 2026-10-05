@@ -19,6 +19,7 @@ import { commands, matchesShortcut } from "./features/commands/registry";
 import { Toasts } from "./features/notifications/NotificationCenter";
 import { OnboardingWizard } from "./features/onboarding/OnboardingWizard";
 import { ResumeCard } from "./features/resume/ResumeCard";
+import { RobotHost, registerRobotsFeature } from "./features/robots/register";
 import { SettingsView } from "./features/settings/SettingsView";
 import { useShellBootstrap } from "./features/settings/useShellBootstrap";
 import { registerThemeFeature } from "./features/theme/register";
@@ -30,6 +31,7 @@ import { useAppStore } from "./store/app";
 registerSecurityFeature();
 registerThemeFeature();
 registerLayoutFeature();
+registerRobotsFeature();
 
 
 function useGlobalShortcuts() {
@@ -102,6 +104,7 @@ export function App() {
           <LayoutEditorPanel />
           <LayoutDialogs />
           <MissionControlOverlay />
+          <RobotHost />
         </>
       )}
       {ready && <AiUiLayer connected={ready} />}
