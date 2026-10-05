@@ -13,6 +13,7 @@ import { useAppStore } from "../../store/app";
 import { useSettingsStore } from "../settings/settingsStore";
 import { type SceneHandle, type SceneParams, runScene, scenePalette } from "./backgrounds/scene";
 import { activeTheme, useThemeStore } from "./themeStore";
+import "./theme.css";
 
 /** Effective visuals of the applied theme (read by the backdrop and the editor). */
 export const useVisualsStore = create<{ visuals: EffectiveVisuals | null; performanceMode: PerformanceMode }>()(() => ({
