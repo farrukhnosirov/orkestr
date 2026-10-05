@@ -67,5 +67,6 @@
   "managerPlan_few": "План Менеджера «{{goal}}»: {{status}} ({{count}} задачи)",
   "managerPlan_many": "План Менеджера «{{goal}}»: {{status}} ({{count}} задач)",
   "managerPlan_other": "План Менеджера «{{goal}}»: {{status}} ({{count}} задачи)",
-  "managerRun": "Запуск Менеджера ({{status}}): выполнено задач — {{done}} из {{total}}"
+  "managerRun": "Запуск Менеджера ({{status}}): выполнено задач — {{done}} из {{total}}",
+  "voiceCommand": "Голосовая команда «{{transcript}}» → {{intent}}"
 }

@@ -637,6 +637,22 @@ pub struct ManagerRunPayload {
     pub run: crate::methods::manager::ManagerRun,
 }
 
+/// `VoiceCommand` — a voice (or HUD-typed) command was handled (§33). Carries
+/// the transcript and the parsed intent only; audio is never stored.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct VoiceCommandPayload {
+    /// What the user said.
+    pub transcript: String,
+    /// Parsed intent id.
+    pub intent: String,
+    /// Outcome code.
+    pub outcome: String,
+    /// How the command started.
+    pub source: crate::methods::voice::VoiceCommandSource,
+}
+
 // ---------------------------------------------------------------------------
 // Kinds
 // ---------------------------------------------------------------------------
@@ -774,6 +790,8 @@ event_kinds! {
     ManagerPlanUpdated(ManagerPlanPayload),
     /// A Manager run changed (progress, status, report). Phase 1, appended.
     ManagerRunUpdated(ManagerRunPayload),
+    /// A voice command was handled (transcript + intent, never audio). Phase 3, appended.
+    VoiceCommand(VoiceCommandPayload),
 }
 
 // ---------------------------------------------------------------------------

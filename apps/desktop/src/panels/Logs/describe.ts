@@ -246,6 +246,8 @@ export function describeEvent(event: Event): string {
       const done = r.tasks.filter((x) => x.status === "Completed").length;
       return t("events:managerRun", { status: t(`logs:enums.runStatus.${r.status}`), done, total: r.tasks.length });
     }
+    case "VoiceCommand":
+      return t("events:voiceCommand", { transcript: event.payload.transcript.slice(0, 120), intent: event.payload.intent });
   }
 }
 

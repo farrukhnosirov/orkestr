@@ -19,4 +19,12 @@ language: string,
 /**
  * Optional speaking style.
  */
-style: string | null, };
+style: string | null, 
+/**
+ * Speaking rate in percent of normal (50..=200). Phase 3, additive.
+ */
+ratePct?: number, 
+/**
+ * Pitch in percent of normal (50..=200). Phase 3, additive.
+ */
+pitchPct?: number, };

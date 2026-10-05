@@ -25,6 +25,7 @@
 
 pub mod adapter;
 pub mod adapters;
+pub mod audio;
 pub mod catalog;
 pub mod credentials;
 pub mod factory;

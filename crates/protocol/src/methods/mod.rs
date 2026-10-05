@@ -36,6 +36,7 @@ pub mod tasks;
 pub mod templates;
 pub mod terminal;
 pub mod vcs;
+pub mod voice;
 
 /// A typed RPC method.
 pub trait Method: 'static {
@@ -288,6 +289,13 @@ pub fn registry() -> Vec<MethodDescriptor> {
         MethodDescriptor::of::<manager::Cancel>(),
         MethodDescriptor::of::<manager::Status>(),
         MethodDescriptor::of::<manager::ResumeSummaryMethod>(),
+        // voice-sound (Phase 3)
+        MethodDescriptor::of::<voice::GetConfig>(),
+        MethodDescriptor::of::<voice::SetConfig>(),
+        MethodDescriptor::of::<voice::SetConsent>(),
+        MethodDescriptor::of::<voice::Transcribe>(),
+        MethodDescriptor::of::<voice::Synthesize>(),
+        MethodDescriptor::of::<voice::RecordCommand>(),
     ]
 }
 
