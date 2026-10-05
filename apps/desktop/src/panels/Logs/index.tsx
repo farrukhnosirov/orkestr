@@ -2,13 +2,14 @@ import { Badge, EmptyState, IconButton, Input, Spinner, Tabs } from "@orkestr/ui
 import type { Event } from "@orkestr/protocol";
 import { TOPIC_ALL, topic } from "@orkestr/protocol";
 import { clsx } from "clsx";
-import { ArrowDownToLine, Pause, Play, ScrollText, Search, Trash2 } from "lucide-react";
+import { ArrowDownToLine, History, Pause, Play, ScrollText, Search, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { maybeClient } from "../../core/client";
 import { useT } from "../../i18n";
 import { useAppStore } from "../../store/app";
 import type { PanelProps } from "../types";
+import { ReplayView } from "./replay/ReplayView";
 import { type EventCategory, categoryOf, describeEvent, formatTime, severityOf } from "./describe";
 
 const MAX_EVENTS = 1000;
@@ -30,8 +31,31 @@ const CATEGORY_TONE: Record<EventCategory, "accent" | "violet" | "success" | "wa
   log: "neutral",
 };
 
-/** Live event stream from the core (all topics), with history, filters and pause. */
+type LogsView = "events" | "replay";
+
+/** Logs panel: the live event stream and the Execution Replay (§21) tab. */
 export default function LogsPanel({ projectId }: PanelProps) {
+  const { t } = useT("logs");
+  const [view, setView] = useState<LogsView>("events");
+  return (
+    <div className="logs-shell">
+      <Tabs
+        className="logs-shell__tabs"
+        aria-label={t("view.label")}
+        items={[
+          { id: "events", label: t("view.events"), icon: <ScrollText size={13} /> },
+          { id: "replay", label: t("view.replay"), icon: <History size={13} /> },
+        ]}
+        value={view}
+        onChange={setView}
+      />
+      {view === "events" ? <EventsView projectId={projectId} /> : <ReplayView projectId={projectId} />}
+    </div>
+  );
+}
+
+/** Live event stream from the core (all topics), with history, filters and pause. */
+function EventsView({ projectId }: PanelProps) {
   const { t, i18n } = useT("logs");
   const connectionState = useAppStore((s) => s.connection.state);
   const [events, setEvents] = useState<Event[]>([]);

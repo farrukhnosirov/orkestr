@@ -1,0 +1,140 @@
+{
+  "noProject": {
+    "title": "No project open",
+    "description": "Open a project to replay what the AI Manager and its agents did."
+  },
+  "noRuns": {
+    "title": "No runs to replay yet",
+    "description": "Approve a plan of the AI Manager: every run is recorded and can be replayed step by step."
+  },
+  "loading": "Rebuilding the timeline…",
+  "loadingRuns": "Loading runs…",
+  "error": {
+    "title": "Could not load the replay"
+  },
+  "empty": {
+    "title": "No steps",
+    "description": "Nothing matches these filters. Pick another agent or phase."
+  },
+  "picker": {
+    "run": "Run",
+    "runOption": "{{goal}} · {{status}} · {{time}}",
+    "scope": "Scope",
+    "wholeRun": "Whole run",
+    "agent": "Agent",
+    "allAgents": "All agents",
+    "phases": "Phases (click to show or hide)"
+  },
+  "player": {
+    "label": "Playback",
+    "first": "First step",
+    "prev": "Previous step",
+    "play": "Play",
+    "pause": "Pause",
+    "next": "Next step",
+    "last": "Last step",
+    "speed": "Speed",
+    "speedValue": "{{speed}}×",
+    "position": "Step {{current}} of {{total}}",
+    "seek": "Timeline position",
+    "truncated": "The timeline is partial: it hit the replay limit."
+  },
+  "timeline": {
+    "label": "Execution timeline"
+  },
+  "phase": {
+    "Request": "User request",
+    "Plan": "Plan",
+    "Agents": "Agents",
+    "Delegation": "Delegation",
+    "Tools": "Tools",
+    "Files": "Files",
+    "Tests": "Builds and tests",
+    "Reviews": "Reviews",
+    "Approvals": "Approvals",
+    "Merge": "Merge",
+    "Run": "Run"
+  },
+  "kind": {
+    "UserRequest": "Request",
+    "PlanProposed": "Plan proposed",
+    "PlanApproved": "Plan approved",
+    "PlanRejected": "Plan rejected",
+    "PlanSuperseded": "Plan superseded",
+    "PlanRunning": "Plan running",
+    "PlanCompleted": "Plan completed",
+    "PlanFailed": "Plan failed",
+    "PlanCancelled": "Plan cancelled",
+    "RunUpdated": "Run status",
+    "MergeProposal": "Ready to merge",
+    "TaskCreated": "Task created",
+    "TaskStatusChanged": "Task status",
+    "AgentSpawned": "Agent created",
+    "AgentStarted": "Agent started",
+    "AgentStateChanged": "Agent state",
+    "AgentStopped": "Agent stopped",
+    "ToolCall": "Tool call",
+    "FileChanged": "File changed",
+    "SnapshotCreated": "Snapshot",
+    "RollbackPerformed": "Rollback",
+    "BuildStarted": "Build started",
+    "BuildSucceeded": "Build succeeded",
+    "BuildFailed": "Build failed",
+    "TestRunFinished": "Tests",
+    "ReviewFinished": "Review",
+    "ApprovalRequested": "Approval requested",
+    "ApprovalResolved": "Approval resolved",
+    "DecisionRecorded": "Decision",
+    "EmergencyStop": "Emergency stop"
+  },
+  "fileChange": {
+    "Created": "created",
+    "Modified": "modified",
+    "Deleted": "deleted",
+    "Renamed": "renamed"
+  },
+  "detail": {
+    "label": "Step details",
+    "none": "Select a step to see its details.",
+    "time": "Time",
+    "seq": "Event",
+    "seqValue": "No. {{seq}}",
+    "correlation": "Correlation",
+    "agent": "Agent",
+    "task": "Task",
+    "duration": "Duration",
+    "taskStatus": "Task status",
+    "agentState": "Agent state",
+    "toolStatus": "Result",
+    "approval": "Decision",
+    "verdict": "Verdict",
+    "tests": "Tests",
+    "testsValue": "passed {{passed}}, failed {{failed}}",
+    "runStatus": "Run status",
+    "findings_one": "{{count}} finding",
+    "findings_other": "{{count}} findings",
+    "filesRestored_one": "{{count}} file restored",
+    "filesRestored_other": "{{count}} files restored",
+    "files": "Files",
+    "openFile": "Open {{path}} in Code",
+    "noCot": "Only recorded, visible actions are replayed; hidden reasoning is never stored."
+  },
+  "state": {
+    "label": "State at this step",
+    "tasks": "Tasks",
+    "notStarted": "not reached yet",
+    "agents": "Agents",
+    "active": "active",
+    "stopped": "stopped",
+    "files": "Files changed",
+    "noFiles": "No files changed yet",
+    "toolCalls_one": "{{count}} tool call",
+    "toolCalls_other": "{{count}} tool calls",
+    "toolFailures_one": "{{count}} failed",
+    "toolFailures_other": "{{count}} failed",
+    "approvals": "Approvals: {{pending}} pending, {{resolved}} resolved",
+    "tests": "Tests: {{passed}} passed, {{failed}} failed",
+    "reviews_one": "{{count}} review",
+    "reviews_other": "{{count}} reviews"
+  }
+}

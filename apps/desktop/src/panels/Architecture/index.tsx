@@ -253,7 +253,7 @@ export default function ArchitecturePanel({ projectId }: PanelProps) {
         <span>{t("stats.files", { count: map.stats.filesScanned })}</span>
         <span>{t("stats.routes", { count: map.stats.routes })}</span>
         <span>{t("stats.edges", { count: map.stats.edges })}</span>
-        <span>{t("stats.scanTime", { duration: fmt.duration(Number(map.stats.scanMs)) })}</span>
+        <span>{t("stats.scanTime", { duration: fmt.duration(map.stats.scanMs) })}</span>
         {map.warnings.length > 0 && (
           <Badge tone="warning" title={map.warnings.join("\n")}>
             {t("warnings", { count: map.warnings.length })}

@@ -99,5 +99,10 @@
       "provider": "provider",
       "agent": "agent"
     }
+  },
+  "view": {
+    "label": "Logs view",
+    "events": "Events",
+    "replay": "Replay"
   }
 }
