@@ -286,6 +286,13 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
     if let Err(e) = manager.init().await {
         tracing::error!(error = %e, "AI Manager failed to initialise");
     }
+    // Merge Manager (Phase 2, §16): shares the Manager's engines. Gates and
+    // the quality runner default to "unknown" / none until those areas wire
+    // their adapters (`MergeDeps::with_gates` / `with_quality`).
+    let merge = orkestr_orchestrator::MergeManager::new(orkestr_orchestrator::MergeDeps::from_manager(&manager));
+    if let Err(e) = merge.init().await {
+        tracing::error!(error = %e, "Merge Manager failed to initialise");
+    }
 
     let services = Arc::new(Services {
         version: VERSION.to_owned(),
@@ -316,6 +323,7 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
         seq_high_water,
         agents,
         manager,
+        merge,
         ui_language,
     });
     logging::attach_event_bus(services.events.clone());

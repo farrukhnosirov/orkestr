@@ -71,6 +71,8 @@ pub struct Services {
     pub agents: orkestr_agent_runtime::AgentRuntime,
     /// AI Manager: conversations, plans, supervised runs (§1, §5).
     pub manager: orkestr_orchestrator::Manager,
+    /// AI Merge Manager: proposals, approval-gated merges, conflicts (§16).
+    pub merge: orkestr_orchestrator::MergeManager,
     /// The user's UI language, shared with the Manager and the agent runtime
     /// (they reply in it). Seeded from `AppSettings.language` unless it is
     /// `system` (then the UI reports the resolved language with each Manager
