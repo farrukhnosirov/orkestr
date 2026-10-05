@@ -80,7 +80,13 @@ pub struct ContextOptions {
 
 impl Default for ContextOptions {
     fn default() -> Self {
-        Self { model: None, token_budget: None, max_files: DEFAULT_MAX_FILES, system_tokens: DEFAULT_SYSTEM_TOKENS, summarize: false }
+        Self {
+            model: None,
+            token_budget: None,
+            max_files: DEFAULT_MAX_FILES,
+            system_tokens: DEFAULT_SYSTEM_TOKENS,
+            summarize: false,
+        }
     }
 }
 
@@ -424,7 +430,11 @@ pub fn workspace_root(project: &Project, task: &Task) -> Option<PathBuf> {
 }
 
 /// Plans the context an agent working on `task_id` would receive now.
-pub async fn plan_for_task(runtime: &AgentRuntime, task_id: TaskId, opts: &ContextOptions) -> AgentResult<PlannedContext> {
+pub async fn plan_for_task(
+    runtime: &AgentRuntime,
+    task_id: TaskId,
+    opts: &ContextOptions,
+) -> AgentResult<PlannedContext> {
     let deps: &Arc<RuntimeDeps> = runtime.deps();
     let task = deps.tasks.get(task_id).await?;
     let project = deps

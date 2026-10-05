@@ -3,11 +3,12 @@
 //!
 //! [`spawn_collector`] runs one background task that
 //!
-//! * feeds benchmark-relevant events to the cost engine
-//!   ([`orkestr_cost::CostEngine::apply_benchmark_events`]) — first catching
-//!   up from the persistent event log (the cost engine stores the last applied
-//!   `seq`, so nothing is counted twice and nothing is lost across restarts or
-//!   a lagging subscription), then live;
+//! * tails the persistent event log every [`POLL_EVERY`] (all relevant kinds
+//!   are durable) and feeds it to the cost engine
+//!   ([`orkestr_cost::CostEngine::apply_benchmark_events`]); the engine stores
+//!   the last applied `seq`, so nothing is counted twice and nothing is lost
+//!   across restarts. It deliberately does not subscribe to the live bus (a
+//!   subscriber would keep the node heartbeat sampling for nobody);
 //! * refreshes [`BenchmarkStats`] — the [`ModelStatsSource`] the provider
 //!   registry's auto router blends into its scores — after executions finish
 //!   (at most every [`MIN_REFRESH_INTERVAL`]) and every [`REFRESH_EVERY`];
@@ -21,7 +22,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use orkestr_domain::{ModelRef, ProjectId, ProviderId};
-use orkestr_events::{Received, ReplayQuery};
+use orkestr_events::ReplayQuery;
 use orkestr_protocol::event::EventKind;
 use orkestr_protocol::methods::benchmarks::ModelBenchmarkRow;
 use orkestr_protocol::Event;
@@ -38,6 +39,10 @@ pub const ROUTING_WINDOW_DAYS: u32 = 30;
 pub const REFRESH_EVERY: Duration = Duration::from_secs(5 * 60);
 /// Min interval between event-triggered refreshes.
 pub const MIN_REFRESH_INTERVAL: Duration = Duration::from_secs(20);
+/// Delay before the startup catch-up (keeps core start fast).
+pub const STARTUP_GRACE: Duration = Duration::from_millis(1500);
+/// Interval of the event-log tail.
+pub const POLL_EVERY: Duration = Duration::from_millis(500);
 /// Replay page size.
 const REPLAY_PAGE: u32 = 1_000;
 
@@ -147,6 +152,8 @@ struct Collector {
     stats: Arc<BenchmarkStats>,
     roots: HashMap<ProjectId, Option<PathBuf>>,
     dirty: bool,
+    /// Last event `seq` read from the log.
+    seen: u64,
 }
 
 impl Collector {
@@ -157,37 +164,6 @@ impl Collector {
         match self.services.cost.apply_benchmark_events(events).await {
             Ok(r) => self.dirty |= r.finished > 0,
             Err(e) => tracing::warn!(error = %e, "benchmark collection failed"),
-        }
-    }
-
-    /// Replays the persistent log from the stored cursor up to `upto`.
-    async fn catch_up(&mut self, upto: u64) {
-        if !self.services.events.is_persistent() {
-            return;
-        }
-        let mut from = match self.services.cost.benchmark_cursor().await {
-            Ok(c) => c + 1,
-            Err(e) => {
-                tracing::warn!(error = %e, "benchmark cursor unavailable");
-                return;
-            }
-        };
-        while from <= upto {
-            let q = ReplayQuery { from_seq: from, to_seq: Some(upto), limit: REPLAY_PAGE, ..ReplayQuery::default() };
-            let page = match self.services.events.replay(&q).await {
-                Ok(p) => p,
-                Err(e) => {
-                    tracing::warn!(error = %e, "benchmark replay failed");
-                    return;
-                }
-            };
-            let Some(last) = page.events.last().map(|e| e.seq) else { break };
-            let relevant: Vec<Event> = page.events.into_iter().filter(|e| is_benchmark_event(&e.kind)).collect();
-            self.apply(relevant).await;
-            if !page.has_more {
-                break;
-            }
-            from = last + 1;
         }
     }
 
@@ -237,42 +213,87 @@ impl Collector {
             Err(e) => tracing::warn!(error = %e, "router benchmark statistics refresh failed"),
         }
     }
+    /// Tails the persistent log after `self.seen` up to the bus head:
+    /// benchmark events go to the cost engine (it skips what it already
+    /// applied), `FileChanged` / `ProjectUpdated` invalidate the index cache.
+    async fn poll(&mut self) {
+        let upto = self.services.events.last_seq();
+        while self.seen < upto {
+            let q = ReplayQuery {
+                from_seq: self.seen + 1,
+                to_seq: Some(upto),
+                limit: REPLAY_PAGE,
+                ..ReplayQuery::default()
+            };
+            let page = match self.services.events.replay(&q).await {
+                Ok(p) => p,
+                Err(e) => {
+                    tracing::warn!(error = %e, "benchmark collector: event log replay failed");
+                    return;
+                }
+            };
+            let Some(last) = page.events.last().map(|e| e.seq) else {
+                // Only ephemeral events in the range.
+                self.seen = upto;
+                break;
+            };
+            for ev in &page.events {
+                match &ev.kind {
+                    EventKind::FileChanged(_) => self.invalidate(ev).await,
+                    EventKind::ProjectUpdated(p) => {
+                        self.roots.remove(&p.project.id);
+                        if let Some(r) = &p.project.root_path {
+                            orkestr_context::global_cache().invalidate_root(std::path::Path::new(r));
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            // The whole page goes in (irrelevant kinds are no-ops) so the
+            // stored cursor advances and restarts do not rescan.
+            self.apply(page.events).await;
+            self.seen = last;
+            if !page.has_more {
+                self.seen = upto;
+                break;
+            }
+        }
+    }
 
     async fn run(mut self, shutdown: CancellationToken) {
-        let mut sub = self.services.events.subscribe_all();
-        let upto = self.services.events.last_seq();
-        self.catch_up(upto).await;
+        // Leave the startup path alone for a moment: the catch-up competes for
+        // the single SQLite connection with the rest of `start()`. The
+        // collector never subscribes to the live bus (a subscriber would make
+        // the node heartbeat run for nobody); it tails the persistent log.
+        tokio::select! {
+            () = shutdown.cancelled() => return,
+            () = tokio::time::sleep(STARTUP_GRACE) => {}
+        }
+        if !self.services.events.is_persistent() {
+            tracing::warn!("event bus is not persistent; benchmark collection disabled");
+            return;
+        }
+        self.seen = match self.services.cost.benchmark_cursor().await {
+            Ok(c) => c,
+            Err(e) => {
+                tracing::warn!(error = %e, "benchmark cursor unavailable; collection disabled");
+                return;
+            }
+        };
+        self.poll().await;
         self.refresh(true).await;
         let mut tick = tokio::time::interval(REFRESH_EVERY);
         tick.tick().await;
         let mut throttle = tokio::time::interval(MIN_REFRESH_INTERVAL);
         throttle.tick().await;
+        let mut poll = tokio::time::interval(POLL_EVERY);
+        poll.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         loop {
             tokio::select! {
                 () = shutdown.cancelled() => break,
                 _ = tick.tick() => self.refresh(true).await,
                 _ = throttle.tick() => self.refresh(false).await,
-                r = sub.recv() => match r {
-                    Some(Received::Event(ev)) => {
-                        match &ev.kind {
-                            EventKind::FileChanged(_) => self.invalidate(&ev).await,
-                            EventKind::ProjectUpdated(p) => {
-                                self.roots.remove(&p.project.id);
-                                if let Some(r) = &p.project.root_path {
-                                    orkestr_context::global_cache().invalidate_root(std::path::Path::new(r));
-                                }
-                            }
-                            k if is_benchmark_event(k) => self.apply(vec![(*ev).clone()]).await,
-                            _ => {}
-                        }
-                    }
-                    Some(Received::Lagged(n)) => {
-                        tracing::warn!(dropped = n, "benchmark collector lagged; replaying");
-                        let upto = self.services.events.last_seq();
-                        self.catch_up(upto).await;
-                    }
-                    None => break,
-                },
+                _ = poll.tick() => self.poll().await,
             }
         }
     }
@@ -282,7 +303,7 @@ impl Collector {
 pub fn spawn_collector(services: Arc<Services>, shutdown: CancellationToken) -> JoinHandle<()> {
     let stats = Arc::clone(&services.benchmarks);
     services.providers.set_stats_source(Arc::clone(&stats) as Arc<dyn ModelStatsSource>);
-    let collector = Collector { services, stats, roots: HashMap::new(), dirty: false };
+    let collector = Collector { services, stats, roots: HashMap::new(), dirty: false, seen: 0 };
     tokio::spawn(collector.run(shutdown))
 }
 

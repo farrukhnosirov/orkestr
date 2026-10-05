@@ -96,7 +96,8 @@ pub async fn initial_message(
 ) -> String {
     // Full Context Optimizer (§20): cached index + import graph, churn, rule
     // precedence, memory relevance, model-aware budget, compressed handoff.
-    let opts = crate::context_plan::ContextOptions { summarize: true, ..crate::context_plan::ContextOptions::default() };
+    let opts =
+        crate::context_plan::ContextOptions { summarize: true, ..crate::context_plan::ContextOptions::default() };
     let planned =
         crate::context_plan::plan_context(deps, template.memory_access, project, task, root, handoff, &opts).await;
     let mut out = planned.task_header;

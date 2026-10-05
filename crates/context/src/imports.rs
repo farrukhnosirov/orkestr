@@ -32,8 +32,9 @@ static PY_FROM: Lazy<Regex> = Lazy::new(|| re(r"^\s*from\s+(\.*[A-Za-z0-9_.]*)\s
 static PY_IMPORT: Lazy<Regex> = Lazy::new(|| re(r"^\s*import\s+([A-Za-z0-9_., ]+)"));
 static GO_SINGLE: Lazy<Regex> = Lazy::new(|| re(r#"^\s*import\s+(?:[A-Za-z_.]+\s+)?"([^"]+)""#));
 static GO_LINE: Lazy<Regex> = Lazy::new(|| re(r#"^\s*(?:[A-Za-z_.]+\s+)?"([^"]+)"\s*$"#));
-static CS_USING: Lazy<Regex> =
-    Lazy::new(|| re(r"^\s*(?:global\s+)?using\s+(?:static\s+)?(?:[A-Za-z_][A-Za-z0-9_]*\s*=\s*)?([A-Za-z_][A-Za-z0-9_.]*)\s*;"));
+static CS_USING: Lazy<Regex> = Lazy::new(|| {
+    re(r"^\s*(?:global\s+)?using\s+(?:static\s+)?(?:[A-Za-z_][A-Za-z0-9_]*\s*=\s*)?([A-Za-z_][A-Za-z0-9_.]*)\s*;")
+});
 static CS_NAMESPACE: Lazy<Regex> = Lazy::new(|| re(r"^\s*namespace\s+([A-Za-z_][A-Za-z0-9_.]*)"));
 
 /// Raw import specifiers of a file, in source order, deduplicated.
@@ -264,10 +265,8 @@ impl<'a> Resolver<'a> {
             other => {
                 let wanted = other.replace('_', "-");
                 let short = wanted.rsplit('-').next().unwrap_or(&wanted).to_owned();
-                let root = [other, wanted.as_str(), short.as_str()]
-                    .iter()
-                    .find_map(|n| self.rust_crates.get(*n))
-                    .cloned();
+                let root =
+                    [other, wanted.as_str(), short.as_str()].iter().find_map(|n| self.rust_crates.get(*n)).cloned();
                 match root {
                     Some(r) => {
                         if rest.is_empty() {
@@ -433,7 +432,8 @@ mod tests {
 
     #[test]
     fn extracts_per_language() {
-        let rs = "use crate::payroll::calc::Overtime;\npub use super::tax;\nmod util;\npub(crate) mod db;\nuse std::fmt;";
+        let rs =
+            "use crate::payroll::calc::Overtime;\npub use super::tax;\nmod util;\npub(crate) mod db;\nuse std::fmt;";
         assert_eq!(
             extract_imports(Language::Rust, rs),
             vec!["crate::payroll::calc::Overtime", "super::tax", "mod:util", "mod:db", "std::fmt"]
@@ -484,13 +484,13 @@ mod tests {
         assert_eq!(g.imports_of("crates/pay/src/tax/mod.rs"), vec!["crates/pay/src/tax/bands.rs"]);
         assert_eq!(g.imports_of("crates/app/src/main.rs"), vec!["crates/pay/src/calc.rs"]);
         assert_eq!(g.imports_of("web/src/App.tsx"), vec!["web/src/api.ts", "web/src/ui/index.tsx"]);
-        assert_eq!(g.imports_of("py/app/main.py"), vec!["py/app/models/__init__.py", "py/app/models/user.py", "py/app/util.py"]);
+        assert_eq!(
+            g.imports_of("py/app/main.py"),
+            vec!["py/app/models/__init__.py", "py/app/models/user.py", "py/app/util.py"]
+        );
         assert_eq!(g.imports_of("go/cmd/main.go"), vec!["go/payroll/pay.go"]);
         assert_eq!(g.imports_of("cs/Web/Program.cs"), vec!["cs/App/Models/User.cs", "cs/Services/PayService.cs"]);
-        assert_eq!(
-            g.importers_of("crates/pay/src/calc.rs"),
-            vec!["crates/app/src/main.rs", "crates/pay/src/lib.rs"]
-        );
+        assert_eq!(g.importers_of("crates/pay/src/calc.rs"), vec!["crates/app/src/main.rs", "crates/pay/src/lib.rs"]);
         assert!(g.edge_count() >= 10);
         assert_eq!(ImportGraph::build(&idx), g, "deterministic");
     }

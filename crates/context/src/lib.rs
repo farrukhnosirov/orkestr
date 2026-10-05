@@ -39,15 +39,17 @@ pub mod tokens;
 
 pub use bundle::{build_bundle, ContextBundle, ContextFile, ContextNote, ContextRequest, Excerpt};
 pub use cache::{global_cache, IndexCache, IndexedProject};
-pub use handoff::{compress_deterministic, compress_history, CompressedHistory, CompressionMethod, HistoryEntry, Summarizer};
+pub use handoff::{
+    compress_deterministic, compress_history, CompressedHistory, CompressionMethod, HistoryEntry, Summarizer,
+};
 pub use imports::{extract_imports, ImportGraph};
 pub use index::{FileIndex, FileReader, FsReader, IndexOptions, IndexedFile, MemReader};
 pub use optimizer::{
     optimize, ContextPlan, Decision, FileCandidate, MemoryInput, ModelBudget, NoteCandidate, OptimizeRequest, Reason,
     RuleInput, Signals,
 };
-pub use signals::ChurnStats;
 pub use rank::{rank_files, RankedFile};
+pub use signals::ChurnStats;
 pub use symbols::{extract_symbols, Language, Symbol, SymbolKind};
 pub use tokens::{estimate_code_tokens, estimate_tokens};
 

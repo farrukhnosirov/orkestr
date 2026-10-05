@@ -113,7 +113,8 @@ async fn context_preview_and_explain_over_websocket() {
     let core = orkestr_core::start(CoreConfig::with_data_dir(dir.path().join("data"))).await.unwrap();
     let mut c = Client::connect(&core).await;
 
-    let pid = c.ok("projects.create", json!({"name": "Payroll", "rootPath": root.to_string_lossy()})).await["project"]["id"]
+    let pid = c.ok("projects.create", json!({"name": "Payroll", "rootPath": root.to_string_lossy()})).await["project"]
+        ["id"]
         .as_str()
         .unwrap()
         .to_owned();

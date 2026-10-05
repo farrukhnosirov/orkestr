@@ -106,7 +106,13 @@ fn split(entries: &[HistoryEntry], recent_budget: u32) -> (Option<&HistoryEntry>
     (Some(first), &rest[..start], &rest[start..])
 }
 
-fn finish(text: String, method: CompressionMethod, entries: &[HistoryEntry], original_tokens: u32, max: u32) -> CompressedHistory {
+fn finish(
+    text: String,
+    method: CompressionMethod,
+    entries: &[HistoryEntry],
+    original_tokens: u32,
+    max: u32,
+) -> CompressedHistory {
     let text = truncate_to_tokens(&text, max);
     CompressedHistory {
         tokens: estimate_tokens(&text),
@@ -166,7 +172,13 @@ pub fn compress_deterministic(entries: &[HistoryEntry], max_tokens: u32) -> Comp
         mid.push_str(&format!("- … {skipped} earlier entries omitted\n"));
     }
     mid.push_str(&lines.join("\n"));
-    finish(assemble(goal, &mid, recent, max_tokens), CompressionMethod::Deterministic, entries, original_tokens, max_tokens)
+    finish(
+        assemble(goal, &mid, recent, max_tokens),
+        CompressionMethod::Deterministic,
+        entries,
+        original_tokens,
+        max_tokens,
+    )
 }
 
 /// Compresses with `summarizer` when given, else deterministically.
@@ -194,7 +206,13 @@ pub async fn compress_history(
     match summarizer.summarize(&render_all(middle), summary_budget).await {
         Ok(s) if !s.trim().is_empty() && estimate_tokens(s.trim()) <= summary_budget + summary_budget / 10 => {
             let mid = truncate_to_tokens(s.trim(), summary_budget);
-            finish(assemble(goal, &mid, recent, max_tokens), CompressionMethod::Model, entries, original_tokens, max_tokens)
+            finish(
+                assemble(goal, &mid, recent, max_tokens),
+                CompressionMethod::Model,
+                entries,
+                original_tokens,
+                max_tokens,
+            )
         }
         Ok(_) => {
             tracing::debug!("summarizer answer empty or over budget; deterministic handoff compression");
@@ -216,7 +234,10 @@ mod tests {
         for i in 0..n {
             v.push(HistoryEntry::new(
                 "assistant",
-                format!("Step {i}: edited src/payroll.rs and ran cargo test; {} more detail", "lorem ipsum ".repeat(20)),
+                format!(
+                    "Step {i}: edited src/payroll.rs and ran cargo test; {} more detail",
+                    "lorem ipsum ".repeat(20)
+                ),
             ));
         }
         v

@@ -46,7 +46,7 @@ summarises them: **Built** = implemented as decided (with listed deviations),
 | Planned | Topic | Phase |
 |---|---|---|
 | ADR-0023 | Provider router scoring & fallback handoff format (§7, §57) | 2 |
-| ADR-0024 | Context optimizer: symbol extraction with tree-sitter (§20) | 2 |
+| [ADR-0024](0024-context-optimizer.md) | Context optimizer (regex extraction, explainable packing) + execution benchmarks — written, Accepted | 2 |
 | ADR-0025 | LSP bridge over RPC (RR-A6) | 2 |
 | ADR-0026 | MCP client & capability mapping (CA-4) | 2 |
 | ADR-0027 | Consensus / adversarial review protocol (§8) | 2 |

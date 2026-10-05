@@ -3,10 +3,10 @@
 //! [`crate::benchmarks`] from events and joined with usage records by the
 //! cost engine.
 
+use orkestr_cost::benchmarks::{DEFAULT_DAYS, MAX_DAYS};
 use orkestr_protocol::methods::benchmarks::{
     self as m, AgentPerformanceResult, BenchmarkRecordsResult, ModelBenchmarksResult,
 };
-use orkestr_cost::benchmarks::{DEFAULT_DAYS, MAX_DAYS};
 
 use super::cost::cost_to_rpc;
 use super::{RpcContext, RpcRouter};

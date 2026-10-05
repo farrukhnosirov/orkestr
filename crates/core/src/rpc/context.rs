@@ -10,8 +10,8 @@ use orkestr_context::optimizer::SECTION_OVERHEAD;
 use orkestr_context::{estimate_tokens, Decision, FileCandidate, NoteCandidate, Reason};
 use orkestr_domain::TaskId;
 use orkestr_protocol::methods::context::{
-    self as m, ContextBudgetInfo, ContextDecision, ContextExplainResult, ContextIndexInfo, ContextItem, ContextItemKind,
-    ContextLineRange, ContextPreviewResult, ContextReason,
+    self as m, ContextBudgetInfo, ContextDecision, ContextExplainResult, ContextIndexInfo, ContextItem,
+    ContextItemKind, ContextLineRange, ContextPreviewResult, ContextReason,
 };
 use orkestr_protocol::RpcError;
 
@@ -37,7 +37,9 @@ pub fn reason(r: &Reason) -> ContextReason {
             ContextReason::Rule { origin: origin.clone(), overrides_global: *overrides_global }
         }
         Reason::Pinned => ContextReason::Pinned,
-        Reason::Memory { relevance_pct, tags } => ContextReason::Memory { relevance_pct: *relevance_pct, tags: tags.clone() },
+        Reason::Memory { relevance_pct, tags } => {
+            ContextReason::Memory { relevance_pct: *relevance_pct, tags: tags.clone() }
+        }
         Reason::Mistake => ContextReason::Mistake,
         Reason::KnownIssue => ContextReason::KnownIssue,
     }
@@ -61,7 +63,11 @@ fn reasons(rs: &[Reason]) -> Vec<ContextReason> {
     rs.iter().map(reason).collect()
 }
 
-fn options(model: Option<orkestr_domain::ModelRef>, token_budget: Option<u32>, max_files: Option<u32>) -> Result<ContextOptions, RpcError> {
+fn options(
+    model: Option<orkestr_domain::ModelRef>,
+    token_budget: Option<u32>,
+    max_files: Option<u32>,
+) -> Result<ContextOptions, RpcError> {
     if let Some(b) = token_budget {
         if !(256..=1_000_000).contains(&b) {
             return Err(RpcError::bad_request("tokenBudget must be between 256 and 1000000"));
@@ -130,7 +136,9 @@ fn file_item(f: &FileCandidate, p: &PlannedContext) -> ContextItem {
         .files
         .iter()
         .find(|b| b.path == f.path)
-        .map(|b| b.excerpts.iter().map(|e| ContextLineRange { start_line: e.start_line, end_line: e.end_line }).collect())
+        .map(|b| {
+            b.excerpts.iter().map(|e| ContextLineRange { start_line: e.start_line, end_line: e.end_line }).collect()
+        })
         .unwrap_or_default();
     ContextItem {
         kind: ContextItemKind::File,
@@ -208,10 +216,8 @@ pub fn preview_result(task_id: TaskId, p: &PlannedContext) -> ContextPreviewResu
 #[must_use]
 pub fn explain_result(task_id: TaskId, p: &PlannedContext, source: Option<&str>) -> ContextExplainResult {
     let wanted = source.map(|s| s.trim().replace('\\', "/")).filter(|s| !s.is_empty());
-    let items = all_items(p)
-        .into_iter()
-        .filter(|i| wanted.as_deref().is_none_or(|w| i.source == w || i.title == w))
-        .collect();
+    let items =
+        all_items(p).into_iter().filter(|i| wanted.as_deref().is_none_or(|w| i.source == w || i.title == w)).collect();
     ContextExplainResult { task_id, items, budget: budget_info(p) }
 }
 

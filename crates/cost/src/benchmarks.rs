@@ -42,11 +42,13 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use chrono::{Duration, SecondsFormat, Utc};
-use orkestr_domain::{AgentId, AgentInstance, AgentRole, ProjectId, ProviderId, ReviewState, Task, TaskId, TaskStatus, Timestamp};
+use orkestr_domain::{
+    AgentId, AgentInstance, AgentRole, ProjectId, ProviderId, ReviewState, Task, TaskId, TaskStatus, Timestamp,
+};
 use orkestr_protocol::event::{EventKind, StopReason};
 use orkestr_protocol::methods::benchmarks::{
-    AgentGroupBy, AgentPerformanceParams, AgentPerformanceRow, BenchmarkRecord, BenchmarkRecordsParams, ExecutionOutcome,
-    ModelBenchmarkRow, ModelBenchmarksParams,
+    AgentGroupBy, AgentPerformanceParams, AgentPerformanceRow, BenchmarkRecord, BenchmarkRecordsParams,
+    ExecutionOutcome, ModelBenchmarkRow, ModelBenchmarksParams,
 };
 use orkestr_protocol::Event;
 use orkestr_storage::rusqlite::{self, params, params_from_iter, Connection, OptionalExtension, Row};
@@ -116,7 +118,8 @@ pub fn linked_tasks(task: &Task) -> Vec<TaskId> {
             }
         }
     }
-    let tagged_bug = task.tags.iter().any(|t| matches!(t.trim().to_lowercase().as_str(), "bug" | "regression" | "kind:bug"));
+    let tagged_bug =
+        task.tags.iter().any(|t| matches!(t.trim().to_lowercase().as_str(), "bug" | "regression" | "kind:bug"));
     if let Some(parent) = task.parent_id {
         if (tagged_bug || !out.is_empty()) && !out.contains(&parent) {
             out.push(parent);
@@ -174,7 +177,12 @@ pub struct ApplyReport {
 }
 
 /// The task's author execution: newest non-reviewer execution (else newest).
-fn author(c: &Connection, task: TaskId, exclude: Option<AgentId>, only_completed: bool) -> rusqlite::Result<Option<String>> {
+fn author(
+    c: &Connection,
+    task: TaskId,
+    exclude: Option<AgentId>,
+    only_completed: bool,
+) -> rusqlite::Result<Option<String>> {
     let completed = if only_completed { " AND task_status = 'Completed'" } else { "" };
     let sql = format!(
         "SELECT agent_id FROM benchmark_executions WHERE task_id = ?1 AND agent_id IS NOT ?2{completed}
@@ -249,12 +257,7 @@ pub fn apply_event(c: &Connection, ev: &Event) -> rusqlite::Result<(bool, bool)>
             let n = c.execute(
                 "UPDATE benchmark_executions SET ended_at = ?2, stop_reason = ?3, outcome = ?4, updated_at = ?2
                  WHERE agent_id = ?1 AND ended_at IS NULL",
-                params![
-                    p.agent_id.to_string(),
-                    now,
-                    format!("{:?}", p.reason),
-                    outcome_str(stop_outcome(p.reason))
-                ],
+                params![p.agent_id.to_string(), now, format!("{:?}", p.reason), outcome_str(stop_outcome(p.reason))],
             )?;
             Ok((n > 0, n > 0))
         }
@@ -625,7 +628,8 @@ fn aggregate_models(execs: &[ExecRow], usage: &[UsageRow], by_role: bool) -> Vec
         let Ok(provider_id) = provider.parse::<ProviderId>() else { continue };
         a.latencies.sort_unstable();
         #[allow(clippy::cast_precision_loss)]
-        let latency_avg_ms = (!a.latencies.is_empty()).then(|| a.latencies.iter().sum::<u64>() as f64 / a.latencies.len() as f64);
+        let latency_avg_ms =
+            (!a.latencies.is_empty()).then(|| a.latencies.iter().sum::<u64>() as f64 / a.latencies.len() as f64);
         let cost_total_usd = micros_to_usd(a.cost_micros);
         #[allow(clippy::cast_precision_loss)]
         let row = ModelBenchmarkRow {
@@ -682,11 +686,17 @@ fn window_filter(project: Option<ProjectId>, role: Option<&str>, days: u32) -> (
     (clauses.join(" AND "), args)
 }
 
-fn load_usage(c: &Connection, project: Option<ProjectId>, role: Option<&str>, days: u32) -> rusqlite::Result<Vec<UsageRow>> {
-    let mut sql = "SELECT u.provider_id, u.model, e.role, u.success, u.latency_ms, u.cost_micros, u.input_tokens, u.output_tokens
+fn load_usage(
+    c: &Connection,
+    project: Option<ProjectId>,
+    role: Option<&str>,
+    days: u32,
+) -> rusqlite::Result<Vec<UsageRow>> {
+    let mut sql =
+        "SELECT u.provider_id, u.model, e.role, u.success, u.latency_ms, u.cost_micros, u.input_tokens, u.output_tokens
          FROM usage_records u LEFT JOIN benchmark_executions e ON e.agent_id = u.agent_id
          WHERE u.ts >= ?"
-        .to_owned();
+            .to_owned();
     let mut args = vec![since_key(days)];
     if let Some(p) = project {
         sql.push_str(" AND u.project_id = ?");
@@ -773,7 +783,9 @@ impl CostEngine {
             }
         }
         if let Some(prov) = p.provider_id {
-            clauses.push("(provider_id = ? OR agent_id IN (SELECT agent_id FROM usage_records WHERE provider_id = ?))".into());
+            clauses.push(
+                "(provider_id = ? OR agent_id IN (SELECT agent_id FROM usage_records WHERE provider_id = ?))".into(),
+            );
             args.push(prov.to_string());
             args.push(prov.to_string());
         }
@@ -820,9 +832,15 @@ impl CostEngine {
                 let (w, a) = window_filter(None, None, days);
                 let execs = load(c, &w, &a, MAX_AGGREGATE_ROWS)?;
                 let usage = load_usage(c, None, None, days)?;
-                let mut out: Vec<ModelRoutingStats> =
-                    aggregate_models(&execs, &usage, false).into_iter().map(|(role, row)| ModelRoutingStats { role, row }).collect();
-                out.extend(aggregate_models(&execs, &usage, true).into_iter().map(|(role, row)| ModelRoutingStats { role, row }));
+                let mut out: Vec<ModelRoutingStats> = aggregate_models(&execs, &usage, false)
+                    .into_iter()
+                    .map(|(role, row)| ModelRoutingStats { role, row })
+                    .collect();
+                out.extend(
+                    aggregate_models(&execs, &usage, true)
+                        .into_iter()
+                        .map(|(role, row)| ModelRoutingStats { role, row }),
+                );
                 Ok(out)
             })
             .await?)
@@ -937,7 +955,9 @@ impl CostEngine {
                 models: a.models.into_iter().collect(),
             })
             .collect();
-        out.sort_by(|a, b| b.executions.cmp(&a.executions).then_with(|| a.name.cmp(&b.name)).then_with(|| a.key.cmp(&b.key)));
+        out.sort_by(|a, b| {
+            b.executions.cmp(&a.executions).then_with(|| a.name.cmp(&b.name)).then_with(|| a.key.cmp(&b.key))
+        });
         Ok(out)
     }
 }
@@ -946,9 +966,7 @@ impl CostEngine {
 mod tests {
     use super::*;
     use crate::testutil::{engine, record};
-    use orkestr_domain::{
-        now, AgentState, AgentTemplateId, EventId, ModelRef, UsageSummary, WorktreePolicy,
-    };
+    use orkestr_domain::{now, AgentState, AgentTemplateId, EventId, ModelRef, UsageSummary, WorktreePolicy};
     use orkestr_protocol::event::{
         AgentSpawnedPayload, AgentStartedPayload, AgentStoppedPayload, BuildFinishedPayload, ReviewFinishedPayload,
         TaskPayload, TaskStatusChangedPayload, TestRunFinishedPayload,
@@ -973,7 +991,14 @@ mod tests {
         }
     }
 
-    fn agent(project: ProjectId, task: TaskId, name: &str, role: AgentRole, template: AgentTemplateId, model: &ModelRef) -> AgentInstance {
+    fn agent(
+        project: ProjectId,
+        task: TaskId,
+        name: &str,
+        role: AgentRole,
+        template: AgentTemplateId,
+        model: &ModelRef,
+    ) -> AgentInstance {
         AgentInstance {
             id: AgentId::new(),
             template_id: Some(template),
@@ -1005,7 +1030,11 @@ mod tests {
     }
 
     fn status(seq: &mut Seq, task: TaskId, from: TaskStatus, to: TaskStatus) -> Event {
-        seq.ev(EventKind::TaskStatusChanged(TaskStatusChangedPayload { task_id: task, from, to, reason: None }), Some(task), None)
+        seq.ev(
+            EventKind::TaskStatusChanged(TaskStatusChangedPayload { task_id: task, from, to, reason: None }),
+            Some(task),
+            None,
+        )
     }
 
     #[test]
@@ -1043,18 +1072,40 @@ mod tests {
         // t1: backend with `fast`, completed first pass, one build ok.
         let a1 = agent(project, t1, "Backend #1", AgentRole::Backend, backend_t, &fast);
         evs.push(seq.ev(EventKind::AgentSpawned(AgentSpawnedPayload { agent: a1.clone() }), Some(t1), Some(a1.id)));
-        evs.push(seq.ev(EventKind::AgentStarted(AgentStartedPayload { agent_id: a1.id, task_id: Some(t1) }), Some(t1), Some(a1.id)));
         evs.push(seq.ev(
-            EventKind::BuildSucceeded(BuildFinishedPayload { build_id: "b".into(), exit_code: Some(0), duration_ms: 5, summary: String::new() }),
+            EventKind::AgentStarted(AgentStartedPayload { agent_id: a1.id, task_id: Some(t1) }),
             Some(t1),
             Some(a1.id),
         ));
-        evs.push(seq.ev(EventKind::AgentStopped(AgentStoppedPayload { agent_id: a1.id, reason: StopReason::Completed, detail: None }), None, Some(a1.id)));
+        evs.push(seq.ev(
+            EventKind::BuildSucceeded(BuildFinishedPayload {
+                build_id: "b".into(),
+                exit_code: Some(0),
+                duration_ms: 5,
+                summary: String::new(),
+            }),
+            Some(t1),
+            Some(a1.id),
+        ));
+        evs.push(seq.ev(
+            EventKind::AgentStopped(AgentStoppedPayload {
+                agent_id: a1.id,
+                reason: StopReason::Completed,
+                detail: None,
+            }),
+            None,
+            Some(a1.id),
+        ));
         evs.push(status(&mut seq, t1, TaskStatus::Running, TaskStatus::Review));
         let r1 = agent(project, t1, "Reviewer #1", AgentRole::Reviewer, reviewer_t, &smart);
         evs.push(seq.ev(EventKind::AgentSpawned(AgentSpawnedPayload { agent: r1.clone() }), Some(t1), Some(r1.id)));
         evs.push(seq.ev(
-            EventKind::ReviewFinished(ReviewFinishedPayload { reviewer_agent_id: Some(r1.id), verdict: ReviewState::Approved, findings: 1, summary: String::new() }),
+            EventKind::ReviewFinished(ReviewFinishedPayload {
+                reviewer_agent_id: Some(r1.id),
+                verdict: ReviewState::Approved,
+                findings: 1,
+                summary: String::new(),
+            }),
             Some(t1),
             Some(r1.id),
         ));
@@ -1064,29 +1115,58 @@ mod tests {
         let a2 = agent(project, t2, "Backend #2", AgentRole::Backend, backend_t, &smart);
         evs.push(seq.ev(EventKind::AgentSpawned(AgentSpawnedPayload { agent: a2.clone() }), Some(t2), Some(a2.id)));
         evs.push(seq.ev(
-            EventKind::BuildFailed(BuildFinishedPayload { build_id: "b".into(), exit_code: Some(1), duration_ms: 5, summary: String::new() }),
+            EventKind::BuildFailed(BuildFinishedPayload {
+                build_id: "b".into(),
+                exit_code: Some(1),
+                duration_ms: 5,
+                summary: String::new(),
+            }),
             Some(t2),
             None,
         ));
         evs.push(seq.ev(
-            EventKind::TestRunFinished(TestRunFinishedPayload { run_id: "r".into(), passed: 3, failed: 2, skipped: 0, duration_ms: 9, summary: String::new() }),
+            EventKind::TestRunFinished(TestRunFinishedPayload {
+                run_id: "r".into(),
+                passed: 3,
+                failed: 2,
+                skipped: 0,
+                duration_ms: 9,
+                summary: String::new(),
+            }),
             Some(t2),
             Some(a2.id),
         ));
         evs.push(status(&mut seq, t2, TaskStatus::Running, TaskStatus::Review));
         evs.push(seq.ev(
-            EventKind::ReviewFinished(ReviewFinishedPayload { reviewer_agent_id: None, verdict: ReviewState::ChangesRequested, findings: 3, summary: String::new() }),
+            EventKind::ReviewFinished(ReviewFinishedPayload {
+                reviewer_agent_id: None,
+                verdict: ReviewState::ChangesRequested,
+                findings: 3,
+                summary: String::new(),
+            }),
             Some(t2),
             None,
         ));
         evs.push(status(&mut seq, t2, TaskStatus::Review, TaskStatus::Running));
-        evs.push(seq.ev(EventKind::AgentStopped(AgentStoppedPayload { agent_id: a2.id, reason: StopReason::Completed, detail: None }), None, Some(a2.id)));
+        evs.push(seq.ev(
+            EventKind::AgentStopped(AgentStoppedPayload {
+                agent_id: a2.id,
+                reason: StopReason::Completed,
+                detail: None,
+            }),
+            None,
+            Some(a2.id),
+        ));
         evs.push(status(&mut seq, t2, TaskStatus::Running, TaskStatus::Completed));
 
         // t3: backend with `fast` fails, retried.
         let a3 = agent(project, t3, "Backend #3", AgentRole::Backend, backend_t, &fast);
         evs.push(seq.ev(EventKind::AgentSpawned(AgentSpawnedPayload { agent: a3.clone() }), Some(t3), Some(a3.id)));
-        evs.push(seq.ev(EventKind::AgentStopped(AgentStoppedPayload { agent_id: a3.id, reason: StopReason::Error, detail: None }), None, Some(a3.id)));
+        evs.push(seq.ev(
+            EventKind::AgentStopped(AgentStoppedPayload { agent_id: a3.id, reason: StopReason::Error, detail: None }),
+            None,
+            Some(a3.id),
+        ));
         evs.push(status(&mut seq, t3, TaskStatus::Running, TaskStatus::Failed));
         evs.push(status(&mut seq, t3, TaskStatus::Failed, TaskStatus::Ready));
 
@@ -1105,7 +1185,11 @@ mod tests {
         // A late stop notice (e.g. `agents.stop` on a finished agent) does not
         // rewrite a finished execution.
         let late = seq.ev(
-            EventKind::AgentStopped(AgentStoppedPayload { agent_id: a1.id, reason: StopReason::UserRequested, detail: None }),
+            EventKind::AgentStopped(AgentStoppedPayload {
+                agent_id: a1.id,
+                reason: StopReason::UserRequested,
+                detail: None,
+            }),
             None,
             Some(a1.id),
         );
@@ -1113,7 +1197,9 @@ mod tests {
 
         // Usage joined by agent: a1 switched to `smart` for its last call.
         let ts = Utc::now().to_rfc3339();
-        for (a, m, cost, ok) in [(&a1, &fast, 0.1, true), (&a1, &smart, 0.2, true), (&a2, &smart, 0.5, false), (&a3, &fast, 0.05, true)] {
+        for (a, m, cost, ok) in
+            [(&a1, &fast, 0.1, true), (&a1, &smart, 0.2, true), (&a2, &smart, 0.5, false), (&a3, &fast, 0.05, true)]
+        {
             let mut r = record(m.provider_id, &m.model, cost, &ts);
             r.agent_id = Some(a.id);
             r.project_id = Some(project);
@@ -1148,7 +1234,10 @@ mod tests {
 
         // Filters.
         let by_model = eng
-            .benchmark_records(BenchmarkRecordsParams { model: Some("fast-1".into()), ..BenchmarkRecordsParams::default() })
+            .benchmark_records(BenchmarkRecordsParams {
+                model: Some("fast-1".into()),
+                ..BenchmarkRecordsParams::default()
+            })
             .await
             .unwrap();
         assert_eq!(by_model.iter().map(|r| r.agent_id).collect::<Vec<_>>(), vec![a3.id]);
@@ -1172,7 +1261,10 @@ mod tests {
         assert_eq!(fast_row.first_pass_success_rate, Some(0.0));
         assert_eq!(fast_row.retries_avg, Some(1.0));
         let backend_only = eng
-            .model_benchmark_rows(ModelBenchmarksParams { role: Some("Backend".into()), ..ModelBenchmarksParams::default() })
+            .model_benchmark_rows(ModelBenchmarksParams {
+                role: Some("Backend".into()),
+                ..ModelBenchmarksParams::default()
+            })
             .await
             .unwrap();
         assert_eq!(backend_only.iter().find(|r| r.model == "smart-2").unwrap().executions, 2);
@@ -1194,13 +1286,19 @@ mod tests {
         assert!((backend.cost_usd - 0.85).abs() < 1e-9);
         assert_eq!(backend.models, vec!["fast-1".to_owned(), "smart-2".to_owned()]);
         let per_instance = eng
-            .agent_performance_rows(AgentPerformanceParams { group_by: Some(AgentGroupBy::Instance), ..AgentPerformanceParams::default() })
+            .agent_performance_rows(AgentPerformanceParams {
+                group_by: Some(AgentGroupBy::Instance),
+                ..AgentPerformanceParams::default()
+            })
             .await
             .unwrap();
         assert_eq!(per_instance.len(), 4);
         assert!(per_instance.iter().all(|r| r.agent_id.is_some()));
         let other_project = eng
-            .agent_performance_rows(AgentPerformanceParams { project_id: Some(ProjectId::new()), ..AgentPerformanceParams::default() })
+            .agent_performance_rows(AgentPerformanceParams {
+                project_id: Some(ProjectId::new()),
+                ..AgentPerformanceParams::default()
+            })
             .await
             .unwrap();
         assert!(other_project.is_empty());

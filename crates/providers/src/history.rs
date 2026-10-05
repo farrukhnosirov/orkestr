@@ -82,7 +82,13 @@ mod tests {
     use super::*;
 
     fn h(samples: u32, fp: Option<f64>, call: f64) -> ModelHistory {
-        ModelHistory { samples, call_success_rate: call, first_pass_rate: fp, avg_latency_ms: Some(1000.0), avg_cost_usd: Some(0.05) }
+        ModelHistory {
+            samples,
+            call_success_rate: call,
+            first_pass_rate: fp,
+            avg_latency_ms: Some(1000.0),
+            avg_cost_usd: Some(0.05),
+        }
     }
 
     #[test]

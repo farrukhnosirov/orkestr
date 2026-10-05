@@ -169,10 +169,8 @@ pub fn score(c: &Candidate, req: &RouteRequest, cfg: &RoutingConfig) -> f64 {
         (Some(p), false) => 1.0 / (1.0 + (p.input_per_mtok_usd + p.output_per_mtok_usd) / 2.0 / 5.0),
         (None, false) => 0.5,
     };
-    let latency = c
-        .latency_ms
-        .or_else(|| c.history.and_then(|h| h.avg_latency_ms))
-        .map_or(0.5, |ms| 1.0 / (1.0 + ms / 2000.0));
+    let latency =
+        c.latency_ms.or_else(|| c.history.and_then(|h| h.avg_latency_ms)).map_or(0.5, |ms| 1.0 / (1.0 + ms / 2000.0));
     let health = match c.health {
         ProviderHealth::Healthy => 1.0,
         ProviderHealth::Unknown => 0.6,

@@ -389,14 +389,7 @@ fn pack_notes(
         used += tokens;
         *remaining -= tokens;
         out.push(PackedNote {
-            note: ContextNote {
-                source,
-                kind: item.kind,
-                title: item.title.clone(),
-                body,
-                tokens,
-                reasons,
-            },
+            note: ContextNote { source, kind: item.kind, title: item.title.clone(), body, tokens, reasons },
             cand,
         });
     }
@@ -602,10 +595,9 @@ fn score_files(
     seeds.truncate(MAX_SEEDS.min(max_files));
     for (seed, seed_score) in &seeds {
         let strength = seed_score.min(top_bm25);
-        for (rel, weight, list) in [
-            ("imports", 0.5, graph.imports_of(seed)),
-            ("importedBy", 0.35, graph.importers_of(seed)),
-        ] {
+        for (rel, weight, list) in
+            [("imports", 0.5, graph.imports_of(seed)), ("importedBy", 0.35, graph.importers_of(seed))]
+        {
             for n in list.into_iter().take(MAX_NEIGHBOURS) {
                 let c = cands.entry(n.to_owned()).or_default();
                 c.graph += strength * weight;
@@ -746,7 +738,12 @@ fn reason_text(reasons: &[Reason]) -> String {
 
 /// Runs the optimizer.
 #[must_use]
-pub fn optimize(index: &FileIndex, reader: &dyn FileReader, req: &OptimizeRequest, signals: Signals<'_>) -> ContextPlan {
+pub fn optimize(
+    index: &FileIndex,
+    reader: &dyn FileReader,
+    req: &OptimizeRequest,
+    signals: Signals<'_>,
+) -> ContextPlan {
     let budget = req.token_budget;
     let mut remaining = budget;
     let mut omitted = Vec::new();
@@ -1023,7 +1020,8 @@ mod tests {
         let p = ProjectId::new();
         let mut global = mem("Money", "Use floats.", MemoryKind::Convention, MemoryScope::Global);
         global.key = Some("money".into());
-        let mut project = mem("Money", "Use integer cents.", MemoryKind::Convention, MemoryScope::Project { project_id: p });
+        let mut project =
+            mem("Money", "Use integer cents.", MemoryKind::Convention, MemoryScope::Project { project_id: p });
         project.key = Some("money".into());
         let other_global = mem("Tabs", "Use spaces.", MemoryKind::Convention, MemoryScope::Global);
         let mut pinned = mem("Pinned", "Always.", MemoryKind::Convention, MemoryScope::Global);
@@ -1035,10 +1033,15 @@ mod tests {
             RuleInput { item: pinned.clone(), key: None },
         ];
         let note = mem("Overtime note", "Generic.", MemoryKind::Note, MemoryScope::Project { project_id: p });
-        let mut mistake =
-            mem("Overtime rounding mistake", "Rounded down.", MemoryKind::Mistake, MemoryScope::Project { project_id: p });
+        let mut mistake = mem(
+            "Overtime rounding mistake",
+            "Rounded down.",
+            MemoryKind::Mistake,
+            MemoryScope::Project { project_id: p },
+        );
         mistake.tags = vec!["overtime".into(), "ui".into()];
-        let issue = mem("Known overtime bug", "Off by one.", MemoryKind::KnownIssue, MemoryScope::Project { project_id: p });
+        let issue =
+            mem("Known overtime bug", "Off by one.", MemoryKind::KnownIssue, MemoryScope::Project { project_id: p });
         let dup = MemoryInput { item: note.clone(), relevance: 0.9 };
         let memory = vec![
             MemoryInput { item: note.clone(), relevance: 0.9 },
@@ -1059,7 +1062,10 @@ mod tests {
         let titles: Vec<(&str, &str)> = b.rules.iter().map(|r| (r.title.as_str(), r.body.as_str())).collect();
         assert_eq!(titles, vec![("Pinned", "Always."), ("Money", "Use integer cents."), ("Tabs", "Use spaces.")]);
         assert!(b.rules[1].reasons.contains(&Reason::Rule { origin: "project".into(), overrides_global: true }));
-        assert!(plan.notes.iter().any(|n| n.source == format!("rule:{}", global.id) && n.decision == Decision::Duplicate));
+        assert!(plan
+            .notes
+            .iter()
+            .any(|n| n.source == format!("rule:{}", global.id) && n.decision == Decision::Duplicate));
         let mem_titles: Vec<&str> = b.memory.iter().map(|m| m.title.as_str()).collect();
         // mistake: 0.7 × 1.5 + tag 0.25; known issue: 0.5 × 1.5; note: 0.9 × 0.8.
         assert_eq!(mem_titles, vec!["Overtime rounding mistake", "Known overtime bug", "Overtime note"]);
