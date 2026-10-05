@@ -19,13 +19,14 @@ static PAREN: Lazy<Regex> =
 // tsc --pretty: `file:10:5 - error TS2322: msg`
 static TSC_PRETTY: Lazy<Regex> = Lazy::new(|| re(r"^(.+?):(\d+):(\d+) - (error|warning) (TS\d+): (.+)$"));
 // ESLint stylish: `  10:5  error  msg  rule`
-static ESLINT_ROW: Lazy<Regex> =
-    Lazy::new(|| re(r"^\s+(\d+):(\d+)\s+(error|warning)\s+(.+?)(?:\s{2,}(\S+))?\s*$"));
+static ESLINT_ROW: Lazy<Regex> = Lazy::new(|| re(r"^\s+(\d+):(\d+)\s+(error|warning)\s+(.+?)(?:\s{2,}(\S+))?\s*$"));
 // javac via Maven: `[ERROR] /p/File.java:[10,5] msg`
 static JAVAC: Lazy<Regex> = Lazy::new(|| re(r"^\[(ERROR|WARNING)\] (.+?\.\w+):\[(\d+),(\d+)\] (.+)$"));
 // Generic: `path.ext:line[:col]: [severity:] msg`
 static GENERIC: Lazy<Regex> = Lazy::new(|| {
-    re(r"^([^\s:][^:]*?\.[A-Za-z0-9]+|[A-Za-z]:[\\/][^:]*?\.[A-Za-z0-9]+):(\d+):(?:(\d+):)?\s+(?:(error|warning|note|info)\s*:?\s+)?(.+)$")
+    re(
+        r"^([^\s:][^:]*?\.[A-Za-z0-9]+|[A-Za-z]:[\\/][^:]*?\.[A-Za-z0-9]+):(\d+):(?:(\d+):)?\s+(?:(error|warning|note|info)\s*:?\s+)?(.+)$",
+    )
 });
 static TRAILING_CODE: Lazy<Regex> = Lazy::new(|| re(r"^(.*?)\s+\[([\w./-]+)\]$"));
 static LEADING_CODE: Lazy<Regex> = Lazy::new(|| re(r"^([A-Z]{1,4}\d{2,5})\s+(.+)$"));

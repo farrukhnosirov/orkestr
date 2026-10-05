@@ -87,7 +87,9 @@ impl CheckExecutor for Scripted {
                     }),
                 }
             }
-            Err(false) => Err(ExecError::ApprovalRequired { reason: "dangerous".into(), approval_id: Some("ap1".into()) }),
+            Err(false) => {
+                Err(ExecError::ApprovalRequired { reason: "dangerous".into(), approval_id: Some("ap1".into()) })
+            }
         }
     }
 }
@@ -160,11 +162,10 @@ async fn run_parses_results_publishes_events_and_persists() {
     req.task_id = Some(task.id);
     let initial = svc.start(req).await.unwrap();
     assert_eq!(initial.status, CheckStatus::Running);
-    assert_eq!(initial.results.iter().map(|r| r.kind).collect::<Vec<_>>(), vec![
-        CheckKind::Build,
-        CheckKind::Lint,
-        CheckKind::Test
-    ]);
+    assert_eq!(
+        initial.results.iter().map(|r| r.kind).collect::<Vec<_>>(),
+        vec![CheckKind::Build, CheckKind::Lint, CheckKind::Test]
+    );
     let run = svc.wait(&initial.id).await.unwrap();
     assert_eq!(run.status, CheckStatus::Failed);
     let build = &run.results[0];
@@ -197,17 +198,14 @@ async fn run_parses_results_publishes_events_and_persists() {
             Received::Lagged(_) => panic!("lagged"),
         }
     }
-    assert_eq!(kinds, vec![
-        "BuildStarted",
-        "BuildSucceeded",
-        "BuildStarted",
-        "BuildFailed",
-        "BuildStarted",
-        "TestRunFinished"
-    ]);
+    assert_eq!(
+        kinds,
+        vec!["BuildStarted", "BuildSucceeded", "BuildStarted", "BuildFailed", "BuildStarted", "TestRunFinished"]
+    );
 
     // Gates: build passes, lint + tests fail, review approved (task field).
-    let report = svc.evaluate(project, Some(&task), &[CheckKind::Build, CheckKind::Lint, CheckKind::Test], 0).await.unwrap();
+    let report =
+        svc.evaluate(project, Some(&task), &[CheckKind::Build, CheckKind::Lint, CheckKind::Test], 0).await.unwrap();
     let g = |k: GateKind| report.gates.iter().find(|x| x.gate == k).unwrap().clone();
     assert_eq!(g(GateKind::BuildPasses).status, GateStatus::Passed);
     assert_eq!(g(GateKind::LintPasses).status, GateStatus::Failed);
@@ -285,7 +283,8 @@ async fn approval_required_blocks_check() {
     let exec = Scripted::with(vec![("rm -rf x", Script::Deny)]);
     let (svc, _) = service(exec).await;
     let ws = tempfile::tempdir().unwrap();
-    let run = svc.start(start(ProjectId::new(), ws.path(), vec![check("d", CheckKind::Smoke, "rm -rf x")])).await.unwrap();
+    let run =
+        svc.start(start(ProjectId::new(), ws.path(), vec![check("d", CheckKind::Smoke, "rm -rf x")])).await.unwrap();
     let done = svc.wait(&run.id).await.unwrap();
     assert_eq!(done.results[0].status, CheckStatus::Blocked);
     assert_eq!(done.results[0].approval_id.as_deref(), Some("ap1"));
@@ -300,7 +299,8 @@ async fn nothing_to_run_and_invalid_workspace() {
     c.enabled = false;
     let r = svc.start(start(ProjectId::new(), ws.path(), vec![c])).await;
     assert!(matches!(r, Err(QualityError::NothingToRun(_))));
-    let r = svc.start(start(ProjectId::new(), &ws.path().join("missing"), vec![check("b", CheckKind::Build, "x")])).await;
+    let r =
+        svc.start(start(ProjectId::new(), &ws.path().join("missing"), vec![check("b", CheckKind::Build, "x")])).await;
     assert!(matches!(r, Err(QualityError::Invalid(_))));
 }
 

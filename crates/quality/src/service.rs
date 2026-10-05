@@ -158,7 +158,10 @@ pub fn validate_checks(checks: &[CheckDef]) -> QualityResult<()> {
         }
         let cmd = c.command.trim();
         if cmd.is_empty() || cmd.len() > MAX_COMMAND_LEN {
-            return Err(QualityError::Invalid(format!("check `{}`: command must be 1..={MAX_COMMAND_LEN} bytes", c.id)));
+            return Err(QualityError::Invalid(format!(
+                "check `{}`: command must be 1..={MAX_COMMAND_LEN} bytes",
+                c.id
+            )));
         }
         if cmd.contains(['\n', '\r', '\0']) {
             return Err(QualityError::Invalid(format!("check `{}`: command must be a single line", c.id)));
@@ -313,7 +316,13 @@ impl QualityService {
     /// Saved overrides, else live detection in `root` (empty without a root).
     pub async fn profile(&self, project_id: ProjectId, root: Option<&Path>) -> QualityResult<QualityProfile> {
         if let Some((checks, at)) = self.inner.store.profile(project_id).await? {
-            return Ok(QualityProfile { project_id, checks, customized: true, updated_at: Some(at), roots: Vec::new() });
+            return Ok(QualityProfile {
+                project_id,
+                checks,
+                customized: true,
+                updated_at: Some(at),
+                roots: Vec::new(),
+            });
         }
         let detection = match root {
             Some(r) => self.detect(r).await,
@@ -410,7 +419,12 @@ impl QualityService {
     }
 
     /// Runs of a project / task, newest first.
-    pub async fn runs(&self, project_id: ProjectId, task_id: Option<TaskId>, limit: u32) -> QualityResult<Vec<QualityRun>> {
+    pub async fn runs(
+        &self,
+        project_id: ProjectId,
+        task_id: Option<TaskId>,
+        limit: u32,
+    ) -> QualityResult<Vec<QualityRun>> {
         let mut runs = self.inner.store.runs(project_id, task_id, limit.clamp(1, 200)).await?;
         let active = self.inner.active.lock();
         for r in &mut runs {
@@ -660,7 +674,10 @@ async fn execute_run(
             publish(
                 inner,
                 &s,
-                EventKind::BuildStarted(BuildStartedPayload { build_id: build_id.clone(), command: (inner.redact)(&check.command) }),
+                EventKind::BuildStarted(BuildStartedPayload {
+                    build_id: build_id.clone(),
+                    command: (inner.redact)(&check.command),
+                }),
             )
             .await;
         }
@@ -811,11 +828,8 @@ mod tests {
 
     #[test]
     fn selection_order_and_filters() {
-        let checks = vec![
-            def("t", CheckKind::Test, true),
-            def("b", CheckKind::Build, true),
-            def("l", CheckKind::Lint, false),
-        ];
+        let checks =
+            vec![def("t", CheckKind::Test, true), def("b", CheckKind::Build, true), def("l", CheckKind::Lint, false)];
         let all = select_checks(&checks, &[], &[]);
         assert_eq!(all.iter().map(|c| c.id.as_str()).collect::<Vec<_>>(), vec!["b", "t"]);
         assert_eq!(select_checks(&checks, &[CheckKind::Test], &[]).len(), 1);

@@ -173,17 +173,16 @@ async fn quality_over_websocket() {
     );
     // Arbitrary directories are rejected: only worktrees of the project's repository.
     let code = c
-        .error_code("quality.run", json!({"projectId": pid, "target": {"type": "worktree", "path": "C:/not/a/worktree"}}))
+        .error_code(
+            "quality.run",
+            json!({"projectId": pid, "target": {"type": "worktree", "path": "C:/not/a/worktree"}}),
+        )
         .await;
     assert!(["not_found", "bad_request", "internal"].contains(&code.as_str()), "{code}");
 
     // Task-scoped run + gates.
-    let task = c
-        .call(
-            "tasks.create",
-            json!({"projectId": pid, "title": "Feature", "acceptanceCriteria": ["works"]}),
-        )
-        .await;
+    let task =
+        c.call("tasks.create", json!({"projectId": pid, "title": "Feature", "acceptanceCriteria": ["works"]})).await;
     let tid = task["task"]["id"].as_str().unwrap().to_owned();
     let trun = c
         .call("quality.run", json!({"projectId": pid, "target": {"type": "task", "taskId": tid}, "kinds": ["Build", "Test"], "wait": true}))

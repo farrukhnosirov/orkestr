@@ -34,9 +34,8 @@ fn num(s: Option<regex::Match<'_>>) -> u32 {
 }
 
 // libtest
-static LIBTEST_RESULT: Lazy<Regex> = Lazy::new(|| {
-    re(r"^test result: (?:ok|FAILED)\. (\d+) passed; (\d+) failed; (\d+) ignored")
-});
+static LIBTEST_RESULT: Lazy<Regex> =
+    Lazy::new(|| re(r"^test result: (?:ok|FAILED)\. (\d+) passed; (\d+) failed; (\d+) ignored"));
 static LIBTEST_FAILED: Lazy<Regex> = Lazy::new(|| re(r"^test (\S+) \.\.\. FAILED$"));
 static LIBTEST_SECTION: Lazy<Regex> = Lazy::new(|| re(r"^---- (\S+) stdout ----$"));
 static PANIC_NEW: Lazy<Regex> = Lazy::new(|| re(r"panicked at (.+?):(\d+):(\d+):$"));
@@ -49,8 +48,7 @@ static JEST_BULLET: Lazy<Regex> = Lazy::new(|| re(r"^\s*● (.+)$"));
 static JS_STACK_LOC: Lazy<Regex> = Lazy::new(|| re(r"\(?([^\s()]+\.[cm]?[jt]sx?):(\d+):(\d+)\)?\s*$"));
 static VITEST_FAIL: Lazy<Regex> = Lazy::new(|| re(r"^\s*FAIL\s+(\S+)\s+>\s+(.+?)\s*$"));
 // pytest
-static PYTEST_SUMMARY: Lazy<Regex> =
-    Lazy::new(|| re(r"^=*\s*((?:\d+ \w+(?:, )?)+)(?: in [\d.]+s.*)?\s*=*$"));
+static PYTEST_SUMMARY: Lazy<Regex> = Lazy::new(|| re(r"^=*\s*((?:\d+ \w+(?:, )?)+)(?: in [\d.]+s.*)?\s*=*$"));
 static PYTEST_FAILED: Lazy<Regex> = Lazy::new(|| re(r"^(FAILED|ERROR) (\S+?)(?: - (.*))?$"));
 static PY_LOC: Lazy<Regex> = Lazy::new(|| re(r"^(\S+\.py):(\d+): \w+"));
 // go
@@ -59,25 +57,25 @@ static GO_MSG: Lazy<Regex> = Lazy::new(|| re(r"^\s+(\S+\.go):(\d+): (.*)$"));
 static GO_PKG_OK: Lazy<Regex> = Lazy::new(|| re(r"^ok\s+\S+\s"));
 static GO_PKG_FAIL: Lazy<Regex> = Lazy::new(|| re(r"^FAIL\s+\S+\s"));
 // dotnet
-static DOTNET_SUMMARY: Lazy<Regex> = Lazy::new(|| {
-    re(r"(?:Passed|Failed)!\s+-\s+Failed:\s+(\d+),\s+Passed:\s+(\d+),\s+Skipped:\s+(\d+)")
-});
+static DOTNET_SUMMARY: Lazy<Regex> =
+    Lazy::new(|| re(r"(?:Passed|Failed)!\s+-\s+Failed:\s+(\d+),\s+Passed:\s+(\d+),\s+Skipped:\s+(\d+)"));
 static DOTNET_FAILED: Lazy<Regex> = Lazy::new(|| re(r"^\s*Failed (\S+) \["));
 // maven / gradle
 static SUREFIRE: Lazy<Regex> =
     Lazy::new(|| re(r"Tests run: (\d+), Failures: (\d+), Errors: (\d+), Skipped: (\d+)(.*)$"));
 static SUREFIRE_FAIL: Lazy<Regex> = Lazy::new(|| re(r"^\[ERROR\]\s{2,}(\S+?)(?::(\d+))?\s+(.+)$"));
-static GRADLE_SUMMARY: Lazy<Regex> =
-    Lazy::new(|| re(r"(\d+) tests? completed, (\d+) failed(?:, (\d+) skipped)?"));
+static GRADLE_SUMMARY: Lazy<Regex> = Lazy::new(|| re(r"(\d+) tests? completed, (\d+) failed(?:, (\d+) skipped)?"));
 static GRADLE_FAILED: Lazy<Regex> = Lazy::new(|| re(r"^(\S+) > (.+) FAILED$"));
+
+/// A runner-specific parser: summary + failures when the output matches.
+type RunnerParser = fn(&[&str]) -> Option<(TestSummary, Vec<TestFailure>)>;
 
 /// Parses test summaries and failures. Returns `None` counts when no runner
 /// summary was recognised (failures may still be found).
 #[must_use]
 pub fn parse_tests(text: &str) -> (Option<TestSummary>, Vec<TestFailure>) {
     let lines: Vec<&str> = text.lines().collect();
-    let parsers: [fn(&[&str]) -> Option<(TestSummary, Vec<TestFailure>)>; 7] =
-        [libtest, jest_vitest, pytest, gotest, dotnet, surefire, gradle];
+    let parsers: [RunnerParser; 7] = [libtest, jest_vitest, pytest, gotest, dotnet, surefire, gradle];
     for p in parsers {
         if let Some((s, f)) = p(&lines) {
             return (Some(s), f);
@@ -87,8 +85,7 @@ pub fn parse_tests(text: &str) -> (Option<TestSummary>, Vec<TestFailure>) {
 }
 
 fn next_message(lines: &[&str], from: usize, max_lines: usize) -> String {
-    let msg: Vec<&str> =
-        lines.iter().skip(from).map(|l| l.trim()).filter(|l| !l.is_empty()).take(max_lines).collect();
+    let msg: Vec<&str> = lines.iter().skip(from).map(|l| l.trim()).filter(|l| !l.is_empty()).take(max_lines).collect();
     clip(&msg.join("\n"))
 }
 
@@ -377,11 +374,7 @@ fn gradle(lines: &[&str]) -> Option<(TestSummary, Vec<TestFailure>)> {
             let run = num(c.get(1));
             let failed = num(c.get(2));
             let skipped = num(c.get(3));
-            total = Some(TestSummary {
-                passed: run.saturating_sub(failed).saturating_sub(skipped),
-                failed,
-                skipped,
-            });
+            total = Some(TestSummary { passed: run.saturating_sub(failed).saturating_sub(skipped), failed, skipped });
         }
     }
     let total = total?;
@@ -560,7 +553,8 @@ Failed!  - Failed:     1, Passed:     4, Skipped:     0, Total:     5, Duration:
 
     #[test]
     fn maven_surefire() {
-        let out = "[INFO] Tests run: 3, Failures: 1, Errors: 0, Skipped: 0, Time elapsed: 0.05 s <<< FAILURE! - in CalcTest
+        let out =
+            "[INFO] Tests run: 3, Failures: 1, Errors: 0, Skipped: 0, Time elapsed: 0.05 s <<< FAILURE! - in CalcTest
 [ERROR] Failures:
 [ERROR]   CalcTest.testSub:14 expected:<2> but was:<1>
 [INFO]

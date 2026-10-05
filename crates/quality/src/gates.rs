@@ -88,7 +88,7 @@ fn gate_kinds(gate: GateKind) -> &'static [CheckKind] {
 }
 
 /// Latest result per check id (first occurrence wins — inputs are newest first).
-fn latest_by_check<'a>(results: &'a [(String, CheckResult)]) -> Vec<&'a (String, CheckResult)> {
+fn latest_by_check(results: &[(String, CheckResult)]) -> Vec<&(String, CheckResult)> {
     let mut seen: HashMap<&str, ()> = HashMap::new();
     let mut out = Vec::new();
     for r in results {
@@ -139,19 +139,11 @@ fn check_gate(gate: GateKind, input: &EvaluationInput<'_>) -> (GateStatus, GateR
         return (GateStatus::Pending, GateReason::CheckRunning, labels(&|r| !r.status.is_final()), run_id);
     }
     if latest.iter().any(|(_, r)| r.status != CheckStatus::Passed) {
-        return (
-            GateStatus::Failed,
-            GateReason::CheckIncomplete,
-            labels(&|r| r.status != CheckStatus::Passed),
-            run_id,
-        );
+        return (GateStatus::Failed, GateReason::CheckIncomplete, labels(&|r| r.status != CheckStatus::Passed), run_id);
     }
     let passed: u32 = latest.iter().map(|(_, r)| r.passed).sum();
-    let detail = if kinds.iter().any(|k| k.is_test()) && passed > 0 {
-        format!("{passed} passed")
-    } else {
-        labels(&|_| true)
-    };
+    let detail =
+        if kinds.iter().any(|k| k.is_test()) && passed > 0 { format!("{passed} passed") } else { labels(&|_| true) };
     (GateStatus::Passed, GateReason::CheckPassed, detail, run_id)
 }
 
@@ -184,9 +176,7 @@ fn review(status: ReviewStatus) -> (GateStatus, GateReason) {
 fn security(status: SecurityStatus) -> (GateStatus, GateReason, String) {
     match status {
         SecurityStatus::Clean => (GateStatus::Passed, GateReason::SecurityClean, String::new()),
-        SecurityStatus::Critical { count } => {
-            (GateStatus::Failed, GateReason::SecurityCritical, count.to_string())
-        }
+        SecurityStatus::Critical { count } => (GateStatus::Failed, GateReason::SecurityCritical, count.to_string()),
         SecurityStatus::Unknown => (GateStatus::Unknown, GateReason::SecurityUnknown, String::new()),
     }
 }
@@ -241,7 +231,12 @@ pub fn evaluate(input: &EvaluationInput<'_>, now: orkestr_domain::Timestamp) -> 
             if s.enabled {
                 dod_item(s.item, input, &gates)
             } else {
-                DodResult { item: s.item, status: GateStatus::Skipped, reason: GateReason::Disabled, detail: String::new() }
+                DodResult {
+                    item: s.item,
+                    status: GateStatus::Skipped,
+                    reason: GateReason::Disabled,
+                    detail: String::new(),
+                }
             }
         })
         .collect();
@@ -271,7 +266,11 @@ fn is_test_path(p: &str) -> bool {
 
 fn is_doc_path(p: &str) -> bool {
     let l = p.to_ascii_lowercase().replace('\\', "/");
-    l.ends_with(".md") || l.ends_with(".mdx") || l.ends_with(".rst") || l.ends_with(".adoc") || l.starts_with("docs/")
+    l.ends_with(".md")
+        || l.ends_with(".mdx")
+        || l.ends_with(".rst")
+        || l.ends_with(".adoc")
+        || l.starts_with("docs/")
         || l.contains("/docs/")
 }
 

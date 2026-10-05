@@ -169,7 +169,9 @@ async fn evaluate(ctx: RpcContext, p: EvaluateParams) -> Result<m::GateReport, R
     kinds.sort_unstable();
     kinds.dedup();
     let snapshots = match &task {
-        Some(t) => ctx.services.snapshots.list(p.project_id, Some(t.id), None, 1000).await.map(|s| s.len()).unwrap_or(0),
+        Some(t) => {
+            ctx.services.snapshots.list(p.project_id, Some(t.id), None, 1000).await.map(|s| s.len()).unwrap_or(0)
+        }
         None => 0,
     };
     quality.evaluate(p.project_id, task.as_ref(), &kinds, snapshots).await.map_err(quality_to_rpc)

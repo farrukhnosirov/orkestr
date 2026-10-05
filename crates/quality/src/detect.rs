@@ -218,11 +218,7 @@ pub fn detect(root: &Path, opts: DetectOptions) -> Detection {
         }
     }
     let mut roots: Vec<DetectedRoot> = ctx.roots.into_values().collect();
-    roots.sort_by(|a, b| (a.path != ".", a.path.matches('/').count(), a.path.clone()).cmp(&(
-        b.path != ".",
-        b.path.matches('/').count(),
-        b.path.clone(),
-    )));
+    roots.sort_by_key(|r| (r.path != ".", r.path.matches('/').count(), r.path.clone()));
     let mut checks = ctx.checks;
     // Root first, then by kind order (stable within).
     checks.sort_by_key(|c| (c.cwd != ".", c.cwd.matches('/').count(), c.cwd.clone(), c.kind));
@@ -344,9 +340,9 @@ fn detect_js(ctx: &mut Ctx, dir: &Path, rdir: &str, files: &[String]) {
     let enabled = !inside_workspace;
     for (kind, names) in JS_SCRIPTS {
         let Some(scripts) = scripts else { break };
-        let found = names.iter().find(|n| {
-            scripts.get(**n).and_then(|v| v.as_str()).is_some_and(|body| !is_placeholder_test_script(body))
-        });
+        let found = names
+            .iter()
+            .find(|n| scripts.get(**n).and_then(|v| v.as_str()).is_some_and(|body| !is_placeholder_test_script(body)));
         if let Some(name) = found {
             ctx.add(rdir, tc, *kind, format!("{runner} {name}"), enabled);
         }
@@ -604,7 +600,11 @@ mod tests {
     #[test]
     fn python_go_dotnet_java_make() {
         let t = tempfile::tempdir().unwrap();
-        write(t.path(), "py/pyproject.toml", "[tool.ruff]\nline-length=100\n[tool.mypy]\nstrict=true\n[tool.pytest.ini_options]\n");
+        write(
+            t.path(),
+            "py/pyproject.toml",
+            "[tool.ruff]\nline-length=100\n[tool.mypy]\nstrict=true\n[tool.pytest.ini_options]\n",
+        );
         write(t.path(), "go/go.mod", "module x\n");
         write(t.path(), "net/App.sln", "");
         write(t.path(), "net/src/App/App.csproj", "<Project/>");
@@ -613,7 +613,11 @@ mod tests {
         write(t.path(), "gr/build.gradle.kts", "");
         write(t.path(), "gr/settings.gradle.kts", "");
         write(t.path(), "gr/gradlew", "");
-        write(t.path(), "Makefile", "VAR := 1\n.PHONY: test\nall: build\nbuild:\n\techo\ntest lint:\n\techo\nsmoke:\n\techo\n");
+        write(
+            t.path(),
+            "Makefile",
+            "VAR := 1\n.PHONY: test\nall: build\nbuild:\n\techo\ntest lint:\n\techo\nsmoke:\n\techo\n",
+        );
         let d = detect(t.path(), DetectOptions { windows: true, ..DetectOptions::default() });
         let c = cmds(&d);
         assert!(c.contains(&("py".into(), CheckKind::Test, "python -m pytest".into(), true)));

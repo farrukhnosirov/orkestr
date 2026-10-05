@@ -182,9 +182,8 @@ impl QualityStore {
         let id = id.to_owned();
         self.db
             .call(move |c| {
-                let row: Option<String> = c
-                    .query_row("SELECT run_json FROM quality_runs WHERE id = ?1", [id], |r| r.get(0))
-                    .optional()?;
+                let row: Option<String> =
+                    c.query_row("SELECT run_json FROM quality_runs WHERE id = ?1", [id], |r| r.get(0)).optional()?;
                 row.map(|j| serde_json::from_str(&j).map_err(StorageError::from)).transpose()
             })
             .await
@@ -215,8 +214,7 @@ impl QualityStore {
         let stale: Vec<QualityRun> = self
             .db
             .call(|c| {
-                let mut stmt =
-                    c.prepare("SELECT run_json FROM quality_runs WHERE status IN ('Queued', 'Running')")?;
+                let mut stmt = c.prepare("SELECT run_json FROM quality_runs WHERE status IN ('Queued', 'Running')")?;
                 let rows = stmt.query_map([], |r| r.get::<_, String>(0))?;
                 let mut out = Vec::new();
                 for r in rows {
