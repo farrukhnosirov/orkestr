@@ -4,7 +4,7 @@
  * HUD (§34) and the history of interface changes with undo / redo.
  */
 import type { PerformanceMode, UiPatchOp } from "@orkestr/protocol";
-import { Button } from "@orkestr/ui";
+import { Button, Illustration } from "@orkestr/ui";
 import { clsx } from "clsx";
 import { BatteryCharging, BatteryMedium, PanelTopClose, PictureInPicture2, PlugZap, Redo2, Undo2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -108,7 +108,10 @@ function History() {
     <SettingGroup title={t("history.title")}>
       <p className="perf-note">{t("history.description")}</p>
       {past.length + future.length === 0 ? (
-        <p className="perf-note perf-note--muted">{t("history.empty")}</p>
+        <div className="perf-empty">
+          <Illustration kind="constellation" size={56} />
+          <p className="perf-note perf-note--muted">{t("history.empty")}</p>
+        </div>
       ) : (
         <ul className="aiui-history">
           {future.map((e) => (

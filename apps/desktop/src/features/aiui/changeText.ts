@@ -1,7 +1,7 @@
 /**
  * Localized one-line descriptions of classified UI changes (see `patch.ts`).
  */
-import { formatPercent, i18n, t } from "../../i18n";
+import { formatList, formatPercent, i18n, t } from "../../i18n";
 import { humanizeId, idKey, type ChangeSummary } from "./patch";
 
 const HUD_FIELDS = ["opacity", "showAgents", "showManagerInput"] as const;
@@ -38,9 +38,9 @@ export function changeText(c: ChangeSummary): string {
     case "panelReset":
       return t("aiui:change.panelReset", { name: idLabel(c.id) });
     case "widgetsHidden":
-      return t("aiui:change.widgetsHidden", { count: c.ids.length, names: c.ids.map(idLabel).join(", ") });
+      return t("aiui:change.widgetsHidden", { count: c.ids.length, names: formatList(c.ids.map(idLabel)) });
     case "widgetsShown":
-      return t("aiui:change.widgetsShown", { count: c.ids.length, names: c.ids.map(idLabel).join(", ") });
+      return t("aiui:change.widgetsShown", { count: c.ids.length, names: formatList(c.ids.map(idLabel)) });
     case "backgroundDim":
       return t(c.to >= c.from ? "aiui:change.backgroundDarker" : "aiui:change.backgroundLighter", { percent: percent(c.to) });
     case "hud": {

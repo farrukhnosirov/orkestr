@@ -164,6 +164,16 @@
   color: var(--ok-color-danger);
 }
 
+.perf-empty {
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-3);
+}
+
+.perf-empty .perf-note {
+  margin: 0;
+}
+
 .perf-hud-actions {
   display: flex;
   flex-wrap: wrap;
