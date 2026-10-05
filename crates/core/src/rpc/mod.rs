@@ -15,6 +15,7 @@ pub mod cost;
 pub mod emergency;
 pub mod events;
 pub mod files;
+pub mod layouts;
 pub mod manager;
 pub mod memory;
 pub mod merge;
@@ -177,6 +178,8 @@ pub fn build_router() -> RpcRouter {
     router.register(teams::register).register(pm::register);
     // theme engine (Phase 3)
     router.register(ui::register);
+    // layout-multimonitor (Phase 3)
+    router.register(layouts::register);
     router
 }
 

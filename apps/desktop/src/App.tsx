@@ -8,6 +8,9 @@ import { StatusBar } from "./components/StatusBar";
 import { TitleBar } from "./components/TitleBar";
 import { Workspace } from "./components/Workspace";
 import { bootstrapCore } from "./core/client";
+import { LayoutDialogs } from "./features/layout/LayoutDialogs";
+import { LayoutEditorPanel } from "./features/layout/LayoutEditor";
+import { registerLayoutFeature } from "./features/layout/register";
 import { registerSecurityFeature } from "./features/security/register";
 import { SecurityLayer } from "./features/security/SecurityLayer";
 import { commands, matchesShortcut } from "./features/commands/registry";
@@ -23,6 +26,8 @@ import { useAppStore } from "./store/app";
 
 registerSecurityFeature();
 registerThemeFeature();
+registerLayoutFeature();
+
 
 function useGlobalShortcuts() {
   const setPaletteOpen = useAppStore((s) => s.setPaletteOpen);
@@ -90,6 +95,8 @@ export function App() {
           <OnboardingWizard />
           <ResumeCard />
           <ThemeEditor />
+          <LayoutEditorPanel />
+          <LayoutDialogs />
         </>
       )}
       <Toasts />

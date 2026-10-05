@@ -26,6 +26,7 @@ pub mod cost;
 pub mod emergency;
 pub mod events;
 pub mod files;
+pub mod layouts;
 pub mod manager;
 pub mod memory;
 pub mod merge;
@@ -373,6 +374,13 @@ pub fn registry() -> Vec<MethodDescriptor> {
         MethodDescriptor::of::<ui::Themes>(),
         MethodDescriptor::of::<ui::SaveTheme>(),
         MethodDescriptor::of::<ui::DeleteTheme>(),
+        // layout-multimonitor (Phase 3): layouts per device
+        MethodDescriptor::of::<layouts::Device>(),
+        MethodDescriptor::of::<layouts::List>(),
+        MethodDescriptor::of::<layouts::Save>(),
+        MethodDescriptor::of::<layouts::Delete>(),
+        MethodDescriptor::of::<layouts::Rename>(),
+        MethodDescriptor::of::<layouts::SetActive>(),
     ]
 }
 

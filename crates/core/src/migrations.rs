@@ -43,6 +43,8 @@ pub fn all() -> Vec<Migration> {
     // Phase 2 (quality pipeline + self-healing)
     all.extend(orkestr_orchestrator::pipeline_migrations());
     all.extend_from_slice(crate::ui_store::UI_MIGRATIONS);
+    // layout-multimonitor (Phase 3): per-device docking layouts
+    all.extend_from_slice(crate::layouts_store::LAYOUT_MIGRATIONS);
     all
 }
 

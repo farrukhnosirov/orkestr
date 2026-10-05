@@ -1,4 +1,5 @@
 import { Button, EmptyState } from "@orkestr/ui";
+import { clsx } from "clsx";
 import {
   type DockviewApi,
   DockviewReact,
@@ -10,15 +11,16 @@ import {
   type IWatermarkPanelProps,
 } from "dockview-react";
 import { LayoutGrid, X } from "lucide-react";
-import { type FunctionComponent, useCallback, useEffect, useRef } from "react";
+import { type FunctionComponent, useEffect, useRef } from "react";
 
+import * as layout from "../features/layout/controller";
+import { GroupActions } from "../features/layout/GroupActions";
+import { LayoutEditorCanvas } from "../features/layout/LayoutEditor";
+import { useLayoutStore } from "../features/layout/store";
 import { t as translate, useLanguage, useT } from "../i18n";
-import { CODING_PRESET, DEFAULT_FOCUSED_PANEL, getPanel, PANELS } from "../panels/registry";
+import { getPanel, PANELS } from "../panels/registry";
 import { useAppStore } from "../store/app";
 import { registerWorkspace } from "./workspaceActions";
-
-// v2: the AI Manager became the default focused panel (Phase 1).
-const LAYOUT_KEY = "orkestr.layout.v3";
 
 type DockPosition = "top" | "bottom" | "left" | "right" | "center";
 const dockSide = (p: DockPosition) => (p === "center" ? "" : translate(`shell:dock.position.${p}`));
@@ -81,127 +83,58 @@ const COMPONENTS: Record<string, FunctionComponent<IDockviewPanelProps>> = Objec
   }),
 );
 
-/** Tab with the panel icon and a close button. */
+/** Tab with the panel icon and a close button (hidden while the layout is locked). */
 function PanelTab({ api, params }: IDockviewPanelHeaderProps) {
   const def = getPanel((params as { panelId?: string } | undefined)?.panelId ?? api.id);
   const Icon = def?.icon;
+  const locked = useLayoutStore((s) => s.locked);
   const { t } = useT("shell");
   // Registry titles are localized getters: prefer them over the title saved in the layout.
   const title = def?.title ?? api.title ?? api.id;
   return (
-    <div className="dock-tab" onMouseDown={(e) => e.button === 1 && api.close()}>
+    <div className="dock-tab" onMouseDown={(e) => !locked && e.button === 1 && api.close()}>
       {Icon && <Icon size={13} strokeWidth={2} className="dock-tab__icon" />}
       <span className="dock-tab__title">{title}</span>
-      <button
-        type="button"
-        className="dock-tab__close"
-        aria-label={t("workspace.closeTab", { title })}
-        onMouseDown={(e) => e.stopPropagation()}
-        onClick={(e) => {
-          e.stopPropagation();
-          api.close();
-        }}
-      >
-        <X size={12} />
-      </button>
+      {!locked && (
+        <button
+          type="button"
+          className="dock-tab__close"
+          aria-label={t("workspace.closeTab", { title })}
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            api.close();
+          }}
+        >
+          <X size={12} />
+        </button>
+      )}
     </div>
   );
 }
 
 function Watermark(_props: IWatermarkPanelProps) {
   const { t } = useT("shell");
+  const popouts = useLayoutStore((s) => s.popouts.length);
   return (
     <EmptyState
       icon={<LayoutGrid size={26} strokeWidth={1.6} />}
       title={t("workspace.emptyTitle")}
-      description={t("workspace.emptyDescription")}
+      description={popouts > 0 ? translate("layout:workspace.allDetached", { count: popouts }) : t("workspace.emptyDescription")}
       action={
-        <Button variant="primary" onClick={() => applyPreset(currentApi)}>
-          {t("workspace.restoreLayout")}
+        <Button variant="primary" onClick={() => void layout.resetActive()}>
+          {translate("layout:workspace.restore")}
         </Button>
       }
     />
   );
 }
 
-let currentApi: DockviewApi | null = null;
-
-function applyPreset(api: DockviewApi | null): void {
-  if (!api) return;
-  api.clear();
-  for (const slot of CODING_PRESET) {
-    const def = getPanel(slot.panel);
-    if (!def) continue;
-    api.addPanel({
-      id: def.id,
-      component: def.id,
-      tabComponent: "ok",
-      title: def.title,
-      params: { panelId: def.id },
-      ...(slot.position ? { position: slot.position } : {}),
-    });
-  }
-  // Proportions: the conversation/editor column gets the most room; the
-  // explorer and the agents/tasks column are side bars and the bottom dock
-  // (logs/terminal/git) a strip, so the Manager chat is never squeezed.
-  if (api.width > 0 && api.height > 0) {
-    api.getPanel("files")?.group.api.setSize({ width: Math.round(api.width * 0.2) });
-    api.getPanel("agents")?.group.api.setSize({ width: Math.round(api.width * 0.27) });
-    api.getPanel("logs")?.group.api.setSize({ height: Math.round(api.height * 0.3) });
-  }
-  api.getPanel("logs")?.api.setActive();
-  // Last: the focused group/tab of the default layout is the AI Manager.
-  api.getPanel(DEFAULT_FOCUSED_PANEL)?.api.setActive();
-}
-
-/** Whether a serialized layout only references known panels. */
-function layoutIsValid(layout: unknown): boolean {
-  if (typeof layout !== "object" || layout === null) return false;
-  const panels = (layout as { panels?: Record<string, { contentComponent?: string }> }).panels;
-  if (!panels || typeof panels !== "object") return false;
-  const values = Object.values(panels);
-  return values.length > 0 && values.every((p) => typeof p.contentComponent === "string" && !!getPanel(p.contentComponent));
-}
-
-/** The docking workspace (§14, §28). */
+/** The docking workspace (§14, §28). Layout logic lives in `features/layout/controller`. */
 export function Workspace() {
   const apiRef = useRef<DockviewApi | null>(null);
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const openPanel = useCallback((panelId: string) => {
-    const api = apiRef.current;
-    const def = getPanel(panelId);
-    if (!api || !def) return;
-    const existing = api.getPanel(panelId);
-    if (existing) {
-      existing.api.setActive();
-      return;
-    }
-    const anchor = api.activePanel;
-    api.addPanel({
-      id: def.id,
-      component: def.id,
-      tabComponent: "ok",
-      title: def.title,
-      params: { panelId: def.id },
-      ...(anchor ? { position: { referencePanel: anchor.id, direction: "within" as const } } : {}),
-    });
-  }, []);
-
-  const resetLayout = useCallback(() => {
-    applyPreset(apiRef.current);
-  }, []);
-
-  const toggleMaximize = useCallback(() => {
-    const api = apiRef.current;
-    if (!api) return;
-    if (api.hasMaximizedGroup()) {
-      api.exitMaximizedGroup();
-      return;
-    }
-    const active = api.activePanel;
-    if (active) api.maximizeGroup(active);
-  }, []);
+  const editing = useLayoutStore((s) => s.editorOpen);
+  const locked = useLayoutStore((s) => s.locked);
 
   // Live language switch: refresh the titles dockview keeps for each panel.
   const language = useLanguage();
@@ -213,48 +146,35 @@ export function Workspace() {
   }, [language]);
 
   useEffect(() => {
-    registerWorkspace({ openPanel, resetLayout, toggleMaximize });
-    return () => registerWorkspace(null);
-  }, [openPanel, resetLayout, toggleMaximize]);
+    registerWorkspace({
+      openPanel: layout.openPanel,
+      resetLayout: () => void layout.resetActive(),
+      toggleMaximize: () => layout.toggleMaximize(),
+    });
+    return () => {
+      registerWorkspace(null);
+      layout.detachDock();
+    };
+  }, []);
 
   const onReady = (event: DockviewReadyEvent) => {
     apiRef.current = event.api;
-    currentApi = event.api;
-    let restored = false;
-    try {
-      const raw = window.localStorage.getItem(LAYOUT_KEY);
-      const parsed: unknown = raw ? JSON.parse(raw) : null;
-      if (layoutIsValid(parsed)) {
-        event.api.fromJSON(parsed as Parameters<DockviewApi["fromJSON"]>[0]);
-        restored = true;
-      }
-    } catch (e) {
-      console.warn("ignoring invalid saved layout", e);
-    }
-    if (!restored) applyPreset(event.api);
-    event.api.onDidLayoutChange(() => {
-      if (saveTimer.current) clearTimeout(saveTimer.current);
-      saveTimer.current = setTimeout(() => {
-        try {
-          window.localStorage.setItem(LAYOUT_KEY, JSON.stringify(event.api.toJSON()));
-        } catch {
-          /* storage unavailable */
-        }
-      }, 400);
-    });
+    void layout.attachDock(event.api);
   };
 
   return (
-    <div className="workspace">
+    <div className={clsx("workspace", editing && "workspace--editing", locked && "workspace--locked")}>
       <DockviewReact
         theme={NEBULA_DOCK_THEME}
         components={COMPONENTS}
         tabComponents={{ ok: PanelTab }}
         defaultTabComponent={PanelTab}
+        rightHeaderActionsComponent={GroupActions}
         watermarkComponent={Watermark}
         messages={DOCK_MESSAGES}
         onReady={onReady}
       />
+      {editing && <LayoutEditorCanvas />}
     </div>
   );
 }

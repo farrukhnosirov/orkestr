@@ -1,0 +1,144 @@
+{
+  "presets": {
+    "coding": { "name": "Coding", "description": "Editor and AI Manager in the centre, files on the left, agents and tasks on the right, logs and terminal below." },
+    "missionControl": { "name": "Mission Control", "description": "Live overview of the project: Mission Control, agents, tasks, monitoring and costs." },
+    "monitoring": { "name": "Monitoring", "description": "Monitoring, costs, agents, logs and terminal for watching a running system." },
+    "focus": { "name": "Focus", "description": "Just the editor and the AI Manager — nothing else on screen." },
+    "review": { "name": "Review", "description": "Reviews, Git changes and the editor side by side, with tasks and logs." },
+    "custom": { "name": "Custom", "description": "Your own arrangement: starts like Coding, then remembers every change on this device." }
+  },
+  "switcher": {
+    "aria": "Layout: {{name}}",
+    "presets": "Presets",
+    "mine": "My layouts",
+    "empty": "No saved layouts yet",
+    "customised": "Changed on this device",
+    "windows_one": "{{count}} window",
+    "windows_other": "{{count}} windows",
+    "saveAs": "Save layout as…",
+    "lock": "Lock layout",
+    "unlock": "Unlock layout",
+    "editor": "Layout editor"
+  },
+  "actions": {
+    "float": "Float over the workspace",
+    "dock": "Dock back into the grid",
+    "detach": "Open in a separate window",
+    "redock": "Return to the main window",
+    "maximize": "Maximize panel",
+    "restore": "Restore panel size"
+  },
+  "editor": {
+    "title": "Layout editor",
+    "subtitle": "Editing «{{name}}». Drag tabs to dock them; changes are saved automatically for this device.",
+    "canvasHint": "Drag a tab onto an edge to split, onto the centre to group",
+    "lock": "Lock layout",
+    "lockHint": "Prevents dragging, closing and detaching panels.",
+    "sections": {
+      "presets": "Layouts",
+      "panels": "Panels",
+      "monitors": "Monitors"
+    },
+    "saveAs": "Save as…",
+    "reset": "Reset",
+    "resetHint": "This layout already matches its preset",
+    "export": "Export",
+    "import": "Import",
+    "rename": "Rename",
+    "delete": "Delete",
+    "show": "Show panel",
+    "hide": "Hide panel",
+    "done": "Done",
+    "place": {
+      "label": "Where to show {{title}}",
+      "mainWindow": "Main window",
+      "dock": "Docked",
+      "floating": "Floating",
+      "hidden": "Hidden",
+      "window": "Window",
+      "windowOn": "Window · monitor {{n}}"
+    }
+  },
+  "monitors": {
+    "monitor": "Monitor {{n}}",
+    "monitorPrimary": "Monitor {{n}} (primary)",
+    "mainWindowShort": "Main window",
+    "mapLabel_one": "Monitor map: {{count}} monitor",
+    "mapLabel_other": "Monitor map: {{count}} monitors",
+    "mainOn": "Main window on",
+    "notPinned": "Wherever it is",
+    "spread": "Use all monitors",
+    "spreadHint": "Opens the preset's companion panels in windows on the other monitors.",
+    "single": "One monitor connected. Connect another one to spread panels across screens.",
+    "browserOnly": "Separate windows and monitors are available in the desktop app."
+  },
+  "dialogs": {
+    "saveTitle": "Save layout",
+    "saveSubtitle": "Keeps the panels, their sizes and the windows on each monitor for this device.",
+    "renameTitle": "Rename layout",
+    "renameSubtitle": "The new name appears in the switcher and the command palette.",
+    "name": "Name",
+    "namePlaceholder": "e.g. Deep work",
+    "nameInvalid": "Enter a name of 1–80 characters.",
+    "save": "Save",
+    "rename": "Rename",
+    "saveFailed": "Could not save the layout. Try again.",
+    "deleteConfirm": "Delete the layout «{{name}}»?",
+    "importTitle": "Import layout",
+    "importSubtitle": "Choose a .json file exported from Orkestr. Panels this version does not have are skipped.",
+    "importFile": "Choose file…",
+    "importErrors": {
+      "json": "The file is not valid JSON.",
+      "format": "This is not an Orkestr layout file.",
+      "version": "The layout was made by a newer version of Orkestr.",
+      "invalid": "The layout file is damaged.",
+      "empty": "None of the panels in this layout exist in this version.",
+      "core": "The core could not save the layout.",
+      "tooLarge": "The file is too large for a layout (over 512 KB)."
+    }
+  },
+  "detached": {
+    "redock": "Return to the main window",
+    "close": "Close window"
+  },
+  "workspace": {
+    "allDetached_one": "The panels are in {{count}} separate window. Open more from the command palette (Ctrl+K) or restore the layout.",
+    "allDetached_other": "The panels are in {{count}} separate windows. Open more from the command palette (Ctrl+K) or restore the layout.",
+    "restore": "Restore layout"
+  },
+  "commands": {
+    "group": "Layout",
+    "switch": "Layout: {{name}}",
+    "next": "Next layout",
+    "saveAs": "Save layout as…",
+    "editor": "Layout editor",
+    "lock": "Lock layout",
+    "unlock": "Unlock layout",
+    "reset": "Reset layout to its preset",
+    "detach": "Open panel in a separate window",
+    "float": "Float panel",
+    "spread": "Spread panels across monitors",
+    "export": "Export layout",
+    "import": "Import layout"
+  },
+  "toast": {
+    "savedTitle": "Layout saved",
+    "savedBody": "«{{name}}» is saved for this device.",
+    "saveFailedTitle": "Could not save the layout",
+    "persistError": "Layouts are not being saved: {{error}}",
+    "brokenTitle": "Saved layout could not be opened",
+    "brokenBody": "The preset was opened instead. Your other layouts are fine.",
+    "detachFailedTitle": "Could not open {{title}} in a window",
+    "moveFailedTitle": "Could not move the window",
+    "monitorMissingTitle": "Monitor not connected",
+    "monitorMissingBody": "Opened on the primary monitor instead: {{panels}}.",
+    "monitorRemovedTitle": "Monitor disconnected",
+    "monitorRemovedBody_one": "{{count}} window was moved to the primary monitor.",
+    "monitorRemovedBody_other": "{{count}} windows were moved to the primary monitor.",
+    "monitorAddedTitle": "Monitor connected",
+    "monitorAddedBody_one": "{{count}} monitor available. Use «Spread panels across monitors» to use it.",
+    "monitorAddedBody_other": "{{count}} monitors available. Use «Spread panels across monitors» to use them.",
+    "singleMonitorTitle": "Only one monitor",
+    "singleMonitorBody": "Connect another monitor to spread panels across screens."
+  }
+}
