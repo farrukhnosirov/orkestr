@@ -66,7 +66,7 @@ export const PANELS: readonly PanelDefinition[] = [
   panel("git", GitBranch, 0, GitPanel),
   panel("agents", Bot, 0, AgentsPanel),
   panel("tasks", ListTodo, 0, TasksPanel),
-  panel("architecture", Network, 2, ArchitecturePanel),
+  panel("architecture", Network, 0, ArchitecturePanel),
   panel("browser", Globe, 2, BrowserPanel),
   panel("database", Database, 2, DatabasePanel),
   panel("logs", ScrollText, 0, LogsPanel),

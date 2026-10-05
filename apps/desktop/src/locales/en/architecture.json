@@ -1,0 +1,111 @@
+{
+  "noProject": {
+    "title": "No project open",
+    "description": "Open a project to map its modules, services, databases and APIs."
+  },
+  "loading": "Scanning the project…",
+  "error": {
+    "title": "Could not build the map"
+  },
+  "empty": {
+    "title": "Nothing recognised yet",
+    "description": "No manifests, services, databases or HTTP routes were found in the project folder."
+  },
+  "toolbar": {
+    "label": "Architecture map tools",
+    "search": "Search nodes, files, routes…",
+    "searchLabel": "Search the map",
+    "refresh": "Refresh the map",
+    "fullRefresh": "Rescan every file",
+    "exportSvg": "Export as SVG",
+    "changes": "Highlight changes since the previous snapshot",
+    "snapshot": "Snapshot",
+    "latest": "Latest snapshot",
+    "view": "View"
+  },
+  "view": {
+    "map": "Map",
+    "list": "List"
+  },
+  "kind": {
+    "Service": "Service",
+    "Module": "Module",
+    "Api": "API",
+    "Database": "Database",
+    "External": "External"
+  },
+  "group": {
+    "Service": "Services",
+    "Module": "Modules",
+    "Api": "APIs",
+    "Database": "Databases",
+    "External": "External dependencies"
+  },
+  "edge": {
+    "DependsOn": "depends on",
+    "Imports": "imports",
+    "Uses": "uses",
+    "Exposes": "exposes",
+    "Runs": "runs",
+    "External": "uses packages"
+  },
+  "legend": {
+    "label": "Node kinds (click to show or hide)",
+    "toggle": "{{kind}}: {{count}}",
+    "dashed": "Dashed links: source imports and package groups"
+  },
+  "stats": {
+    "scanned": "Scanned {{time}}",
+    "files_one": "{{count}} file",
+    "files_other": "{{count}} files",
+    "routes_one": "{{count}} route",
+    "routes_other": "{{count}} routes",
+    "edges_one": "{{count}} link",
+    "edges_other": "{{count}} links",
+    "scanTime": "scan {{duration}}"
+  },
+  "truncated": "The project is large: the scan stopped at the file limit, so the map is partial.",
+  "warnings_one": "{{count}} warning",
+  "warnings_other": "{{count}} warnings",
+  "refreshed": "Map refreshed.",
+  "unchanged": "No changes: the map is up to date.",
+  "diff": {
+    "first": "This is the first snapshot: there is nothing to compare it with yet.",
+    "none": "No changes since the previous snapshot.",
+    "summary": "Since {{time}}: added {{added}}, changed {{changed}}, removed {{removed}}",
+    "removed": "Removed: {{names}}",
+    "added": "New",
+    "changed": "Changed"
+  },
+  "detail": {
+    "label": "Details: {{name}}",
+    "close": "Close details",
+    "path": "Folder",
+    "ecosystem": "Ecosystem",
+    "info": "Details",
+    "tags": "Tags",
+    "files": "Files",
+    "fileCount": "Source files",
+    "routes": "Routes",
+    "dependencies": "Dependencies",
+    "incoming": "Used by",
+    "outgoing": "Uses",
+    "openFile": "Open {{path}} in Code",
+    "noFiles": "No key files",
+    "more_one": "and {{count}} more",
+    "more_other": "and {{count}} more"
+  },
+  "node": {
+    "label": "{{kind}} {{name}}"
+  },
+  "map": {
+    "label": "Architecture map"
+  },
+  "list": {
+    "label": "Architecture nodes by kind"
+  },
+  "commands": {
+    "open": "Open Architecture Map",
+    "refresh": "Refresh Architecture Map"
+  }
+}

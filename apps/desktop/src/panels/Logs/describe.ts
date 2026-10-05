@@ -246,6 +246,14 @@ export function describeEvent(event: Event): string {
       const done = r.tasks.filter((x) => x.status === "Completed").length;
       return t("events:managerRun", { status: t(`logs:enums.runStatus.${r.status}`), done, total: r.tasks.length });
     }
+    case "ArchitectureMapUpdated": {
+      const a = event.payload;
+      return t("events:architectureMapUpdated", {
+        modules: a.stats.modules,
+        services: a.stats.services,
+        changes: a.addedNodes + a.removedNodes + a.changedNodes + a.changedEdges,
+      });
+    }
   }
 }
 

@@ -12,6 +12,12 @@ import type { ApprovalIdParams } from "./ApprovalIdParams";
 import type { ApprovalResult } from "./ApprovalResult";
 import type { ApprovePlanParams } from "./ApprovePlanParams";
 import type { ApprovePlanResult } from "./ApprovePlanResult";
+import type { ArchDiffParams } from "./ArchDiffParams";
+import type { ArchDiffResult } from "./ArchDiffResult";
+import type { ArchMapParams } from "./ArchMapParams";
+import type { ArchMapResult } from "./ArchMapResult";
+import type { ArchRefreshParams } from "./ArchRefreshParams";
+import type { ArchRefreshResult } from "./ArchRefreshResult";
 import type { BranchResult } from "./BranchResult";
 import type { BranchesResult } from "./BranchesResult";
 import type { BudgetIdParams } from "./BudgetIdParams";
@@ -167,6 +173,12 @@ import type { RenameFileResult } from "./RenameFileResult";
 import type { RenameTerminalParams } from "./RenameTerminalParams";
 import type { ReplayParams } from "./ReplayParams";
 import type { ReplayResult } from "./ReplayResult";
+import type { ReplayRunsParams } from "./ReplayRunsParams";
+import type { ReplayRunsResult } from "./ReplayRunsResult";
+import type { ReplayStepParams } from "./ReplayStepParams";
+import type { ReplayStepResult } from "./ReplayStepResult";
+import type { ReplayTimelineParams } from "./ReplayTimelineParams";
+import type { ReplayTimelineResult } from "./ReplayTimelineResult";
 import type { RepoParams } from "./RepoParams";
 import type { RepoStatus } from "./RepoStatus";
 import type { ResizeTerminalParams } from "./ResizeTerminalParams";
@@ -417,6 +429,12 @@ export type Methods = {
   "manager.cancel": [ManagerRunIdParams, ManagerRunResult];
   "manager.status": [ManagerStatusParams, ManagerStatusResult];
   "manager.resumeSummary": [ManagerProjectParams, ManagerResumeSummary];
+  "architecture.map": [ArchMapParams, ArchMapResult];
+  "architecture.refresh": [ArchRefreshParams, ArchRefreshResult];
+  "architecture.diff": [ArchDiffParams, ArchDiffResult];
+  "replay.runs": [ReplayRunsParams, ReplayRunsResult];
+  "replay.timeline": [ReplayTimelineParams, ReplayTimelineResult];
+  "replay.step": [ReplayStepParams, ReplayStepResult];
 };
 
 /** All implemented method names. */
@@ -592,6 +610,12 @@ export const METHOD_NAMES = [
   "manager.cancel",
   "manager.status",
   "manager.resumeSummary",
+  "architecture.map",
+  "architecture.refresh",
+  "architecture.diff",
+  "replay.runs",
+  "replay.timeline",
+  "replay.step",
 ] as const;
 
 /** Wire protocol version (see orkestr-protocol PROTOCOL_VERSION). */
@@ -644,6 +668,7 @@ export const EVENT_KINDS = [
   "ManagerMessageAdded",
   "ManagerPlanUpdated",
   "ManagerRunUpdated",
+  "ArchitectureMapUpdated",
 ] as const;
 
 /** UI config schema version (see orkestr-protocol ui_config). */

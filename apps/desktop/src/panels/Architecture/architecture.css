@@ -1,0 +1,490 @@
+/* Architecture panel (§21). Colours come from @orkestr/ui tokens only. */
+
+.arch-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.arch-panel--center {
+  align-items: center;
+  justify-content: center;
+}
+
+.arch-loading {
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-2);
+  color: var(--ok-color-text-muted);
+}
+
+.arch-kind--service { --arch-kind-color: var(--ok-color-accent); }
+.arch-kind--module { --arch-kind-color: var(--ok-color-violet); }
+.arch-kind--api { --arch-kind-color: var(--ok-color-info); }
+.arch-kind--database { --arch-kind-color: var(--ok-color-warning); }
+.arch-kind--external { --arch-kind-color: var(--ok-color-text-muted); }
+
+.arch-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-2);
+  padding: var(--ok-space-2) var(--ok-space-3);
+  border-bottom: 1px solid var(--ok-color-border);
+  flex-wrap: wrap;
+}
+
+.arch-toolbar__spacer {
+  flex: 1;
+}
+
+.arch-search {
+  width: 240px;
+}
+
+.arch-search .ok-input {
+  height: 28px;
+}
+
+.arch-select {
+  height: 28px;
+  padding: 0 var(--ok-space-2);
+  border-radius: var(--ok-radius-sm);
+  border: 1px solid var(--ok-color-border);
+  background: var(--ok-color-surface-strong);
+  color: var(--ok-color-text);
+  font: inherit;
+  font-size: var(--ok-font-size-sm);
+}
+
+.arch-legend {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--ok-space-1);
+  padding: var(--ok-space-1) var(--ok-space-3);
+}
+
+.arch-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 var(--ok-space-2);
+  border-radius: var(--ok-radius-pill);
+  border: 1px solid color-mix(in srgb, var(--arch-kind-color) 55%, transparent);
+  background: color-mix(in srgb, var(--arch-kind-color) 12%, transparent);
+  color: var(--arch-kind-color);
+  font: inherit;
+  font-size: var(--ok-font-size-xs);
+  cursor: pointer;
+}
+
+.arch-chip--off {
+  opacity: 0.45;
+  background: transparent;
+  text-decoration: line-through;
+}
+
+.arch-chip:focus-visible {
+  outline: none;
+  box-shadow: var(--ok-focus-ring);
+}
+
+.arch-legend__note {
+  margin-left: auto;
+  color: var(--ok-color-text-subtle);
+  font-size: var(--ok-font-size-xs);
+}
+
+.arch-status {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--ok-space-3);
+  padding: 2px var(--ok-space-3) var(--ok-space-1);
+  color: var(--ok-color-text-subtle);
+  font-size: var(--ok-font-size-xs);
+}
+
+.arch-status__notice {
+  color: var(--ok-color-accent);
+}
+
+.arch-status__notice--danger {
+  color: var(--ok-color-danger);
+}
+
+.arch-banner {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--ok-space-1);
+  margin: 0 var(--ok-space-3) var(--ok-space-1);
+  padding: var(--ok-space-1) var(--ok-space-2);
+  border-radius: var(--ok-radius-sm);
+  border: 1px solid var(--ok-color-border);
+  background: var(--ok-color-info-soft);
+  color: var(--ok-color-text);
+  font-size: var(--ok-font-size-sm);
+}
+
+.arch-banner--warning {
+  background: var(--ok-color-warning-soft);
+}
+
+.arch-banner__removed {
+  color: var(--ok-color-danger);
+}
+
+.arch-body {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  border-top: 1px solid var(--ok-color-border);
+}
+
+.arch-body__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+}
+
+/* ── Map ─────────────────────────────────────────────── */
+.arch-canvas {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  --xy-background-color: transparent;
+  --xy-edge-stroke: var(--ok-color-border-strong);
+  --xy-edge-stroke-selected: var(--ok-color-accent);
+  --xy-edge-stroke-width: 1.4;
+  --xy-minimap-background-color: var(--ok-color-surface-strong);
+  --xy-minimap-mask-background-color: var(--ok-color-overlay);
+  --xy-controls-button-background-color: var(--ok-color-surface-strong);
+  --xy-controls-button-background-color-hover: var(--ok-color-surface-hover);
+  --xy-controls-button-color: var(--ok-color-text-muted);
+  --xy-controls-button-color-hover: var(--ok-color-text);
+  --xy-controls-button-border-color: var(--ok-color-border);
+  --xy-handle-background-color: var(--ok-color-border-strong);
+  --xy-handle-border-color: var(--ok-color-bg);
+}
+
+.arch-canvas .react-flow {
+  background: transparent;
+}
+
+.arch-canvas__bg {
+  --xy-background-pattern-color: var(--ok-color-border);
+}
+
+.arch-canvas__minimap,
+.arch-canvas__controls {
+  border-radius: var(--ok-radius-md);
+  overflow: hidden;
+  border: 1px solid var(--ok-color-border);
+}
+
+.arch-canvas__minimap .react-flow__minimap-node {
+  fill: var(--arch-kind-color);
+}
+
+.arch-canvas .react-flow__attribution {
+  background: transparent;
+  color: var(--ok-color-text-muted);
+  font-size: var(--ok-font-size-xs);
+}
+
+.arch-canvas .react-flow__attribution a {
+  color: var(--ok-color-text-muted);
+}
+
+.arch-node {
+  width: 200px;
+  min-height: 58px;
+  padding: var(--ok-space-2) var(--ok-space-3);
+  border: 1px solid color-mix(in srgb, var(--arch-kind-color) 45%, var(--ok-color-border));
+  border-left: 3px solid var(--arch-kind-color);
+  border-radius: var(--ok-radius-md);
+  background: var(--ok-gradient-panel), var(--ok-color-surface-strong);
+  color: var(--ok-color-text);
+  box-shadow: var(--ok-shadow-md);
+  font-size: var(--ok-font-size-sm);
+  cursor: pointer;
+  transition: opacity var(--ok-duration-fast) var(--ok-ease), box-shadow var(--ok-duration-fast) var(--ok-ease);
+}
+
+.arch-node--selected {
+  border-color: var(--ok-color-accent);
+  box-shadow: var(--ok-glow-accent);
+}
+
+.arch-node--dimmed {
+  opacity: 0.28;
+}
+
+.arch-node--added {
+  outline: 2px solid var(--ok-color-success);
+  outline-offset: 2px;
+}
+
+.arch-node--changed {
+  outline: 2px dashed var(--ok-color-warning);
+  outline-offset: 2px;
+}
+
+.arch-node__head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--arch-kind-color);
+  font-size: var(--ok-font-size-xs);
+}
+
+.arch-node__kind {
+  font-weight: var(--ok-font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--ok-letter-spacing-caps);
+}
+
+.arch-node__eco {
+  color: var(--ok-color-text-subtle);
+}
+
+.arch-node__mark {
+  margin-left: auto;
+  color: var(--ok-color-text);
+}
+
+.arch-node__name {
+  margin-top: 2px;
+  font-weight: var(--ok-font-weight-medium);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.arch-node__handle {
+  width: 6px;
+  height: 6px;
+  min-width: 0;
+  min-height: 0;
+  opacity: 0.6;
+}
+
+.react-flow__edge.arch-edge--imports .react-flow__edge-path,
+.react-flow__edge.arch-edge--external .react-flow__edge-path {
+  stroke-dasharray: 5 4;
+}
+
+.react-flow__edge.arch-edge--uses .react-flow__edge-path {
+  stroke: color-mix(in srgb, var(--ok-color-warning) 70%, transparent);
+}
+
+.react-flow__edge.arch-edge--exposes .react-flow__edge-path {
+  stroke: color-mix(in srgb, var(--ok-color-info) 70%, transparent);
+}
+
+.react-flow__edge.arch-edge--runs .react-flow__edge-path {
+  stroke: color-mix(in srgb, var(--ok-color-accent) 70%, transparent);
+}
+
+.react-flow__edge.arch-edge--dimmed {
+  opacity: 0.15;
+}
+
+/* ── List ────────────────────────────────────────────── */
+.arch-list {
+  flex-direction: column;
+  gap: var(--ok-space-3);
+  overflow: auto;
+  padding: var(--ok-space-3);
+}
+
+.arch-list__group h4 {
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-1);
+  margin: 0 0 var(--ok-space-1);
+  color: var(--arch-kind-color);
+  font-size: var(--ok-font-size-sm);
+}
+
+.arch-list__count {
+  color: var(--ok-color-text-subtle);
+  font-weight: var(--ok-font-weight-regular);
+}
+
+.arch-list ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.arch-list__item {
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-2);
+  width: 100%;
+  padding: 3px var(--ok-space-2);
+  border: 0;
+  border-left: 2px solid transparent;
+  background: transparent;
+  color: var(--ok-color-text);
+  font: inherit;
+  font-size: var(--ok-font-size-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.arch-list__item:hover {
+  background: var(--ok-color-surface-hover);
+}
+
+.arch-list__item--selected {
+  border-left-color: var(--ok-color-accent);
+  background: var(--ok-color-surface-active);
+}
+
+.arch-list__meta {
+  color: var(--ok-color-text-subtle);
+  font-size: var(--ok-font-size-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Detail drawer ───────────────────────────────────── */
+.arch-detail {
+  width: 320px;
+  flex-shrink: 0;
+  overflow: auto;
+  padding: var(--ok-space-3);
+  border-left: 1px solid var(--ok-color-border);
+  background: var(--ok-color-surface);
+  font-size: var(--ok-font-size-sm);
+}
+
+.arch-detail__head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ok-space-2);
+  color: var(--arch-kind-color);
+}
+
+.arch-detail__title {
+  flex: 1;
+  min-width: 0;
+}
+
+.arch-detail__title h3 {
+  margin: 0;
+  color: var(--ok-color-text);
+  font-size: var(--ok-font-size-md);
+  overflow-wrap: anywhere;
+}
+
+.arch-detail__kind {
+  font-size: var(--ok-font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--ok-letter-spacing-caps);
+}
+
+.arch-detail__props {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px var(--ok-space-3);
+  margin: var(--ok-space-3) 0;
+}
+
+.arch-detail__props dt {
+  color: var(--ok-color-text-subtle);
+}
+
+.arch-detail__props dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.arch-detail__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.arch-detail section {
+  margin-top: var(--ok-space-3);
+}
+
+.arch-detail h4 {
+  margin: 0 0 var(--ok-space-1);
+  color: var(--ok-color-text-muted);
+  font-size: var(--ok-font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--ok-letter-spacing-caps);
+}
+
+.arch-detail__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.arch-detail__link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 2px 4px;
+  border: 0;
+  border-radius: var(--ok-radius-xs);
+  background: transparent;
+  color: var(--ok-color-text);
+  font: inherit;
+  font-size: var(--ok-font-size-xs);
+  text-align: left;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.arch-detail__link:hover {
+  background: var(--ok-color-surface-hover);
+}
+
+.arch-detail__dot {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--arch-kind-color);
+}
+
+.arch-detail__name {
+  flex: 1;
+  min-width: 0;
+}
+
+.arch-detail__method {
+  min-width: 46px;
+  color: var(--ok-color-info);
+  font-weight: var(--ok-font-weight-semibold);
+}
+
+.arch-detail__muted {
+  margin-left: auto;
+  color: var(--ok-color-text-subtle);
+  font-size: var(--ok-font-size-xs);
+}
+
+.arch-detail__deps {
+  margin: 0;
+  color: var(--ok-color-text-muted);
+  font-size: var(--ok-font-size-xs);
+  overflow-wrap: anywhere;
+}
+
+.arch-mono {
+  font-family: var(--ok-font-mono);
+}
