@@ -2999,6 +2999,7 @@ dependencies = [
  "futures",
  "hex",
  "orkestr-agent-runtime",
+ "orkestr-context",
  "orkestr-cost",
  "orkestr-domain",
  "orkestr-events",

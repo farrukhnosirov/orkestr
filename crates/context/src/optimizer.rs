@@ -390,7 +390,7 @@ fn pack_notes(
         *remaining -= tokens;
         out.push(PackedNote {
             note: ContextNote {
-                source: format!("memory:{}", item.id),
+                source,
                 kind: item.kind,
                 title: item.title.clone(),
                 body,

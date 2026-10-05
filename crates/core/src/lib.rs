@@ -15,6 +15,7 @@
 #![warn(missing_docs)]
 
 pub mod auth;
+pub mod benchmarks;
 pub mod checks;
 pub mod config;
 pub mod discovery;
@@ -317,6 +318,7 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
         agents,
         manager,
         ui_language,
+        benchmarks: Arc::new(benchmarks::BenchmarkStats::new()),
     });
     logging::attach_event_bus(services.events.clone());
 
@@ -343,6 +345,8 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
         });
     }
     services.providers.spawn_health_loop(shutdown.clone());
+    // Benchmarks + router statistics + context-index invalidation (Phase 2).
+    benchmarks::spawn_collector(Arc::clone(&services), shutdown.clone());
     let router = Arc::new(rpc::build_router());
     let app = server::app(
         server::AppState::new(Arc::clone(&services), token.clone(), router, shutdown.clone()).with_port(addr.port()),

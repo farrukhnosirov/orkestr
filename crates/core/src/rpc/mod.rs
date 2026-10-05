@@ -7,6 +7,8 @@
 pub mod agents;
 pub mod approvals;
 pub mod audit;
+pub mod benchmarks;
+pub mod context;
 pub mod cost;
 pub mod emergency;
 pub mod events;
@@ -151,6 +153,8 @@ pub fn build_router() -> RpcRouter {
     router.register(settings::register).register(nodes::register);
     router.register(templates::register).register(agents::register);
     router.register(manager::register);
+    // Phase 2: context optimizer + benchmarks.
+    router.register(context::register).register(benchmarks::register);
     router
 }
 
