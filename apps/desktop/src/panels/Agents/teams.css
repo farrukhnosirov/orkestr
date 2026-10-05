@@ -1,0 +1,207 @@
+/* Teams tab of the Agents panel — uses only --ok-* tokens (contract §8). */
+
+.teams-tab {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-3);
+  padding: var(--ok-space-3);
+}
+
+.teams-tab__bar {
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-3);
+}
+
+.teams-tab__bar > p {
+  flex: 1;
+  margin: 0;
+}
+
+.teams-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: var(--ok-space-3);
+}
+
+.teams-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-2);
+  padding: var(--ok-space-3);
+  border: 1px solid var(--ok-color-border);
+  border-radius: var(--ok-radius-lg);
+  background: var(--ok-color-surface);
+}
+
+.teams-card__head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ok-space-2);
+}
+
+.teams-card__title {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ok-space-2);
+}
+
+.teams-card__actions {
+  display: flex;
+  gap: var(--ok-space-1);
+}
+
+.teams-card__desc {
+  margin: 0;
+  font-size: var(--ok-font-size-sm);
+  color: var(--ok-color-text-muted);
+}
+
+.teams-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ok-space-1) var(--ok-space-3);
+  font-size: var(--ok-font-size-xs);
+  color: var(--ok-color-text-subtle);
+}
+
+.teams-card__assign {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ok-space-3);
+  padding-top: var(--ok-space-2);
+  border-top: 1px solid var(--ok-color-border);
+  font-size: var(--ok-font-size-sm);
+}
+
+.teams-avatars {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ok-space-2);
+}
+
+.teams-member {
+  position: relative;
+  display: inline-flex;
+}
+
+.teams-member--lead .agents-avatar {
+  box-shadow: 0 0 0 2px var(--ok-color-violet);
+}
+
+.teams-member__crown {
+  position: absolute;
+  top: -6px;
+  right: -4px;
+  color: var(--ok-color-warning);
+}
+
+.teams-member__count {
+  position: absolute;
+  bottom: -4px;
+  right: -8px;
+  padding: 0 3px;
+  border-radius: var(--ok-radius-pill);
+  background: var(--ok-color-surface-strong);
+  border: 1px solid var(--ok-color-border);
+  font-size: var(--ok-font-size-xs);
+  color: var(--ok-color-text-muted);
+}
+
+.teams-check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ok-space-1);
+  font-size: var(--ok-font-size-sm);
+}
+
+.teams-tree {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-1);
+  padding: var(--ok-space-2);
+  border-radius: var(--ok-radius-md);
+  background: var(--ok-color-surface-sunken);
+}
+
+.teams-tree__row {
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-2);
+  min-height: 28px;
+  font-size: var(--ok-font-size-sm);
+}
+
+.teams-tree__level {
+  flex: none;
+  font-size: var(--ok-font-size-xs);
+  color: var(--ok-color-text-subtle);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.teams-tree__title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.teams-tree__row--manager .teams-tree__title,
+.teams-tree__row--lead .teams-tree__title {
+  font-weight: 600;
+}
+
+.teams-tree__note {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.teams-tree__empty {
+  margin: 0;
+  padding-left: var(--ok-space-5);
+}
+
+.teams-editor__members {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-2);
+}
+
+.teams-editor__member {
+  display: grid;
+  grid-template-columns: minmax(180px, 2fr) 90px auto minmax(160px, 2fr) auto;
+  align-items: end;
+  gap: var(--ok-space-2);
+}
+
+@container (max-width: 720px) {
+  .teams-editor__member {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.teams-editor__count {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--ok-font-size-xs);
+  color: var(--ok-color-text-subtle);
+}
+
+.teams-editor__member-actions {
+  display: flex;
+  gap: var(--ok-space-2);
+  margin-top: var(--ok-space-2);
+}

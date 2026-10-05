@@ -12,6 +12,7 @@ import type { ApprovalIdParams } from "./ApprovalIdParams";
 import type { ApprovalResult } from "./ApprovalResult";
 import type { ApprovePlanParams } from "./ApprovePlanParams";
 import type { ApprovePlanResult } from "./ApprovePlanResult";
+import type { AssignTeamParams } from "./AssignTeamParams";
 import type { BranchResult } from "./BranchResult";
 import type { BranchesResult } from "./BranchesResult";
 import type { BudgetIdParams } from "./BudgetIdParams";
@@ -39,6 +40,7 @@ import type { CreateProjectParams } from "./CreateProjectParams";
 import type { CreateProviderParams } from "./CreateProviderParams";
 import type { CreateSnapshotParams } from "./CreateSnapshotParams";
 import type { CreateTaskParams } from "./CreateTaskParams";
+import type { CreateTeamParams } from "./CreateTeamParams";
 import type { CreateTemplateParams } from "./CreateTemplateParams";
 import type { DecisionIdParams } from "./DecisionIdParams";
 import type { DecisionListResult } from "./DecisionListResult";
@@ -56,6 +58,7 @@ import type { DeleteRuleParams } from "./DeleteRuleParams";
 import type { DeleteSecretParams } from "./DeleteSecretParams";
 import type { DeleteSnapshotResult } from "./DeleteSnapshotResult";
 import type { DeleteTaskResult } from "./DeleteTaskResult";
+import type { DeleteTeamResult } from "./DeleteTeamResult";
 import type { DeleteTemplateResult } from "./DeleteTemplateResult";
 import type { DeletedResult } from "./DeletedResult";
 import type { DiffParams } from "./DiffParams";
@@ -107,6 +110,8 @@ import type { ListSnapshotsParams } from "./ListSnapshotsParams";
 import type { ListSnapshotsResult } from "./ListSnapshotsResult";
 import type { ListTasksParams } from "./ListTasksParams";
 import type { ListTasksResult } from "./ListTasksResult";
+import type { ListTeamsParams } from "./ListTeamsParams";
+import type { ListTeamsResult } from "./ListTeamsResult";
 import type { ListTemplatesParams } from "./ListTemplatesParams";
 import type { ListTemplatesResult } from "./ListTemplatesResult";
 import type { ListTerminalsParams } from "./ListTerminalsParams";
@@ -147,6 +152,14 @@ import type { OpenExternalResult } from "./OpenExternalResult";
 import type { OpenTerminalParams } from "./OpenTerminalParams";
 import type { PathsParams } from "./PathsParams";
 import type { PlanRollbackParams } from "./PlanRollbackParams";
+import type { PmApproveParams } from "./PmApproveParams";
+import type { PmApproveResult } from "./PmApproveResult";
+import type { PmDraft } from "./PmDraft";
+import type { PmDraftIdParams } from "./PmDraftIdParams";
+import type { PmDraftParams } from "./PmDraftParams";
+import type { PmListParams } from "./PmListParams";
+import type { PmListResult } from "./PmListResult";
+import type { PmUpdateParams } from "./PmUpdateParams";
 import type { ProjectIdParams } from "./ProjectIdParams";
 import type { ProjectResult } from "./ProjectResult";
 import type { ProviderIdParams } from "./ProviderIdParams";
@@ -218,6 +231,8 @@ import type { TaskGraph } from "./TaskGraph";
 import type { TaskGraphParams } from "./TaskGraphParams";
 import type { TaskHistoryResult } from "./TaskHistoryResult";
 import type { TaskIdParams } from "./TaskIdParams";
+import type { TeamIdParams } from "./TeamIdParams";
+import type { TeamView } from "./TeamView";
 import type { TemplateIdParams } from "./TemplateIdParams";
 import type { TerminalHistoryParams } from "./TerminalHistoryParams";
 import type { TerminalHistoryResult } from "./TerminalHistoryResult";
@@ -234,6 +249,7 @@ import type { UpdateProjectParams } from "./UpdateProjectParams";
 import type { UpdateProviderParams } from "./UpdateProviderParams";
 import type { UpdateSettingsParams } from "./UpdateSettingsParams";
 import type { UpdateTaskParams } from "./UpdateTaskParams";
+import type { UpdateTeamParams } from "./UpdateTeamParams";
 import type { UpdateTemplateParams } from "./UpdateTemplateParams";
 import type { VaultStatusResult } from "./VaultStatusResult";
 import type { WatchFilesParams } from "./WatchFilesParams";
@@ -417,6 +433,18 @@ export type Methods = {
   "manager.cancel": [ManagerRunIdParams, ManagerRunResult];
   "manager.status": [ManagerStatusParams, ManagerStatusResult];
   "manager.resumeSummary": [ManagerProjectParams, ManagerResumeSummary];
+  "teams.list": [ListTeamsParams, ListTeamsResult];
+  "teams.get": [TeamIdParams, TeamView];
+  "teams.create": [CreateTeamParams, TeamView];
+  "teams.update": [UpdateTeamParams, TeamView];
+  "teams.delete": [TeamIdParams, DeleteTeamResult];
+  "teams.assign": [AssignTeamParams, TeamView];
+  "pm.draft": [PmDraftParams, PmDraft];
+  "pm.get": [PmDraftIdParams, PmDraft];
+  "pm.list": [PmListParams, PmListResult];
+  "pm.update": [PmUpdateParams, PmDraft];
+  "pm.approve": [PmApproveParams, PmApproveResult];
+  "pm.discard": [PmDraftIdParams, PmDraft];
 };
 
 /** All implemented method names. */
@@ -592,6 +620,18 @@ export const METHOD_NAMES = [
   "manager.cancel",
   "manager.status",
   "manager.resumeSummary",
+  "teams.list",
+  "teams.get",
+  "teams.create",
+  "teams.update",
+  "teams.delete",
+  "teams.assign",
+  "pm.draft",
+  "pm.get",
+  "pm.list",
+  "pm.update",
+  "pm.approve",
+  "pm.discard",
 ] as const;
 
 /** Wire protocol version (see orkestr-protocol PROTOCOL_VERSION). */
@@ -644,6 +684,10 @@ export const EVENT_KINDS = [
   "ManagerMessageAdded",
   "ManagerPlanUpdated",
   "ManagerRunUpdated",
+  "TeamUpdated",
+  "TeamDeleted",
+  "TeamLeadRunUpdated",
+  "PmDraftUpdated",
 ] as const;
 
 /** UI config schema version (see orkestr-protocol ui_config). */

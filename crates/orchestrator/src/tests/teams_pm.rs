@@ -120,12 +120,12 @@ async fn team_agents_never_see_other_projects_secrets() {
     let user = h.sec.user();
     let secrets = &h.sec.secrets;
     let mine = secrets
-        .set("DB_PASSWORD", SecretScope::Project { project_id: h.project }, zeroize::Zeroizing::new("a-secret".into()), user.clone())
+        .set("DB_PASSWORD", SecretScope::Project { project_id: h.project }, zeroize::Zeroizing::new("a-secret".into()), user)
         .await
         .unwrap()
         .id;
     let theirs = secrets
-        .set("DB_PASSWORD", SecretScope::Project { project_id: other }, zeroize::Zeroizing::new("b-secret".into()), user.clone())
+        .set("DB_PASSWORD", SecretScope::Project { project_id: other }, zeroize::Zeroizing::new("b-secret".into()), user)
         .await
         .unwrap()
         .id;

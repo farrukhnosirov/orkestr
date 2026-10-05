@@ -255,10 +255,8 @@ pub fn validate_epic(epic: &PmEpic) -> OrchResult<()> {
     }
     let mut keys: HashSet<&str> = HashSet::new();
     let mut deps: BTreeMap<String, Vec<String>> = BTreeMap::new();
-    for text in [&epic.description] {
-        if text.chars().count() > MAX_DESCRIPTION_LEN {
-            return bad("the epic description is too long");
-        }
+    if epic.description.chars().count() > MAX_DESCRIPTION_LEN {
+        return bad("the epic description is too long");
     }
     for f in &epic.features {
         check_title(&format!("feature {}", f.key), &f.title)?;
@@ -752,7 +750,7 @@ impl Manager {
             conversation_id: None,
             goal: d.idea.clone(),
             summary: cap(
-                &format!("{} — {}", d.epic.title, one_line(&d.epic.description, 600)).trim_end_matches(" — ").to_owned(),
+                format!("{} — {}", d.epic.title, one_line(&d.epic.description, 600)).trim_end_matches(" — "),
                 4000,
             ),
             assumptions: Vec::new(),
