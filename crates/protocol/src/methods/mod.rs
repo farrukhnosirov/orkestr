@@ -35,6 +35,7 @@ pub mod system;
 pub mod tasks;
 pub mod templates;
 pub mod terminal;
+pub mod ui;
 pub mod vcs;
 
 /// A typed RPC method.
@@ -288,6 +289,12 @@ pub fn registry() -> Vec<MethodDescriptor> {
         MethodDescriptor::of::<manager::Cancel>(),
         MethodDescriptor::of::<manager::Status>(),
         MethodDescriptor::of::<manager::ResumeSummaryMethod>(),
+        // theme engine (Phase 3)
+        MethodDescriptor::of::<ui::GetConfig>(),
+        MethodDescriptor::of::<ui::SetConfig>(),
+        MethodDescriptor::of::<ui::Themes>(),
+        MethodDescriptor::of::<ui::SaveTheme>(),
+        MethodDescriptor::of::<ui::DeleteTheme>(),
     ]
 }
 

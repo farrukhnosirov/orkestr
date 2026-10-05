@@ -57,6 +57,8 @@ import type { DeleteSecretParams } from "./DeleteSecretParams";
 import type { DeleteSnapshotResult } from "./DeleteSnapshotResult";
 import type { DeleteTaskResult } from "./DeleteTaskResult";
 import type { DeleteTemplateResult } from "./DeleteTemplateResult";
+import type { DeleteThemeParams } from "./DeleteThemeParams";
+import type { DeleteThemeResult } from "./DeleteThemeResult";
 import type { DeletedResult } from "./DeletedResult";
 import type { DiffParams } from "./DiffParams";
 import type { DiffResult } from "./DiffResult";
@@ -74,6 +76,7 @@ import type { FilePathParams } from "./FilePathParams";
 import type { FindFilesParams } from "./FindFilesParams";
 import type { FindFilesResult } from "./FindFilesResult";
 import type { GetModeParams } from "./GetModeParams";
+import type { GetUiConfigParams } from "./GetUiConfigParams";
 import type { HealthResult } from "./HealthResult";
 import type { ImportTemplateParams } from "./ImportTemplateParams";
 import type { ImportTemplateResult } from "./ImportTemplateResult";
@@ -184,6 +187,8 @@ import type { RoutingConfigPayload } from "./RoutingConfigPayload";
 import type { RuleResult } from "./RuleResult";
 import type { RunCommandParams } from "./RunCommandParams";
 import type { RunCommandResult } from "./RunCommandResult";
+import type { SaveThemeParams } from "./SaveThemeParams";
+import type { SaveThemeResult } from "./SaveThemeResult";
 import type { SearchFilesParams } from "./SearchFilesParams";
 import type { SearchFilesResult } from "./SearchFilesResult";
 import type { SearchKnowledgeParams } from "./SearchKnowledgeParams";
@@ -196,6 +201,7 @@ import type { SetCredentialParams } from "./SetCredentialParams";
 import type { SetModeParams } from "./SetModeParams";
 import type { SetRuleParams } from "./SetRuleParams";
 import type { SetSecretParams } from "./SetSecretParams";
+import type { SetUiConfigParams } from "./SetUiConfigParams";
 import type { SettingsResult } from "./SettingsResult";
 import type { ShowParams } from "./ShowParams";
 import type { ShowResult } from "./ShowResult";
@@ -225,9 +231,11 @@ import type { TerminalIdParams } from "./TerminalIdParams";
 import type { TerminalSessionResult } from "./TerminalSessionResult";
 import type { TestProviderParams } from "./TestProviderParams";
 import type { TestProviderResult } from "./TestProviderResult";
+import type { ThemesResult } from "./ThemesResult";
 import type { ToggleParams } from "./ToggleParams";
 import type { TranscriptParams } from "./TranscriptParams";
 import type { TransitionTaskParams } from "./TransitionTaskParams";
+import type { UiConfigResult } from "./UiConfigResult";
 import type { UpdateDecisionParams } from "./UpdateDecisionParams";
 import type { UpdateMemoryParams } from "./UpdateMemoryParams";
 import type { UpdateProjectParams } from "./UpdateProjectParams";
@@ -417,6 +425,11 @@ export type Methods = {
   "manager.cancel": [ManagerRunIdParams, ManagerRunResult];
   "manager.status": [ManagerStatusParams, ManagerStatusResult];
   "manager.resumeSummary": [ManagerProjectParams, ManagerResumeSummary];
+  "ui.getConfig": [GetUiConfigParams, UiConfigResult];
+  "ui.setConfig": [SetUiConfigParams, UiConfigResult];
+  "ui.themes": [Empty, ThemesResult];
+  "ui.saveTheme": [SaveThemeParams, SaveThemeResult];
+  "ui.deleteTheme": [DeleteThemeParams, DeleteThemeResult];
 };
 
 /** All implemented method names. */
@@ -592,6 +605,11 @@ export const METHOD_NAMES = [
   "manager.cancel",
   "manager.status",
   "manager.resumeSummary",
+  "ui.getConfig",
+  "ui.setConfig",
+  "ui.themes",
+  "ui.saveTheme",
+  "ui.deleteTheme",
 ] as const;
 
 /** Wire protocol version (see orkestr-protocol PROTOCOL_VERSION). */
@@ -644,6 +662,8 @@ export const EVENT_KINDS = [
   "ManagerMessageAdded",
   "ManagerPlanUpdated",
   "ManagerRunUpdated",
+  "UiConfigChanged",
+  "UiThemesChanged",
 ] as const;
 
 /** UI config schema version (see orkestr-protocol ui_config). */

@@ -1,0 +1,55 @@
+{
+  "id": "solar-light",
+  "name": "Solar Light",
+  "mode": "Light",
+  "description": "Warm daylight paper with amber accents. Every text pair meets WCAG AA.",
+  "author": "Orkestr",
+  "tokens": {
+    "color-bg": "#fbf6ec",
+    "color-bg-elevated": "#fffdf8",
+    "color-surface": "rgba(255, 252, 245, 0.74)",
+    "color-surface-strong": "rgba(255, 253, 248, 0.94)",
+    "color-surface-sunken": "rgba(240, 230, 210, 0.55)",
+    "color-surface-hover": "rgba(180, 120, 30, 0.07)",
+    "color-surface-active": "rgba(180, 120, 30, 0.13)",
+    "color-overlay": "rgba(40, 30, 10, 0.3)",
+    "color-border": "rgba(120, 85, 30, 0.14)",
+    "color-border-strong": "rgba(120, 85, 30, 0.26)",
+    "color-text": "#23190c",
+    "color-text-muted": "#5e5140",
+    "color-text-subtle": "#8a7c66",
+    "color-text-inverse": "#ffffff",
+    "color-accent": "#b45309",
+    "color-accent-strong": "#92400e",
+    "color-violet": "#6d28d9",
+    "color-violet-strong": "#5b21b6",
+    "color-magenta": "#be185d",
+    "color-success": "#047857",
+    "color-warning": "#a16207",
+    "color-danger": "#b91c1c",
+    "color-info": "#1d4ed8",
+    "gradient-accent": "linear-gradient(135deg, #d97706 0%, #ea580c 50%, #db2777 100%)",
+    "gradient-space": "radial-gradient(1200px 700px at 10% -10%, rgba(251, 191, 36, 0.22) 0%, rgba(251, 246, 236, 0) 60%), radial-gradient(900px 600px at 105% 15%, rgba(249, 115, 22, 0.12) 0%, rgba(251, 246, 236, 0) 55%), linear-gradient(180deg, #fdf9f1 0%, #f8f1e3 100%)",
+    "shadow-panel": "0 12px 36px rgba(90, 60, 20, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.7)"
+  },
+  "effects": { "blurPx": 14, "glowIntensity": 0.15, "panelOpacity": 0.86, "animations": true },
+  "background": {
+    "kind": "Gradient",
+    "colors": ["#fbbf24", "#f97316"],
+    "intensity": 0.5,
+    "speed": 0.2,
+    "density": 0.4,
+    "webgl": false
+  },
+  "motion": { "intensity": 0.8, "speed": 1 },
+  "sounds": {
+    "enabled": true,
+    "volume": 0.5,
+    "events": {
+      "agent.error": "alert-soft",
+      "approval.requested": "ping",
+      "task.completed": "chime-soft"
+    }
+  },
+  "robot": { "skin": "orbit", "scale": 1, "accent": "#b45309" }
+}

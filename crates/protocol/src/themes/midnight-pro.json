@@ -1,0 +1,48 @@
+{
+  "id": "midnight-pro",
+  "name": "Midnight Pro",
+  "mode": "Dark",
+  "description": "Calm, neutral navy for long sessions. Restrained glow, crisp blue accent.",
+  "author": "Orkestr",
+  "tokens": {
+    "color-bg": "#06080d",
+    "color-bg-elevated": "#0c1018",
+    "color-surface": "rgba(20, 25, 36, 0.66)",
+    "color-surface-strong": "rgba(24, 30, 44, 0.9)",
+    "color-surface-sunken": "rgba(4, 6, 10, 0.6)",
+    "color-surface-hover": "rgba(120, 140, 180, 0.1)",
+    "color-surface-active": "rgba(110, 150, 255, 0.18)",
+    "color-border": "rgba(160, 175, 210, 0.1)",
+    "color-border-strong": "rgba(170, 185, 220, 0.2)",
+    "color-text": "#e6e9f0",
+    "color-text-muted": "#9aa3b5",
+    "color-text-subtle": "#6b7387",
+    "color-accent": "#5b9dff",
+    "color-accent-strong": "#3b82f6",
+    "color-violet": "#9d8cff",
+    "color-violet-strong": "#7c6cf0",
+    "color-magenta": "#e879f9",
+    "gradient-accent": "linear-gradient(135deg, #5b9dff 0%, #7c8cff 55%, #9d8cff 100%)",
+    "gradient-space": "radial-gradient(1400px 800px at 85% -20%, rgba(59, 130, 246, 0.14) 0%, rgba(6, 8, 13, 0) 60%), linear-gradient(180deg, #080b12 0%, #06080d 100%)"
+  },
+  "effects": { "blurPx": 14, "glowIntensity": 0.35, "panelOpacity": 0.82, "animations": true },
+  "background": {
+    "kind": "Grid",
+    "colors": ["#3b82f6", "#6366f1"],
+    "intensity": 0.4,
+    "speed": 0.25,
+    "density": 0.45,
+    "webgl": false
+  },
+  "motion": { "intensity": 0.7, "speed": 1.1 },
+  "sounds": {
+    "enabled": true,
+    "volume": 0.5,
+    "events": {
+      "agent.error": "alert-soft",
+      "approval.requested": "ping",
+      "task.completed": "click-soft"
+    }
+  },
+  "robot": { "skin": "orbit", "scale": 0.9, "accent": null }
+}

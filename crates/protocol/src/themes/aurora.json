@@ -1,0 +1,49 @@
+{
+  "id": "aurora",
+  "name": "Aurora",
+  "mode": "Dark",
+  "description": "Polar night with teal and violet aurora curtains drifting overhead.",
+  "author": "Orkestr",
+  "tokens": {
+    "color-bg": "#020c0f",
+    "color-bg-elevated": "#071619",
+    "color-surface": "rgba(10, 34, 38, 0.6)",
+    "color-surface-strong": "rgba(12, 40, 44, 0.88)",
+    "color-surface-sunken": "rgba(2, 10, 12, 0.55)",
+    "color-surface-hover": "rgba(45, 212, 191, 0.08)",
+    "color-surface-active": "rgba(45, 212, 191, 0.16)",
+    "color-border": "rgba(120, 230, 210, 0.12)",
+    "color-border-strong": "rgba(120, 230, 210, 0.22)",
+    "color-text": "#e3fbf6",
+    "color-text-muted": "#93bdb5",
+    "color-text-subtle": "#5f8a83",
+    "color-accent": "#2dd4bf",
+    "color-accent-strong": "#14b8a6",
+    "color-violet": "#c084fc",
+    "color-violet-strong": "#a855f7",
+    "color-magenta": "#f0abfc",
+    "color-info": "#67e8f9",
+    "gradient-accent": "linear-gradient(135deg, #2dd4bf 0%, #67e8f9 45%, #c084fc 100%)",
+    "gradient-space": "radial-gradient(1300px 600px at 20% -15%, rgba(13, 148, 136, 0.3) 0%, rgba(2, 12, 15, 0) 60%), radial-gradient(1000px 700px at 100% 10%, rgba(124, 58, 237, 0.22) 0%, rgba(2, 12, 15, 0) 55%), linear-gradient(180deg, #03100f 0%, #020c0f 100%)"
+  },
+  "effects": { "blurPx": 20, "glowIntensity": 0.7, "panelOpacity": 0.7, "animations": true },
+  "background": {
+    "kind": "Nebula",
+    "colors": ["#0d9488", "#7c3aed", "#16a34a"],
+    "intensity": 0.7,
+    "speed": 0.5,
+    "density": 0.55,
+    "webgl": true
+  },
+  "motion": { "intensity": 1, "speed": 0.9 },
+  "sounds": {
+    "enabled": true,
+    "volume": 0.6,
+    "events": {
+      "agent.error": "alert-soft",
+      "approval.requested": "bell-glass",
+      "task.completed": "chime-soft"
+    }
+  },
+  "robot": { "skin": "orbit", "scale": 1, "accent": "#2dd4bf" }
+}

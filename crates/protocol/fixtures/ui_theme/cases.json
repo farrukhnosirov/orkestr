@@ -1,0 +1,162 @@
+{
+  "colors": [
+    ["#fff", [255, 255, 255, 1]],
+    ["#FFF", [255, 255, 255, 1]],
+    ["#0008", [0, 0, 0, 0.5333]],
+    ["#22d3ee", [34, 211, 238, 1]],
+    ["#22d3ee80", [34, 211, 238, 0.502]],
+    ["rgb(10, 20, 30)", [10, 20, 30, 1]],
+    ["rgba(10, 20, 30, 0.5)", [10, 20, 30, 0.5]],
+    ["rgb(10 20 30 / 50%)", [10, 20, 30, 0.5]],
+    ["rgb(100%, 0%, 50%)", [255, 0, 127.5, 1]],
+    ["hsl(120, 100%, 50%)", [0, 255, 0, 1]],
+    ["hsla(240deg 100% 50% / 0.25)", [0, 0, 255, 0.25]],
+    ["hsl(-120, 100%, 25%)", [0, 0, 127.5, 1]],
+    ["transparent", [0, 0, 0, 0]],
+    ["  White ", [255, 255, 255, 1]],
+    ["#ggg", null],
+    ["#12345", null],
+    ["rgb(1, 2)", null],
+    ["rgb(300, 0, 0)", null],
+    ["rgba(0, 0, 0, 2)", null],
+    ["rgb(1e2, 0, 0)", null],
+    ["hsl(10, 50, 50)", null],
+    ["red", null],
+    ["var(--ok-color-bg)", null],
+    ["", null]
+  ],
+  "kinds": [
+    ["Color", "#22d3ee", true],
+    ["Color", "var(--ok-color-accent)", true],
+    ["Color", "var(--other)", false],
+    ["Color", "12px", false],
+    ["Gradient", "linear-gradient(135deg, #22d3ee 0%, #8b5cf6 100%)", true],
+    ["Gradient", "radial-gradient(800px 600px at 10% 0%, rgba(1, 2, 3, 0.5) 0%, rgba(0, 0, 0, 0) 60%), linear-gradient(180deg, #000 0%, #111 100%)", true],
+    ["Gradient", "#000000", true],
+    ["Gradient", "linear-gradient(#000, #fff", false],
+    ["Gradient", "12px", false],
+    ["Shadow", "0 0 24px rgba(34, 211, 238, 0.45)", true],
+    ["Shadow", "0 0 24px rgba(34, 211, 238, 0.45", false],
+    ["Length", "12px", true],
+    ["Length", "0", true],
+    ["Length", "1.25rem", true],
+    ["Length", "-0.5em", true],
+    ["Length", "50%", true],
+    ["Length", "12", false],
+    ["Length", "px", false],
+    ["Length", "1e2px", false],
+    ["FontFamily", "'Inter', system-ui, sans-serif", true],
+    ["FontFamily", "\"JetBrains Mono\", Consolas, monospace", true],
+    ["FontFamily", "Inter,,sans", false],
+    ["FontFamily", "''", false],
+    ["FontWeight", "600", true],
+    ["FontWeight", "650", true],
+    ["FontWeight", "1000", false],
+    ["FontWeight", "bold", false],
+    ["Number", "1.5", true],
+    ["Number", "abc", false],
+    ["Duration", "120ms", true],
+    ["Duration", "0.3s", true],
+    ["Duration", "11s", false],
+    ["Duration", "120", false],
+    ["Easing", "cubic-bezier(0.2, 0.8, 0.2, 1)", true],
+    ["Easing", "cubic-bezier(0.34, 1.56, 0.64, 1)", true],
+    ["Easing", "cubic-bezier(1.5, 0, 0, 1)", false],
+    ["Easing", "ease-in-out", true],
+    ["Easing", "bounce", false]
+  ],
+  "themes": [
+    { "name": "nebula as is", "patch": {}, "issues": [], "contrast": { "text-bg": 17.31 } },
+    {
+      "name": "white on black",
+      "patch": { "tokens": { "color-text": "#ffffff", "color-bg": "#000000" } },
+      "issues": [],
+      "contrast": { "text-bg": 21 }
+    },
+    {
+      "name": "illegible text is rejected",
+      "patch": { "tokens": { "color-text": "#333333" } },
+      "issues": ["theme.contrast.text-bg"],
+      "contrast": {}
+    },
+    {
+      "name": "danger on bg too weak",
+      "patch": { "tokens": { "color-danger": "#3a0a10" } },
+      "issues": ["theme.contrast.danger-bg"]
+    },
+    {
+      "name": "light mode with dark-mode text fails",
+      "patch": { "mode": "Light", "tokens": { "color-text": "#e8ecff" } },
+      "issues": ["theme.contrast.text-bg"]
+    },
+    {
+      "name": "translucent text composited over bg",
+      "patch": { "tokens": { "color-text": "rgba(232, 236, 255, 0.2)" } },
+      "issues": ["theme.contrast.text-bg"]
+    },
+    {
+      "name": "var references skip contrast",
+      "patch": { "tokens": { "color-text": "var(--ok-color-text-muted)" } },
+      "issues": []
+    },
+    {
+      "name": "typed token grammars",
+      "patch": {
+        "tokens": {
+          "radius-md": "12",
+          "font-sans": "Inter,,x",
+          "duration-fast": "20s",
+          "ease": "bounce",
+          "color-accent": "12px",
+          "custom-thing": "anything-safe"
+        }
+      },
+      "issues": [
+        "theme.tokens.radius-md",
+        "theme.tokens.font-sans",
+        "theme.tokens.duration-fast",
+        "theme.tokens.ease",
+        "theme.tokens.color-accent"
+      ]
+    },
+    {
+      "name": "unsafe value reported once",
+      "patch": { "tokens": { "color-accent": "url(x)" } },
+      "issues": ["theme.tokens.color-accent"]
+    },
+    {
+      "name": "sections out of range",
+      "patch": {
+        "description": "",
+        "background": { "intensity": 2, "speed": -1, "density": 1.5, "colors": ["#fff", "nope"] },
+        "motion": { "intensity": 3, "speed": 0.1 },
+        "sounds": { "volume": 9, "events": { "Bad Key": "chime", "task.done": "Bad Id" } },
+        "robot": { "skin": "Bad", "scale": 5, "accent": "nope" }
+      },
+      "issues": [
+        "theme.background.intensity",
+        "theme.background.speed",
+        "theme.background.density",
+        "theme.background.colors.1",
+        "theme.motion.intensity",
+        "theme.motion.speed",
+        "theme.sounds.volume",
+        "theme.sounds.events.Bad Key",
+        "theme.sounds.events.task.done",
+        "theme.robot.skin",
+        "theme.robot.scale",
+        "theme.robot.accent"
+      ]
+    },
+    {
+      "name": "too many background colors",
+      "patch": { "background": { "colors": ["#000", "#111", "#222", "#333", "#444"] } },
+      "issues": ["theme.background.colors"]
+    },
+    {
+      "name": "effects and identity",
+      "patch": { "id": "Bad Id", "name": " ", "effects": { "blurPx": 100, "panelOpacity": 0.1 } },
+      "issues": ["theme.id", "theme.name", "theme.effects.blurPx", "theme.effects.panelOpacity"]
+    }
+  ]
+}

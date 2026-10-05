@@ -30,6 +30,7 @@ pub mod rpc;
 pub mod server;
 pub mod services;
 pub mod settings_store;
+pub mod ui_store;
 
 use std::net::SocketAddr;
 use std::path::PathBuf;

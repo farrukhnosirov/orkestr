@@ -6,8 +6,7 @@
 //! `settings.update` applies an [`AppSettingsPatch`], performs side effects
 //! (autostart registration) and publishes `SettingsChanged`.
 //!
-//! `ui.getConfig` / `ui.setConfig` (validated UI config, `crate::ui_config`)
-//! remain reserved for the theme engine.
+//! The validated UI config and themes live in [`super::ui`] (`ui.*`, Phase 3).
 
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
@@ -17,7 +16,8 @@ use orkestr_domain::ApprovalMode;
 use super::method;
 
 /// Method names planned for this area (not yet routed by the core).
-pub const PLANNED: &[&str] = &["ui.getConfig", "ui.setConfig"];
+/// (`ui.getConfig` / `ui.setConfig` moved to `methods::ui` in Phase 3.)
+pub const PLANNED: &[&str] = &[];
 
 /// Performance mode (§31) — the same enum the UI config uses. Phase 1 stores
 /// the choice; the scheduler and effects engine honour it in later phases.
