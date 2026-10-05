@@ -34,6 +34,8 @@ describe("panel registry", () => {
     const expected = [
       "Manager", "Code", "Files", "Terminal", "Git", "Agents", "Tasks", "Architecture",
       "Browser", "Database", "Logs", "Deployments", "Memory", "Costs", "Monitoring",
+      // mission-control (Phase 3, §32)
+      "Mission Control",
     ];
     expect(PANELS.map((p) => p.title).sort()).toEqual([...expected].sort());
     expect(new Set(PANELS.map((p) => p.id)).size).toBe(PANELS.length);

@@ -24,6 +24,7 @@ import { useShellBootstrap } from "./features/settings/useShellBootstrap";
 import { registerThemeFeature } from "./features/theme/register";
 import { ThemeEditor } from "./features/theme/ThemeEditor";
 import { ThemeBackdrop, useThemeEngine } from "./features/theme/ThemeRuntime";
+import { MissionControlOverlay } from "./panels/MissionControl";
 import { useAppStore } from "./store/app";
 
 registerSecurityFeature();
@@ -100,6 +101,7 @@ export function App() {
           <ThemeEditor />
           <LayoutEditorPanel />
           <LayoutDialogs />
+          <MissionControlOverlay />
         </>
       )}
       {ready && <AiUiLayer connected={ready} />}

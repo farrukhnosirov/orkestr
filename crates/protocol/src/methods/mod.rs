@@ -23,6 +23,7 @@ pub mod benchmarks;
 pub mod consensus;
 pub mod context;
 pub mod cost;
+pub mod dashboard;
 pub mod emergency;
 pub mod events;
 pub mod files;
@@ -385,6 +386,9 @@ pub fn registry() -> Vec<MethodDescriptor> {
         MethodDescriptor::of::<ui::PreviewPatch>(),
         MethodDescriptor::of::<ui::ApplyPatch>(),
         MethodDescriptor::of::<nodes::Power>(),
+        // mission-control (Phase 3)
+        MethodDescriptor::of::<dashboard::Snapshot>(),
+        MethodDescriptor::of::<dashboard::Health>(),
     ]
 }
 

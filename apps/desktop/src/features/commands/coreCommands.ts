@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 
 import { workspaceActions } from "../../components/workspaceActions";
+import { useMissionControlStore } from "../../panels/MissionControl/store";
 import { t } from "../../i18n";
 import { describeError } from "../../i18n/errors";
 import { nextLanguage, switchLanguage } from "../../lib/language";
@@ -131,8 +132,10 @@ export const coreCommands: AppCommand[] = [
       return t("shell:commandGroups.views");
     },
     icon: Activity,
-    keywords: ["monitoring", "overview", "dashboard", "phase 3", "центр управления", "мониторинг", "обзор"],
-    run: () => workspaceActions.openPanel("monitoring"),
+    keywords: ["mission control", "monitoring", "overview", "dashboard", "центр управления", "мониторинг", "обзор", "дашборд"],
+    // mission-control (Phase 3): full-screen Mission Control, toggled.
+    shortcut: "Ctrl+Shift+D",
+    run: () => useMissionControlStore.getState().toggleFullscreen(),
   },
   {
     id: "view.logs",

@@ -49,6 +49,7 @@ subtle.workspace = true
 rand.workspace = true
 hex.workspace = true
 parking_lot.workspace = true
+sysinfo.workspace = true
 regex.workspace = true
 
 [dev-dependencies]

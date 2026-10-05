@@ -1,0 +1,206 @@
+{
+  "title": "Mission Control",
+  "subtitle": "Everything Orkestr is doing, at a glance",
+  "commands": {
+    "toggle": "Mission Control (full screen)",
+    "group": "Views"
+  },
+  "widgets": {
+    "overview": "Overview",
+    "projects": "Projects",
+    "agents": "Active agents",
+    "taskGraph": "Task graph",
+    "nodes": "Nodes",
+    "providers": "Provider health",
+    "budgets": "Spend & budgets",
+    "approvals": "Pending approvals",
+    "quality": "Builds & tests",
+    "deployments": "Deployments",
+    "alerts": "Alerts"
+  },
+  "toolbar": {
+    "updated": "Live · updated {{time}}",
+    "offline": "Core unavailable",
+    "connecting": "Connecting…",
+    "refresh": "Refresh",
+    "fullscreen": "Full screen (Ctrl+Shift+D)",
+    "exitFullscreen": "Exit full screen (Esc)"
+  },
+  "layout": {
+    "customize": "Customize",
+    "done": "Done",
+    "reset": "Reset layout",
+    "editing": "Editing",
+    "editHint": "Drag widgets by the handle, or use Alt+Shift+arrows. Resize and hide widgets with the buttons in their headers.",
+    "dragHandle": "Move widget “{{title}}”",
+    "dragHint": "Drag to rearrange (Alt+Shift+arrows)",
+    "moveLeft": "Move earlier",
+    "moveRight": "Move later",
+    "resize": "Change size (now: {{size}})",
+    "hide": "Hide widget",
+    "show": "Show “{{title}}”",
+    "hiddenWidgets": "Hidden widgets",
+    "size": {
+      "s": "small",
+      "m": "medium",
+      "l": "large",
+      "xl": "extra large",
+      "full": "full width"
+    }
+  },
+  "overview": {
+    "projects": "Projects",
+    "activeAgents": "Active agents",
+    "ofTotal": "of {{total}}",
+    "runningTasks": "Running tasks",
+    "liveRuns": "Live runs",
+    "pendingApprovals": "Approvals",
+    "failedTasks": "Failed tasks",
+    "spendToday": "Spend today",
+    "spendMonth": "{{amount}} this month",
+    "emergency": "Emergency stop is engaged: all AI work is halted until you reset it in Security."
+  },
+  "projects": {
+    "empty": "No projects yet",
+    "emptyHint": "Create a project to see its agents, tasks and spend here.",
+    "listLabel": "Projects",
+    "current": "current",
+    "focus": "Show {{name}} in the task graph",
+    "open": "Open project {{name}}",
+    "agents": "{{active}}/{{total}} agents",
+    "agentsTitle": "Active / total agents",
+    "tasks": "{{running}} running · {{open}} open",
+    "tasksTitle": "Running / open tasks",
+    "failed_one": "{{count}} failed",
+    "failed_other": "{{count}} failed",
+    "spendTitle": "Spend this month",
+    "activity": {
+      "Idle": "Idle",
+      "Active": "Active",
+      "Attention": "Needs attention"
+    }
+  },
+  "agents": {
+    "empty": "No agents are running",
+    "emptyHint": "Ask the Manager to build something, or spawn an agent from the Agents panel.",
+    "listLabel_one": "{{count}} agent",
+    "listLabel_other": "{{count}} agents",
+    "openDetails": "Open {{name}} in the Agents panel",
+    "model": "Model",
+    "noModel": "no model",
+    "elapsed": "Elapsed",
+    "cost": "Cost"
+  },
+  "graph": {
+    "noProject": "Open a project to see its task graph",
+    "empty": "No tasks to show",
+    "label_one": "Task graph with {{count}} task",
+    "label_other": "Task graph with {{count}} tasks",
+    "liveRun": "Live run: {{goal}}",
+    "openTasks": "Open tasks",
+    "recentTasks": "Recent tasks (all done)",
+    "openTasksPanel": "Open Tasks"
+  },
+  "nodes": {
+    "thisNode": "This computer",
+    "local": "Local",
+    "details": "Details",
+    "cpu": "CPU",
+    "ram": "RAM",
+    "gpu": "GPU",
+    "disk": "Disk",
+    "cores_one": "{{count}} core",
+    "cores_other": "{{count}} cores",
+    "usedOf": "{{used}} of {{total}}",
+    "freeOf": "{{free}} free of {{total}}",
+    "gpuUnavailable": "Not measured yet",
+    "cpuLabel": "CPU load {{value}}",
+    "ramLabel": "Memory in use {{value}}",
+    "gpuLabel": "GPU load (not measured yet)",
+    "diskLabel": "Disk in use {{value}}",
+    "moreNodes": "Remote nodes and clusters arrive in Phase 6."
+  },
+  "providers": {
+    "empty": "No providers connected",
+    "emptyHint": "Connect an AI provider in Settings → Providers.",
+    "listLabel": "Providers",
+    "disabled": "Disabled",
+    "latency": "{{ms}} ms",
+    "latencyTitle": "Average latency",
+    "rateLimited": "Rate limited · {{time}}",
+    "quota": "Quota exhausted · {{time}}",
+    "circuit": "Paused after failures",
+    "local": "Local"
+  },
+  "budgets": {
+    "today": "Today",
+    "month": "This month",
+    "estimated": "incl. {{amount}} estimated",
+    "none": "No limited budgets",
+    "setUp": "Set up budgets",
+    "spentOf": "{{spent}} of {{limit}}",
+    "gaugeLabel": "{{scope}}: {{value}} of budget used"
+  },
+  "approvals": {
+    "empty": "Nothing to approve",
+    "emptyHint": "Risky actions of agents wait here for your decision.",
+    "listLabel_one": "{{count}} pending approval",
+    "listLabel_other": "{{count}} pending approvals",
+    "approveLabel": "Approve: {{action}}",
+    "rejectLabel": "Reject: {{action}}"
+  },
+  "quality": {
+    "empty": "No builds or test runs yet",
+    "emptyHint": "Quality pipeline results appear here as agents build and test.",
+    "listLabel": "Builds and test runs",
+    "counts": "{{passed}} passed · {{failed}} failed",
+    "kind": {
+      "build": "Build",
+      "test": "Test run"
+    },
+    "status": {
+      "running": "Running",
+      "passed": "Passed",
+      "failed": "Failed"
+    }
+  },
+  "deployments": {
+    "empty": "No deployments yet",
+    "hint": "Environments and deployments arrive in Phase 7."
+  },
+  "alerts": {
+    "empty": "All clear",
+    "emptyHint": "Failures, rate limits, budget thresholds and security findings will show up here.",
+    "listLabel": "Alerts",
+    "count_one": "{{count}} alert",
+    "count_other": "{{count}} alerts",
+    "clear": "Clear all",
+    "dismiss": "Dismiss",
+    "severity": {
+      "critical": "Critical",
+      "warning": "Warning",
+      "info": "Info"
+    },
+    "kind": {
+      "buildFailed": "Build failed (exit code {{code}})",
+      "testsFailed_one": "{{count}} test failed, {{passed}} passed",
+      "testsFailed_other": "{{count}} tests failed, {{passed}} passed",
+      "rateLimited": "Rate limit hit for {{model}}, retry in {{secs}}",
+      "providerDown": "Provider is down",
+      "providerDegraded": "Provider is degraded",
+      "budget": "Budget at {{percent}}%: {{spent}} of {{limit}}",
+      "agentError": "Agent failed",
+      "taskFailed": "Task failed",
+      "emergency_one": "Emergency stop: {{count}} agent stopped",
+      "emergency_other": "Emergency stop: {{count}} agents stopped",
+      "approval": "{{risk}}: approval needed",
+      "reviewFindings_one": "Review requested changes: {{count}} finding",
+      "reviewFindings_other": "Review requested changes: {{count}} findings",
+      "coreError": "Core error in {{target}}"
+    }
+  },
+  "overlay": {
+    "label": "Mission Control, full screen",
+    "close": "Close Mission Control (Esc)"
+  }
+}

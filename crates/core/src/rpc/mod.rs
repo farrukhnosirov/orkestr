@@ -12,6 +12,7 @@ pub mod benchmarks;
 pub mod consensus;
 pub mod context;
 pub mod cost;
+pub mod dashboard;
 pub mod emergency;
 pub mod events;
 pub mod files;
@@ -180,6 +181,8 @@ pub fn build_router() -> RpcRouter {
     router.register(ui::register);
     // layout-multimonitor (Phase 3)
     router.register(layouts::register);
+    // mission-control (Phase 3)
+    router.register(dashboard::register);
     router
 }
 

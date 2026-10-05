@@ -43,6 +43,7 @@ import type { ContextExplainParams } from "./ContextExplainParams";
 import type { ContextExplainResult } from "./ContextExplainResult";
 import type { ContextPreviewParams } from "./ContextPreviewParams";
 import type { ContextPreviewResult } from "./ContextPreviewResult";
+import type { CoreHealthResult } from "./CoreHealthResult";
 import type { CostByDimensionParams } from "./CostByDimensionParams";
 import type { CostByDimensionResult } from "./CostByDimensionResult";
 import type { CostRecordsParams } from "./CostRecordsParams";
@@ -61,6 +62,8 @@ import type { CreateSnapshotParams } from "./CreateSnapshotParams";
 import type { CreateTaskParams } from "./CreateTaskParams";
 import type { CreateTeamParams } from "./CreateTeamParams";
 import type { CreateTemplateParams } from "./CreateTemplateParams";
+import type { DashboardSnapshot } from "./DashboardSnapshot";
+import type { DashboardSnapshotParams } from "./DashboardSnapshotParams";
 import type { DecisionIdParams } from "./DecisionIdParams";
 import type { DecisionListResult } from "./DecisionListResult";
 import type { DecisionResult } from "./DecisionResult";
@@ -599,6 +602,8 @@ export type Methods = {
   "ui.previewPatch": [PreviewUiPatchParams, PreviewUiPatchResult];
   "ui.applyPatch": [ApplyUiPatchParams, ApplyUiPatchResult];
   "nodes.power": [Empty, PowerStatusView];
+  "dashboard.snapshot": [DashboardSnapshotParams, DashboardSnapshot];
+  "dashboard.health": [Empty, CoreHealthResult];
 };
 
 /** All implemented method names. */
@@ -846,6 +851,8 @@ export const METHOD_NAMES = [
   "ui.previewPatch",
   "ui.applyPatch",
   "nodes.power",
+  "dashboard.snapshot",
+  "dashboard.health",
 ] as const;
 
 /** Wire protocol version (see orkestr-protocol PROTOCOL_VERSION). */
