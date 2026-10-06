@@ -6,7 +6,7 @@
 //! captured. Writes are atomic (temp file + rename) and refuse to go through
 //! symlinked directories or outside the workspace root.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Component, Path, PathBuf};
 
 use orkestr_protocol::methods::snapshots::{ExcludedEntry, ExclusionReason};
@@ -222,17 +222,38 @@ pub fn current_state(root: &Path, rel: &str) -> SnapshotResult<Option<FileState>
     }
 }
 
-/// Hashes every non-ignored file of the workspace.
-pub fn current_tree(root: &Path, opts: &ScanOptions) -> SnapshotResult<BTreeMap<String, FileState>> {
-    let (files, _) = list_files(root, opts)?;
-    let mut out = BTreeMap::new();
+/// The current state of a workspace ([`current_tree`]).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct CurrentTree {
+    /// Readable non-ignored files.
+    pub files: BTreeMap<String, FileState>,
+    /// Non-ignored files that exist but cannot be read right now (locked by
+    /// another process, access denied). Their state is unknown: callers must
+    /// neither treat them as missing nor overwrite/delete them.
+    pub unreadable: BTreeSet<String>,
+}
+
+/// Hashes every non-ignored file of the workspace. A file that cannot be
+/// read is reported in [`CurrentTree::unreadable`] instead of failing the
+/// whole scan (snapshot creation tolerates it the same way).
+pub fn current_tree(root: &Path, opts: &ScanOptions) -> SnapshotResult<CurrentTree> {
+    let (files, excluded) = list_files(root, opts)?;
+    let mut out = CurrentTree::default();
+    for e in excluded {
+        if e.reason == ExclusionReason::Unreadable {
+            out.unreadable.insert(e.path);
+        }
+    }
     for f in files {
         match std::fs::read(&f.abs) {
             Ok(bytes) => {
-                out.insert(f.rel, (hash_bytes(&bytes), f.mode, bytes.len() as u64));
+                out.files.insert(f.rel, (hash_bytes(&bytes), f.mode, bytes.len() as u64));
             }
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
-            Err(e) => return Err(e.into()),
+            Err(e) => {
+                tracing::debug!(path = %f.rel, error = %e, "unreadable workspace file");
+                out.unreadable.insert(f.rel);
+            }
         }
     }
     Ok(out)

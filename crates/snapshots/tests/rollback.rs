@@ -330,3 +330,167 @@ async fn delete_snapshot() {
     assert!(matches!(f.svc.get(s.id).await, Err(SnapshotError::NotFound(_))));
     assert!(matches!(f.svc.delete(s.id).await, Err(SnapshotError::NotFound(_))));
 }
+
+/// Agents A and B (and the user) work in parallel in one shared checkout:
+/// rolling back A reverts only A's own files, never B's or the user's work
+/// that happened between A's checkpoints.
+#[tokio::test]
+async fn task_rollback_in_a_shared_workspace_spares_other_writers() {
+    let f = fixture().await;
+    let root = f.ws.path();
+    write(root, "src/a.ts", "a base\n");
+    write(root, "src/b.ts", "b base\n");
+    write(root, "README.md", "# readme\n");
+    let task_a = TaskId::new();
+    task_checkpoint(&f, task_a, TaskSnapshotPhase::Before).await;
+
+    // A's own work.
+    write(root, "src/a.ts", "a by agent A\n");
+    write(root, "src/new_a/one.ts", "created by A\n");
+    // Meanwhile agent B and the user change other files.
+    write(root, "src/b.ts", "b by agent B\n");
+    write(root, "README.md", "# readme\nuser edit\n");
+    write(root, "notes.txt", "user file\n");
+
+    let mut req = snap_req(&f);
+    req.reason = SnapshotReason::TaskCheckpoint;
+    req.task_id = Some(task_a);
+    req.task_phase = Some(TaskSnapshotPhase::After);
+    // Recorded paths may come in any shape (`./`, backslashes, directories).
+    let a_files = vec!["./src/a.ts".to_owned(), "src\\new_a".to_owned()];
+    f.svc.create_with_task_files(req, &a_files).await.unwrap();
+
+    let dry = f.svc.rollback_task(f.project, task_a, None, None, true).await.unwrap();
+    assert_eq!(dry.restored, vec!["src/a.ts"]);
+    assert_eq!(dry.conflicts.len(), 3);
+
+    let res = f.svc.rollback_task(f.project, task_a, None, None, false).await.unwrap();
+    assert_eq!(res.restored, vec!["src/a.ts"]);
+    assert_eq!(res.deleted, vec!["src/new_a/one.ts"]);
+    let conflicts: Vec<_> = res.conflicts.iter().map(|c| c.path.as_str()).collect();
+    assert_eq!(conflicts, vec!["README.md", "notes.txt", "src/b.ts"], "others' changes reported, not reverted");
+    assert_eq!(read(root, "src/a.ts").as_deref(), Some("a base\n"));
+    assert!(read(root, "src/new_a/one.ts").is_none());
+    assert_eq!(read(root, "src/b.ts").as_deref(), Some("b by agent B\n"));
+    assert_eq!(read(root, "README.md").as_deref(), Some("# readme\nuser edit\n"));
+    assert_eq!(read(root, "notes.txt").as_deref(), Some("user file\n"));
+}
+
+/// A file that existed but was ignored (or excluded) at the before-checkpoint
+/// is captured once the task edits `.gitignore`: rolling back must not
+/// delete it — neither task rollback nor workspace rollback with
+/// "delete created files".
+#[tokio::test]
+async fn rollback_does_not_delete_files_uncaptured_at_the_snapshot() {
+    let f = fixture().await;
+    let root = f.ws.path();
+    write(root, ".gitignore", "dist/\n*.log\n");
+    write(root, "dist/bundle.js", "built earlier\n");
+    write(root, "pkg/.gitignore", "gen/\n");
+    write(root, "pkg/gen/out.txt", "generated earlier\n");
+    write(root, "big.bin", &"x".repeat(64));
+    let task = TaskId::new();
+    // A tiny per-file limit makes big.bin "excluded" at the before-checkpoint.
+    let data = tempfile::tempdir().unwrap();
+    let db = Db::open(data.path().join("t.db")).unwrap();
+    db.migrate(orkestr_snapshots::snapshot_migrations()).await.unwrap();
+    let objects = Arc::new(FsObjectStore::open(data.path().join("objects"), Compression::None).unwrap());
+    let small =
+        SnapshotService::new(db.clone(), objects.clone(), None, ScanOptions { max_file_bytes: 32, ..Default::default() });
+    let svc = SnapshotService::new(db, objects, None, ScanOptions::default());
+    let mut req = snap_req(&f);
+    req.reason = SnapshotReason::TaskCheckpoint;
+    req.task_id = Some(task);
+    req.task_phase = Some(TaskSnapshotPhase::Before);
+    let before = small.create(req.clone()).await.unwrap();
+
+    // The task un-ignores dist/ and pkg/gen/ and creates a file of its own.
+    write(root, ".gitignore", "*.log\n");
+    write(root, "pkg/.gitignore", "# nothing\n");
+    write(root, "src/new.ts", "created by the task\n");
+    req.task_phase = Some(TaskSnapshotPhase::After);
+    svc.create(req).await.unwrap();
+
+    let res = svc.rollback_task(f.project, task, None, None, false).await.unwrap();
+    assert_eq!(res.restored, vec![".gitignore", "pkg/.gitignore"]);
+    assert_eq!(res.deleted, vec!["src/new.ts"], "a verifiably new file is deleted");
+    let conflicts: Vec<_> = res.conflicts.iter().map(|c| c.path.as_str()).collect();
+    assert_eq!(conflicts, vec!["big.bin", "dist/bundle.js", "pkg/gen/out.txt"]);
+    assert_eq!(read(root, "dist/bundle.js").as_deref(), Some("built earlier\n"));
+    assert_eq!(read(root, "pkg/gen/out.txt").as_deref(), Some("generated earlier\n"));
+    assert!(read(root, "big.bin").is_some());
+    assert!(read(root, "src/new.ts").is_none());
+
+    // Workspace rollback with "delete created files" keeps them as well.
+    write(root, ".gitignore", "*.log\n");
+    write(root, "pkg/.gitignore", "# nothing\n");
+    write(root, "fresh.txt", "new\n");
+    let plan = svc.plan_rollback(before.id, true).await.unwrap();
+    let action = |p: &str| plan.items.iter().find(|i| i.path == p).map(|i| i.action);
+    assert_eq!(action("dist/bundle.js"), Some(RollbackAction::Keep));
+    assert_eq!(action("pkg/gen/out.txt"), Some(RollbackAction::Keep));
+    assert_eq!(action("big.bin"), Some(RollbackAction::Keep));
+    assert_eq!(action("fresh.txt"), Some(RollbackAction::Delete));
+    let res = svc
+        .rollback_workspace(before.id, WorkspaceRollback { delete_created: true, ..Default::default() })
+        .await
+        .unwrap();
+    assert_eq!(res.deleted, vec!["fresh.txt"]);
+    assert_eq!(read(root, "dist/bundle.js").as_deref(), Some("built earlier\n"));
+    assert_eq!(read(root, "pkg/gen/out.txt").as_deref(), Some("generated earlier\n"));
+    assert!(read(root, "big.bin").is_some());
+}
+
+/// Holds `path` so that nobody else can read it (Windows sharing violation /
+/// Unix permission denied). `None` when reading still works (e.g. as root).
+#[cfg(windows)]
+fn lock_unreadable(path: &Path) -> Option<std::fs::File> {
+    use std::os::windows::fs::OpenOptionsExt;
+    let f = std::fs::OpenOptions::new().read(true).write(true).share_mode(0).open(path).unwrap();
+    std::fs::read(path).is_err().then_some(f)
+}
+
+#[cfg(unix)]
+fn lock_unreadable(path: &Path) -> Option<std::fs::File> {
+    use std::os::unix::fs::PermissionsExt;
+    let f = std::fs::File::open(path).unwrap();
+    std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o000)).unwrap();
+    std::fs::read(path).is_err().then_some(f)
+}
+
+/// One locked file must not make diff / rollback planning fail for the whole
+/// workspace; it is kept untouched and reported instead.
+#[tokio::test]
+async fn an_unreadable_file_does_not_break_diff_and_rollback() {
+    let f = fixture().await;
+    let root = f.ws.path();
+    write(root, "a.txt", "a1\n");
+    write(root, "locked.txt", "v1\n");
+    let s = f.svc.create(snap_req(&f)).await.unwrap();
+    write(root, "a.txt", "a2\n");
+    write(root, "locked.txt", "v2\n");
+    let Some(guard) = lock_unreadable(&root.join("locked.txt")) else { return };
+
+    let d = f.svc.diff(s.id, None).await;
+    let plan = f.svc.plan_rollback(s.id, true).await;
+    let res = f.svc.rollback_workspace(s.id, WorkspaceRollback { delete_created: true, ..Default::default() }).await;
+    drop(guard);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(root.join("locked.txt"), std::fs::Permissions::from_mode(0o644)).unwrap();
+    }
+
+    let kinds: Vec<_> = d.unwrap().changes.iter().map(|c| (c.path.clone(), c.kind)).collect();
+    assert_eq!(kinds, vec![("a.txt".to_owned(), SnapshotChangeKind::Modified)], "locked file is not 'deleted'");
+    let actions: Vec<_> = plan.unwrap().items.iter().map(|i| (i.path.clone(), i.action)).collect();
+    assert_eq!(
+        actions,
+        vec![("a.txt".to_owned(), RollbackAction::Restore), ("locked.txt".to_owned(), RollbackAction::Keep)]
+    );
+    let res = res.unwrap();
+    assert_eq!(res.restored, vec!["a.txt"]);
+    assert!(res.deleted.is_empty());
+    assert_eq!(read(root, "a.txt").as_deref(), Some("a1\n"));
+    assert_eq!(read(root, "locked.txt").as_deref(), Some("v2\n"), "locked file untouched");
+}

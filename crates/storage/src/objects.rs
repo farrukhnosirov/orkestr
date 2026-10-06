@@ -232,7 +232,6 @@ fn uuid_like_suffix() -> String {
 #[async_trait]
 impl ObjectStore for FsObjectStore {
     async fn put(&self, bytes: Vec<u8>) -> StorageResult<ObjectId> {
-        let this = self.clone();
         Ok(self.put_checked(bytes).await?.0)
     }
 
