@@ -180,6 +180,7 @@ pub(crate) async fn run_cli(run: &mut Run) -> Outcome {
     };
     let message_id = uuid::Uuid::now_v7().to_string();
     let mut text = String::new();
+    let mut live = orkestr_security::StreamRedactor::new();
     let mut usage: Option<Usage> = None;
     let mut calls: CliCalls = CliCalls::new();
     let mut outcome: Option<Outcome> = None;
@@ -187,18 +188,23 @@ pub(crate) async fn run_cli(run: &mut Run) -> Outcome {
         match ev {
             CodingAgentEvent::Chat(ChatEvent::TextDelta(t)) => {
                 text.push_str(&t);
-                run.deps
-                    .publish(
-                        NewEvent::new(EventKind::AgentMessage(MessageDeltaPayload {
-                            agent_id: Some(run.agent.id),
-                            message_id: message_id.clone(),
-                            role: MessageRole::Assistant,
-                            delta: orkestr_security::redact::redact(&t),
-                            done: false,
-                        }))
-                        .agent(run.agent.id),
-                    )
-                    .await;
+                // Redacted over the stream: a secret split across chunks
+                // would pass a per-chunk check.
+                let delta = live.push(&t);
+                if !delta.is_empty() {
+                    run.deps
+                        .publish(
+                            NewEvent::new(EventKind::AgentMessage(MessageDeltaPayload {
+                                agent_id: Some(run.agent.id),
+                                message_id: message_id.clone(),
+                                role: MessageRole::Assistant,
+                                delta,
+                                done: false,
+                            }))
+                            .agent(run.agent.id),
+                        )
+                        .await;
+                }
             }
             CodingAgentEvent::Chat(ChatEvent::Usage(u)) => usage = Some(u),
             CodingAgentEvent::Chat(ChatEvent::Done { .. }) => break,
@@ -362,6 +368,21 @@ pub(crate) async fn run_cli(run: &mut Run) -> Outcome {
         call.finished_at = Some(now());
         let ms = u64::try_from(t0.elapsed().as_millis()).unwrap_or(u64::MAX);
         let _ = run.store.save_tool_call(&call, None, Some(ms)).await;
+    }
+    let rest = live.flush();
+    if !rest.is_empty() {
+        run.deps
+            .publish(
+                NewEvent::new(EventKind::AgentMessage(MessageDeltaPayload {
+                    agent_id: Some(run.agent.id),
+                    message_id: message_id.clone(),
+                    role: MessageRole::Assistant,
+                    delta: rest,
+                    done: false,
+                }))
+                .agent(run.agent.id),
+            )
+            .await;
     }
     run.deps
         .publish(

@@ -338,6 +338,23 @@ impl Run {
         self.deps.publish(ev).await;
     }
 
+    /// Emits what a [`orkestr_security::StreamRedactor`] still holds back
+    /// (before the message's `done` event).
+    pub(crate) async fn publish_stream_end(&self, message_id: &str, live: &mut orkestr_security::StreamRedactor) {
+        let rest = live.flush();
+        if rest.is_empty() {
+            return;
+        }
+        self.publish(EventKind::AgentMessage(MessageDeltaPayload {
+            agent_id: Some(self.agent.id),
+            message_id: message_id.to_owned(),
+            role: MessageRole::Assistant,
+            delta: rest,
+            done: false,
+        }))
+        .await;
+    }
+
     /// Persists the agent and publishes `AgentUpdated`.
     pub async fn persist(&mut self) {
         self.agent.last_activity_at = Some(now());
@@ -729,6 +746,7 @@ impl Run {
             self.set_state(AgentState::Thinking, Some("Waiting for the model".into())).await;
 
             let hook: Arc<dyn HandoffHook> = Arc::new(FallbackHook {
+                deps: Arc::clone(&self.deps),
                 store: self.store.clone(),
                 agent: self.agent.clone(),
                 task: self.task.clone(),
@@ -741,6 +759,7 @@ impl Run {
             let mut first: Option<u64> = None;
             let mut message_id = uuid::Uuid::now_v7().to_string();
             let mut text = String::new();
+            let mut live = orkestr_security::StreamRedactor::new();
             let mut calls: Vec<ToolCallPart> = Vec::new();
             let mut usage: Option<Usage> = None;
             let mut model = self.head_model().unwrap_or_else(|| self.chain[0].clone());
@@ -750,14 +769,19 @@ impl Run {
                 match ev {
                     ChatEvent::TextDelta(t) => {
                         text.push_str(&t);
-                        self.publish(EventKind::AgentMessage(MessageDeltaPayload {
-                            agent_id: Some(self.agent.id),
-                            message_id: message_id.clone(),
-                            role: MessageRole::Assistant,
-                            delta: redact(&t),
-                            done: false,
-                        }))
-                        .await;
+                        // Redacted over the stream, not per chunk: a secret
+                        // split across chunks would pass a per-chunk check.
+                        let delta = live.push(&t);
+                        if !delta.is_empty() {
+                            self.publish(EventKind::AgentMessage(MessageDeltaPayload {
+                                agent_id: Some(self.agent.id),
+                                message_id: message_id.clone(),
+                                role: MessageRole::Assistant,
+                                delta,
+                                done: false,
+                            }))
+                            .await;
+                        }
                     }
                     ChatEvent::ToolCall { id, name, arguments } => calls.push(ToolCallPart { id, name, arguments }),
                     ChatEvent::Usage(u) => usage = Some(u),
@@ -766,6 +790,7 @@ impl Run {
                         if let Some(u) = usage.take() {
                             self.record_usage(&from, u, first, false).await;
                         }
+                        self.publish_stream_end(&message_id, &mut live).await;
                         self.publish(EventKind::AgentMessage(MessageDeltaPayload {
                             agent_id: Some(self.agent.id),
                             message_id: message_id.clone(),
@@ -824,6 +849,7 @@ impl Run {
                 }
                 return Outcome::Failed("the model stream ended unexpectedly".into());
             }
+            self.publish_stream_end(&message_id, &mut live).await;
             self.publish(EventKind::AgentMessage(MessageDeltaPayload {
                 agent_id: Some(self.agent.id),
                 message_id: message_id.clone(),
@@ -1665,6 +1691,7 @@ pub async fn remove_agent_rules(deps: &RuntimeDeps, agent: orkestr_domain::Agent
 /// Builds and records a structured handoff before every provider switch
 /// (§7, §57) and gives the next model the handoff in its system prompt.
 struct FallbackHook {
+    deps: Arc<RuntimeDeps>,
     store: AgentStore,
     agent: AgentInstance,
     task: Task,
@@ -1672,9 +1699,46 @@ struct FallbackHook {
     turns_left: u32,
 }
 
+impl FallbackHook {
+    /// Pre-flight budget check of the fallback target (its provider's
+    /// budgets and its pricing): the turn's own check only saw the head
+    /// model. `Some(reason)` = the switch must not happen.
+    async fn budget_blocks(&self, to: &ModelRef, request: &ChatRequest) -> Option<String> {
+        let est_input = u64::try_from(request.prompt_chars() / 4).unwrap_or(u64::MAX);
+        let estimate = orkestr_providers::pricing_for(&to.model).map_or(0.0, |p| {
+            orkestr_providers::pricing::preflight_estimate(&p, est_input, u64::from(self.deps.config.max_output_tokens))
+        });
+        if let Some(max) = self.agent.budget.as_ref().and_then(|b| b.max_cost_usd) {
+            if estimate > 0.0 && self.agent.usage.cost_usd + estimate > max {
+                return Some(format!("the agent's cost budget would be exceeded on {}", to.model));
+            }
+        }
+        let bctx = orkestr_cost::BudgetContext {
+            project_id: Some(self.agent.project_id),
+            task_id: Some(self.task.id),
+            provider_id: Some(to.provider_id),
+            agent_id: Some(self.agent.id),
+        };
+        match self.deps.cost.check(bctx, estimate).await {
+            Ok(r) if r.outcome == orkestr_protocol::methods::cost::BudgetOutcome::Exceeded => {
+                Some(format!("a spending budget of {}'s provider would be exceeded", to.model))
+            }
+            Ok(_) => None,
+            Err(e) => {
+                tracing::warn!(error = %e, "fallback budget check failed; continuing");
+                None
+            }
+        }
+    }
+}
+
 #[async_trait]
 impl HandoffHook for FallbackHook {
     async fn handoff(&self, ctx: &HandoffContext, mut request: ChatRequest) -> Option<ChatRequest> {
+        if let Some(why) = self.budget_blocks(&ctx.to, &request).await {
+            tracing::warn!(agent_id = %self.agent.id, to = %ctx.to.model, %why, "provider fallback blocked by a budget");
+            return None;
+        }
         let mut agent = self.agent.clone();
         agent.model = Some(ctx.from.clone());
         let p = self.progress.lock().clone();

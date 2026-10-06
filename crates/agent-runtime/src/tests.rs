@@ -677,6 +677,79 @@ async fn budget_exceeded_stops_cleanly() {
 }
 
 #[tokio::test]
+async fn fallback_to_a_provider_over_its_budget_is_refused() {
+    let h = harness(ApprovalMode::SemiAuto).await;
+    let tpl = h.template(&["read_file", "submit_result"], WorktreePolicy::SharedWorktree, None).await;
+    let first =
+        h.provider(vec![Step::Events(vec![ChatEvent::Error(ProviderError::QuotaExceeded("out of credits".into()))])]);
+    let second = Scripted::new(vec![submit("done", "finished on the fallback model")]);
+    h.source.adapters.lock().insert(second.id, Arc::clone(&second) as Arc<dyn ProviderAdapter>);
+    // A priced model, so the pre-flight estimate is above the tiny limit.
+    *h.gateway.chain.lock() = vec![model(&first, "primary"), model(&second, "gpt-4o")];
+    h.rt.deps()
+        .cost
+        .set_budget(orkestr_protocol::methods::cost::SetBudgetParams {
+            id: None,
+            name: Some("backup provider".into()),
+            scope: orkestr_protocol::methods::cost::BudgetScope::Provider { provider_id: second.id },
+            period: BudgetPeriod::Monthly,
+            limit_usd: Some(0.000_001),
+            unrestricted: None,
+            warn_at: None,
+            enabled: None,
+        })
+        .await
+        .unwrap();
+    let a = h.wait_done(h.spawn(tpl, None).await.id).await;
+    assert_eq!(a.state, AgentState::Error, "{:?}", a.last_error);
+    assert!(second.requests.lock().is_empty(), "the over-budget fallback provider was never called");
+    assert!(!h.source.events.lock().iter().any(|e| matches!(e, ProviderEvent::Fallback { .. })));
+}
+
+#[tokio::test]
+async fn concurrent_spawns_on_one_task_start_only_one_agent() {
+    let h = harness(ApprovalMode::SemiAuto).await;
+    let tpl = h.template(&["read_file", "submit_result"], WorktreePolicy::SharedWorktree, None).await;
+    h.provider(vec![Step::Hang, Step::Hang]);
+    let task = h
+        .tasks
+        .create(
+            orkestr_protocol::methods::tasks::CreateTaskParams {
+                project_id: h.project,
+                title: "One task".into(),
+                ..Default::default()
+            },
+            orkestr_domain::TaskActor::User,
+        )
+        .await
+        .unwrap();
+    let params = || SpawnAgentParams {
+        project_id: h.project,
+        template_id: tpl,
+        task_id: Some(task.id),
+        new_task: None,
+        model: None,
+        worktree_policy: None,
+        name: None,
+        max_turns: None,
+        base_branch: None,
+        approval_mode: None,
+        budget: None,
+    };
+    let (a, b) = tokio::join!(h.rt.spawn(params()), h.rt.spawn(params()));
+    let (ok, err) = match (a, b) {
+        (Ok(x), Err(e)) | (Err(e), Ok(x)) => (x.0, e),
+        (a, b) => panic!("exactly one spawn must win: {:?} / {:?}", a.map(|x| x.0.id), b.map(|x| x.0.id)),
+    };
+    assert!(matches!(err, crate::AgentError::Conflict(_)), "{err}");
+    h.wait_state(ok.id, AgentState::Thinking).await;
+    let t = h.tasks.get(task.id).await.unwrap();
+    assert_eq!(t.status, TaskStatus::Running, "the winner's task is not flipped to Failed");
+    assert_eq!(t.agent_id, Some(ok.id));
+    h.rt.stop(ok.id, AgentStopMode::Cancel).await.unwrap();
+}
+
+#[tokio::test]
 async fn provider_fallback_creates_a_handoff() {
     let h = harness(ApprovalMode::SemiAuto).await;
     let tpl = h.template(&["read_file", "submit_result"], WorktreePolicy::SharedWorktree, None).await;

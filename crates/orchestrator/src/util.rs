@@ -185,6 +185,7 @@ pub async fn stream_chat(
     let mut stream = deps.models.chat(chain, request, None, cancel.child_token());
     let started = Instant::now();
     let mut out = Collected { model: head, ..Collected::default() };
+    let mut live = orkestr_security::StreamRedactor::new();
     let mut ended = false;
     while let Some(ev) = stream.next().await {
         out.first_ms.get_or_insert_with(|| u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX));
@@ -192,17 +193,9 @@ pub async fn stream_chat(
             ChatEvent::TextDelta(t) => {
                 out.text.push_str(&t);
                 if let Some(s) = sink {
-                    deps.publish(
-                        NewEvent::new(EventKind::ManagerMessage(MessageDeltaPayload {
-                            agent_id: None,
-                            message_id: s.message_id.clone(),
-                            role: MessageRole::Assistant,
-                            delta: redact(&t),
-                            done: false,
-                        }))
-                        .project(s.project_id),
-                    )
-                    .await;
+                    // Redacted over the stream: a secret split across chunks
+                    // would pass a per-chunk check.
+                    publish_delta(deps, s, live.push(&t)).await;
                 }
             }
             ChatEvent::ToolCall { id, name, arguments } => out.calls.push(ToolCallPart { id, name, arguments }),
@@ -211,6 +204,7 @@ pub async fn stream_chat(
                 // The failed attempt's partial output is discarded by the executor.
                 out.text.clear();
                 out.calls.clear();
+                live = orkestr_security::StreamRedactor::new();
                 out.switches.push(format!("{} → {} ({reason})", from.model, to.model));
                 out.model = Some(to);
             }
@@ -232,7 +226,27 @@ pub async fn stream_chat(
         }
         return Err(OrchestratorError::Planning("the model stream ended unexpectedly".into()));
     }
+    if let Some(s) = sink {
+        publish_delta(deps, s, live.flush()).await;
+    }
     Ok(out)
+}
+
+async fn publish_delta(deps: &OrchestratorDeps, s: &DeltaSink, delta: String) {
+    if delta.is_empty() {
+        return;
+    }
+    deps.publish(
+        NewEvent::new(EventKind::ManagerMessage(MessageDeltaPayload {
+            agent_id: None,
+            message_id: s.message_id.clone(),
+            role: MessageRole::Assistant,
+            delta,
+            done: false,
+        }))
+        .project(s.project_id),
+    )
+    .await;
 }
 
 /// Records the usage of a Manager call in the cost engine and returns it.
