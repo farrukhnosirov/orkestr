@@ -36,6 +36,26 @@ Built in `crates/security` and wired into the core:
 - Not yet: typed `CheckContext.data_class`, "remember" on approvals, hard policies P8–P10, Argon2
   passphrase vault, H8 by process identity (text-based only), script-file (`-File`) content analysis.
 
+### 0.1a Audit r1 hardening
+
+- The guard fails closed on program names only known at runtime (`$X …`, `& $c`, `%X% …`,
+  `& ('a'+'b')`), on script text piped into a shell/interpreter (literal `echo`/`printf` text is
+  analysed in the target grammar; a literal script file counts like `sh file`; anything else is
+  `Dangerous(Obfuscation)`), here-strings, inline interpreter code that runs shell commands
+  (string literals are analysed, the call itself is at least Dangerous), awk `system()`, editor `:!`,
+  shell functions, `ssh host <cmd>` / `ProxyCommand`, git command hooks (`-c core.sshCommand`,
+  `git config core.hooksPath`, `rebase --exec`, `submodule foreach`, `--upload-pack`), hook
+  environment variables (`GIT_SSH_COMMAND`, `LD_PRELOAD`, …), cmd `if` / `for … do` / `for /f ('…')`
+  / `call`, `forfiles`, `wmic process call create`, `Start-Process -ArgumentList` arrays, `rimraf`.
+- Any word that names the Orkestr data dir or `core.token` — literally, via globs, environment
+  variables (`$APPDATA`, `%APPDATA%`, `$env:APPDATA`, `~`), Git Bash/WSL drive forms or `..` — is
+  `Forbidden(SelfTamper)`, for shell commands and structured reads.
+- `DangerousActionGuard::analyze_in` also returns `CommandFacets { network, secret_read,
+  outside_read }`. For agent actors the engine then additionally requires `Network` (and applies
+  *Disable Network Tools*), `Secrets` (code `secret_file`) or out-of-root `Read` (code
+  `outside_worktree`); the most restrictive outcome wins. `Resource::Git` push/fetch/pull/clone also
+  need `Network`.
+
 ### 0.2 Phase 0 surface (historical)
 
 Nothing in this document was enforced in Phase 0: `orkestr-security` was a skeleton

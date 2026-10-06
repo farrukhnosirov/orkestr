@@ -814,7 +814,10 @@ fn audit_r1_start_process_arrays_and_cmd_for_bodies() {
     check(
         ShellKind::PowerShell,
         &[
-            ("Start-Process powershell -ArgumentList '-c','Remove-Item -Recurse -Force C:\\'", F(C::ProtectedPathDelete)),
+            (
+                "Start-Process powershell -ArgumentList '-c','Remove-Item -Recurse -Force C:\\'",
+                F(C::ProtectedPathDelete),
+            ),
             (
                 "Start-Process powershell -ArgumentList '-c', 'Remove-Item -Recurse -Force C:\\'",
                 F(C::ProtectedPathDelete),

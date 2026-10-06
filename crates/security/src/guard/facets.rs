@@ -109,7 +109,8 @@ fn to_pattern(n: &str) -> String {
 }
 
 fn glob_matches(pattern: &str, candidates: &[String]) -> bool {
-    let build = |p: &str| GlobBuilder::new(p).case_insensitive(true).literal_separator(false).backslash_escape(false).build();
+    let build =
+        |p: &str| GlobBuilder::new(p).case_insensitive(true).literal_separator(false).backslash_escape(false).build();
     // An unbalanced class (`a[`) is retried with `?` wildcards (still matching more, never less).
     let g = match build(pattern) {
         Ok(g) => g,
@@ -182,8 +183,17 @@ fn path_candidates(text: &str) -> Vec<String> {
 }
 
 /// Sensitive files inside a protected (data) directory.
-const DATA_FILES: &[&str] =
-    &["", "/core.token", "/core.json", "/orkestr.db", "/orkestr.db-wal", "/orkestr.db-shm", "/vault", "/vault.bin", "/objects"];
+const DATA_FILES: &[&str] = &[
+    "",
+    "/core.token",
+    "/core.json",
+    "/orkestr.db",
+    "/orkestr.db-wal",
+    "/orkestr.db-shm",
+    "/vault",
+    "/vault.bin",
+    "/objects",
+];
 
 /// Whether a word references Orkestr's own data directory or core token —
 /// literally, through a glob, an environment variable, `~` or `..`.
@@ -192,7 +202,10 @@ pub(crate) fn check_protected_ref(ctx: &Ctx<'_>, text: &str) -> DangerClass {
         return DangerClass::Safe;
     }
     let forbidden = || {
-        DangerClass::forbidden(C::SelfTamper, "references Orkestr's private data directory (core token / database / vault)")
+        DangerClass::forbidden(
+            C::SelfTamper,
+            "references Orkestr's private data directory (core token / database / vault)",
+        )
     };
     for cand in path_candidates(text) {
         let n = norm_path(&cand);
@@ -242,12 +255,8 @@ pub(crate) fn check_protected_ref(ctx: &Ctx<'_>, text: &str) -> DangerClass {
         if literal_chars(&pattern) < 3 {
             continue; // `%APPDATA%`, `$HOME/*`: too generic to name the data dir
         }
-        let targets: Vec<String> = ctx
-            .guard
-            .protected_lower
-            .iter()
-            .flat_map(|p| DATA_FILES.iter().map(move |f| format!("{p}{f}")))
-            .collect();
+        let targets: Vec<String> =
+            ctx.guard.protected_lower.iter().flat_map(|p| DATA_FILES.iter().map(move |f| format!("{p}{f}"))).collect();
         if glob_matches(&pattern, &targets) {
             return forbidden();
         }
@@ -257,16 +266,129 @@ pub(crate) fn check_protected_ref(ctx: &Ctx<'_>, text: &str) -> DangerClass {
 
 /// Programs that read (and may exfiltrate) the files named in their operands.
 const READERS: &[&str] = &[
-    "cat", "tac", "nl", "head", "tail", "less", "more", "bat", "batcat", "od", "xxd", "hexdump", "base64", "base32",
-    "basenc", "strings", "grep", "egrep", "fgrep", "rg", "ag", "ack", "findstr", "select-string", "sls", "sed", "awk",
-    "gawk", "mawk", "nawk", "cut", "sort", "uniq", "wc", "diff", "cmp", "comm", "paste", "join", "rev", "fold", "fmt",
-    "pr", "expand", "split", "csplit", "cp", "scp", "rsync", "tar", "bsdtar", "zip", "7z", "7za", "7zr", "gzip",
-    "bzip2", "xz", "zstd", "lz4", "openssl", "gpg", "sqlite3", "duckdb", "jq", "yq", "curl", "wget", "get-content",
-    "type", "copy", "xcopy", "robocopy", "copy-item", "compress-archive", "import-csv", "get-filehash", "format-hex",
-    "select-xml", "certutil", "find", "dd", "iconv", "source", ".", "vim", "vi", "nvim", "view", "nano", "emacs",
-    "ed", "ex", "install", "ln", "mklink", "move", "mv", "move-item", "invoke-webrequest", "invoke-restmethod",
-    "nc", "ncat", "netcat", "socat", "sftp", "ftp", "md5sum", "sha1sum", "sha256sum", "sha512sum", "shasum",
-    "b2sum", "cksum", "file", "python", "python3", "node", "ruby", "perl", "php", "import-clixml", "convertfrom-json",
+    "cat",
+    "tac",
+    "nl",
+    "head",
+    "tail",
+    "less",
+    "more",
+    "bat",
+    "batcat",
+    "od",
+    "xxd",
+    "hexdump",
+    "base64",
+    "base32",
+    "basenc",
+    "strings",
+    "grep",
+    "egrep",
+    "fgrep",
+    "rg",
+    "ag",
+    "ack",
+    "findstr",
+    "select-string",
+    "sls",
+    "sed",
+    "awk",
+    "gawk",
+    "mawk",
+    "nawk",
+    "cut",
+    "sort",
+    "uniq",
+    "wc",
+    "diff",
+    "cmp",
+    "comm",
+    "paste",
+    "join",
+    "rev",
+    "fold",
+    "fmt",
+    "pr",
+    "expand",
+    "split",
+    "csplit",
+    "cp",
+    "scp",
+    "rsync",
+    "tar",
+    "bsdtar",
+    "zip",
+    "7z",
+    "7za",
+    "7zr",
+    "gzip",
+    "bzip2",
+    "xz",
+    "zstd",
+    "lz4",
+    "openssl",
+    "gpg",
+    "sqlite3",
+    "duckdb",
+    "jq",
+    "yq",
+    "curl",
+    "wget",
+    "get-content",
+    "type",
+    "copy",
+    "xcopy",
+    "robocopy",
+    "copy-item",
+    "compress-archive",
+    "import-csv",
+    "get-filehash",
+    "format-hex",
+    "select-xml",
+    "certutil",
+    "find",
+    "dd",
+    "iconv",
+    "source",
+    ".",
+    "vim",
+    "vi",
+    "nvim",
+    "view",
+    "nano",
+    "emacs",
+    "ed",
+    "ex",
+    "install",
+    "ln",
+    "mklink",
+    "move",
+    "mv",
+    "move-item",
+    "invoke-webrequest",
+    "invoke-restmethod",
+    "nc",
+    "ncat",
+    "netcat",
+    "socat",
+    "sftp",
+    "ftp",
+    "md5sum",
+    "sha1sum",
+    "sha256sum",
+    "sha512sum",
+    "shasum",
+    "b2sum",
+    "cksum",
+    "file",
+    "python",
+    "python3",
+    "node",
+    "ruby",
+    "perl",
+    "php",
+    "import-clixml",
+    "convertfrom-json",
 ];
 
 /// Directories whose content is secret material.
@@ -331,19 +453,79 @@ fn is_flag_word(w: &Word, family: Family) -> bool {
         return false;
     }
     match family {
-        Family::Cmd => t.starts_with('/') && t.len() <= 12 && t[1..].chars().all(|c| c.is_ascii_alphanumeric() || c == ':' || c == '-'),
+        Family::Cmd => {
+            t.starts_with('/')
+                && t.len() <= 12
+                && t[1..].chars().all(|c| c.is_ascii_alphanumeric() || c == ':' || c == '-')
+        }
         _ => t.starts_with('-') && t.len() > 1 && !t.contains("=@") && !t.contains('='),
     }
 }
 
 /// Programs (normalised) that always talk to the network.
 const NETWORK_PROGRAMS: &[&str] = &[
-    "curl", "wget", "wget2", "invoke-webrequest", "invoke-restmethod", "nc", "ncat", "netcat", "socat", "telnet",
-    "ftp", "tftp", "sftp", "scp", "ssh", "autossh", "mosh", "aria2c", "axel", "http", "https", "xh", "httpie", "lynx",
-    "w3m", "links", "elinks", "bitsadmin", "start-bitstransfer", "send-mailmessage", "sendmail", "mail", "mailx",
-    "mutt", "nslookup", "dig", "host", "whois", "test-netconnection", "tnc", "resolve-dnsname", "smbclient", "gh",
-    "glab", "hub", "aws", "az", "gcloud", "gsutil", "vercel", "netlify", "wrangler", "fly", "flyctl", "heroku",
-    "firebase", "ngrok", "cloudflared", "localtunnel", "lt", "bore", "frpc",
+    "curl",
+    "wget",
+    "wget2",
+    "invoke-webrequest",
+    "invoke-restmethod",
+    "nc",
+    "ncat",
+    "netcat",
+    "socat",
+    "telnet",
+    "ftp",
+    "tftp",
+    "sftp",
+    "scp",
+    "ssh",
+    "autossh",
+    "mosh",
+    "aria2c",
+    "axel",
+    "http",
+    "https",
+    "xh",
+    "httpie",
+    "lynx",
+    "w3m",
+    "links",
+    "elinks",
+    "bitsadmin",
+    "start-bitstransfer",
+    "send-mailmessage",
+    "sendmail",
+    "mail",
+    "mailx",
+    "mutt",
+    "nslookup",
+    "dig",
+    "host",
+    "whois",
+    "test-netconnection",
+    "tnc",
+    "resolve-dnsname",
+    "smbclient",
+    "gh",
+    "glab",
+    "hub",
+    "aws",
+    "az",
+    "gcloud",
+    "gsutil",
+    "vercel",
+    "netlify",
+    "wrangler",
+    "fly",
+    "flyctl",
+    "heroku",
+    "firebase",
+    "ngrok",
+    "cloudflared",
+    "localtunnel",
+    "lt",
+    "bore",
+    "frpc",
 ];
 
 pub(crate) fn git_is_network(args: &[String]) -> bool {
@@ -384,7 +566,8 @@ pub(crate) fn record(ctx: &Ctx<'_>, prog: &str, args: &[Word], family: Family) {
             "gem" => matches!(sub.as_str(), "push" | "yank" | "owner"),
             "docker" | "podman" | "nerdctl" => matches!(sub.as_str(), "push" | "login" | "pull"),
             "rsync" => lower.iter().any(|a| {
-                !a.starts_with('-') && (a.contains("::") || a.split_once(':').is_some_and(|(h, _)| h.len() > 1 && !h.contains('/')))
+                !a.starts_with('-')
+                    && (a.contains("::") || a.split_once(':').is_some_and(|(h, _)| h.len() > 1 && !h.contains('/')))
             }),
             "net" => matches!(sub.as_str(), "use" | "view" | "send"),
             "certutil" => lower.iter().any(|a| a.contains("urlcache") || a.contains("verifyctl")),
@@ -392,7 +575,17 @@ pub(crate) fn record(ctx: &Ctx<'_>, prog: &str, args: &[Word], family: Family) {
         };
     let url_exempt = matches!(
         prog,
-        "echo" | "printf" | "write-host" | "write-output" | "git" | "grep" | "egrep" | "rg" | "findstr" | "select-string" | "sls"
+        "echo"
+            | "printf"
+            | "write-host"
+            | "write-output"
+            | "git"
+            | "grep"
+            | "egrep"
+            | "rg"
+            | "findstr"
+            | "select-string"
+            | "sls"
     );
     if !network && !url_exempt {
         network = args.iter().any(|w| {

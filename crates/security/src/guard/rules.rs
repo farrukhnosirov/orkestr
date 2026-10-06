@@ -1410,7 +1410,8 @@ fn program_rules(
                 acc = acc.max(check_write_path(ctx, &dst.text, false));
             }
             if let Some(v) = ssh_local_exec(&lower) {
-                acc = acc.max(text(&v, Family::Posix)).max(d(C::Obfuscation, "rsync remote shell runs a local command"));
+                acc =
+                    acc.max(text(&v, Family::Posix)).max(d(C::Obfuscation, "rsync remote shell runs a local command"));
             }
             acc
         }
@@ -1610,7 +1611,8 @@ fn program_rules(
         }
         "ssh" | "autossh" | "scp" | "sftp" if ssh_local_exec(&lower).is_some() => {
             let value = ssh_local_exec(&lower).unwrap_or_default();
-            text(&value, Family::Posix).max(d(C::Obfuscation, "ssh option runs a local command (ProxyCommand/LocalCommand)"))
+            text(&value, Family::Posix)
+                .max(d(C::Obfuscation, "ssh option runs a local command (ProxyCommand/LocalCommand)"))
         }
         "ssh" | "autossh" if ssh_remote_command(args).is_some() => {
             let remote = ssh_remote_command(args).unwrap_or_default();
@@ -2740,9 +2742,12 @@ fn code_rules(ctx: &Ctx<'_>, prog: &str, code: &str, depth: usize) -> DangerClas
     let backtick_exec = matches!(prog, "perl" | "ruby" | "php") && code.contains('`');
     if r.inline_shell.is_match(code) || backtick_exec {
         for l in &lits {
-            acc = acc
-                .max(classify_text(ctx, l, Family::Posix, depth + 1))
-                .max(classify_text(ctx, l, Family::Cmd, depth + 1));
+            acc = acc.max(classify_text(ctx, l, Family::Posix, depth + 1)).max(classify_text(
+                ctx,
+                l,
+                Family::Cmd,
+                depth + 1,
+            ));
         }
         acc = acc.max(classify_text(ctx, &lits.join(" "), Family::Posix, depth + 1));
         acc = acc.max(d(C::Obfuscation, "inline script runs shell commands or evaluates generated code"));
@@ -2843,11 +2848,7 @@ fn ps_array_value(args: &[Word], names: &[&str]) -> Option<String> {
 fn ssh_local_exec(lower: &[String]) -> Option<String> {
     for (i, a) in lower.iter().enumerate() {
         let a = a.as_str();
-        let opt = if a == "-o" {
-            lower.get(i + 1).map(String::as_str)
-        } else {
-            a.strip_prefix("-o")
-        };
+        let opt = if a == "-o" { lower.get(i + 1).map(String::as_str) } else { a.strip_prefix("-o") };
         if let Some(o) = opt {
             let o = o.trim_matches(['"', '\'']);
             for key in ["proxycommand", "localcommand", "knownhostscommand", "permitlocalcommand=yes"] {
@@ -2859,7 +2860,9 @@ fn ssh_local_exec(lower: &[String]) -> Option<String> {
         if a == "-e" || a == "--rsh" {
             if let Some(v) = lower.get(i + 1) {
                 let first = v.split_whitespace().next().unwrap_or_default();
-                if !matches!(normalize_program(first).0.as_str(), "ssh" | "rsh" | "plink") || v.contains(['|', ';', '&']) {
+                if !matches!(normalize_program(first).0.as_str(), "ssh" | "rsh" | "plink")
+                    || v.contains(['|', ';', '&'])
+                {
                     return Some(v.clone());
                 }
             }
@@ -2880,7 +2883,8 @@ fn ssh_local_exec(lower: &[String]) -> Option<String> {
 
 /// The command `ssh [options] host command…` runs on the remote host.
 fn ssh_remote_command(args: &[Word]) -> Option<String> {
-    const VALUE: &[char] = &['b', 'c', 'D', 'E', 'e', 'F', 'I', 'i', 'J', 'L', 'l', 'm', 'O', 'o', 'p', 'Q', 'R', 'S', 'W', 'w', 'B'];
+    const VALUE: &[char] =
+        &['b', 'c', 'D', 'E', 'e', 'F', 'I', 'i', 'J', 'L', 'l', 'm', 'O', 'o', 'p', 'Q', 'R', 'S', 'W', 'w', 'B'];
     let mut i = 0;
     while i < args.len() {
         let t = args[i].text.as_str();
@@ -2990,16 +2994,28 @@ fn git_exec_hooks(ctx: &Ctx<'_>, args: &[Word], depth: usize) -> DangerClass {
     match sub.as_str() {
         "config" => {
             let reading = lower.iter().any(|a| {
-                matches!(a.as_str(), "--get" | "--get-all" | "--get-regexp" | "--list" | "-l" | "--unset" | "--unset-all" | "get" | "list" | "unset")
+                matches!(
+                    a.as_str(),
+                    "--get"
+                        | "--get-all"
+                        | "--get-regexp"
+                        | "--list"
+                        | "-l"
+                        | "--unset"
+                        | "--unset-all"
+                        | "get"
+                        | "list"
+                        | "unset"
+                )
             });
-            let ops: Vec<&Word> = rest.iter().filter(|w| !w.text.starts_with('-') && !matches!(w.text.as_str(), "set" | "add")).collect();
+            let ops: Vec<&Word> =
+                rest.iter().filter(|w| !w.text.starts_with('-') && !matches!(w.text.as_str(), "set" | "add")).collect();
             if !reading {
                 if let (Some(k), Some(v)) = (ops.first(), ops.get(1)) {
                     if git_exec_key(&k.text, &v.text) {
-                        acc = acc.max(text(v.text.trim_start_matches('!'))).max(d(
-                            C::SystemConfig,
-                            format!("configures `{}`, which makes git run a command", k.text),
-                        ));
+                        acc = acc
+                            .max(text(v.text.trim_start_matches('!')))
+                            .max(d(C::SystemConfig, format!("configures `{}`, which makes git run a command", k.text)));
                     }
                 }
             }

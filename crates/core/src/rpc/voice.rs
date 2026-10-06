@@ -124,11 +124,9 @@ async fn consented_provider(
     match load_setting(ctx, key).await? {
         None => store_setting(ctx, key, Some(id)).await?,
         Some(bound) if bound == id => {}
-        Some(_) => {
-            return Err(RpcError::forbidden(
-                "cloud speech consent was given for a different speech provider; grant consent again (voice.setConsent)",
-            ))
-        }
+        Some(_) => return Err(RpcError::forbidden(
+            "cloud speech consent was given for a different speech provider; grant consent again (voice.setConsent)",
+        )),
     }
     Ok(provider)
 }

@@ -302,7 +302,9 @@ impl DangerousActionGuard {
     pub fn classify_action(&self, action: &Action) -> DangerClass {
         let ctx = rules::Ctx::new(self, None);
         match action {
-            Action::ReadFile { path } => rules::check_read_path(&ctx, path).max(facets::check_protected_ref(&ctx, path)),
+            Action::ReadFile { path } => {
+                rules::check_read_path(&ctx, path).max(facets::check_protected_ref(&ctx, path))
+            }
             Action::WriteFile { path } => rules::check_write_path(&ctx, path, false),
             Action::DeletePath { path, recursive } => {
                 let w = lexer::Word::literal(path);

@@ -533,12 +533,14 @@ async fn path_escapes_and_git_dir_are_denied() {
 async fn dangerous_command_waits_for_approval_then_runs() {
     let h = harness(ApprovalMode::SemiAuto).await;
     let tpl = h.template(&["run_command", "submit_result"], WorktreePolicy::SharedWorktree, None).await;
-    h.provider(vec![tool("run_command", json!({"command": "git push --force origin main"})), submit("done", "pushed")]);
+    // A local dangerous command: since audit r1 a `git push` also needs the
+    // Network capability, which the Backend template denies.
+    h.provider(vec![tool("run_command", json!({"command": "git branch -D no-such-branch"})), submit("done", "deleted")]);
     let a = h.spawn(tpl, None).await;
     let ap = h.pending_approval(a.id).await;
     h.wait_state(a.id, AgentState::Waiting).await;
     assert_eq!(h.task_status(&a).await, TaskStatus::Waiting);
-    assert!(ap.command_preview.as_deref().unwrap().contains("push --force"));
+    assert!(ap.command_preview.as_deref().unwrap().contains("branch -D"));
     h.sec.approvals.resolve(ap.id, ApprovalDecision::Approve, None, h.sec.user()).await.unwrap();
     let a = h.wait_done(a.id).await;
     assert_eq!(a.state, AgentState::Completed, "{:?}", a.last_error);
