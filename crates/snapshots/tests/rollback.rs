@@ -395,8 +395,12 @@ async fn rollback_does_not_delete_files_uncaptured_at_the_snapshot() {
     let db = Db::open(data.path().join("t.db")).unwrap();
     db.migrate(orkestr_snapshots::snapshot_migrations()).await.unwrap();
     let objects = Arc::new(FsObjectStore::open(data.path().join("objects"), Compression::None).unwrap());
-    let small =
-        SnapshotService::new(db.clone(), objects.clone(), None, ScanOptions { max_file_bytes: 32, ..Default::default() });
+    let small = SnapshotService::new(
+        db.clone(),
+        objects.clone(),
+        None,
+        ScanOptions { max_file_bytes: 32, ..Default::default() },
+    );
     let svc = SnapshotService::new(db, objects, None, ScanOptions::default());
     let mut req = snap_req(&f);
     req.reason = SnapshotReason::TaskCheckpoint;

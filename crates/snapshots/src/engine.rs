@@ -438,8 +438,7 @@ impl SnapshotService {
         excluded.sort_by(|a, b| a.path.cmp(&b.path));
 
         let root_str = root.to_string_lossy().into_owned();
-        let manifest =
-            Manifest { version: 1, root: root_str.clone(), entries, excluded, git: git.clone(), task_files };
+        let manifest = Manifest { version: 1, root: root_str.clone(), entries, excluded, git: git.clone(), task_files };
         let manifest_bytes = serde_json::to_vec(&manifest)?;
         let manifest_id = self.objects.put(manifest_bytes).await?;
         let workspace_id = self.store.workspace_id(req.project_id, key, &root_str).await?;
@@ -1066,10 +1065,13 @@ impl SnapshotService {
                     // Missing from the before-checkpoint: only delete it when
                     // it verifiably did not exist then.
                     let before_m = &manifests[first].0;
-                    if !rules.contains_key(&first) {
-                        rules.insert(first, self.captured_ignores(before_m).await);
-                    }
-                    if rules.get(&first).is_some_and(|r| Self::uncaptured(before_m, r, p)) {
+                    let r = match rules.entry(first) {
+                        std::collections::btree_map::Entry::Occupied(o) => o.into_mut(),
+                        std::collections::btree_map::Entry::Vacant(v) => {
+                            v.insert(self.captured_ignores(before_m).await)
+                        }
+                    };
+                    if Self::uncaptured(before_m, r, p) {
                         result.conflicts.push(RollbackConflict {
                             path: p.to_owned(),
                             reason: "not captured by the task's before-checkpoint (ignored or unreadable then), so it may predate the task — not deleted".into(),
