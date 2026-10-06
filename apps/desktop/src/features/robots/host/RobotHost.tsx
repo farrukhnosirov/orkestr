@@ -13,9 +13,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { workspaceActions } from "../../../components/workspaceActions";
 import { maybeClient } from "../../../core/client";
 import { useAppStore } from "../../../store/app";
-import { t } from "../../../i18n";
 import { registerRobotVoices, speakAsAgent } from "../../voice/agentVoices";
 import { bubbleFor } from "../model/bubble";
+import { bubbleText } from "../model/bubbleText";
 import { collectDropZones } from "../model/layout";
 import {
   applyRobotEvent,
@@ -52,7 +52,7 @@ function speakForRobot(ev: Event, slots: RobotSlots, config: RobotsConfig | null
   const now = Date.now();
   if (now - (lastSpoken.get(agentId) ?? 0) < SPEAK_GAP_MS) return;
   lastSpoken.set(agentId, now);
-  void speakAsAgent(agentId, t(`robots:bubble.${spec.key}`, spec.values)).catch(() => undefined);
+  void speakAsAgent(agentId, bubbleText(spec)).catch(() => undefined);
 }
 
 async function fetchEntries(agentIds: string[] | null) {

@@ -52,6 +52,11 @@ export function applyTaskEvent(tasks: Task[], ev: Event): Task[] {
   }
 }
 
+/** Replays events (in order) on top of a loaded snapshot; stale versions are ignored by `upsertTask`. */
+export function replayTaskEvents(tasks: Task[], events: readonly Event[]): Task[] {
+  return events.reduce(applyTaskEvent, tasks);
+}
+
 const TASK_EVENTS = new Set(["TaskCreated", "TaskUpdated", "TaskStatusChanged", "TaskDeleted"]);
 
 export function useProjectTasks(projectId: string | null): ProjectTasks {
@@ -89,25 +94,38 @@ export function useProjectTasks(projectId: string | null): ProjectTasks {
       graphTimer.current = window.setTimeout(loadGraph, 120);
     };
 
+    // Events that arrive while the initial load is in flight are buffered and
+    // replayed on top of the snapshot (which may be older than they are), so
+    // nothing streamed in the meantime is lost.
+    let buffer: Event[] | null = [];
+    const off = client.subscribe([topic.project(projectId)], (ev) => {
+      if (!TASK_EVENTS.has(ev.kind)) return;
+      if (buffer) {
+        buffer.push(ev);
+        return;
+      }
+      setTasks((prev) => applyTaskEvent(prev, ev));
+      scheduleGraph();
+    });
+
     setLoading(true);
     Promise.all([client.call("tasks.list", { projectId }), client.call("tasks.graph", { projectId })])
       .then(([list, g]) => {
         if (cancelled) return;
-        setTasks(list.tasks);
+        const pending = buffer ?? [];
+        buffer = null;
+        setTasks(replayTaskEvents(list.tasks, pending));
         setGraph(g);
+        // The graph snapshot may predate the buffered events too.
+        if (pending.length > 0) scheduleGraph();
       })
       .catch((e: unknown) => {
+        buffer = null;
         if (!cancelled) setError(errorMessage(e));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
-
-    const off = client.subscribe([topic.project(projectId)], (ev) => {
-      if (!TASK_EVENTS.has(ev.kind)) return;
-      setTasks((prev) => applyTaskEvent(prev, ev));
-      scheduleGraph();
-    });
     return () => {
       cancelled = true;
       off();

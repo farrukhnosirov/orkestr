@@ -9,6 +9,7 @@ import { forwardRef } from "react";
 
 import { useT } from "../../../i18n";
 import type { BubbleSpec } from "../model/bubble";
+import { bubbleText } from "../model/bubbleText";
 
 export interface SpeechBubbleProps {
   bubble: BubbleSpec | null;
@@ -22,7 +23,8 @@ export const SpeechBubble = forwardRef<HTMLDivElement, SpeechBubbleProps>(functi
   { bubble, nonce, reducedMotion, onClick },
   ref,
 ) {
-  const { t } = useT("robots");
+  // Subscribes to language changes; the text itself comes from `bubbleText`.
+  useT("robots");
   return (
     <div className="robot-bubble-slot" aria-live="polite">
       <AnimatePresence>
@@ -38,7 +40,7 @@ export const SpeechBubble = forwardRef<HTMLDivElement, SpeechBubbleProps>(functi
             onClick={onClick}
           >
             <span className="robot-bubble__dot" aria-hidden="true" />
-            <span className="robot-bubble__text">{t(`bubble.${bubble.key}`, bubble.values)}</span>
+            <span className="robot-bubble__text">{bubbleText(bubble)}</span>
           </motion.div>
         )}
       </AnimatePresence>

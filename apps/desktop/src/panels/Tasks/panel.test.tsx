@@ -1,6 +1,6 @@
 import type { Event, Task, TaskGraph } from "@orkestr/protocol";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { applyLanguagePreference } from "../../i18n";
 import { useAppStore } from "../../store/app";
@@ -142,6 +142,42 @@ describe("TasksPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Start" }));
     await waitFor(() => expect(calls.some((c) => c.method === "tasks.transition")).toBe(true));
     expect(calls.find((c) => c.method === "tasks.transition")?.params).toEqual({ taskId: A.id, to: "Running" });
+  });
+
+  it("keeps events that arrive while the initial list loads (stale snapshot)", async () => {
+    let resolveList: (v: { tasks: Task[] }) => void = () => undefined;
+    const base = fakeClient.call.getMockImplementation();
+    fakeClient.call.mockImplementation(async (method: string, params: unknown) => {
+      if (method !== "tasks.list") return base?.(method, params);
+      calls.push({ method, params });
+      return new Promise<{ tasks: Task[] }>((r) => {
+        resolveList = r;
+      });
+    });
+    onTestFinished(() => {
+      if (base) fakeClient.call.mockImplementation(base);
+    });
+    render(<TasksPanel projectId={PROJECT} />);
+    await waitFor(() => expect(handler).not.toBeNull());
+    const ev = (seq: number, kind: string, payload: unknown) =>
+      ({ seq, id: `e${seq}`, ts: "", projectId: PROJECT, taskId: null, agentId: null, nodeId: null, correlationId: null, kind, payload }) as Event;
+    const C = task("0190f0b0-0000-7000-8000-000000000003", "Write docs");
+    // Published after the list snapshot was taken, delivered before the response.
+    act(() => {
+      handler?.(ev(7, "TaskUpdated", { task: { ...B, title: "Build public API", version: 1 } }));
+      handler?.(ev(8, "TaskCreated", { task: C }));
+      handler?.(ev(9, "TaskDeleted", { taskId: A.id }));
+    });
+    // Still loading: the events were buffered, not shown on an empty list.
+    expect(calls.filter((c) => c.method === "tasks.list")).toHaveLength(1);
+    await act(async () => {
+      resolveList({ tasks: [A, B] });
+      await Promise.resolve();
+    });
+    await screen.findByText("Build public API");
+    expect(screen.getByText("Write docs")).toBeTruthy();
+    expect(screen.queryByText("Build API")).toBeNull();
+    expect(screen.queryByText("Design schema")).toBeNull();
   });
 
   it("renders the graph view with nodes and the critical path", async () => {

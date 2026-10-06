@@ -13,6 +13,7 @@ import { clsx } from "clsx";
 import { type PointerEvent as ReactPointerEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useT } from "../../../i18n";
+import { agentActivity, agentName } from "../../../lib/coreText";
 import { useAppStore } from "../../../store/app";
 import { bubbleFor, type BubbleSpec, initialBubble, mayReplace } from "../model/bubble";
 import { defaultDesign } from "../model/design";
@@ -219,7 +220,7 @@ export function RobotWindow({ agentId, mode }: { agentId: string; mode: Performa
   });
   const accent = accentOf(look);
   const color = stateColor(visual.state, accent);
-  const name = agent?.name ?? t("robot.unknownAgent");
+  const name = agent ? agentName(agent.name) : t("robot.unknownAgent");
   const stateLabel = visual.asleep ? t("common:status.agent.Stopped") : t(`common:status.agent.${visual.state}`);
 
   return (
@@ -256,7 +257,7 @@ export function RobotWindow({ agentId, mode }: { agentId: string; mode: Performa
         <span className="robot-window__tag" aria-hidden="true">
           <span className="robot-window__tag-dot" />
           {name}
-          {isRunning(agent?.state ?? "Idle", agent?.stoppedAt ?? null) && agent?.activity ? ` · ${agent.activity}` : ""}
+          {isRunning(agent?.state ?? "Idle", agent?.stoppedAt ?? null) && agent?.activity ? ` · ${agentActivity(agent.activity)}` : ""}
         </span>
       </div>
       {menuOpen && (

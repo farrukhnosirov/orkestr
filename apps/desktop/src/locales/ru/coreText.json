@@ -53,7 +53,15 @@
     "finished": "Работа завершена",
     "waitingUser": "Ждёт вашего ответа",
     "waitingCodex": "Ждёт подтверждения запуска Codex",
-    "waitingApproval": "Ждёт подтверждения: {{action}}"
+    "waitingApproval": "Ждёт подтверждения: {{action}}",
+    "spawned": "Запущен",
+    "stopped": "Остановлен",
+    "interrupted": "Прерван: Orkestr остановился во время работы агента",
+    "stoppedByUser": "Остановлен пользователем",
+    "stoppedTaskCancelled": "Остановлен пользователем (задача отменена)",
+    "emergencyStop": "Экстренная остановка",
+    "coreShutdown": "Ядро завершает работу",
+    "runningCli": "Работает через CLI {{cli}}"
   },
   "snapshot": {
     "manual": "Снимок вручную",

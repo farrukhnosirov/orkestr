@@ -12,6 +12,7 @@ import { useState, type FormEvent } from "react";
 import { Logo } from "../../components/Logo";
 import { useT } from "../../i18n";
 import { describeError } from "../../i18n/errors";
+import { agentName } from "../../lib/coreText";
 import { managerActions } from "../../panels/Manager/data";
 import { useProjectAgents } from "../../panels/Agents/data";
 import { roleInitials } from "../../panels/Agents/model";
@@ -34,12 +35,13 @@ function toneOf(id: string): (typeof AVATAR_TONES)[number] {
 function AgentAvatar({ agent }: { agent: AgentInstance }) {
   const { t } = useT(["hud", "common"]);
   const state = t(`common:status.agent.${agent.state}`);
+  const name = agentName(agent.name);
   return (
     <span
       className={clsx("hud-agent", `hud-agent--${toneOf(agent.id)}`, isWorking(agent) && "hud-agent--working", agent.state === "Error" && "hud-agent--error")}
-      title={t("hud:agentTitle", { name: agent.name, state })}
+      title={t("hud:agentTitle", { name, state })}
       role="img"
-      aria-label={t("hud:agentTitle", { name: agent.name, state })}
+      aria-label={t("hud:agentTitle", { name, state })}
     >
       <svg viewBox="0 0 32 32" aria-hidden="true">
         <circle className="hud-agent__ring" cx="16" cy="16" r="14.5" />

@@ -53,7 +53,15 @@
     "finished": "Finished",
     "waitingUser": "Waiting for the user's answer",
     "waitingCodex": "Waiting for approval to start Codex",
-    "waitingApproval": "Waiting for approval: {{action}}"
+    "waitingApproval": "Waiting for approval: {{action}}",
+    "spawned": "Spawned",
+    "stopped": "Stopped",
+    "interrupted": "Interrupted: Orkestr stopped while the agent was running",
+    "stoppedByUser": "Stopped by the user",
+    "stoppedTaskCancelled": "Stopped by the user (task cancelled)",
+    "emergencyStop": "Emergency stop",
+    "coreShutdown": "The core is shutting down",
+    "runningCli": "Running the {{cli}} CLI"
   },
   "snapshot": {
     "manual": "Manual snapshot",

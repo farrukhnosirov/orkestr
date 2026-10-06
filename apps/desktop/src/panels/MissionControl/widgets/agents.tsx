@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { workspaceActions } from "../../../components/workspaceActions";
 import { openProject } from "../../../core/client";
 import { useFormat, useLanguage, useT } from "../../../i18n";
+import { agentActivity, agentName } from "../../../lib/coreText";
 import { useAppStore } from "../../../store/app";
 import { elapsed, roleInitials, roleLabel } from "../../Agents/model";
 import { useAgentsUi } from "../../Agents/store";
@@ -46,10 +47,11 @@ export function AgentOrb({ state, initials, size = 44 }: { state: AgentState; in
   );
 }
 
-function AgentCard({ agent, now, projectName }: { agent: AgentInstance; now: number; projectName: string | null }) {
+export function AgentCard({ agent, now, projectName }: { agent: AgentInstance; now: number; projectName: string | null }) {
   const { t } = useT(["missionControl", "common"]);
   const fmt = useFormat();
   const lng = useLanguage();
+  const displayName = agentName(agent.name);
   const open = () => {
     if (useAppStore.getState().activeProjectId !== agent.projectId) void openProject(agent.projectId);
     const ui = useAgentsUi.getState();
@@ -58,15 +60,15 @@ function AgentCard({ agent, now, projectName }: { agent: AgentInstance; now: num
     workspaceActions.openPanel("agents");
   };
   return (
-    <button type="button" className={clsx("mc-agent", `mc-agent--${agent.state.toLowerCase()}`)} onClick={open} title={t("agents.openDetails", { name: agent.name })}>
+    <button type="button" className={clsx("mc-agent", `mc-agent--${agent.state.toLowerCase()}`)} onClick={open} title={t("agents.openDetails", { name: displayName })}>
       <AgentOrb state={agent.state} initials={roleInitials(agent.role)} />
       <span className="mc-agent__body">
-        <span className="mc-agent__name">{agent.name}</span>
+        <span className="mc-agent__name">{displayName}</span>
         <span className="mc-agent__state">
           {t(`common:status.agent.${agent.state}`)}
           {projectName && <span className="mc-agent__project"> · {projectName}</span>}
         </span>
-        <span className="mc-agent__activity">{agent.activity ?? roleLabel(agent.role)}</span>
+        <span className="mc-agent__activity">{agent.activity ? agentActivity(agent.activity) : roleLabel(agent.role)}</span>
         <span className="mc-agent__meta">
           <span title={t("agents.model")}>{agent.model?.model ?? t("agents.noModel")}</span>
           <span title={t("agents.elapsed")}>{elapsed(agent, now, lng)}</span>
