@@ -33,6 +33,10 @@ use crate::error::{events_to_rpc, storage_to_rpc};
 
 /// `core_settings` key of the voice document.
 pub const VOICE_KEY: &str = "voice";
+/// `core_settings` key: the provider cloud speech recognition consent is bound to.
+const STT_PROVIDER_KEY: &str = "voice.sttConsentProvider";
+/// `core_settings` key: the provider cloud text-to-speech consent is bound to.
+const TTS_PROVIDER_KEY: &str = "voice.ttsConsentProvider";
 
 /// Registers the area.
 pub fn register(router: &mut RpcRouter) {
@@ -77,6 +81,56 @@ async fn load(ctx: &RpcContext) -> Result<VoiceConfig, RpcError> {
     Ok(parse_stored(raw.as_deref()))
 }
 
+async fn load_setting(ctx: &RpcContext, key: &'static str) -> Result<Option<String>, RpcError> {
+    ctx.services
+        .db
+        .call(move |c| {
+            Ok(c.query_row("SELECT value FROM core_settings WHERE key = ?1", params![key], |r| r.get(0)).optional()?)
+        })
+        .await
+        .map_err(storage_to_rpc)
+}
+
+async fn store_setting(ctx: &RpcContext, key: &'static str, value: Option<String>) -> Result<(), RpcError> {
+    let now = chrono::Utc::now().to_rfc3339();
+    ctx.services
+        .db
+        .call(move |c| {
+            match value {
+                Some(v) => c.execute(
+                    "INSERT INTO core_settings (key, value, updated_at) VALUES (?1, ?2, ?3)
+                     ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
+                    params![key, v, now],
+                )?,
+                None => c.execute("DELETE FROM core_settings WHERE key = ?1", params![key])?,
+            };
+            Ok(())
+        })
+        .await
+        .map_err(storage_to_rpc)
+}
+
+/// The provider cloud speech goes to, checked against the provider the
+/// consent was given for. Consent is bound to one provider: switching the
+/// speech provider requires consenting again. A consent recorded before any
+/// provider existed binds to the first provider actually used.
+async fn consented_provider(
+    ctx: &RpcContext,
+    config: &VoiceConfig,
+    key: &'static str,
+) -> Result<ProviderView, RpcError> {
+    let provider = pick_provider(ctx, config)?;
+    let id = provider.provider.id.to_string();
+    match load_setting(ctx, key).await? {
+        None => store_setting(ctx, key, Some(id)).await?,
+        Some(bound) if bound == id => {}
+        Some(_) => return Err(RpcError::forbidden(
+            "cloud speech consent was given for a different speech provider; grant consent again (voice.setConsent)",
+        )),
+    }
+    Ok(provider)
+}
+
 async fn save(ctx: &RpcContext, config: &VoiceConfig) -> Result<(), RpcError> {
     let value =
         serde_json::to_string(config).map_err(|e| RpcError::internal(format!("serialize voice config: {e}")))?;
@@ -113,13 +167,20 @@ fn result(ctx: &RpcContext, config: VoiceConfig) -> VoiceConfigResult {
 
 /// The provider for cloud speech: the configured one, else the first
 /// OpenAI provider with a key, else the first OpenAI-compatible one.
+/// Disabled providers never receive audio or text.
 fn pick_provider(ctx: &RpcContext, config: &VoiceConfig) -> Result<ProviderView, RpcError> {
     let list = cloud_providers(ctx);
     if let Some(id) = config.cloud_provider_id {
-        return list
+        let v = list
             .into_iter()
             .find(|v| v.provider.id == id)
-            .ok_or_else(|| RpcError::not_found("the selected speech provider no longer exists"));
+            .ok_or_else(|| RpcError::not_found("the selected speech provider no longer exists"))?;
+        if !v.provider.enabled {
+            return Err(RpcError::bad_request(
+                "the selected speech provider is disabled; enable it in Settings → AI providers",
+            ));
+        }
+        return Ok(v);
     }
     let mut ranked: Vec<ProviderView> = list.into_iter().filter(|v| v.provider.enabled).collect();
     ranked.sort_by_key(|v| (v.provider.kind != ProviderKind::OpenAi, !v.has_credential));
@@ -151,8 +212,12 @@ async fn set_config(ctx: RpcContext, p: SetVoiceConfigParams) -> Result<VoiceCon
         return Err(RpcError::forbidden("cloud text-to-speech needs consent first (voice.setConsent)"));
     }
     if let Some(id) = next.cloud_provider_id {
-        if !cloud_providers(&ctx).iter().any(|v| v.provider.id == id) {
-            return Err(RpcError::bad_request("cloudProviderId is not an OpenAI(-compatible) provider"));
+        match cloud_providers(&ctx).iter().find(|v| v.provider.id == id) {
+            None => return Err(RpcError::bad_request("cloudProviderId is not an OpenAI(-compatible) provider")),
+            Some(v) if !v.provider.enabled => {
+                return Err(RpcError::bad_request("cloudProviderId names a disabled provider"))
+            }
+            Some(_) => {}
         }
     }
     save(&ctx, &next).await?;
@@ -191,6 +256,13 @@ async fn set_consent(ctx: RpcContext, p: SetVoiceConsentParams) -> Result<VoiceC
         }
     };
     save(&ctx, &next).await?;
+    // Bind the consent to the provider that will receive the data.
+    let key = match p.scope {
+        VoiceConsentScope::SpeechRecognition => STT_PROVIDER_KEY,
+        VoiceConsentScope::CloudSpeech => TTS_PROVIDER_KEY,
+    };
+    let bound = if p.granted { pick_provider(&ctx, &next).ok().map(|v| v.provider.id.to_string()) } else { None };
+    store_setting(&ctx, key, bound).await?;
     let sec = &ctx.services.security;
     let action = if p.granted { "voice.consentGranted" } else { "voice.consentRevoked" };
     sec.audit.record(NewAudit::new(sec.user(), action, resource, AuditOutcome::Executed)).await;
@@ -214,7 +286,7 @@ async fn transcribe(ctx: RpcContext, p: TranscribeParams) -> Result<TranscribeRe
     }
     let language =
         p.language.or_else(|| Some(config.language.clone()).filter(|l| l != "auto")).filter(|l| l.len() <= 16);
-    let provider = pick_provider(&ctx, &config)?;
+    let provider = consented_provider(&ctx, &config, STT_PROVIDER_KEY).await?;
     let adapter = ctx
         .services
         .providers
@@ -241,7 +313,7 @@ async fn synthesize(ctx: RpcContext, p: SynthesizeParams) -> Result<SynthesizeRe
         return Err(RpcError::bad_request("invalid voice id"));
     }
     let style = p.style.filter(|s| s.chars().count() <= 200);
-    let provider = pick_provider(&ctx, &config)?;
+    let provider = consented_provider(&ctx, &config, TTS_PROVIDER_KEY).await?;
     let adapter = ctx
         .services
         .providers
