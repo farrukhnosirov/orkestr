@@ -441,10 +441,7 @@ impl Inner {
                 if let Some(score) = p.score {
                     let pct = p.confidence * 100.0;
                     summary.push_str(&if ru {
-                        format!(
-                            "\n\nОценка: {}/10 · уверенность {pct:.0}\u{a0}%",
-                            crate::util::ru_decimal(f64::from(score), 1)
-                        )
+                        format!("\n\nОценка: {}/10 · уверенность {pct:.0}\u{a0}%", crate::util::ru_decimal(score, 1))
                     } else {
                         format!("\n\nScore: {score:.1}/10 · confidence {pct:.0}%")
                     });

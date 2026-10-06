@@ -307,7 +307,10 @@ impl Inner {
                 "Запуск начат: {n} {}, параллельно — до {p} {}{}{}.",
                 crate::util::ru_plural(n, "задача", "задачи", "задач"),
                 crate::util::ru_plural(p, "агента", "агентов", "агентов"),
-                run.limits.max_cost_usd.map(|c| format!(", бюджет {}", crate::util::ru_money(c, 2))).unwrap_or_default(),
+                run.limits
+                    .max_cost_usd
+                    .map(|c| format!(", бюджет {}", crate::util::ru_money(c, 2)))
+                    .unwrap_or_default(),
                 run.limits.time_limit_mins.map(|m| format!(", ограничение по времени {m} мин")).unwrap_or_default()
             )
         } else {
@@ -1424,10 +1427,9 @@ impl Supervisor {
         } else {
             WorktreePolicy::SharedWorktree
         };
-        let budget = self.reserve(task_id, share).map(|cap| Budget {
-            max_cost_usd: Some(cap),
-            ..Budget::unrestricted(BudgetPeriod::PerTask)
-        });
+        let budget = self
+            .reserve(task_id, share)
+            .map(|cap| Budget { max_cost_usd: Some(cap), ..Budget::unrestricted(BudgetPeriod::PerTask) });
         let params = SpawnAgentParams {
             project_id: self.project.id,
             template_id: template.id,
@@ -1506,12 +1508,7 @@ impl Supervisor {
     /// Phase 2 hierarchy: hands a ready task to its team's lead
     /// (crate::team_lead). The lead's agent record stands in for the task's
     /// agent, so failures are retried by the normal attempt bounds.
-    async fn delegate_to_lead(
-        &mut self,
-        i: usize,
-        lead: crate::teams::LeadRequest,
-        share: usize,
-    ) -> Result<(), Fatal> {
+    async fn delegate_to_lead(&mut self, i: usize, lead: crate::teams::LeadRequest, share: usize) -> Result<(), Fatal> {
         let task_id = self.run.tasks[i].task_id;
         let d = crate::team_lead::Delegation {
             parent_task: task_id,

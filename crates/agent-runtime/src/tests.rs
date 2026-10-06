@@ -1040,8 +1040,7 @@ fn cli_done() -> orkestr_providers::CodingAgentEvent {
 #[tokio::test]
 async fn cli_agent_takes_a_checkpoint_and_its_task_rolls_back() {
     let h = harness(ApprovalMode::FullAuto).await;
-    let tpl =
-        h.template(&["write_file", "run_command", "submit_result"], WorktreePolicy::SharedWorktree, None).await;
+    let tpl = h.template(&["write_file", "run_command", "submit_result"], WorktreePolicy::SharedWorktree, None).await;
     let cli = h.cli(
         ProviderKind::ClaudeCode,
         vec![("src/cli.txt".into(), "from the CLI\n".into())],
@@ -1073,8 +1072,7 @@ async fn cli_agent_takes_a_checkpoint_and_its_task_rolls_back() {
 #[tokio::test]
 async fn cli_dangerous_command_stops_the_run_and_is_audited() {
     let h = harness(ApprovalMode::FullAuto).await;
-    let tpl =
-        h.template(&["write_file", "run_command", "submit_result"], WorktreePolicy::SharedWorktree, None).await;
+    let tpl = h.template(&["write_file", "run_command", "submit_result"], WorktreePolicy::SharedWorktree, None).await;
     h.cli(
         ProviderKind::Codex,
         Vec::new(),

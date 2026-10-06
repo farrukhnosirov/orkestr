@@ -11,4 +11,11 @@ success: boolean,
 /**
  * Human-readable summary (no hidden chain-of-thought, §1.14).
  */
-summary: string, };
+summary: string, 
+/**
+ * Structured stop code when the agent run ended on a limit
+ * (`run_budget_exceeded`, `budget_exceeded`, `project_budget_exceeded`,
+ * `max_turns`, `time_limit`). Decisions (retry, run budget) use this —
+ * never the free-text summary. Additive.
+ */
+stopCode?: string, };

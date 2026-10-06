@@ -155,7 +155,9 @@ fn query_text(task: &Task) -> String {
 /// the provider is known and enabled, is not a CLI coding agent, and the
 /// project's AI privacy policy allows it.
 fn summarizer_allowed(project: &Project, model: &ModelRef, info: Option<&crate::gateway::ProviderInfo>) -> bool {
-    info.is_some_and(|i| i.enabled && !i.is_cli_agent() && project.privacy.allows_provider(model.provider_id, i.is_local))
+    info.is_some_and(|i| {
+        i.enabled && !i.is_cli_agent() && project.privacy.allows_provider(model.provider_id, i.is_local)
+    })
 }
 
 /// A summarizer over the model gateway (the model configured for

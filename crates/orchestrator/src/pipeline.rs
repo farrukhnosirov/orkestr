@@ -1293,10 +1293,9 @@ impl Driver {
         .await;
         let offer = match grant {
             Grant::WallTime => format!("another {} min of self-healing", self.p.limits.max_wall_mins),
-            Grant::HealingBudget => format!(
-                "another ${:.2} of self-healing spend",
-                self.p.limits.max_budget_usd.unwrap_or_default()
-            ),
+            Grant::HealingBudget => {
+                format!("another ${:.2} of self-healing spend", self.p.limits.max_budget_usd.unwrap_or_default())
+            }
             Grant::Attempts | Grant::None => {
                 format!("{} more attempt(s) (a different model is tried)", self.p.limits.max_attempts.max(1))
             }
@@ -1351,8 +1350,7 @@ impl Driver {
                     "more self-healing budget granted by the user"
                 }
                 Grant::Attempts | Grant::None => {
-                    self.p.granted_attempts =
-                        self.p.granted_attempts.saturating_add(self.p.limits.max_attempts.max(1));
+                    self.p.granted_attempts = self.p.granted_attempts.saturating_add(self.p.limits.max_attempts.max(1));
                     "more attempts granted by the user"
                 }
             };
@@ -1761,9 +1759,9 @@ fn grant_for(
                 Grant::HealingBudget
             }
         }
-        healing::Escalation::Disabled | healing::Escalation::Attempts { .. } | healing::Escalation::NoProgress { .. } => {
-            Grant::Attempts
-        }
+        healing::Escalation::Disabled
+        | healing::Escalation::Attempts { .. }
+        | healing::Escalation::NoProgress { .. } => Grant::Attempts,
     }
 }
 

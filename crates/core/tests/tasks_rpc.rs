@@ -254,11 +254,15 @@ async fn crash_recovery_interrupts_in_flight_tasks() {
     let r = c.ok("tasks.retry", json!({"taskId": running})).await;
     assert_eq!(r["task"]["status"], "Ready");
 
-    // Graceful shutdown interrupts in-flight work too.
+    // Graceful shutdown interrupts in-flight work too; finished work waiting
+    // for review survives the restart (it can still be accepted).
+    c.ok("tasks.transition", json!({"taskId": ready, "to": "Running"})).await;
     core.shutdown().await;
     let core = orkestr_core::start(CoreConfig::with_data_dir(dir.path())).await.unwrap();
     assert!(!core.services.recovered_from_crash);
-    let t = core.services.tasks.get(id.parse().unwrap()).await.unwrap();
+    let t = core.services.tasks.get(ready.parse().unwrap()).await.unwrap();
     assert_eq!(t.status, orkestr_domain::TaskStatus::Interrupted);
+    let t = core.services.tasks.get(id.parse().unwrap()).await.unwrap();
+    assert_eq!(t.status, orkestr_domain::TaskStatus::Review);
     core.shutdown().await;
 }

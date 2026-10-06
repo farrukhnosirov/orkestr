@@ -951,8 +951,10 @@ impl Run {
         if let Err(e) = self.store.save_tool_call(call, None, None).await {
             tracing::warn!(error = %e, "failed to persist tool call");
         }
-        self.set_state(AgentState::Waiting, Some(activity)).await;
+        // Task first: observers that see the agent `Waiting` see its task
+        // `Waiting` too.
         self.task_to(TaskStatus::Waiting, "awaiting_approval").await;
+        self.set_state(AgentState::Waiting, Some(activity)).await;
         let status =
             self.deps.security.approvals.wait(id, self.deps.config.approval_timeout, &self.control.cancel).await;
         let note = self.deps.security.approvals.get(id).await.ok().flatten().and_then(|a| a.resolution_note);
