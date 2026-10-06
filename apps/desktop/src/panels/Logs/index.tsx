@@ -180,7 +180,7 @@ function EventsView({ projectId }: PanelProps) {
           icon={<Trash2 size={15} />}
           onClick={() => {
             setEvents([]);
-            queueRef.current = [];
+            queueRef.current.drain();
             setQueued(0);
           }}
           tooltip="bottom"
