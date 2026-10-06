@@ -70,28 +70,35 @@ pub async fn record_decision(args: &Value, env: &ToolEnv) -> Result<ToolOutput, 
 }
 
 /// Takes a snapshot of the agent root and publishes `SnapshotCreated`.
+///
+/// `task_files` (the paths the agent changed itself) is recorded when the
+/// agent works in a root shared with other writers (no own branch): other
+/// agents and the user may change files there meanwhile, and rolling the task
+/// back must revert only the agent's own changes.
 pub async fn snapshot(
     env: &ToolEnv,
     label: String,
     reason: SnapshotReason,
     phase: Option<TaskSnapshotPhase>,
+    task_files: Option<&[String]>,
 ) -> Result<WorkspaceSnapshot, ToolError> {
     let root = env.root()?.to_path_buf();
-    let snap = env
-        .deps
-        .snapshots
-        .create(CreateSnapshot {
-            project_id: env.project_id,
-            workspace_path: root,
-            label: Some(label),
-            reason,
-            task_id: Some(env.task_id),
-            agent_id: Some(env.agent_id),
-            task_phase: phase,
-            created_by: Actor::Agent(env.agent_id),
-        })
-        .await
-        .map_err(|e| ToolError::new(format!("snapshot failed: {e}")))?;
+    let req = CreateSnapshot {
+        project_id: env.project_id,
+        workspace_path: root,
+        label: Some(label),
+        reason,
+        task_id: Some(env.task_id),
+        agent_id: Some(env.agent_id),
+        task_phase: phase,
+        created_by: Actor::Agent(env.agent_id),
+    };
+    let snaps = &env.deps.snapshots;
+    let created = match task_files {
+        Some(files) if env.own_branch.is_none() => snaps.create_with_task_files(req, files).await,
+        _ => snaps.create(req).await,
+    };
+    let snap = created.map_err(|e| ToolError::new(format!("snapshot failed: {e}")))?;
     env.deps
         .publish(
             NewEvent::new(EventKind::SnapshotCreated(SnapshotCreatedPayload { snapshot: snap.clone() }))
@@ -107,7 +114,7 @@ pub async fn create_snapshot(args: &Value, env: &ToolEnv) -> Result<ToolOutput, 
         .map(str::trim)
         .filter(|l| !l.is_empty())
         .map_or_else(|| "Agent checkpoint".to_owned(), |l| l.chars().take(120).collect());
-    let snap = snapshot(env, label, SnapshotReason::TaskCheckpoint, None).await?;
+    let snap = snapshot(env, label, SnapshotReason::TaskCheckpoint, None, None).await?;
     let mut out = ToolOutput::ok(
         format!("snapshot {} created ({} files)", snap.id, snap.file_count),
         format!("snapshot {}", snap.label),

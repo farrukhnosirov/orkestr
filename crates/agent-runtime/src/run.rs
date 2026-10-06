@@ -944,6 +944,7 @@ impl Run {
             format!("Before {} changes", self.agent.name),
             SnapshotReason::BeforeRiskyAction,
             Some(TaskSnapshotPhase::Before),
+            None,
         )
         .await
         {
@@ -1339,13 +1340,15 @@ impl Run {
         // after-checkpoint that `snapshots.rollbackTask` pairs with the
         // automatic before-checkpoint, so every task with changes can be
         // rolled back — including tasks that finished successfully.
-        if !self.progress.lock().files_changed.is_empty() {
+        let own_files = self.progress.lock().files_changed.clone();
+        if !own_files.is_empty() {
             let label = if matches!(outcome, Outcome::Submitted(_)) { "finished" } else { "stopped" };
             match tools::memory::snapshot(
                 &self.env,
                 format!("{} {label}", self.agent.name),
                 SnapshotReason::TaskCheckpoint,
                 Some(TaskSnapshotPhase::After),
+                Some(&own_files),
             )
             .await
             {
