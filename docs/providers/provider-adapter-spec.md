@@ -53,7 +53,9 @@ Built in `crates/providers` (modules `types`, `adapter`, `adapters/{openai,anthr
 - Wire methods: `providers.{list,get,create,update,delete,setCredential,clearCredential,health,models,test,kinds,getManager,setManager,getRouting,setRouting}`;
   Manager (§5) and routing (§7) settings are `orkestr_domain::{ManagerConfig, RoutingConfig}`.
 - Not built yet: per-call permission bridge for Claude Code (`--permission-prompt-tool` MCP server — the
-  caller passes a static `CliToolPolicy`), Codex session resume, per-(provider, model) concurrency
+  caller passes a static `CliToolPolicy` that never pre-approves `Bash`; every reported CLI command is
+  classified after the fact by the dangerous-action guard and a Dangerous/Forbidden one stops the run),
+  Codex session resume, per-(provider, model) concurrency
   semaphores, opaque thinking-block echo for Anthropic extended thinking with tools (thinking is only
   enabled without tools), prompt-caching hints, benchmark-weighted routing (Phase 2).
 

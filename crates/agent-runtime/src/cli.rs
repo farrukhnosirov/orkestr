@@ -6,19 +6,26 @@
 //!
 //! * the CLI runs with `cwd` = the agent's worktree and a static tool policy
 //!   derived from the template (writes only when the template has write tools
-//!   and the worktree is writable; shell (`Bash`) only in Full Auto with
-//!   `run_command` allowed; web tools always disallowed);
+//!   and the worktree is writable; Claude Code's shell (`Bash`) is never
+//!   pre-approved — without a permission-prompt bridge it would bypass the
+//!   permission engine and the guard; web tools always disallowed);
 //! * Codex (sandbox-only gating) needs a one-time explicit user approval per
 //!   run unless the project is in Full Auto;
+//! * the task's automatic Before checkpoint is taken before the CLI starts
+//!   (ADR-0012 §4 / ADR-0021) — no checkpoint, no start;
+//! * every command the CLI reports is classified after the fact by the
+//!   dangerous-action guard; Dangerous / Forbidden stops the run at once
+//!   (process tree killed) and is audited (`agent.cliDangerousCommand`);
 //! * every file change the CLI reports is confined to the worktree — a change
 //!   outside it cancels the run immediately (process tree killed);
 //! * cancellation (stop / emergency / wall-clock) kills the CLI process tree;
 //! * usage is recorded; the turn limit is passed as `--max-turns`.
 //!
 //! Known limits (honest): per-command approvals are **not** possible for CLI
-//! agents in Phase 1 (no permission-prompt bridge yet); file writes inside the
-//! worktree are not individually approved; the post-hoc budget check cannot
-//! stop spend that already happened inside one CLI run.
+//! agents yet (no permission-prompt bridge), so the post-hoc classification
+//! stops a dangerous Codex sandbox command only once it was reported; file
+//! writes inside the worktree are not individually approved; the post-hoc
+//! budget check cannot stop spend that already happened inside one CLI run.
 
 use std::time::Instant;
 
@@ -117,15 +124,16 @@ pub(crate) async fn run_cli(run: &mut Run) -> Outcome {
         let _ = run.store.save_tool_call(&placeholder, Some("approved"), None).await;
     }
 
-    let mut allowed = vec!["Read".to_owned(), "Glob".into(), "Grep".into(), "LS".into()];
-    let mut disallowed = vec!["WebFetch".to_owned(), "WebSearch".into()];
-    if writes {
-        allowed.extend(["Edit".to_owned(), "Write".into(), "MultiEdit".into()]);
-    }
-    if shell {
-        allowed.push("Bash".into());
-    } else {
-        disallowed.push("Bash".into());
+    let policy = cli_tool_policy(writes);
+    // The CLI owns its tool loop: its changes (including Codex sandbox
+    // commands) need the task's Before checkpoint first (ADR-0012 §4,
+    // ADR-0021), or `rollbackTask` has nothing to restore.
+    if writes || shell || info.kind == ProviderKind::Codex {
+        if let Err(e) = run.checkpoint().await {
+            return Outcome::Failed(format!(
+                "could not take the checkpoint before starting the CLI agent ({e}); the run was not started"
+            ));
+        }
     }
     let previous = run.store.latest_task_handoff(run.task.id).await.ok().flatten().map(|h| crate::handoff::render(&h));
     let prompt =
@@ -152,7 +160,7 @@ pub(crate) async fn run_cli(run: &mut Run) -> Outcome {
         model: Some(model.model.clone()),
         max_turns: Some(run.agent.max_turns),
         resume_session: None,
-        tool_policy: CliToolPolicy { allowed_tools: allowed, disallowed_tools: disallowed, allow_writes: writes },
+        tool_policy: policy,
     };
     let user_id = uuid::Uuid::now_v7().to_string();
     let user_text = orkestr_security::redact::redact(&truncate_middle(&prompt, 64_000));
@@ -214,6 +222,64 @@ pub(crate) async fn run_cli(run: &mut Run) -> Outcome {
                             .agent(run.agent.id),
                     )
                     .await;
+                // Post-hoc classification (ADR-0012): the CLI already runs the
+                // command, but a Dangerous / Forbidden one stops the run at
+                // once (process tree killed) and is audited as a finding —
+                // Full Auto never overrides the hard policies (§23).
+                if cap == Capability::Terminal {
+                    let class = run.deps.security.guard.classify_in(
+                        &summary,
+                        orkestr_security::ShellKind::Bash,
+                        Some(root.as_path()),
+                    );
+                    if !class.is_safe() {
+                        run.control.cancel.cancel();
+                        let reason = class.reason().unwrap_or("dangerous command").to_owned();
+                        let level = if class.is_forbidden() { "forbidden" } else { "dangerous" };
+                        let msg = format!(
+                            "the CLI agent ran a {level} command ({}: {reason}); the run was stopped for review",
+                            one_line(&orkestr_security::redact::redact(&summary), 120)
+                        );
+                        call.status = ToolCallStatus::Denied;
+                        call.output_summary = Some(one_line(&msg, 200));
+                        call.finished_at = Some(now());
+                        let _ = run.store.save_tool_call(&call, Some(&msg), Some(0)).await;
+                        run.deps
+                            .publish(
+                                NewEvent::new(EventKind::ToolCallFinished(ToolCallFinishedPayload {
+                                    tool_call_id: call.id,
+                                    status: call.status,
+                                    output_summary: call.output_summary.clone(),
+                                    duration_ms: 0,
+                                }))
+                                .agent(run.agent.id),
+                            )
+                            .await;
+                        run.deps
+                            .security
+                            .audit
+                            .record(
+                                orkestr_security::NewAudit::new(
+                                    orkestr_domain::Actor::Agent(run.agent.id),
+                                    "agent.cliDangerousCommand",
+                                    orkestr_security::redact::redact(&one_line(&summary, 300)),
+                                    orkestr_domain::AuditOutcome::Denied,
+                                )
+                                .capability(Capability::Terminal)
+                                .project(Some(run.agent.project_id))
+                                .details(serde_json::json!({
+                                    "taskId": run.task.id,
+                                    "tool": tool,
+                                    "level": level,
+                                    "category": class.category().map(|c| format!("{c:?}")),
+                                    "reason": reason,
+                                })),
+                            )
+                            .await;
+                        outcome = Some(Outcome::Failed(msg));
+                        break;
+                    }
+                }
                 let state = match cap {
                     Capability::Write => AgentState::Coding,
                     Capability::Terminal
@@ -356,6 +422,19 @@ pub(crate) async fn run_cli(run: &mut Run) -> Outcome {
     Outcome::Submitted(result)
 }
 
+/// Static tool policy handed to the CLI. `Bash` is never pre-approved: the
+/// CLI's shell would bypass the permission engine and the dangerous-action
+/// guard entirely, and there is no `--permission-prompt-tool` bridge to
+/// Orkestr's approvals yet (ADR-0012 §3). Web tools are always disallowed.
+fn cli_tool_policy(writes: bool) -> CliToolPolicy {
+    let mut allowed = vec!["Read".to_owned(), "Glob".into(), "Grep".into(), "LS".into()];
+    if writes {
+        allowed.extend(["Edit".to_owned(), "Write".into(), "MultiEdit".into()]);
+    }
+    let disallowed = vec!["WebFetch".to_owned(), "WebSearch".into(), "Bash".into()];
+    CliToolPolicy { allowed_tools: allowed, disallowed_tools: disallowed, allow_writes: writes }
+}
+
 fn cli_call(run: &Run, tool: &str, capability: Capability) -> ToolCall {
     ToolCall {
         id: ToolCallId::new(),
@@ -386,6 +465,18 @@ mod tests {
         assert_eq!(r.open_issues, vec!["x".to_owned()]);
         assert!(parse_result_block("no block").is_none());
         assert!(parse_result_block("```json\n{not json}\n```").is_none());
+    }
+
+    #[test]
+    fn bash_is_never_pre_approved_for_cli_agents() {
+        for writes in [false, true] {
+            let p = cli_tool_policy(writes);
+            assert!(!p.allowed_tools.iter().any(|t| t == "Bash"), "{p:?}");
+            assert!(p.disallowed_tools.iter().any(|t| t == "Bash"));
+            assert!(p.disallowed_tools.iter().any(|t| t == "WebFetch"));
+            assert_eq!(p.allow_writes, writes);
+            assert_eq!(p.allowed_tools.iter().any(|t| t == "Edit"), writes);
+        }
     }
 
     #[test]

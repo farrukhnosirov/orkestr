@@ -934,9 +934,13 @@ impl Run {
         self.set_state(to, Some(summary.to_owned())).await;
     }
 
-    async fn checkpoint(&mut self) {
+    /// Takes the task's automatic `Before` checkpoint (once per run). `Err`
+    /// carries the reason when the snapshot could not be taken; a run without
+    /// a workspace (nothing to snapshot) or with the checkpoint already taken
+    /// returns `Ok`.
+    pub(crate) async fn checkpoint(&mut self) -> Result<(), String> {
         if self.checkpoint_taken || self.env.root.is_none() {
-            return;
+            return Ok(());
         }
         self.checkpoint_taken = true;
         match tools::memory::snapshot(
@@ -950,8 +954,12 @@ impl Run {
             Ok(s) => {
                 self.progress.lock().snapshot_id = Some(s.id);
                 self.note(&format!("Checkpoint {} taken before the first change.", s.id)).await;
+                Ok(())
             }
-            Err(e) => tracing::warn!(agent_id = %self.agent.id, error = %e.message, "automatic checkpoint failed"),
+            Err(e) => {
+                tracing::warn!(agent_id = %self.agent.id, error = %e.message, "automatic checkpoint failed");
+                Err(e.message)
+            }
         }
     }
 
@@ -1079,7 +1087,7 @@ impl Run {
         }
 
         if desc.class == ToolClass::Mutate {
-            self.checkpoint().await;
+            let _ = self.checkpoint().await;
         }
         let activity = format!("{name} {}", one_line(&resource_hint(args), 80)).trim().to_owned();
         self.class_state(desc.class, &activity).await;
@@ -1208,7 +1216,7 @@ impl Run {
         let mut approved_once = false;
         loop {
             if class == ToolClass::Mutate {
-                self.checkpoint().await;
+                let _ = self.checkpoint().await;
             }
             self.class_state(class, &format!("$ {}", one_line(&command, 80))).await;
             let req = RunRequest {
@@ -1339,7 +1347,11 @@ impl Run {
         // after-checkpoint that `snapshots.rollbackTask` pairs with the
         // automatic before-checkpoint, so every task with changes can be
         // rolled back — including tasks that finished successfully.
-        if !self.progress.lock().files_changed.is_empty() {
+        // `checkpoint_taken` also covers runs that changed the workspace
+        // without a reported file change (Mutate-class `run_command`s such as
+        // `sed -i` / `npm install`, CLI agents): their Before checkpoint needs
+        // its After pair or `rollbackTask` cannot restore the task.
+        if self.checkpoint_taken || !self.progress.lock().files_changed.is_empty() {
             let label = if matches!(outcome, Outcome::Submitted(_)) { "finished" } else { "stopped" };
             match tools::memory::snapshot(
                 &self.env,

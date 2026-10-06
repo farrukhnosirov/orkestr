@@ -151,6 +151,13 @@ fn query_text(task: &Task) -> String {
     q
 }
 
+/// Whether the configured summarizer model may receive this project's text:
+/// the provider is known and enabled, is not a CLI coding agent, and the
+/// project's AI privacy policy allows it.
+fn summarizer_allowed(project: &Project, model: &ModelRef, info: Option<&crate::gateway::ProviderInfo>) -> bool {
+    info.is_some_and(|i| i.enabled && !i.is_cli_agent() && project.privacy.allows_provider(model.provider_id, i.is_local))
+}
+
 /// A summarizer over the model gateway (the model configured for
 /// [`SUMMARIZE_PURPOSE`]); usage is recorded against the task.
 struct GatewaySummarizer<'a> {
@@ -345,6 +352,11 @@ pub async fn plan_context(
     } else {
         let max = (effective_budget / 5).max(64);
         let configured = if opts.summarize { deps.models.configured_model(SUMMARIZE_PURPOSE).await } else { None };
+        // The routing rule's model is global; the project's AI privacy policy
+        // (local-only, provider allowlist) applies to it like to every other
+        // chat path — otherwise deterministic compression is used.
+        let configured =
+            configured.filter(|m| summarizer_allowed(project, m, deps.models.provider(m.provider_id).as_ref()));
         let summarizer = configured.map(|model| GatewaySummarizer { deps, model, task });
         Some(compress_history(&history, max, summarizer.as_ref().map(|s| s as &dyn Summarizer)).await)
     };
@@ -454,4 +466,34 @@ pub async fn plan_for_task(
     }
     let root = workspace_root(&project, &task);
     Ok(plan_context(deps, access, &project, &task, root.as_deref(), None, opts).await)
+}
+
+#[cfg(test)]
+mod tests {
+    use orkestr_domain::{AiPolicy, ProviderId, ProviderKind};
+
+    use super::*;
+    use crate::gateway::ProviderInfo;
+
+    fn info(kind: ProviderKind, is_local: bool, enabled: bool) -> ProviderInfo {
+        ProviderInfo { kind, is_local, enabled }
+    }
+
+    #[test]
+    fn summarizer_respects_the_project_privacy_policy() {
+        let cloud = ModelRef { provider_id: ProviderId::new(), model: "gpt-4.1-mini".into() };
+        let mut project = Project::new("Private", now());
+        project.privacy.ai = AiPolicy::LocalModelsOnly;
+        // A cloud Summarize routing rule must not see a local-only project's text.
+        assert!(!summarizer_allowed(&project, &cloud, Some(&info(ProviderKind::OpenAi, false, true))));
+        assert!(summarizer_allowed(&project, &cloud, Some(&info(ProviderKind::Ollama, true, true))));
+        project.privacy.ai = AiPolicy::SelectedProvidersOnly { providers: vec![ProviderId::new()] };
+        assert!(!summarizer_allowed(&project, &cloud, Some(&info(ProviderKind::OpenAi, false, true))));
+        project.privacy.ai = AiPolicy::CloudAllowed;
+        assert!(summarizer_allowed(&project, &cloud, Some(&info(ProviderKind::OpenAi, false, true))));
+        // Disabled, unknown and CLI providers are never used for summaries.
+        assert!(!summarizer_allowed(&project, &cloud, Some(&info(ProviderKind::OpenAi, false, false))));
+        assert!(!summarizer_allowed(&project, &cloud, Some(&info(ProviderKind::ClaudeCode, true, true))));
+        assert!(!summarizer_allowed(&project, &cloud, None));
+    }
 }
