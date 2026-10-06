@@ -3,6 +3,8 @@ import { fileURLToPath } from "node:url";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
+import { shouldEmitSourcemap } from "./src/build/sourcemap";
+
 const pkg = (name: string) => fileURLToPath(new URL(`../../packages/${name}/src/index.ts`, import.meta.url));
 
 // Tauri expects a fixed dev port and must not clear its own console output.
@@ -28,7 +30,8 @@ export default defineConfig({
     target: "es2022",
     outDir: "dist",
     emptyOutDir: true,
-    sourcemap: true,
+    // Tauri embeds all of dist/ into the binary: no .map files in release builds.
+    sourcemap: shouldEmitSourcemap(process.env),
     chunkSizeWarningLimit: 2048,
     rollupOptions: {
       // Main window + the small floating-robot entry (ADR-0016).
