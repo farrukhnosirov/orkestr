@@ -31,8 +31,17 @@ export interface EditorTab {
   agentLines: number[];
 }
 
+/** Per-project view state kept while another project is active. */
+export interface ProjectSession {
+  tabs: EditorTab[];
+  activePath: string | null;
+  agentModified: Record<string, number>;
+}
+
 export interface EditorState {
   projectId: string | null;
+  /** Tabs of projects that are not active, restored when switching back (unsaved edits survive). */
+  sessions: Record<string, ProjectSession>;
   tabs: EditorTab[];
   activePath: string | null;
   reveal: (RevealTarget & { path: string; nonce: number }) | null;
@@ -43,8 +52,10 @@ export interface EditorState {
   /** Diff view of the active tab against the last saved content. */
   diff: boolean;
 
-  /** Switches project; tabs of another project are closed. */
+  /** Switches project; the previous project's tabs are parked and restored on return. */
   setProject: (projectId: string | null) => void;
+  /** Patches a tab of `projectId`, whether that project is active or parked. */
+  updateProjectTab: (projectId: string, path: string, patch: Partial<Omit<EditorTab, "path">>) => void;
   /** Opens (or focuses) a tab, optionally revealing a position. */
   openFile: (path: string, at?: RevealTarget) => void;
   closeTab: (path: string) => void;
@@ -74,6 +85,7 @@ function newTab(path: string): EditorTab {
 
 export const useEditorStore = create<EditorState>()((set, get) => ({
   projectId: null,
+  sessions: {},
   tabs: [],
   activePath: null,
   reveal: null,
@@ -90,8 +102,31 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
       set({ projectId });
       return;
     }
-    set({ projectId, tabs: [], activePath: null, reveal: null, agentModified: {}, quickOpen: false, diff: false });
+    const { tabs, activePath, agentModified } = get();
+    const sessions = { ...get().sessions };
+    if (current !== null) sessions[current] = { tabs, activePath, agentModified };
+    const restored = projectId !== null ? sessions[projectId] : undefined;
+    if (projectId !== null) delete sessions[projectId];
+    set({
+      projectId,
+      sessions,
+      tabs: restored?.tabs ?? [],
+      activePath: restored?.activePath ?? null,
+      agentModified: restored?.agentModified ?? {},
+      reveal: null,
+      quickOpen: false,
+      diff: false,
+    });
   },
+
+  updateProjectTab: (projectId, path, patch) =>
+    set((s) => {
+      const patchTabs = (tabs: EditorTab[]) => tabs.map((t) => (t.path === path ? { ...t, ...patch } : t));
+      if (s.projectId === projectId) return { tabs: patchTabs(s.tabs) };
+      const parked = s.sessions[projectId];
+      if (!parked) return s;
+      return { sessions: { ...s.sessions, [projectId]: { ...parked, tabs: patchTabs(parked.tabs) } } };
+    }),
 
   openFile: (path, at) =>
     set((s) => {

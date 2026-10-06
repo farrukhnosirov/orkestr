@@ -1,8 +1,9 @@
 /**
  * Open documents of the Code panel: one Monaco model per project file plus
  * what the core last told us about it (hash for optimistic concurrency,
- * encoding, last saved text for the diff view). Kept at module level so
- * closing and re-opening the panel does not lose unsaved edits.
+ * encoding, last saved text for the diff view). Kept at module level, one
+ * registry per project, so neither closing and re-opening the panel nor
+ * switching to another project and back loses unsaved edits.
  */
 import type { LineEnding, ReadFileResult, TextEncoding, WriteFileParams } from "@orkestr/protocol";
 import type * as Monaco from "monaco-editor";
@@ -68,7 +69,41 @@ export class DocumentRegistry {
   }
 
   private updateStore(path: string, patch: Partial<Omit<EditorTab, "path">>): void {
-    useEditorStore.getState().updateTab(path, patch);
+    // Scoped to this project: a load finishing after a project switch must not touch another project's tabs.
+    useEditorStore.getState().updateProjectTab(this.projectId, path, patch);
+  }
+
+  private storeTab(path: string): EditorTab | undefined {
+    const st = useEditorStore.getState();
+    const tabs = st.projectId === this.projectId ? st.tabs : st.sessions[this.projectId]?.tabs;
+    return tabs?.find((t) => t.path === path);
+  }
+
+  /** Paths of the loaded documents. */
+  paths(): string[] {
+    return [...this.docs.keys()];
+  }
+
+  /**
+   * Catches up with disk changes made while this project was inactive (file
+   * events are only watched for the active project): clean documents reload,
+   * dirty ones are flagged stale when the disk version moved on.
+   */
+  async resync(): Promise<void> {
+    for (const path of this.paths()) {
+      const doc = this.docs.get(path);
+      if (!doc) continue;
+      try {
+        if (this.isDirty(doc)) {
+          const disk = await this.diskText(path);
+          if (disk && disk.hash !== doc.hash) this.updateStore(path, { stale: true });
+        } else {
+          await this.reloadFromDisk(path);
+        }
+      } catch (e) {
+        console.warn("resync failed", path, e);
+      }
+    }
   }
 
   /** Loads a file into a model (idempotent). Binary/too-large/error states go to the tab. */
@@ -120,7 +155,7 @@ export class DocumentRegistry {
     };
     model.onDidChangeContent(() => {
       const dirty = this.isDirty(doc);
-      const tab = useEditorStore.getState().tabs.find((t) => t.path === doc.path);
+      const tab = this.storeTab(doc.path);
       if (tab && tab.dirty !== dirty) this.updateStore(doc.path, { dirty });
     });
     this.docs.set(path, doc);
@@ -235,14 +270,21 @@ export class DocumentRegistry {
   }
 }
 
+const registries = new Map<string, DocumentRegistry>();
 let current: DocumentRegistry | null = null;
 
-/** The registry for a project (disposing the previous project's documents). */
+/**
+ * The registry for a project. Registries of other projects are kept (not
+ * disposed): their models may hold unsaved edits the user returns to.
+ */
 export function registryFor(monaco: MonacoApi, projectId: string): DocumentRegistry {
-  if (current && current.projectId === projectId) return current;
-  current?.dispose();
-  current = new DocumentRegistry(monaco, projectId);
-  return current;
+  let registry = registries.get(projectId);
+  if (!registry) {
+    registry = new DocumentRegistry(monaco, projectId);
+    registries.set(projectId, registry);
+  }
+  current = registry;
+  return registry;
 }
 
 /** The current registry, if the Code panel has loaded one. */
