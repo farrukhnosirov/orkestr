@@ -70,6 +70,62 @@ export function scopeLabel(scope: BudgetScope, projects: readonly Project[]): st
   }
 }
 
+const SCOPE_KINDS = ["global", "project", "task", "provider", "agent"] as const;
+const PERIODS: readonly BudgetPeriod[] = ["PerTask", "Daily", "Monthly", "Total"];
+
+/**
+ * Parses the scope string of a `BudgetThreshold` event (crates/cost
+ * `scope_label`: `project:<id>/Monthly`, `global/Daily`; the agent runtime
+ * sends `agent:<id>`). `null` when the shape is unknown.
+ */
+export function parseBudgetScope(raw: string): { scope: BudgetScope; period: BudgetPeriod | null } | null {
+  const m = /^([a-z]+)(?::([^/]+))?(?:\/([A-Za-z]+))?$/.exec(raw.trim());
+  if (!m) return null;
+  const kind = (m[1] ?? "") as (typeof SCOPE_KINDS)[number];
+  const id = m[2] ?? null;
+  const periodRaw = m[3] ?? null;
+  const period = periodRaw && (PERIODS as readonly string[]).includes(periodRaw) ? (periodRaw as BudgetPeriod) : null;
+  if (periodRaw && !period) return null;
+  let scope: BudgetScope;
+  switch (kind) {
+    case "global":
+      if (id) return null;
+      scope = { scope: "Global" };
+      break;
+    case "project":
+      if (!id) return null;
+      scope = { scope: "Project", projectId: id };
+      break;
+    case "task":
+      if (!id) return null;
+      scope = { scope: "Task", taskId: id };
+      break;
+    case "provider":
+      if (!id) return null;
+      scope = { scope: "Provider", providerId: id };
+      break;
+    case "agent":
+      if (!id) return null;
+      scope = { scope: "Agent", agentId: id };
+      break;
+    default:
+      return null;
+  }
+  return { scope, period };
+}
+
+/**
+ * Localized label of a `BudgetThreshold` scope string: «Проект · Schoolify ·
+ * В месяц» instead of `project:<uuid>/Monthly`. Unknown shapes are shown as is.
+ */
+export function budgetScopeText(raw: string, projects: readonly Pick<Project, "id" | "name">[]): string {
+  const parsed = parseBudgetScope(raw);
+  // A bare kind ("project") is still named in the UI language.
+  if (!parsed) return t(`logs:enums.budgetScope.${raw.toLowerCase()}` as "logs:enums.budgetScope.project", { defaultValue: raw });
+  const scope = scopeLabel(parsed.scope, projects as readonly Project[]);
+  return parsed.period ? t("costs:scopeWithPeriod", { scope, period: periodLabel(parsed.period) }) : scope;
+}
+
 /** "Nice" upper bound for a chart axis (1, 2, 2.5, 5 × 10^n). */
 export function niceMax(v: number): number {
   if (!Number.isFinite(v) || v <= 0) return 1;

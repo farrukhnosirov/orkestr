@@ -37,12 +37,12 @@ export function GroupActions({ group, containerApi, activePanel }: IDockviewHead
               <SquareArrowDownLeft size={13} />
             </button>
           ) : (
-            <button type="button" className="dock-actions__btn" title={t("actions.float")} aria-label={t("actions.float")} onClick={() => layout.floatPanel(panelId)}>
+            <button type="button" className="dock-actions__btn dock-actions__btn--secondary" title={t("actions.float")} aria-label={t("actions.float")} onClick={() => layout.floatPanel(panelId)}>
               <PictureInPicture2 size={13} />
             </button>
           )}
           {canDetach() && (
-            <button type="button" className="dock-actions__btn" title={t("actions.detach")} aria-label={t("actions.detach")} onClick={() => void layout.detachPanel(panelId)}>
+            <button type="button" className="dock-actions__btn dock-actions__btn--secondary" title={t("actions.detach")} aria-label={t("actions.detach")} onClick={() => void layout.detachPanel(panelId)}>
               <AppWindow size={13} />
             </button>
           )}

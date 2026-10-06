@@ -17,7 +17,7 @@ import { configureSound, playSound } from "../sound/engine";
 import { activeTheme, useThemeStore } from "../theme/themeStore";
 import { assistantOptions, robotVoiceFor, speakAsAgent } from "./agentVoices";
 import { installVoiceDebugHook, shutdownVoice, startListening, stopListening, syncWakeListener } from "./controller";
-import { isHoldEnd, isHoldStart, parseHotkey } from "./hotkey";
+import { isHoldEnd, isHoldStart, parseHotkey, yieldsToEditor } from "./hotkey";
 import { noticeFromEvent, phraseId, PhraseLimiter, speakDecision } from "./notify/policy";
 import { useVoiceStore } from "./store";
 import { startVoiceBroadcast } from "./ui/voiceBridge";
@@ -81,11 +81,16 @@ export function useVoiceBootstrap(ready: boolean): void {
     const offSettings = useSettingsStore.subscribe((s, prev) => {
       if (s.settings?.performanceMode !== prev.settings?.performanceMode) void syncWakeListener();
     });
+    // Effective mode (auto Battery Saver on battery) pauses / resumes the wake listener.
+    const offPerf = usePerfStore.subscribe((s, prev) => {
+      if (s.mode !== prev.mode) void syncWakeListener();
+    });
     return () => {
       offVoice();
       offBridge();
       offDebug();
       offSettings();
+      offPerf();
       configureSound(() => null);
       shutdownVoice();
     };
@@ -123,6 +128,8 @@ export function useVoiceBootstrap(ready: boolean): void {
       const h = hotkey();
       const c = useVoiceStore.getState().config;
       if (!h || !c?.enabled || !isHoldStart(e, h)) return;
+      // Ctrl+Space & co. belong to the code editor / terminal while they have focus.
+      if (yieldsToEditor(e.target, h)) return;
       e.preventDefault();
       e.stopPropagation();
       if (e.repeat || holding) return;

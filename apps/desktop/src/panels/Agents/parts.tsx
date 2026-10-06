@@ -13,7 +13,7 @@ export function StateChip({ state }: { state: AgentState }) {
   return (
     <Badge tone={STATE_TONE[state]} className={clsx("agents-state", `agents-state--${state.toLowerCase()}`)}>
       <span className={clsx("agents-state__dot", isBusy(state) && "agents-state__dot--busy")} aria-hidden="true" />
-      {t(`status.agent.${state}`)}
+      <span className="agents-state__label">{t(`status.agent.${state}`)}</span>
     </Badge>
   );
 }

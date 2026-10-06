@@ -9,15 +9,17 @@
 
 .fx-toolbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 2px;
   padding: var(--ok-space-2);
   border-bottom: 1px solid var(--ok-color-border);
 }
 
+/* The filter keeps room for its placeholder; in a narrow column the buttons wrap below it. */
 .fx-filter {
-  flex: 1;
-  min-width: 80px;
+  flex: 1 1 150px;
+  min-width: 0;
   margin-right: var(--ok-space-1);
 }
 

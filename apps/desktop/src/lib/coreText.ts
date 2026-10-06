@@ -190,3 +190,84 @@ export function agentToolSummary(summary: string): string {
   if ((m = summary.match(/^`([\s\S]+)` → exit (\S+)$/))) return t("coreText:agentTool.exit", { command: m[1], code: m[2] });
   return summary;
 }
+
+/**
+ * Fixed reasons of task status changes (`TaskStatusChanged.reason`, task
+ * history): machine codes (crates/task-engine dag.rs / service.rs,
+ * agent-runtime run.rs) and fixed English sentences (orchestrator).
+ */
+const TASK_REASON = {
+  created: "created",
+  retry: "retry",
+  resume: "resume",
+  recovered_fresh: "recoveredFresh",
+  crash_recovery: "crashRecovery",
+  shutdown: "shutdown",
+  dependency_failed: "dependencyFailed",
+  dependency_cancelled: "dependencyCancelled",
+  dependency_pending: "dependencyPending",
+  dependencies_completed: "dependenciesCompleted",
+  agent_started: "agentStarted",
+  agent_paused: "agentPaused",
+  agent_resumed: "agentResumed",
+  agent_stopping: "agentStopping",
+  agent_finishing: "agentFinishing",
+  awaiting_approval: "awaitingApproval",
+  approval_resolved: "approvalResolved",
+  agent_result_done: "agentResultDone",
+  agent_result_partial: "agentResultPartial",
+  agent_result_blocked: "agentResultBlocked",
+  agent_result_failed: "agentResultFailed",
+  EmergencyStop: "emergencyStop",
+  "assigned to an agent": "assigned",
+  "stopped by the user": "stoppedByUser",
+  "cancelled by the user": "cancelledByUser",
+  "the user marked the task failed": "userMarkedFailed",
+  "code review approved": "reviewApproved",
+  "code review rejected the change": "reviewRejected",
+  "quality pipeline passed (review, build, tests, security)": "pipelinePassed",
+  "quality pipeline: code review": "pipelineReview",
+  "quality pipeline: build and tests": "pipelineBuildTests",
+  "accepted by the team lead": "teamLeadAccepted",
+  "the executor reported a partial result": "executorPartial",
+  "all child tasks completed": "childrenCompleted",
+  "manager run started": "managerRunStarted",
+  "accepted by the AI Manager: the agent reported done": "managerAccepted",
+  // Older cores wrote this roadmap note into the reason.
+  "accepted by the AI Manager: the agent reported done (automated review/test loops arrive in Phase 2)": "managerAccepted",
+} as const;
+
+/** Run-limit codes of a failed agent run (`<code>: <message>`, agent-runtime run.rs). */
+const LIMIT_CODES = new Set(["budget_exceeded", "max_turns", "time_limit"]);
+
+/**
+ * Display text of a task status reason. Known codes and sentences are
+ * translated (their free-text tail is kept); `null` when there is nothing
+ * worth showing (no reason, or an unknown bare machine code) so the caller
+ * shows its own localized default. Other free text is returned as is.
+ */
+export function taskReason(reason: string | null | undefined): string | null {
+  const r = reason?.trim();
+  if (!r) return null;
+  const key = TASK_REASON[r as keyof typeof TASK_REASON];
+  if (key) return t(`coreText:taskReason.${key}`);
+  let m: RegExpMatchArray | null;
+  if ((m = r.match(/^agent_error: ([\s\S]+)$/))) return t("coreText:taskReason.agentError", { detail: m[1] });
+  if ((m = r.match(/^code review rejected the change: ([\s\S]+)$/))) return t("coreText:taskReason.reviewRejectedDetail", { detail: m[1] });
+  if ((m = r.match(/^code review requested changes: ([\s\S]*)$/))) return t("coreText:taskReason.reviewChanges", { detail: m[1] });
+  if ((m = r.match(/^adversarial review found unresolved critical issues: ([\s\S]*)$/))) return t("coreText:taskReason.adversarial", { detail: m[1] });
+  if ((m = r.match(/^self-healing stopped \(([\s\S]+)\); the user declined further attempts$/))) {
+    return t("coreText:taskReason.healingDeclined", { detail: m[1] });
+  }
+  if ((m = r.match(/^self-healing stopped \(([\s\S]+)\) and the escalation could not be filed: ([\s\S]+)$/))) {
+    return t("coreText:taskReason.healingEscalationFailed", { detail: m[1], error: m[2] });
+  }
+  if ((m = r.match(/^could not start an agent: ([\s\S]+)$/))) return t("coreText:taskReason.agentStartFailed", { detail: m[1] });
+  if ((m = r.match(/^delegated to the lead of ([\s\S]+)$/))) return t("coreText:taskReason.delegated", { team: m[1] });
+  if ((m = r.match(/^([a-z][a-z0-9_]*): ([\s\S]+)$/)) && LIMIT_CODES.has(m[1] ?? "")) {
+    return t(`coreText:taskReason.limit.${m[1] as "budget_exceeded"}`, { detail: m[2] });
+  }
+  // A bare machine code this client does not know: the caller shows its localized default.
+  if (/^[a-z][a-z0-9]*(?:_[a-z0-9]+)+$/.test(r) || /^[A-Z][a-z]+(?:[A-Z][a-z]+)+$/.test(r)) return null;
+  return r;
+}

@@ -102,23 +102,32 @@ export function usePerformanceRuntime(connected: boolean): void {
   // Frame budget sampling.
   useEffect(() => {
     if (typeof window.requestAnimationFrame !== "function") return undefined;
+    // Each burst is one time-boxed window; two bad bursts in a row step the mode
+    // down. (Frame-count windows never filled up within a burst on 60 Hz panels.)
     const monitor = new FrameBudgetMonitor();
     let raf = 0;
     let last = 0;
     let until = 0;
+    let mode = usePerfStore.getState().mode;
     const frame = (now: number) => {
-      if (last > 0 && monitor.push(now - last) === "degrade") {
-        if (usePerfStore.getState().degrade()) notifyDegraded();
-        until = 0;
-      }
+      if (last > 0) monitor.sample(now - last);
       last = now;
-      if (now < until) raf = window.requestAnimationFrame(frame);
-      else raf = 0;
+      if (now < until) {
+        raf = window.requestAnimationFrame(frame);
+        return;
+      }
+      raf = 0;
+      if (monitor.endWindow() === "degrade" && usePerfStore.getState().degrade()) notifyDegraded();
     };
     const burst = () => {
       const s = usePerfStore.getState();
       if (raf || s.hidden || !s.autoDegrade || s.mode === "Performance" || s.mode === "BatterySaver") return;
-      monitor.reset();
+      // A different mode renders differently: its bad-burst streak starts over.
+      if (s.mode !== mode) {
+        mode = s.mode;
+        monitor.reset();
+      }
+      monitor.beginWindow();
       last = 0;
       until = performance.now() + SAMPLE_FOR_MS;
       raf = window.requestAnimationFrame(frame);

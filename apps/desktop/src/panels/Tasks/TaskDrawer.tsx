@@ -8,6 +8,7 @@ import { PipelineSection } from "../../features/pipeline";
 import { QualitySection } from "../../features/quality";
 import { ReviewsSection } from "../../features/reviews/ReviewsSection";
 import { t as translate, useFormat, useT } from "../../i18n";
+import { taskReason } from "../../lib/coreText";
 import { ContextPreview } from "./ContextPreview";
 import { errorMessage, taskActions } from "./data";
 import { PRIORITIES, TRANSITIONS, shortId, statusColor } from "./model";
@@ -441,7 +442,7 @@ export function TaskDrawer({ task, tasks }: { task: Task; tasks: Task[] }) {
                     {actorLabel(h)} · <time dateTime={h.at} title={fmt.date(h.at)}>
                       {fmt.relative(h.at)}
                     </time>
-                    {h.reason && h.reason !== "created" && <> · {h.reason}</>}
+                    {h.reason && h.reason !== "created" && taskReason(h.reason) && <> · {taskReason(h.reason)}</>}
                   </div>
                 </li>
               ))}

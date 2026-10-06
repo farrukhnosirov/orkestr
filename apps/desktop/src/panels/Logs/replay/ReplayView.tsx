@@ -23,6 +23,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { openInEditor } from "../../../features/files/actions";
 import { useFormat, useT } from "../../../i18n";
+import { taskReason } from "../../../lib/coreText";
 import { maybeClient } from "../../../core/client";
 import { errorMessage, useRpcQuery } from "../../../lib/rpcQuery";
 import { useAppStore } from "../../../store/app";
@@ -425,6 +426,7 @@ function StepDetail({ step, agent, task }: { step: ReplayStep | null; agent: str
     if (step.kind === "TeamLeadRunUpdated") {
       return t(`teams:leadStatus.${step.detail}` as "teams:leadStatus.Planning", { defaultValue: step.detail });
     }
+    if (step.kind === "TaskStatusChanged") return taskReason(step.detail);
     return step.detail;
   })();
   const rows: Array<[string, string]> = [];

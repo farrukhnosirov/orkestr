@@ -1,7 +1,7 @@
 import type { LayoutDocument, LayoutsState } from "@orkestr/protocol";
 import { describe, expect, it } from "vitest";
 
-import { applicableSpread, BUILTIN_PRESETS, getBuiltinPreset, MISSION_CONTROL_PANEL, resolveSlots } from "./presets";
+import { applicableSpread, BUILTIN_PRESETS, getBuiltinPreset, GROUP_MIN_WIDTH, MISSION_CONTROL_PANEL, presetArrangement, resolveSlots } from "./presets";
 import { parseDetachedRoute } from "./route";
 import {
   asJson,
@@ -317,6 +317,29 @@ describe("presets", () => {
         else expect(slots.slice(0, i).map((x) => x.panel)).toContain(s.position?.referencePanel);
       });
     }
+  });
+
+  it("uses a compact Coding arrangement on a narrow (960 px) window", () => {
+    const coding = getBuiltinPreset("coding");
+    expect(coding).toBeDefined();
+    if (!coding) return;
+    expect(presetArrangement(coding, 1600).slots).toBe(coding.slots);
+    expect(presetArrangement(coding, 0).slots).toBe(coding.slots); // not measured yet
+    const compact = presetArrangement(coding, 960);
+    expect(compact).toBe(coding.compact);
+    const slots = resolveSlots(compact.slots, isKnown);
+    // Same panels, every anchor placed earlier.
+    expect(new Set(slots.map((s) => s.panel))).toEqual(new Set(resolveSlots(coding.slots, isKnown).map((s) => s.panel)));
+    slots.forEach((s, i) => {
+      if (i > 0) expect(slots.slice(0, i).map((x) => x.panel)).toContain(s.position?.referencePanel);
+    });
+    // Three columns at the minimum window width, each wide enough for its header.
+    const widths = compact.sizes.filter((s) => s.width).map((s) => s.width ?? 0);
+    const columns = [...widths, 1 - widths.reduce((a, b) => a + b, 0)].map((f) => f * 960);
+    expect(columns).toHaveLength(3);
+    for (const w of columns) expect(w).toBeGreaterThanOrEqual(GROUP_MIN_WIDTH);
+    // The full recipe would give the file tree a ~150 px column.
+    expect((coding.sizes.find((s) => s.panel === "files")?.width ?? 0) * 960).toBeLessThan(GROUP_MIN_WIDTH);
   });
 
   it("spreads only onto existing monitors, one panel each", () => {

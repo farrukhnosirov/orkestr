@@ -17,6 +17,7 @@ import {
   snapshotLabel,
   taskTag,
   templateDescription,
+  taskReason,
   templateName,
   terminalTitle,
 } from "./coreText";
@@ -121,5 +122,21 @@ describe("core text in Russian", () => {
     expect(agentName("QA Engineer #1")).toBe("QA Engineer #1");
     expect(snapshotLabel("Before QA Engineer #1 changes")).toBe("Before QA Engineer #1 changes");
     expect(checkTexts(check({ detail: "git was not found on PATH" })).detail).toBe("git was not found on PATH");
+  });
+
+  it("turns task status reasons into readable text", async () => {
+    await applyLanguagePreference("ru");
+    expect(taskReason(null)).toBeNull();
+    expect(taskReason("dependency_pending")).toBe("Ждёт задачи, от которых зависит");
+    expect(taskReason("code review requested changes: missing tests; lint")).toBe("Ревью кода запросило доработку: missing tests; lint");
+    expect(taskReason("self-healing stopped (attempt limit); the user declined further attempts")).toBe(
+      "Самовосстановление остановлено (attempt limit); вы отказались от новых попыток",
+    );
+    expect(taskReason("max_turns: 40 turns used")).toBe("Достигнут лимит ходов: 40 turns used");
+    expect(taskReason("EmergencyStop")).toBe("Остановлена экстренной остановкой");
+    expect(taskReason("brand_new_code")).toBeNull();
+    expect(taskReason("tests failed in CI")).toBe("tests failed in CI");
+    await applyLanguagePreference("en");
+    expect(taskReason("agent_result_done")).toBe("The agent reported the task done");
   });
 });

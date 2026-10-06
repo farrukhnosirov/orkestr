@@ -6,7 +6,7 @@ import { i18n } from "../../i18n";
 import { commands } from "../commands/registry";
 import { settingsSections } from "../settings/sections";
 import { ApprovalsBadge, ApprovalsDrawer } from "./ApprovalsInbox";
-import { EmergencyConfirmDialog, EmergencyStopButton } from "./EmergencyStop";
+import { EmergencyConfirmDialog, EmergencyStopButton, STOP_SHORTCUT } from "./EmergencyStop";
 import {
   activeFlags,
   dangerLabel,
@@ -155,6 +155,11 @@ describe("security UI", () => {
     // One Stop All command (core `ai.stopAll`), which opens the security confirm dialog.
     expect(commands.filter((c) => c.title === "Stop All AI")).toHaveLength(1);
     expect(commands.find((c) => c.id === "ai.stopAll")?.shortcut).toBe("Ctrl+Shift+Backspace");
+    // The button advertises the shortcut that actually works (Ctrl+Shift+Esc is Windows' Task Manager).
+    expect(STOP_SHORTCUT).toBe(commands.find((c) => c.id === "ai.stopAll")?.shortcut);
+    render(<EmergencyStopButton />);
+    expect(screen.getByRole("button", { name: /Stop All AI|Emergency/ }).getAttribute("title")).toContain("Ctrl+Shift+Backspace");
+    cleanup();
     expect(commands.some((c) => c.id === "security.openApprovals")).toBe(true);
     expect(settingsSections.map((s) => s.id)).toEqual(expect.arrayContaining(["security", "secrets"]));
     commands.find((c) => c.id === "security.openApprovals")?.run({ projectId: null });

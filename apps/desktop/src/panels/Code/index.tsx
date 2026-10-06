@@ -4,6 +4,7 @@ import { EmptyState, Spinner } from "@orkestr/ui";
 import { FileCode } from "lucide-react";
 import { lazy, Suspense, useEffect } from "react";
 
+import { shortcutKey } from "../../features/commands/keys";
 import { RootFolderForm } from "../../features/files/RootFolderForm";
 import { useT } from "../../i18n";
 import { useActiveProject } from "../../store/app";
@@ -31,7 +32,7 @@ export default function CodePanel({ projectId }: PanelProps) {
     if (!projectId || !hasRoot) return;
     const onKey = (e: KeyboardEvent) => {
       if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
-      const key = e.key.toLowerCase();
+      const key = shortcutKey(e); // physical key on non-Latin layouts (Ctrl+P is "з" on ЙЦУКЕН)
       if (key === "p" && !e.shiftKey) {
         e.preventDefault();
         useEditorStore.getState().setQuickOpen(true);

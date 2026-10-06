@@ -229,6 +229,44 @@ export class FrameBudgetMonitor {
     this.janky = 0;
     this.bad = 0;
   }
+
+  /**
+   * Time-boxed windows (sampling bursts): starts a window without forgetting
+   * how many windows in a row were bad. A burst of a few seconds holds far
+   * fewer frames than `windowFrames` × `badWindows` on a 60 Hz display that
+   * janks, so bursts are evaluated with `sample` + `endWindow` instead of
+   * `push`.
+   */
+  beginWindow(): void {
+    this.frames = 0;
+    this.janky = 0;
+  }
+
+  /** Counts one frame delta into the current time-boxed window (no evaluation). */
+  sample(deltaMs: number): void {
+    if (!Number.isFinite(deltaMs) || deltaMs <= 0 || deltaMs > 250) return;
+    this.frames += 1;
+    if (deltaMs > this.budgetMs) this.janky += 1;
+  }
+
+  /**
+   * Closes the current time-boxed window; `"degrade"` after `badWindows`
+   * bad windows in a row. A window with fewer than `minFrames` frames (the
+   * burst was cut short) is not evaluated and keeps the streak as it was.
+   */
+  endWindow(minFrames = 30): "degrade" | null {
+    const frames = this.frames;
+    const janky = this.janky;
+    this.frames = 0;
+    this.janky = 0;
+    if (frames < minFrames) return null;
+    this.bad = janky / frames > this.jankRatio ? this.bad + 1 : 0;
+    if (this.bad >= this.badWindows) {
+      this.bad = 0;
+      return "degrade";
+    }
+    return null;
+  }
 }
 
 /** Root attributes / variables for a policy (applied by `applyPolicyToRoot`). */

@@ -117,6 +117,25 @@ export function targetApproval(pending: readonly Approval[], activeProjectId: st
   return sorted.find((a) => a.projectId === activeProjectId) ?? sorted[0] ?? null;
 }
 
+/** The approval an approve/reject intent resolves: the bound one (exact id, still pending), else the current target. */
+function approvalFor(intent: Extract<Intent, { kind: "approve" | "reject" }>, deps: Pick<VoiceDeps, "pendingApprovals" | "activeProjectId">): Approval | null {
+  if (intent.approvalId !== undefined) {
+    return deps.pendingApprovals().find((a) => a.id === intent.approvalId && a.status === "Pending") ?? null;
+  }
+  return targetApproval(deps.pendingApprovals(), deps.activeProjectId());
+}
+
+/**
+ * Binds an approve/reject intent to the approval the confirmation reads out,
+ * so a later "yes" resolves exactly that request even when a newer one
+ * arrives meanwhile. Other intents are returned unchanged.
+ */
+export function bindApproval(intent: Intent, deps: Pick<VoiceDeps, "pendingApprovals" | "activeProjectId">): Intent {
+  if ((intent.kind !== "approve" && intent.kind !== "reject") || intent.approvalId !== undefined) return intent;
+  const a = targetApproval(deps.pendingApprovals(), deps.activeProjectId());
+  return a ? { ...intent, approvalId: a.id } : intent;
+}
+
 /** The question asked before running an intent that needs confirmation. */
 export function confirmationPrompt(intent: Intent, deps: Pick<VoiceDeps, "pendingApprovals" | "activeProjectId">): string {
   switch (intent.kind) {
@@ -126,7 +145,7 @@ export function confirmationPrompt(intent: Intent, deps: Pick<VoiceDeps, "pendin
       return t("voice:confirm.stopAll");
     case "approve":
     case "reject": {
-      const a = targetApproval(deps.pendingApprovals(), deps.activeProjectId());
+      const a = approvalFor(intent, deps);
       const key = intent.kind === "approve" ? "voice:confirm.approve" : "voice:confirm.reject";
       return t(key, { action: a?.actionSummary ?? "" });
     }
@@ -141,8 +160,11 @@ export function confirmationPrompt(intent: Intent, deps: Pick<VoiceDeps, "pendin
  */
 export function precheck(intent: Intent, deps: Pick<VoiceDeps, "pendingApprovals" | "activeProjectId">): CommandResult | null {
   if (intent.kind === "stopProject" && !intent.project) return missingProject(intent);
-  if ((intent.kind === "approve" || intent.kind === "reject") && !targetApproval(deps.pendingApprovals(), deps.activeProjectId())) {
-    return result("failed", t("voice:reply.noApprovals"), "info");
+  if (intent.kind === "approve" || intent.kind === "reject") {
+    const a = approvalFor(intent, deps);
+    if (!a) return intent.approvalId !== undefined ? result("failed", t("voice:reply.approvalGone"), "warn") : result("failed", t("voice:reply.noApprovals"), "info");
+    // Dangerous actions (§23, §70) are approved only in the app, never by a spoken "yes".
+    if (intent.kind === "approve" && a.danger) return result("failed", t("voice:reply.dangerousInApp", { action: a.actionSummary }), "warn", a.projectId);
   }
   return null;
 }
@@ -235,7 +257,9 @@ export async function executeIntent(intent: Intent, deps: VoiceDeps): Promise<Co
 
     case "approve":
     case "reject": {
-      const a = targetApproval(deps.pendingApprovals(), deps.activeProjectId());
+      const blocked = precheck(intent, deps);
+      if (blocked) return blocked;
+      const a = approvalFor(intent, deps);
       if (!a) return result("failed", t("voice:reply.noApprovals"), "info");
       await deps.resolveApproval(a.id, intent.kind === "approve" ? "Approve" : "Reject");
       return result(

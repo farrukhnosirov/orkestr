@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { concatPcm, encodeWav, fromBase64, peak, toBase64 } from "./audio/wav";
-import { hotkeyKeys, isHoldEnd, isHoldStart, parseHotkey } from "./hotkey";
+import { hotkeyKeys, isHoldEnd, isHoldStart, parseHotkey, yieldsToEditor } from "./hotkey";
 import { optionsForProfile, pickVoice, type SpeakOptions, speechLang } from "./tts/speaker";
 import { AudioFrontEnd, Resampler } from "./wake/frontend";
 import { NUM_CEPS } from "./wake/mfcc";
@@ -47,6 +47,21 @@ describe("push-to-talk hotkey", () => {
     expect(h && isHoldEnd({ code: "ControlLeft", key: "Control" }, h)).toBe(true);
     expect(h && isHoldEnd({ code: "KeyA", key: "a" }, h)).toBe(false);
     expect(hotkeyKeys("Ctrl+Space")).toEqual(["Ctrl", "Space"]);
+  });
+  it("leaves Ctrl chords to a focused Monaco editor or terminal", () => {
+    const host = document.createElement("div");
+    host.innerHTML = `<div class="monaco-editor"><textarea id="m"></textarea></div><div class="xterm"><textarea id="x"></textarea></div><input id="plain" />`;
+    document.body.appendChild(host);
+    const at = (id: string) => host.querySelector(`#${id}`);
+    expect(h && yieldsToEditor(at("m"), h)).toBe(true);
+    expect(h && yieldsToEditor(at("x"), h)).toBe(true);
+    expect(h && yieldsToEditor(at("plain"), h)).toBe(false);
+    expect(h && yieldsToEditor(window, h)).toBe(false);
+    const f9 = parseHotkey("F9");
+    const altChord = parseHotkey("Ctrl+Alt+Space");
+    expect(f9 && yieldsToEditor(at("m"), f9)).toBe(false);
+    expect(altChord && yieldsToEditor(at("x"), altChord)).toBe(false);
+    host.remove();
   });
 });
 

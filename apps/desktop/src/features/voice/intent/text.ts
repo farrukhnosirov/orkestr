@@ -87,6 +87,8 @@ export function similarity(a: string, b: string): number {
 export interface Named {
   id: string;
   name: string;
+  /** Other names the item is shown under (e.g. the localized agent name), matched like `name`. */
+  aliases?: readonly string[];
 }
 
 export interface EntityMatch<T extends Named> {
@@ -107,13 +109,17 @@ export function bestMatch<T extends Named>(query: string, items: readonly T[], t
   const words = normalize(query).split(" ").filter(Boolean);
   if (!words.length) return null;
   let best: EntityMatch<T> | null = null;
+  // "Backend Agent" → also "backend"; "QA Engineer" → "qa".
+  const generic = new Set(["agent", "агент", "engineer", "инженер", "bot", "бот"]);
   for (const item of items) {
-    const nameWords = normalize(item.name.replace(/#\d+/g, "")).split(" ").filter(Boolean);
-    const names = [nameWords.join(" ")];
-    // "Backend Agent" → also "backend"; "QA Engineer" → "qa".
-    const generic = new Set(["agent", "агент", "engineer", "инженер", "bot", "бот"]);
-    const core = nameWords.filter((w) => !generic.has(w));
-    if (core.length && core.length < nameWords.length) names.push(core.join(" "));
+    const names: string[] = [];
+    for (const label of [item.name, ...(item.aliases ?? [])]) {
+      const nameWords = normalize(label.replace(/#\d+/g, "")).split(" ").filter(Boolean);
+      if (!nameWords.length) continue;
+      names.push(nameWords.join(" "));
+      const core = nameWords.filter((w) => !generic.has(w));
+      if (core.length && core.length < nameWords.length) names.push(core.join(" "));
+    }
     for (const name of names) {
       const n = name.split(" ").length;
       for (let len = Math.max(1, n - 1); len <= n + 1; len++) {

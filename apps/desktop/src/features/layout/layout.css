@@ -200,6 +200,25 @@
   padding: 0 6px;
 }
 
+/*
+ * Narrow groups (small window, side columns): the tab title wins over the
+ * header actions. Float / detach stay in the command palette and the
+ * layout menu; maximize stays in the header.
+ */
+.dv-groupview {
+  container: ok-dock-group / inline-size;
+}
+
+@container ok-dock-group (max-width: 320px) {
+  .dock-actions {
+    padding: 0 2px;
+  }
+
+  .dock-actions__btn--secondary {
+    display: none;
+  }
+}
+
 .dock-actions__btn {
   display: grid;
   place-items: center;

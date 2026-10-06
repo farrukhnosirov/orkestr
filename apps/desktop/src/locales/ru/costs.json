@@ -93,6 +93,7 @@
     "PerTask": "На задачу",
     "Total": "За всё время"
   },
+  "scopeWithPeriod": "{{scope}} · {{period}}",
   "scopeLabel": {
     "Global": "Весь расход",
     "Project": "Проект · {{name}}",

@@ -21,6 +21,7 @@ import { useState } from "react";
 
 import { useFormat, useT } from "../../../i18n";
 import { describeError } from "../../../i18n/errors";
+import { taskReason } from "../../../lib/coreText";
 import { useAppStore } from "../../../store/app";
 import { resolveApproval, useSecurityStore } from "../../../features/security/store";
 import { type WidgetProps, useMission } from "../context";
@@ -189,6 +190,8 @@ function AlertRow({ a }: { a: Alert }) {
   }
   if (a.kind === "rateLimited") params["secs"] = fmt.duration(Number(a.params["secs"] ?? 0) * 1000);
   if (a.kind === "approval" && isRisk(a.params["risk"])) params["risk"] = t(`security:risk.${a.params["risk"]}`);
+  // Task reasons are core codes / English sentences: localized (an unknown bare code is hidden).
+  const detail = a.kind === "taskFailed" ? taskReason(a.detail) : a.detail;
   return (
     <li className={clsx("mc-alert", `mc-alert--${a.severity}`)}>
       <Icon size={15} className="mc-alert__icon" aria-hidden="true" />
@@ -197,7 +200,7 @@ function AlertRow({ a }: { a: Alert }) {
           <span className="mc-sr">{t(`alerts.severity.${a.severity}`)}: </span>
           {t(`alerts.kind.${a.kind}`, params)}
         </span>
-        {a.detail && <span className="mc-alert__detail">{a.detail}</span>}
+        {detail && <span className="mc-alert__detail">{detail}</span>}
         <span className="mc-alert__meta">
           {project ? `${project} · ` : ""}
           {fmt.relative(a.ts)}

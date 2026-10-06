@@ -4,6 +4,7 @@ import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { applyLanguagePreference } from "../i18n";
+import { useAppStore } from "../store/app";
 import { commands } from "./commands/registry";
 import { validateName } from "./files/paths";
 import { notificationFromEvent } from "./notifications/fromEvent";
@@ -94,7 +95,31 @@ describe("features in Russian", () => {
       ev({ kind: "BudgetThreshold", payload: { scope: "project", spentUsd: 9, limitUsd: 10, fraction: 0.9 } }),
     );
     expect(nb(budget?.title ?? "")).toBe("Израсходовано 90 % бюджета");
-    expect(nb(budget?.body ?? "")).toBe("project: 9,00 $ из 10,00 $");
+    expect(nb(budget?.body ?? "")).toBe("проект: 9,00 $ из 10,00 $");
+    // The core's `project:<id>/Monthly` scope: project name and period, not the raw code / UUID.
+    useAppStore.setState({ projects: [{ id: P, name: "Schoolify" }] as never });
+    const scoped = notificationFromEvent(
+      ev({ kind: "BudgetThreshold", payload: { scope: `project:${P}/Monthly`, spentUsd: 4, limitUsd: 5, fraction: 0.8 } }),
+    );
+    expect(nb(scoped?.body ?? "")).toBe("Проект · Schoolify · В месяц: 4,00 $ из 5,00 $");
+    const agentScoped = notificationFromEvent(
+      ev({ kind: "BudgetThreshold", payload: { scope: `agent:${P}`, spentUsd: 4, limitUsd: 5, fraction: 0.8 } }),
+    );
+    expect(nb(agentScoped?.body ?? "")).not.toContain(P);
+    expect(nb(notificationFromEvent(ev({ kind: "BudgetThreshold", payload: { scope: "global/Daily", spentUsd: 4, limitUsd: 5, fraction: 0.8 } }))?.body ?? "")).not.toContain("Daily");
+    // Task reasons: localized codes / sentences; plain dependency waits raise nothing.
+    const status = (to: string, reason: string | null) =>
+      notificationFromEvent(ev({ kind: "TaskStatusChanged", payload: { taskId: P, from: "Running", to, reason } } as never));
+    expect(status("Failed", "agent_error: provider returned 429")?.body).toBe("Ошибка агента: provider returned 429");
+    expect(status("Failed", "agent_result_failed")?.body).toBe("Агент сообщил, что задачу выполнить не удалось");
+    expect(status("Completed", "accepted by the team lead")?.body).toBe("Принята лидом команды");
+    expect(status("Completed", "accepted by the AI Manager: the agent reported done (automated review/test loops arrive in Phase 2)")?.body).not.toContain("Phase");
+    expect(status("Blocked", "dependency_failed")?.body).toBe("Задача, от которой она зависит, не выполнена");
+    expect(status("Blocked", "dependency_pending")).toBeNull();
+    // An unknown bare code falls back to the localized default body.
+    expect(status("Failed", "some_future_code")?.body).toBe(status("Failed", null)?.body);
+    useAppStore.setState({ projects: [] });
+    expect(status("Failed", "budget_exceeded: $5 spent")?.body).toBe("Бюджет исчерпан: $5 spent");
     const fallback = notificationFromEvent(
       ev({
         kind: "ProviderFallback",

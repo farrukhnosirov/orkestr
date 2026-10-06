@@ -50,19 +50,8 @@ commands.push(...managerCommands);
 commands.push(...GIT_COMMANDS);
 commands.push(...terminalCommands);
 
-/**
- * Whether a keyboard event matches a shortcut string like `Ctrl+Shift+T` or
- * `Ctrl+\``. `Ctrl` also matches ⌘ on macOS. Modifiers must match exactly.
- */
-export function matchesShortcut(e: Pick<KeyboardEvent, "key" | "code" | "ctrlKey" | "metaKey" | "shiftKey" | "altKey">, shortcut: string): boolean {
-  const parts = shortcut.split("+").map((p) => p.trim().toLowerCase());
-  const key = parts.pop();
-  if (!key) return false;
-  const want = { ctrl: parts.includes("ctrl"), shift: parts.includes("shift"), alt: parts.includes("alt") };
-  if (want.ctrl !== (e.ctrlKey || e.metaKey) || want.shift !== e.shiftKey || want.alt !== e.altKey) return false;
-  if (key === "`") return e.key === "`" || e.code === "Backquote";
-  return e.key.toLowerCase() === key;
-}
+/** Layout-independent shortcut matching (works on Cyrillic layouts too). */
+export { matchesShortcut, shortcutKey } from "./keys";
 
 // files-editor (Phase 1)
 commands.push(...FILE_COMMANDS);

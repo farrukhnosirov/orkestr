@@ -10,6 +10,7 @@ import { useEffect } from "react";
 import { t } from "../../i18n";
 import { useAiUiStore } from "../aiui/aiuiStore";
 import { canRedo, canUndo } from "../aiui/undo";
+import { matchesShortcut } from "../commands/keys";
 import type { AppCommand } from "../commands/registry";
 import { PERF_MODES } from "../performance/policy";
 import { useSettingsStore } from "../settings/settingsStore";
@@ -105,7 +106,7 @@ export const hudCommands: AppCommand[] = [
 export function useHudShortcut(): void {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && !e.altKey && e.key.toLowerCase() === "h") {
+      if (matchesShortcut(e, "Ctrl+Shift+H")) {
         e.preventDefault();
         void hudControls.hide();
       } else if (e.key === "Escape" && !e.defaultPrevented && !(e.target instanceof HTMLInputElement && e.target.value)) {

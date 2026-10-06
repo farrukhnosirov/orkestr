@@ -146,6 +146,17 @@ describe("text helpers", () => {
     expect(bestMatch("zebra", CTX.projects)).toBeNull();
   });
 
+  it("matches agents by their localized (aliased) name", () => {
+    const withAlias: IntentContext = {
+      ...CTX,
+      agents: CTX.agents.map((a) => (a.id === "a2" ? { ...a, aliases: ["Тестировщик #1"] } : a)),
+    };
+    expect(brief(parseIntent("что делает тестировщик", CTX))).toBe("agentStatus:?");
+    expect(brief(parseIntent("что делает тестировщик", withAlias))).toBe("agentStatus:a2");
+    expect(brief(parseIntent("статус агента тестировщик 1", withAlias))).toBe("agentStatus:a2");
+    expect(brief(parseIntent("what's QA doing?", withAlias))).toBe("agentStatus:a2");
+  });
+
   it("strips wake phrases", () => {
     expect(stripWakePhrase("Jarvis, stop all")).toBe("stop all");
     expect(stripWakePhrase("Эй, Джарвис, статус")).toBe("статус");

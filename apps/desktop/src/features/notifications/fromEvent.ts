@@ -8,6 +8,9 @@
 import type { Event, NotificationLevel } from "@orkestr/protocol";
 
 import { formatCurrency, formatDuration, formatPercent, t } from "../../i18n";
+import { taskReason } from "../../lib/coreText";
+import { budgetScopeText } from "../../panels/Costs/format";
+import { useAppStore } from "../../store/app";
 
 export interface AppNotification {
   /** Stable id (event id, or `local-…` for UI-originated notices). */
@@ -45,7 +48,11 @@ export function notificationFromEvent(ev: Event): AppNotification | null {
         ev.payload.summary || t("notifications:events.exitCode", { code: ev.payload.exitCode ?? "?" }),
       );
     case "TaskStatusChanged": {
-      const { to, reason } = ev.payload;
+      const { to, reason: raw } = ev.payload;
+      // Waiting for unfinished dependencies is ordinary planning, not a problem to report.
+      if (to === "Blocked" && raw === "dependency_pending") return null;
+      // Core reasons are codes / English sentences: shown localized, else the localized default.
+      const reason = taskReason(raw);
       if (to === "Failed") return base(ev, "Error", t("notifications:events.taskFailed"), reason ?? t("notifications:events.taskFailedBody"));
       if (to === "Blocked") return base(ev, "Warning", t("notifications:events.taskBlocked"), reason ?? t("notifications:events.taskBlockedBody"));
       if (to === "Completed") {
@@ -60,7 +67,7 @@ export function notificationFromEvent(ev: Event): AppNotification | null {
         p.fraction >= 1 ? "Error" : "Warning",
         t("notifications:events.budget", { percent: formatPercent(p.fraction) }),
         t("notifications:events.budgetBody", {
-          scope: p.scope,
+          scope: budgetScopeText(p.scope, useAppStore.getState().projects),
           spent: formatCurrency(p.spentUsd),
           limit: formatCurrency(p.limitUsd),
         }),
