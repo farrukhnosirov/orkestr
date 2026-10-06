@@ -258,6 +258,22 @@ pub fn panel_label(panel_id: &str) -> String {
     format!("{PANEL_WINDOW_PREFIX}{panel_id}")
 }
 
+/// Hash route a panel window loads (`/panel/<id>[?projectId=<id>]`); ids are
+/// validated by the caller.
+#[must_use]
+pub fn panel_route(panel_id: &str, project_id: Option<&str>) -> String {
+    match project_id {
+        Some(p) => format!("/panel/{panel_id}?projectId={p}"),
+        None => format!("/panel/{panel_id}"),
+    }
+}
+
+/// Whether re-opening an existing panel window must re-point its webview at
+/// another project (the window keeps the project of the route it loaded).
+fn needs_rebind(previous: Option<&PanelMeta>, requested: &PanelMeta) -> bool {
+    previous.is_none_or(|p| p.project_id != requested.project_id)
+}
+
 fn to_rect(pos: PhysicalPosition<i32>, size: PhysicalSize<u32>) -> Rect {
     Rect { x: pos.x, y: pos.y, width: size.width, height: size.height }
 }
@@ -354,15 +370,23 @@ pub async fn window_open_panel(
         if let (Some(p), true) = (&placement, req.monitor.is_some()) {
             place(&existing, p, req.maximized)?;
         }
+        let previous = state.open.lock().map_err(|_| "window state poisoned".to_owned())?.get(&label).cloned();
+        if needs_rebind(previous.as_ref(), &meta) {
+            // The webview reads its project from the route once at load: point it
+            // at the new project and reload, so the window shows what the registry
+            // (and the saved layout) says it shows.
+            let route = serde_json::to_string(&format!("#{}", panel_route(&req.panel_id, req.project_id.as_deref())))
+                .map_err(|e| e.to_string())?;
+            existing
+                .eval(format!("window.location.replace({route});window.location.reload();"))
+                .map_err(|e| e.to_string())?;
+            tracing::info!(panel = %req.panel_id, project = ?req.project_id, "panel window rebound to another project");
+        }
         let _ = existing.show();
         let _ = existing.unminimize();
         let _ = existing.set_focus();
     } else {
-        let mut url = format!("index.html#/panel/{}", req.panel_id);
-        if let Some(p) = &req.project_id {
-            url.push_str("?projectId=");
-            url.push_str(p);
-        }
+        let url = format!("index.html#{}", panel_route(&req.panel_id, req.project_id.as_deref()));
         let title = req.title.clone().unwrap_or_else(|| "Orkestr".to_owned());
         let w = WebviewWindowBuilder::new(&app, &label, WebviewUrl::App(url.into()))
             .title(title.chars().take(120).collect::<String>())
@@ -611,5 +635,18 @@ mod tests {
         assert!(is_id("missionControl", 48, &['-', '_']));
         assert!(!is_id("../x", 48, &['-', '_']));
         assert!(!is_id("a?b=c", 64, &['-']));
+    }
+
+    #[test]
+    fn reopening_a_panel_for_another_project_rebinds_the_window() {
+        assert_eq!(panel_route("terminal", Some("p-a")), "/panel/terminal?projectId=p-a");
+        assert_eq!(panel_route("terminal", None), "/panel/terminal");
+        let meta = |p: Option<&str>| PanelMeta { panel_id: "terminal".into(), project_id: p.map(str::to_owned) };
+        assert!(needs_rebind(Some(&meta(Some("a"))), &meta(Some("b"))), "A → B must re-point the webview");
+        assert!(needs_rebind(Some(&meta(Some("a"))), &meta(None)), "A → active project");
+        assert!(needs_rebind(Some(&meta(None)), &meta(Some("b"))));
+        assert!(!needs_rebind(Some(&meta(Some("a"))), &meta(Some("a"))), "same project: just focus");
+        assert!(!needs_rebind(Some(&meta(None)), &meta(None)));
+        assert!(needs_rebind(None, &meta(Some("a"))), "unknown window content: re-point it");
     }
 }
