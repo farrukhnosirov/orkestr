@@ -760,7 +760,7 @@ impl TerminalService {
         let mut cmd = tokio::process::Command::new(&cmdline.program);
         cmd.args(&cmdline.args);
         if let Some(tail) = &cmdline.raw_tail {
-            push_raw_arg(&mut cmd, tail);
+            orkestr_platform::process::push_raw_arg(&mut cmd, tail);
         }
         cmd.current_dir(&cwd)
             .env_clear()
@@ -769,7 +769,7 @@ impl TerminalService {
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
             .kill_on_drop(true);
-        isolate_process(&mut cmd);
+        orkestr_platform::process::isolate_command(&mut cmd);
 
         let start = Instant::now();
         let mut child = cmd.spawn().map_err(|e| {
@@ -877,31 +877,6 @@ impl Drop for RunGuard {
         self.inner.runs.lock().remove(&self.run_id);
     }
 }
-
-#[cfg(windows)]
-fn push_raw_arg(cmd: &mut tokio::process::Command, tail: &str) {
-    cmd.raw_arg(tail);
-}
-
-#[cfg(not(windows))]
-fn push_raw_arg(cmd: &mut tokio::process::Command, tail: &str) {
-    cmd.arg(tail);
-}
-
-/// No console window on Windows; own process group on Unix (tree kill).
-#[cfg(windows)]
-fn isolate_process(cmd: &mut tokio::process::Command) {
-    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-    cmd.creation_flags(CREATE_NO_WINDOW);
-}
-
-#[cfg(unix)]
-fn isolate_process(cmd: &mut tokio::process::Command) {
-    cmd.process_group(0);
-}
-
-#[cfg(not(any(windows, unix)))]
-fn isolate_process(_cmd: &mut tokio::process::Command) {}
 
 /// Captured output of one stream (shared so a stuck reader can be abandoned
 /// without losing what it already read).

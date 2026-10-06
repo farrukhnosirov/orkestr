@@ -118,36 +118,10 @@ pub fn kill_process_tree(root: u32, platform: &dyn ProcessControl) -> usize {
     tree.len()
 }
 
-#[cfg(windows)]
+/// Kills one level of the tree (OS-specific code lives in `orkestr-platform`, contract §2).
 fn kill_level(_sys: &System, pids: &[Pid]) {
-    use std::os::windows::process::CommandExt;
-    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-    if pids.is_empty() {
-        return;
-    }
-    // One taskkill per level; without /T so the order stays top-down.
-    let mut cmd = std::process::Command::new("taskkill");
-    cmd.arg("/F");
-    for pid in pids {
-        cmd.arg("/PID").arg(pid.as_u32().to_string());
-    }
-    cmd.creation_flags(CREATE_NO_WINDOW)
-        .stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null());
-    if let Err(e) = cmd.status() {
-        tracing::warn!(error = %e, "taskkill failed to start");
-    }
-}
-
-#[cfg(not(windows))]
-fn kill_level(sys: &System, pids: &[Pid]) {
-    for pid in pids {
-        if let Some(p) = sys.process(*pid) {
-            // SIGKILL; a dead/zombie process simply reports failure.
-            let _ = p.kill();
-        }
-    }
+    let raw: Vec<u32> = pids.iter().map(|p| p.as_u32()).collect();
+    orkestr_platform::process::kill_pids(&raw);
 }
 
 #[cfg(test)]

@@ -160,6 +160,70 @@ pub fn background_command(program: impl AsRef<std::ffi::OsStr>) -> std::process:
     cmd
 }
 
+/// Force-kills exactly these processes (no tree walk, so a caller can kill a
+/// process tree level by level, top-down): one `taskkill /F` on Windows,
+/// `SIGKILL` elsewhere. Already-exited processes are ignored.
+pub fn kill_pids(pids: &[u32]) {
+    if pids.is_empty() {
+        return;
+    }
+    #[cfg(windows)]
+    {
+        let mut cmd = background_command("taskkill");
+        cmd.arg("/F");
+        for pid in pids {
+            cmd.arg("/PID").arg(pid.to_string());
+        }
+        cmd.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
+        if let Err(e) = cmd.status() {
+            tracing::warn!(error = %e, "taskkill failed to start");
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        let spids: Vec<sysinfo::Pid> = pids.iter().map(|p| sysinfo::Pid::from_u32(*p)).collect();
+        let mut s = sys().lock();
+        s.refresh_processes(sysinfo::ProcessesToUpdate::Some(&spids), true);
+        for pid in &spids {
+            if let Some(p) = s.process(*pid) {
+                // SIGKILL; a dead/zombie process simply reports failure.
+                let _ = p.kill();
+            }
+        }
+    }
+}
+
+/// Prepares a child command for supervised execution: no console window on
+/// Windows, its own process group on Unix (so the whole tree can be killed).
+pub fn isolate_command(cmd: &mut tokio::process::Command) {
+    #[cfg(windows)]
+    {
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        cmd.creation_flags(CREATE_NO_WINDOW);
+    }
+    #[cfg(unix)]
+    {
+        cmd.process_group(0);
+    }
+    #[cfg(not(any(windows, unix)))]
+    {
+        let _ = cmd;
+    }
+}
+
+/// Appends a pre-quoted argument tail verbatim on Windows (`cmd /s /c "…"`
+/// needs its own quoting); a normal argument elsewhere.
+pub fn push_raw_arg(cmd: &mut tokio::process::Command, tail: &str) {
+    #[cfg(windows)]
+    {
+        cmd.raw_arg(tail);
+    }
+    #[cfg(not(windows))]
+    {
+        cmd.arg(tail);
+    }
+}
+
 fn sys() -> &'static Mutex<sysinfo::System> {
     static SYS: std::sync::OnceLock<Mutex<sysinfo::System>> = std::sync::OnceLock::new();
     SYS.get_or_init(|| Mutex::new(sysinfo::System::new()))
