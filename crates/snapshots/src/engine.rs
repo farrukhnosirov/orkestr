@@ -326,9 +326,10 @@ impl SnapshotService {
                     self.options.max_total_bytes
                 )));
             }
-            let id = ObjectId::of(&bytes);
-            if !self.objects.exists(&id).await? {
-                self.objects.put(bytes).await?;
+            // `put_checked` verifies an existing object and rewrites it when
+            // corrupt, so a damaged object is never silently reused.
+            let (id, written) = self.objects.put_checked(bytes).await?;
+            if written {
                 new_bytes += size;
             }
             entries.push(ManifestEntry { path: f.rel, hash: id.as_str().to_owned(), mode: f.mode, size });
