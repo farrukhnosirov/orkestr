@@ -61,6 +61,15 @@ pub fn validate_base_url(url: &str) -> Result<String, ProviderError> {
     let rest = u.strip_prefix("https://").or_else(|| u.strip_prefix("http://"));
     match rest {
         Some(r) if !r.is_empty() && !r.starts_with('/') && !u.contains(char::is_whitespace) => {
+            let parsed = reqwest::Url::parse(u)
+                .map_err(|e| ProviderError::BadRequest(format!("invalid base URL `{u}`: {e}")))?;
+            // `user:pass@host` hides the real host (and would put a secret in
+            // plain settings); credentials belong in the API key field.
+            if !parsed.username().is_empty() || parsed.password().is_some() {
+                return Err(ProviderError::BadRequest(
+                    "base URL must not contain a user name or password (`user:pass@`) — put credentials in the API key field".into(),
+                ));
+            }
             Ok(u.trim_end_matches('/').to_owned())
         }
         _ => Err(ProviderError::BadRequest(format!("base URL must start with http:// or https://: `{u}`"))),
@@ -161,6 +170,9 @@ mod tests {
         assert!(validate_base_url("ftp://x").is_err());
         assert!(validate_base_url("http://").is_err());
         assert!(validate_base_url("https://a b").is_err());
+        assert!(validate_base_url("http://127.0.0.1:x@gpu.example.com:11434").is_err());
+        assert!(validate_base_url("http://localhost:x@llm.example.com/v1").is_err());
+        assert!(validate_base_url("http://user@localhost:11434").is_err());
     }
 
     #[test]

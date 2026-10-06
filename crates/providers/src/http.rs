@@ -24,6 +24,9 @@ pub const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 pub const DEFAULT_IDLE_TIMEOUT: Duration = Duration::from_secs(90);
 /// Timeout for health/model-list probes.
 pub const PROBE_TIMEOUT: Duration = Duration::from_secs(10);
+/// Longest wait for a local server's response headers (Ollama answers only
+/// after loading the model into memory, which can take minutes).
+pub const LOCAL_LOAD_TIMEOUT: Duration = Duration::from_secs(300);
 
 /// Builds the shared HTTP client (rustls, HTTP/2, no global request timeout —
 /// streams are governed by the idle timeout).
@@ -114,6 +117,17 @@ pub async fn send(rb: RequestBuilder) -> Result<Response, ProviderError> {
     let headers = resp.headers().clone();
     let body = resp.text().await.unwrap_or_default();
     Err(classify_http_error(status.as_u16(), &headers, &body))
+}
+
+/// [`send`] for streaming requests: the idle timeout only starts once the
+/// headers have arrived, so a server that accepts the connection but never
+/// answers would otherwise hang the attempt forever. Expiry is a `Network`
+/// error, which is fallback-eligible.
+pub async fn send_with_header_timeout(rb: RequestBuilder, wait: Duration) -> Result<Response, ProviderError> {
+    match tokio::time::timeout(wait, send(rb)).await {
+        Ok(r) => r,
+        Err(_) => Err(ProviderError::Network(format!("no response from the provider within {}s", wait.as_secs()))),
+    }
 }
 
 /// Maps transport errors.
@@ -473,6 +487,24 @@ where
 mod tests {
     use super::*;
     use reqwest::header::{HeaderName, HeaderValue};
+
+    #[tokio::test]
+    async fn hung_server_times_out_as_network_error() {
+        // Accepts the TCP connection but never sends response headers.
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let hold = tokio::spawn(async move {
+            let mut conns = Vec::new();
+            while let Ok((sock, _)) = listener.accept().await {
+                conns.push(sock);
+            }
+        });
+        let rb = build_client().post(format!("http://{addr}/v1/chat/completions")).body("{}");
+        let err = send_with_header_timeout(rb, Duration::from_millis(300)).await.unwrap_err();
+        assert!(matches!(err, ProviderError::Network(_)), "{err:?}");
+        assert!(err.is_fallback_eligible());
+        hold.abort();
+    }
 
     fn headers(pairs: &[(&str, &str)]) -> HeaderMap {
         let mut h = HeaderMap::new();

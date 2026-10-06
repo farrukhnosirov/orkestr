@@ -28,14 +28,38 @@ const TABLE: &[(&str, f64, f64, Option<f64>)] = &[
     ("o3", 2.00, 8.00, Some(0.50)),
     ("o1", 15.00, 60.00, Some(7.50)),
     // Anthropic
+    // Explicit rows per release: longest prefix wins, so every version that
+    // differs from its family's generic row must be listed (e.g. Opus 4.6+
+    // costs a third of Opus 4.0/4.1).
+    ("claude-fable-5-1", 10.00, 50.00, Some(0.25)),
+    ("claude-fable-5", 10.00, 50.00, Some(1.00)),
+    ("claude-mythos-5-1", 10.00, 50.00, Some(0.25)),
+    ("claude-opus-5-5", 4.00, 20.00, Some(0.20)),
+    ("claude-opus-5", 5.00, 25.00, Some(0.50)),
+    ("claude-opus-4-8", 5.00, 25.00, Some(0.50)),
+    ("claude-opus-4-7", 5.00, 25.00, Some(0.50)),
+    ("claude-opus-4-6", 5.00, 25.00, Some(0.50)),
     ("claude-opus-4-5", 5.00, 25.00, Some(0.50)),
+    ("claude-opus-4-1", 15.00, 75.00, Some(1.50)),
+    ("claude-opus-4-0", 15.00, 75.00, Some(1.50)),
+    // Opus 4.0 snapshot ids (`claude-opus-4-20250514`).
     ("claude-opus-4", 15.00, 75.00, Some(1.50)),
+    ("claude-sonnet-5-5", 2.00, 10.00, Some(0.20)),
+    ("claude-sonnet-5", 2.00, 10.00, Some(0.20)),
+    ("claude-sonnet-4-6", 3.00, 15.00, Some(0.30)),
     ("claude-sonnet-4", 3.00, 15.00, Some(0.30)),
     ("claude-haiku-4", 1.00, 5.00, Some(0.10)),
     ("claude-3-7-sonnet", 3.00, 15.00, Some(0.30)),
     ("claude-3-5-sonnet", 3.00, 15.00, Some(0.30)),
     ("claude-3-5-haiku", 0.80, 4.00, Some(0.08)),
     ("claude-3-haiku", 0.25, 1.25, Some(0.03)),
+    // Family fallbacks for Claude releases newer than this table, so a new
+    // model is estimated at its tier's price instead of silently costing $0.
+    ("claude-fable", 10.00, 50.00, Some(1.00)),
+    ("claude-mythos", 10.00, 50.00, Some(1.00)),
+    ("claude-opus", 5.00, 25.00, Some(0.50)),
+    ("claude-sonnet", 3.00, 15.00, Some(0.30)),
+    ("claude-haiku", 1.00, 5.00, Some(0.10)),
     // Google
     ("gemini-2.5-pro", 1.25, 10.00, Some(0.31)),
     ("gemini-2.5-flash-lite", 0.10, 0.40, Some(0.025)),
@@ -116,6 +140,32 @@ mod tests {
         let reported = Usage { reported_cost_usd: Some(0.42), ..usage };
         assert_eq!(estimate_cost("unknown-model", &reported), Some(0.42));
         assert_eq!(estimate_cost("unknown-model", &usage), None);
+    }
+
+    #[test]
+    fn current_claude_models_are_priced_per_release() {
+        let p = |m: &str| {
+            let p = pricing_for(m).unwrap_or_else(|| panic!("{m} must be priced"));
+            (p.input_per_mtok_usd, p.output_per_mtok_usd, p.cached_input_per_mtok_usd)
+        };
+        // Opus 4.6-4.8 must not fall back to the Opus 4.0 row (3x overbilling).
+        for m in ["claude-opus-4-6", "claude-opus-4-7", "claude-opus-4-8", "claude-opus-5"] {
+            assert_eq!(p(m), (5.00, 25.00, Some(0.50)), "{m}");
+        }
+        assert_eq!(p("claude-opus-5-5"), (4.00, 20.00, Some(0.20)));
+        assert_eq!(p("claude-sonnet-5"), (2.00, 10.00, Some(0.20)));
+        assert_eq!(p("claude-sonnet-5-5"), (2.00, 10.00, Some(0.20)));
+        assert_eq!(p("claude-sonnet-4-6"), (3.00, 15.00, Some(0.30)));
+        assert_eq!(p("claude-fable-5").0, 10.00);
+        assert_eq!(p("claude-fable-5-1"), (10.00, 50.00, Some(0.25)));
+        assert_eq!(p("claude-haiku-4-5"), (1.00, 5.00, Some(0.10)));
+        // Opus 4.0/4.1 keep their old price.
+        assert_eq!(p("claude-opus-4-1").0, 15.00);
+        assert_eq!(p("claude-opus-4-0").0, 15.00);
+        assert_eq!(p("claude-opus-4-20250514").0, 15.00);
+        // A future release of a known family is estimated, never $0.
+        assert_eq!(p("claude-opus-6").0, 5.00);
+        assert_eq!(p("claude-sonnet-6-1").0, 3.00);
     }
 
     #[test]

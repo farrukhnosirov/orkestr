@@ -889,6 +889,9 @@ impl ProviderRegistry {
                     })
                 }
                 AttemptOutcome::Failure(err) => {
+                    if !err.trips_circuit() {
+                        r.circuit.release_probe();
+                    }
                     let opened = err.trips_circuit() && r.circuit.record_failure(now);
                     let circuit_open = r.circuit.is_open(now);
                     let msg = err.to_string();
@@ -1139,6 +1142,10 @@ impl PastExt for Option<Instant> {
 impl AdapterSource for ProviderRegistry {
     fn adapter(&self, provider: &ProviderId) -> Option<Arc<dyn ProviderAdapter>> {
         self.entries.read().get(provider).filter(|e| e.config.enabled).map(|e| Arc::clone(&e.adapter))
+    }
+
+    fn admit(&self, model: &ModelRef) -> bool {
+        self.runtime.lock().entry(model.provider_id).or_default().circuit.admit(Instant::now())
     }
 
     fn observe(&self, model: &ModelRef, outcome: &AttemptOutcome) {
