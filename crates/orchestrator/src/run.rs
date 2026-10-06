@@ -307,7 +307,7 @@ impl Inner {
                 "Запуск начат: {n} {}, параллельно — до {p} {}{}{}.",
                 crate::util::ru_plural(n, "задача", "задачи", "задач"),
                 crate::util::ru_plural(p, "агента", "агентов", "агентов"),
-                run.limits.max_cost_usd.map(|c| format!(", бюджет {c:.2} $")).unwrap_or_default(),
+                run.limits.max_cost_usd.map(|c| format!(", бюджет {}", crate::util::ru_money(c, 2))).unwrap_or_default(),
                 run.limits.time_limit_mins.map(|m| format!(", ограничение по времени {m} мин")).unwrap_or_default()
             )
         } else {
@@ -393,7 +393,10 @@ impl Inner {
         self.system_event(
             project.id,
             &if crate::util::is_ru(&self.deps.config.ui_language.get()) {
-                format!("Запуск возобновлён (был {previous:?}) — продолжаю с текущих состояний задач.")
+                format!(
+                    "Запуск возобновлён (прежний статус — «{}») — продолжаю с текущих состояний задач.",
+                    crate::util::ru_run_status(previous)
+                )
             } else {
                 format!("Run resumed (was {previous:?}) — continuing from the current task states.")
             },

@@ -625,6 +625,20 @@ fn manager_prompt_states_the_reply_language_and_russian_plurals_agree() {
     );
 }
 
+#[test]
+fn russian_notices_use_a_decimal_comma_and_localized_statuses() {
+    use crate::util::{ru_decimal, ru_money, ru_run_status};
+    assert_eq!(ru_money(5.0, 2), "5,00\u{a0}$");
+    assert_eq!(ru_money(0.1234, 4), "0,1234\u{a0}$");
+    assert_eq!(ru_decimal(7.5, 1), "7,5");
+    assert_eq!(ru_run_status(ManagerRunStatus::Paused), "Приостановлен");
+    assert_eq!(ru_run_status(ManagerRunStatus::Interrupted), "Прерван");
+    let e = crate::healing::Escalation::Budget { spent: 0.1234, limit: 1.0 };
+    let text = crate::pipeline::escalation_ru_text(&e);
+    assert!(text.contains("0,1234\u{a0}$ из 1,00\u{a0}$"), "{text}");
+    assert!(!text.contains('.'), "{text}");
+}
+
 #[tokio::test]
 async fn state_tools_are_permission_checked() {
     let h = harness(false, ApprovalMode::SemiAuto).await;

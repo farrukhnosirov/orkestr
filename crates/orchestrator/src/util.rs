@@ -38,6 +38,34 @@ pub fn ru_plural<'a>(n: usize, one: &'a str, few: &'a str, many: &'a str) -> &'a
     }
 }
 
+/// Russian decimal number: decimal comma (glossary §3), `ru_decimal(7.5, 1)`
+/// → «7,5».
+#[must_use]
+pub fn ru_decimal(v: f64, digits: usize) -> String {
+    format!("{v:.digits$}").replace('.', ",")
+}
+
+/// Russian money: amount with a decimal comma, a no-break space and the
+/// currency sign after it (glossary §3), `ru_money(5.0, 2)` → «5,00 $».
+#[must_use]
+pub fn ru_money(v: f64, digits: usize) -> String {
+    format!("{}\u{a0}$", ru_decimal(v, digits))
+}
+
+/// Russian label of a Manager run status (as the run card shows it).
+#[must_use]
+pub fn ru_run_status(s: orkestr_protocol::methods::manager::ManagerRunStatus) -> &'static str {
+    use orkestr_protocol::methods::manager::ManagerRunStatus as S;
+    match s {
+        S::Running => "Выполняется",
+        S::Paused => "Приостановлен",
+        S::Completed => "Завершён",
+        S::Failed => "Сбой",
+        S::Cancelled => "Отменён",
+        S::Interrupted => "Прерван",
+    }
+}
+
 /// Collapses whitespace and caps to `n` characters.
 #[must_use]
 pub fn one_line(s: &str, n: usize) -> String {
