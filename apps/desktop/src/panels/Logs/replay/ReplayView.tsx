@@ -26,7 +26,8 @@ import { useFormat, useT } from "../../../i18n";
 import { maybeClient } from "../../../core/client";
 import { errorMessage, useRpcQuery } from "../../../lib/rpcQuery";
 import { useAppStore } from "../../../store/app";
-import { clock, moveCursor, offsetMs, PHASES, SPEEDS, segments, statusTone, stepDelay } from "./model";
+import { agentName as displayAgentName } from "../../../lib/coreText";
+import { clock, coreStepDetail, moveCursor, offsetMs, PHASES, SPEEDS, segments, statusTone, stepDelay, stepTitle } from "./model";
 import "./replay.css";
 
 const STATE_DEBOUNCE_MS = 120;
@@ -140,7 +141,7 @@ export function ReplayView({ projectId }: ReplayViewProps) {
   }, [cursor]);
 
   const agentName = useMemo(() => {
-    const m = new Map((timeline?.agents ?? []).map((a) => [a.agentId, a.name] as const));
+    const m = new Map((timeline?.agents ?? []).map((a) => [a.agentId, a.name ? displayAgentName(a.name) : ""] as const));
     return (id: string | null) => (id ? m.get(id) || `…${id.slice(-6)}` : null);
   }, [timeline]);
   const taskTitle = useMemo(() => {
@@ -240,7 +241,7 @@ export function ReplayView({ projectId }: ReplayViewProps) {
             <option value="">{t("picker.allAgents")}</option>
             {(timeline?.agents ?? []).map((a) => (
               <option key={a.agentId} value={a.agentId}>
-                {a.name || `…${a.agentId.slice(-6)}`}
+                {a.name ? displayAgentName(a.name) : `…${a.agentId.slice(-6)}`}
               </option>
             ))}
           </select>
@@ -396,7 +397,7 @@ function StepRow({
       </span>
       <span className="replay-step__dot" />
       <span className="replay-step__kind">{t(`kind.${step.kind}` as "kind.ToolCall", { defaultValue: step.kind })}</span>
-      <span className="replay-step__title">{step.title}</span>
+      <span className="replay-step__title">{stepTitle(step)}</span>
       {agent && <span className="replay-step__agent">{agent}</span>}
     </button>
   );
@@ -425,7 +426,7 @@ function StepDetail({ step, agent, task }: { step: ReplayStep | null; agent: str
     if (step.kind === "TeamLeadRunUpdated") {
       return t(`teams:leadStatus.${step.detail}` as "teams:leadStatus.Planning", { defaultValue: step.detail });
     }
-    return step.detail;
+    return coreStepDetail(step) ?? step.detail;
   })();
   const rows: Array<[string, string]> = [];
   rows.push([t("detail.time"), fmt.date(step.ts, "timeSeconds")]);
@@ -449,7 +450,7 @@ function StepDetail({ step, agent, task }: { step: ReplayStep | null; agent: str
         <Badge tone={statusTone(step.status)}>{t(`kind.${step.kind}` as "kind.ToolCall", { defaultValue: step.kind })}</Badge>
         <span className="replay-muted">{t(`phase.${step.phase}`)}</span>
       </header>
-      {step.title && <p className="replay-card__title">{step.title}</p>}
+      {step.title && <p className="replay-card__title">{stepTitle(step)}</p>}
       {detail && <p className="replay-card__detail">{detail}</p>}
       <dl className="replay-props">
         {rows.map(([k, v]) => (
@@ -512,7 +513,7 @@ function StateCard({ result, agentName }: { result: ReplayStepResult; agentName:
           <ul className="replay-state-list">
             {s.agents.map((a) => (
               <li key={a.agentId}>
-                <span className="replay-state-list__name">{a.name || agentName(a.agentId)}</span>
+                <span className="replay-state-list__name">{a.name ? displayAgentName(a.name) : agentName(a.agentId)}</span>
                 <span className="replay-muted">
                   {a.state ? t(`common:status.agent.${a.state}`) : null} · {a.active ? t("state.active") : t("state.stopped")}
                 </span>
