@@ -54,7 +54,19 @@ const ACTIVITY = {
   Finished: "finished",
   "Waiting for the user's answer": "waitingUser",
   "Waiting for approval to start Codex": "waitingCodex",
+  // crates/agent-runtime/src/runtime.rs
+  Spawned: "spawned",
+  Stopped: "stopped",
+  "Interrupted: Orkestr stopped while the agent was running": "interrupted",
+  // Stop details that become the activity (crates/agent-runtime/src/run.rs)
+  "stopped by the user": "stoppedByUser",
+  "stopped by the user (task cancelled)": "stoppedTaskCancelled",
+  "emergency stop": "emergencyStop",
+  "the core is shutting down": "coreShutdown",
 } as const;
+
+/** Display names of the CLI provider kinds in "Running {kind:?} CLI" (crates/agent-runtime/src/cli.rs). */
+const CLI_NAME: Record<string, string> = { ClaudeCode: "Claude Code", Codex: "Codex" };
 
 /** The core's text for a paused agent (compare against the raw value, not the display text). */
 export const PAUSED_ACTIVITY = "Paused by the user";
@@ -65,6 +77,8 @@ export function agentActivity(activity: string): string {
   if (key) return t(`coreText:activity.${key}`);
   const m = activity.match(/^Waiting for approval: ([\s\S]+)$/);
   if (m) return t("coreText:activity.waitingApproval", { action: m[1] });
+  const cli = activity.match(/^Running (\w+) CLI$/);
+  if (cli) return t("coreText:activity.runningCli", { cli: CLI_NAME[cli[1] ?? ""] ?? cli[1] });
   return activity;
 }
 

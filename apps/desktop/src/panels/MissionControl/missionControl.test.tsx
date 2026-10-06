@@ -27,6 +27,7 @@ import { visualBudget } from "./visual";
 import { statusGroup } from "./widgets/graph";
 import { secondsUntil } from "./widgets/infra";
 import { topBudgets } from "./widgets/money";
+import { AgentCard } from "./widgets/agents";
 import { getWidget, registerWidget, widgets } from "./widgets/registry";
 
 const DEFAULTS: PlacementDefaults[] = [
@@ -306,5 +307,34 @@ describe("full-screen command", () => {
       fireEvent.keyDown(window, { key: "Escape" });
     });
     expect(useMissionControlStore.getState().fullscreen).toBe(false);
+  });
+});
+
+describe("agents widget in Russian", () => {
+  afterEach(async () => {
+    cleanup();
+    await applyLanguagePreference("en");
+  });
+
+  it("shows built-in agent names and core activity lines localized", async () => {
+    await applyLanguagePreference("ru");
+    const agent = {
+      id: "ag-1",
+      projectId: "p-1",
+      name: "QA Engineer #1",
+      role: "Qa",
+      state: "Thinking",
+      activity: "Waiting for the model",
+      model: null,
+      usage: { costUsd: 0 },
+      createdAt: "2026-10-05T10:00:00Z",
+      startedAt: "2026-10-05T10:00:00Z",
+      stoppedAt: null,
+    } as unknown as AgentInstance;
+    render(<AgentCard agent={agent} now={Date.parse("2026-10-05T10:01:00Z")} projectName={null} />);
+    expect(screen.getByText("Тестировщик #1")).toBeTruthy();
+    expect(screen.getByText("Ждёт ответа модели")).toBeTruthy();
+    expect(screen.queryByText("QA Engineer #1")).toBeNull();
+    expect(screen.getByRole("button").getAttribute("title")).toContain("Тестировщик #1");
   });
 });

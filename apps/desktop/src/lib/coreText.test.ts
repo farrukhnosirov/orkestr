@@ -3,6 +3,8 @@
 import type { SystemCheck } from "@orkestr/protocol";
 import { afterEach, describe, expect, it } from "vitest";
 
+import type { BubbleSpec } from "../features/robots/model/bubble";
+import { bubbleText } from "../features/robots/model/bubbleText";
 import { checkTexts } from "../features/settings/sections/checkText";
 import { resumeHeadline, resumeIssue, resumeLines } from "../panels/Manager/parts";
 import { applyLanguagePreference, t } from "../i18n";
@@ -41,6 +43,21 @@ describe("core text in Russian", () => {
     expect(agentActivity("Finished")).toBe("Работа завершена");
     expect(agentActivity("Waiting for approval: git push")).toBe("Ждёт подтверждения: git push");
     expect(agentActivity("write_file src/a.ts")).toBe("write_file src/a.ts");
+    // Fixed activity strings of the agent runtime (runtime.rs, run.rs, cli.rs).
+    expect(agentActivity("Spawned")).toBe("Запущен");
+    expect(agentActivity("Stopped")).toBe("Остановлен");
+    expect(agentActivity("Interrupted: Orkestr stopped while the agent was running")).toBe("Прерван: Orkestr остановился во время работы агента");
+    expect(agentActivity("stopped by the user")).toBe("Остановлен пользователем");
+    expect(agentActivity("stopped by the user (task cancelled)")).toBe("Остановлен пользователем (задача отменена)");
+    expect(agentActivity("emergency stop")).toBe("Экстренная остановка");
+    expect(agentActivity("the core is shutting down")).toBe("Ядро завершает работу");
+    expect(agentActivity("Running ClaudeCode CLI")).toBe("Работает через CLI Claude Code");
+    expect(agentActivity("Running Codex CLI")).toBe("Работает через CLI Codex");
+    // Robot speech bubbles localize the core's activity lines they carry.
+    const bubble = (key: BubbleSpec["key"], values: BubbleSpec["values"]): BubbleSpec => ({ key, values, tone: "info", ttlMs: 0, important: false, chatty: false });
+    expect(bubbleText(bubble("activity", { activity: "Reading the task" }))).toBe("Читает задачу");
+    expect(bubbleText(bubble("errorDetail", { detail: "emergency stop" }))).toBe("Ошибка: Экстренная остановка");
+    expect(bubbleText(bubble("activity", { activity: "write_file src/a.ts" }))).toBe("write_file src/a.ts");
     expect(agentNote("Started on “Test it” with mock-smart — C:\\w (agent/qa-1).")).toBe(
       "Начата работа над задачей «Test it», модель mock-smart — C:\\w (agent/qa-1).",
     );
