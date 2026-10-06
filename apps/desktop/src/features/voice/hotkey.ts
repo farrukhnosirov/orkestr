@@ -46,6 +46,21 @@ export function isHoldStart(e: KeyLike, h: HoldHotkey): boolean {
   return e.code === h.code && h.ctrl === (e.ctrlKey || e.metaKey) && h.shift === e.shiftKey && h.alt === e.altKey;
 }
 
+/** Code editor (Monaco) and terminal (xterm) surfaces that own their Ctrl chords. */
+const EDITOR_SURFACES = ".monaco-editor, .xterm";
+
+/**
+ * Whether the hotkey must be left to the focused editor or terminal: a
+ * Ctrl chord without Alt (the default `Ctrl+Space` is Monaco's "Trigger
+ * Suggest" and a common shell binding) is not taken from Monaco / xterm.
+ * F-keys and Alt chords still start push-to-talk everywhere.
+ */
+export function yieldsToEditor(target: EventTarget | null, h: HoldHotkey): boolean {
+  if (!h.ctrl || h.alt) return false;
+  const el = target as { closest?: (sel: string) => unknown } | null;
+  return typeof el?.closest === "function" && el.closest(EDITOR_SURFACES) != null;
+}
+
 /** Whether a keyup ends the hold. */
 export function isHoldEnd(e: Pick<KeyboardEvent, "code" | "key">, h: HoldHotkey): boolean {
   if (e.code === h.code) return true;

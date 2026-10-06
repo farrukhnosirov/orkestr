@@ -6,7 +6,7 @@
  * for monitor changes (fallback to the primary monitor).
  */
 import type { LayoutDocument, LayoutsState } from "@orkestr/protocol";
-import type { DockviewApi, IDockviewPanel } from "dockview-react";
+import type { DockviewApi, DockviewGroupPanel, IDockviewPanel } from "dockview-react";
 
 import { maybeClient } from "../../core/client";
 import { t } from "../../i18n";
@@ -14,7 +14,7 @@ import { describeError } from "../../i18n/errors";
 import { getPanel } from "../../panels/registry";
 import { useAppStore } from "../../store/app";
 import { useNotificationsStore } from "../notifications/notificationsStore";
-import { applicableSpread, type BuiltinPreset, getBuiltinPreset, resolveSlots } from "./presets";
+import { applicableSpread, type BuiltinPreset, getBuiltinPreset, GROUP_MIN_WIDTH, presetArrangement, resolveSlots } from "./presets";
 import {
   asJson,
   exportLayout as exportLayoutText,
@@ -50,6 +50,8 @@ let started = false;
 let dirty = false;
 /** Signature of the active layout as applied / last saved. */
 let baseline: string | null = null;
+/** Resolves once the last `applyPlan` has settled (its change events ignored, baseline recorded). */
+let settled: Promise<void> = Promise.resolve();
 
 /**
  * Grid group sizes from just before a group was maximized. dockview's
@@ -102,13 +104,26 @@ function syncDockSummary(): void {
   store().patch({ dockPanels, floatingPanels });
 }
 
+/** Docked groups never shrink below `GROUP_MIN_WIDTH` (header actions + one tab title). */
+function constrainGroup(group: DockviewGroupPanel): void {
+  if (group.api.location.type !== "grid") return;
+  group.api.setConstraints({ minimumWidth: GROUP_MIN_WIDTH });
+}
+
+function constrainGroups(dock: DockviewApi): void {
+  for (const g of dock.groups) constrainGroup(g);
+}
+
 function buildPreset(dock: DockviewApi, preset: BuiltinPreset): void {
   dock.clear();
-  for (const slot of resolveSlots(preset.slots, isKnownPanel)) {
+  // A narrow dock (small window) gets the preset's compact arrangement.
+  const arrangement = presetArrangement(preset, dock.width);
+  for (const slot of resolveSlots(arrangement.slots, isKnownPanel)) {
     addRegistryPanel(dock, slot.panel, slot.position ? { referencePanel: slot.position.referencePanel, direction: slot.position.direction } : undefined);
   }
+  constrainGroups(dock);
   if (dock.width > 0 && dock.height > 0) {
-    for (const s of preset.sizes) {
+    for (const s of arrangement.sizes) {
       const group = dock.getPanel(s.panel)?.group;
       if (!group) continue;
       if (s.width) group.api.setSize({ width: Math.round(dock.width * s.width) });
@@ -267,6 +282,7 @@ async function applyPlan(plan: LayoutPlan, opts: { restoreWindows: boolean }): P
     if (plan.kind === "stored" || plan.kind === "legacy") {
       try {
         dock.fromJSON(plan.doc.dock as unknown as Parameters<DockviewApi["fromJSON"]>[0]);
+        constrainGroups(dock);
         doc = plan.doc;
       } catch (e) {
         console.warn("stored layout could not be applied; using the built-in preset", e);
@@ -286,14 +302,28 @@ async function applyPlan(plan: LayoutPlan, opts: { restoreWindows: boolean }): P
     syncDockSummary();
   } finally {
     // dockview emits layout changes synchronously and on the next frame: ignore both.
-    setTimeout(() => {
-      applying = Math.max(0, applying - 1);
-      // What was just applied is the baseline: only real edits are stored.
-      void captureCurrent().then((d) => {
-        baseline = d ? layoutSignature(d) : null;
-      });
-    }, 50);
+    settled = new Promise<void>((resolve) => {
+      setTimeout(() => {
+        applying = Math.max(0, applying - 1);
+        // What was just applied is the baseline: only real edits are stored.
+        void captureCurrent()
+          .then((d) => {
+            baseline = d ? layoutSignature(d) : null;
+          })
+          .finally(resolve);
+      }, 50);
+    });
   }
+}
+
+/** Stores the current arrangement of the active layout now (no debounce, no "unchanged" skip). */
+async function persistNow(): Promise<void> {
+  if (!store().loaded) return;
+  const doc = await captureCurrent();
+  if (!doc) return;
+  dirty = false;
+  baseline = layoutSignature(doc);
+  adopt(await rpc((c) => c.call("ui.layoutsSave", { layout: doc, activate: false })));
 }
 
 // ── lifecycle ────────────────────────────────────────────────────────────────
@@ -325,6 +355,9 @@ export async function attachDock(dock: DockviewApi): Promise<void> {
   disposers.push(() => sub.dispose());
   const maxSub = dock.onDidMaximizedGroupChange(() => onMaximizedChange(dock));
   disposers.push(() => maxSub.dispose());
+  // Groups the user creates (split, drop, re-dock) get the same minimum width.
+  const groupSub = dock.onDidAddGroup((g) => constrainGroup(g));
+  disposers.push(() => groupSub.dispose());
   // Something to show immediately while the core answers.
   applying++;
   buildPreset(dock, getBuiltinPreset(store().activeId) ?? getBuiltinPreset("coding")!);
@@ -603,7 +636,11 @@ export async function resetActive(): Promise<void> {
   await applyPlan({ kind: "builtin", id: isBuiltinLayoutId(id) ? id : base }, { restoreWindows: true });
   if (!isBuiltinLayoutId(id)) {
     store().patch({ activeId: id });
-    scheduleSave();
+    // A user layout keeps its id: store the reset arrangement explicitly. A
+    // debounced save would be skipped (still applying) and then look unchanged
+    // against the baseline the settled apply records.
+    await settled;
+    await persistNow();
   }
 }
 

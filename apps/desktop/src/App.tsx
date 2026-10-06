@@ -39,7 +39,7 @@ function useGlobalShortcuts() {
   const setPaletteOpen = useAppStore((s) => s.setPaletteOpen);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "k") {
+      if (matchesShortcut(e, "Ctrl+K")) {
         e.preventDefault();
         // Keep Ctrl+K away from Monaco: there it starts a chord (Ctrl+K Ctrl+C …)
         // and the editor would swallow the next key — the palette's Enter.

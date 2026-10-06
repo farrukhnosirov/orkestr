@@ -2,6 +2,8 @@ import type { Event, EventKindName } from "@orkestr/protocol";
 
 import { formatCurrency, formatDuration, t } from "../../i18n";
 import { agentActivity, agentName, snapshotLabel } from "../../lib/coreText";
+import { useAppStore } from "../../store/app";
+import { budgetScopeText } from "../Costs/format";
 
 export type EventCategory = "project" | "task" | "agent" | "tool" | "build" | "approval" | "provider" | "system" | "log";
 export type EventSeverity = "info" | "success" | "warning" | "error";
@@ -108,7 +110,8 @@ function agentState(state: string): string {
 
 /** Localized label of a budget scope string sent by the core ("project", "task", …; falls back to the raw value). */
 function budgetScope(scope: string): string {
-  return t(`logs:enums.budgetScope.${scope.toLowerCase()}` as "logs:enums.budgetScope.project", { defaultValue: scope });
+  // The core sends `<kind>[:<id>]/<Period>` ("project:<uuid>/Monthly"): kind, project name and period, localized.
+  return budgetScopeText(scope, useAppStore.getState().projects);
 }
 
 const FILE_CHANGE_KEY = {

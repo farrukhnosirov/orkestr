@@ -188,6 +188,21 @@
 .agents-state {
   gap: var(--ok-space-1);
   flex-shrink: 0;
+  /* In a narrow column the pill wraps under the name and never spills past the card. */
+  max-width: 100%;
+  min-width: 0;
+}
+
+.agents-state__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agents-row__name {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .agents-state__dot {

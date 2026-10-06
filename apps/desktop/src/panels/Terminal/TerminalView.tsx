@@ -18,6 +18,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { t as i18nT, useT } from "../../i18n";
 import { terminalTitle } from "../../lib/coreText";
+import { shortcutKey } from "../../features/commands/keys";
 import { useThemeRevision } from "../../features/theme/useThemeRevision";
 import { dedupeChunk, errorMessage, isReadOnly, terminalFontFamily, themeFromTokens } from "./logic";
 
@@ -84,7 +85,7 @@ export function TerminalView({ client, session, active, onExited }: TerminalView
       term.attachCustomKeyEventHandler((e) => {
         if (e.type !== "keydown") return true;
         const ctrl = e.ctrlKey || e.metaKey;
-        const key = e.key.toLowerCase();
+        const key = shortcutKey(e); // physical key on non-Latin layouts (Ctrl+C is "с" on ЙЦУКЕН)
         if (ctrl && key === "`") return false; // let the global "Open Terminal" shortcut through
         if (ctrl && (key === "c" || key === "insert") && (e.shiftKey || term.hasSelection())) {
           const sel = term.getSelection();

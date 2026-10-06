@@ -47,8 +47,12 @@ export type Intent =
   | { kind: "showBuildErrors"; project: ProjectRef | null }
   | { kind: "openPanel"; panel: PanelTarget }
   | { kind: "switchProject"; project: ProjectRef | null; query: string }
-  | { kind: "approve" }
-  | { kind: "reject" }
+  /**
+   * `approvalId` is bound when the confirmation is asked (`bindApproval`):
+   * the "yes" resolves exactly the approval that was read out, never a newer one.
+   */
+  | { kind: "approve"; approvalId?: string }
+  | { kind: "reject"; approvalId?: string }
   | { kind: "dnd"; on: boolean }
   | { kind: "askManager"; text: string };
 

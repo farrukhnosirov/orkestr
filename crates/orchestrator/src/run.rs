@@ -945,7 +945,7 @@ impl Supervisor {
             let Ok(task) = self.inner.deps.tasks.get(rt.task_id).await else { continue };
             let success = task.result.as_ref().is_some_and(|r| r.success);
             if success && self.run.approval_policy != orkestr_domain::ApprovalMode::Ask {
-                let reason = "accepted by the AI Manager: the agent reported done (automated review/test loops arrive in Phase 2)";
+                let reason = "accepted by the AI Manager: the agent reported done";
                 match self
                     .inner
                     .deps

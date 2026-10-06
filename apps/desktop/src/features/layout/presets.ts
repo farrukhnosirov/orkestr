@@ -47,6 +47,23 @@ export interface BuiltinPreset {
   focus: readonly string[];
   /** Spread across monitors (only hints whose monitor exists are applied). */
   spread: readonly MonitorHint[];
+  /**
+   * Arrangement for a narrow dock (below `maxWidth` px, e.g. the 960 px
+   * minimum window): fewer columns, so no group gets too narrow for its tabs.
+   */
+  compact?: { maxWidth: number; slots: readonly PresetSlot[]; sizes: readonly PresetSize[] };
+}
+
+/**
+ * Minimum width of a docked group (px): its header must fit the group
+ * actions (~124 px) and at least one readable tab title.
+ */
+export const GROUP_MIN_WIDTH = 220;
+
+/** The slots and sizes of a preset for a dock of `width` px (0 = not measured yet: the full recipe). */
+export function presetArrangement(preset: BuiltinPreset, width: number): { slots: readonly PresetSlot[]; sizes: readonly PresetSize[] } {
+  if (preset.compact && width > 0 && width < preset.compact.maxWidth) return preset.compact;
+  return preset;
 }
 
 /** The Mission Control panel id (slots with an unregistered panel are skipped). */
@@ -85,6 +102,27 @@ const CODING: BuiltinPreset = {
     { panel: MISSION_CONTROL_PANEL, monitor: 2 },
     { panel: "browser", monitor: 3 },
   ],
+  // Three columns on a small window: the file tree shares the right column
+  // with agents / tasks (below them) instead of a fourth, 150 px column.
+  compact: {
+    maxWidth: 1200,
+    slots: [
+      { panel: "code" },
+      { panel: "manager", position: { referencePanel: "code", direction: "right" } },
+      { panel: "agents", position: { referencePanel: "manager", direction: "right" } },
+      { panel: "tasks", position: { referencePanel: "agents", direction: "within" } },
+      { panel: "files", position: { referencePanel: "agents", direction: "below" } },
+      { panel: "logs", position: { referencePanel: "code", direction: "below" } },
+      { panel: "terminal", position: { referencePanel: "logs", direction: "within" } },
+      { panel: "git", position: { referencePanel: "logs", direction: "within" } },
+    ],
+    sizes: [
+      { panel: "manager", width: 0.3 },
+      { panel: "agents", width: 0.26 },
+      { panel: "files", height: 0.45 },
+      { panel: "logs", height: 0.3 },
+    ],
+  },
 };
 
 const MISSION_CONTROL: BuiltinPreset = {

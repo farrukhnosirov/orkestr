@@ -3,7 +3,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { i18n } from "../../../i18n";
 import { type IntentContext, needsConfirmation, parseIntent } from "../intent/parser";
-import { confirmationPrompt, executeIntent, precheck, targetApproval, type VoiceDeps } from "./executor";
+import { bindApproval, confirmationPrompt, executeIntent, precheck, targetApproval, type VoiceDeps } from "./executor";
 import { isBusy, nextPhase } from "./machine";
 import { projectFacts, speakable, summaryParts } from "./summary";
 
@@ -178,6 +178,41 @@ describe("executor", () => {
     await executeIntent(parseIntent("approve", CTX), deps);
     expect(deps.calls).toEqual(["resolve:x2:Approve"]);
     expect(precheck(parseIntent("reject", CTX), fakeDeps())?.outcome).toBe("failed");
+  });
+
+  it("approvals: a confirmed 'yes' resolves exactly the approval that was read out", async () => {
+    let pending = [approval("x1", "p2", "2026-10-05T10:00:00Z")];
+    const deps = fakeDeps({ pendingApprovals: () => pending });
+    const bound = bindApproval(parseIntent("approve", CTX), deps);
+    expect(bound).toEqual({ kind: "approve", approvalId: "x1" });
+    expect(confirmationPrompt(bound, deps)).toContain("action x1");
+    // A newer approval (e.g. a force push) arrives while the prompt is spoken.
+    pending = [...pending, approval("x9", "p2", "2026-10-05T10:00:05Z")];
+    expect(confirmationPrompt(bound, deps)).toContain("action x1");
+    const r = await executeIntent(bound, deps);
+    expect(deps.calls).toEqual(["resolve:x1:Approve"]);
+    expect(r.reply).toContain("action x1");
+  });
+
+  it("approvals: a bound approval resolved elsewhere is not replaced by another one", async () => {
+    let pending = [approval("x1", "p2", "2026-10-05T10:00:00Z"), approval("x0", "p2", "2026-10-05T09:00:00Z")];
+    const deps = fakeDeps({ pendingApprovals: () => pending });
+    const bound = bindApproval(parseIntent("reject", CTX), deps);
+    pending = [approval("x1", "p2", "2026-10-05T10:00:00Z", "Approved"), approval("x0", "p2", "2026-10-05T09:00:00Z")];
+    const r = await executeIntent(bound, deps);
+    expect(r.outcome).toBe("failed");
+    expect(deps.calls).toEqual([]);
+  });
+
+  it("approvals: dangerous actions are never approved by voice (reject still works)", async () => {
+    const danger = { ...approval("d1", "p2", "2026-10-05T10:00:00Z"), danger: "GitDestructive" } as unknown as Approval;
+    const deps = fakeDeps({ pendingApprovals: () => [danger] });
+    const approve = bindApproval(parseIntent("approve", CTX), deps);
+    expect(precheck(approve, deps)?.outcome).toBe("failed");
+    expect((await executeIntent(approve, deps)).outcome).toBe("failed");
+    expect(deps.calls).toEqual([]);
+    await executeIntent(bindApproval(parseIntent("reject", CTX), deps), deps);
+    expect(deps.calls).toEqual(["resolve:d1:Reject"]);
   });
 
   it("open panel, switch project, DND, ask manager", async () => {

@@ -7,7 +7,12 @@ import { useT } from "../../i18n";
 import { activeFlags } from "./logic";
 import { errorMessage, resetEmergency, stopAllAi, useSecurityStore } from "./store";
 
-const STOP_SHORTCUT = "Ctrl+Shift+Esc";
+/**
+ * Shortcut of the registered `ai.stopAll` command (coreCommands). Not
+ * Ctrl+Shift+Esc: Windows takes that chord for Task Manager before the
+ * webview sees it.
+ */
+export const STOP_SHORTCUT = "Ctrl+Shift+Backspace";
 
 /** Always-visible red Emergency Stop button (title bar). */
 export function EmergencyStopButton() {

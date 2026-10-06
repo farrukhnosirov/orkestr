@@ -74,6 +74,37 @@ describe("performance policy", () => {
     expect(m.push(Number.NaN)).toBeNull();
   });
 
+  it("FrameBudgetMonitor degrades from 4 s bursts on a 60 Hz display", () => {
+    // Default thresholds, as the runtime uses them: one 4 s burst = one window.
+    const m = new FrameBudgetMonitor();
+    const burst = (frameMs: number, everyNth = 1) => {
+      m.beginWindow();
+      let t = 0;
+      let i = 0;
+      while (t < 4000) {
+        const d = i % everyNth === 0 ? frameMs : 1000 / 60;
+        m.sample(d);
+        t += d;
+        i += 1;
+      }
+      return m.endWindow();
+    };
+    // 30 fps (UltraVisual struggling under agent load): ~120 frames per burst.
+    expect(burst(1000 / 60)).toBeNull(); // smooth 60 Hz
+    expect(burst(33)).toBeNull(); // first bad burst
+    expect(burst(33)).toBe("degrade"); // second bad burst in a row
+    expect(burst(33)).toBeNull(); // the streak starts over after a step down
+    expect(burst(1000 / 60)).toBeNull(); // recovered
+    expect(burst(33)).toBeNull();
+    expect(burst(1000 / 60)).toBeNull(); // a good burst breaks the streak
+    expect(burst(33)).toBeNull();
+    // A burst cut short (window hidden) is not evaluated and keeps the streak.
+    m.beginWindow();
+    for (let i = 0; i < 5; i += 1) m.sample(40);
+    expect(m.endWindow()).toBeNull();
+    expect(burst(25, 2)).toBe("degrade"); // half the frames at 25 ms still miss the budget
+  });
+
   it("writes the root contract", () => {
     const p = resolvePolicy("Performance", ENV);
     const { data, vars } = rootAttributes(p);

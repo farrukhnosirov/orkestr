@@ -23,6 +23,7 @@ import {
 import { type KeyboardEvent, useCallback, useEffect, useMemo, useReducer, useState } from "react";
 
 import { getClient } from "../../core/client";
+import { shortcutKey } from "../../features/commands/keys";
 import { askManager } from "../../features/files/actions";
 import { ActionDialog } from "../../features/files/Dialog";
 import { fileIcon } from "../../features/files/icons";
@@ -226,7 +227,7 @@ export default function Workbench({ projectId }: { projectId: string }) {
       e.preventDefault();
       useEditorStore.getState().activate(target.path);
       requestAnimationFrame(() => document.getElementById(`code-tab-${target.path}`)?.focus());
-    } else if (e.key === "Delete" || (e.key.toLowerCase() === "w" && (e.ctrlKey || e.metaKey))) {
+    } else if (e.key === "Delete" || (shortcutKey(e) === "w" && (e.ctrlKey || e.metaKey))) {
       e.preventDefault();
       const tab = tabs[index];
       if (tab) requestClose(tab.path);

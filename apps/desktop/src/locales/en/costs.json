@@ -89,6 +89,7 @@
     "PerTask": "Per task",
     "Total": "Total"
   },
+  "scopeWithPeriod": "{{scope}} · {{period}}",
   "scopeLabel": {
     "Global": "All usage",
     "Project": "Project · {{name}}",

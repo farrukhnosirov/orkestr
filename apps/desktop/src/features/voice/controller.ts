@@ -15,14 +15,16 @@ import { topic } from "@orkestr/protocol";
 import { maybeClient } from "../../core/client";
 import { currentLanguage, t } from "../../i18n";
 import { describeError } from "../../i18n/errors";
+import { agentName } from "../../lib/coreText";
 import { useAppStore } from "../../store/app";
+import { usePerfStore } from "../performance/perfStore";
 import { useSettingsStore } from "../settings/settingsStore";
 import { playSound } from "../sound/engine";
 import { assistantOptions } from "./agentVoices";
 import type { MicCapture } from "./audio/mic";
 import { type Intent, intentId, needsConfirmation, parseConfirmation, parseIntent } from "./intent/parser";
 import { realVoiceDeps } from "./pipeline/deps";
-import { type CommandResult, confirmationPrompt, executeIntent, precheck, type VoiceDeps } from "./pipeline/executor";
+import { bindApproval, type CommandResult, confirmationPrompt, executeIntent, precheck, type VoiceDeps } from "./pipeline/executor";
 import { isBusy, type MachineEvent, nextPhase } from "./pipeline/machine";
 import { speakable } from "./pipeline/summary";
 import { type MicPurpose, useVoiceStore } from "./store";
@@ -133,6 +135,13 @@ export function micErrorText(e: unknown): string {
 
 let session: SttSession | null = null;
 let sessionSource: VoiceCommandSource | null = null;
+/**
+ * Generation of the command capture being started. `stopListening` (key
+ * released) and `cancelVoice` bump it while the microphone is still opening,
+ * so a capture whose trigger already ended never starts recording.
+ */
+let startGen = 0;
+let starting = false;
 let pending: Intent | null = null;
 let dismissTimer: number | null = null;
 let managerWatch: (() => void) | null = null;
@@ -182,9 +191,17 @@ export async function startListening(source: VoiceCommandSource): Promise<void> 
   if (!emit({ type: "listen" })) return;
   s.setRuntime({ source, transcript: "", reply: pending ? s.reply : null });
   if (source !== "WakeWord") playSound("listenStart");
+  const gen = ++startGen;
+  starting = true;
   try {
     const needPcm = c.sttEngine === "OpenAiWhisper";
     const m = needPcm ? await openMic("command") : null;
+    if (gen !== startGen) {
+      // Released (or cancelled) before the microphone was ready: record nothing.
+      releaseMic("command");
+      if (useVoiceStore.getState().phase === "listening") emit({ type: "cancel" });
+      return;
+    }
     if (!needPcm) useVoiceStore.getState().micOn("command");
     session = startStt({ engine: c.sttEngine, lang: lang(), mic: m, autoEnd: source === "WakeWord" });
     sessionSource = source;
@@ -193,7 +210,9 @@ export async function startListening(source: VoiceCommandSource): Promise<void> 
   } catch (e) {
     releaseMic("command");
     session = null;
-    fail(e instanceof SttError ? sttErrorText(e) : micErrorText(e));
+    if (gen === startGen) fail(e instanceof SttError ? sttErrorText(e) : micErrorText(e));
+  } finally {
+    if (gen === startGen) starting = false;
   }
 }
 
@@ -223,7 +242,14 @@ function fail(text: string): void {
 /** Push-to-talk released (or silence after the wake word). */
 export async function stopListening(): Promise<void> {
   const sess = session;
-  if (!sess) return;
+  if (!sess) {
+    // Released while the microphone is still opening: abandon that capture.
+    if (starting) {
+      startGen += 1;
+      starting = false;
+    }
+    return;
+  }
   session = null;
   const source = sessionSource ?? "PushToTalk";
   if (!emit({ type: "speechEnd" })) {
@@ -252,6 +278,8 @@ export async function stopListening(): Promise<void> {
 
 /** Cancels whatever the pipeline is doing (Esc, HUD close). */
 export function cancelVoice(): void {
+  startGen += 1;
+  starting = false;
   session?.cancel();
   session = null;
   pending = null;
@@ -339,9 +367,13 @@ function wakePhrases(): string[] {
 
 async function intentContext() {
   const app = useAppStore.getState();
-  let agents: { id: string; name: string; projectId: string }[] = [];
+  let agents: { id: string; name: string; aliases: string[]; projectId: string }[] = [];
   try {
-    agents = (await getDeps().listAgents(null)).map((a) => ({ id: a.id, name: a.name, projectId: a.projectId }));
+    // The localized name (what the UI shows, «Тестировщик #1») is matched alongside the stored one.
+    agents = (await getDeps().listAgents(null)).map((a) => {
+      const shown = agentName(a.name);
+      return { id: a.id, name: a.name, aliases: shown !== a.name ? [shown] : [], projectId: a.projectId };
+    });
   } catch {
     /* agent names are optional for parsing */
   }
@@ -372,7 +404,8 @@ async function handleText(text: string, source: VoiceCommandSource): Promise<voi
     pending = null; // something else was said: treat it as a new command
     s.setRuntime({ confirmText: null });
   }
-  const intent = parseIntent(text, await intentContext());
+  // Approve/reject are bound to the approval read out in the prompt (exact id).
+  const intent = bindApproval(parseIntent(text, await intentContext()), getDeps());
   const pre = precheck(intent, getDeps());
   if (pre) {
     finish(intent, pre, source);
@@ -485,8 +518,9 @@ export function wakeWanted(): { run: boolean; status: "off" | "needsEnrollment" 
   if (!c?.enabled || !c.wake.enabled) return { run: false, status: "off" };
   const stored = loadWakeTemplates();
   if (!stored || stored.samples.length < 3) return { run: false, status: "needsEnrollment" };
-  const perf = useSettingsStore.getState().settings?.performanceMode;
-  if (c.wake.pauseOnBatterySaver && perf === "BatterySaver") return { run: false, status: "pausedBattery" };
+  // The effective mode counts: auto Battery Saver on battery switches it without changing the user's choice.
+  const inBatterySaver = usePerfStore.getState().mode === "BatterySaver" || useSettingsStore.getState().settings?.performanceMode === "BatterySaver";
+  if (c.wake.pauseOnBatterySaver && inBatterySaver) return { run: false, status: "pausedBattery" };
   return { run: true, status: "ok" };
 }
 
