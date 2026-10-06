@@ -234,9 +234,54 @@ struct RobotWin {
     expected_pos: Option<(i32, i32)>,
 }
 
+/// Robot windows whose `robot_open` is still building them (label →
+/// cancelled). `robot_open` is async and `build()` takes a while, so a
+/// `robot_close` for the same robot can arrive before the window exists; it
+/// then only marks the open as cancelled and `robot_open` discards the window
+/// once built instead of showing an orphan nobody will ever close.
+#[derive(Debug, Default)]
+struct PendingOpens(HashMap<String, bool>);
+
+impl PendingOpens {
+    /// Starts an open. `false` when one is already in flight for the label
+    /// (it is revived if it was cancelled) — the caller must not build again.
+    fn begin(&mut self, label: &str) -> bool {
+        match self.0.get_mut(label) {
+            Some(cancelled) => {
+                *cancelled = false;
+                false
+            }
+            None => {
+                self.0.insert(label.to_owned(), false);
+                true
+            }
+        }
+    }
+
+    /// Cancels an in-flight open (no-op when none).
+    fn cancel(&mut self, label: &str) {
+        if let Some(cancelled) = self.0.get_mut(label) {
+            *cancelled = true;
+        }
+    }
+
+    /// Cancels every in-flight open.
+    fn cancel_all(&mut self) {
+        for cancelled in self.0.values_mut() {
+            *cancelled = true;
+        }
+    }
+
+    /// Ends an open; `true` when the window should be kept.
+    fn finish(&mut self, label: &str) -> bool {
+        self.0.remove(label).is_some_and(|cancelled| !cancelled)
+    }
+}
+
 #[derive(Debug, Default)]
 struct Registry {
     robots: HashMap<String, RobotWin>,
+    pending: PendingOpens,
     drop_zones: Vec<DropZone>,
     poller: bool,
 }
@@ -302,9 +347,21 @@ pub async fn robot_open(
     args: RobotOpenArgs,
 ) -> Result<String, String> {
     let label = label_for(args.agent_id.as_deref())?;
-    if app.get_webview_window(&label).is_some() {
-        return Ok(label);
+    {
+        let mut reg = lock(&state)?;
+        if app.get_webview_window(&label).is_some() || !reg.pending.begin(&label) {
+            return Ok(label);
+        }
     }
+    let result = build_robot(&app, &state, &label, &args);
+    if result.is_err() {
+        lock(&state)?.pending.finish(&label);
+    }
+    result
+}
+
+fn build_robot(app: &AppHandle, state: &RobotsState, label: &str, args: &RobotOpenArgs) -> Result<String, String> {
+    let label = label.to_owned();
     let width = args.width.clamp(80.0, 600.0);
     let height = args.height.clamp(60.0, 700.0);
     let route = match &args.agent_id {
@@ -313,7 +370,7 @@ pub async fn robot_open(
     };
     let primary = app.primary_monitor().ok().flatten();
     let scale = primary.as_ref().map_or(1.0, tauri::Monitor::scale_factor);
-    let areas = work_areas(&app);
+    let areas = work_areas(app);
     let phys_w = width * scale;
     let phys_h = height * scale;
     let remembered = match (args.x, args.y) {
@@ -335,7 +392,7 @@ pub async fn robot_open(
             .unwrap_or(Rect { x: 0.0, y: 0.0, w: 1280.0, h: 720.0 });
         default_slot(area, args.slot, phys_w, phys_h, 12.0 * scale)
     });
-    let window = WebviewWindowBuilder::new(&app, &label, WebviewUrl::App(route.into()))
+    let window = WebviewWindowBuilder::new(app, &label, WebviewUrl::App(route.into()))
         .title("Orkestr robot")
         .transparent(true)
         .decorations(false)
@@ -354,10 +411,16 @@ pub async fn robot_open(
         .map_err(|e| e.to_string())?;
     let _ = window.set_position(PhysicalPosition::new(x.round() as i32, y.round() as i32));
     let _ = window.set_ignore_cursor_events(true);
-    let _ = window.show();
     let win_scale = window.scale_factor().unwrap_or(scale);
     {
-        let mut reg = lock(&state)?;
+        let mut reg = lock(state)?;
+        if !reg.pending.finish(&label) {
+            // `robot_close` / `robot_close_all` ran while the window was being built.
+            drop(reg);
+            let _ = window.close();
+            tracing::info!(%label, "robot window closed before it was shown");
+            return Ok(label);
+        }
         reg.robots.insert(
             label.clone(),
             RobotWin {
@@ -380,6 +443,9 @@ pub async fn robot_open(
             spawn_poller(app.clone());
         }
     }
+    // Shown outside the lock (window events take it). A `robot_close` from
+    // here on finds both the registry entry and the window.
+    let _ = window.show();
     state.wake.notify_one();
     tracing::info!(%label, "robot window opened");
     Ok(label)
@@ -393,7 +459,12 @@ pub async fn robot_close(
     agent_id: Option<String>,
 ) -> Result<(), String> {
     let label = label_for(agent_id.as_deref())?;
-    lock(&state)?.robots.remove(&label);
+    {
+        let mut reg = lock(&state)?;
+        reg.robots.remove(&label);
+        // An open still building the window discards it once built.
+        reg.pending.cancel(&label);
+    }
     if let Some(w) = app.get_webview_window(&label) {
         w.close().map_err(|e| e.to_string())?;
     }
@@ -403,7 +474,11 @@ pub async fn robot_close(
 /// Closes every robot window (robots switched off).
 #[tauri::command]
 pub async fn robot_close_all(app: AppHandle, state: tauri::State<'_, RobotsState>) -> Result<(), String> {
-    let labels: Vec<String> = lock(&state)?.robots.drain().map(|(k, _)| k).collect();
+    let labels: Vec<String> = {
+        let mut reg = lock(&state)?;
+        reg.pending.cancel_all();
+        reg.robots.drain().map(|(k, _)| k).collect()
+    };
     for label in labels {
         if let Some(w) = app.get_webview_window(&label) {
             let _ = w.close();
@@ -720,6 +795,33 @@ mod tests {
         assert_eq!(default_slot(area, 0, 200.0, 260.0, 12.0), (488.0, 728.0));
         assert_eq!(default_slot(area, 1, 200.0, 260.0, 12.0), (276.0, 728.0));
         assert_eq!(default_slot(area, 3, 200.0, 260.0, 12.0), (488.0, 456.0), "3 per row → wraps");
+    }
+
+    #[test]
+    fn close_during_open_discards_the_window_once_built() {
+        let mut p = PendingOpens::default();
+        assert!(p.begin("robot-a"), "first open builds");
+        assert!(!p.begin("robot-a"), "a concurrent open does not build a second window");
+        p.cancel("robot-a");
+        assert!(!p.finish("robot-a"), "closed while building → discard, never shown");
+        assert!(!p.finish("robot-a"), "finished opens are forgotten");
+
+        assert!(p.begin("robot-b"));
+        assert!(p.finish("robot-b"), "uncancelled open keeps its window");
+
+        assert!(p.begin("robot-c"));
+        p.cancel("robot-c");
+        assert!(!p.begin("robot-c"), "re-open while the cancelled build is in flight revives it");
+        assert!(p.finish("robot-c"), "…and the window is kept");
+
+        assert!(p.begin("robot-d"));
+        assert!(p.begin("robot-e"));
+        p.cancel_all();
+        assert!(!p.finish("robot-d"));
+        assert!(!p.finish("robot-e"));
+
+        p.cancel("robot-x");
+        assert!(p.begin("robot-x"), "cancelling nothing leaves no marker behind");
     }
 
     #[test]

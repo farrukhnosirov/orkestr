@@ -218,6 +218,34 @@ fn toggle_main(app: &AppHandle) {
     }
 }
 
+/// What happens when the main window's close button is pressed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum MainCloseAction {
+    /// Hide to the tray; agents keep running.
+    HideToTray,
+    /// Quit the whole app: auxiliary windows (HUD, robots, detached panels)
+    /// must not keep a headless process alive once the main window is gone.
+    Quit,
+    /// Already quitting: let the window close.
+    Proceed,
+}
+
+fn main_close_action(close_to_tray: bool, quitting: bool) -> MainCloseAction {
+    if quitting {
+        MainCloseAction::Proceed
+    } else if close_to_tray {
+        MainCloseAction::HideToTray
+    } else {
+        MainCloseAction::Quit
+    }
+}
+
+/// Whether the main window is shown at startup. Autostart launches stay in
+/// the tray — but only when there *is* a tray to get the window back from.
+fn show_main_on_startup(start_hidden: bool, tray_ok: bool) -> bool {
+    !(start_hidden && tray_ok)
+}
+
 fn quit(app: &AppHandle) {
     app.state::<ShellState>().quitting.store(true, Ordering::Release);
     app.exit(0);
@@ -283,15 +311,26 @@ pub fn run() {
         })
         .manage(robots::RobotsState::default())
         .setup(move |app| {
-            if let Err(e) = build_tray(app) {
-                // Without a tray, hiding would strand the user: disable close-to-tray.
-                tracing::error!(error = %e, "failed to create the system tray icon");
-                app.state::<ShellState>().close_to_tray.store(false, Ordering::Release);
-            }
-            if start_hidden {
+            let tray_ok = match build_tray(app) {
+                Ok(()) => true,
+                Err(e) => {
+                    // Without a tray, hiding would strand the user: disable close-to-tray.
+                    tracing::error!(error = %e, "failed to create the system tray icon");
+                    app.state::<ShellState>().close_to_tray.store(false, Ordering::Release);
+                    false
+                }
+            };
+            if show_main_on_startup(start_hidden, tray_ok) {
+                if let Some(w) = app.get_webview_window(MAIN_WINDOW) {
+                    let _ = w.show();
+                    if start_hidden {
+                        // Autostart without a tray: stay out of the way, but reachable.
+                        tracing::warn!("started by autostart without a tray; showing the window minimized");
+                        let _ = w.minimize();
+                    }
+                }
+            } else {
                 tracing::info!("started by autostart; staying in the tray");
-            } else if let Some(w) = app.get_webview_window(MAIN_WINDOW) {
-                let _ = w.show();
             }
             let slot = Arc::clone(&handle_slot);
             tauri::async_runtime::spawn(async move {
@@ -308,16 +347,37 @@ pub fn run() {
         .on_window_event(|window, event| {
             windows::on_panel_window_event(window, event);
             robots::on_window_event(window, event);
-            if let WindowEvent::CloseRequested { api, .. } = event {
-                let state = window.app_handle().state::<ShellState>();
-                if window.label() == MAIN_WINDOW
-                    && state.close_to_tray.load(Ordering::Acquire)
-                    && !state.quitting.load(Ordering::Acquire)
-                {
-                    api.prevent_close();
-                    let _ = window.hide();
-                    tracing::info!("main window hidden to tray; agents keep running");
+            if window.label() != MAIN_WINDOW {
+                return;
+            }
+            let app = window.app_handle();
+            let state = app.state::<ShellState>();
+            let quitting = state.quitting.load(Ordering::Acquire);
+            match event {
+                WindowEvent::CloseRequested { api, .. } => {
+                    match main_close_action(state.close_to_tray.load(Ordering::Acquire), quitting) {
+                        MainCloseAction::HideToTray => {
+                            api.prevent_close();
+                            let _ = window.hide();
+                            tracing::info!("main window hidden to tray; agents keep running");
+                        }
+                        MainCloseAction::Quit => {
+                            // Auxiliary windows (HUD, robots, panels) would otherwise keep
+                            // a headless, unreachable process alive.
+                            api.prevent_close();
+                            tracing::info!("main window closed with close-to-tray off; quitting");
+                            quit(app);
+                        }
+                        MainCloseAction::Proceed => {}
+                    }
                 }
+                // However the main window went away, the app cannot be reopened
+                // without it: never linger headless.
+                WindowEvent::Destroyed if !quitting => {
+                    tracing::warn!("main window destroyed; quitting");
+                    quit(app);
+                }
+                _ => {}
             }
         })
         .invoke_handler(tauri::generate_handler![
@@ -371,6 +431,22 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn closing_main_without_tray_quits_instead_of_leaving_a_headless_process() {
+        assert_eq!(main_close_action(true, false), MainCloseAction::HideToTray);
+        assert_eq!(main_close_action(false, false), MainCloseAction::Quit);
+        assert_eq!(main_close_action(true, true), MainCloseAction::Proceed);
+        assert_eq!(main_close_action(false, true), MainCloseAction::Proceed);
+    }
+
+    #[test]
+    fn autostart_stays_hidden_only_when_the_tray_exists() {
+        assert!(!show_main_on_startup(true, true), "autostart with a tray stays in the tray");
+        assert!(show_main_on_startup(true, false), "autostart without a tray must stay reachable");
+        assert!(show_main_on_startup(false, true));
+        assert!(show_main_on_startup(false, false));
+    }
 
     #[test]
     fn tray_texts_follow_the_ui_language() {
