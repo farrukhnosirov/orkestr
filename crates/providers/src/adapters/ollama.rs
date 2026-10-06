@@ -1,9 +1,12 @@
 //! Ollama (`/api/chat` NDJSON streaming, `/api/tags` models, `/api/version` health).
 
+use std::collections::HashMap;
+use std::net::IpAddr;
 use std::time::Instant;
 
 use async_trait::async_trait;
 use orkestr_domain::{Model, ModelCapabilities, ProviderHealth, ProviderId, ProviderKind};
+use parking_lot::Mutex;
 use serde_json::{json, Value};
 use tokio_util::sync::CancellationToken;
 
@@ -14,11 +17,20 @@ use crate::types::{
     ProviderError, ResponseFormat, Role, StopReason, Usage,
 };
 
+/// Context window assumed when `/api/show` does not report one.
+pub const FALLBACK_CONTEXT_WINDOW: u64 = 32_768;
+/// Smallest `num_ctx` sent (Ollama's own default is only 2K-4K tokens).
+const MIN_NUM_CTX: u64 = 8_192;
+/// Output reserve when the request sets no `max_output_tokens`.
+const DEFAULT_OUTPUT_RESERVE: u64 = 4_096;
+
 /// Ollama adapter.
 #[derive(Debug)]
 pub struct OllamaAdapter {
     cfg: HttpConfig,
     local: bool,
+    /// Real context length per model (from `/api/show`).
+    contexts: Mutex<HashMap<String, u64>>,
 }
 
 impl OllamaAdapter {
@@ -26,7 +38,20 @@ impl OllamaAdapter {
     #[must_use]
     pub fn new(cfg: HttpConfig) -> Self {
         let local = is_loopback_url(&cfg.base_url);
-        Self { cfg, local }
+        Self { cfg, local, contexts: Mutex::new(HashMap::new()) }
+    }
+
+    /// The model's trained context length (`/api/show`), cached; `None` when
+    /// the server does not report it.
+    async fn context_length(&self, model: &str) -> Option<u64> {
+        if let Some(n) = self.contexts.lock().get(model) {
+            return Some(*n);
+        }
+        let rb = self.rb(self.cfg.client.post(self.cfg.url("api/show")).json(&json!({"model": model})));
+        let v: Value = http::send(rb.timeout(PROBE_TIMEOUT)).await.ok()?.json().await.ok()?;
+        let n = context_length_from_show(&v)?;
+        self.contexts.lock().insert(model.to_owned(), n);
+        Some(n)
     }
 
     fn rb(&self, rb: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
@@ -40,23 +65,62 @@ impl OllamaAdapter {
     }
 }
 
-/// Whether a URL points at this machine.
+/// Whether a URL points at this machine (privacy routing: `LocalModelsOnly`).
+///
+/// The URL is parsed exactly as the HTTP client will parse it, so the host
+/// checked is the host connected to. URLs with userinfo are never local
+/// (`http://127.0.0.1:x@remote/` connects to `remote`), and only `localhost`
+/// or a literal loopback / unspecified IP counts: a DNS name such as
+/// `127.example.com` can resolve anywhere.
 #[must_use]
 pub fn is_loopback_url(url: &str) -> bool {
-    let rest = url.split("://").nth(1).unwrap_or(url);
-    let host_port = rest.split('/').next().unwrap_or_default();
-    let host = if host_port.starts_with('[') {
-        host_port.split(']').next().unwrap_or_default().trim_start_matches('[')
-    } else {
-        host_port.split(':').next().unwrap_or_default()
-    };
-    matches!(host.to_ascii_lowercase().as_str(), "localhost" | "127.0.0.1" | "::1" | "0.0.0.0")
-        || host.starts_with("127.")
+    let Ok(u) = reqwest::Url::parse(url.trim()) else { return false };
+    if !u.username().is_empty() || u.password().is_some() {
+        return false;
+    }
+    let Some(host) = u.host_str() else { return false };
+    let bare = host.trim_start_matches('[').trim_end_matches(']');
+    match bare.parse::<IpAddr>() {
+        Ok(ip) => is_local_ip(ip),
+        Err(_) => host.eq_ignore_ascii_case("localhost"),
+    }
 }
 
-/// Builds the `/api/chat` body (pure; unit-tested).
+/// Loopback, or the unspecified address (connecting to `0.0.0.0` / `::`
+/// reaches this machine).
+fn is_local_ip(ip: IpAddr) -> bool {
+    ip.is_loopback() || ip.is_unspecified()
+}
+
+/// Reads `model_info.<arch>.context_length` from an `/api/show` response.
 #[must_use]
-pub fn build_body(req: &ChatRequest) -> Value {
+pub fn context_length_from_show(v: &Value) -> Option<u64> {
+    v.get("model_info")?
+        .as_object()?
+        .iter()
+        .find(|(k, _)| k.ends_with(".context_length"))
+        .and_then(|(_, n)| n.as_u64())
+        .filter(|n| *n > 0)
+}
+
+/// `num_ctx` for a request: enough for the estimated prompt plus the output
+/// reserve, rounded up to a power of two (so the model is not reloaded for
+/// every small size change), at least [`MIN_NUM_CTX`] and capped at the
+/// model's context window. Without it Ollama silently truncates the prompt
+/// to its 2K-4K default.
+#[must_use]
+pub fn num_ctx_for(req: &ChatRequest, model_context: Option<u64>) -> u64 {
+    // chars/3 over-estimates tokens for code-heavy prompts on purpose.
+    let prompt = (req.prompt_chars() as u64).div_ceil(3) + 256;
+    let output = req.max_output_tokens.map_or(DEFAULT_OUTPUT_RESERVE, u64::from);
+    let needed = (prompt + output).max(MIN_NUM_CTX).next_power_of_two();
+    needed.min(model_context.unwrap_or(FALLBACK_CONTEXT_WINDOW))
+}
+
+/// Builds the `/api/chat` body (pure; unit-tested). `model_context` is the
+/// model's real context length when known (sizes `options.num_ctx`).
+#[must_use]
+pub fn build_body(req: &ChatRequest, model_context: Option<u64>) -> Value {
     let mut messages: Vec<Value> = Vec::new();
     if let Some(sys) = req.system_prompt() {
         messages.push(json!({"role": "system", "content": sys}));
@@ -109,6 +173,7 @@ pub fn build_body(req: &ChatRequest) -> Value {
         ResponseFormat::JsonSchema { schema, .. } => body["format"] = schema.clone(),
     }
     let mut options = serde_json::Map::new();
+    options.insert("num_ctx".into(), json!(num_ctx_for(req, model_context)));
     if let Some(t) = req.temperature {
         options.insert("temperature".into(), json!(t));
     }
@@ -118,9 +183,7 @@ pub fn build_body(req: &ChatRequest) -> Value {
     if !req.stop.is_empty() {
         options.insert("stop".into(), json!(req.stop));
     }
-    if !options.is_empty() {
-        body["options"] = Value::Object(options);
-    }
+    body["options"] = Value::Object(options);
     body
 }
 
@@ -317,6 +380,14 @@ impl ProviderAdapter for OllamaAdapter {
                     .collect()
             })
             .unwrap_or_default();
+        // Advertise the real context window (the router's min-context filter
+        // and the context optimizer size prompts from it).
+        let windows = futures::future::join_all(out.iter().map(|m| self.context_length(&m.id))).await;
+        for (m, w) in out.iter_mut().zip(windows) {
+            if let Some(w) = w {
+                m.context_window = u32::try_from(w).unwrap_or(u32::MAX);
+            }
+        }
         out.sort_by(|a, b| a.id.cmp(&b.id));
         Ok(out)
     }
@@ -335,11 +406,13 @@ impl ProviderAdapter for OllamaAdapter {
     }
 
     async fn chat(&self, request: ChatRequest, cancel: CancellationToken) -> Result<ChatStream, ProviderError> {
-        let body = build_body(&request);
+        let context = self.context_length(&request.model).await;
+        let body = build_body(&request, context);
         let rb = self.rb(self.cfg.client.post(self.cfg.url("api/chat")).json(&body));
         let idle = self.cfg.idle_timeout;
         Ok(drive(cancel, move |em| async move {
-            let resp = http::send(rb).await.map_err(map_unreachable)?;
+            let wait = idle.max(http::LOCAL_LOAD_TIMEOUT);
+            let resp = http::send_with_header_timeout(rb, wait).await.map_err(map_unreachable)?;
             run_stream(resp, em, idle).await
         }))
     }
@@ -353,9 +426,52 @@ mod tests {
     #[test]
     fn loopback_detection() {
         assert!(is_loopback_url("http://localhost:11434"));
+        assert!(is_loopback_url("http://LOCALHOST:11434/v1"));
         assert!(is_loopback_url("http://127.0.0.1:11434/"));
+        assert!(is_loopback_url("http://127.0.0.2:8000"));
         assert!(is_loopback_url("http://[::1]:11434"));
+        assert!(is_loopback_url("http://0.0.0.0:11434"));
         assert!(!is_loopback_url("http://gpu-box.lan:11434"));
+    }
+
+    #[test]
+    fn loopback_detection_rejects_userinfo_and_lookalike_names() {
+        // reqwest connects to the host after '@', not the userinfo.
+        assert!(!is_loopback_url("http://127.0.0.1:x@gpu.example.com:11434"));
+        assert!(!is_loopback_url("http://localhost:x@llm.example.com/v1"));
+        assert!(!is_loopback_url("http://localhost:pw@remote-host:11434"));
+        assert!(!is_loopback_url("http://user@localhost:11434"));
+        // DNS names that merely start with "127." can resolve anywhere.
+        assert!(!is_loopback_url("http://127.evil.example:11434"));
+        assert!(!is_loopback_url("http://127.example.com:8000/v1"));
+        assert!(!is_loopback_url("http://localhost.example.com:11434"));
+        assert!(!is_loopback_url("not a url"));
+    }
+
+    #[test]
+    fn num_ctx_covers_prompt_and_is_capped_by_model() {
+        let mut req = ChatRequest::new("llama3.1:8b", vec![ChatMessage::user("x".repeat(45_000))]);
+        req.max_output_tokens = Some(4_096);
+        // ~15K prompt tokens + 4K output -> 32K bucket, not Ollama's 2-4K default.
+        let b = build_body(&req, Some(131_072));
+        assert_eq!(b["options"]["num_ctx"], 32_768);
+        // Never above the model's real window.
+        assert_eq!(num_ctx_for(&req, Some(16_384)), 16_384);
+        // Short prompts still get a sane minimum.
+        let small = ChatRequest::new("llama3.1:8b", vec![ChatMessage::user("hi")]);
+        assert_eq!(num_ctx_for(&small, Some(131_072)), 8_192);
+        assert_eq!(num_ctx_for(&small, Some(2_048)), 2_048);
+        // Unknown window: the advertised fallback.
+        req.messages = vec![ChatMessage::user("x".repeat(400_000))];
+        assert_eq!(num_ctx_for(&req, None), FALLBACK_CONTEXT_WINDOW);
+    }
+
+    #[test]
+    fn reads_context_length_from_show() {
+        let v = json!({"model_info": {"general.architecture": "llama", "llama.context_length": 131_072}});
+        assert_eq!(context_length_from_show(&v), Some(131_072));
+        assert_eq!(context_length_from_show(&json!({"model_info": {}})), None);
+        assert_eq!(context_length_from_show(&json!({})), None);
     }
 
     #[test]
@@ -373,7 +489,7 @@ mod tests {
         );
         req.response_format = ResponseFormat::JsonObject;
         req.max_output_tokens = Some(5);
-        let b = build_body(&req);
+        let b = build_body(&req, None);
         assert_eq!(b["format"], "json");
         assert_eq!(b["options"]["num_predict"], 5);
         assert_eq!(b["messages"][2]["tool_name"], "f");

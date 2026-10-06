@@ -2,8 +2,10 @@
 //!
 //! Wire API pinned: `POST {base}/v1/messages`, header
 //! `anthropic-version: 2023-06-01`. Thinking blocks are dropped (no-CoT rule).
-//! Structured output is implemented with a forced tool whose input schema is
-//! the requested JSON schema; its input is surfaced as text.
+//! Structured output is implemented with a synthetic tool whose input schema
+//! is the requested JSON schema; its input is surfaced as text. The tool is
+//! forced on models that accept forced tool use and requested by prompt
+//! (`tool_choice: auto`) on those that reject it (see `ModelQuirks`).
 
 use std::collections::BTreeMap;
 use std::time::Instant;
@@ -94,10 +96,117 @@ fn push_block(messages: &mut Vec<Value>, role: &str, block: Value) {
     messages.push(json!({"role": role, "content": [block]}));
 }
 
+/// Claude model family parsed from a model id.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Family {
+    Opus,
+    Sonnet,
+    Haiku,
+    Fable,
+    Mythos,
+    Other,
+}
+
+/// Parsed Claude model id: family plus `major * 100 + minor`
+/// (`claude-opus-4-5` -> 405, `claude-3-7-sonnet` -> 307, `claude-opus-5` -> 500).
+fn parse_claude(model: &str) -> Option<(Family, u32)> {
+    let id = model.rsplit('/').next().unwrap_or(model).to_ascii_lowercase();
+    let start = id.find("claude-")?;
+    let id = &id[start + "claude-".len()..];
+    let id = id.split(['@', '[', ':']).next().unwrap_or(id);
+    let parts: Vec<&str> = id.split('-').collect();
+    let num = |s: Option<&&str>| s.and_then(|s| s.parse::<u32>().ok());
+    // A number above 99 is a snapshot date, not a minor version.
+    let minor = |s: Option<&&str>| num(s).filter(|n| *n < 100);
+    let family = |s: &str| match s {
+        "opus" => Family::Opus,
+        "sonnet" => Family::Sonnet,
+        "haiku" => Family::Haiku,
+        "fable" => Family::Fable,
+        "mythos" => Family::Mythos,
+        _ => Family::Other,
+    };
+    if let Some(major) = num(parts.first()) {
+        // Legacy naming: claude-3-5-sonnet, claude-3-haiku.
+        let (minor, fam_at) = match minor(parts.get(1)) {
+            Some(m) => (m, 2),
+            None => (0, 1),
+        };
+        let fam = parts.get(fam_at).map_or(Family::Other, |s| family(s));
+        return Some((fam, major * 100 + minor));
+    }
+    let fam = family(parts.first()?);
+    let major = num(parts.get(1))?;
+    Some((fam, major * 100 + minor(parts.get(2)).unwrap_or(0)))
+}
+
+/// How extended thinking is requested from a model.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ThinkingMode {
+    /// No extended thinking (or not known for this id): send nothing.
+    Unsupported,
+    /// Pre-4.6 models: `{type: "enabled", budget_tokens}`.
+    Budget,
+    /// 4.6+ / 5.x / Fable: `{type: "adaptive"}` + `output_config.effort`
+    /// (`budget_tokens` is a 400 on Opus 4.7+, Sonnet 5+ and Fable).
+    Adaptive,
+}
+
+/// Request-shape differences between Claude generations, so one body builder
+/// never sends a parameter the target model rejects with a 400.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct ModelQuirks {
+    /// `tool_choice` `any` / `tool` is accepted (a 400 on Opus 5.5,
+    /// Sonnet 5.5, Fable 5.1, Mythos 5.1; assumed rejected on newer releases).
+    forced_tool_choice: bool,
+    thinking: ThinkingMode,
+    /// `temperature` is accepted (removed on Opus 4.7+, Sonnet 5+, Fable).
+    sampling: bool,
+}
+
+impl ModelQuirks {
+    fn of(model: &str) -> Self {
+        let Some((fam, v)) = parse_claude(model) else {
+            // Not a recognisable Claude id (e.g. a proxy alias): keep forced
+            // tools and sampling, but never send thinking we cannot vouch for.
+            return Self { forced_tool_choice: true, thinking: ThinkingMode::Unsupported, sampling: true };
+        };
+        // A generation newer than this table follows the newest known rules.
+        let future = v >= 600;
+        let forced_tool_choice = !future
+            && match fam {
+                Family::Opus | Family::Sonnet => v < 505,
+                Family::Fable | Family::Mythos => v < 501,
+                Family::Haiku | Family::Other => true,
+            };
+        let thinking = match fam {
+            _ if future => ThinkingMode::Adaptive,
+            Family::Fable | Family::Mythos => ThinkingMode::Adaptive,
+            Family::Opus | Family::Sonnet if v >= 406 => ThinkingMode::Adaptive,
+            _ if v >= 307 => ThinkingMode::Budget,
+            _ => ThinkingMode::Unsupported,
+        };
+        let sampling = !future
+            && match fam {
+                Family::Opus => v < 407,
+                Family::Sonnet => v < 500,
+                Family::Fable | Family::Mythos => false,
+                Family::Haiku | Family::Other => true,
+            };
+        Self { forced_tool_choice, thinking, sampling }
+    }
+}
+
+/// Whether the body asks for structured output through the synthetic tool.
+fn is_structured(body: &Value) -> bool {
+    body["tools"].as_array().is_some_and(|t| t.iter().any(|t| t["name"] == STRUCTURED_TOOL))
+}
+
 /// Builds the request body (pure; unit-tested). Consecutive same-role
 /// messages are merged (tool results become user turns).
 #[must_use]
 pub fn build_body(req: &ChatRequest) -> Value {
+    let quirks = ModelQuirks::of(&req.model);
     let mut messages: Vec<Value> = Vec::new();
     for m in req.conversation() {
         match m.role {
@@ -135,9 +244,8 @@ pub fn build_body(req: &ChatRequest) -> Value {
     }
     let max_tokens = req.max_output_tokens.unwrap_or(DEFAULT_MAX_TOKENS);
     let mut body = json!({"model": req.model, "messages": messages, "max_tokens": max_tokens, "stream": true});
-    if let Some(sys) = req.system_prompt() {
-        body["system"] = json!(sys);
-    }
+    // Instructions that replace a forced `tool_choice` on models rejecting it.
+    let mut steer: Vec<String> = Vec::new();
     let mut tools: Vec<Value> = req
         .tools
         .iter()
@@ -146,8 +254,16 @@ pub fn build_body(req: &ChatRequest) -> Value {
     let mut tool_choice = match &req.tool_choice {
         ToolChoice::Auto => json!({"type": "auto"}),
         ToolChoice::None => json!({"type": "none"}),
-        ToolChoice::Required => json!({"type": "any"}),
-        ToolChoice::Specific(n) => json!({"type": "tool", "name": n}),
+        ToolChoice::Required if quirks.forced_tool_choice => json!({"type": "any"}),
+        ToolChoice::Required => {
+            steer.push("You must answer by calling one of the provided tools.".to_owned());
+            json!({"type": "auto"})
+        }
+        ToolChoice::Specific(n) if quirks.forced_tool_choice => json!({"type": "tool", "name": n}),
+        ToolChoice::Specific(n) => {
+            steer.push(format!("You must answer by calling the `{n}` tool."));
+            json!({"type": "auto"})
+        }
     };
     let structured = match &req.response_format {
         ResponseFormat::JsonSchema { schema, .. } if req.tools.is_empty() => Some(schema.clone()),
@@ -156,28 +272,65 @@ pub fn build_body(req: &ChatRequest) -> Value {
     };
     if let Some(schema) = structured {
         tools.push(json!({"name": STRUCTURED_TOOL, "description": "Return the final answer as structured JSON.", "input_schema": schema}));
-        tool_choice = json!({"type": "tool", "name": STRUCTURED_TOOL});
+        if quirks.forced_tool_choice {
+            tool_choice = json!({"type": "tool", "name": STRUCTURED_TOOL});
+        } else {
+            // Forced tool use is a 400 on this model: request the call by
+            // prompt. A plain-text JSON answer still reaches the caller's
+            // JSON extraction / repair loop.
+            steer.push(format!(
+                "Give your final answer by calling the `{STRUCTURED_TOOL}` tool exactly once with the complete \
+                 answer as its input. Do not answer in prose."
+            ));
+            tool_choice = json!({"type": "auto", "disable_parallel_tool_use": true});
+        }
+    }
+    let system = match (req.system_prompt(), steer.is_empty()) {
+        (Some(sys), true) => Some(sys.to_owned()),
+        (Some(sys), false) => Some(format!("{sys}\n\n{}", steer.join("\n"))),
+        (None, false) => Some(steer.join("\n")),
+        (None, true) => None,
+    };
+    if let Some(sys) = system {
+        body["system"] = json!(sys);
     }
     if !tools.is_empty() {
         body["tools"] = json!(tools);
         body["tool_choice"] = tool_choice;
     }
-    if let Some(t) = req.temperature {
+    if let (Some(t), true) = (req.temperature, quirks.sampling) {
         body["temperature"] = json!(t);
     }
     // Extended thinking only without tools: with tools Anthropic requires the
     // signed thinking blocks to be echoed back, which Phase 1 does not persist.
     if let (Some(level), true) = (req.reasoning, body.get("tools").is_none()) {
-        let budget: u32 = match level {
-            ReasoningLevel::Low => 1024,
-            ReasoningLevel::Medium => 4096,
-            ReasoningLevel::High => 16_000,
-        };
-        if max_tokens > budget && req.model.contains("claude") && !req.model.contains("haiku-3") {
-            body["thinking"] = json!({"type": "enabled", "budget_tokens": budget});
-            if let Some(obj) = body.as_object_mut() {
-                obj.remove("temperature");
+        match quirks.thinking {
+            ThinkingMode::Budget => {
+                let budget: u32 = match level {
+                    ReasoningLevel::Low => 1024,
+                    ReasoningLevel::Medium => 4096,
+                    ReasoningLevel::High => 16_000,
+                };
+                if max_tokens > budget {
+                    body["thinking"] = json!({"type": "enabled", "budget_tokens": budget});
+                    if let Some(obj) = body.as_object_mut() {
+                        obj.remove("temperature");
+                    }
+                }
             }
+            ThinkingMode::Adaptive => {
+                let effort = match level {
+                    ReasoningLevel::Low => "low",
+                    ReasoningLevel::Medium => "medium",
+                    ReasoningLevel::High => "high",
+                };
+                body["thinking"] = json!({"type": "adaptive"});
+                body["output_config"] = json!({"effort": effort});
+                if let Some(obj) = body.as_object_mut() {
+                    obj.remove("temperature");
+                }
+            }
+            ThinkingMode::Unsupported => {}
         }
     }
     if !req.stop.is_empty() {
@@ -424,11 +577,11 @@ impl ProviderAdapter for AnthropicAdapter {
 
     async fn chat(&self, request: ChatRequest, cancel: CancellationToken) -> Result<ChatStream, ProviderError> {
         let body = build_body(&request);
-        let structured = body["tool_choice"]["name"] == STRUCTURED_TOOL;
+        let structured = is_structured(&body);
         let rb = self.authed(self.cfg.client.post(self.cfg.url("v1/messages")).json(&body)).await?;
         let idle = self.cfg.idle_timeout;
         Ok(drive(cancel, move |em| async move {
-            let resp = http::send(rb).await?;
+            let resp = http::send_with_header_timeout(rb, idle).await?;
             run_stream(resp, em, idle, structured).await
         }))
     }
@@ -495,6 +648,102 @@ mod tests {
         );
         out.extend(d.event("content_block_stop", r#"{"index":0}"#).unwrap());
         assert_eq!(out, vec![ChatEvent::TextDelta("{\"a\":\"b\"}".into())]);
+    }
+
+    fn structured_req(model: &str) -> ChatRequest {
+        let mut req = ChatRequest::new(model, vec![ChatMessage::system("sys"), ChatMessage::user("plan")]);
+        req.response_format = ResponseFormat::JsonSchema { name: "plan".into(), schema: json!({"type":"object"}) };
+        req
+    }
+
+    #[test]
+    fn structured_output_is_not_forced_on_models_rejecting_forced_tools() {
+        for model in ["claude-opus-5-5", "claude-sonnet-5-5", "claude-fable-5-1", "claude-mythos-5-1", "claude-opus-6"]
+        {
+            let b = build_body(&structured_req(model));
+            assert_eq!(b["tool_choice"]["type"], "auto", "{model}");
+            assert!(is_structured(&b), "{model}");
+            assert!(b["system"].as_str().unwrap().starts_with("sys\n\n"), "{model}");
+            assert!(b["system"].as_str().unwrap().contains(STRUCTURED_TOOL), "{model}");
+        }
+        // Models that accept forced tool use keep the guarantee.
+        for model in ["claude-opus-5", "claude-fable-5", "claude-sonnet-4-5", "claude-haiku-4-5", "claude-opus-4-8"] {
+            let b = build_body(&structured_req(model));
+            assert_eq!(b["tool_choice"], json!({"type": "tool", "name": STRUCTURED_TOOL}), "{model}");
+            assert_eq!(b["system"], "sys", "{model}");
+        }
+    }
+
+    #[test]
+    fn required_and_specific_tool_choice_map_to_auto_on_new_models() {
+        let mut req = ChatRequest::new("claude-sonnet-5-5", vec![ChatMessage::user("go")]);
+        req.tools = vec![ToolSpec { name: "f".into(), description: "d".into(), parameters: json!({"type":"object"}) }];
+        req.tool_choice = ToolChoice::Required;
+        let b = build_body(&req);
+        assert_eq!(b["tool_choice"]["type"], "auto");
+        assert!(b["system"].as_str().unwrap().contains("calling one of the provided tools"));
+        req.tool_choice = ToolChoice::Specific("f".into());
+        let b = build_body(&req);
+        assert_eq!(b["tool_choice"]["type"], "auto");
+        assert!(b["system"].as_str().unwrap().contains("`f`"));
+        req.model = "claude-sonnet-4-5".into();
+        assert_eq!(build_body(&req)["tool_choice"], json!({"type": "tool", "name": "f"}));
+        req.tool_choice = ToolChoice::Required;
+        assert_eq!(build_body(&req)["tool_choice"], json!({"type": "any"}));
+    }
+
+    #[test]
+    fn thinking_uses_adaptive_on_new_models_and_budget_on_old() {
+        let req = |model: &str| {
+            let mut r = ChatRequest::new(model, vec![ChatMessage::user("hi")]);
+            r.reasoning = Some(ReasoningLevel::High);
+            r.temperature = Some(0.2);
+            r.max_output_tokens = Some(32_000);
+            r
+        };
+        for model in ["claude-opus-5-5", "claude-opus-4-7", "claude-opus-4-6", "claude-sonnet-5", "claude-fable-5-1"] {
+            let b = build_body(&req(model));
+            assert_eq!(b["thinking"], json!({"type": "adaptive"}), "{model}");
+            assert_eq!(b["output_config"]["effort"], "high", "{model}");
+            assert!(b.get("temperature").is_none(), "{model}");
+            assert!(!b.to_string().contains("budget_tokens"), "{model}");
+        }
+        for model in ["claude-sonnet-4-5", "claude-haiku-4-5", "claude-opus-4-1", "claude-3-7-sonnet-20250219"] {
+            let b = build_body(&req(model));
+            assert_eq!(b["thinking"]["budget_tokens"], 16_000, "{model}");
+            assert!(b.get("output_config").is_none(), "{model}");
+        }
+        // No thinking for models without it.
+        assert!(build_body(&req("claude-3-5-haiku")).get("thinking").is_none());
+        assert!(build_body(&req("claude-3-haiku-20240307")).get("thinking").is_none());
+    }
+
+    #[test]
+    fn temperature_is_dropped_where_sampling_was_removed() {
+        let req = |model: &str| {
+            let mut r = ChatRequest::new(model, vec![ChatMessage::user("hi")]);
+            r.temperature = Some(0.3);
+            r
+        };
+        for model in ["claude-opus-4-7", "claude-opus-5-5", "claude-sonnet-5", "claude-sonnet-5-5", "claude-fable-5"] {
+            assert!(build_body(&req(model)).get("temperature").is_none(), "{model}");
+        }
+        for model in ["claude-sonnet-4-6", "claude-opus-4-6", "claude-haiku-4-5", "my-proxy-alias"] {
+            assert!(build_body(&req(model)).get("temperature").is_some(), "{model}");
+        }
+    }
+
+    #[test]
+    fn parses_claude_ids() {
+        assert_eq!(parse_claude("claude-opus-4-5"), Some((Family::Opus, 405)));
+        assert_eq!(parse_claude("claude-opus-4-20250514"), Some((Family::Opus, 400)));
+        assert_eq!(parse_claude("claude-sonnet-4-5-20250929"), Some((Family::Sonnet, 405)));
+        assert_eq!(parse_claude("claude-opus-5-5"), Some((Family::Opus, 505)));
+        assert_eq!(parse_claude("claude-3-7-sonnet-latest"), Some((Family::Sonnet, 307)));
+        assert_eq!(parse_claude("claude-3-haiku-20240307"), Some((Family::Haiku, 300)));
+        assert_eq!(parse_claude("us.anthropic.claude-sonnet-5-5"), Some((Family::Sonnet, 505)));
+        assert_eq!(parse_claude("claude-opus-4-6[1m]"), Some((Family::Opus, 406)));
+        assert_eq!(parse_claude("gpt-4o"), None);
     }
 
     #[test]

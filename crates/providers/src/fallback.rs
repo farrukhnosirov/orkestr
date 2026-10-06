@@ -85,6 +85,12 @@ pub enum AttemptOutcome {
 pub trait AdapterSource: Send + Sync {
     /// Adapter of a provider (None = removed / disabled).
     fn adapter(&self, provider: &orkestr_domain::ProviderId) -> Option<Arc<dyn ProviderAdapter>>;
+    /// Whether an attempt on `model` may start now. The registry's circuit
+    /// breaker admits a single probe while half-open; a refused attempt is
+    /// skipped (fallback continues) and is not reported to [`Self::observe`].
+    fn admit(&self, _model: &ModelRef) -> bool {
+        true
+    }
     /// Attempt outcome.
     fn observe(&self, model: &ModelRef, outcome: &AttemptOutcome);
     /// Event sink.
@@ -141,7 +147,15 @@ impl Default for FallbackOptions {
 
 enum AttemptEnd {
     Done,
-    Failed { error: ProviderError, text: String, calls: Vec<ToolCallPart> },
+    Failed {
+        error: ProviderError,
+        text: String,
+        calls: Vec<ToolCallPart>,
+    },
+    /// Not attempted (circuit half-open, probe in flight).
+    Skipped {
+        error: ProviderError,
+    },
 }
 
 async fn attempt(
@@ -151,6 +165,14 @@ async fn attempt(
     em: &Emitter<ChatEvent>,
     cancel: &CancellationToken,
 ) -> Result<AttemptEnd, ProviderError> {
+    if !source.admit(model) {
+        return Ok(AttemptEnd::Skipped {
+            error: ProviderError::Unsupported(format!(
+                "provider {} is recovering (circuit half-open, a probe request is in flight)",
+                model.provider_id
+            )),
+        });
+    }
     let Some(adapter) = source.adapter(&model.provider_id) else {
         return Ok(AttemptEnd::Failed {
             error: ProviderError::Unsupported(format!("provider {} is not available", model.provider_id)),
@@ -216,8 +238,14 @@ pub fn chat_with_fallback(
                 return Err(ProviderError::Server("fallback chain exhausted".into()));
             };
             let end = attempt(source.as_ref(), &model, &request, &em, &inner_cancel).await?;
-            let AttemptEnd::Failed { error, text, calls } = end else { return Ok(()) };
-            source.observe(&model, &AttemptOutcome::Failure(error.clone()));
+            let (error, text, calls) = match end {
+                AttemptEnd::Done => return Ok(()),
+                AttemptEnd::Failed { error, text, calls } => {
+                    source.observe(&model, &AttemptOutcome::Failure(error.clone()));
+                    (error, text, calls)
+                }
+                AttemptEnd::Skipped { error } => (error, String::new(), Vec::new()),
+            };
             tracing::warn!(provider = %model.provider_id, model = %model.model, class = error.class(), "provider attempt failed");
             if error == ProviderError::Cancelled {
                 return Err(error);
@@ -285,11 +313,15 @@ mod tests {
         adapters: HashMap<ProviderId, Arc<dyn ProviderAdapter>>,
         outcomes: Mutex<Vec<(ModelRef, AttemptOutcome)>>,
         events: Mutex<Vec<ProviderEvent>>,
+        refused: Vec<String>,
     }
 
     impl AdapterSource for Source {
         fn adapter(&self, p: &ProviderId) -> Option<Arc<dyn ProviderAdapter>> {
             self.adapters.get(p).cloned()
+        }
+        fn admit(&self, m: &ModelRef) -> bool {
+            !self.refused.contains(&m.model)
         }
         fn observe(&self, m: &ModelRef, o: &AttemptOutcome) {
             self.outcomes.lock().push((m.clone(), o.clone()));
@@ -315,6 +347,29 @@ mod tests {
 
     fn fast() -> FallbackOptions {
         FallbackOptions { max_rate_limit_wait: Duration::from_millis(0), same_model_retries: 0 }
+    }
+
+    #[tokio::test]
+    async fn refused_attempt_is_skipped_without_counting_as_failure() {
+        let id = ProviderId::new();
+        let mut s = Source::default();
+        s.adapters.insert(
+            id,
+            Arc::new(MockAdapter::new(id, "Mock (offline demo)", MockOptions { chunk_delay: Duration::ZERO })),
+        );
+        s.refused = vec!["mock-server-error".into()];
+        let src = Arc::new(s);
+        let chain = vec![m(id, "mock-server-error"), m(id, "mock-echo")];
+        let req = ChatRequest::new("ignored", vec![ChatMessage::user("hello")]);
+        let out: Vec<ChatEvent> =
+            chat_with_fallback(src.clone(), chain, req, None, fast(), CancellationToken::new()).collect().await;
+        assert!(matches!(out.last(), Some(ChatEvent::Done { .. })), "{out:?}");
+        assert!(out.iter().any(|e| matches!(e, ChatEvent::Switched { .. })));
+        // Only the attempted model reports an outcome: the refused one must
+        // neither re-open nor release the half-open probe of another request.
+        let outcomes = src.outcomes.lock();
+        assert_eq!(outcomes.len(), 1);
+        assert_eq!(outcomes[0].0.model, "mock-echo");
     }
 
     #[tokio::test]

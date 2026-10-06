@@ -12,6 +12,9 @@ pub const WINDOW: Duration = Duration::from_secs(60);
 pub const BASE_OPEN: Duration = Duration::from_secs(30);
 /// Longest open period.
 pub const MAX_OPEN: Duration = Duration::from_secs(300);
+/// A half-open probe whose outcome never arrives (dropped stream) stops
+/// blocking other requests after this long.
+pub const PROBE_LEASE: Duration = Duration::from_secs(120);
 
 /// Circuit breaker state.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -34,12 +37,13 @@ pub struct CircuitBreaker {
     failures: VecDeque<Instant>,
     open_until: Option<Instant>,
     next_open: Duration,
-    probing: bool,
+    /// Start of the in-flight half-open probe.
+    probing: Option<Instant>,
 }
 
 impl Default for CircuitBreaker {
     fn default() -> Self {
-        Self { failures: VecDeque::new(), open_until: None, next_open: BASE_OPEN, probing: false }
+        Self { failures: VecDeque::new(), open_until: None, next_open: BASE_OPEN, probing: None }
     }
 }
 
@@ -60,21 +64,38 @@ impl CircuitBreaker {
             CircuitState::Closed => true,
             CircuitState::Open { .. } => false,
             CircuitState::HalfOpen => {
-                if self.probing {
+                if self.probing.is_some_and(|t| now.duration_since(t) < PROBE_LEASE) {
                     false
                 } else {
-                    self.probing = true;
+                    self.probing = Some(now);
                     true
                 }
             }
         }
     }
 
+    /// Admission for an attempt: only the half-open state is gated (one
+    /// probe at a time); an open circuit is excluded by the router, and an
+    /// explicitly requested model is still attempted.
+    pub fn admit(&mut self, now: Instant) -> bool {
+        match self.state(now) {
+            CircuitState::HalfOpen => self.allow(now),
+            _ => true,
+        }
+    }
+
+    /// Ends the probe without a verdict on the endpoint's health (the attempt
+    /// failed for a reason that does not count against the circuit, e.g. a
+    /// rate limit, a bad request or cancellation): the next request probes.
+    pub fn release_probe(&mut self) {
+        self.probing = None;
+    }
+
     /// Records a circuit-relevant failure. Returns true when the circuit opened now.
     pub fn record_failure(&mut self, now: Instant) -> bool {
         if matches!(self.state(now), CircuitState::HalfOpen) {
             // Failed probe: reopen for longer.
-            self.probing = false;
+            self.probing = None;
             self.open_until = Some(now + self.next_open);
             self.next_open = (self.next_open * 2).min(MAX_OPEN);
             return true;
@@ -200,6 +221,30 @@ mod tests {
         assert!(!cb.is_open(later + Duration::from_secs(61)));
         cb.record_success();
         assert_eq!(cb.state(later + Duration::from_secs(61)), CircuitState::Closed);
+    }
+
+    #[test]
+    fn half_open_admits_one_probe_until_its_outcome() {
+        let t0 = Instant::now();
+        let mut cb = CircuitBreaker::default();
+        for _ in 0..THRESHOLD {
+            cb.record_failure(t0);
+        }
+        // Open: attempts are not gated here (the router excludes the model).
+        assert!(cb.admit(t0 + Duration::from_secs(1)));
+        let later = t0 + BASE_OPEN + Duration::from_secs(1);
+        // Six concurrent requests: exactly one probe goes through.
+        let admitted = (0..6).filter(|_| cb.admit(later)).count();
+        assert_eq!(admitted, 1);
+        // A verdict-less outcome (rate limit, cancel) frees the slot.
+        cb.release_probe();
+        assert!(cb.admit(later));
+        assert!(!cb.admit(later));
+        // A probe whose outcome never arrives stops blocking after the lease.
+        assert!(cb.admit(later + PROBE_LEASE + Duration::from_secs(1)));
+        // Success closes the circuit: everything flows again.
+        cb.record_success();
+        assert!((0..6).all(|_| cb.admit(later + PROBE_LEASE * 2)));
     }
 
     #[test]

@@ -1,13 +1,19 @@
 //! Google Gemini API (`streamGenerateContent?alt=sse`, function calling).
 //!
 //! Key travels in the `x-goog-api-key` header — never in the URL, so it cannot
-//! leak into logs. Thought parts are dropped (no-CoT rule).
+//! leak into logs. Thought parts are dropped (no-CoT rule), but the opaque
+//! `thoughtSignature` of a function-call part is kept (in memory, keyed by
+//! call id) and echoed back on replay: Gemini 3 rejects a function-calling
+//! turn whose earlier `functionCall` lost its signature.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
 use std::time::Instant;
 
 use async_trait::async_trait;
 use orkestr_domain::{Model, ModelCapabilities, ProviderId, ProviderKind};
+use parking_lot::Mutex;
 use serde_json::{json, Value};
 use tokio_util::sync::CancellationToken;
 
@@ -20,17 +26,51 @@ use crate::types::{
     ProviderError, ReasoningLevel, ResponseFormat, Role, StopReason, ToolChoice, Usage,
 };
 
+/// Documented placeholder signature for function calls whose real signature
+/// is unknown (history from another provider or a previous app session).
+pub const DUMMY_THOUGHT_SIGNATURE: &str = "skip_thought_signature_validator";
+/// Signatures kept per adapter (oldest evicted first).
+const MAX_SIGNATURES: usize = 4096;
+
+/// Bounded `call id -> thoughtSignature` map.
+#[derive(Debug, Default)]
+pub struct SignatureCache {
+    map: HashMap<String, String>,
+    order: VecDeque<String>,
+}
+
+impl SignatureCache {
+    /// Records a signature.
+    pub fn insert(&mut self, id: String, signature: String) {
+        if self.map.insert(id.clone(), signature).is_none() {
+            self.order.push_back(id);
+            while self.order.len() > MAX_SIGNATURES {
+                if let Some(old) = self.order.pop_front() {
+                    self.map.remove(&old);
+                }
+            }
+        }
+    }
+
+    /// Signature of a call.
+    #[must_use]
+    pub fn get(&self, id: &str) -> Option<&str> {
+        self.map.get(id).map(String::as_str)
+    }
+}
+
 /// Gemini adapter.
 #[derive(Debug)]
 pub struct GeminiAdapter {
     cfg: HttpConfig,
+    signatures: Arc<Mutex<SignatureCache>>,
 }
 
 impl GeminiAdapter {
     /// Creates the adapter.
     #[must_use]
     pub fn new(cfg: HttpConfig) -> Self {
-        Self { cfg }
+        Self { cfg, signatures: Arc::default() }
     }
 
     async fn authed(&self, rb: reqwest::RequestBuilder) -> Result<reqwest::RequestBuilder, ProviderError> {
@@ -96,9 +136,27 @@ fn sanitize_schema(v: &Value) -> Value {
     }
 }
 
-/// Builds the request body (pure; unit-tested).
+/// Whether the model validates thought signatures on function-calling turns
+/// (Gemini 3 and later).
+fn requires_thought_signatures(model: &str) -> bool {
+    let id = model.rsplit('/').next().unwrap_or(model).to_ascii_lowercase();
+    id.strip_prefix("gemini-")
+        .and_then(|rest| rest.split(['.', '-']).next())
+        .and_then(|major| major.parse::<u32>().ok())
+        .is_some_and(|major| major >= 3)
+}
+
+/// Builds the request body without known signatures (pure; unit-tested).
 #[must_use]
 pub fn build_body(req: &ChatRequest) -> Value {
+    build_body_with(req, &|_| None)
+}
+
+/// Builds the request body; `signature` returns the `thoughtSignature`
+/// recorded for a function call id.
+#[must_use]
+pub fn build_body_with(req: &ChatRequest, signature: &dyn Fn(&str) -> Option<String>) -> Value {
+    let needs_signatures = requires_thought_signatures(&req.model);
     let mut names: HashMap<&str, &str> = HashMap::new();
     let mut contents: Vec<Value> = Vec::new();
     let push = |contents: &mut Vec<Value>, role: &str, part: Value| {
@@ -130,9 +188,19 @@ pub fn build_body(req: &ChatRequest) -> Value {
                 if !m.content.is_empty() {
                     push(&mut contents, "model", json!({"text": m.content}));
                 }
-                for c in &m.tool_calls {
+                let known: Vec<Option<String>> = m.tool_calls.iter().map(|c| signature(&c.id)).collect();
+                // Gemini signs the first call of a turn; when no real signature
+                // survived, Gemini 3 needs the documented placeholder there.
+                let placeholder = needs_signatures && known.iter().all(Option::is_none);
+                for (i, (c, sig)) in m.tool_calls.iter().zip(known).enumerate() {
                     names.insert(c.id.as_str(), c.name.as_str());
-                    push(&mut contents, "model", json!({"functionCall": {"name": c.name, "args": c.arguments}}));
+                    let mut part = json!({"functionCall": {"name": c.name, "args": c.arguments}});
+                    match sig {
+                        Some(sig) => part["thoughtSignature"] = json!(sig),
+                        None if placeholder && i == 0 => part["thoughtSignature"] = json!(DUMMY_THOUGHT_SIGNATURE),
+                        None => {}
+                    }
+                    push(&mut contents, "model", part);
                 }
             }
             Role::Tool => {
@@ -208,12 +276,20 @@ pub fn build_body(req: &ChatRequest) -> Value {
     body
 }
 
+/// Unique id for a function call Gemini returned without one (ids must not
+/// repeat across turns: thought signatures are keyed by them).
+fn generated_call_id() -> String {
+    static NEXT: AtomicU64 = AtomicU64::new(0);
+    format!("gemini_call_{:x}_{}", chrono::Utc::now().timestamp_millis(), NEXT.fetch_add(1, Ordering::Relaxed))
+}
+
 /// Incremental decoder for `streamGenerateContent` SSE chunks.
 #[derive(Default)]
 pub struct GeminiDecoder {
     usage: Option<Usage>,
     stop: Option<StopReason>,
     calls: u32,
+    signatures: Vec<(String, String)>,
 }
 
 impl GeminiDecoder {
@@ -246,7 +322,11 @@ impl GeminiDecoder {
                         let id = fc
                             .get("id")
                             .and_then(Value::as_str)
-                            .map_or_else(|| format!("gemini_call_{}", self.calls), str::to_owned);
+                            .filter(|id| !id.is_empty())
+                            .map_or_else(generated_call_id, str::to_owned);
+                        if let Some(sig) = p.get("thoughtSignature").and_then(Value::as_str).filter(|s| !s.is_empty()) {
+                            self.signatures.push((id.clone(), sig.to_owned()));
+                        }
                         out.push(ChatEvent::ToolCall {
                             id,
                             name: fc.get("name").and_then(Value::as_str).unwrap_or_default().to_owned(),
@@ -279,6 +359,11 @@ impl GeminiDecoder {
         Ok(out)
     }
 
+    /// Thought signatures seen so far as `(call id, signature)` (drained).
+    pub fn take_signatures(&mut self) -> Vec<(String, String)> {
+        std::mem::take(&mut self.signatures)
+    }
+
     /// Final events.
     pub fn finish(&mut self) -> Result<Vec<ChatEvent>, ProviderError> {
         let Some(stop) = self.stop.clone() else {
@@ -297,6 +382,7 @@ async fn run_stream(
     resp: reqwest::Response,
     em: Emitter<ChatEvent>,
     idle: std::time::Duration,
+    signatures: Arc<Mutex<SignatureCache>>,
 ) -> Result<(), ProviderError> {
     let mut body = resp.bytes_stream();
     let mut sse = SseParser::default();
@@ -308,7 +394,12 @@ async fn run_stream(
             None => sse.finish(),
         };
         for ev in events {
-            for out in dec.data(&ev.data)? {
+            let outs = dec.data(&ev.data)?;
+            // Record before the call is emitted, so the next turn finds it.
+            for (id, sig) in dec.take_signatures() {
+                signatures.lock().insert(id, sig);
+            }
+            for out in outs {
                 em.emit(out).await?;
             }
         }
@@ -377,13 +468,17 @@ impl ProviderAdapter for GeminiAdapter {
         if model.is_empty() || model.contains(['/', '?', '#']) {
             return Err(ProviderError::BadRequest(format!("invalid Gemini model id `{model}`")));
         }
-        let body = build_body(&request);
+        let body = {
+            let cache = self.signatures.lock();
+            build_body_with(&request, &|id| cache.get(id).map(str::to_owned))
+        };
         let url = self.cfg.url(&format!("v1beta/models/{model}:streamGenerateContent?alt=sse"));
         let rb = self.authed(self.cfg.client.post(url).json(&body)).await?;
         let idle = self.cfg.idle_timeout;
+        let signatures = Arc::clone(&self.signatures);
         Ok(drive(cancel, move |em| async move {
-            let resp = http::send(rb).await?;
-            run_stream(resp, em, idle).await
+            let resp = http::send_with_header_timeout(rb, idle).await?;
+            run_stream(resp, em, idle, signatures).await
         }))
     }
 }
@@ -422,6 +517,88 @@ mod tests {
         assert!(b["tools"][0]["functionDeclarations"][0]["parameters"].get("additionalProperties").is_none());
         assert_eq!(b["generationConfig"]["responseMimeType"], "application/json");
         assert_eq!(b["generationConfig"]["thinkingConfig"]["includeThoughts"], false);
+    }
+
+    #[test]
+    fn thought_signatures_round_trip_on_function_calls() {
+        let mut d = GeminiDecoder::default();
+        let out = d
+            .data(r#"{"candidates":[{"content":{"parts":[{"functionCall":{"name":"f","args":{}},"thoughtSignature":"SIG1"},{"functionCall":{"name":"g","args":{}}}]},"finishReason":"STOP"}]}"#)
+            .unwrap();
+        let ids: Vec<String> = out
+            .iter()
+            .filter_map(|e| match e {
+                ChatEvent::ToolCall { id, .. } => Some(id.clone()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(ids.len(), 2);
+        assert_ne!(ids[0], ids[1]);
+        let mut cache = SignatureCache::default();
+        for (id, sig) in d.take_signatures() {
+            cache.insert(id, sig);
+        }
+        assert_eq!(cache.get(&ids[0]), Some("SIG1"));
+        assert_eq!(cache.get(&ids[1]), None);
+
+        let req = ChatRequest::new(
+            "gemini-3-pro-preview",
+            vec![
+                ChatMessage::user("hi"),
+                ChatMessage::assistant_tool_calls(
+                    "",
+                    vec![
+                        ToolCallPart { id: ids[0].clone(), name: "f".into(), arguments: json!({}) },
+                        ToolCallPart { id: ids[1].clone(), name: "g".into(), arguments: json!({}) },
+                    ],
+                ),
+                ChatMessage::tool_result(&ids[0], "a", false),
+                ChatMessage::tool_result(&ids[1], "b", false),
+            ],
+        );
+        let b = build_body_with(&req, &|id| cache.get(id).map(str::to_owned));
+        let parts = &b["contents"][1]["parts"];
+        assert_eq!(parts[0]["thoughtSignature"], "SIG1");
+        assert!(parts[1].get("thoughtSignature").is_none());
+    }
+
+    #[test]
+    fn unknown_signatures_use_placeholder_on_gemini_3_only() {
+        let history = |model: &str| {
+            ChatRequest::new(
+                model,
+                vec![
+                    ChatMessage::user("hi"),
+                    ChatMessage::assistant_tool_calls(
+                        "",
+                        vec![
+                            ToolCallPart { id: "call_from_openai".into(), name: "f".into(), arguments: json!({}) },
+                            ToolCallPart { id: "call_2".into(), name: "f".into(), arguments: json!({}) },
+                        ],
+                    ),
+                    ChatMessage::tool_result("call_from_openai", "a", false),
+                    ChatMessage::tool_result("call_2", "b", false),
+                ],
+            )
+        };
+        let b = build_body(&history("gemini-3-pro-preview"));
+        assert_eq!(b["contents"][1]["parts"][0]["thoughtSignature"], DUMMY_THOUGHT_SIGNATURE);
+        assert!(b["contents"][1]["parts"][1].get("thoughtSignature").is_none());
+        let b = build_body(&history("models/gemini-3.1-flash"));
+        assert_eq!(b["contents"][1]["parts"][0]["thoughtSignature"], DUMMY_THOUGHT_SIGNATURE);
+        let b = build_body(&history("gemini-2.5-flash"));
+        assert!(b["contents"][1]["parts"][0].get("thoughtSignature").is_none());
+    }
+
+    #[test]
+    fn signature_cache_is_bounded() {
+        let mut c = SignatureCache::default();
+        for i in 0..(MAX_SIGNATURES + 10) {
+            c.insert(format!("id{i}"), "s".into());
+        }
+        assert!(c.get("id0").is_none());
+        assert_eq!(c.get(&format!("id{}", MAX_SIGNATURES + 9)), Some("s"));
+        assert_eq!(c.map.len(), MAX_SIGNATURES);
     }
 
     #[test]

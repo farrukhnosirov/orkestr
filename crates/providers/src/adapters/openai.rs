@@ -227,10 +227,18 @@ struct PendingCall {
     args: String,
 }
 
+/// First key used for tool-call deltas that carry no `index` (kept apart
+/// from real indexes so the two never merge).
+const UNINDEXED_BASE: u64 = 1 << 32;
+
 /// Incremental Chat Completions SSE decoder (pure state machine; unit-tested).
 #[derive(Default)]
 pub struct ChatCompletionsDecoder {
     calls: BTreeMap<u64, PendingCall>,
+    /// Key of the call the last tool-call delta went to.
+    last_call: Option<u64>,
+    /// Index-less calls seen so far.
+    unindexed: u64,
     usage: Option<Usage>,
     stop: Option<StopReason>,
     output_chars: usize,
@@ -278,8 +286,12 @@ impl ChatCompletionsDecoder {
                 out.push(ChatEvent::TextDelta(text.to_owned()));
             }
             if let Some(calls) = delta.get("tool_calls").and_then(Value::as_array) {
-                for (pos, c) in calls.iter().enumerate() {
-                    let index = c.get("index").and_then(Value::as_u64).unwrap_or(pos as u64);
+                for c in calls {
+                    let index = match c.get("index").and_then(Value::as_u64) {
+                        Some(i) => i,
+                        None => self.unindexed_key(c.get("id").and_then(Value::as_str).filter(|id| !id.is_empty())),
+                    };
+                    self.last_call = Some(index);
                     let entry = self.calls.entry(index).or_default();
                     if let Some(id) = c.get("id").and_then(Value::as_str) {
                         entry.id = id.to_owned();
@@ -306,13 +318,33 @@ impl ChatCompletionsDecoder {
         Ok(out)
     }
 
+    /// Key for a tool-call delta without `index` (non-conforming servers):
+    /// a new non-empty `id` starts a new call; a delta without an id (or with
+    /// the current call's id) continues the most recent call.
+    fn unindexed_key(&mut self, id: Option<&str>) -> u64 {
+        let current = self.last_call.filter(|k| self.calls.contains_key(k));
+        match (id, current) {
+            (None, Some(k)) => k,
+            (Some(id), Some(k)) if self.calls.get(&k).is_some_and(|c| c.id == id) => k,
+            _ => {
+                let k = UNINDEXED_BASE + self.unindexed;
+                self.unindexed += 1;
+                k
+            }
+        }
+    }
+
     fn flush_calls(&mut self) -> Vec<ChatEvent> {
         std::mem::take(&mut self.calls)
             .into_iter()
             .map(|(i, c)| {
                 self.output_chars += c.args.len();
                 ChatEvent::ToolCall {
-                    id: if c.id.is_empty() { format!("call_{i}") } else { c.id },
+                    id: match (c.id.is_empty(), i.checked_sub(UNINDEXED_BASE)) {
+                        (false, _) => c.id,
+                        (true, Some(n)) => format!("call_u{n}"),
+                        (true, None) => format!("call_{i}"),
+                    },
                     name: c.name,
                     arguments: parse_tool_arguments(&c.args),
                 }
@@ -480,7 +512,7 @@ impl ProviderAdapter for OpenAiAdapter {
         let idle = self.cfg.idle_timeout;
         let prompt_chars = request.prompt_chars();
         Ok(drive(cancel, move |em| async move {
-            let resp = http::send(rb).await?;
+            let resp = http::send_with_header_timeout(rb, idle).await?;
             run_stream(resp, em, idle, prompt_chars).await
         }))
     }
@@ -560,6 +592,35 @@ mod tests {
         ));
         assert_eq!(all[4], ChatEvent::Done { stop_reason: StopReason::ToolUse });
         assert!(!format!("{all:?}").contains("secret thoughts"));
+    }
+
+    #[test]
+    fn decoder_keeps_parallel_calls_apart_without_index() {
+        let mut d = ChatCompletionsDecoder::default();
+        let mut all = Vec::new();
+        for chunk in [
+            r#"{"choices":[{"delta":{"tool_calls":[{"id":"a","function":{"name":"read_file","arguments":"{\"path\":"}}]}}]}"#,
+            r#"{"choices":[{"delta":{"tool_calls":[{"function":{"arguments":"\"x\"}"}}]}}]}"#,
+            r#"{"choices":[{"delta":{"tool_calls":[{"id":"b","function":{"name":"read_file","arguments":"{\"path\":\"y\"}"}}]}}]}"#,
+            r#"{"choices":[{"delta":{"tool_calls":[{"id":"b","function":{"arguments":""}}]}}]}"#,
+            r#"{"choices":[{"delta":{},"finish_reason":"tool_calls"}]}"#,
+        ] {
+            all.extend(d.data(chunk).unwrap());
+        }
+        assert_eq!(
+            all,
+            vec![
+                ChatEvent::ToolCall { id: "a".into(), name: "read_file".into(), arguments: json!({"path":"x"}) },
+                ChatEvent::ToolCall { id: "b".into(), name: "read_file".into(), arguments: json!({"path":"y"}) },
+            ]
+        );
+        // Several index-less calls in one chunk (each with its id) stay apart too.
+        let mut d = ChatCompletionsDecoder::default();
+        let out = d
+            .data(r#"{"choices":[{"delta":{"tool_calls":[{"id":"c","function":{"name":"f","arguments":"{}"}},{"id":"e","function":{"name":"g","arguments":"{}"}}]},"finish_reason":"tool_calls"}]}"#)
+            .unwrap();
+        assert_eq!(out.len(), 2);
+        assert!(matches!(&out[1], ChatEvent::ToolCall { id, name, .. } if id == "e" && name == "g"));
     }
 
     #[test]
