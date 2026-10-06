@@ -441,7 +441,7 @@ impl Inner {
                 if let Some(score) = p.score {
                     let pct = p.confidence * 100.0;
                     summary.push_str(&if ru {
-                        format!("\n\nОценка: {score:.1}/10 · уверенность {pct:.0}%")
+                        format!("\n\nОценка: {}/10 · уверенность {pct:.0}\u{a0}%", crate::util::ru_decimal(score, 1))
                     } else {
                         format!("\n\nScore: {score:.1}/10 · confidence {pct:.0}%")
                     });
@@ -475,7 +475,7 @@ impl Inner {
         }
         let agreement = d.agreement * 100.0;
         let reasoning = if ru {
-            format!("{}\n\nСогласие участников: {agreement:.0}%", d.reasoning_summary)
+            format!("{}\n\nСогласие участников: {agreement:.0}\u{a0}%", d.reasoning_summary)
         } else {
             format!("{}\n\nAgreement: {agreement:.0}%", d.reasoning_summary)
         };

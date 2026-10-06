@@ -784,8 +784,9 @@ impl TaskService {
         .await
     }
 
-    /// Crash / shutdown recovery: every `Running/Waiting/Testing/Review` task
+    /// Crash / shutdown recovery: every `Running/Waiting/Testing` task
     /// becomes `Interrupted` through the privileged `SystemRecovery` edges
+    /// (`Review` stays: finished work waiting for a human survives a restart)
     /// (open attempts are closed as `Interrupted`). `reason` is
     /// `crash_recovery` or `shutdown`.
     pub async fn recover_interrupted(&self, reason: &'static str) -> Result<RecoveryReport, TaskError> {

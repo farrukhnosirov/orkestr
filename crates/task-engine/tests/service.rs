@@ -227,7 +227,8 @@ async fn crash_recovery_over_every_state() {
     }
     let mut sub = e.events.subscribe_all();
     let report = e.svc.recover_interrupted("crash_recovery").await.unwrap();
-    assert_eq!(report.interrupted.len(), 4);
+    // Running, Waiting, Testing — not Review (finished work awaiting a human).
+    assert_eq!(report.interrupted.len(), 3);
     for (id, before) in ids {
         let after = e.status(id).await;
         if before.is_interruptible_on_crash() {
@@ -245,7 +246,7 @@ async fn crash_recovery_over_every_state() {
             _ => None,
         })
         .collect();
-    assert_eq!(reasons, vec![Some("crash_recovery".to_owned()); 4]);
+    assert_eq!(reasons, vec![Some("crash_recovery".to_owned()); 3]);
     // Idempotent.
     assert!(e.svc.recover_interrupted("crash_recovery").await.unwrap().interrupted.is_empty());
 }

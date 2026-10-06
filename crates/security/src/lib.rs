@@ -52,7 +52,7 @@ pub use paths::{confine, confine_relative, PathError};
 pub use permissions::{
     AskReason, CheckContext, Decision, DenyReason, PermissionEngine, PermissionService, Resource, RuleEngine,
 };
-pub use redact::{GlobalRedactor, Redactor};
+pub use redact::{GlobalRedactor, Redactor, StreamRedactor};
 pub use secrets::{AccessContext, SecretBackendChoice, SecretService, SecretStore, VaultStatus};
 
 /// All security migrations, in order (the core appends them to its list).

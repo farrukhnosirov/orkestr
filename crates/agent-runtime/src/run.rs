@@ -149,7 +149,10 @@ pub enum Outcome {
     Failed(String),
     /// Turn / budget / time limit.
     Limit {
-        /// `max_turns`, `budget_exceeded`, `time_limit`.
+        /// `max_turns`, `time_limit`, `run_budget_exceeded` (the caller's
+        /// cost cap), `budget_exceeded` (template limits),
+        /// `project_budget_exceeded` (cost-engine budgets). Stored on the
+        /// task result as `stopCode`.
         code: &'static str,
         /// Human message.
         message: String,
@@ -257,6 +260,11 @@ pub struct Run {
     /// A quality-pipeline fix attempt: a `done` result goes to `Testing` so
     /// the pipeline checks it (never straight to `Completed`).
     pub fix_loop: bool,
+    /// Cost cap handed in by the caller at spawn (the Manager's share of the
+    /// run budget) — tells a run-budget stop from a template-budget stop.
+    pub spawn_cost_cap: Option<f64>,
+    /// Usage not yet written to the task (a failed per-call write).
+    pending_usage: UsageSummary,
     checkpoint_taken: bool,
     budget_warned: bool,
     budget_note: Option<String>,
@@ -312,6 +320,8 @@ impl Run {
             run_usage: UsageSummary::default(),
             briefing: None,
             fix_loop: false,
+            spawn_cost_cap: None,
+            pending_usage: UsageSummary::default(),
             checkpoint_taken: false,
             budget_warned: false,
             budget_note: None,
@@ -326,6 +336,23 @@ impl Run {
     async fn publish(&self, kind: EventKind) {
         let ev = NewEvent::new(kind).project(self.agent.project_id).task(self.task.id).agent(self.agent.id);
         self.deps.publish(ev).await;
+    }
+
+    /// Emits what a [`orkestr_security::StreamRedactor`] still holds back
+    /// (before the message's `done` event).
+    pub(crate) async fn publish_stream_end(&self, message_id: &str, live: &mut orkestr_security::StreamRedactor) {
+        let rest = live.flush();
+        if rest.is_empty() {
+            return;
+        }
+        self.publish(EventKind::AgentMessage(MessageDeltaPayload {
+            agent_id: Some(self.agent.id),
+            message_id: message_id.to_owned(),
+            role: MessageRole::Assistant,
+            delta: rest,
+            done: false,
+        }))
+        .await;
     }
 
     /// Persists the agent and publishes `AgentUpdated`.
@@ -560,8 +587,11 @@ impl Run {
             }
             if let Some(max) = b.max_cost_usd {
                 if usage.cost_usd >= max || (usage.cost_usd + estimate > max && estimate > 0.0) {
+                    // The binding cap is the caller's (run budget share) when
+                    // it is not looser than the effective one.
+                    let run_cap = self.spawn_cost_cap.is_some_and(|c| c <= max + 1e-9);
                     return Err(Outcome::Limit {
-                        code: "budget_exceeded",
+                        code: if run_cap { "run_budget_exceeded" } else { "budget_exceeded" },
                         message: format!("cost budget exhausted (${:.4} spent of ${max:.2})", usage.cost_usd),
                     });
                 }
@@ -577,7 +607,7 @@ impl Run {
         match self.deps.cost.check(ctx, estimate).await {
             Ok(r) if r.outcome == orkestr_protocol::methods::cost::BudgetOutcome::Exceeded => {
                 return Err(Outcome::Limit {
-                    code: "budget_exceeded",
+                    code: "project_budget_exceeded",
                     message: "a project/global spending budget would be exceeded".into(),
                 });
             }
@@ -639,6 +669,20 @@ impl Run {
         self.agent.usage.add(&s);
         self.run_usage.add(&s);
         self.execution.usage.add(&s);
+        // The task's usage is the run-level spend ledger the Manager reads
+        // while agents work (shared run budget): written per call, not only
+        // when the agent ends.
+        self.pending_usage.add(&s);
+        let delta = self.pending_usage;
+        match self
+            .deps
+            .tasks
+            .record_agent_run(self.task.id, AgentRunUpdate { usage_delta: Some(delta), ..AgentRunUpdate::default() })
+            .await
+        {
+            Ok(_) => self.pending_usage = UsageSummary::default(),
+            Err(e) => tracing::warn!(error = %e, "could not record usage on the task; retried later"),
+        }
     }
 
     // ------------------------------------------------------------------
@@ -702,6 +746,7 @@ impl Run {
             self.set_state(AgentState::Thinking, Some("Waiting for the model".into())).await;
 
             let hook: Arc<dyn HandoffHook> = Arc::new(FallbackHook {
+                deps: Arc::clone(&self.deps),
                 store: self.store.clone(),
                 agent: self.agent.clone(),
                 task: self.task.clone(),
@@ -714,6 +759,7 @@ impl Run {
             let mut first: Option<u64> = None;
             let mut message_id = uuid::Uuid::now_v7().to_string();
             let mut text = String::new();
+            let mut live = orkestr_security::StreamRedactor::new();
             let mut calls: Vec<ToolCallPart> = Vec::new();
             let mut usage: Option<Usage> = None;
             let mut model = self.head_model().unwrap_or_else(|| self.chain[0].clone());
@@ -723,14 +769,19 @@ impl Run {
                 match ev {
                     ChatEvent::TextDelta(t) => {
                         text.push_str(&t);
-                        self.publish(EventKind::AgentMessage(MessageDeltaPayload {
-                            agent_id: Some(self.agent.id),
-                            message_id: message_id.clone(),
-                            role: MessageRole::Assistant,
-                            delta: redact(&t),
-                            done: false,
-                        }))
-                        .await;
+                        // Redacted over the stream, not per chunk: a secret
+                        // split across chunks would pass a per-chunk check.
+                        let delta = live.push(&t);
+                        if !delta.is_empty() {
+                            self.publish(EventKind::AgentMessage(MessageDeltaPayload {
+                                agent_id: Some(self.agent.id),
+                                message_id: message_id.clone(),
+                                role: MessageRole::Assistant,
+                                delta,
+                                done: false,
+                            }))
+                            .await;
+                        }
                     }
                     ChatEvent::ToolCall { id, name, arguments } => calls.push(ToolCallPart { id, name, arguments }),
                     ChatEvent::Usage(u) => usage = Some(u),
@@ -739,6 +790,7 @@ impl Run {
                         if let Some(u) = usage.take() {
                             self.record_usage(&from, u, first, false).await;
                         }
+                        self.publish_stream_end(&message_id, &mut live).await;
                         self.publish(EventKind::AgentMessage(MessageDeltaPayload {
                             agent_id: Some(self.agent.id),
                             message_id: message_id.clone(),
@@ -797,6 +849,7 @@ impl Run {
                 }
                 return Outcome::Failed("the model stream ended unexpectedly".into());
             }
+            self.publish_stream_end(&message_id, &mut live).await;
             self.publish(EventKind::AgentMessage(MessageDeltaPayload {
                 agent_id: Some(self.agent.id),
                 message_id: message_id.clone(),
@@ -898,8 +951,10 @@ impl Run {
         if let Err(e) = self.store.save_tool_call(call, None, None).await {
             tracing::warn!(error = %e, "failed to persist tool call");
         }
-        self.set_state(AgentState::Waiting, Some(activity)).await;
+        // Task first: observers that see the agent `Waiting` see its task
+        // `Waiting` too.
         self.task_to(TaskStatus::Waiting, "awaiting_approval").await;
+        self.set_state(AgentState::Waiting, Some(activity)).await;
         let status =
             self.deps.security.approvals.wait(id, self.deps.config.approval_timeout, &self.control.cancel).await;
         let note = self.deps.security.approvals.get(id).await.ok().flatten().and_then(|a| a.resolution_note);
@@ -934,9 +989,13 @@ impl Run {
         self.set_state(to, Some(summary.to_owned())).await;
     }
 
-    async fn checkpoint(&mut self) {
+    /// Takes the task's automatic `Before` checkpoint (once per run). `Err`
+    /// carries the reason when the snapshot could not be taken; a run without
+    /// a workspace (nothing to snapshot) or with the checkpoint already taken
+    /// returns `Ok`.
+    pub(crate) async fn checkpoint(&mut self) -> Result<(), String> {
         if self.checkpoint_taken || self.env.root.is_none() {
-            return;
+            return Ok(());
         }
         self.checkpoint_taken = true;
         match tools::memory::snapshot(
@@ -950,8 +1009,12 @@ impl Run {
             Ok(s) => {
                 self.progress.lock().snapshot_id = Some(s.id);
                 self.note(&format!("Checkpoint {} taken before the first change.", s.id)).await;
+                Ok(())
             }
-            Err(e) => tracing::warn!(agent_id = %self.agent.id, error = %e.message, "automatic checkpoint failed"),
+            Err(e) => {
+                tracing::warn!(agent_id = %self.agent.id, error = %e.message, "automatic checkpoint failed");
+                Err(e.message)
+            }
         }
     }
 
@@ -1079,7 +1142,7 @@ impl Run {
         }
 
         if desc.class == ToolClass::Mutate {
-            self.checkpoint().await;
+            let _ = self.checkpoint().await;
         }
         let activity = format!("{name} {}", one_line(&resource_hint(args), 80)).trim().to_owned();
         self.class_state(desc.class, &activity).await;
@@ -1208,7 +1271,7 @@ impl Run {
         let mut approved_once = false;
         loop {
             if class == ToolClass::Mutate {
-                self.checkpoint().await;
+                let _ = self.checkpoint().await;
             }
             self.class_state(class, &format!("$ {}", one_line(&command, 80))).await;
             let req = RunRequest {
@@ -1339,7 +1402,11 @@ impl Run {
         // after-checkpoint that `snapshots.rollbackTask` pairs with the
         // automatic before-checkpoint, so every task with changes can be
         // rolled back — including tasks that finished successfully.
-        if !self.progress.lock().files_changed.is_empty() {
+        // `checkpoint_taken` also covers runs that changed the workspace
+        // without a reported file change (Mutate-class `run_command`s such as
+        // `sed -i` / `npm install`, CLI agents): their Before checkpoint needs
+        // its After pair or `rollbackTask` cannot restore the task.
+        if self.checkpoint_taken || !self.progress.lock().files_changed.is_empty() {
             let label = if matches!(outcome, Outcome::Submitted(_)) { "finished" } else { "stopped" };
             match tools::memory::snapshot(
                 &self.env,
@@ -1434,6 +1501,21 @@ impl Run {
             },
         };
 
+        // Another agent owns the task now (a concurrent spawn won the race):
+        // this run must not move it or overwrite its result.
+        let owns_task = match self.deps.tasks.get(self.task.id).await {
+            Ok(t) => {
+                let mine = t.agent_id.is_none_or(|a| a == self.agent.id);
+                self.task = t;
+                mine
+            }
+            Err(_) => true,
+        };
+        if !owns_task {
+            tracing::warn!(agent_id = %self.agent.id, task_id = %self.task.id, "task is owned by another agent; leaving it untouched");
+        }
+        let task_target = task_target.filter(|_| owns_task);
+
         // Task outcome (through the task engine).
         if let Some((target, why)) = task_target {
             match target {
@@ -1467,10 +1549,15 @@ impl Run {
                             files.push(f.clone());
                         }
                     }
-                    Some(TaskResult { success: r.status == SubmitStatus::Done, summary: redact(&r.summary) })
+                    Some(TaskResult {
+                        success: r.status == SubmitStatus::Done,
+                        summary: redact(&r.summary),
+                        stop_code: None,
+                    })
                 }
-                Outcome::Failed(m) | Outcome::Limit { message: m, .. } => {
-                    Some(TaskResult { success: false, summary: redact(m) })
+                Outcome::Failed(m) => Some(TaskResult { success: false, summary: redact(m), stop_code: None }),
+                Outcome::Limit { code, message } => {
+                    Some(TaskResult { success: false, summary: redact(message), stop_code: Some((*code).to_owned()) })
                 }
                 Outcome::Cancelled => None,
             };
@@ -1494,9 +1581,12 @@ impl Run {
             .record_agent_run(
                 self.task.id,
                 AgentRunUpdate {
-                    usage_delta: Some(self.run_usage),
-                    files_touched: files,
-                    result,
+                    // Usage reached the task call by call (record_usage);
+                    // only what could not be written then is left.
+                    usage_delta: (self.pending_usage != UsageSummary::default())
+                        .then(|| std::mem::take(&mut self.pending_usage)),
+                    files_touched: if owns_task { files } else { Vec::new() },
+                    result: result.filter(|_| owns_task),
                     ..AgentRunUpdate::default()
                 },
             )
@@ -1603,6 +1693,7 @@ pub async fn remove_agent_rules(deps: &RuntimeDeps, agent: orkestr_domain::Agent
 /// Builds and records a structured handoff before every provider switch
 /// (§7, §57) and gives the next model the handoff in its system prompt.
 struct FallbackHook {
+    deps: Arc<RuntimeDeps>,
     store: AgentStore,
     agent: AgentInstance,
     task: Task,
@@ -1610,9 +1701,46 @@ struct FallbackHook {
     turns_left: u32,
 }
 
+impl FallbackHook {
+    /// Pre-flight budget check of the fallback target (its provider's
+    /// budgets and its pricing): the turn's own check only saw the head
+    /// model. `Some(reason)` = the switch must not happen.
+    async fn budget_blocks(&self, to: &ModelRef, request: &ChatRequest) -> Option<String> {
+        let est_input = u64::try_from(request.prompt_chars() / 4).unwrap_or(u64::MAX);
+        let estimate = orkestr_providers::pricing_for(&to.model).map_or(0.0, |p| {
+            orkestr_providers::pricing::preflight_estimate(&p, est_input, u64::from(self.deps.config.max_output_tokens))
+        });
+        if let Some(max) = self.agent.budget.as_ref().and_then(|b| b.max_cost_usd) {
+            if estimate > 0.0 && self.agent.usage.cost_usd + estimate > max {
+                return Some(format!("the agent's cost budget would be exceeded on {}", to.model));
+            }
+        }
+        let bctx = orkestr_cost::BudgetContext {
+            project_id: Some(self.agent.project_id),
+            task_id: Some(self.task.id),
+            provider_id: Some(to.provider_id),
+            agent_id: Some(self.agent.id),
+        };
+        match self.deps.cost.check(bctx, estimate).await {
+            Ok(r) if r.outcome == orkestr_protocol::methods::cost::BudgetOutcome::Exceeded => {
+                Some(format!("a spending budget of {}'s provider would be exceeded", to.model))
+            }
+            Ok(_) => None,
+            Err(e) => {
+                tracing::warn!(error = %e, "fallback budget check failed; continuing");
+                None
+            }
+        }
+    }
+}
+
 #[async_trait]
 impl HandoffHook for FallbackHook {
     async fn handoff(&self, ctx: &HandoffContext, mut request: ChatRequest) -> Option<ChatRequest> {
+        if let Some(why) = self.budget_blocks(&ctx.to, &request).await {
+            tracing::warn!(agent_id = %self.agent.id, to = %ctx.to.model, %why, "provider fallback blocked by a budget");
+            return None;
+        }
         let mut agent = self.agent.clone();
         agent.model = Some(ctx.from.clone());
         let p = self.progress.lock().clone();

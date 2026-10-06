@@ -124,6 +124,8 @@ impl AdapterSource for Source {
 struct Gateway {
     source: Arc<Source>,
     chain: Mutex<Vec<ModelRef>>,
+    /// Provider kinds other than `Mock` (CLI coding agents).
+    kinds: Mutex<HashMap<ProviderId, ProviderKind>>,
 }
 
 #[async_trait]
@@ -143,7 +145,7 @@ impl ModelGateway for Gateway {
     }
     fn provider(&self, id: ProviderId) -> Option<ProviderInfo> {
         self.source.adapters.lock().contains_key(&id).then_some(ProviderInfo {
-            kind: ProviderKind::Mock,
+            kind: self.kinds.lock().get(&id).copied().unwrap_or(ProviderKind::Mock),
             is_local: true,
             enabled: true,
         })
@@ -294,7 +296,8 @@ async fn harness(mode: ApprovalMode) -> H {
         .gate(Arc::new(TestGate { sec: Arc::clone(&sec), pending: Mutex::new(HashMap::new()) }))
         .build();
     let source = Arc::new(Source::default());
-    let gateway = Arc::new(Gateway { source: Arc::clone(&source), chain: Mutex::new(Vec::new()) });
+    let gateway =
+        Arc::new(Gateway { source: Arc::clone(&source), chain: Mutex::new(Vec::new()), kinds: Mutex::default() });
     let ui_language = crate::UiLanguage::default();
     let deps = RuntimeDeps {
         db: db.clone(),
@@ -676,6 +679,79 @@ async fn budget_exceeded_stops_cleanly() {
 }
 
 #[tokio::test]
+async fn fallback_to_a_provider_over_its_budget_is_refused() {
+    let h = harness(ApprovalMode::SemiAuto).await;
+    let tpl = h.template(&["read_file", "submit_result"], WorktreePolicy::SharedWorktree, None).await;
+    let first =
+        h.provider(vec![Step::Events(vec![ChatEvent::Error(ProviderError::QuotaExceeded("out of credits".into()))])]);
+    let second = Scripted::new(vec![submit("done", "finished on the fallback model")]);
+    h.source.adapters.lock().insert(second.id, Arc::clone(&second) as Arc<dyn ProviderAdapter>);
+    // A priced model, so the pre-flight estimate is above the tiny limit.
+    *h.gateway.chain.lock() = vec![model(&first, "primary"), model(&second, "gpt-4o")];
+    h.rt.deps()
+        .cost
+        .set_budget(orkestr_protocol::methods::cost::SetBudgetParams {
+            id: None,
+            name: Some("backup provider".into()),
+            scope: orkestr_protocol::methods::cost::BudgetScope::Provider { provider_id: second.id },
+            period: BudgetPeriod::Monthly,
+            limit_usd: Some(0.000_001),
+            unrestricted: None,
+            warn_at: None,
+            enabled: None,
+        })
+        .await
+        .unwrap();
+    let a = h.wait_done(h.spawn(tpl, None).await.id).await;
+    assert_eq!(a.state, AgentState::Error, "{:?}", a.last_error);
+    assert!(second.requests.lock().is_empty(), "the over-budget fallback provider was never called");
+    assert!(!h.source.events.lock().iter().any(|e| matches!(e, ProviderEvent::Fallback { .. })));
+}
+
+#[tokio::test]
+async fn concurrent_spawns_on_one_task_start_only_one_agent() {
+    let h = harness(ApprovalMode::SemiAuto).await;
+    let tpl = h.template(&["read_file", "submit_result"], WorktreePolicy::SharedWorktree, None).await;
+    h.provider(vec![Step::Hang, Step::Hang]);
+    let task = h
+        .tasks
+        .create(
+            orkestr_protocol::methods::tasks::CreateTaskParams {
+                project_id: h.project,
+                title: "One task".into(),
+                ..Default::default()
+            },
+            orkestr_domain::TaskActor::User,
+        )
+        .await
+        .unwrap();
+    let params = || SpawnAgentParams {
+        project_id: h.project,
+        template_id: tpl,
+        task_id: Some(task.id),
+        new_task: None,
+        model: None,
+        worktree_policy: None,
+        name: None,
+        max_turns: None,
+        base_branch: None,
+        approval_mode: None,
+        budget: None,
+    };
+    let (a, b) = tokio::join!(h.rt.spawn(params()), h.rt.spawn(params()));
+    let (ok, err) = match (a, b) {
+        (Ok(x), Err(e)) | (Err(e), Ok(x)) => (x.0, e),
+        (a, b) => panic!("exactly one spawn must win: {:?} / {:?}", a.map(|x| x.0.id), b.map(|x| x.0.id)),
+    };
+    assert!(matches!(err, crate::AgentError::Conflict(_)), "{err}");
+    h.wait_state(ok.id, AgentState::Thinking).await;
+    let t = h.tasks.get(task.id).await.unwrap();
+    assert_eq!(t.status, TaskStatus::Running, "the winner's task is not flipped to Failed");
+    assert_eq!(t.agent_id, Some(ok.id));
+    h.rt.stop(ok.id, AgentStopMode::Cancel).await.unwrap();
+}
+
+#[tokio::test]
 async fn provider_fallback_creates_a_handoff() {
     let h = harness(ApprovalMode::SemiAuto).await;
     let tpl = h.template(&["read_file", "submit_result"], WorktreePolicy::SharedWorktree, None).await;
@@ -890,4 +966,160 @@ async fn dedicated_worktree_commits_on_the_agent_branch() {
         .unwrap();
     let log = String::from_utf8_lossy(&log.stdout);
     assert!(log.contains("Add feature") && log.contains("Orkestr-Agent"), "{log}");
+}
+
+// ---------------------------------------------------------------------------
+// CLI coding agents (Claude Code / Codex)
+// ---------------------------------------------------------------------------
+
+/// A scripted official CLI agent: writes `writes` into its cwd, then streams
+/// `events`.
+struct ScriptedCli {
+    id: ProviderId,
+    writes: Vec<(String, String)>,
+    events: Vec<orkestr_providers::CodingAgentEvent>,
+    requests: Mutex<Vec<orkestr_providers::CodingAgentRequest>>,
+}
+
+#[async_trait]
+impl ProviderAdapter for ScriptedCli {
+    fn id(&self) -> ProviderId {
+        self.id
+    }
+    fn descriptor(&self) -> ProviderDescriptor {
+        MockAdapter::new(self.id, "Scripted CLI", MockOptions::default()).descriptor()
+    }
+    async fn auth_state(&self) -> AuthStatus {
+        AuthStatus::Ready { label: "scripted".into() }
+    }
+    async fn list_models(&self) -> Result<Vec<Model>, ProviderError> {
+        Ok(Vec::new())
+    }
+    async fn health(&self) -> HealthReport {
+        HealthReport { health: ProviderHealth::Healthy, latency_ms: None, detail: None, version: None }
+    }
+    async fn chat(&self, _request: ChatRequest, _cancel: CancellationToken) -> Result<ChatStream, ProviderError> {
+        Err(ProviderError::Unsupported("CLI only".into()))
+    }
+    async fn run_coding_agent(
+        &self,
+        request: orkestr_providers::CodingAgentRequest,
+        _cancel: CancellationToken,
+    ) -> Result<orkestr_providers::CodingAgentStream, ProviderError> {
+        for (path, content) in &self.writes {
+            let p = Path::new(&request.cwd).join(path);
+            std::fs::create_dir_all(p.parent().unwrap()).unwrap();
+            std::fs::write(p, content).unwrap();
+        }
+        self.requests.lock().push(request);
+        Ok(futures::stream::iter(self.events.clone()).boxed())
+    }
+}
+
+impl H {
+    fn cli(
+        &self,
+        kind: ProviderKind,
+        writes: Vec<(String, String)>,
+        events: Vec<orkestr_providers::CodingAgentEvent>,
+    ) -> Arc<ScriptedCli> {
+        let s = Arc::new(ScriptedCli { id: ProviderId::new(), writes, events, requests: Mutex::new(Vec::new()) });
+        self.source.adapters.lock().insert(s.id, Arc::clone(&s) as Arc<dyn ProviderAdapter>);
+        self.gateway.kinds.lock().insert(s.id, kind);
+        *self.gateway.chain.lock() = vec![ModelRef { provider_id: s.id, model: "default".into() }];
+        s
+    }
+}
+
+fn cli_text(t: &str) -> orkestr_providers::CodingAgentEvent {
+    orkestr_providers::CodingAgentEvent::Chat(ChatEvent::TextDelta(t.into()))
+}
+
+fn cli_done() -> orkestr_providers::CodingAgentEvent {
+    orkestr_providers::CodingAgentEvent::Chat(ChatEvent::Done { stop_reason: StopReason::EndTurn })
+}
+
+#[tokio::test]
+async fn cli_agent_takes_a_checkpoint_and_its_task_rolls_back() {
+    let h = harness(ApprovalMode::FullAuto).await;
+    let tpl = h.template(&["write_file", "run_command", "submit_result"], WorktreePolicy::SharedWorktree, None).await;
+    let cli = h.cli(
+        ProviderKind::ClaudeCode,
+        vec![("src/cli.txt".into(), "from the CLI\n".into())],
+        vec![
+            orkestr_providers::CodingAgentEvent::FileChanged {
+                path: "src/cli.txt".into(),
+                change: orkestr_providers::FileChangeKind::Added,
+            },
+            cli_text("Done.\n```json\n{\"status\": \"done\", \"summary\": \"wrote src/cli.txt\"}\n```\n"),
+            cli_done(),
+        ],
+    );
+    let a = h.wait_done(h.spawn(tpl, None).await.id).await;
+    assert_eq!(a.state, AgentState::Completed, "{:?}", a.last_error);
+    // Full Auto + run_command still never pre-approves the CLI's own shell.
+    let req = cli.requests.lock()[0].clone();
+    assert!(!req.tool_policy.allowed_tools.iter().any(|t| t == "Bash"), "{:?}", req.tool_policy);
+    assert!(req.tool_policy.disallowed_tools.iter().any(|t| t == "Bash"));
+    let task_id = a.task_id.unwrap();
+    let snaps = h.snapshots.list(h.project, Some(task_id), None, 10).await.unwrap();
+    let phases: Vec<_> = snaps.iter().filter_map(|s| s.task_phase).collect();
+    assert!(phases.contains(&orkestr_domain::TaskSnapshotPhase::Before), "{phases:?}");
+    assert!(phases.contains(&orkestr_domain::TaskSnapshotPhase::After), "{phases:?}");
+    let rb = h.snapshots.rollback_task(h.project, task_id, None, None, false).await.unwrap();
+    assert!(rb.conflicts.is_empty(), "{rb:?}");
+    assert!(!h.root.join("src/cli.txt").exists(), "the CLI agent's change was rolled back");
+}
+
+#[tokio::test]
+async fn cli_dangerous_command_stops_the_run_and_is_audited() {
+    let h = harness(ApprovalMode::FullAuto).await;
+    let tpl = h.template(&["write_file", "run_command", "submit_result"], WorktreePolicy::SharedWorktree, None).await;
+    h.cli(
+        ProviderKind::Codex,
+        Vec::new(),
+        vec![
+            orkestr_providers::CodingAgentEvent::ToolStarted {
+                call_id: "c1".into(),
+                tool: "command_execution".into(),
+                summary: "git push --force origin main".into(),
+            },
+            cli_text("pushed\n```json\n{\"status\": \"done\", \"summary\": \"pushed\"}\n```\n"),
+            cli_done(),
+        ],
+    );
+    let a = h.wait_done(h.spawn(tpl, None).await.id).await;
+    assert_eq!(a.state, AgentState::Error, "{:?}", a.last_error);
+    assert!(a.last_error.as_deref().unwrap_or_default().contains("dangerous"), "{:?}", a.last_error);
+    assert_eq!(h.task_status(&a).await, TaskStatus::Failed);
+    let tr = h.rt.transcript(a.id, None).await.unwrap();
+    let call = tr.tool_calls.iter().find(|c| c.tool_call.tool == "command_execution").unwrap();
+    assert_eq!(call.tool_call.status, ToolCallStatus::Denied);
+    let audit = h
+        .sec
+        .audit
+        .query(orkestr_security::AuditQuery::default())
+        .await
+        .unwrap()
+        .into_iter()
+        .any(|r| r.event.action == "agent.cliDangerousCommand");
+    assert!(audit, "the dangerous CLI command was audited");
+}
+
+#[tokio::test]
+async fn mutating_command_alone_gets_a_checkpoint_pair() {
+    let h = harness(ApprovalMode::FullAuto).await;
+    let tpl = h.template(&["run_command", "submit_result"], WorktreePolicy::SharedWorktree, None).await;
+    h.provider(vec![tool("run_command", json!({"command": "echo changed > notes.txt"})), submit("done", "wrote")]);
+    let a = h.wait_done(h.spawn(tpl, None).await.id).await;
+    assert_eq!(a.state, AgentState::Completed, "{:?}", a.last_error);
+    assert!(h.root.join("notes.txt").is_file());
+    let task_id = a.task_id.unwrap();
+    let snaps = h.snapshots.list(h.project, Some(task_id), None, 10).await.unwrap();
+    let phases: Vec<_> = snaps.iter().filter_map(|s| s.task_phase).collect();
+    assert!(phases.contains(&orkestr_domain::TaskSnapshotPhase::Before), "{phases:?}");
+    assert!(phases.contains(&orkestr_domain::TaskSnapshotPhase::After), "{phases:?}");
+    let rb = h.snapshots.rollback_task(h.project, task_id, None, None, false).await.unwrap();
+    assert!(rb.conflicts.is_empty(), "{rb:?}");
+    assert!(!h.root.join("notes.txt").exists(), "the command's change was rolled back");
 }

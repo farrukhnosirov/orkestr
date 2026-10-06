@@ -432,6 +432,8 @@ impl Inner {
             git,
             sched_id: ManagerRunId::new(),
             forced: false,
+            heal_since: pipeline.started_at,
+            granted_budget_usd: 0.0,
         };
         let inner = Arc::clone(self);
         let task_id = task.id;
@@ -577,6 +579,26 @@ struct Driver {
     git: bool,
     sched_id: ManagerRunId,
     forced: bool,
+    /// Start of the self-healing time window (the pipeline start; reset when
+    /// the user approves more time after a wall-time escalation).
+    heal_since: orkestr_domain::Timestamp,
+    /// Extra self-healing spend the user approved after a budget escalation
+    /// of the pipeline's own healing budget (USD).
+    granted_budget_usd: f64,
+}
+
+/// Whether approving an escalation can let self-healing continue, and how.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Grant {
+    /// More fix attempts (attempt limit, no progress).
+    Attempts,
+    /// A new wall-time window.
+    WallTime,
+    /// More of the pipeline's own healing budget.
+    HealingBudget,
+    /// Nothing an approval can change (the task / run / project budget is
+    /// spent: the user must raise it) — no approval is offered.
+    None,
 }
 
 impl Driver {
@@ -1164,7 +1186,11 @@ impl Driver {
             self.wait_unpaused().await?;
             let task = self.task().await?;
             let spent = task.usage.cost_usd;
-            let mut budget = self.p.limits.max_budget_usd;
+            // The pipeline's own healing budget (the user can approve more of
+            // it) and the hard budgets of the task / run (only raising those
+            // helps — an approval here cannot).
+            let healing_budget = self.p.limits.max_budget_usd.map(|b| b + self.granted_budget_usd);
+            let mut hard: Option<f64> = None;
             for b in [
                 task.budget.as_ref().and_then(|b| b.max_cost_usd),
                 self.ctx.budget_usd.map(|r| self.p.cost_at_start_usd + r),
@@ -1172,8 +1198,12 @@ impl Driver {
             .into_iter()
             .flatten()
             {
-                budget = Some(budget.map_or(b, |x: f64| x.min(b)));
+                hard = Some(hard.map_or(b, |x: f64| x.min(b)));
             }
+            let budget = match (healing_budget, hard) {
+                (Some(a), Some(b)) => Some(a.min(b)),
+                (a, b) => a.or(b),
+            };
             let budget_exceeded = self
                 .inner
                 .deps
@@ -1189,7 +1219,7 @@ impl Driver {
                 )
                 .await
                 .is_ok_and(|r| r.outcome == orkestr_protocol::methods::cost::BudgetOutcome::Exceeded);
-            let elapsed = (now() - self.p.started_at).to_std().unwrap_or_default();
+            let elapsed = (now() - self.heal_since).to_std().unwrap_or_default();
             let decision = healing::decide(&HealState {
                 limits: &self.p.limits,
                 granted: self.p.granted_attempts,
@@ -1204,7 +1234,8 @@ impl Driver {
             self.forced = false;
             match decision {
                 HealDecision::Escalate(e) => {
-                    self.escalate(&e, &analysis).await?;
+                    let grant = grant_for(&e, spent, hard, self.p.limits.max_budget_usd, budget_exceeded);
+                    self.escalate(&e, grant, &analysis).await?;
                     self.forced = true;
                 }
                 HealDecision::Attempt { attempt, escalate_model } => {
@@ -1218,35 +1249,65 @@ impl Driver {
         }
     }
 
-    /// Asks the user how to continue. `Ok(())` = more attempts granted.
-    async fn escalate(&mut self, e: &healing::Escalation, analysis: &FailureAnalysis) -> Result<(), End> {
+    /// Asks the user how to continue. `Ok(())` = the user granted what the
+    /// escalation needs (attempts, time or healing budget). An escalation
+    /// that no approval can resolve (a spent task / run / project budget)
+    /// fails the task with a notice instead of offering a no-op approval.
+    async fn escalate(&mut self, e: &healing::Escalation, grant: Grant, analysis: &FailureAnalysis) -> Result<(), End> {
         let task = self.task().await?;
         let reason = e.reason();
         self.set_status(PipelineStatus::Escalated, Some(format!("self-healing stopped: {reason}"))).await;
         let attempts = self.p.healing.len();
+        if grant == Grant::None {
+            self.notice(
+                format!(
+                    "Self-healing stopped on \"{}\" ({reason}; {attempts} attempt(s)). Last failure: {}. Raise the task, run or project budget and retry the task to continue.",
+                    task.title,
+                    one_line(&analysis.summary, 240)
+                ),
+                format!(
+                    "Самовосстановление остановлено для задачи «{}» ({}; попыток: {attempts}). Последний сбой: {}. Чтобы продолжить, увеличьте бюджет задачи, запуска или проекта и повторите задачу.",
+                    task.title,
+                    escalation_ru(e),
+                    one_line(&analysis.summary, 240)
+                ),
+            )
+            .await;
+            let why = format!("self-healing stopped ({reason}); raise the budget and retry the task to continue");
+            self.move_task(TaskStatus::Failed, &why).await;
+            return Err(End::Failed(why));
+        }
         self.notice(
             format!(
-                "Self-healing stopped on \"{}\" ({reason}; {attempts} attempt(s)). Last failure: {}. Approve the request to allow more attempts, or reject it to fail the task.",
+                "Self-healing stopped on \"{}\" ({reason}; {attempts} attempt(s)). Last failure: {}. Approve the request to continue self-healing, or reject it to fail the task.",
                 task.title,
                 one_line(&analysis.summary, 240)
             ),
             format!(
-                "Самовосстановление остановлено для задачи «{}» ({}; попыток: {attempts}). Последний сбой: {}. Подтвердите запрос, чтобы разрешить ещё попытки, или отклоните — задача будет отмечена как сбойная.",
+                "Самовосстановление остановлено для задачи «{}» ({}; попыток: {attempts}). Последний сбой: {}. Подтвердите запрос, чтобы продолжить самовосстановление, или отклоните — задача будет отмечена как сбойная.",
                 task.title,
                 escalation_ru(e),
                 one_line(&analysis.summary, 240)
             ),
         )
         .await;
+        let offer = match grant {
+            Grant::WallTime => format!("another {} min of self-healing", self.p.limits.max_wall_mins),
+            Grant::HealingBudget => {
+                format!("another ${:.2} of self-healing spend", self.p.limits.max_budget_usd.unwrap_or_default())
+            }
+            Grant::Attempts | Grant::None => {
+                format!("{} more attempt(s) (a different model is tried)", self.p.limits.max_attempts.max(1))
+            }
+        };
         let mut req = ApprovalRequest::new(
             Capability::Write,
-            cap(&format!("Self-healing gave up on \"{}\" — allow more fix attempts?", task.title), 300),
+            cap(&format!("Self-healing gave up on \"{}\" — continue fixing?", task.title), 300),
             cap(
                 &format!(
-                    "The quality pipeline could not fix the {:?} stage automatically: {reason}. Last failure: {}. Approve to grant {} more attempt(s) (a different model is tried); reject to mark the task failed.",
+                    "The quality pipeline could not fix the {:?} stage automatically: {reason}. Last failure: {}. Approve to grant {offer}; reject to mark the task failed.",
                     analysis.stage,
                     one_line(&analysis.summary, 400),
-                    self.p.limits.max_attempts.max(1)
                 ),
                 1_000,
             ),
@@ -1277,8 +1338,23 @@ impl Driver {
             return Err(self.stopped());
         }
         if status == ApprovalStatus::Approved {
-            self.p.granted_attempts = self.p.granted_attempts.saturating_add(self.p.limits.max_attempts.max(1));
-            self.set_status(PipelineStatus::Healing, Some("more attempts granted by the user".into())).await;
+            // Grant exactly what the escalation was about, so the next
+            // decision does not stop on the same limit again.
+            let note = match grant {
+                Grant::WallTime => {
+                    self.heal_since = now();
+                    "more self-healing time granted by the user"
+                }
+                Grant::HealingBudget => {
+                    self.granted_budget_usd += self.p.limits.max_budget_usd.unwrap_or_default();
+                    "more self-healing budget granted by the user"
+                }
+                Grant::Attempts | Grant::None => {
+                    self.p.granted_attempts = self.p.granted_attempts.saturating_add(self.p.limits.max_attempts.max(1));
+                    "more attempts granted by the user"
+                }
+            };
+            self.set_status(PipelineStatus::Healing, Some(note.into())).await;
             return Ok(());
         }
         let why = format!("self-healing stopped ({reason}); the user declined further attempts");
@@ -1662,12 +1738,48 @@ fn reason_ru(reason: &str) -> String {
     }
 }
 
+/// What approving escalation `e` can grant. A budget escalation is grantable
+/// only when the pipeline's own healing budget (`healing_limit`) is what is
+/// spent — not the task / run budget (`hard`) or a cost-engine budget, which
+/// only raising the budget itself can help.
+fn grant_for(
+    e: &healing::Escalation,
+    spent: f64,
+    hard: Option<f64>,
+    healing_limit: Option<f64>,
+    budget_exceeded: bool,
+) -> Grant {
+    match e {
+        healing::Escalation::WallTime { .. } => Grant::WallTime,
+        healing::Escalation::Budget { .. } => {
+            let hard_spent = budget_exceeded || hard.is_some_and(|h| spent >= h);
+            if hard_spent || healing_limit.is_none_or(|l| l <= 0.0) {
+                Grant::None
+            } else {
+                Grant::HealingBudget
+            }
+        }
+        healing::Escalation::Disabled
+        | healing::Escalation::Attempts { .. }
+        | healing::Escalation::NoProgress { .. } => Grant::Attempts,
+    }
+}
+
+#[cfg(test)]
+pub(crate) fn escalation_ru_text(e: &healing::Escalation) -> String {
+    escalation_ru(e)
+}
+
 fn escalation_ru(e: &healing::Escalation) -> String {
     match e {
         healing::Escalation::Disabled => "самовосстановление отключено для проекта".into(),
         healing::Escalation::Attempts { used, allowed } => format!("использовано попыток: {used} из {allowed}"),
         healing::Escalation::WallTime { mins } => format!("истёк лимит времени конвейера — {mins} мин"),
-        healing::Escalation::Budget { spent, limit } => format!("бюджет задачи исчерпан (${spent:.4} из ${limit:.2})"),
+        healing::Escalation::Budget { spent, limit } => format!(
+            "бюджет задачи исчерпан ({} из {})",
+            crate::util::ru_money(*spent, 4),
+            crate::util::ru_money(*limit, 2)
+        ),
         healing::Escalation::NoProgress { .. } => "нет прогресса: исправление дало тот же сбой".into(),
     }
 }
@@ -1698,5 +1810,57 @@ pub fn report_of(p: &TaskPipeline, title: &str) -> orkestr_protocol::methods::pi
         healing_attempts: brief.healing_attempts,
         merge_outcome: p.merge_outcome.clone(),
         merge_proposal_id: p.merge_proposal_id,
+    }
+}
+
+#[cfg(test)]
+mod grant_tests {
+    use std::time::Duration;
+
+    use orkestr_protocol::methods::pipeline::HealingLimits;
+
+    use super::*;
+    use crate::healing::{decide, Escalation, HealDecision, HealState};
+
+    #[test]
+    fn approvals_grant_what_the_escalation_was_about() {
+        let wall = Escalation::WallTime { mins: 30 };
+        assert_eq!(grant_for(&wall, 0.0, None, None, false), Grant::WallTime);
+        let budget = Escalation::Budget { spent: 1.0, limit: 1.0 };
+        // The pipeline's own healing budget is spent: more of it can be granted.
+        assert_eq!(grant_for(&budget, 1.0, Some(5.0), Some(1.0), false), Grant::HealingBudget);
+        // The task / run budget or a cost-engine budget is spent: no approval helps.
+        assert_eq!(grant_for(&budget, 5.0, Some(5.0), Some(10.0), false), Grant::None);
+        assert_eq!(grant_for(&budget, 0.5, None, Some(1.0), true), Grant::None);
+        assert_eq!(grant_for(&budget, 1.0, None, None, false), Grant::None);
+        let attempts = Escalation::Attempts { used: 2, allowed: 2 };
+        assert_eq!(grant_for(&attempts, 0.0, None, None, false), Grant::Attempts);
+    }
+
+    #[test]
+    fn a_granted_wall_time_or_healing_budget_lets_healing_continue() {
+        let limits =
+            HealingLimits { max_attempts: 3, max_wall_mins: 30, max_budget_usd: Some(1.0), ..HealingLimits::default() };
+        let state = |elapsed: Duration, budget: f64| HealState {
+            limits: &limits,
+            granted: 0,
+            attempts: &[],
+            signature: "s",
+            elapsed,
+            spent: 1.0,
+            budget: Some(budget),
+            budget_exceeded: false,
+            forced: true,
+        };
+        // 31 minutes in: wall-time escalation. Approval restarts the window
+        // (`heal_since = now`), so the next decision is a fix attempt.
+        assert_eq!(
+            decide(&state(Duration::from_secs(31 * 60), 2.0)),
+            HealDecision::Escalate(Escalation::WallTime { mins: 30 })
+        );
+        assert!(matches!(decide(&state(Duration::ZERO, 2.0)), HealDecision::Attempt { .. }));
+        // Healing budget spent; approval adds another `max_budget_usd`.
+        assert!(matches!(decide(&state(Duration::ZERO, 1.0)), HealDecision::Escalate(Escalation::Budget { .. })));
+        assert!(matches!(decide(&state(Duration::ZERO, 1.0 + 1.0)), HealDecision::Attempt { .. }));
     }
 }

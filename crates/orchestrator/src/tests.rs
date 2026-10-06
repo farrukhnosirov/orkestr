@@ -625,6 +625,20 @@ fn manager_prompt_states_the_reply_language_and_russian_plurals_agree() {
     );
 }
 
+#[test]
+fn russian_notices_use_a_decimal_comma_and_localized_statuses() {
+    use crate::util::{ru_decimal, ru_money, ru_run_status};
+    assert_eq!(ru_money(5.0, 2), "5,00\u{a0}$");
+    assert_eq!(ru_money(0.1234, 4), "0,1234\u{a0}$");
+    assert_eq!(ru_decimal(7.5, 1), "7,5");
+    assert_eq!(ru_run_status(ManagerRunStatus::Paused), "Приостановлен");
+    assert_eq!(ru_run_status(ManagerRunStatus::Interrupted), "Прерван");
+    let e = crate::healing::Escalation::Budget { spent: 0.1234, limit: 1.0 };
+    let text = crate::pipeline::escalation_ru_text(&e);
+    assert!(text.contains("0,1234\u{a0}$ из 1,00\u{a0}$"), "{text}");
+    assert!(!text.contains('.'), "{text}");
+}
+
 #[tokio::test]
 async fn state_tools_are_permission_checked() {
     let h = harness(false, ApprovalMode::SemiAuto).await;
@@ -886,6 +900,53 @@ async fn budget_bound_stops_the_run() {
     assert!(done.status_reason.as_deref().unwrap_or("").contains("budget"), "{:?}", done.status_reason);
     assert_eq!(done.agents_spawned, 1, "no new agent after the budget is hit");
     assert!(done.cost_usd <= 0.01 + f64::EPSILON);
+}
+
+#[tokio::test]
+async fn concurrent_agents_share_the_run_budget() {
+    let h = harness(false, ApprovalMode::SemiAuto).await;
+    // Three independent tasks start in one scheduler pass and wait for each
+    // other, so all three are live at once.
+    h.mock_gated("gpt-4o", &["alpha", "beta", "gamma"], 3);
+    let plan = h
+        .custom_plan(vec![
+            ptask("a", "Implement the alpha module", AgentRole::Backend, &[]),
+            ptask("b", "Implement the beta module", AgentRole::Backend, &[]),
+            ptask("c", "Implement the gamma module", AgentRole::Backend, &[]),
+        ])
+        .await;
+    h.mgr.approve_plan(ApprovePlanParams { plan_id: plan.id, edits: None, start_run: Some(false) }).await.unwrap();
+    let max = 3.0;
+    let run = h
+        .mgr
+        .start_run(ManagerRunParams {
+            plan_id: Some(plan.id),
+            run_id: None,
+            limits: Some(RunLimitsPatch {
+                max_cost_usd: Some(max),
+                max_parallel_agents: Some(3),
+                ..RunLimitsPatch::default()
+            }),
+        })
+        .await
+        .unwrap();
+    let live = h
+        .mgr
+        .wait_run(run.id, Duration::from_secs(60), |r| {
+            final_status(r.status) || r.tasks.iter().all(|t| t.agent_id.is_some())
+        })
+        .await
+        .unwrap();
+    let mut caps = Vec::new();
+    for t in &live.tasks {
+        let a = h.rt.get(t.agent_id.unwrap()).await.unwrap();
+        caps.push(a.budget.and_then(|b| b.max_cost_usd).expect("every run agent has a cost cap"));
+    }
+    let total: f64 = caps.iter().sum();
+    assert!(total <= max + 1e-6, "the agents' caps together stay within the run budget: {caps:?}");
+    assert!(caps.iter().all(|c| (c - max / 3.0).abs() < 0.05), "an even split: {caps:?}");
+    let done = h.mgr.wait_run(run.id, Duration::from_secs(120), |r| final_status(r.status)).await.unwrap();
+    assert!(done.cost_usd <= max, "{}", done.cost_usd);
 }
 
 #[tokio::test]

@@ -200,9 +200,127 @@ impl Redactor for GlobalRedactor {
     }
 }
 
+/// Longest text a [`StreamRedactor`] holds back before it emits anyway.
+pub const STREAM_HOLD_MAX: usize = 16 * 1024;
+
+/// Text that may still be the first half of a secret: a key name / auth
+/// scheme at the end of the emitted part (`Bearer `, `api_key = `, …).
+fn stream_hold_pattern() -> &'static Regex {
+    static HOLD: OnceLock<Regex> = OnceLock::new();
+    HOLD.get_or_init(|| {
+        Regex::new(
+            r#"(?i)\b(?:authorization|bearer|basic|token|api[_-]?key|access[_-]?token|refresh[_-]?token|auth[_-]?token|secret|client[_-]?secret|password|passwd)"?\s*[:=]?\s*"?\s*(?:(?:bearer|basic|token)\s+)?$"#,
+        )
+        .expect("hold pattern is valid")
+    })
+}
+
+/// Redacts a streamed text (model output deltas) without ever cutting a
+/// secret in two: redacting each chunk alone lets a key split across chunks
+/// (`sk-ab` + `cd12…`) through both pattern and registered-secret matching.
+///
+/// The unfinished last word is held back, together with a preceding key
+/// name or auth scheme and an unterminated PEM block; everything before it
+/// is redacted and emitted. [`StreamRedactor::flush`] emits the rest at the
+/// end of the stream. The emitted parts concatenate to the same text a
+/// whole-text [`redact`] gives (secrets are never split across a cut).
+#[derive(Debug, Default)]
+pub struct StreamRedactor {
+    tail: String,
+}
+
+impl StreamRedactor {
+    /// Creates an empty stream redactor.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Adds a chunk; returns the redacted text that is safe to emit now
+    /// (possibly empty).
+    pub fn push(&mut self, chunk: &str) -> String {
+        self.tail.push_str(chunk);
+        let cut = stream_safe_cut(&self.tail);
+        if cut == 0 {
+            return String::new();
+        }
+        let rest = self.tail.split_off(cut);
+        let ready = std::mem::replace(&mut self.tail, rest);
+        redact(&ready)
+    }
+
+    /// Emits everything still held back (end of the message).
+    pub fn flush(&mut self) -> String {
+        let rest = std::mem::take(&mut self.tail);
+        if rest.is_empty() {
+            rest
+        } else {
+            redact(&rest)
+        }
+    }
+}
+
+/// Byte offset up to which `s` can be redacted and emitted on its own.
+fn stream_safe_cut(s: &str) -> usize {
+    if s.len() > STREAM_HOLD_MAX {
+        return s.len();
+    }
+    // Up to the start of the last (possibly unfinished) word.
+    let mut cut = s.char_indices().rev().find(|(_, c)| c.is_whitespace()).map_or(0, |(i, c)| i + c.len_utf8());
+    // An unterminated PEM block stays together.
+    if let Some(b) = s[..cut].rfind("-----BEGIN") {
+        if !s[b..cut].contains("-----END") {
+            cut = b;
+        }
+    }
+    // A key name / auth scheme right before the cut stays with its value.
+    if let Some(m) = stream_hold_pattern().find(&s[..cut]) {
+        cut = m.start();
+    }
+    cut
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn streamed(chunks: &[&str]) -> String {
+        let mut r = StreamRedactor::new();
+        let mut out: String = chunks.iter().map(|c| r.push(c)).collect();
+        out.push_str(&r.flush());
+        out
+    }
+
+    #[test]
+    fn stream_redaction_catches_secrets_split_across_chunks() {
+        let cases: [&[&str]; 6] = [
+            &["key sk-ab", "cd1234567890abcdefgh", " used"],
+            &["Authorization: Bea", "rer abc.def", "-ghi\nnext"],
+            &["api_key", "=", "123", "45678 rest"],
+            &["sent bearer ", "abc.def-ghi done"],
+            &["-----BEGIN RSA PRIVATE KEY-----\nMI", "IE\n-----END RSA PRIVATE KEY-----\nok"],
+            &["plain words ", "only, nothing ", "secret-looking here"],
+        ];
+        for chunks in cases {
+            let whole: String = chunks.concat();
+            let out = streamed(chunks);
+            assert_eq!(out, redact(&whole), "{chunks:?}");
+        }
+        assert!(!streamed(&["key sk-ab", "cd1234567890abcdefgh", " used"]).contains("cd1234567890"));
+        let secret = "zz9-stream-registered-secret-value";
+        register_secret(secret);
+        let out = streamed(&["x zz9-stream-regis", "tered-secret-value y"]);
+        unregister_secret(secret);
+        assert_eq!(out, "x [REDACTED] y");
+    }
+
+    #[test]
+    fn stream_redaction_emits_finished_words_without_waiting_for_the_end() {
+        let mut r = StreamRedactor::new();
+        assert_eq!(r.push("Hello wor"), "Hello ");
+        assert_eq!(r.push("ld, again"), "world, ");
+        assert_eq!(r.flush(), "again");
+    }
 
     #[test]
     fn scrubs_patterns() {

@@ -1109,7 +1109,7 @@ impl LeadDriver {
                 TeamLeadStatus::Completed,
                 AgentState::Completed,
                 TaskStatus::Review,
-                Some(TaskResult { success: true, summary: summary.clone() }),
+                Some(TaskResult { success: true, summary: summary.clone(), stop_code: None }),
                 None,
             ),
             End::Failed(r) => {
@@ -1119,7 +1119,11 @@ impl LeadDriver {
                     TeamLeadStatus::Failed,
                     AgentState::Error,
                     TaskStatus::Failed,
-                    Some(TaskResult { success: false, summary: cap(&format!("team lead: {r}"), 1900) }),
+                    Some(TaskResult {
+                        success: false,
+                        summary: cap(&format!("team lead: {r}"), 1900),
+                        stop_code: None,
+                    }),
                     Some(r),
                 )
             }

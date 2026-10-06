@@ -544,6 +544,37 @@ impl GitCli {
         Ok(DeleteBranchResult { name, commit })
     }
 
+    /// Deletes a local branch only while it still points at `expected`
+    /// (`update-ref -d refs/heads/<name> <expected>`, atomic): a branch that
+    /// gained commits since the caller checked it is kept (`RefChanged`).
+    /// A branch checked out in a worktree is kept as well.
+    pub async fn delete_branch_at(&self, dir: &Path, name: &str, expected: &str) -> VcsResult<DeleteBranchResult> {
+        let name = validate_rev(name)?;
+        let expected = validate_rev(expected)?;
+        let _guard = self.lock_repo(dir).await?;
+        let full = format!("refs/heads/{name}");
+        let commit = self
+            .rev_parse(dir, &full)
+            .await?
+            .ok_or_else(|| VcsError::NotFound(format!("branch `{name}` not found")))?;
+        if commit != expected {
+            return Err(VcsError::RefChanged(format!("branch `{name}` moved to {commit}; it was kept")));
+        }
+        let listed = self.run(dir, &["worktree", "list", "--porcelain"], RunOptions::read()).await?;
+        if listed.text().lines().any(|l| l.strip_prefix("branch ") == Some(full.as_str())) {
+            return Err(VcsError::Dirty(format!("branch `{name}` is checked out in a worktree")));
+        }
+        let out = self.run(dir, &["update-ref", "-d", &full, &expected], RunOptions::write()).await?;
+        if !out.success() {
+            return Err(VcsError::RefChanged(format!(
+                "branch `{name}` changed while it was being deleted; it was kept ({})",
+                out.stderr.trim()
+            )));
+        }
+        tracing::info!(branch = %name, %commit, "branch deleted (expected tip)");
+        Ok(DeleteBranchResult { name, commit })
+    }
+
     /// Switches branch. A remote-tracking name creates a local tracking branch.
     pub async fn checkout(&self, dir: &Path, branch: &str) -> VcsResult<BranchResult> {
         let branch = validate_rev(branch)?;
