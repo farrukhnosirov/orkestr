@@ -280,7 +280,9 @@
       "modeChanged": "mode changed since the snapshot",
       "modified": "modified since the snapshot",
       "created": "created after the snapshot",
-      "createdKept": "created after the snapshot — kept (turn on “Also delete files created after the snapshot” to remove it)"
+      "createdKept": "created after the snapshot — kept (turn on “Also delete files created after the snapshot” to remove it)",
+      "uncaptured": "not in the snapshot because it was ignored or unreadable then — kept",
+      "unreadable": "can't be read now (locked by another program or access denied) — left as is"
     }
   }
 }

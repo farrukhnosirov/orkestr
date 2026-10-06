@@ -1003,6 +1003,7 @@ impl Run {
             format!("Before {} changes", self.agent.name),
             SnapshotReason::BeforeRiskyAction,
             Some(TaskSnapshotPhase::Before),
+            None,
         )
         .await
         {
@@ -1406,13 +1407,16 @@ impl Run {
         // without a reported file change (Mutate-class `run_command`s such as
         // `sed -i` / `npm install`, CLI agents): their Before checkpoint needs
         // its After pair or `rollbackTask` cannot restore the task.
-        if self.checkpoint_taken || !self.progress.lock().files_changed.is_empty() {
+        let own_files = self.progress.lock().files_changed.clone();
+        if self.checkpoint_taken || !own_files.is_empty() {
             let label = if matches!(outcome, Outcome::Submitted(_)) { "finished" } else { "stopped" };
             match tools::memory::snapshot(
                 &self.env,
                 format!("{} {label}", self.agent.name),
                 SnapshotReason::TaskCheckpoint,
                 Some(TaskSnapshotPhase::After),
+                // Unknown file set (changes made only by commands) → whole-workspace pair.
+                (!own_files.is_empty()).then_some(own_files.as_slice()),
             )
             .await
             {

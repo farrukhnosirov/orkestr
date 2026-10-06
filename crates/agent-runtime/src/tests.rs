@@ -42,6 +42,9 @@ use crate::{AgentRuntime, RuntimeConfig, RuntimeDeps};
 enum Step {
     Events(Vec<ChatEvent>),
     Hang,
+    /// Runs a side effect (e.g. another writer changing the workspace) when
+    /// the model is asked for this turn, then plays the inner step.
+    Act(Arc<dyn Fn() + Send + Sync>, Box<Step>),
 }
 
 fn tool(name: &str, args: Value) -> Step {
@@ -88,12 +91,16 @@ impl ProviderAdapter for Scripted {
     }
     async fn chat(&self, request: ChatRequest, cancel: CancellationToken) -> Result<ChatStream, ProviderError> {
         self.requests.lock().push(request);
-        let step = self.steps.lock().pop_front().unwrap_or_else(|| {
+        let mut step = self.steps.lock().pop_front().unwrap_or_else(|| {
             Step::Events(vec![
                 ChatEvent::TextDelta("script exhausted".into()),
                 ChatEvent::Done { stop_reason: StopReason::EndTurn },
             ])
         });
+        while let Step::Act(act, inner) = step {
+            act();
+            step = *inner;
+        }
         Ok(match step {
             Step::Events(evs) => futures::stream::iter(evs).boxed(),
             Step::Hang => futures::stream::once(async move {
@@ -101,6 +108,7 @@ impl ProviderAdapter for Scripted {
                 ChatEvent::Error(ProviderError::Cancelled)
             })
             .boxed(),
+            Step::Act(..) => unreachable!("unwrapped above"),
         })
     }
 }
@@ -508,6 +516,34 @@ async fn completed_task_has_a_checkpoint_pair_and_rolls_back_alone() {
     assert!(rb.conflicts.is_empty(), "{rb:?}");
     assert!(!h.root.join("src/hello.txt").exists());
     assert!(std::fs::read_to_string(h.root.join("README.md")).unwrap().contains("user edit"));
+}
+
+/// Another agent and the user change files in the shared checkout while the
+/// task runs (between its before- and after-checkpoints): rolling the task
+/// back reverts only the task's own files.
+#[tokio::test]
+async fn task_rollback_in_shared_root_spares_concurrent_writers() {
+    let h = harness(ApprovalMode::SemiAuto).await;
+    let tpl = h.template(&["write_file", "submit_result"], WorktreePolicy::SharedWorktree, None).await;
+    let root = h.root.clone();
+    let others: Arc<dyn Fn() + Send + Sync> = Arc::new(move || {
+        std::fs::create_dir_all(root.join("src")).unwrap();
+        std::fs::write(root.join("src/b.ts"), "agent B's work\n").unwrap();
+        std::fs::write(root.join("README.md"), "# Demo project\nuser edit during the task\n").unwrap();
+    });
+    h.provider(vec![
+        tool("write_file", json!({"path": "src/hello.txt", "content": "hello"})),
+        Step::Act(others, Box::new(submit("done", "Created src/hello.txt"))),
+    ]);
+    let a = h.wait_done(h.spawn(tpl, None).await.id).await;
+    assert_eq!(a.state, AgentState::Completed, "{:?}", a.last_error);
+    let rb = h.snapshots.rollback_task(h.project, a.task_id.unwrap(), None, None, false).await.unwrap();
+    assert_eq!(rb.deleted, vec!["src/hello.txt"]);
+    let conflicts: Vec<_> = rb.conflicts.iter().map(|c| c.path.as_str()).collect();
+    assert_eq!(conflicts, vec!["README.md", "src/b.ts"], "{rb:?}");
+    assert!(!h.root.join("src/hello.txt").exists());
+    assert_eq!(std::fs::read_to_string(h.root.join("src/b.ts")).unwrap(), "agent B's work\n");
+    assert!(std::fs::read_to_string(h.root.join("README.md")).unwrap().contains("user edit during the task"));
 }
 
 #[tokio::test]

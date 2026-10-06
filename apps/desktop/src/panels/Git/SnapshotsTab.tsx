@@ -277,12 +277,16 @@ export function SnapshotsTab({ projectId, worktree, refresh }: Props) {
   );
 }
 
-const ROLLBACK_REASONS: Readonly<Record<string, "deleted" | "modeChanged" | "modified" | "created" | "createdKept">> = {
+const ROLLBACK_REASONS: Readonly<
+  Record<string, "deleted" | "modeChanged" | "modified" | "created" | "createdKept" | "uncaptured" | "unreadable">
+> = {
   "deleted since the snapshot": "deleted",
   "mode changed since the snapshot": "modeChanged",
   "modified since the snapshot": "modified",
   "created after the snapshot": "created",
   "created after the snapshot — kept (enable “delete created files” to remove)": "createdKept",
+  "not captured by the snapshot (ignored or unreadable then) — kept": "uncaptured",
+  "cannot be read now (locked or access denied) — left untouched": "unreadable",
 };
 
 /** The core explains plan items in English; known explanations are shown translated. */

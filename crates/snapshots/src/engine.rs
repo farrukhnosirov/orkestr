@@ -8,7 +8,15 @@
 //!   content the plan was computed against (re-checked right before writing);
 //!   anything else is reported as a conflict and left untouched;
 //! * task rollback only touches files the task changed (before ≠ after), and
-//!   only when the file still holds the task's after-state.
+//!   only when the file still holds the task's after-state. In a shared
+//!   workspace the after-checkpoint records the paths the task itself wrote
+//!   ([`Manifest::task_files`]); other paths that differ were changed by
+//!   another agent or the user and are reported as conflicts, never reverted;
+//! * a file missing from a snapshot is only deleted as "created after it" when
+//!   it verifiably did not exist then: a path the snapshot did not capture
+//!   (ignored by the rules in force then, unreadable, over the size limit) is
+//!   kept and reported;
+//! * a file that cannot be read right now is never treated as missing.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
@@ -74,13 +82,83 @@ pub struct Manifest {
     pub excluded: Vec<ExcludedEntry>,
     /// Git metadata.
     pub git: Option<GitState>,
+    /// Paths the snapshot's task changed itself (files or directories),
+    /// recorded on a task's after-checkpoint in a workspace shared with other
+    /// writers. `None`: unknown — every difference counts as the task's
+    /// (a dedicated worktree, older snapshots).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub task_files: Option<Vec<String>>,
 }
 
 impl Manifest {
     fn map(&self) -> BTreeMap<&str, &ManifestEntry> {
         self.entries.iter().map(|e| (e.path.as_str(), e)).collect()
     }
+
+    /// Whether the task of this (after-)checkpoint changed `path` itself.
+    fn task_changed(&self, path: &str) -> bool {
+        let Some(files) = &self.task_files else { return true };
+        files.iter().any(|f| under(path, f))
+    }
+
+    /// Whether `path` was skipped while capturing (symlink, unreadable, over
+    /// the size limit) — its absence from the entries proves nothing.
+    fn excluded(&self, path: &str) -> bool {
+        self.excluded.iter().any(|e| under(path, &e.path))
+    }
 }
+
+/// `path` equals `dir` or lies below it (`/`-separated relative paths).
+fn under(path: &str, dir: &str) -> bool {
+    path == dir || (path.len() > dir.len() && path.starts_with(dir) && path.as_bytes()[dir.len()] == b'/')
+}
+
+/// Normalizes a recorded relative path (`\\` → `/`, no `./`, no trailing `/`).
+fn normalize_rel(p: &str) -> Option<String> {
+    let p = p.replace('\\', "/");
+    let parts: Vec<&str> = p.split('/').filter(|c| !c.is_empty() && *c != ".").collect();
+    (!parts.is_empty()).then(|| parts.join("/"))
+}
+
+/// Ignore-file names honored by the scanner, by increasing precedence.
+const IGNORE_FILES: &[&str] = &[".gitignore", ".ignore", ".orkestrignore"];
+
+/// The workspace ignore rules captured in a snapshot (its `.gitignore`,
+/// `.ignore` and `.orkestrignore` files), to tell whether a path the snapshot
+/// lacks was absent or merely ignored at the time.
+struct CapturedIgnores {
+    /// (directory of the ignore file, matcher), shallow and low-precedence first.
+    rules: Vec<(String, ignore::gitignore::Gitignore)>,
+}
+
+impl CapturedIgnores {
+    /// Whether the captured rules ignore `path` (deeper / higher-precedence
+    /// files win; `!` whitelists un-ignore).
+    fn ignores(&self, path: &str) -> bool {
+        let mut ignored = false;
+        for (dir, gi) in &self.rules {
+            let sub = if dir.is_empty() {
+                path
+            } else {
+                match path.strip_prefix(dir.as_str()).and_then(|r| r.strip_prefix('/')) {
+                    Some(r) => r,
+                    None => continue,
+                }
+            };
+            match gi.matched_path_or_any_parents(sub, false) {
+                ignore::Match::Ignore(_) => ignored = true,
+                ignore::Match::Whitelist(_) => ignored = false,
+                ignore::Match::None => {}
+            }
+        }
+        ignored
+    }
+}
+
+/// Plan reason of a file a snapshot did not capture (exists now).
+const REASON_UNCAPTURED: &str = "not captured by the snapshot (ignored or unreadable then) — kept";
+/// Plan reason of a file that cannot be read now.
+const REASON_UNREADABLE: &str = "cannot be read now (locked or access denied) — left untouched";
 
 /// Parameters of [`SnapshotService::create`].
 #[derive(Debug, Clone)]
@@ -288,10 +366,33 @@ impl SnapshotService {
         let root = canonical_dir(&req.workspace_path)?;
         let key = workspace_key(&root);
         let _guard = self.lock(&key).await;
-        self.create_locked(req, &root, &key).await
+        self.create_locked(req, &root, &key, None).await
     }
 
-    async fn create_locked(&self, req: CreateSnapshot, root: &Path, key: &str) -> SnapshotResult<WorkspaceSnapshot> {
+    /// Captures a task's checkpoint in a workspace shared with other writers
+    /// (other agents, the user), recording the paths the task changed itself
+    /// so that rolling the task back never reverts anyone else's work.
+    pub async fn create_with_task_files(
+        &self,
+        req: CreateSnapshot,
+        task_files: &[String],
+    ) -> SnapshotResult<WorkspaceSnapshot> {
+        let root = canonical_dir(&req.workspace_path)?;
+        let key = workspace_key(&root);
+        let mut files: Vec<String> = task_files.iter().filter_map(|f| normalize_rel(f)).collect();
+        files.sort();
+        files.dedup();
+        let _guard = self.lock(&key).await;
+        self.create_locked(req, &root, &key, Some(files)).await
+    }
+
+    async fn create_locked(
+        &self,
+        req: CreateSnapshot,
+        root: &Path,
+        key: &str,
+        task_files: Option<Vec<String>>,
+    ) -> SnapshotResult<WorkspaceSnapshot> {
         let started = std::time::Instant::now();
         let git = match &self.git {
             Some(g) => g.git_state(root).await,
@@ -326,9 +427,10 @@ impl SnapshotService {
                     self.options.max_total_bytes
                 )));
             }
-            let id = ObjectId::of(&bytes);
-            if !self.objects.exists(&id).await? {
-                self.objects.put(bytes).await?;
+            // `put_checked` verifies an existing object and rewrites it when
+            // corrupt, so a damaged object is never silently reused.
+            let (id, written) = self.objects.put_checked(bytes).await?;
+            if written {
                 new_bytes += size;
             }
             entries.push(ManifestEntry { path: f.rel, hash: id.as_str().to_owned(), mode: f.mode, size });
@@ -336,7 +438,7 @@ impl SnapshotService {
         excluded.sort_by(|a, b| a.path.cmp(&b.path));
 
         let root_str = root.to_string_lossy().into_owned();
-        let manifest = Manifest { version: 1, root: root_str.clone(), entries, excluded, git: git.clone() };
+        let manifest = Manifest { version: 1, root: root_str.clone(), entries, excluded, git: git.clone(), task_files };
         let manifest_bytes = serde_json::to_vec(&manifest)?;
         let manifest_id = self.objects.put(manifest_bytes).await?;
         let workspace_id = self.store.workspace_id(req.project_id, key, &root_str).await?;
@@ -378,12 +480,44 @@ impl SnapshotService {
         Ok(snap)
     }
 
-    async fn current_tree(&self, root: &Path) -> SnapshotResult<BTreeMap<String, FileState>> {
+    async fn current_tree(&self, root: &Path) -> SnapshotResult<scan::CurrentTree> {
         let opts = self.options.clone();
         let root = root.to_path_buf();
         tokio::task::spawn_blocking(move || scan::current_tree(&root, &opts))
             .await
             .map_err(|e| SnapshotError::Io(std::io::Error::other(e.to_string())))?
+    }
+
+    /// The ignore rules captured in `m`.
+    async fn captured_ignores(&self, m: &Manifest) -> CapturedIgnores {
+        let mut rules = Vec::new();
+        for e in &m.entries {
+            let (dir, name) = e.path.rsplit_once('/').unwrap_or(("", e.path.as_str()));
+            let Some(rank) = IGNORE_FILES.iter().position(|f| *f == name) else { continue };
+            let bytes = match self.blob(&e.hash).await {
+                Ok(b) => b,
+                Err(err) => {
+                    tracing::warn!(path = %e.path, error = %err, "ignore file of a snapshot is unavailable");
+                    continue;
+                }
+            };
+            let mut b = ignore::gitignore::GitignoreBuilder::new("");
+            for line in String::from_utf8_lossy(&bytes).lines() {
+                let _ = b.add_line(None, line);
+            }
+            if let Ok(gi) = b.build() {
+                let depth = if dir.is_empty() { 0 } else { dir.split('/').count() };
+                rules.push((depth, rank, dir.to_owned(), gi));
+            }
+        }
+        rules.sort_by_key(|r| (r.0, r.1));
+        CapturedIgnores { rules: rules.into_iter().map(|(_, _, dir, gi)| (dir, gi)).collect() }
+    }
+
+    /// Whether `path`, missing from snapshot `m`, may nevertheless have
+    /// existed when `m` was taken (excluded, or ignored by the rules then).
+    fn uncaptured(m: &Manifest, rules: &CapturedIgnores, path: &str) -> bool {
+        m.excluded(path) || rules.ignores(path)
     }
 
     /// Differences between a snapshot and the current workspace; with `path`,
@@ -392,10 +526,15 @@ impl SnapshotService {
         let snap = self.get(id).await?;
         let root = Self::root_of(&snap)?;
         let manifest = self.manifest(&snap).await?;
-        let current = self.current_tree(&root).await?;
+        let tree = self.current_tree(&root).await?;
+        let current = &tree.files;
         let snap_map = manifest.map();
         let mut changes = Vec::new();
         for (p, e) in &snap_map {
+            if tree.unreadable.contains(*p) {
+                // Exists but cannot be read now: state unknown, not "deleted".
+                continue;
+            }
             match current.get(*p) {
                 None => changes.push(SnapshotChange {
                     path: (*p).to_owned(),
@@ -412,7 +551,7 @@ impl SnapshotService {
                 Some(_) => {}
             }
         }
-        for (p, c) in &current {
+        for (p, c) in current {
             if !snap_map.contains_key(p.as_str()) {
                 changes.push(SnapshotChange {
                     path: p.clone(),
@@ -471,10 +610,23 @@ impl SnapshotService {
         manifest: &Manifest,
         delete_created: bool,
     ) -> SnapshotResult<RollbackPlan> {
-        let current = self.current_tree(root).await?;
+        let tree = self.current_tree(root).await?;
+        let current = &tree.files;
         let snap_map = manifest.map();
         let mut items = Vec::new();
+        for p in &tree.unreadable {
+            items.push(RollbackPlanItem {
+                path: p.clone(),
+                action: RollbackAction::Keep,
+                reason: REASON_UNREADABLE.into(),
+                current_hash: None,
+                target_hash: snap_map.get(p.as_str()).map(|e| e.hash.clone()),
+            });
+        }
         for (p, e) in &snap_map {
+            if tree.unreadable.contains(*p) {
+                continue;
+            }
             match current.get(*p) {
                 None => items.push(RollbackPlanItem {
                     path: (*p).to_owned(),
@@ -497,11 +649,15 @@ impl SnapshotService {
                 Some(_) => {}
             }
         }
-        for (p, c) in &current {
-            if snap_map.contains_key(p.as_str()) {
-                continue;
-            }
-            let (action, reason) = if delete_created {
+        let created: Vec<(&String, &FileState)> =
+            current.iter().filter(|(p, _)| !snap_map.contains_key(p.as_str())).collect();
+        let rules =
+            if delete_created && !created.is_empty() { Some(self.captured_ignores(manifest).await) } else { None };
+        for (p, c) in created {
+            let (action, reason) = if rules.as_ref().is_some_and(|r| Self::uncaptured(manifest, r, p)) {
+                // It may well have existed when the snapshot was taken.
+                (RollbackAction::Keep, REASON_UNCAPTURED)
+            } else if delete_created {
                 (RollbackAction::Delete, "created after the snapshot")
             } else {
                 (RollbackAction::Keep, "created after the snapshot — kept (enable “delete created files” to remove)")
@@ -545,6 +701,7 @@ impl SnapshotService {
             },
             root,
             key,
+            None,
         )
         .await
     }
@@ -836,16 +993,28 @@ impl SnapshotService {
         }
         let maps: Vec<_> = manifests.iter().map(|(mb, ma)| (mb.map(), ma.map())).collect();
         let state = |m: &BTreeMap<&str, &ManifestEntry>, p: &str| m.get(p).map(|e| entry_state(e));
-        // Path → index of the first segment that changed it.
+        // Path → index of the first segment in which the task changed it.
+        // A path that differs only where the after-checkpoint records that
+        // the task did not write it was changed by someone else working in
+        // the same (shared) workspace meanwhile.
         let mut touched: BTreeMap<&str, usize> = BTreeMap::new();
+        let mut foreign: BTreeSet<&str> = BTreeSet::new();
         for (i, (before_map, after_map)) in maps.iter().enumerate() {
             for p in before_map.keys().chain(after_map.keys()).copied() {
-                if !touched.contains_key(p) && !same(state(before_map, p).as_ref(), state(after_map, p).as_ref()) {
+                if touched.contains_key(p) || same(state(before_map, p).as_ref(), state(after_map, p).as_ref()) {
+                    continue;
+                }
+                if manifests[i].1.task_changed(p) {
                     touched.insert(p, i);
+                    foreign.remove(p);
+                } else {
+                    foreign.insert(p);
                 }
             }
         }
         let last = maps.len() - 1;
+        // Ignore rules of each segment's before-checkpoint, loaded on demand.
+        let mut rules: BTreeMap<usize, CapturedIgnores> = BTreeMap::new();
 
         let mut result = RollbackResult {
             snapshot_id: b.id,
@@ -856,6 +1025,12 @@ impl SnapshotService {
             unchanged: Vec::new(),
             dry_run,
         };
+        for p in &foreign {
+            result.conflicts.push(RollbackConflict {
+                path: (*p).to_owned(),
+                reason: "changed during the task by someone else in the shared workspace — not reverted".into(),
+            });
+        }
         // (path, current hash, before entry)
         let mut actions: Vec<(&str, Option<String>, Option<&ManifestEntry>)> = Vec::new();
         for (&p, &first) in &touched {
@@ -885,7 +1060,26 @@ impl SnapshotService {
             let before_s = state(&maps[first].0, p);
             let after_s = state(&maps[last].1, p);
             if same_content(cur.as_ref(), after_s.as_ref()) {
-                actions.push((p, cur.map(|c| c.0), maps[first].0.get(p).copied()));
+                let target = maps[first].0.get(p).copied();
+                if target.is_none() {
+                    // Missing from the before-checkpoint: only delete it when
+                    // it verifiably did not exist then.
+                    let before_m = &manifests[first].0;
+                    let r = match rules.entry(first) {
+                        std::collections::btree_map::Entry::Occupied(o) => o.into_mut(),
+                        std::collections::btree_map::Entry::Vacant(v) => {
+                            v.insert(self.captured_ignores(before_m).await)
+                        }
+                    };
+                    if Self::uncaptured(before_m, r, p) {
+                        result.conflicts.push(RollbackConflict {
+                            path: p.to_owned(),
+                            reason: "not captured by the task's before-checkpoint (ignored or unreadable then), so it may predate the task — not deleted".into(),
+                        });
+                        continue;
+                    }
+                }
+                actions.push((p, cur.map(|c| c.0), target));
             } else if same_content(cur.as_ref(), before_s.as_ref()) {
                 result.unchanged.push(p.to_owned());
             } else {
@@ -903,6 +1097,7 @@ impl SnapshotService {
                     result.deleted.push((*p).to_owned());
                 }
             }
+            result.conflicts.sort_by(|x, y| x.path.cmp(&y.path));
             return Ok(result);
         }
         let safety = self
@@ -922,6 +1117,7 @@ impl SnapshotService {
                 Err(reason) => result.conflicts.push(RollbackConflict { path: p.to_owned(), reason }),
             }
         }
+        result.conflicts.sort_by(|x, y| x.path.cmp(&y.path));
         tracing::info!(
             task_id = %task_id,
             restored = result.restored.len(),

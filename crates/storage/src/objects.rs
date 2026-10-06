@@ -3,7 +3,12 @@
 //! Objects are identified by the blake3 hash of their **uncompressed** bytes
 //! and stored at `<root>/<h[0..2]>/<h[2..4]>/<h>`. Each file starts with a
 //! 5-byte header: magic `OKO1` + codec byte (`0` raw, `1` zstd). Writes go to a
-//! temp file and are atomically renamed; reads verify the hash.
+//! temp file that is fsynced before it is atomically renamed (and the parent
+//! directory is fsynced on Unix), so a crash never leaves a renamed object
+//! with missing content; reads verify the hash. Storing content whose object
+//! already exists verifies the existing object and rewrites it when it is
+//! corrupt (e.g. damaged by a crash before this fix), so later snapshots never
+//! keep pointing to a broken object.
 
 use std::path::{Path, PathBuf};
 
@@ -65,6 +70,15 @@ pub enum Compression {
 pub trait ObjectStore: Send + Sync {
     /// Stores bytes and returns their id. Idempotent.
     async fn put(&self, bytes: Vec<u8>) -> StorageResult<ObjectId>;
+    /// Like [`Self::put`], also reporting whether the object was (re)written.
+    /// An existing object is verified and rewritten when it is corrupt, so
+    /// callers must use this (not `exists` + `put`) to dedupe content.
+    async fn put_checked(&self, bytes: Vec<u8>) -> StorageResult<(ObjectId, bool)> {
+        let id = ObjectId::of(&bytes);
+        let existed = self.get(&id).await.ok().flatten().is_some();
+        let id = self.put(bytes).await?;
+        Ok((id, !existed))
+    }
     /// Loads an object, verifying its hash.
     async fn get(&self, id: &ObjectId) -> StorageResult<Option<Vec<u8>>>;
     /// Whether an object exists.
@@ -137,25 +151,48 @@ impl FsObjectStore {
         Ok(bytes)
     }
 
-    fn put_blocking(&self, bytes: &[u8]) -> StorageResult<ObjectId> {
+    /// Whether the object at `path` holds exactly the content `id`.
+    fn intact(id: &ObjectId, path: &Path) -> StorageResult<bool> {
+        match std::fs::read(path) {
+            Ok(data) => Ok(Self::decode(id, &data).is_ok()),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(false),
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    /// Stores `bytes`; returns the id and whether the object was (re)written.
+    fn put_blocking(&self, bytes: &[u8]) -> StorageResult<(ObjectId, bool)> {
         let id = ObjectId::of(bytes);
         let path = self.path_of(&id);
         if path.exists() {
-            return Ok(id);
+            if Self::intact(&id, &path)? {
+                return Ok((id, false));
+            }
+            tracing::warn!(object = %id, "stored object is corrupt; rewriting it");
         }
         let encoded = self.encode(bytes)?;
-        if let Some(parent) = path.parent() {
+        let parent = path.parent().map(Path::to_path_buf);
+        if let Some(parent) = &parent {
             std::fs::create_dir_all(parent)?;
         }
         let tmp = self.root.join("tmp").join(format!("{}.{}", id.as_str(), uuid_like_suffix()));
-        std::fs::write(&tmp, &encoded)?;
+        if let Err(e) = write_synced(&tmp, &encoded) {
+            let _ = std::fs::remove_file(&tmp);
+            return Err(e.into());
+        }
         match std::fs::rename(&tmp, &path) {
-            Ok(()) => Ok(id),
+            Ok(()) => {
+                if let Some(parent) = &parent {
+                    sync_dir(parent);
+                }
+                Ok((id, true))
+            }
             Err(e) => {
                 let _ = std::fs::remove_file(&tmp);
-                // A concurrent writer may have won the race; that is fine.
-                if path.exists() {
-                    Ok(id)
+                // A concurrent writer may have won the race; that is fine
+                // when what it wrote is intact.
+                if Self::intact(&id, &path).unwrap_or(false) {
+                    Ok((id, false))
                 } else {
                     Err(e.into())
                 }
@@ -163,6 +200,26 @@ impl FsObjectStore {
         }
     }
 }
+
+/// Writes `data` to a new file and flushes it to stable storage.
+fn write_synced(path: &Path, data: &[u8]) -> std::io::Result<()> {
+    use std::io::Write;
+    let mut f = std::fs::File::create(path)?;
+    f.write_all(data)?;
+    f.sync_all()
+}
+
+/// Makes a rename in `dir` durable (Unix; directories cannot be fsynced on
+/// Windows, where NTFS journals the rename itself).
+#[cfg(unix)]
+fn sync_dir(dir: &Path) {
+    if let Ok(d) = std::fs::File::open(dir) {
+        let _ = d.sync_all();
+    }
+}
+
+#[cfg(not(unix))]
+fn sync_dir(_dir: &Path) {}
 
 fn uuid_like_suffix() -> String {
     use std::sync::atomic::{AtomicU64, Ordering};
@@ -175,6 +232,10 @@ fn uuid_like_suffix() -> String {
 #[async_trait]
 impl ObjectStore for FsObjectStore {
     async fn put(&self, bytes: Vec<u8>) -> StorageResult<ObjectId> {
+        Ok(self.put_checked(bytes).await?.0)
+    }
+
+    async fn put_checked(&self, bytes: Vec<u8>) -> StorageResult<(ObjectId, bool)> {
         let this = self.clone();
         tokio::task::spawn_blocking(move || this.put_blocking(&bytes))
             .await
@@ -249,6 +310,33 @@ mod tests {
         raw[last] ^= 0xff;
         std::fs::write(&path, raw).unwrap();
         assert!(matches!(store.get(&id).await, Err(StorageError::Corrupt(_))));
+    }
+
+    #[tokio::test]
+    async fn corrupt_object_is_repaired_by_the_next_put() {
+        for compression in [Compression::None, Compression::Zstd { level: 3 }] {
+            let dir = tempfile::tempdir().unwrap();
+            let store = FsObjectStore::open(dir.path(), compression).unwrap();
+            let data = b"content that a crash damaged ".repeat(20);
+            let (id, written) = store.put_checked(data.clone()).await.unwrap();
+            assert!(written);
+            let (_, again) = store.put_checked(data.clone()).await.unwrap();
+            assert!(!again, "an intact object is not rewritten");
+            // A power loss left the renamed object empty / truncated.
+            for damaged in [Vec::new(), b"OKO1".to_vec(), vec![0u8; 64]] {
+                std::fs::write(store.path_of(&id), &damaged).unwrap();
+                assert!(store.get(&id).await.is_err());
+                let (id2, rewritten) = store.put_checked(data.clone()).await.unwrap();
+                assert_eq!(id2, id);
+                assert!(rewritten, "corrupt object rewritten");
+                assert_eq!(store.get(&id).await.unwrap().unwrap(), data);
+            }
+            // `put` repairs too.
+            std::fs::write(store.path_of(&id), b"").unwrap();
+            store.put(data.clone()).await.unwrap();
+            assert_eq!(store.get(&id).await.unwrap().unwrap(), data);
+            assert_eq!(std::fs::read_dir(dir.path().join("tmp")).unwrap().count(), 0, "no temp files left");
+        }
     }
 
     #[test]
