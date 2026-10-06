@@ -75,5 +75,37 @@
     "excerpts": "Relevant code",
     "lines": "lines {{from}}–{{to}}"
   },
-  "runStages": "Pipeline of “{{task}}”"
+  "runStages": "Pipeline of “{{task}}”",
+  "text": {
+    "checksPassed_one": "{{count}} check passed",
+    "checksPassed_other": "{{count}} checks passed",
+    "testsPassed_one": "{{count}} test passed",
+    "testsPassed_other": "{{count}} tests passed",
+    "testsFailed": "{{failed}} failed, {{passed}} passed",
+    "findingsNone_one": "{{count}} finding, none blocking",
+    "findingsNone_other": "{{count}} findings, none blocking",
+    "findingsBlocking_one": "{{count}} unresolved critical finding",
+    "findingsBlocking_other": "{{count}} unresolved critical findings",
+    "mergedInto": "{{branch}} merged into {{target}}",
+    "mergeProposed": "proposed, awaiting approval",
+    "mergeReady": "merge proposal ready ({{recommendation}}) — approve it in the Merge Manager",
+    "mergeReadyManual": "merge proposal ready — merge it in the Merge Manager",
+    "alreadyMerged": "already merged",
+    "noBuildCheck": "no build or type check is configured",
+    "noTestCheck": "no test check is configured",
+    "checksSkipped": "the checks were skipped",
+    "accepted": "accepted by the user",
+    "moreAttempts": "more attempts granted by the user",
+    "fixSubmitted": "fix attempt {{n}} submitted — checking it",
+    "noBranch": "no agent branch to merge",
+    "noChangeToAttack": "the task has no agent branch — there is no change to attack",
+    "declined": "self-healing stopped ({{reason}}); the user declined further attempts",
+    "noProgress": "no progress: the last fix produced the same failure",
+    "attemptsUsed": "{{used}} of {{allowed}} fix attempts used",
+    "testsFailedPrefix": "The tests failed:",
+    "buildFailedPrefix": "The build failed:",
+    "counts": "{{passed}} passed, {{failed}} failed, {{skipped}} skipped",
+    "failingTests_one": "{{count}} failing test.",
+    "failingTests_other": "{{count}} failing tests."
+  }
 }

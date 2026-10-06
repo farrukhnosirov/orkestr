@@ -156,8 +156,11 @@ impl Manager {
         *self.inner.pipeline.checks.write() = Some(checks);
     }
 
-    /// Wires the Merge Manager (core composition root).
+    /// Wires the Merge Manager (core composition root). A merge that
+    /// completes later (e.g. the run-wide proposal) is mirrored on the Merge
+    /// stage of the pipelines of its branches.
     pub fn set_merge_manager(&self, merger: crate::merge::MergeManager) {
+        merger.on_completed(Arc::new(PipelineMergeHook { inner: Arc::downgrade(&self.inner) }));
         *self.inner.pipeline.merger.write() = Some(merger);
     }
 
@@ -442,6 +445,73 @@ impl Inner {
 
     async fn publish_pipeline(&self, p: &TaskPipeline) {
         self.deps.publish(NewEvent::new(EventKind::PipelineUpdated(PipelinePayload { pipeline: p.clone() }))).await;
+    }
+}
+
+/// Marks the Merge stage of the merged branches' pipelines `Passed`.
+struct PipelineMergeHook {
+    inner: std::sync::Weak<Inner>,
+}
+
+#[async_trait::async_trait]
+impl crate::merge::MergeCompletedHook for PipelineMergeHook {
+    async fn merged(&self, proposal: &orkestr_protocol::methods::merge::MergeManagerProposal) {
+        let Some(inner) = self.inner.upgrade() else { return };
+        for b in &proposal.branches {
+            let Some(task) = b.task_id else { continue };
+            let Ok(Some(mut p)) = inner.pipeline_store().latest(task).await else { continue };
+            if p.branch.as_deref() != Some(b.branch.as_str()) {
+                continue;
+            }
+            let Some(stage) = p.stages.iter_mut().find(|s| s.kind == PipelineStageKind::Merge) else { continue };
+            if stage.status == StageStatus::Passed {
+                continue;
+            }
+            let outcome = format!("merged `{}` into `{}`", b.branch, proposal.target);
+            stage.status = StageStatus::Passed;
+            stage.finished_at = Some(now());
+            stage.detail = Some(cap(&format!("{outcome} (proposal {})", proposal.id), MAX_REASON));
+            stage.ref_id = Some(proposal.id.to_string());
+            let payload = PipelineStagePayload {
+                pipeline_id: p.id.clone(),
+                project_id: p.project_id,
+                task_id: p.task_id,
+                stage: PipelineStageKind::Merge,
+                status: StageStatus::Passed,
+                runs: stage.runs,
+                detail: stage.detail.clone(),
+            };
+            p.merge_outcome = Some(cap(&outcome, MAX_REASON));
+            p.merge_proposal_id = Some(proposal.id);
+            p.updated_at = now();
+            if let Err(e) = inner.pipeline_store().save(&p).await {
+                tracing::warn!(pipeline = %p.id, error = %e, "could not record the merge on the pipeline");
+                continue;
+            }
+            inner.deps.publish(NewEvent::new(EventKind::PipelineStageChanged(payload))).await;
+            inner.publish_pipeline(&p).await;
+            // A finished run's card and report mirror the merge too (a live
+            // run's supervisor copies the pipeline itself).
+            let Some(run_id) = p.run_id else { continue };
+            let Ok(mut run) = inner.store.run(run_id).await else { continue };
+            use orkestr_protocol::methods::manager::ManagerRunStatus as Rs;
+            if matches!(run.status, Rs::Running | Rs::Paused) {
+                continue;
+            }
+            if let Some(t) = run.tasks.iter_mut().find(|t| t.task_id == p.task_id) {
+                t.pipeline = Some(orkestr_protocol::methods::pipeline::RunTaskPipeline::from(&p));
+            }
+            if let Some(r) = run.report.as_mut() {
+                if let Some(pr) = r.pipelines.iter_mut().find(|x| x.task_id == p.task_id) {
+                    let title = pr.title.clone();
+                    *pr = report_of(&p, &title);
+                }
+                if let Some(m) = r.merge_proposals.iter_mut().find(|m| m.task_id == p.task_id) {
+                    m.note = cap(&outcome, 300);
+                }
+            }
+            inner.save_run(&run).await;
+        }
     }
 }
 

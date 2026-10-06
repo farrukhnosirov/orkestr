@@ -137,7 +137,7 @@ describe("agents model", () => {
     expect(formatTokens(1500, "ru")).toBe("1,5 тыс.");
     expect(formatCost(1.5, "ru")).toBe("1,50 $");
     expect(elapsed(run, 0, "ru")).toMatch(/^2\sмин 5\sс$/);
-    expect(roleInitials("UiUx")).toBe("UU");
+    expect(roleInitials("UiUx")).toBe("UI");
     expect(roleInitials("Backend")).toBe("BA");
     expect(roleInitials({ Custom: "Payroll Expert" })).toBe("PE");
     expect(validateDraft(blankDraft())).toBeNull();

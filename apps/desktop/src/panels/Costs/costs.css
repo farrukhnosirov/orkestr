@@ -426,3 +426,12 @@
 .cost-check input {
   accent-color: var(--ok-color-accent);
 }
+
+/* Benchmark tables have many metric columns: their headers wrap (Russian
+   labels are long) so the table fits the panel without sideways scroll. */
+.bench-table thead th {
+  white-space: normal;
+  vertical-align: bottom;
+  min-width: 64px;
+  max-width: 120px;
+}

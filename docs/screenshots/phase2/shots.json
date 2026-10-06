@@ -1,0 +1,402 @@
+[
+  {
+    "name": "en-01-manager-run-pipeline.png",
+    "note": "Manager run with per-task pipeline stages",
+    "consoleErrors": [],
+    "clipped": [
+      "Manager maximized"
+    ],
+    "latin": [],
+    "hscroll": false,
+    "sideways": []
+  },
+  {
+    "name": "ru-01-manager-run-pipeline.png",
+    "note": "Запуск Менеджера со стадиями конвейера по задачам",
+    "consoleErrors": [],
+    "clipped": [
+      "Панель «Менеджер» развёрнута"
+    ],
+    "latin": [
+      "tests/payroll.test.mjs covers `payroll`",
+      "Security review of the payroll module",
+      "Every finding names a file and a concrete risk",
+      "Plan approved — 5 task(s) created with their dependencies: Design the payroll module API; Implement ",
+      "Run started — 5 task(s), up to 3 agent(s) in parallel.",
+      "Create a payroll module: architecture review, backend, tests, security review",
+      "Design the payroll module API",
+      "Implement the payroll module [mock:heal-once]",
+      "Document the payroll module",
+      "Test the payroll module",
+      ": Design the payroll module API: wrote docs/payroll-design.md. Mock (offline demo).",
+      ": Implement the payroll module [mock:heal-once]: wrote src/payroll.mjs. Mock (offline demo).",
+      ": Document the payroll module: wrote docs/payroll.md. Mock (offline demo).",
+      ": Test the payroll module: wrote tests/payroll.test.mjs. Mock (offline demo).",
+      ": Security review of the payroll module: reviewed the workspace (2 step(s)). Mock (offline demo)."
+    ],
+    "hscroll": false,
+    "sideways": []
+  },
+  {
+    "name": "en-git-merge-awaiting-approval.png",
+    "note": "Git → Merge Manager: run proposal awaiting approval",
+    "consoleErrors": [],
+    "clipped": [
+      "agent/architect-c068e744, agent/backend-475831ef, agent/product-manager-aa2864d3",
+      "Git maximized"
+    ],
+    "latin": [],
+    "hscroll": false,
+    "sideways": []
+  },
+  {
+    "name": "ru-git-merge-awaiting-approval.png",
+    "note": "Git → Слияние: предложение запуска ждёт подтверждения",
+    "consoleErrors": [],
+    "clipped": [
+      "agent/architect-c068e744, agent/backend-475831ef, agent/product-manager-aa2864d3",
+      "Панель «Git» развёрнута"
+    ],
+    "latin": [
+      "Design the payroll module API",
+      "Implement the payroll module [mock:heal-once]",
+      "Document the payroll module",
+      "Security review of the payroll module",
+      "Payroll module",
+      "Test the payroll module"
+    ],
+    "hscroll": false,
+    "sideways": []
+  },
+  {
+    "name": "en-provider-fallback-toast.png",
+    "note": "ProviderFallback notification toast",
+    "consoleErrors": [],
+    "clipped": [
+      "agent/architect-c068e744, agent/backend-475831ef, agent/product-manager-aa2864d3",
+      "Implement the payroll module [mock:heal-once]",
+      "Manager maximized"
+    ],
+    "latin": [],
+    "hscroll": false,
+    "sideways": []
+  },
+  {
+    "name": "en-02-task-drawer-pipeline.png",
+    "note": "Task drawer: quality pipeline",
+    "consoleErrors": [],
+    "clipped": [
+      "agent/architect-c068e744, agent/backend-475831ef, agent/product-manager-aa2864d3",
+      "Implement the payroll module [mock:heal-once]",
+      "Tasks maximized"
+    ],
+    "latin": [],
+    "hscroll": false,
+    "sideways": []
+  },
+  {
+    "name": "en-03-task-drawer-quality.png",
+    "note": "Task drawer: quality runs and gates",
+    "consoleErrors": [],
+    "clipped": [
+      "agent/architect-c068e744, agent/backend-475831ef, agent/product-manager-aa2864d3",
+      "Implement the payroll module [mock:heal-once]",
+      "Tasks maximized"
+    ],
+    "latin": [],
+    "hscroll": false,
+    "sideways": []
+  },
+  {
+    "name": "en-04-task-drawer-reviews.png",
+    "note": "Task drawer: reviews",
+    "consoleErrors": [],
+    "clipped": [
+      "agent/architect-c068e744, agent/backend-475831ef, agent/product-manager-aa2864d3",
+      "Implement the payroll module [mock:heal-once]",
+      "Tasks maximized"
+    ],
+    "latin": [],
+    "hscroll": false,
+    "sideways": []
+  },
+  {
+    "name": "en-05-product.png",
+    "note": "Tasks → Product view (AI PM draft)",
+    "consoleErrors": [],
+    "clipped": [
+      "agent/architect-c068e744, agent/backend-475831ef, agent/product-manager-aa2864d3",
+      "Implement the payroll module [mock:heal-once]",
+      "Tasks maximized"
+    ],
+    "latin": [],
+    "hscroll": false,
+    "sideways": []
+  },
+  {
+    "name": "en-06-git-merge-manager.png",
+    "note": "Git → Merge Manager",
+    "consoleErrors": [],
+    "clipped": [
+      "agent/architect-c068e744, agent/backend-475831ef, agent/product-manager-aa2864d3",
+      "Git maximized"
+    ],
+    "latin": [],
+    "hscroll": false,
+    "sideways": []
+  },
+  {
+    "name": "en-07-architecture-map.png",
+    "note": "Architecture map",
+    "consoleErrors": [],
+    "clipped": [
+      "Architecture maximized"
+    ],
+    "latin": [],
+    "hscroll": false,
+    "sideways": []
+  },
+  {
+    "name": "en-08-replay.png",
+    "note": "Logs → Execution Replay",
+    "consoleErrors": [],
+    "clipped": [
+      "Implement the payroll module [mock:heal-once]",
+      "Logs maximized"
+    ],
+    "latin": [],
+    "hscroll": false,
+    "sideways": []
+  },
+  {
+    "name": "en-09-teams.png",
+    "note": "Agents → Teams",
+    "consoleErrors": [],
+    "clipped": [
+      "Agents maximized"
+    ],
+    "latin": [],
+    "hscroll": false,
+    "sideways": []
+  },
+  {
+    "name": "en-10-benchmarks.png",
+    "note": "Costs → model benchmarks",
+    "consoleErrors": [],
+    "clipped": [
+      "Costs maximized"
+    ],
+    "latin": [],
+    "hscroll": false,
+    "sideways": []
+  },
+  {
+    "name": "ru-02-task-drawer-pipeline.png",
+    "note": "Карточка задачи: конвейер качества",
+    "consoleErrors": [],
+    "clipped": [
+      "Панель «Задачи» развёрнута"
+    ],
+    "latin": [
+      "Create a payroll module: architecture review, backend, tests, security review",
+      "Design the payroll module API",
+      "Implement the payroll module [mock:heal-once]",
+      "Design the invoice module API",
+      "Refactor the money helpers [mock:heal-never]",
+      "Design the employees data model",
+      "Implement the employees service",
+      "Document the payroll module",
+      "Test the payroll module",
+      "Security review of the payroll module",
+      "Employees: first release",
+      "Employees core",
+      "As a user I can store employees records",
+      "As a maintainer I trust employees changes",
+      "src/payroll.mjs exports `payroll`",
+      "Implement the payroll module [mock:heal-once]: wrote src/payroll.mjs, tests/payroll.test.mjs. Mock (",
+      "Looks good: 3 file(s) changed, 0 finding(s). — Mock (offline demo)",
+      "Implement the payroll module [mock:heal-once]: wrote src/payroll.mjs. Mock (offline demo).",
+      "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n+ actual - expected\n+ 'Hello, "
+    ],
+    "hscroll": false,
+    "sideways": []
+  },
+  {
+    "name": "ru-03-task-drawer-quality.png",
+    "note": "Карточка задачи: проверки и критерии",
+    "consoleErrors": [],
+    "clipped": [
+      "Панель «Задачи» развёрнута"
+    ],
+    "latin": [
+      "Create a payroll module: architecture review, backend, tests, security review",
+      "Design the payroll module API",
+      "Implement the payroll module [mock:heal-once]",
+      "Design the invoice module API",
+      "Refactor the money helpers [mock:heal-never]",
+      "Design the employees data model",
+      "Implement the employees service",
+      "Document the payroll module",
+      "Test the payroll module",
+      "Security review of the payroll module",
+      "Employees: first release",
+      "Employees core",
+      "As a user I can store employees records",
+      "As a maintainer I trust employees changes",
+      "Implement the payroll module [mock:heal-once]: wrote src/payroll.mjs. Mock (offline demo).",
+      "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n+ actual - expected\n+ 'Hello, "
+    ],
+    "hscroll": false,
+    "sideways": []
+  },
+  {
+    "name": "ru-04-task-drawer-reviews.png",
+    "note": "Карточка задачи: ревью",
+    "consoleErrors": [],
+    "clipped": [
+      "Панель «Задачи» развёрнута"
+    ],
+    "latin": [
+      "Create a payroll module: architecture review, backend, tests, security review",
+      "Design the payroll module API",
+      "Implement the payroll module [mock:heal-once]",
+      "Design the invoice module API",
+      "Refactor the money helpers [mock:heal-never]",
+      "Design the employees data model",
+      "Implement the employees service",
+      "Document the payroll module",
+      "Test the payroll module",
+      "Security review of the payroll module",
+      "Employees: first release",
+      "Employees core",
+      "As a user I can store employees records",
+      "As a maintainer I trust employees changes",
+      "Looks good: 3 file(s) changed, 0 finding(s). — Mock (offline demo)",
+      "src/payroll.mjs exports `payroll`",
+      "Adversarial review: 1 attack(s) on the change. — Mock (offline demo)"
+    ],
+    "hscroll": false,
+    "sideways": []
+  },
+  {
+    "name": "ru-05-product.png",
+    "note": "Задачи → Продукт (черновик AI PM)",
+    "consoleErrors": [],
+    "clipped": [
+      "Панель «Задачи» развёрнута"
+    ],
+    "latin": [
+      "Create a payroll module: architecture review, backend, tests, security review",
+      "Employees: first release",
+      "Employees should see their payslips and download a yearly tax summary.",
+      "Deliver Employees should see their payslips and download a yearly tax summary. — Mock (offline demo)",
+      "Employees core",
+      "As a user I can store employees records",
+      "A record can be created and read back",
+      "Invalid input is rejected with a clear error",
+      "Design the employees data model",
+      "Implement the employees service",
+      "As a maintainer I trust employees changes",
+      "Automated tests cover the service",
+      "Test the employees service",
+      "Employees screen",
+      "As a user I see my employees records",
+      "The list shows every stored record",
+      "Build the employees list view"
+    ],
+    "hscroll": false,
+    "sideways": []
+  },
+  {
+    "name": "ru-06-git-merge-manager.png",
+    "note": "Git → Менеджер слияний",
+    "consoleErrors": [],
+    "clipped": [
+      "agent/architect-c068e744, agent/backend-475831ef, agent/product-manager-aa2864d3",
+      "Панель «Git» развёрнута"
+    ],
+    "latin": [
+      "Design the payroll module API",
+      "Implement the payroll module [mock:heal-once]",
+      "Document the payroll module",
+      "Security review of the payroll module",
+      "Create a payroll module: architecture review, backend, tests, security review",
+      "Design the invoice module API",
+      "Refactor the money helpers [mock:heal-never]",
+      "Design the employees data model"
+    ],
+    "hscroll": false,
+    "sideways": []
+  },
+  {
+    "name": "ru-07-architecture-map.png",
+    "note": "Карта архитектуры",
+    "consoleErrors": [],
+    "clipped": [
+      "Панель «Архитектура» развёрнута"
+    ],
+    "latin": [
+      "React Flow",
+      "Create a payroll module: architecture review, backend, tests, security review",
+      "Design the payroll module API",
+      "Implement the payroll module [mock:heal-once]",
+      "Design the invoice module API",
+      "Refactor the money helpers [mock:heal-never]",
+      "Design the employees data model"
+    ],
+    "hscroll": false,
+    "sideways": []
+  },
+  {
+    "name": "ru-08-replay.png",
+    "note": "Журнал → Воспроизведение",
+    "consoleErrors": [],
+    "clipped": [
+      "Implement the payroll module [mock:heal-once]",
+      "Панель «Журнал» развёрнута"
+    ],
+    "latin": [
+      "Create a payroll module: architecture review, backend, tests, security review",
+      "Design the payroll module API",
+      "Implement the payroll module [mock:heal-once]",
+      "Document the payroll module",
+      "Test the payroll module",
+      "Security review of the payroll module",
+      "Software Architect #1",
+      "Before Software Architect #1 changes",
+      "Design the invoice module API",
+      "Refactor the money helpers [mock:heal-never]",
+      "Design the employees data model"
+    ],
+    "hscroll": false,
+    "sideways": []
+  },
+  {
+    "name": "ru-09-teams.png",
+    "note": "Агенты → Команды",
+    "consoleErrors": [],
+    "clipped": [
+      "Панель «Агенты» развёрнута"
+    ],
+    "latin": [
+      "Create a payroll module: architecture review, backend, tests, security review",
+      "Payroll squad",
+      "Lead architect, two backend engineers, QA and security review."
+    ],
+    "hscroll": false,
+    "sideways": []
+  },
+  {
+    "name": "ru-10-benchmarks.png",
+    "note": "Расходы → сравнение моделей",
+    "consoleErrors": [],
+    "clipped": [
+      "Панель «Расходы» развёрнута"
+    ],
+    "latin": [
+      "Create a payroll module: architecture review, backend, tests, security review"
+    ],
+    "hscroll": false,
+    "sideways": []
+  }
+]

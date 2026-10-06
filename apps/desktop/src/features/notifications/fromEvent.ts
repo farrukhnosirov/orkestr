@@ -82,6 +82,19 @@ export function notificationFromEvent(ev: Event): AppNotification | null {
         p.retryAfterSecs != null ? ` ${t("notifications:events.retryIn", { delay: formatDuration(p.retryAfterSecs * 1000) })}` : "";
       return base(ev, "Warning", t("notifications:events.rateLimited"), `${what}${retry}`);
     }
+    case "ProviderFallback": {
+      const p = ev.payload;
+      return base(
+        ev,
+        "Warning",
+        t("notifications:events.providerFallback"),
+        t("notifications:events.providerFallbackBody", {
+          from: p.from.model,
+          to: p.to.model,
+          reason: t(`notifications:fallbackReason.${p.reason}`, { defaultValue: p.reason }),
+        }),
+      );
+    }
     case "RollbackPerformed":
       return base(
         ev,

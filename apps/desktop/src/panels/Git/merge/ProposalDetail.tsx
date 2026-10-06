@@ -132,6 +132,8 @@ export function ProposalDetail({ proposal: p, onUpdated }: Props) {
         return <Notice tone="neutral">{t("notice.aborted") + detail}</Notice>;
       case "Rejected":
         return <Notice tone="danger">{t("notice.rejected") + detail}</Notice>;
+      case "Superseded":
+        return <Notice tone="success">{t("notice.superseded")}</Notice>;
       default:
         return null;
     }

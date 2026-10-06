@@ -41,7 +41,8 @@
     "Completed": "Merged",
     "Failed": "Failed",
     "Aborted": "Aborted",
-    "Rejected": "Rejected"
+    "Rejected": "Rejected",
+    "Superseded": "Merged by another proposal"
   },
   "recommendation": {
     "MergeNow": "Ready to merge",
@@ -59,6 +60,7 @@
     "failed": "The merge failed and was rolled back. The target branch was not changed.",
     "aborted": "The merge was aborted. The target branch was not changed.",
     "rejected": "The merge was rejected.",
+    "superseded": "Its branches were merged by another proposal; nothing is left to merge.",
     "detail": "Details: {{detail}}"
   },
   "blockers": {

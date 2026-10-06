@@ -16,10 +16,10 @@ import { PipelineStages } from "../../features/pipeline";
 import { useLanguage, useT } from "../../i18n";
 import { roleLabel } from "../Agents/model";
 import { useAgentsUi } from "../Agents/store";
-import { Markdown } from "../Memory/markdown";
 import { STATUS_TONE } from "../Tasks/model";
 import { errorMessage, managerActions } from "./data";
 import { RUN_STATUS_TONE, formatDuration, formatUsd, isRunFinal, runProgress } from "./model";
+import { RunReport } from "./RunReport";
 import { useManagerUi } from "./store";
 
 /** Opens the Agents panel on an agent. */
@@ -180,7 +180,7 @@ export function RunCard({ run, compact = false }: { run: ManagerRun; compact?: b
       {!compact && run.report && (
         <details className="mgr-run__report" open={final}>
           <summary>{t("run.report")}</summary>
-          <Markdown source={run.report.summary} className="mgr-md" />
+          <RunReport run={run} report={run.report} />
         </details>
       )}
     </section>

@@ -29,10 +29,22 @@
     "rateLimitedModel": "{{model}} hit its rate limit.",
     "rateLimitedUnknown": "A model hit its rate limit.",
     "retryIn": "Retrying in {{delay}}.",
+    "providerFallback": "Switched to the fallback model",
+    "providerFallbackBody": "{{from}} → {{to}}: {{reason}}. The task continues from a saved handoff.",
     "rollback": "Rollback performed",
     "filesRestored_one": "{{count}} file restored.",
     "filesRestored_other": "{{count}} files restored.",
     "nodeOffline": "Node offline",
     "nodeOfflineBody": "A node stopped sending heartbeats."
+  },
+  "fallbackReason": {
+    "rate_limited": "rate limit",
+    "quota_exceeded": "quota exhausted",
+    "auth": "authentication failed",
+    "network": "network error",
+    "server": "provider error",
+    "bad_request": "request rejected",
+    "unsupported": "not supported",
+    "unimplemented": "not available"
   }
 }

@@ -186,6 +186,58 @@ async fn failing_tests_are_healed_on_the_second_attempt_and_the_merge_is_propose
     assert!(report.summary.contains("self-healing: 1 attempt(s)"), "{}", report.summary);
     assert!(report.merge_proposals[0].note.contains("proposed"), "{:?}", report.merge_proposals);
     assert_eq!(done.agents_spawned, 1, "fix agents belong to the pipeline, not the run's agent budget");
+
+    // The user merges the whole run through one proposal instead: the task's
+    // own proposal is superseded and its pipeline's Merge stage passes.
+    let run_wide = merger
+        .propose(orkestr_protocol::methods::merge::MergeProposeParams {
+            project_id: h.project,
+            run_id: Some(run.id),
+            branches: None,
+            target: None,
+        })
+        .await
+        .unwrap();
+    merger
+        .execute(orkestr_protocol::methods::merge::MergeExecuteParams { proposal_id: run_wide.id, order: None })
+        .await
+        .unwrap();
+    let approval = pending_approval(&h).await;
+    h.sec
+        .approvals
+        .resolve(approval.id, orkestr_security::ApprovalDecision::Approve, None, h.sec.user())
+        .await
+        .unwrap();
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(60);
+    loop {
+        let p = latest(&h, task_id).await;
+        if stage(&p, PipelineStageKind::Merge).status == StageStatus::Passed {
+            assert!(p.merge_outcome.as_deref().unwrap_or_default().starts_with("merged `"), "{:?}", p.merge_outcome);
+            assert_eq!(p.merge_proposal_id, Some(run_wide.id));
+            break;
+        }
+        assert!(tokio::time::Instant::now() < deadline, "merge stage not updated: {p:#?}");
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    let merged = merger.get(run_wide.id).await.unwrap();
+    assert_eq!(
+        merged.status,
+        orkestr_protocol::methods::merge::MergeProposalStatus::Completed,
+        "{:?}",
+        merged.status_detail
+    );
+    let own = merger.get(proposal.id).await.unwrap();
+    assert_eq!(own.status, orkestr_protocol::methods::merge::MergeProposalStatus::Superseded);
+    // The finished run's card and report show the merge as well.
+    let run = h.mgr.store().run(run.id).await.unwrap();
+    let brief = run.tasks[0].pipeline.as_ref().unwrap();
+    assert!(
+        brief.stages.iter().any(|s| s.kind == PipelineStageKind::Merge && s.status == StageStatus::Passed),
+        "{brief:?}"
+    );
+    let report = run.report.unwrap();
+    assert!(report.pipelines[0].merge_outcome.as_deref().unwrap_or_default().starts_with("merged `"));
+    assert!(report.merge_proposals[0].note.starts_with("merged `"), "{:?}", report.merge_proposals);
 }
 
 #[tokio::test]

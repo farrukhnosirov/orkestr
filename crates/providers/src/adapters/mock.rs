@@ -626,14 +626,15 @@ test(\"{f} greets by name\", () => {{
         ));
         files.push((
             "package.json".to_owned(),
-            "{
+            format!(
+                "{{
   \"name\": \"mock-healing-demo\",
   \"private\": true,
   \"type\": \"module\",
-  \"scripts\": { \"test\": \"node --test\" }
-}
+  \"scripts\": {{ \"build\": \"node --check src/{s}.mjs\", \"test\": \"node --test\" }}
+}}
 "
-            .to_owned(),
+            ),
         ));
     }
     Some(files)
@@ -641,7 +642,23 @@ test(\"{f} greets by name\", () => {{
 
 fn agent_steps(role: &str, title: &str, req: &ChatRequest) -> Vec<Step> {
     if let Some(files) = healing_files(title, req) {
-        let mut steps: Vec<Step> = files.into_iter().map(|(p, c)| write_step(p, c)).collect();
+        // The first attempt reads the project's npm manifest and keeps it when
+        // it already has a `test` script (the project's name, scripts and
+        // dependencies survive); otherwise it writes the demo manifest.
+        let probe = healing_attempt(req).is_none() && has_tool(req, "read_file");
+        let keep_manifest = probe
+            && req
+                .messages
+                .iter()
+                .find(|m| m.role == Role::Tool)
+                .is_some_and(|m| !m.is_error && m.content.contains("\"test\""));
+        let mut steps: Vec<Step> = Vec::new();
+        if probe {
+            steps.push(Step { tool: "read_file", args: json!({ "path": "package.json" }) });
+        }
+        steps.extend(
+            files.into_iter().filter(|(p, _)| !(keep_manifest && p == "package.json")).map(|(p, c)| write_step(p, c)),
+        );
         if has_tool(req, "git_commit") {
             let msg = match healing_attempt(req) {
                 Some(n) => format!("{title}: self-healing attempt {n} (Mock offline demo)"),
@@ -755,7 +772,8 @@ fn agent_script(req: &ChatRequest) -> MockScript {
     let failed: Vec<(usize, String)> = results
         .iter()
         .enumerate()
-        .filter(|(_, m)| result_failed(m))
+        // A read of an optional file (the npm manifest probe) that finds nothing is not a failure.
+        .filter(|(i, m)| result_failed(m) && steps.get(*i).is_none_or(|s| s.tool != "read_file"))
         .map(|(i, m)| (i, short(&m.content, 160)))
         .collect();
     let files: Vec<String> = steps
@@ -1277,6 +1295,31 @@ failed",
         assert_eq!(arguments["status"], "partial");
         // No request in the task → no extra commands.
         assert!(requested_commands(&agent_req("QA", "Test the hello module", &tools)).is_empty());
+    }
+
+    #[test]
+    fn healing_scenario_keeps_an_existing_npm_manifest() {
+        let tools = ["read_file", "write_file", "git_commit", "submit_result"];
+        let title = "Implement the payroll module [mock:heal-once]";
+        let mut r = agent_req("Backend", title, &tools);
+        let MockScript::Tool { name, arguments } = script(&r) else { panic!() };
+        assert_eq!((name.as_str(), arguments["path"].as_str()), ("read_file", Some("package.json")));
+        // The project has a manifest with a test script → it is not overwritten.
+        r.messages.push(ChatMessage::tool_result(
+            "1",
+            "package.json (lines 1-3 of 3)\n    1\t{\"scripts\": {\"test\": \"node --test\"}}\n",
+            false,
+        ));
+        let paths: Vec<String> = agent_steps("backend", title, &r)
+            .iter()
+            .filter(|s| s.tool == "write_file")
+            .map(|s| s.args["path"].as_str().unwrap().to_owned())
+            .collect();
+        assert_eq!(paths, vec!["src/payroll.mjs", "tests/payroll.test.mjs"]);
+        // No manifest (read error) → the demo manifest is written.
+        let mut none = agent_req("Backend", title, &tools);
+        none.messages.push(ChatMessage::tool_result("1", "not found: package.json", true));
+        assert!(agent_steps("backend", title, &none).iter().any(|s| s.args["path"] == "package.json"));
     }
 
     #[test]

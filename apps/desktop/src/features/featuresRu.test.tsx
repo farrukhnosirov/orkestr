@@ -95,6 +95,14 @@ describe("features in Russian", () => {
     );
     expect(nb(budget?.title ?? "")).toBe("Израсходовано 90 % бюджета");
     expect(nb(budget?.body ?? "")).toBe("project: 9,00 $ из 10,00 $");
+    const fallback = notificationFromEvent(
+      ev({
+        kind: "ProviderFallback",
+        payload: { from: { providerId: "p", model: "gpt-primary" }, to: { providerId: "p", model: "mock-smart" }, reason: "rate_limited" },
+      } as never),
+    );
+    expect(fallback?.title).toBe("Переключение на резервную модель");
+    expect(fallback?.body).toBe("gpt-primary → mock-smart: лимит запросов. Задача продолжается с сохранённой передачи контекста.");
   });
 
   it("translates registries, steps and validation", () => {

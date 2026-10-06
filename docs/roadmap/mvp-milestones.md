@@ -312,6 +312,74 @@ showed a phantom horizontal scrollbar.
 
 ## Phase 2: Multi-Agent Quality
 
+### Status: Phase 2 acceptance passed on Windows with mock providers (2026-10-06). M2.7 and several measured exit criteria are still open
+
+**How it was checked**
+- `scripts/smoke/phase2-acceptance.mjs` drives the real desktop app:
+  - debug build with the bundled frontend (`--features custom-protocol`);
+  - isolated `ORKESTR_HOME`;
+  - the Mock (offline demo) provider;
+  - a temp git repo with a tiny real npm project (`node --test`).
+- Result: **47/47 checks pass**. It passed on two consecutive runs: the second was on the final build, after the visual fixes below.
+- Screenshots are in `docs/screenshots/phase2/` (English and Russian, app window only, through WebView2 DevTools), with audit data in `shots.json`.
+- These are green: `cargo fmt --check`, clippy `--workspace --all-targets -D warnings`, `cargo test --workspace` (1814 tests), `npm run typecheck`, `npm test` (746 desktop tests) and `npm run build`.
+
+**Scenario results**
+- **A-lite (§63A).** Request: "Create a payroll module: architecture review, backend, tests, security review".
+  - The plan had Architect, Backend, Product Manager (docs), QA and Security tasks, with dependencies.
+  - Agents ran in parallel (at most 2 at once), each in its own `agent/<role>-<id>` worktree.
+  - Every task that changed files passed Author → Review → Build → Test → Security.
+  - The quality runner really ran `npm run build` and `npm run test` on Windows, through the `cmd.exe` shim path from `8cb59f6`.
+  - The injected failing test was parsed from the output (name, `tests/payroll.test.mjs:7`, assertion) and fixed by Self-Healing in 1 attempt.
+  - Standard and adversarial reviews finished.
+  - One run-wide merge proposal (5 branches, DAG order) asked for approval. After approval it merged into `main`; the repo was checked on disk, and `npm test` passes on the merged `main`.
+  - The per-task proposals became `Superseded`, and the pipelines' Merge stage became `Passed`.
+- **B (§63B).** A local fake OpenAI-compatible server answers `429 insufficient_quota`.
+  - A `ProviderFallback` event fired (fake primary → Mock) and a structured handoff was saved.
+  - The fallback model finished the task.
+  - The toast "Switched to the fallback model" was shown.
+- **J (§63J).** A refactor with `[mock:heal-never]` failed: Self-Healing stopped on "no progress" and the user declined more attempts.
+  - `snapshots.rollbackTask` needs confirmation. Its dry run lists only the task's files.
+  - The rollback deleted the refactor's files and emitted `RollbackPerformed`.
+  - An unrelated user edit in the same worktree survived, and so did one in the main checkout.
+- **More checks:**
+  - a consensus run (3 participants) created a Decision Log entry with 3 alternatives;
+  - the architecture map is non-empty;
+  - the replay timeline has Plan, Agents, Tools, Files, Tests, Reviews, Approvals and Merge steps;
+  - model and agent benchmarks are populated from the runs;
+  - a team was created;
+  - an AI PM draft was approved, which created 4 tasks and a Manager plan.
+
+**Fixed during acceptance**
+- **Mock provider:** it keeps an existing `package.json` with a `test` script.
+- **Quality runner:** a `node --test` parser (spec and TAP).
+- **Run supervisor:** no premature "no task can proceed" while a failed agent awaits its retry decision.
+- **Agent runtime:** a task stays on the fallback model after a fallback.
+- **Adversarial review:** the author's model is the last-resort adversary, and the review is flagged.
+- **Merge Manager:** a `MergeCompletedHook`, the `Superseded` status, and a merged pipeline's Merge stage and run report are updated.
+- **Rollback Task:** it spans the worktrees of Self-Healing attempts and treats CRLF/LF differences as equal.
+- **UI:**
+  - the Manager run report;
+  - pipeline text in the UI language;
+  - the ProviderFallback notification;
+  - the Architecture map refits when its canvas is resized;
+  - team monograms for acronym roles ("UI");
+  - maximize → restore now restores every dock group's size (dockview left the side column at about 90 px);
+  - tab labels no longer wrap in narrow panels;
+  - benchmark table headers wrap instead of scrolling sideways;
+  - task statuses in the Replay state no longer wrap.
+
+**Not met / not verified (honest gaps)**
+- §63A was run with the Mock provider, not with real providers. Video recording was not done.
+- M2.1 numbers were not measured: 6 parallel agents, the overlap hold-back and CPU throttling.
+- M2.5: the adversarial eval set (≥ 4 of 5 seeded bugs) was not run.
+- M2.6: the context-pack eval (≥ 90 %) was not run.
+- **M2.7 is not built:** no hand off to `orkestrd`, no MCP stdio client, no LSP bridge, and no Dev/Test/Staging/Prod environment manager.
+- The Visual Browser agent tool (stretch) is not built.
+- Consensus used one model with three perspectives (only Mock was available).
+- Dock groups have no minimum width, so a manual resize can still squeeze a panel.
+
+
 ### M2.1 Parallel execution and resource-aware scheduling
 - **Scope:**
   - concurrent tasks across worktrees;

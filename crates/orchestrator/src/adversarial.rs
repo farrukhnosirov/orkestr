@@ -56,6 +56,18 @@ pub fn prefer_other_providers(chain: Vec<ModelRef>, author: Option<&ModelRef>) -
     other
 }
 
+/// Appends the author's model as the final fallback of an adversary chain
+/// (when it is not in the chain already).
+#[must_use]
+pub fn with_author_last(mut chain: Vec<ModelRef>, author: Option<&ModelRef>) -> Vec<ModelRef> {
+    if let Some(a) = author {
+        if !chain.contains(a) {
+            chain.push(a.clone());
+        }
+    }
+    chain
+}
+
 /// Chooses the adversary and the verifier and creates the review document.
 pub(crate) async fn prepare(
     inner: &Inner,
@@ -83,6 +95,9 @@ pub(crate) async fn prepare(
     let usable_author = author
         .as_ref()
         .filter(|a| inner.deps.models.provider(a.provider_id).is_some_and(|i| i.enabled && !i.is_cli_agent()));
+    // Last resort when every other model fails (limit, quota, outage): the
+    // author's model with the adversarial prompt, flagged on the review.
+    let chain = with_author_last(chain, explicit.is_none().then_some(usable_author).flatten());
     let verifier = match usable_author {
         Some(a) => match role_chain(inner, project, "Review", Some(a), &[]).await {
             Ok(c) => c,
@@ -241,6 +256,10 @@ pub(crate) async fn run(
     .await;
     let (stated, summary, mut findings) = match attack {
         Ok(((v, s, f), out)) => {
+            if task.model.as_ref() == Some(&out.model) {
+                // Every other model failed; the author's model answered.
+                review.same_model_fallback = true;
+            }
             review.model = Some(out.model);
             review.usage.add(&out.usage);
             (v, s, f)
@@ -370,6 +389,16 @@ mod unit {
             resolution_note: None,
             resolved_at: None,
         }
+    }
+
+    #[test]
+    fn author_is_the_last_resort_of_the_adversary_chain() {
+        let (a, b) = (ProviderId::new(), ProviderId::new());
+        let m = |p: ProviderId, n: &str| ModelRef { provider_id: p, model: n.into() };
+        let author = m(a, "a1");
+        assert_eq!(with_author_last(vec![m(b, "b1")], Some(&author)), vec![m(b, "b1"), author.clone()]);
+        assert_eq!(with_author_last(vec![author.clone(), m(b, "b1")], Some(&author)), vec![author.clone(), m(b, "b1")]);
+        assert_eq!(with_author_last(vec![m(b, "b1")], None), vec![m(b, "b1")]);
     }
 
     #[test]

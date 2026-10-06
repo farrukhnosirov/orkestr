@@ -752,6 +752,13 @@ impl Run {
                         calls.clear();
                         self.agent.model = Some(to.clone());
                         self.execution.model = Some(to.clone());
+                        // The rest of the task stays on the fallback model:
+                        // the models before it in the chain just failed
+                        // (limit, quota, outage), so later turns do not
+                        // re-probe them with a new handoff each time.
+                        if let Some(pos) = self.chain.iter().position(|m| *m == to) {
+                            self.chain.drain(..pos);
+                        }
                         model = to.clone();
                         self.persist().await;
                         let _ = self

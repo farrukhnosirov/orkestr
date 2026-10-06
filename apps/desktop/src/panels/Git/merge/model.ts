@@ -27,6 +27,7 @@ export const FINAL_STATUSES: ReadonlySet<MergeProposalStatus> = new Set<MergePro
   "Failed",
   "Aborted",
   "Rejected",
+  "Superseded",
 ]);
 
 export function isActive(status: MergeProposalStatus): boolean {
@@ -40,6 +41,7 @@ export function isFinal(status: MergeProposalStatus): boolean {
 export function statusTone(status: MergeProposalStatus): Tone {
   switch (status) {
     case "Completed":
+    case "Superseded":
       return "success";
     case "Failed":
     case "Rejected":

@@ -33,6 +33,8 @@
     "rateLimitedModel": "{{model}}: превышен лимит запросов.",
     "rateLimitedUnknown": "Одна из моделей превысила лимит запросов.",
     "retryIn": "Повтор через {{delay}}.",
+    "providerFallback": "Переключение на резервную модель",
+    "providerFallbackBody": "{{from}} → {{to}}: {{reason}}. Задача продолжается с сохранённой передачи контекста.",
     "rollback": "Выполнен откат",
     "filesRestored_one": "Восстановлен {{count}} файл.",
     "filesRestored_few": "Восстановлено {{count}} файла.",
@@ -40,5 +42,15 @@
     "filesRestored_other": "Восстановлено {{count}} файла.",
     "nodeOffline": "Узел не в сети",
     "nodeOfflineBody": "Узел перестал отправлять сигналы активности."
+  },
+  "fallbackReason": {
+    "rate_limited": "лимит запросов",
+    "quota_exceeded": "квота исчерпана",
+    "auth": "ошибка авторизации",
+    "network": "сетевая ошибка",
+    "server": "ошибка провайдера",
+    "bad_request": "запрос отклонён",
+    "unsupported": "не поддерживается",
+    "unimplemented": "недоступно"
   }
 }

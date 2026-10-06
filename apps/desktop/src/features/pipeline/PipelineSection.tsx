@@ -26,6 +26,7 @@ import { useState } from "react";
 import { useFormat, useT } from "../../i18n";
 import { describeError } from "../../i18n/errors";
 import { pipelineActions, useTaskPipeline } from "./data";
+import { type PipelineT, localizePipelineText } from "./text";
 
 export const STAGE_TONE: Record<StageStatus, Tone> = {
   Pending: "neutral",
@@ -165,11 +166,12 @@ export function PipelineSection({ taskId, taskStatus, onToast }: { taskId: strin
 function PipelineView({ pipeline, compact = false }: { pipeline: TaskPipeline; compact?: boolean }) {
   const { t } = useT("pipeline");
   const fmt = useFormat();
+  const tt = t as unknown as PipelineT;
   const facts: string[] = [];
   if (pipeline.reviewVerdict) facts.push(t("reviewVerdict", { verdict: t(`verdict.${pipeline.reviewVerdict}`) }));
   if (pipeline.securityVerdict) facts.push(t("securityVerdict", { verdict: t(`verdict.${pipeline.securityVerdict}`) }));
   if (pipeline.gates) facts.push(t("gates", { status: t(`gateStatus.${pipeline.gates.overall}`) }));
-  if (pipeline.mergeOutcome) facts.push(t("merge", { outcome: pipeline.mergeOutcome }));
+  if (pipeline.mergeOutcome) facts.push(t("merge", { outcome: localizePipelineText(pipeline.mergeOutcome, tt) }));
   return (
     <div className={clsx("pl-view", compact && "pl-view--compact")}>
       <ol className="pl-stepper" aria-label={t("stagesLabel")}>
@@ -183,12 +185,12 @@ function PipelineView({ pipeline, compact = false }: { pipeline: TaskPipeline; c
                 {t(`stage.${s.kind}`)} <Badge tone={STAGE_TONE[s.status]}>{t(`stageStatus.${s.status}`)}</Badge>
                 {s.runs > 1 && <span className="tasks-muted"> · {t("runs", { count: s.runs })}</span>}
               </span>
-              {s.detail && !compact && <span className="pl-step__detail">{s.detail}</span>}
+              {s.detail && !compact && <span className="pl-step__detail">{localizePipelineText(s.detail, tt)}</span>}
             </span>
           </li>
         ))}
       </ol>
-      {pipeline.statusReason && <p className="pl-reason">{pipeline.statusReason}</p>}
+      {pipeline.statusReason && <p className="pl-reason">{localizePipelineText(pipeline.statusReason, tt)}</p>}
       {facts.length > 0 && <p className="tasks-muted pl-facts">{facts.join(" · ")}</p>}
       {!compact && <HealingTimeline pipeline={pipeline} />}
       {!compact && <p className="tasks-muted pl-facts">{fmt.relative(pipeline.startedAt)}</p>}
@@ -232,7 +234,7 @@ function AttemptItem({ attempt }: { attempt: HealingAttempt }) {
         {attempt.model && <span className="tasks-muted">{attempt.model.model}</span>}
         {attempt.escalated && <Badge tone="violet">{t("healing.escalated")}</Badge>}
       </div>
-      <p className="pl-attempt__summary">{a.summary}</p>
+      <p className="pl-attempt__summary">{localizePipelineText(a.summary, t as unknown as PipelineT)}</p>
       {attempt.note && <p className="tasks-muted">{attempt.note}</p>}
       {(a.failingTests.length > 0 || a.compilerErrors.length > 0 || a.findings.length > 0 || a.excerpts.length > 0) && (
         <details className="pl-analysis">

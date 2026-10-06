@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { applyLanguagePreference } from "../../i18n";
 import { useAppStore } from "../../store/app";
+import { localizePipelineText } from "./text";
 
 const PROJECT = "0190f0b0-0000-7000-8000-ffffffffffff";
 const TASK = "0190f0b0-0000-7000-8000-000000000001";
@@ -192,5 +193,34 @@ describe("PipelineStages (run card)", () => {
     expect(within(list).getByText("Tests").closest("li")?.className).toContain("pl-chip--failed");
     expect(within(list).getByText("Self-healing")).toBeTruthy();
     expect(within(list).getByText("2")).toBeTruthy();
+  });
+});
+
+describe("localizePipelineText", () => {
+  afterEach(async () => {
+    await applyLanguagePreference("en");
+  });
+
+  it("keeps English machine texts readable and leaves free text alone", () => {
+    expect(localizePipelineText("1 check(s) passed")).toBe("1 check passed");
+    expect(localizePipelineText("merged `agent/backend-1` into `main` (proposal 01a1)")).toBe("agent/backend-1 merged into main");
+    expect(localizePipelineText("Looks good: 4 file(s) changed. — Mock (offline demo)")).toBe("Looks good: 4 file(s) changed. — Mock (offline demo)");
+  });
+
+  it("translates the machine-written forms to Russian", async () => {
+    await applyLanguagePreference("ru");
+    expect(localizePipelineText("3 check(s) passed")).toBe("пройдено 3 проверки");
+    expect(localizePipelineText("5 passed")).toBe("пройдено 5 тестов");
+    expect(localizePipelineText("1 finding(s), none blocking")).toBe("1 замечание, блокирующих нет");
+    expect(localizePipelineText("proposed — awaiting approval")).toBe("предложено, ждёт подтверждения");
+    expect(localizePipelineText("merge proposal ready (ReviewFirst) — waiting for your approval in the Merge Manager")).toBe(
+      "предложение слияния готово (Сначала ревью) — подтвердите его в Менеджере слияний",
+    );
+    expect(
+      localizePipelineText("The tests failed: `npm run test` — 2 passed, 1 failed, 0 skipped. 1 failing test(s)."),
+    ).toBe("Тесты не прошли: `npm run test` — пройдено 2, не пройдено 1, пропущено 0. Непройденных тестов: 1.");
+    expect(
+      localizePipelineText("self-healing stopped (no progress: the last fix produced the same failure); the user declined further attempts"),
+    ).toBe("самовосстановление остановлено (нет прогресса: последнее исправление дало тот же сбой); пользователь отказался от новых попыток");
   });
 });

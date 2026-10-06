@@ -51,6 +51,14 @@ let dirty = false;
 /** Signature of the active layout as applied / last saved. */
 let baseline: string | null = null;
 
+/**
+ * Grid group sizes from just before a group was maximized. dockview's
+ * "exit maximized" does not give the other groups their sizes back (a
+ * restored side column could shrink to a sliver), so they are put back
+ * from here.
+ */
+let preMaximize: { id: string; width: number; height: number }[] | null = null;
+
 // ── core persistence ─────────────────────────────────────────────────────────
 
 async function rpc<T>(fn: (c: NonNullable<ReturnType<typeof maybeClient>>) => Promise<T>): Promise<T | null> {
@@ -253,6 +261,7 @@ async function applyPlan(plan: LayoutPlan, opts: { restoreWindows: boolean }): P
   const dock = api;
   applying++;
   try {
+    preMaximize = null; // a new layout replaces the groups
     if (dock.hasMaximizedGroup()) dock.exitMaximizedGroup();
     let doc: LayoutDocument | null = null;
     if (plan.kind === "stored" || plan.kind === "legacy") {
@@ -314,6 +323,8 @@ export async function attachDock(dock: DockviewApi): Promise<void> {
     scheduleSave();
   });
   disposers.push(() => sub.dispose());
+  const maxSub = dock.onDidMaximizedGroupChange(() => onMaximizedChange(dock));
+  disposers.push(() => maxSub.dispose());
   // Something to show immediately while the core answers.
   applying++;
   buildPreset(dock, getBuiltinPreset(store().activeId) ?? getBuiltinPreset("coding")!);
@@ -422,6 +433,32 @@ export async function hidePanel(panelId: string): Promise<void> {
   api?.getPanel(panelId)?.api.close();
 }
 
+export function captureGroupSizes(dock: DockviewApi): { id: string; width: number; height: number }[] {
+  return dock.groups
+    .filter((g) => g.api.location.type === "grid")
+    .map((g) => ({ id: g.id, width: g.api.width, height: g.api.height }));
+}
+
+export function restoreGroupSizes(dock: DockviewApi, sizes: { id: string; width: number; height: number }[]): void {
+  // Two passes: resizing one group of a split moves its neighbours, the
+  // second pass settles every group on its recorded size.
+  for (let pass = 0; pass < 2; pass++) {
+    for (const s of sizes) {
+      const g = dock.groups.find((x) => x.id === s.id);
+      if (!g || g.api.location.type !== "grid" || s.width <= 0 || s.height <= 0) continue;
+      if (g.api.width !== s.width || g.api.height !== s.height) g.api.setSize({ width: s.width, height: s.height });
+    }
+  }
+}
+
+/** After the maximized group was restored (by any path): the sizes from before. */
+function onMaximizedChange(dock: DockviewApi): void {
+  if (dock.hasMaximizedGroup() || !preMaximize) return;
+  const sizes = preMaximize;
+  preMaximize = null;
+  restoreGroupSizes(dock, sizes);
+}
+
 export function toggleMaximize(panelId?: string): void {
   if (!api) return;
   if (api.hasMaximizedGroup()) {
@@ -429,7 +466,9 @@ export function toggleMaximize(panelId?: string): void {
     return;
   }
   const panel = panelId ? api.getPanel(panelId) : api.activePanel;
-  if (panel) api.maximizeGroup(panel);
+  if (!panel) return;
+  preMaximize = captureGroupSizes(api);
+  api.maximizeGroup(panel);
 }
 
 /** Floats a panel as an in-app window (dockview floating group). */

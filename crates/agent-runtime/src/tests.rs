@@ -695,6 +695,30 @@ async fn provider_fallback_creates_a_handoff() {
 }
 
 #[tokio::test]
+async fn provider_fallback_sticks_to_the_fallback_model_for_later_turns() {
+    let h = harness(ApprovalMode::SemiAuto).await;
+    let tpl = h.template(&["list_dir", "submit_result"], WorktreePolicy::SharedWorktree, None).await;
+    let quota = || Step::Events(vec![ChatEvent::Error(ProviderError::QuotaExceeded("out of credits".into()))]);
+    let first = h.provider(vec![quota(), quota(), quota()]);
+    let second =
+        Scripted::new(vec![tool("list_dir", json!({"path": "."})), submit("done", "finished on the fallback")]);
+    h.source.adapters.lock().insert(second.id, Arc::clone(&second) as Arc<dyn ProviderAdapter>);
+    *h.gateway.chain.lock() = vec![model(&first, "primary"), model(&second, "backup")];
+    let a = h.spawn(tpl, None).await;
+    let a = h.wait_done(a.id).await;
+    assert_eq!(a.state, AgentState::Completed, "{:?}", a.last_error);
+    assert_eq!(first.requests.lock().len(), 1, "the exhausted primary is not called again on later turns");
+    assert_eq!(second.requests.lock().len(), 2);
+    let hs = h.rt.handoffs(a.id).await.unwrap();
+    assert_eq!(
+        hs.iter().filter(|x| x.reason == orkestr_protocol::methods::agents::HandoffReason::ProviderFallback).count(),
+        1
+    );
+    let switches = h.source.events.lock().iter().filter(|e| matches!(e, ProviderEvent::Fallback { .. })).count();
+    assert_eq!(switches, 1, "one ProviderFallback for the switch");
+}
+
+#[tokio::test]
 async fn ask_user_waits_for_the_answer() {
     let h = harness(ApprovalMode::SemiAuto).await;
     let tpl = h.template(&["ask_user", "submit_result"], WorktreePolicy::None, None).await;

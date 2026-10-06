@@ -724,11 +724,98 @@ impl SnapshotService {
         Ok((b, a))
     }
 
+    /// Same content, or the same text up to CRLF/LF line endings (a git
+    /// checkout with `core.autocrlf` rewrites them).
+    async fn same_text(&self, a: Option<&FileState>, b: Option<&FileState>) -> bool {
+        if same_content(a, b) {
+            return true;
+        }
+        let (Some(a), Some(b)) = (a, b) else { return false };
+        const MAX_TEXT: u64 = 4 * 1024 * 1024;
+        if a.2 > MAX_TEXT || b.2 > MAX_TEXT {
+            return false;
+        }
+        let (Ok(x), Ok(y)) = (self.blob(&a.0).await, self.blob(&b.0).await) else { return false };
+        let lf = |v: &[u8]| -> Vec<u8> {
+            let mut out = Vec::with_capacity(v.len());
+            for (i, &c) in v.iter().enumerate() {
+                if !(c == b'\r' && v.get(i + 1) == Some(&b'\n')) {
+                    out.push(c);
+                }
+            }
+            out
+        };
+        lf(&x) == lf(&y)
+    }
+
+    /// A task's checkpoint pairs, oldest first. Explicit ids give one pair
+    /// ([`Self::task_pair`]). Otherwise one pair per workspace the task worked
+    /// in: a Self-Healing fix attempt runs in a new worktree branched from
+    /// the previous attempt, so the task's history can span several
+    /// workspaces.
+    pub async fn task_segments(
+        &self,
+        project_id: ProjectId,
+        task_id: TaskId,
+        before: Option<SnapshotId>,
+        after: Option<SnapshotId>,
+    ) -> SnapshotResult<Vec<(WorkspaceSnapshot, WorkspaceSnapshot)>> {
+        if before.is_some() || after.is_some() {
+            return Ok(vec![self.task_pair(project_id, task_id, before, after).await?]);
+        }
+        let mut all = self.store.list(project_id, Some(task_id), None, 1000).await?;
+        all.reverse(); // oldest first
+        all.retain(|s| s.reason != SnapshotReason::PreRollback);
+        let mut workspaces = Vec::new();
+        for s in &all {
+            if !workspaces.contains(&s.workspace_id) {
+                workspaces.push(s.workspace_id);
+            }
+        }
+        if workspaces.len() <= 1 {
+            return Ok(vec![self.task_pair(project_id, task_id, None, None).await?]);
+        }
+        let mut segments = Vec::new();
+        for ws in workspaces {
+            let own: Vec<&WorkspaceSnapshot> = all.iter().filter(|s| s.workspace_id == ws).collect();
+            let Some(b) = own
+                .iter()
+                .find(|s| s.task_phase == Some(TaskSnapshotPhase::Before))
+                .or_else(|| own.iter().find(|s| s.task_phase != Some(TaskSnapshotPhase::After)))
+            else {
+                continue;
+            };
+            let a = own
+                .iter()
+                .rev()
+                .find(|s| s.task_phase == Some(TaskSnapshotPhase::After) && s.id != b.id)
+                .or_else(|| own.iter().rev().find(|s| s.id != b.id && s.created_at >= b.created_at));
+            if let Some(a) = a {
+                segments.push(((*b).clone(), (*a).clone()));
+            }
+        }
+        if segments.is_empty() {
+            return Err(SnapshotError::NotFound(format!(
+                "task {task_id} has no before/after checkpoint pair in any of its workspaces"
+            )));
+        }
+        segments.sort_by_key(|(b, _)| b.created_at);
+        Ok(segments)
+    }
+
     /// Rolls back exactly the changes a task made between its before/after
-    /// checkpoints (§63.J). For each file the task touched:
-    /// current == after-state → restore the before-state; current ==
-    /// before-state → already reverted; otherwise someone else changed it →
-    /// conflict, untouched. Unrelated files are never read for writing.
+    /// checkpoints (§63.J), in the workspace of its latest checkpoint. For
+    /// each file the task touched: current == after-state → restore the
+    /// before-state; current == before-state → already reverted; otherwise
+    /// someone else changed it → conflict, untouched. Unrelated files are
+    /// never read for writing.
+    ///
+    /// A task that worked in several workspaces (Self-Healing fix attempts)
+    /// is rolled back over all of them: a file's target is its state before
+    /// the first attempt that touched it, its expected state the one after
+    /// the last attempt. A file that changed between two attempts outside
+    /// the task (the next attempt did not start from the previous one's
+    /// result) is a conflict and stays untouched.
     pub async fn rollback_task(
         &self,
         project_id: ProjectId,
@@ -737,25 +824,28 @@ impl SnapshotService {
         after: Option<SnapshotId>,
         dry_run: bool,
     ) -> SnapshotResult<RollbackResult> {
-        let (b, a) = self.task_pair(project_id, task_id, before, after).await?;
+        let segments = self.task_segments(project_id, task_id, before, after).await?;
+        let b = segments[0].0.clone();
+        let a = segments[segments.len() - 1].1.clone();
         let root = Self::root_of(&a)?;
         let key = workspace_key(&root);
         let _guard = self.lock(&key).await;
-        let mb = self.manifest(&b).await?;
-        let ma = self.manifest(&a).await?;
-        let before_map = mb.map();
-        let after_map = ma.map();
-        let touched: BTreeSet<&str> = before_map
-            .keys()
-            .chain(after_map.keys())
-            .copied()
-            .filter(|p| {
-                !same(
-                    before_map.get(p).map(|e| entry_state(e)).as_ref(),
-                    after_map.get(p).map(|e| entry_state(e)).as_ref(),
-                )
-            })
-            .collect();
+        let mut manifests = Vec::with_capacity(segments.len());
+        for (sb, sa) in &segments {
+            manifests.push((self.manifest(sb).await?, self.manifest(sa).await?));
+        }
+        let maps: Vec<_> = manifests.iter().map(|(mb, ma)| (mb.map(), ma.map())).collect();
+        let state = |m: &BTreeMap<&str, &ManifestEntry>, p: &str| m.get(p).map(|e| entry_state(e));
+        // Path → index of the first segment that changed it.
+        let mut touched: BTreeMap<&str, usize> = BTreeMap::new();
+        for (i, (before_map, after_map)) in maps.iter().enumerate() {
+            for p in before_map.keys().chain(after_map.keys()).copied() {
+                if !touched.contains_key(p) && !same(state(before_map, p).as_ref(), state(after_map, p).as_ref()) {
+                    touched.insert(p, i);
+                }
+            }
+        }
+        let last = maps.len() - 1;
 
         let mut result = RollbackResult {
             snapshot_id: b.id,
@@ -768,23 +858,39 @@ impl SnapshotService {
         };
         // (path, current hash, before entry)
         let mut actions: Vec<(&str, Option<String>, Option<&ManifestEntry>)> = Vec::new();
-        for p in &touched {
+        for (&p, &first) in &touched {
+            // Every later attempt must have started from the previous one's
+            // result (a fresh checkout may differ only in line endings).
+            let mut gap = false;
+            for j in first..last {
+                if !self.same_text(state(&maps[j].1, p).as_ref(), state(&maps[j + 1].0, p).as_ref()).await {
+                    gap = true;
+                    break;
+                }
+            }
+            if gap {
+                result.conflicts.push(RollbackConflict {
+                    path: p.to_owned(),
+                    reason: "changed outside the task between its attempts — not overwritten".into(),
+                });
+                continue;
+            }
             let cur = match scan::current_state(&root, p) {
                 Ok(c) => c,
                 Err(e) => {
-                    result.conflicts.push(RollbackConflict { path: (*p).to_owned(), reason: e.to_string() });
+                    result.conflicts.push(RollbackConflict { path: p.to_owned(), reason: e.to_string() });
                     continue;
                 }
             };
-            let before_s = before_map.get(p).map(|e| entry_state(e));
-            let after_s = after_map.get(p).map(|e| entry_state(e));
+            let before_s = state(&maps[first].0, p);
+            let after_s = state(&maps[last].1, p);
             if same_content(cur.as_ref(), after_s.as_ref()) {
-                actions.push((p, cur.map(|c| c.0), before_map.get(p).copied()));
+                actions.push((p, cur.map(|c| c.0), maps[first].0.get(p).copied()));
             } else if same_content(cur.as_ref(), before_s.as_ref()) {
-                result.unchanged.push((*p).to_owned());
+                result.unchanged.push(p.to_owned());
             } else {
                 result.conflicts.push(RollbackConflict {
-                    path: (*p).to_owned(),
+                    path: p.to_owned(),
                     reason: "changed by someone else after the task — not overwritten".into(),
                 });
             }

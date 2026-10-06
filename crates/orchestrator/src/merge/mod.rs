@@ -223,7 +223,16 @@ impl MergeDeps {
 // Service
 // ---------------------------------------------------------------------------
 
+/// Notified after a proposal merged into its target (the quality pipeline
+/// mirrors it on the tasks' Merge stage).
+#[async_trait]
+pub trait MergeCompletedHook: Send + Sync {
+    /// `proposal` has status `Completed`.
+    async fn merged(&self, proposal: &MergeManagerProposal);
+}
+
 struct Inner {
+    hooks: parking_lot::RwLock<Vec<Arc<dyn MergeCompletedHook>>>,
     deps: MergeDeps,
     store: MergeStore,
     runs: ManagerStore,
@@ -282,6 +291,7 @@ impl MergeManager {
         let runs = ManagerStore::new(deps.db.clone());
         Self {
             inner: Arc::new(Inner {
+                hooks: parking_lot::RwLock::new(Vec::new()),
                 deps,
                 store,
                 runs,
@@ -289,6 +299,42 @@ impl MergeManager {
                 project_locks: Mutex::new(HashMap::new()),
                 decide: tokio::sync::Mutex::new(()),
             }),
+        }
+    }
+
+    /// Registers a hook called after every completed merge.
+    pub fn on_completed(&self, hook: Arc<dyn MergeCompletedHook>) {
+        self.inner.hooks.write().push(hook);
+    }
+
+    /// After `done` merged: other open proposals whose branches it merged
+    /// (same branch, same commit) are marked `Superseded` — their branches
+    /// are in the target (and may be cleaned up already). Then the hooks run.
+    async fn after_completed(&self, done: &MergeManagerProposal) {
+        let merged: Vec<(&str, &str)> = done.branches.iter().map(|b| (b.branch.as_str(), b.commit.as_str())).collect();
+        match self.inner.store.list(done.project_id, None, 500).await {
+            Ok(all) => {
+                for mut other in all {
+                    let covered = !other.branches.is_empty()
+                        && other.branches.iter().all(|b| merged.contains(&(b.branch.as_str(), b.commit.as_str())));
+                    if other.id == done.id
+                        || other.status != MergeProposalStatus::Proposed
+                        || other.target != done.target
+                        || !covered
+                    {
+                        continue;
+                    }
+                    other.status = MergeProposalStatus::Superseded;
+                    other.status_detail = Some(format!("merged into `{}` by proposal {}", done.target, done.id));
+                    self.save(&mut other).await;
+                    tracing::info!(proposal = %other.id, by = %done.id, "merge proposal superseded");
+                }
+            }
+            Err(e) => tracing::warn!(error = %e, "could not list proposals to supersede"),
+        }
+        let hooks: Vec<_> = self.inner.hooks.read().clone();
+        for h in hooks {
+            h.merged(done).await;
         }
     }
 
@@ -1168,6 +1214,7 @@ impl MergeManager {
         p.status = MergeProposalStatus::Completed;
         p.status_detail = None;
         self.save(&mut p).await;
+        self.after_completed(&p).await;
         Ok(())
     }
 

@@ -32,7 +32,9 @@ use orkestr_storage::{Db, ProjectRepository, SqliteMetadataStore};
 use parking_lot::Mutex;
 use tokio_util::sync::CancellationToken;
 
-use super::{MergeConfig, MergeDeps, MergeGateSource, MergeManager, MergeQualityRunner, NoGateSource};
+use super::{
+    MergeCompletedHook, MergeConfig, MergeDeps, MergeGateSource, MergeManager, MergeQualityRunner, NoGateSource,
+};
 
 // ---------------------------------------------------------------------------
 // plumbing
@@ -347,6 +349,11 @@ async fn non_conflicting_branches_merge_in_dependency_order_after_approval() {
     h.branch("agent/frontend-1", "agent/backend-1", &[("web/app.ts", "export function app() { return 1; }\n")]);
     h.branch("agent/docs-1", "main", &[("docs/guide.md", "# Guide\n")]);
 
+    // The docs task's own pipeline proposed its branch alone first.
+    let single = h.propose(&[("agent/docs-1", Some(docs))]).await;
+    let hook = Arc::new(CountHook::default());
+    h.mm.on_completed(Arc::clone(&hook) as Arc<dyn MergeCompletedHook>);
+
     // Given in the "wrong" order: the DAG decides.
     let p = h
         .propose(&[("agent/frontend-1", Some(ui)), ("agent/docs-1", Some(docs)), ("agent/backend-1", Some(api))])
@@ -404,9 +411,26 @@ async fn non_conflicting_branches_merge_in_dependency_order_after_approval() {
     );
     // The integration branch is gone.
     assert!(!h.branches().contains("orkestr/integration-"), "{}", h.branches());
+    // The single-branch proposal is superseded (its branch is merged), and
+    // the completion hook ran once.
+    let single = h.mm.get(single.id).await.unwrap();
+    assert_eq!(single.status, MergeProposalStatus::Superseded, "{:?}", single.status_detail);
+    assert!(single.status_detail.as_deref().unwrap_or_default().contains(&done.id.to_string()));
+    assert_eq!(hook.0.load(std::sync::atomic::Ordering::SeqCst), 1);
     // Listed.
     let list = h.mm.list(MergeListParams { project_id: h.project, run_id: None, limit: None }).await.unwrap();
-    assert_eq!(list.len(), 1);
+    assert_eq!(list.len(), 2);
+}
+
+#[derive(Default)]
+struct CountHook(std::sync::atomic::AtomicUsize);
+
+#[async_trait::async_trait]
+impl MergeCompletedHook for CountHook {
+    async fn merged(&self, p: &MergeManagerProposal) {
+        assert_eq!(p.status, MergeProposalStatus::Completed);
+        self.0.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    }
 }
 
 #[tokio::test]

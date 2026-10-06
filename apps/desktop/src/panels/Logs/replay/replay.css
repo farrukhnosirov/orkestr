@@ -339,8 +339,15 @@
   gap: var(--ok-space-2);
 }
 
+/* The status stays on one line; a long title is ellipsized instead. */
+.replay-state-list li > :last-child:not(.replay-state-list__name) {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 .replay-state-list__name {
   min-width: 0;
+  flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

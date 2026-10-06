@@ -3,4 +3,4 @@
 /**
  * Lifecycle of a proposal.
  */
-export type MergeProposalStatus = "Proposed" | "AwaitingApproval" | "Merging" | "Conflicted" | "Testing" | "Completed" | "Failed" | "Aborted" | "Rejected";
+export type MergeProposalStatus = "Proposed" | "AwaitingApproval" | "Merging" | "Conflicted" | "Testing" | "Completed" | "Failed" | "Aborted" | "Rejected" | "Superseded";

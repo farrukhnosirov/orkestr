@@ -252,6 +252,63 @@ async fn task_rollback_reverts_only_task_changes_and_preserves_unrelated_work() 
     assert!(again.pre_rollback_snapshot_id.is_none());
 }
 
+async fn checkpoint_in(f: &Fixture, root: &Path, task: TaskId, phase: TaskSnapshotPhase) {
+    let mut req = CreateSnapshot::manual(f.project, root);
+    req.reason = SnapshotReason::TaskCheckpoint;
+    req.task_id = Some(task);
+    req.task_phase = Some(phase);
+    f.svc.create(req).await.unwrap();
+}
+
+/// A Self-Healing fix attempt runs in a new worktree branched from the first
+/// attempt: Rollback Task spans both and still spares unrelated work.
+#[tokio::test]
+async fn task_rollback_spans_the_workspaces_of_its_attempts() {
+    let f = fixture().await;
+    let first = f.ws.path();
+    write(first, "money.txt", "base\n");
+    write(first, "gap.txt", "base\n");
+    write(first, "unrelated.txt", "user base\n");
+    let task = TaskId::new();
+    checkpoint_in(&f, first, task, TaskSnapshotPhase::Before).await;
+    write(first, "money.txt", "task v1\n");
+    write(first, "refactor.txt", "attempt 1\n");
+    write(first, "gap.txt", "task v1\n");
+    checkpoint_in(&f, first, task, TaskSnapshotPhase::After).await;
+
+    // The fix attempt's worktree: the first attempt's result, plus a change
+    // that came from elsewhere (not the task), and gap.txt changed in between.
+    let second = tempfile::tempdir().unwrap();
+    let second = second.path();
+    for p in ["refactor.txt", "unrelated.txt"] {
+        write(second, p, &read(first, p).unwrap());
+    }
+    // A git checkout with core.autocrlf rewrites line endings.
+    write(second, "money.txt", "task v1\r\n");
+    write(second, "gap.txt", "changed by someone else\n");
+    write(second, "from_main.txt", "merged from main\n");
+    checkpoint_in(&f, second, task, TaskSnapshotPhase::Before).await;
+    write(second, "refactor.txt", "attempt 2\n");
+    write(second, "tests.txt", "fix attempt test\n");
+    checkpoint_in(&f, second, task, TaskSnapshotPhase::After).await;
+    // The user keeps working in the fix worktree.
+    write(second, "unrelated.txt", "user edit after the task\n");
+
+    let segs = f.svc.task_segments(f.project, task, None, None).await.unwrap();
+    assert_eq!(segs.len(), 2);
+    let res = f.svc.rollback_task(f.project, task, None, None, false).await.unwrap();
+    assert_eq!(res.restored, vec!["money.txt"]);
+    assert_eq!(res.deleted, vec!["refactor.txt", "tests.txt"]);
+    assert_eq!(res.conflicts.iter().map(|c| c.path.as_str()).collect::<Vec<_>>(), vec!["gap.txt"]);
+    assert_eq!(read(second, "money.txt").as_deref(), Some("base\n"));
+    assert!(read(second, "refactor.txt").is_none() && read(second, "tests.txt").is_none());
+    assert_eq!(read(second, "gap.txt").as_deref(), Some("changed by someone else\n"));
+    assert_eq!(read(second, "from_main.txt").as_deref(), Some("merged from main\n"));
+    assert_eq!(read(second, "unrelated.txt").as_deref(), Some("user edit after the task\n"));
+    // The first attempt's worktree is not written.
+    assert_eq!(read(first, "refactor.txt").as_deref(), Some("attempt 1\n"));
+}
+
 #[tokio::test]
 async fn task_rollback_requires_a_pair() {
     let f = fixture().await;

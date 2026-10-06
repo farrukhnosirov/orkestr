@@ -137,6 +137,18 @@ describe("notifications", () => {
       ev({ kind: "BudgetThreshold", payload: { scope: "project", spentUsd: 9, limitUsd: 10, fraction: 0.9 } }),
     );
     expect(budget?.title).toBe("Budget 90% used");
+    const fallback = notificationFromEvent(
+      ev({
+        kind: "ProviderFallback",
+        payload: {
+          from: { providerId: P, model: "gpt-primary" },
+          to: { providerId: P, model: "mock-smart" },
+          reason: "quota_exceeded",
+        },
+      }),
+    );
+    expect(fallback).toMatchObject({ level: "Warning", title: "Switched to the fallback model" });
+    expect(fallback?.body).toBe("gpt-primary → mock-smart: quota exhausted. The task continues from a saved handoff.");
     expect(notificationFromEvent(ev({ kind: "Log", payload: { level: "info", target: "t", message: "m", fields: null } }))).toBeNull();
   });
 

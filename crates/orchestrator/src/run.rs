@@ -936,6 +936,10 @@ impl Supervisor {
                 || t.awaiting_review
                 || (self.pipeline_enabled && matches!(t.status, TaskStatus::Review | TaskStatus::Testing))
                 || (matches!(t.status, TaskStatus::Planned | TaskStatus::Blocked) && self.deps_satisfiable(&t.key))
+                // Its agent ended after this tick's refresh: the next refresh
+                // decides on a retry (no premature "no task can proceed").
+                || (matches!(t.status, TaskStatus::Failed | TaskStatus::Interrupted)
+                    && t.agent_id.is_some_and(|a| !self.handled.contains(&a)))
         });
         if progressing {
             return None;

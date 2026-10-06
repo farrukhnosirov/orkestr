@@ -19,6 +19,7 @@ import {
   Position,
   ReactFlow,
   useReactFlow,
+  useStore,
 } from "@xyflow/react";
 import { clsx } from "clsx";
 import { memo, useEffect, useMemo } from "react";
@@ -65,12 +66,17 @@ const ArchNodeView = memo(function ArchNodeView({ data, selected }: NodeProps<Ar
 
 const NODE_TYPES = { arch: ArchNodeView };
 
+/** Fits the map when the layout changes and when the canvas is resized (maximize, dock moves). */
 function FitOnChange({ layoutKey }: { layoutKey: string }) {
   const { fitView } = useReactFlow();
+  // Rounded so sub-pixel jitter does not refit.
+  const width = useStore((s) => Math.round(s.width / 16));
+  const height = useStore((s) => Math.round(s.height / 16));
   useEffect(() => {
+    if (width === 0 || height === 0) return;
     const id = window.requestAnimationFrame(() => void fitView({ padding: 0.15, duration: 250 }));
     return () => window.cancelAnimationFrame(id);
-  }, [layoutKey, fitView]);
+  }, [layoutKey, fitView, width, height]);
   return null;
 }
 

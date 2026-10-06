@@ -469,13 +469,16 @@ pub enum MergeProposalStatus {
     Aborted,
     /// The approval was rejected or expired.
     Rejected,
+    /// Every branch of it was merged by another proposal (e.g. the run-wide
+    /// one); `statusDetail` names it. Additive (Phase 2 acceptance).
+    Superseded,
 }
 
 impl MergeProposalStatus {
     /// No further transitions.
     #[must_use]
     pub fn is_final(self) -> bool {
-        matches!(self, Self::Completed | Self::Failed | Self::Aborted | Self::Rejected)
+        matches!(self, Self::Completed | Self::Failed | Self::Aborted | Self::Rejected | Self::Superseded)
     }
 
     /// Execution in progress (owns the integration worktree).

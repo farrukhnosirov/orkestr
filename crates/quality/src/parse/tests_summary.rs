@@ -40,6 +40,12 @@ static LIBTEST_FAILED: Lazy<Regex> = Lazy::new(|| re(r"^test (\S+) \.\.\. FAILED
 static LIBTEST_SECTION: Lazy<Regex> = Lazy::new(|| re(r"^---- (\S+) stdout ----$"));
 static PANIC_NEW: Lazy<Regex> = Lazy::new(|| re(r"panicked at (.+?):(\d+):(\d+):$"));
 static PANIC_OLD: Lazy<Regex> = Lazy::new(|| re(r"panicked at '(.*)', (.+?):(\d+):(\d+)"));
+// node:test (`node --test`): spec reporter (`ℹ pass 3`) and TAP (`# pass 3`)
+static NODE_COUNT: Lazy<Regex> = Lazy::new(|| re(r"^\s*(?:ℹ|#) (tests|pass|fail|cancelled|skipped|todo) (\d+)\s*$"));
+static NODE_SPEC_FAIL: Lazy<Regex> = Lazy::new(|| re(r"^\s*✖ (.+?)(?: \([\d.]+m?s\))?\s*$"));
+static NODE_SPEC_AT: Lazy<Regex> = Lazy::new(|| re(r"^\s*test at (.+?):(\d+):(\d+)\s*$"));
+static NODE_TAP_NOT_OK: Lazy<Regex> = Lazy::new(|| re(r"^\s*not ok \d+ - (.+?)(?:\s+#.*)?$"));
+static NODE_TAP_LOCATION: Lazy<Regex> = Lazy::new(|| re(r"^\s*location: '(.+?):(\d+):(\d+)'\s*$"));
 // jest / vitest
 static JEST_TESTS: Lazy<Regex> = Lazy::new(|| re(r"^\s*Tests:?\s+(.*\d+ (?:passed|failed|skipped|todo|total).*)$"));
 static COUNT_WORD: Lazy<Regex> =
@@ -75,7 +81,7 @@ type RunnerParser = fn(&[&str]) -> Option<(TestSummary, Vec<TestFailure>)>;
 #[must_use]
 pub fn parse_tests(text: &str) -> (Option<TestSummary>, Vec<TestFailure>) {
     let lines: Vec<&str> = text.lines().collect();
-    let parsers: [RunnerParser; 7] = [libtest, jest_vitest, pytest, gotest, dotnet, surefire, gradle];
+    let parsers: [RunnerParser; 8] = [libtest, node_test, jest_vitest, pytest, gotest, dotnet, surefire, gradle];
     for p in parsers {
         if let Some((s, f)) = p(&lines) {
             return (Some(s), f);
@@ -166,6 +172,127 @@ fn counts(s: &str) -> TestSummary {
         }
     }
     t
+}
+
+/// Node's built-in runner (`node --test`, also behind `npm test`): the
+/// summary block (`ℹ pass 1` / `# pass 1`) and the failing tests — the spec
+/// reporter's "failing tests" section (`test at file:line:col`, `✖ name`,
+/// message) or TAP `not ok` entries with their YAML `location` / `error`.
+fn node_test(lines: &[&str]) -> Option<(TestSummary, Vec<TestFailure>)> {
+    let mut total = TestSummary::default();
+    let mut found = false;
+    for l in lines {
+        if let Some(c) = NODE_COUNT.captures(l) {
+            let n = num(c.get(2));
+            match &c[1] {
+                "pass" => total.passed = total.passed.saturating_add(n),
+                "fail" | "cancelled" => total.failed = total.failed.saturating_add(n),
+                "skipped" | "todo" => total.skipped = total.skipped.saturating_add(n),
+                _ => {}
+            }
+            found = true;
+        }
+    }
+    if !found {
+        return None;
+    }
+    let mut failures = node_spec_failures(lines);
+    if failures.is_empty() {
+        failures = node_tap_failures(lines);
+    }
+    Some((total, failures))
+}
+
+fn node_location(path: &str) -> String {
+    // TAP's YAML escapes backslashes (`C:\\dir\\a.mjs`).
+    norm_path(&path.trim_start_matches("file:///").replace(r"\\", r"\"))
+}
+
+/// Spec reporter: details live under "✖ failing tests:".
+fn node_spec_failures(lines: &[&str]) -> Vec<TestFailure> {
+    let mut failures: Vec<TestFailure> = Vec::new();
+    let Some(start) = lines.iter().position(|l| l.trim_start().starts_with("✖ failing tests")) else {
+        return failures;
+    };
+    let entry_start = |l: &str| NODE_SPEC_AT.is_match(l) || NODE_SPEC_FAIL.is_match(l);
+    let mut loc: Option<(String, Option<u32>)> = None;
+    let mut i = start + 1;
+    while i < lines.len() {
+        if let Some(c) = NODE_SPEC_AT.captures(lines[i]) {
+            loc = Some((node_location(&c[1]), c[2].parse().ok()));
+            i += 1;
+            continue;
+        }
+        let Some(c) = NODE_SPEC_FAIL.captures(lines[i]) else {
+            i += 1;
+            continue;
+        };
+        let name = c[1].trim().to_owned();
+        let mut msg = Vec::new();
+        let mut j = i + 1;
+        // Message: up to the stack trace / error properties.
+        while j < lines.len() && !entry_start(lines[j]) {
+            let t = lines[j].trim();
+            if t.starts_with("at ") || t.starts_with('{') || t.ends_with('{') {
+                break;
+            }
+            if !t.is_empty() && msg.len() < 8 {
+                msg.push(t);
+            }
+            j += 1;
+        }
+        while j < lines.len() && !entry_start(lines[j]) {
+            j += 1;
+        }
+        let (file, line) = loc.take().map_or((None, None), |(f, l)| (Some(f), l));
+        if !failures.iter().any(|f| f.name == name) {
+            failures.push(TestFailure { name, message: clip(&msg.join("\n")), file, line });
+        }
+        i = j;
+    }
+    failures
+}
+
+/// TAP reporter: `not ok N - name` followed by a YAML block.
+fn node_tap_failures(lines: &[&str]) -> Vec<TestFailure> {
+    let mut failures: Vec<TestFailure> = Vec::new();
+    for (i, l) in lines.iter().enumerate() {
+        let Some(c) = NODE_TAP_NOT_OK.captures(l) else { continue };
+        let name = c[1].trim().to_owned();
+        let (mut file, mut line, mut msg) = (None, None, Vec::<String>::new());
+        let mut in_error = false;
+        let mut error_indent = 0usize;
+        for next in lines.iter().skip(i + 1).take(60) {
+            let t = next.trim();
+            if t == "..." || NODE_TAP_NOT_OK.is_match(next) {
+                break;
+            }
+            let indent = next.len() - next.trim_start().len();
+            if in_error && (t.is_empty() || indent > error_indent) {
+                if !t.is_empty() && msg.len() < 8 {
+                    msg.push(t.to_owned());
+                }
+                continue;
+            }
+            in_error = false;
+            if let Some(loc) = NODE_TAP_LOCATION.captures(next) {
+                file = Some(node_location(&loc[1]));
+                line = loc[2].parse().ok();
+            } else if let Some(rest) = t.strip_prefix("error:") {
+                let rest = rest.trim();
+                if rest.starts_with('|') || rest.starts_with('>') {
+                    in_error = true;
+                    error_indent = indent;
+                } else if !rest.is_empty() {
+                    msg.push(rest.trim_matches('\'').to_owned());
+                }
+            }
+        }
+        if !failures.iter().any(|f| f.name == name) {
+            failures.push(TestFailure { name, message: clip(&msg.join("\n")), file, line });
+        }
+    }
+    failures
 }
 
 fn jest_vitest(lines: &[&str]) -> Option<(TestSummary, Vec<TestFailure>)> {
@@ -396,6 +523,99 @@ fn gradle(lines: &[&str]) -> Option<(TestSummary, Vec<TestFailure>)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    const NODE_SPEC: &str = "> test
+> node --test
+
+✔ ok one (0.4708ms)
+✖ greets by name (0.6178ms)
+﹣ skipped one (0.0755ms) # SKIP
+ℹ tests 3
+ℹ suites 0
+ℹ pass 1
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 1
+ℹ todo 0
+ℹ duration_ms 62.0741
+
+✖ failing tests:
+
+test at tests\\a.test.mjs:4:1
+✖ greets by name (0.6178ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+
+  + 'Hello, X'
+  - 'Hello, X!'
+             ^
+
+      at TestContext.<anonymous> (file:///C:/tmp/nt/tests/a.test.mjs:4:39)
+      at Test.runInAsyncScope (node:async_hooks:227:14) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+  }
+";
+
+    const NODE_TAP: &str = "TAP version 13
+# Subtest: ok one
+ok 1 - ok one
+  ---
+  duration_ms: 0.5
+  ...
+# Subtest: greets by name
+not ok 2 - greets by name
+  ---
+  duration_ms: 0.7
+  location: 'C:\\\\tmp\\\\nt\\\\tests\\\\a.test.mjs:4:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+
+    'Hello, X' !== 'Hello, X!'
+  code: 'ERR_ASSERTION'
+  ...
+1..2
+# tests 2
+# suites 0
+# pass 1
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+";
+
+    #[test]
+    fn node_test_spec_reporter() {
+        let (s, f) = parse_tests(NODE_SPEC);
+        assert_eq!(s, Some(TestSummary { passed: 1, failed: 1, skipped: 1 }));
+        assert_eq!(f.len(), 1, "{f:?}");
+        assert_eq!(f[0].name, "greets by name");
+        assert_eq!(f[0].file.as_deref(), Some("tests/a.test.mjs"));
+        assert_eq!(f[0].line, Some(4));
+        assert!(f[0].message.contains("Expected values to be strictly equal"), "{}", f[0].message);
+        assert!(f[0].message.contains("'Hello, X!'"), "{}", f[0].message);
+        assert!(!f[0].message.contains("at TestContext"), "{}", f[0].message);
+    }
+
+    #[test]
+    fn node_test_tap_reporter() {
+        let (s, f) = parse_tests(NODE_TAP);
+        assert_eq!(s, Some(TestSummary { passed: 1, failed: 1, skipped: 0 }));
+        assert_eq!(f.len(), 1, "{f:?}");
+        assert_eq!(f[0].name, "greets by name");
+        assert_eq!(f[0].file.as_deref(), Some("C:/tmp/nt/tests/a.test.mjs"));
+        assert_eq!(f[0].line, Some(4));
+        assert!(f[0].message.contains("'Hello, X' !== 'Hello, X!'"), "{}", f[0].message);
+        assert!(!f[0].message.contains("ERR_ASSERTION"), "{}", f[0].message);
+    }
+
+    #[test]
+    fn node_test_all_passing() {
+        let (s, f) = parse_tests("✔ a (1ms)\nℹ tests 2\nℹ pass 2\nℹ fail 0\nℹ skipped 0\n");
+        assert_eq!(s, Some(TestSummary { passed: 2, failed: 0, skipped: 0 }));
+        assert!(f.is_empty());
+    }
 
     const LIBTEST: &str = "running 3 tests
 test a::ok ... ok

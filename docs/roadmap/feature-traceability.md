@@ -184,6 +184,31 @@ tested.
 | Onboarding | §55 | Partial (steps 1–8) | Partial | Partial (+9 voice) | apps/desktop (RR-G7); 10–12 in Phases 4–5 |
 | No hidden chain-of-thought stored | §1.14, §21 | Full | Full | Full | providers (no reasoning variant), RR-A5 |
 
+## Phase 2 acceptance check (2026-10-06)
+
+The P2 column is the target level for the end of Phase 2. The table below
+shows what `scripts/smoke/phase2-acceptance.mjs` verified in the running app
+(Windows, Mock provider, 47/47 checks pass). It also lists P2 targets that are
+not built or not verified. Details are in `mvp-milestones.md` → Phase 2 Status.
+
+| # | Feature | Verified in the app | Not built / not verified |
+|---|---|---|---|
+| 2, 24 | Dynamic spawn, parallel execution | Parallel agents in separate worktrees (≤ `maxParallelAgents`) | 6-agent load, overlap hold-back and CPU throttle not measured |
+| 3, 4 | Teams, hierarchy | Team created and listed; built-in team templates | Lead delegation not exercised by this script (unit-tested) |
+| 6 | Model fallback | 429 `insufficient_quota` → `ProviderFallback` → handoff → fallback finishes; toast shown | — |
+| 11 | AI Merge Manager | Run-wide proposal, DAG order, approval, merged into `main` on disk; superseded per-task proposals | Revert proposals still open |
+| 12, 15, 16 | Review, auto testing, Self-Healing | Real `npm run build/test` (Windows), parsed `node --test` failure, healed in 1 attempt; stop on "no progress" → escalation → declined → Failed | Browser tool (stretch) not built |
+| 13 | Consensus | Decision with 3 alternatives | Only one model available (perspectives, not providers) |
+| 34, 35 | Rollback | Rollback Task across healing worktrees; unrelated edits survive | Merged-task revert, rollback from Replay |
+| 38, 39 | Benchmarks, agent analytics | Rows from the real runs | — |
+| 40 | Context optimizer | — | ≥ 90 % context-pack eval not run |
+| 41 | MCP Hub | — | **Not built** (no stdio MCP client) |
+| 43 | Environment Manager | — | **Not built** (no Dev/Test/Staging/Prod) |
+| 47 | AI Product Manager | Draft → approve → 4 tasks + Manager plan | — |
+| 48 | Architecture Map | Non-empty map of the temp repo | — |
+| 49, 50 | Decision Log, Replay | Plan → agents → tools → files → tests → reviews → approvals → merge | — |
+| 20, 26 | Monaco LSP, background hand-off | — | **Not built** (no LSP bridge; no hand off to `orkestrd`) |
+
 ## D. Summary
 
 | Level | P1 | P2 | P3 |

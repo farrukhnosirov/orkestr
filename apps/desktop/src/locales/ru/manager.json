@@ -193,5 +193,31 @@
   },
   "pm": {
     "drafted": "Черновик «{{title}}» готов — он в разделе «Задачи → Продукт»."
+  },
+  "report": {
+    "headline": "выполнено задач: {{completed}} из {{total}} за {{duration}}, потрачено {{cost}}",
+    "whatWasDone": "Что сделано",
+    "filesChanged": "Изменённые файлы",
+    "tests": "Тесты",
+    "openIssues": "Нерешённые вопросы",
+    "qualityPipeline": "Конвейер качества",
+    "mergeProposals": "Предложения слияния",
+    "review": "ревью: {{verdict}}",
+    "security": "безопасность: {{verdict}}",
+    "gates": "критерии качества: {{status}}",
+    "gatesFailed": "критерии качества: {{status}} ({{gates}})",
+    "healing_one": "самовосстановление: {{count}} попытка",
+    "healing_few": "самовосстановление: {{count}} попытки",
+    "healing_many": "самовосстановление: {{count}} попыток",
+    "healing_other": "самовосстановление: {{count}} попытки",
+    "merge": "слияние: {{outcome}}",
+    "mergedInto": "{{branch}} слита в {{target}}",
+    "mergeProposed": "предложено, ждёт подтверждения",
+    "mergeNothing": "сливать нечего",
+    "mergeReview": "проверьте изменения и слейте их в Менеджере слияний",
+    "files_one": "{{count}} файл",
+    "files_few": "{{count}} файла",
+    "files_many": "{{count}} файлов",
+    "files_other": "{{count}} файла"
   }
 }

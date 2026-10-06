@@ -21,6 +21,7 @@ import {
   upsertMessage,
   validateDraft,
 } from "./model";
+import { RunReport } from "./RunReport";
 import { useManagerUi } from "./store";
 import { visibleRange } from "./VirtualList";
 
@@ -475,5 +476,63 @@ describe("ManagerPanel in Russian", () => {
     expect(validateDraft(plan(), { titles: {}, removed: ["t1", "t2", "t3", "t4"] })).toBe("Оставьте хотя бы одну задачу.");
     expect(buildOptions({ ...EMPTY_EXPERT, maxParallelAgents: "0" }, null).error).toMatch(/от 1 до 64/);
     expect(runProgress(run()).percent).toBe(25);
+  });
+});
+
+describe("RunReport", () => {
+  const report = {
+    summary: "**Run completed** — English Markdown written by the core",
+    completed: 1,
+    failed: 0,
+    notDone: 0,
+    filesChanged: ["src/payroll.mjs"],
+    tests: ["Test — `npm test`: passed"],
+    openIssues: [],
+    costUsd: 0,
+    durationSecs: 18,
+    mergeProposals: [
+      { taskId: "b", title: "Implement", branch: "agent/backend-1", filesChanged: ["src/payroll.mjs"], additions: 3, deletions: 1, note: "merged `agent/backend-1` into `main`" },
+    ],
+    pipelines: [
+      {
+        taskId: "b",
+        title: "Implement",
+        status: "Passed",
+        stages: [],
+        reviewVerdict: "Approve",
+        securityVerdict: "Approve",
+        gates: "Passed",
+        failedGates: [],
+        healingAttempts: 1,
+        mergeOutcome: "proposed — awaiting approval",
+      },
+    ],
+  } as unknown as NonNullable<ManagerRun["report"]>;
+  const finished = () => run({ status: "Completed", tasks: run().tasks.slice(0, 1), report });
+
+  afterEach(async () => {
+    cleanup();
+    await act(async () => {
+      await applyLanguagePreference("en");
+    });
+  });
+
+  it("is rendered from the structured fields, not the stored Markdown", () => {
+    render(<RunReport run={finished()} report={report} />);
+    expect(screen.queryByText(/English Markdown/)).toBeNull();
+    expect(screen.getByText("What was done")).toBeTruthy();
+    expect(screen.getByText(/self-healing: 1 attempt · merge: proposed, awaiting approval/)).toBeTruthy();
+    expect(screen.getByText(/agent\/backend-1 merged into main/)).toBeTruthy();
+  });
+
+  it("follows the UI language", async () => {
+    await act(async () => {
+      await applyLanguagePreference("ru");
+    });
+    render(<RunReport run={finished()} report={report} />);
+    expect(screen.getByText("Что сделано")).toBeTruthy();
+    expect(screen.getByText("Конвейер качества")).toBeTruthy();
+    expect(screen.getByText(/самовосстановление: 1 попытка · слияние: предложено, ждёт подтверждения/)).toBeTruthy();
+    expect(screen.getByText(/1 файл, \+3 −1 · agent\/backend-1 слита в main/)).toBeTruthy();
   });
 });

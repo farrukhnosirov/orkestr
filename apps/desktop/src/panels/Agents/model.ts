@@ -94,6 +94,9 @@ export function roleLabel(role: AgentRole): string {
 export function roleInitials(role: AgentRole): string {
   const label = roleLabel(role).replace(/[^\p{L}/ -]/gu, "");
   const parts = label.split(/[ /-]+/).filter(Boolean);
+  // An acronym first ("UI/UX designer") is the monogram itself.
+  const first = parts[0] ?? "";
+  if (first.length >= 2 && first.length <= 3 && first === first.toUpperCase() && /\p{Lu}/u.test(first)) return first.slice(0, 2);
   if (parts.length >= 2) return `${parts[0]?.[0] ?? ""}${parts[1]?.[0] ?? ""}`.toUpperCase();
   return label.slice(0, 2).toUpperCase();
 }
