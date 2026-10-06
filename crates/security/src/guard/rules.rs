@@ -1,11 +1,13 @@
 //! Per-program classification rules (permission model §6.2–6.3).
 
+use std::cell::RefCell;
 use std::sync::OnceLock;
 
 use base64::Engine as _;
 use orkestr_domain::DangerCategory as C;
 use regex::Regex;
 
+use super::facets::{self, check_protected_ref, CommandFacets};
 use super::lexer::{self, Family, SimpleCommand, Word};
 use super::sql::classify_sql;
 use super::{DangerClass, DangerousActionGuard, MAX_COMMAND_LEN, MAX_DEPTH};
@@ -15,6 +17,14 @@ pub(crate) struct Ctx<'a> {
     pub guard: &'a DangerousActionGuard,
     /// Lower-cased, `/`-separated confinement root (if known).
     pub root: Option<String>,
+    /// Facets collected while classifying (network use, secret reads, …).
+    pub facets: RefCell<CommandFacets>,
+}
+
+impl<'a> Ctx<'a> {
+    pub(crate) fn new(guard: &'a DangerousActionGuard, root: Option<String>) -> Self {
+        Self { guard, root, facets: RefCell::new(CommandFacets::default()) }
+    }
 }
 
 fn d(category: C, reason: impl Into<String>) -> DangerClass {
@@ -43,6 +53,8 @@ struct Raw {
     inline_net: Regex,
     inline_exec: Regex,
     inline_delete: Regex,
+    inline_shell: Regex,
+    awk_exec: Regex,
     secret_name: Regex,
 }
 
@@ -91,6 +103,10 @@ fn raw() -> &'static Raw {
             inline_delete: re(
                 r"(?i)(shutil\.rmtree|rmsync|rmdirsync|rimraf|fs\.rm\s*\(|fs\.promises\.rm|os\.removedirs|fileutils\.rm_r|rm_rf|remove_tree|rmtree)",
             ),
+            inline_shell: re(
+                r"(?i)os\.system|os\.popen|os\.exec|os\.spawn|os\.execute|subprocess|pty\.spawn|commands\.getoutput|child_process|\bexecsync\b|\bspawnsync\b|\bexecfilesync\b|\bsystem\s*\(|\bexec\s*\(|\beval\s*\(|\bpassthru\s*\(|\bshell_exec\s*\(|\bproc_open\s*\(|\bpopen\s*\(|io\.popen|\bopen3\b|%x[\{\(\[]|\bqx\s*[\(\{/\[]|deno\.run|deno\.command|bun\.spawn|\bspawn\s*\(|\bexecfile\s*\(|kernel\.(system|exec|spawn)|__import__|importlib|\bexecv|runtime\.getruntime|processbuilder",
+            ),
+            awk_exec: re(r#"(?i)system\s*\(|\|\s*getline|\|&|print[^;}]*\|\s*""#),
             secret_name: re(r"(?i)(key|token|secret|passw|credential|apikey)"),
         }
     })
@@ -174,7 +190,9 @@ fn raw_checks(ctx: &Ctx<'_>, text: &str, family: Family) -> DangerClass {
             });
         }
     }
-    let _ = ctx;
+    if facets::raw_network(text) {
+        facets::mark_network(ctx);
+    }
     acc
 }
 
@@ -329,7 +347,7 @@ fn ps_positionals<'a>(args: &'a [Word], value_params: &[&str]) -> Vec<&'a Word> 
             skip = false;
             continue;
         }
-        if let Some((n, inline)) = ps_param_name(&a.text) {
+        if let Some((n, inline)) = ps_param_name(&a.text).filter(|_| !a.quoted) {
             if inline.is_none() && value_params.iter().any(|p| ps_matches(&n, p, 2) || n == *p) {
                 skip = true;
             }
@@ -413,7 +431,7 @@ fn rce(reason: &str) -> DangerClass {
 // Path checks
 // ---------------------------------------------------------------------------
 
-fn norm_path(p: &str) -> String {
+pub(crate) fn norm_path(p: &str) -> String {
     p.trim().trim_matches(['"', '\'']).replace('\\', "/").to_lowercase()
 }
 
@@ -674,23 +692,107 @@ pub(crate) fn classify_simple(
     }
     let mut acc = DangerClass::Safe;
     for r in &cmd.redirects {
-        acc = acc.max(check_write_path(ctx, &r.text, false));
+        acc = acc.max(check_write_path(ctx, &r.text, false)).max(check_protected_ref(ctx, &r.text));
     }
     let mut words: &[Word] = &cmd.words;
     if family == Family::Posix {
         while words.first().is_some_and(is_assignment) {
+            if let Some((name, value)) = words[0].text.split_once('=') {
+                acc = acc.max(env_hook(ctx, name, value, depth));
+            }
             words = &words[1..];
         }
     }
+    // Any word naming Orkestr's data dir / core token (globs, variables, `..`).
+    for w in words {
+        acc = acc.max(check_protected_ref(ctx, &w.text));
+    }
+    if acc.is_forbidden() {
+        return acc;
+    }
     let Some(first) = words.first() else { return acc };
 
+    if family == Family::Posix && !first.quoted {
+        // Function definitions: `f() { body; }`, `f(){ body; }`, `function f { body; }`.
+        if first.text.ends_with("()") || first.text.ends_with("(){") {
+            let rest: Vec<Word> = words[1..].iter().filter(|w| w.text != "{" && w.text != "}").cloned().collect();
+            return acc.max(classify_simple(ctx, &inner_cmd(cmd, &rest), upstream, family, depth + 1));
+        }
+        if first.text == "function" {
+            let rest: Vec<Word> = words
+                .iter()
+                .skip(2)
+                .filter(|w| !matches!(w.text.as_str(), "{" | "}" | "()" | "(){"))
+                .cloned()
+                .collect();
+            return acc.max(classify_simple(ctx, &inner_cmd(cmd, &rest), upstream, family, depth + 1));
+        }
+    }
+    // cmd `for /f … in ('command')` sets: the quoted text is executed.
+    if family == Family::Cmd && !first.quoted && (first.text.starts_with('\'') || first.text.starts_with('`')) {
+        let mut ws = words.to_vec();
+        ws[0].text = ws[0].text[1..].to_owned();
+        if let Some(last) = ws.last_mut() {
+            last.text = last.text.trim_end_matches(['\'', '`']).to_owned();
+        }
+        if ws[0].text.is_empty() {
+            ws.remove(0);
+        }
+        return acc.max(classify_simple(ctx, &inner_cmd(cmd, &ws), upstream, family, depth + 1));
+    }
+
     // Program word that is itself a command substitution: `$(curl …)`.
-    if first.dynamic && (first.text.contains("$(") || first.text.contains('`')) {
+    if first.dynamic && (first.text.contains("$(") || first.text.contains('`')) && !cmd.call_op {
         return acc.max(if raw().downloader.is_match(&first.text) {
             rce("executes the output of a download")
         } else {
             d(C::Obfuscation, "program name comes from a command substitution")
         });
+    }
+    if family == Family::PowerShell && cmd.call_op && first.text.starts_with('{') && words.len() == 1 {
+        // `& { … }`: the script block was classified as nested text.
+        return acc;
+    }
+    if family == Family::PowerShell
+        && !cmd.call_op
+        && (first.text.starts_with('$') || first.text.starts_with('(') || first.text.starts_with('{'))
+    {
+        // An expression statement (`$x = …`, `$x`, `(Get-Item x).Length`), not a
+        // command invocation; nested parts were classified already.
+        let lower_all = words.iter().map(|w| w.text.to_lowercase()).collect::<Vec<_>>().join(" ");
+        if lower_all.contains(".invoke") || lower_all.contains("invokescript") || lower_all.contains("invokecommand") {
+            return acc.max(d(C::Obfuscation, "invokes a script block or command held in a variable"));
+        }
+        if let Some(name) = first.text.to_lowercase().strip_prefix("$env:") {
+            let (name, inline) = match name.split_once('=') {
+                Some((n, v)) => (n.to_owned(), Some(v.to_owned())),
+                None => (name.to_owned(), None),
+            };
+            let value = inline.or_else(|| {
+                if words.get(1).is_some_and(|w| w.text == "=") {
+                    words.get(2).map(|w| w.text.clone())
+                } else {
+                    None
+                }
+            });
+            if let Some(v) = value {
+                acc = acc.max(env_hook(ctx, &name, &v, depth));
+            }
+        }
+        return acc;
+    }
+    // A program name only known at runtime (`$X -rf /`, `& $c`, `%X% /s /q`,
+    // `& ('Remove'+'-Item')`): fail closed. A variable directory with a
+    // literal program name (`"$CARGO_HOME/bin/cargo"`) is still classified by name.
+    if first.dynamic {
+        let base = first.text.rsplit(['/', '\\']).next().unwrap_or(&first.text);
+        if base.is_empty() || base.contains(['$', '%', '`', '(', ')', '{', '}', '!', '@']) {
+            return acc.max(if raw().downloader.is_match(&first.text) {
+                rce("executes a program named by downloaded content")
+            } else {
+                d(C::Obfuscation, format!("program name is only known at runtime (`{}`)", first.text))
+            });
+        }
     }
 
     let mut args: Vec<Word> = words[1..].to_vec();
@@ -709,11 +811,58 @@ pub(crate) fn classify_simple(
     if family == Family::PowerShell && !had_ext {
         prog = ps_alias(&prog).to_owned();
     }
+    facets::record(ctx, &prog, &args, family);
     acc.max(program_rules(ctx, &prog, had_ext, &args, cmd, upstream, family, depth))
 }
 
+/// Environment variables that make a later program execute their value.
+fn env_hook(ctx: &Ctx<'_>, name: &str, value: &str, depth: usize) -> DangerClass {
+    let upper = name.trim().to_ascii_uppercase();
+    let lower_v = value.to_lowercase();
+    let hook = matches!(
+        upper.as_str(),
+        "GIT_SSH_COMMAND"
+            | "GIT_SSH"
+            | "GIT_PROXY_COMMAND"
+            | "GIT_EXTERNAL_DIFF"
+            | "GIT_PAGER"
+            | "PAGER"
+            | "GIT_EDITOR"
+            | "EDITOR"
+            | "VISUAL"
+            | "GIT_SEQUENCE_EDITOR"
+            | "GIT_ASKPASS"
+            | "SSH_ASKPASS"
+            | "GIT_CONFIG_PARAMETERS"
+            | "LD_PRELOAD"
+            | "DYLD_INSERT_LIBRARIES"
+            | "BASH_ENV"
+            | "ENV"
+            | "PROMPT_COMMAND"
+            | "PERL5OPT"
+            | "RUBYOPT"
+            | "PYTHONSTARTUP"
+            | "COMSPEC"
+    ) || (upper == "NODE_OPTIONS"
+        && (lower_v.contains("--require")
+            || lower_v.contains("-r ")
+            || lower_v.contains("--import")
+            || lower_v.contains("--loader")));
+    if !hook {
+        return DangerClass::Safe;
+    }
+    let inner = classify_text(ctx, value, Family::Posix, depth + 1);
+    inner.max(d(C::Obfuscation, format!("environment variable `{upper}` makes a later program run a command")))
+}
+
 fn inner_cmd(cmd: &SimpleCommand, words: &[Word]) -> SimpleCommand {
-    SimpleCommand { words: words.to_vec(), redirects: Vec::new(), heredocs: cmd.heredocs.clone(), piped: cmd.piped }
+    SimpleCommand {
+        words: words.to_vec(),
+        redirects: Vec::new(),
+        heredocs: cmd.heredocs.clone(),
+        piped: cmd.piped,
+        call_op: false,
+    }
 }
 
 /// Skips leading flags (and values of `with_value` flags), then optionally
@@ -890,8 +1039,8 @@ fn program_rules(
             for h in &cmd.heredocs {
                 acc = acc.max(text(h, Family::Posix));
             }
-            if !script_given && piped_rce {
-                acc = acc.max(rce("pipes downloaded content into a shell"));
+            if !script_given {
+                acc = acc.max(piped_script(ctx, upstream, Stdin::Shell(Family::Posix), depth));
             }
             acc
         }
@@ -903,10 +1052,7 @@ fn program_rules(
                 let rest: Vec<String> = texts(&args[pos + 1..]);
                 return text(&rest.join(" "), Family::Cmd);
             }
-            if piped_rce {
-                return rce("pipes downloaded content into cmd");
-            }
-            DangerClass::Safe
+            piped_script(ctx, upstream, Stdin::Shell(Family::Cmd), depth)
         }
         "powershell" | "pwsh" | "powershell_ise" => {
             let mut i = 0;
@@ -915,10 +1061,7 @@ fn program_rules(
                 let Some(name) = t.strip_prefix(['-', '/']).map(str::to_lowercase) else { break };
                 if name.is_empty() {
                     // `powershell -` reads commands from stdin
-                    if piped_rce {
-                        return rce("pipes downloaded content into PowerShell");
-                    }
-                    return DangerClass::Safe;
+                    return piped_script(ctx, upstream, Stdin::Shell(Family::PowerShell), depth);
                 }
                 if name == "ec" || "encodedcommand".starts_with(name.as_str()) {
                     let Some(val) = args.get(i + 1) else {
@@ -932,8 +1075,8 @@ fn program_rules(
                 }
                 if "command".starts_with(name.as_str()) {
                     let rest = texts(&args[i + 1..]).join(" ");
-                    if rest.trim() == "-" && piped_rce {
-                        return rce("pipes downloaded content into PowerShell");
+                    if rest.trim() == "-" {
+                        return piped_script(ctx, upstream, Stdin::Shell(Family::PowerShell), depth);
                     }
                     return text(&rest, Family::PowerShell);
                 }
@@ -973,10 +1116,7 @@ fn program_rules(
                 }
                 return text(&rest, Family::PowerShell);
             }
-            if piped_rce {
-                return rce("pipes downloaded content into PowerShell");
-            }
-            DangerClass::Safe
+            piped_script(ctx, upstream, Stdin::Shell(Family::PowerShell), depth)
         }
         "wsl" => {
             if has("--unregister") {
@@ -1032,15 +1172,23 @@ fn program_rules(
                     "redirectstandardinput",
                 ],
             );
-            let file = ps_value(args, "filepath", 2).or_else(|| pos.first().map(|w| (*w).clone()));
-            let arglist = ps_value(args, "argumentlist", 2)
-                .or_else(|| ps_value(args, "args", 4))
-                .or_else(|| pos.get(1).map(|w| (*w).clone()));
+            let named_file = ps_value(args, "filepath", 2);
+            let file = named_file.clone().or_else(|| pos.first().map(|w| (*w).clone()));
+            // `-ArgumentList '-c','Remove-Item …'` (an array literal, possibly
+            // split over several words) or positional arguments after the file.
+            let arglist = ps_array_value(args, &["argumentlist", "args"]).or_else(|| {
+                let skip = usize::from(named_file.is_none());
+                let rest: Vec<String> = pos.iter().skip(skip).map(|w| w.text.clone()).collect();
+                (!rest.is_empty()).then(|| rest.join(" "))
+            });
             if let Some(file) = file {
+                if file.dynamic && file.text.contains(['$', '(']) {
+                    acc = acc.max(d(C::Obfuscation, "Start-Process with a program only known at runtime"));
+                }
                 let mut t = file.text.clone();
                 if let Some(a) = arglist {
                     t.push(' ');
-                    t.push_str(&a.text);
+                    t.push_str(&a.replace(',', " "));
                 }
                 acc = acc.max(text(&t, Family::PowerShell));
             }
@@ -1077,6 +1225,9 @@ fn program_rules(
                 text(&joined, family)
             }
         }
+        "." if family == Family::PowerShell && args.first().is_some_and(|a| a.dynamic) => {
+            d(C::Obfuscation, "dot-sources a command or script held in a variable")
+        }
         "source" | "." => {
             if args.iter().any(|a| a.dynamic && raw().downloader.is_match(&a.text)) || piped_rce {
                 rce("sources downloaded content")
@@ -1086,6 +1237,93 @@ fn program_rules(
         }
         "python" | "python3" | "python2" | "py" | "node" | "nodejs" | "deno" | "perl" | "ruby" | "php" | "lua" => {
             inline_code_rules(ctx, prog, args, cmd, upstream, depth)
+        }
+
+        "awk" | "gawk" | "mawk" | "nawk" => {
+            let joined = join(args);
+            if raw().awk_exec.is_match(&joined) {
+                let mut acc = d(C::Obfuscation, "awk program runs shell commands");
+                for lit in facets::string_literals(&joined) {
+                    acc = acc.max(text(&lit, Family::Posix));
+                }
+                acc
+            } else {
+                DangerClass::Safe
+            }
+        }
+        "vim" | "vi" | "nvim" | "gvim" | "ex" | "view" | "vimdiff" => {
+            let mut acc = DangerClass::Safe;
+            let mut i = 0;
+            while i < args.len() {
+                let t = args[i].text.as_str();
+                let cmd_text = if t == "-c" || t == "--cmd" {
+                    i += 1;
+                    args.get(i).map(|w| w.text.as_str())
+                } else {
+                    t.strip_prefix('+')
+                };
+                if let Some(c) = cmd_text {
+                    let lc = c.to_lowercase();
+                    if let Some(pos) = c.find('!') {
+                        acc = acc.max(text(&c[pos + 1..], Family::Posix));
+                        acc = acc.max(d(C::Obfuscation, "editor command runs a shell command"));
+                    } else if lc.contains("system(") || lc.contains("terminal") || lc.contains("source") {
+                        acc = acc.max(d(C::Obfuscation, "editor command runs a shell command"));
+                    }
+                }
+                i += 1;
+            }
+            acc
+        }
+        "if" if family == Family::Cmd => {
+            // if [/i] [not] (exist X | defined X | errorlevel N | cmdextversion N | a==b | a op b) command
+            let mut i = 0;
+            while i < args.len() && matches!(lower[i].as_str(), "/i" | "not") {
+                i += 1;
+            }
+            match lower.get(i).map(String::as_str) {
+                Some("exist" | "defined" | "errorlevel" | "cmdextversion") => i += 2,
+                Some(c) if c.contains("==") => i += 1,
+                Some(_)
+                    if lower
+                        .get(i + 1)
+                        .is_some_and(|op| matches!(op.as_str(), "equ" | "neq" | "lss" | "leq" | "gtr" | "geq")) =>
+                {
+                    i += 3;
+                }
+                _ => i += 1,
+            }
+            unwrap(i, family)
+        }
+        "do" | "else" if family == Family::Cmd => unwrap(0, family),
+        "forfiles" => {
+            let mut acc = DangerClass::Safe;
+            for (i, a) in lower.iter().enumerate() {
+                if a == "/c" || a == "-c" {
+                    if let Some(c) = args.get(i + 1) {
+                        acc = acc.max(text(&c.text.replace("0x22", "\""), Family::Cmd));
+                        let l = c.text.to_lowercase();
+                        if [" del ", " erase ", " rd ", " rmdir ", "remove-item", " rm "]
+                            .iter()
+                            .any(|k| format!(" {l} ").contains(k))
+                        {
+                            acc = acc.max(d(C::RecursiveDelete, "forfiles mass delete"));
+                        }
+                    }
+                }
+            }
+            acc
+        }
+        "wmic" if has("process") && has("create") => {
+            let inner = args.last().map(|w| text(&w.text, Family::Cmd)).unwrap_or(DangerClass::Safe);
+            inner.max(d(C::Obfuscation, "wmic process call create starts an arbitrary process"))
+        }
+        "rimraf" | "rmrf" | "del-cli" | "trash" | "trash-put" | "rm-cli" | "premove" => {
+            let mut acc = d(C::RecursiveDelete, format!("recursive delete ({prog})"));
+            for t in args.iter().filter(|a| !a.text.starts_with('-')) {
+                acc = acc.max(check_delete_target(ctx, t, true, family)).max(check_write_path(ctx, &t.text, true));
+            }
+            acc
         }
 
         // ---------------- deletion ----------------
@@ -1170,6 +1408,9 @@ fn program_rules(
             }
             if let Some(dst) = posix_operands(args).last() {
                 acc = acc.max(check_write_path(ctx, &dst.text, false));
+            }
+            if let Some(v) = ssh_local_exec(&lower) {
+                acc = acc.max(text(&v, Family::Posix)).max(d(C::Obfuscation, "rsync remote shell runs a local command"));
             }
             acc
         }
@@ -1367,6 +1608,23 @@ fn program_rules(
         {
             port_exposure(ctx, &lower, "opens a public tunnel to a local port")
         }
+        "ssh" | "autossh" | "scp" | "sftp" if ssh_local_exec(&lower).is_some() => {
+            let value = ssh_local_exec(&lower).unwrap_or_default();
+            text(&value, Family::Posix).max(d(C::Obfuscation, "ssh option runs a local command (ProxyCommand/LocalCommand)"))
+        }
+        "ssh" | "autossh" if ssh_remote_command(args).is_some() => {
+            let remote = ssh_remote_command(args).unwrap_or_default();
+            let tunnel = args.iter().any(|a| {
+                let t = a.text.as_str();
+                t.starts_with("-R") || t.starts_with("-L") || t.starts_with("-D")
+            });
+            let inner = text(&remote, Family::Posix);
+            if tunnel {
+                inner.max(port_exposure(ctx, &lower, "creates an SSH tunnel / port forward"))
+            } else {
+                inner
+            }
+        }
         "ssh" | "autossh" => {
             if args.iter().any(|a| {
                 let t = a.text.as_str();
@@ -1389,7 +1647,7 @@ fn program_rules(
         }
 
         // ---------------- git ----------------
-        "git" => git_rules(&texts(args)),
+        "git" => git_exec_hooks(ctx, args, depth).max(git_rules(&texts(args))),
 
         // ---------------- SQL / data ----------------
         "psql" | "mysql" | "mariadb" | "sqlite3" | "sqlcmd" | "osql" | "isql" | "invoke-sqlcmd" | "mongosh"
@@ -2393,7 +2651,6 @@ fn inline_code_rules(
     upstream: &[&SimpleCommand],
     depth: usize,
 ) -> DangerClass {
-    let r = raw();
     let lower = lower_texts(args);
     // Django / Laravel destructive management commands.
     if lower.iter().any(|a| a.ends_with("manage.py"))
@@ -2427,21 +2684,346 @@ fn inline_code_rules(
         }
     }
     let mut acc = DangerClass::Safe;
+    for h in &cmd.heredocs {
+        acc = acc.max(code_rules(ctx, prog, h, depth));
+    }
     if let Some(code) = code {
-        let t = &code.text;
-        if r.inline_net.is_match(t) && r.inline_exec.is_match(t) {
+        acc = acc.max(code_rules(ctx, prog, &code.text, depth));
+        if code.dynamic {
+            acc = acc.max(d(C::Obfuscation, "inline script built from variables"));
+        }
+    } else if args.iter().all(|a| a.text.starts_with('-')) && cmd.heredocs.is_empty() {
+        // The interpreter reads its program from stdin.
+        acc = acc.max(piped_script(ctx, upstream, Stdin::Code(prog), depth));
+    }
+    acc
+}
+
+/// Analyses inline interpreter code (`python -c`, `node -e`, piped or
+/// here-doc programs).
+fn code_rules(ctx: &Ctx<'_>, prog: &str, code: &str, depth: usize) -> DangerClass {
+    let r = raw();
+    let mut acc = DangerClass::Safe;
+    if r.inline_net.is_match(code) {
+        facets::mark_network(ctx);
+        if r.inline_exec.is_match(code) {
             acc = acc.max(rce("inline script downloads and executes code"));
         }
-        if r.inline_delete.is_match(t) {
-            acc = acc.max(d(C::RecursiveDelete, "inline script recursively deletes files"));
-        }
-        if r.credentials.is_match(t) {
-            acc = acc.max(f(C::CredentialAccess, "inline script reads other applications' credentials"));
-        }
-    } else if args.iter().all(|a| a.text.starts_with('-')) && !upstream.is_empty() && upstream_has_downloader(upstream)
-    {
-        acc = acc.max(rce("pipes downloaded content into an interpreter"));
     }
-    let _ = (ctx, cmd, depth);
+    if r.inline_delete.is_match(code) {
+        acc = acc.max(d(C::RecursiveDelete, "inline script recursively deletes files"));
+    }
+    if r.credentials.is_match(code) {
+        acc = acc.max(f(C::CredentialAccess, "inline script reads other applications' credentials"));
+    }
+    // Orkestr's data dir assembled inside the code (`'/orkestr/core.' + 'token'`).
+    let lc = code.to_lowercase();
+    for p in &ctx.guard.protected_lower {
+        let name = p.rsplit('/').next().unwrap_or_default();
+        if !name.is_empty()
+            && lc.contains(name)
+            && (lc.contains("core") || lc.contains("token") || lc.contains(".db") || lc.contains("vault"))
+        {
+            return f(C::SelfTamper, "inline script references Orkestr's private data directory");
+        }
+    }
+    let lits = facets::string_literals(code);
+    for l in &lits {
+        acc = acc.max(check_protected_ref(ctx, l));
+    }
+    if acc.is_forbidden() {
+        return acc;
+    }
+    // Paths named in the code count as reads (secrets / outside the worktree).
+    let as_words: Vec<Word> = lits.iter().map(|l| Word::literal(l)).collect();
+    facets::record(ctx, "cat", &as_words, Family::Posix);
+    let backtick_exec = matches!(prog, "perl" | "ruby" | "php") && code.contains('`');
+    if r.inline_shell.is_match(code) || backtick_exec {
+        for l in &lits {
+            acc = acc
+                .max(classify_text(ctx, l, Family::Posix, depth + 1))
+                .max(classify_text(ctx, l, Family::Cmd, depth + 1));
+        }
+        acc = acc.max(classify_text(ctx, &lits.join(" "), Family::Posix, depth + 1));
+        acc = acc.max(d(C::Obfuscation, "inline script runs shell commands or evaluates generated code"));
+    }
+    acc
+}
+
+/// Where piped stdin goes.
+#[derive(Clone, Copy)]
+enum Stdin<'p> {
+    /// A shell reading its script from stdin.
+    Shell(Family),
+    /// An interpreter (`python`, `node`, …) reading code from stdin.
+    Code(&'p str),
+}
+
+/// Classifies script text that a pipeline feeds into a shell or interpreter
+/// reading from stdin (`echo 'rm -rf ~' | sh`). Literal text is analysed in
+/// the target's grammar; a literal script file (`cat x.sh | sh`) counts like
+/// `sh x.sh`; anything else cannot be resolved and fails closed.
+fn piped_script(ctx: &Ctx<'_>, upstream: &[&SimpleCommand], target: Stdin<'_>, depth: usize) -> DangerClass {
+    let Some(prev) = upstream.last() else { return DangerClass::Safe };
+    if upstream_has_downloader(upstream) {
+        return rce("pipes downloaded content into a shell or interpreter");
+    }
+    let analyse = |t: &str| match target {
+        Stdin::Shell(fam) => classify_text(ctx, t, fam, depth + 1),
+        Stdin::Code(p) => code_rules(ctx, p, t, depth),
+    };
+    let mut acc = DangerClass::Safe;
+    for h in &prev.heredocs {
+        acc = acc.max(analyse(h));
+    }
+    let Some(pw) = prev.words.first() else { return acc };
+    let (p, _) = normalize_program(&pw.text);
+    let p = ps_alias(&p).to_owned();
+    let args = &prev.words[1..];
+    match p.as_str() {
+        "echo" | "printf" | "write-output" | "write-host" | "print" | "echo." => {
+            let body: Vec<&Word> = args
+                .iter()
+                .skip_while(|w| p == "echo" && matches!(w.text.as_str(), "-n" | "-e" | "-E" | "-ne" | "-en"))
+                .collect();
+            let joined = body.iter().map(|w| w.text.as_str()).collect::<Vec<_>>().join(" ");
+            acc = acc.max(analyse(&joined));
+            if joined.contains("\\n") {
+                acc = acc.max(analyse(&joined.replace("\\n", "\n")));
+            }
+            if pw.dynamic || body.iter().any(|w| w.dynamic) {
+                acc = acc.max(d(C::Obfuscation, "pipes text built from variables into a shell or interpreter"));
+            }
+            acc
+        }
+        "get-content" | "cat" | "type" | "more" => {
+            let ops: Vec<&Word> = args.iter().filter(|w| !w.text.starts_with('-') || w.quoted).collect();
+            if !prev.heredocs.is_empty() || (!ops.is_empty() && ops.iter().all(|w| !w.dynamic)) {
+                acc // a literal script file: like `sh file.sh`
+            } else {
+                acc.max(d(C::Obfuscation, "pipes unresolved input into a shell or interpreter"))
+            }
+        }
+        _ => acc.max(d(C::Obfuscation, format!("pipes the output of `{p}` into a shell or interpreter"))),
+    }
+}
+
+/// Value of a PowerShell array parameter (`-ArgumentList '-c','x'` /
+/// `-ArgumentList '-c', 'x'`), with the items joined by spaces.
+fn ps_array_value(args: &[Word], names: &[&str]) -> Option<String> {
+    for (i, a) in args.iter().enumerate() {
+        let Some((n, inline)) = ps_param_name(&a.text) else { continue };
+        if !names.iter().any(|full| ps_matches(&n, full, 2)) {
+            continue;
+        }
+        let mut items: Vec<String> = Vec::new();
+        let mut j = i + 1;
+        if let Some(v) = inline {
+            items.push(v);
+        } else if let Some(w) = args.get(j) {
+            items.push(w.text.clone());
+            j += 1;
+        }
+        // Continue over `, 'x'` continuations.
+        while let Some(w) = args.get(j) {
+            let continues = items.last().is_some_and(|l| l.ends_with(',')) || w.text.starts_with(',');
+            if !continues {
+                break;
+            }
+            items.push(w.text.clone());
+            j += 1;
+        }
+        return Some(items.join(" ").replace(',', " "));
+    }
+    None
+}
+
+/// `ssh -o ProxyCommand=…` / `LocalCommand` / `KnownHostsCommand` /
+/// `rsync -e …` / `--rsh=…` / `--rsync-path=…`: the local command text.
+fn ssh_local_exec(lower: &[String]) -> Option<String> {
+    for (i, a) in lower.iter().enumerate() {
+        let a = a.as_str();
+        let opt = if a == "-o" {
+            lower.get(i + 1).map(String::as_str)
+        } else {
+            a.strip_prefix("-o")
+        };
+        if let Some(o) = opt {
+            let o = o.trim_matches(['"', '\'']);
+            for key in ["proxycommand", "localcommand", "knownhostscommand", "permitlocalcommand=yes"] {
+                if let Some(rest) = o.strip_prefix(key) {
+                    return Some(rest.trim_start_matches(['=', ' ']).to_owned());
+                }
+            }
+        }
+        if a == "-e" || a == "--rsh" {
+            if let Some(v) = lower.get(i + 1) {
+                let first = v.split_whitespace().next().unwrap_or_default();
+                if !matches!(normalize_program(first).0.as_str(), "ssh" | "rsh" | "plink") || v.contains(['|', ';', '&']) {
+                    return Some(v.clone());
+                }
+            }
+        }
+        for prefix in ["--rsh=", "--rsync-path="] {
+            if let Some(v) = a.strip_prefix(prefix) {
+                let first = v.split_whitespace().next().unwrap_or_default();
+                if !matches!(normalize_program(first).0.as_str(), "ssh" | "rsh" | "rsync" | "plink")
+                    || v.contains(['|', ';', '&'])
+                {
+                    return Some(v.to_owned());
+                }
+            }
+        }
+    }
+    None
+}
+
+/// The command `ssh [options] host command…` runs on the remote host.
+fn ssh_remote_command(args: &[Word]) -> Option<String> {
+    const VALUE: &[char] = &['b', 'c', 'D', 'E', 'e', 'F', 'I', 'i', 'J', 'L', 'l', 'm', 'O', 'o', 'p', 'Q', 'R', 'S', 'W', 'w', 'B'];
+    let mut i = 0;
+    while i < args.len() {
+        let t = args[i].text.as_str();
+        if t == "--" {
+            i += 1;
+            break;
+        }
+        if t.starts_with('-') && t.len() > 1 && !args[i].quoted {
+            let cluster: Vec<char> = t[1..].chars().collect();
+            // the value is attached (`-p22`) unless the option letter ends the word
+            let last = *cluster.last().unwrap_or(&' ');
+            let attached = cluster.iter().position(|c| VALUE.contains(c)).is_some_and(|p| p + 1 < cluster.len());
+            i += if VALUE.contains(&last) && !attached { 2 } else { 1 };
+            continue;
+        }
+        break;
+    }
+    // args[i] is the host; the rest is the remote command.
+    let rest = args.get(i + 1..)?;
+    if rest.is_empty() {
+        return None;
+    }
+    Some(texts(rest).join(" "))
+}
+
+/// `git config` keys whose value is executed as a command (or that pull in
+/// other config / hooks).
+fn git_exec_key(key: &str, value: &str) -> bool {
+    let k = key.trim().to_lowercase();
+    [
+        "core.sshcommand",
+        "core.pager",
+        "core.editor",
+        "core.fsmonitor",
+        "core.hookspath",
+        "core.gitproxy",
+        "core.askpass",
+        "core.alternaterefscommand",
+        "sequence.editor",
+        "diff.external",
+        "credential.helper",
+        "gpg.",
+        "pager.",
+        "interactive.difffilter",
+        "uploadpack.",
+        "include.",
+        "includeif.",
+        "protocol.",
+        "filter.",
+    ]
+    .iter()
+    .any(|p| k.starts_with(p))
+        || k.ends_with(".textconv")
+        || k.ends_with(".command")
+        || k.ends_with(".uploadpack")
+        || k.ends_with(".receivepack")
+        || k.ends_with(".helper")
+        || (k.starts_with("merge.") && k.ends_with(".driver"))
+        || (k.starts_with("alias.") && value.trim().starts_with('!'))
+}
+
+/// Git options and subcommands that execute arbitrary commands
+/// (`-c core.sshCommand=…`, `git config core.hooksPath …`, `rebase --exec`,
+/// `submodule foreach`, `bisect run`, `--upload-pack=…`).
+fn git_exec_hooks(ctx: &Ctx<'_>, args: &[Word], depth: usize) -> DangerClass {
+    let text = |t: &str| classify_text(ctx, t, Family::Posix, depth + 1);
+    let hook = |what: &str| d(C::Obfuscation, format!("git {what} runs an arbitrary command"));
+    let mut acc = DangerClass::Safe;
+    let mut i = 0;
+    while i < args.len() {
+        let a = args[i].text.as_str();
+        if !a.starts_with('-') {
+            break;
+        }
+        if a == "-c" || a == "--config-env" {
+            if let Some(kv) = args.get(i + 1) {
+                let (k, v) = kv.text.split_once('=').unwrap_or((kv.text.as_str(), ""));
+                if git_exec_key(k, v) || (a == "--config-env" && git_exec_key(k, "!")) {
+                    acc = acc.max(text(v.trim_start_matches('!'))).max(hook(&format!("-c {k}")));
+                }
+            }
+            i += 2;
+            continue;
+        }
+        if let Some(kv) = a.strip_prefix("--config-env=") {
+            let k = kv.split_once('=').map_or(kv, |(k, _)| k);
+            if git_exec_key(k, "!") {
+                acc = acc.max(hook(&format!("--config-env {k}")));
+            }
+        }
+        i += if matches!(a, "-C" | "--git-dir" | "--work-tree" | "--namespace" | "--exec-path") { 2 } else { 1 };
+    }
+    let Some(sub) = args.get(i).map(|w| w.text.to_lowercase()) else { return acc };
+    let rest = &args[(i + 1).min(args.len())..];
+    let lower: Vec<String> = rest.iter().map(|w| w.text.to_lowercase()).collect();
+    for (j, a) in lower.iter().enumerate() {
+        for opt in ["--upload-pack", "--receive-pack", "--exec"] {
+            if a == opt || a.starts_with(&format!("{opt}=")) {
+                if sub == "rebase" && opt == "--exec" {
+                    continue;
+                }
+                let v = a.split_once('=').map(|(_, v)| v.to_owned()).or_else(|| lower.get(j + 1).cloned());
+                acc = acc.max(text(&v.unwrap_or_default())).max(hook(opt));
+            }
+        }
+    }
+    match sub.as_str() {
+        "config" => {
+            let reading = lower.iter().any(|a| {
+                matches!(a.as_str(), "--get" | "--get-all" | "--get-regexp" | "--list" | "-l" | "--unset" | "--unset-all" | "get" | "list" | "unset")
+            });
+            let ops: Vec<&Word> = rest.iter().filter(|w| !w.text.starts_with('-') && !matches!(w.text.as_str(), "set" | "add")).collect();
+            if !reading {
+                if let (Some(k), Some(v)) = (ops.first(), ops.get(1)) {
+                    if git_exec_key(&k.text, &v.text) {
+                        acc = acc.max(text(v.text.trim_start_matches('!'))).max(d(
+                            C::SystemConfig,
+                            format!("configures `{}`, which makes git run a command", k.text),
+                        ));
+                    }
+                }
+            }
+        }
+        "rebase" => {
+            for (j, a) in lower.iter().enumerate() {
+                if a == "--exec" || a == "-x" {
+                    if let Some(c) = rest.get(j + 1) {
+                        acc = acc.max(text(&c.text));
+                    }
+                } else if let Some(c) = a.strip_prefix("--exec=") {
+                    acc = acc.max(text(c));
+                }
+            }
+        }
+        "submodule" if lower.iter().any(|a| a == "foreach") => {
+            let pos = lower.iter().position(|a| a == "foreach").unwrap_or(0);
+            let cmds: Vec<&Word> = rest[pos + 1..].iter().filter(|w| !w.text.starts_with("--")).collect();
+            acc = acc.max(text(&cmds.iter().map(|w| w.text.as_str()).collect::<Vec<_>>().join(" ")));
+        }
+        "bisect" if lower.first().is_some_and(|a| a == "run") => {
+            acc = acc.max(text(&texts(&rest[1..]).join(" ")));
+        }
+        _ => {}
+    }
     acc
 }

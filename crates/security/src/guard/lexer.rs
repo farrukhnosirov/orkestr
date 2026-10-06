@@ -59,6 +59,9 @@ pub struct SimpleCommand {
     pub heredocs: Vec<String>,
     /// Stdin comes from the previous command (pipeline stage > 0).
     pub piped: bool,
+    /// Invoked through the PowerShell call operator (`& $x …`): the program
+    /// word is evaluated as an expression.
+    pub call_op: bool,
 }
 
 /// Result of lexing a command line.
@@ -101,6 +104,8 @@ enum Pending {
     HeredocDelim {
         strip_tabs: bool,
     },
+    /// Next word is a here-string (`<<< text`): its text is fed to stdin.
+    HereString,
 }
 
 struct Lexer {
@@ -164,6 +169,7 @@ impl Lexer {
             Pending::Redirect => self.cur_cmd.redirects.push(w),
             Pending::Ignore => {}
             Pending::HeredocDelim { strip_tabs } => self.cur_heredocs.push((w.text, strip_tabs)),
+            Pending::HereString => self.cur_cmd.heredocs.push(w.text),
             Pending::None => {
                 // Drop grammar keywords at command start (`do rm -rf x` → `rm -rf x`).
                 if self.cur_cmd.words.is_empty()
@@ -544,9 +550,9 @@ impl Lexer {
                     if self.peek() == Some('<') {
                         self.i += 1;
                         if self.peek() == Some('<') {
-                            // here-string: operand is data
+                            // here-string: the operand is fed to stdin (script text for shells)
                             self.i += 1;
-                            self.pending = Pending::Ignore;
+                            self.pending = Pending::HereString;
                         } else {
                             let strip_tabs = if self.peek() == Some('-') {
                                 self.i += 1;
@@ -647,6 +653,7 @@ impl Lexer {
                         self.i += 2;
                     } else if self.cur_word.is_none() && self.cur_cmd.words.is_empty() {
                         // call operator `& cmd` / `& { … }`
+                        self.cur_cmd.call_op = true;
                         self.i += 1;
                     } else {
                         self.end_cmd();
@@ -878,7 +885,8 @@ impl Lexer {
                     self.end_cmd();
                     self.i += 1;
                 }
-                ')' if self.cur_word.is_none() => {
+                ')' => {
+                    // A closing parenthesis always ends a block (`for … in (C:\) do …`).
                     self.end_cmd();
                     self.i += 1;
                 }

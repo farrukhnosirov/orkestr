@@ -17,6 +17,7 @@
 //! per-program rules ([`rules`]). The overall class is the maximum over all
 //! parts. Anything unparseable fails closed (`Dangerous(Unparseable)`).
 
+mod facets;
 pub mod lexer;
 mod rules;
 pub mod sql;
@@ -29,6 +30,7 @@ use std::path::PathBuf;
 use orkestr_domain::DangerCategory;
 use serde::{Deserialize, Serialize};
 
+pub use facets::CommandFacets;
 pub use lexer::Family;
 pub use sql::classify_sql;
 
@@ -239,7 +241,7 @@ pub struct GuardConfig {
 #[derive(Debug, Clone, Default)]
 pub struct DangerousActionGuard {
     config: GuardConfig,
-    protected_lower: Vec<String>,
+    pub(crate) protected_lower: Vec<String>,
 }
 
 impl DangerousActionGuard {
@@ -277,16 +279,30 @@ impl DangerousActionGuard {
     /// targets outside `root` as `Dangerous(OutsideWorktree)`.
     #[must_use]
     pub fn classify_in(&self, command: &str, shell: ShellKind, root: Option<&std::path::Path>) -> DangerClass {
-        let ctx = rules::Ctx { guard: self, root: root.map(|r| r.to_string_lossy().replace('\\', "/").to_lowercase()) };
-        rules::classify_text(&ctx, command, shell.family(), 0)
+        self.analyze_in(command, shell, root).0
+    }
+
+    /// Like [`classify_in`](Self::classify_in), also returning the command's
+    /// [`CommandFacets`] (network use, secret reads, reads outside `root`) so
+    /// the permission engine can require the matching capabilities.
+    #[must_use]
+    pub fn analyze_in(
+        &self,
+        command: &str,
+        shell: ShellKind,
+        root: Option<&std::path::Path>,
+    ) -> (DangerClass, CommandFacets) {
+        let ctx = rules::Ctx::new(self, root.map(|r| r.to_string_lossy().replace('\\', "/").to_lowercase()));
+        let class = rules::classify_text(&ctx, command, shell.family(), 0);
+        (class, ctx.facets.into_inner())
     }
 
     /// Classifies a structured action.
     #[must_use]
     pub fn classify_action(&self, action: &Action) -> DangerClass {
-        let ctx = rules::Ctx { guard: self, root: None };
+        let ctx = rules::Ctx::new(self, None);
         match action {
-            Action::ReadFile { path } => rules::check_read_path(&ctx, path),
+            Action::ReadFile { path } => rules::check_read_path(&ctx, path).max(facets::check_protected_ref(&ctx, path)),
             Action::WriteFile { path } => rules::check_write_path(&ctx, path, false),
             Action::DeletePath { path, recursive } => {
                 let w = lexer::Word::literal(path);
@@ -328,5 +344,13 @@ impl DangerousActionGuard {
     #[must_use]
     pub fn is_secret_file(path: &str) -> bool {
         rules::is_secret_file(path)
+    }
+
+    /// Whether git `args` (without `git`) talk to a remote (`push`, `fetch`,
+    /// `pull`, `clone`, `ls-remote`, …) and so need `Network`.
+    #[must_use]
+    pub fn git_uses_network(args: &[String]) -> bool {
+        let lower: Vec<String> = args.iter().map(|a| a.to_lowercase()).collect();
+        facets::git_is_network(&lower)
     }
 }
