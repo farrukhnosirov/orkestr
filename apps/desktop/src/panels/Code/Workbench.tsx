@@ -86,6 +86,11 @@ export default function Workbench({ projectId }: { projectId: string }) {
 
   useEffect(() => registry.onChange(rerender), [registry]);
 
+  // File events are watched only while a project is shown: catch up on return.
+  useEffect(() => {
+    void registry.resync();
+  }, [registry]);
+
   // Theme follows the app theme (tokens are applied to :root by App first).
   useEffect(() => {
     const id = requestAnimationFrame(() => applyTokensTheme());

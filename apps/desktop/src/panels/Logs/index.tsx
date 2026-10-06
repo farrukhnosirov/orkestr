@@ -9,6 +9,7 @@ import { maybeClient } from "../../core/client";
 import { useT } from "../../i18n";
 import { useAppStore } from "../../store/app";
 import type { PanelProps } from "../types";
+import { PauseQueue } from "./pauseQueue";
 import { ReplayView } from "./replay/ReplayView";
 import { type EventCategory, categoryOf, describeEvent, formatTime, severityOf } from "./describe";
 
@@ -67,7 +68,7 @@ function EventsView({ projectId }: PanelProps) {
   const [follow, setFollow] = useState(true);
   const [queued, setQueued] = useState(0);
   const pausedRef = useRef(paused);
-  const queueRef = useRef<Event[]>([]);
+  const queueRef = useRef(new PauseQueue<Event>(MAX_EVENTS));
   const listRef = useRef<HTMLDivElement>(null);
   pausedRef.current = paused;
 
@@ -102,7 +103,7 @@ function EventsView({ projectId }: PanelProps) {
       if (ev.kind === "NodeStatus" || ev.kind === "TerminalOutput") return;
       if (pausedRef.current) {
         queueRef.current.push(ev);
-        setQueued(queueRef.current.length);
+        setQueued(queueRef.current.count);
       } else {
         append([ev]);
       }
@@ -115,9 +116,8 @@ function EventsView({ projectId }: PanelProps) {
 
   // Flush buffered events on resume.
   useEffect(() => {
-    if (!paused && queueRef.current.length > 0) {
-      append(queueRef.current);
-      queueRef.current = [];
+    if (!paused && queueRef.current.count > 0) {
+      append(queueRef.current.drain());
       setQueued(0);
     }
   }, [paused, append]);
@@ -180,7 +180,7 @@ function EventsView({ projectId }: PanelProps) {
           icon={<Trash2 size={15} />}
           onClick={() => {
             setEvents([]);
-            queueRef.current = [];
+            queueRef.current.drain();
             setQueued(0);
           }}
           tooltip="bottom"

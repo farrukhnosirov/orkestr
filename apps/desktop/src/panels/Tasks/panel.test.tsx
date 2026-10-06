@@ -147,15 +147,16 @@ describe("TasksPanel", () => {
   it("keeps events that arrive while the initial list loads (stale snapshot)", async () => {
     let resolveList: (v: { tasks: Task[] }) => void = () => undefined;
     const base = fakeClient.call.getMockImplementation();
+    if (!base) throw new Error("the fake client has no base implementation");
     fakeClient.call.mockImplementation(async (method: string, params: unknown) => {
-      if (method !== "tasks.list") return base?.(method, params);
+      if (method !== "tasks.list") return base(method, params);
       calls.push({ method, params });
       return new Promise<{ tasks: Task[] }>((r) => {
         resolveList = r;
       });
     });
     onTestFinished(() => {
-      if (base) fakeClient.call.mockImplementation(base);
+      fakeClient.call.mockImplementation(base);
     });
     render(<TasksPanel projectId={PROJECT} />);
     await waitFor(() => expect(handler).not.toBeNull());

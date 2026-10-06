@@ -1,7 +1,7 @@
 import type { Event, EventKindName } from "@orkestr/protocol";
 
 import { formatCurrency, formatDuration, t } from "../../i18n";
-import { agentActivity, agentName, snapshotLabel } from "../../lib/coreText";
+import { agentActivity, agentName, fallbackReason, snapshotLabel } from "../../lib/coreText";
 import { useAppStore } from "../../store/app";
 import { budgetScopeText } from "../Costs/format";
 
@@ -201,7 +201,7 @@ export function describeEvent(event: Event): string {
       return t("events:providerFallback", {
         from: event.payload.from.model,
         to: event.payload.to.model,
-        reason: event.payload.reason,
+        reason: fallbackReason(event.payload.reason),
       });
     case "BudgetThreshold":
       return t("events:budgetThreshold", {

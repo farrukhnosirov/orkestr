@@ -327,6 +327,7 @@ function AssistantVoiceRows({
   uiLanguage: string;
 }) {
   const { t } = useT("voice");
+  const fmt = useFormat();
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   useEffect(() => {
     let alive = true;

@@ -53,6 +53,8 @@ export interface EditorState {
   setProject: (projectId: string | null) => void;
   /** Drops the tabs (open or parked) of a deleted project. */
   forgetProject: (projectId: string) => void;
+  /** Patches a tab of `projectId`, whether that project is active or parked. */
+  updateProjectTab: (projectId: string, path: string, patch: Partial<Omit<EditorTab, "path">>) => void;
   /** Opens (or focuses) a tab, optionally revealing a position. */
   openFile: (path: string, at?: RevealTarget) => void;
   closeTab: (path: string) => void;
@@ -142,6 +144,15 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
       parked: nextParked,
     });
   },
+
+  updateProjectTab: (projectId, path, patch) =>
+    set((s) => {
+      const patchTabs = (tabs: EditorTab[]) => tabs.map((t) => (t.path === path ? { ...t, ...patch } : t));
+      if (s.projectId === projectId) return { tabs: patchTabs(s.tabs) };
+      const session = s.parked[projectId];
+      if (!session) return s;
+      return { parked: { ...s.parked, [projectId]: { ...session, tabs: patchTabs(session.tabs) } } };
+    }),
 
   forgetProject: (projectId) =>
     set((s) => {

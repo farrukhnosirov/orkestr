@@ -138,6 +138,13 @@
     "listed": "listed {{path}} (entries: {{count}})",
     "matches": "matches for /{{pattern}}/: {{count}}"
   },
+  "stopDetail": {
+    "byUser": "stopped by the user",
+    "byUserCancelled": "stopped by the user (task cancelled)",
+    "shutdown": "the core is shutting down",
+    "restart": "interrupted by a core restart",
+    "emergency": "emergency stop"
+  },
   "taskReason": {
     "created": "Task created",
     "retry": "Retried",

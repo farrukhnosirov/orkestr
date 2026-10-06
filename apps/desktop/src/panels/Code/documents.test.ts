@@ -3,6 +3,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("./monaco", () => ({ modelUri: (projectId: string, path: string) => `orkestr://${projectId}/${path}` }));
+const disk = vi.hoisted(() => ({ hash: "h" }));
 vi.mock("../../core/client", () => ({
   getClient: () => ({
     call: (_method: string, params: { path: string }) =>
@@ -11,7 +12,7 @@ vi.mock("../../core/client", () => ({
         binary: false,
         language: "plaintext",
         lineEnding: "lf",
-        hash: "h",
+        hash: disk.hash,
         encoding: "utf8",
         readonly: false,
       }),
@@ -67,6 +68,7 @@ const monaco = {
 describe("document registry across project switches", () => {
   beforeEach(() => {
     models.clear();
+    disk.hash = "h";
     useEditorStore.setState({ projectId: "A", tabs: [], activePath: null, parked: {} });
   });
 
@@ -101,5 +103,57 @@ describe("document registry across project switches", () => {
     pruneParkedDocuments(new Set(["B"]));
     expect((doc!.model as unknown as FakeModel).disposed).toBe(true);
     expect(registryFor(monaco, "A")).not.toBe(a);
+  });
+});
+
+describe("parked project sessions (merged from audit r1 fe-panels-b)", () => {
+  beforeEach(() => {
+    models.clear();
+    disk.hash = "h";
+    useEditorStore.setState({ projectId: null, tabs: [], activePath: null, agentModified: {}, parked: {} });
+  });
+
+  it("restores the unsaved tab and model after switching away and back", async () => {
+    useEditorStore.getState().setProject("pa");
+    useEditorStore.getState().openFile("a.ts");
+    const a = registryFor(monaco, "pa");
+    const doc = await a.load("a.ts");
+    (doc!.model as unknown as FakeModel).setValue("edited");
+    expect(useEditorStore.getState().tabs[0]?.dirty).toBe(true);
+
+    useEditorStore.getState().setProject("pb");
+    expect(registryFor(monaco, "pb")).not.toBe(a);
+    useEditorStore.getState().setProject("pa");
+    const again = registryFor(monaco, "pa");
+    expect(again).toBe(a);
+    expect(again.get("a.ts")?.model.getValue()).toBe("edited");
+    expect(useEditorStore.getState().tabs.map((t) => [t.path, t.dirty])).toEqual([["a.ts", true]]);
+  });
+
+  it("a load finishing after a switch never touches the active project's tab", async () => {
+    useEditorStore.getState().setProject("pc");
+    useEditorStore.getState().openFile("a.ts");
+    const pending = registryFor(monaco, "pc").load("a.ts");
+    useEditorStore.getState().setProject("pd");
+    useEditorStore.getState().openFile("a.ts");
+    await pending;
+    expect(useEditorStore.getState().tabs[0]?.status).toBe("loading");
+  });
+
+  it("resync flags a parked dirty document stale when the disk moved on", async () => {
+    useEditorStore.getState().setProject("pe");
+    useEditorStore.getState().openFile("s.ts");
+    const e = registryFor(monaco, "pe");
+    const doc = await e.load("s.ts");
+    (doc!.model as unknown as FakeModel).setValue("mine");
+    useEditorStore.getState().setProject("pf");
+    registryFor(monaco, "pf");
+    disk.hash = "h2";
+    useEditorStore.getState().setProject("pe");
+    const back = registryFor(monaco, "pe");
+    await back.resync();
+    const tab = useEditorStore.getState().tabs.find((t) => t.path === "s.ts");
+    expect(tab?.stale).toBe(true);
+    expect(back.get("s.ts")?.model.getValue()).toBe("mine");
   });
 });

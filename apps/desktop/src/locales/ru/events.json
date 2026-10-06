@@ -33,7 +33,7 @@
   "providerStatus": "Провайдер …{{id}}: {{health}}",
   "providerRateLimited": "Провайдер …{{id}}: превышен лимит запросов",
   "providerRateLimitedRetry": "Провайдер …{{id}}: превышен лимит запросов (повтор через {{seconds}} с)",
-  "providerFallback": "Смена модели: {{from}} → {{to}} ({{reason}})",
+  "providerFallback": "Переход на резервную модель: {{from}} → {{to}} ({{reason}})",
   "budgetThreshold": "Бюджет ({{scope}}): израсходовано {{spent}} из {{limit}}",
   "snapshotCreated": "Создан снимок «{{label}}»",
   "rollbackPerformed_one": "Откат ({{scope}}): восстановлен {{count}} файл",

@@ -1,6 +1,35 @@
 /** Pure helpers of the Replay view (unit-tested in `replay.test.tsx`). */
 import type { ReplayPhase, ReplayStep, ReplayStepStatus } from "@orkestr/protocol";
 
+import { agentActivity, agentName, agentStopDetail, snapshotLabel, taskReason } from "../../../lib/coreText";
+
+const AGENT_TITLED = new Set(["AgentSpawned", "AgentStarted", "AgentStateChanged", "AgentStopped"]);
+
+/** Display title of a step: agent names and automatic snapshot labels written by the core are localized. */
+export function stepTitle(step: ReplayStep): string {
+  if (AGENT_TITLED.has(step.kind)) return agentName(step.title);
+  if (step.kind === "SnapshotCreated") return snapshotLabel(step.title);
+  return step.title;
+}
+
+/**
+ * Display text of a step's detail for kinds whose detail is a fixed core
+ * string (agent activity, stop detail, task status reason); null for other kinds.
+ */
+export function coreStepDetail(step: ReplayStep): string | null {
+  if (!step.detail) return null;
+  switch (step.kind) {
+    case "AgentStateChanged":
+      return agentActivity(step.detail);
+    case "AgentStopped":
+      return agentStopDetail(step.detail);
+    case "TaskStatusChanged":
+      return taskReason(step.detail);
+    default:
+      return null;
+  }
+}
+
 export const PHASES: readonly ReplayPhase[] = [
   "Request",
   "Plan",

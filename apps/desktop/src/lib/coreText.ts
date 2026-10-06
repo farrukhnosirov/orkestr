@@ -82,6 +82,25 @@ export function agentActivity(activity: string): string {
   return activity;
 }
 
+const STOP_DETAIL = {
+  "stopped by the user": "byUser",
+  "stopped by the user (task cancelled)": "byUserCancelled",
+  "the core is shutting down": "shutdown",
+  "interrupted by a core restart": "restart",
+  "emergency stop": "emergency",
+} as const;
+
+/** Detail of an `AgentStopped` event (crates/agent-runtime run.rs / runtime.rs); error texts stay as is. */
+export function agentStopDetail(detail: string): string {
+  const key = STOP_DETAIL[detail as keyof typeof STOP_DETAIL];
+  return key ? t(`coreText:stopDetail.${key}`) : detail;
+}
+
+/** Why a provider fell back (`ProviderError::class()` code: rate_limited, network, ...). */
+export function fallbackReason(code: string): string {
+  return t(`notifications:fallbackReason.${code}`, { defaultValue: code });
+}
+
 const DEFAULT_SNAPSHOT = {
   "Manual snapshot": "manual",
   "Before risky action": "beforeRisky",
@@ -156,10 +175,10 @@ export function agentNote(text: string): string {
   if ((m = text.match(/^Checkpoint (\S+) taken before the first change\.$/))) return t("coreText:note.checkpoint", { id: m[1] });
   if ((m = text.match(/^Command approved: ([\s\S]+)$/))) return t("coreText:note.commandApproved", { command: m[1] });
   if ((m = text.match(/^Provider fallback: (\S+) → (\S+) \(([\s\S]*)\)\. A structured handoff was created\.$/))) {
-    return t("coreText:note.fallback", { from: m[1], to: m[2], reason: m[3] });
+    return t("coreText:note.fallback", { from: m[1], to: m[2], reason: fallbackReason(m[3] ?? "") });
   }
   if ((m = text.match(/^Result \((\w+)\): ([\s\S]*)$/))) return t("coreText:note.result", { status: m[1], summary: m[2] });
-  if ((m = text.match(/^Stopped: ([\s\S]*)$/))) return t("coreText:note.stopped", { detail: m[1] });
+  if ((m = text.match(/^Stopped: ([\s\S]*)$/))) return t("coreText:note.stopped", { detail: agentStopDetail(m[1] ?? "") });
   return text;
 }
 

@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { applyLanguagePreference, i18n } from "../../../i18n";
 import { useAppStore } from "../../../store/app";
 import { useEditorStore } from "../../../store/editor";
-import { moveCursor, segments, statusTone, stepDelay } from "./model";
+import { coreStepDetail, moveCursor, segments, statusTone, stepDelay, stepTitle } from "./model";
 
 const PROJECT = "0192a000-0000-7000-8000-0000000000aa";
 const RUN = "0192a000-0000-7000-8000-0000000000r1";
@@ -99,6 +99,28 @@ describe("replay model", () => {
     expect(stepDelay(2)).toBe(600);
     expect(stepDelay(0)).toBe(1200);
     expect(statusTone("Error")).toBe("danger");
+  });
+
+  it("localizes core-written titles and details", async () => {
+    await act(async () => {
+      await applyLanguagePreference("ru");
+    });
+    try {
+      expect(stepTitle(step(0, "Agents", "AgentSpawned", "QA Engineer #1"))).toBe("Тестировщик #1");
+      expect(stepTitle(step(0, "Agents", "AgentStopped", "QA Engineer #1"))).toBe("Тестировщик #1");
+      expect(stepTitle(step(0, "Files", "SnapshotCreated", "Before QA Engineer #1 changes"))).toBe("Перед изменениями: Тестировщик #1");
+      expect(stepTitle(step(0, "Files", "FileChanged", "QA Engineer #1"))).toBe("QA Engineer #1");
+      expect(coreStepDetail(step(0, "Agents", "AgentStateChanged", "x", { detail: "Finished" }))).toBe("Работа завершена");
+      expect(coreStepDetail(step(0, "Agents", "AgentStopped", "x", { detail: "stopped by the user" }))).toBe("остановлен пользователем");
+      expect(coreStepDetail(step(0, "Agents", "AgentStopped", "x", { detail: "boom" }))).toBe("boom");
+      expect(coreStepDetail(step(0, "Run", "TaskStatusChanged", "x", { detail: "agent_result_done" }))).toBe("Агент сообщил, что задача выполнена");
+      expect(coreStepDetail(step(0, "Run", "TaskStatusChanged", "x", { detail: "agent_error: oops" }))).toBe("Ошибка агента: oops");
+      expect(coreStepDetail(step(0, "Files", "FileChanged", "x", { detail: "Created" }))).toBeNull();
+    } finally {
+      await act(async () => {
+        await applyLanguagePreference("en");
+      });
+    }
   });
 });
 

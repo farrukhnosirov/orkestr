@@ -177,7 +177,7 @@ describe("monaco theme from tokens", () => {
 
 describe("editor store", () => {
   beforeEach(() => {
-    useEditorStore.setState({ projectId: null, tabs: [], activePath: null, reveal: null, agentModified: {}, quickOpen: false, searchOpen: false, diff: false });
+    useEditorStore.setState({ projectId: null, parked: {}, tabs: [], activePath: null, reveal: null, agentModified: {}, quickOpen: false, searchOpen: false, diff: false });
     useEditorStore.getState().setProject("p1");
   });
 
@@ -216,10 +216,38 @@ describe("editor store", () => {
     expect(useEditorStore.getState().tabs[0]?.agentLines).toEqual([]);
   });
 
-  it("switching project clears tabs", () => {
-    useEditorStore.getState().openFile("x");
-    useEditorStore.getState().setProject("p2");
+  it("switching project parks the dirty tabs and restores them on return", () => {
+    const s = useEditorStore.getState();
+    s.openFile("x");
+    s.openFile("y");
+    s.updateTab("x", { status: "ready", dirty: true });
+    s.markAgentModified("y");
+    s.setProject("p2");
+    let st = useEditorStore.getState();
+    expect(st.tabs).toEqual([]);
+    expect(st.activePath).toBeNull();
+    st.openFile("other");
+    st.setProject("p1");
+    st = useEditorStore.getState();
+    // Clean tabs are closed (their files are re-openable); unsaved ones survive.
+    expect(st.tabs.map((t) => [t.path, t.dirty])).toEqual([["x", true]]);
+    expect(st.activePath).toBe("x");
+    st.setProject("p2");
+    // p2 had no unsaved tabs, so nothing was parked for it.
     expect(useEditorStore.getState().tabs).toEqual([]);
+  });
+
+  it("updateProjectTab patches a parked project's tab, not the active one", () => {
+    const s = useEditorStore.getState();
+    s.openFile("a.ts");
+    // Only unsaved tabs are parked on a switch.
+    useEditorStore.getState().updateTab("a.ts", { dirty: true });
+    useEditorStore.getState().setProject("p2");
+    useEditorStore.getState().openFile("a.ts");
+    useEditorStore.getState().updateProjectTab("p1", "a.ts", { stale: true });
+    expect(useEditorStore.getState().tabs[0]?.stale).toBe(false);
+    useEditorStore.getState().setProject("p1");
+    expect(useEditorStore.getState().tabs[0]?.stale).toBe(true);
   });
 });
 
