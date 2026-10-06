@@ -68,7 +68,11 @@ export class DocumentRegistry {
   }
 
   private updateStore(path: string, patch: Partial<Omit<EditorTab, "path">>): void {
-    useEditorStore.getState().updateTab(path, patch);
+    const store = useEditorStore.getState();
+    // A parked registry (another project is active) must not touch the
+    // active project's tabs, which may share a relative path.
+    if (store.projectId !== this.projectId) return;
+    store.updateTab(path, patch);
   }
 
   /** Loads a file into a model (idempotent). Binary/too-large/error states go to the tab. */
@@ -228,6 +232,21 @@ export class DocumentRegistry {
     this.emit();
   }
 
+  /**
+   * Called when the user leaves this project: frees every clean document and
+   * keeps the dirty ones (their tabs are parked by the editor store). Returns
+   * whether anything is left worth keeping.
+   */
+  park(): boolean {
+    for (const [path, doc] of [...this.docs]) {
+      if (this.isDirty(doc)) continue;
+      doc.model.dispose();
+      this.docs.delete(path);
+    }
+    this.listeners.clear();
+    return this.docs.size > 0;
+  }
+
   dispose(): void {
     for (const doc of this.docs.values()) doc.model.dispose();
     this.docs.clear();
@@ -236,13 +255,36 @@ export class DocumentRegistry {
 }
 
 let current: DocumentRegistry | null = null;
+/** Registries of inactive projects that still hold unsaved documents. */
+const parked = new Map<string, DocumentRegistry>();
 
-/** The registry for a project (disposing the previous project's documents). */
+/**
+ * The registry for a project. The previous project's clean documents are
+ * freed; its unsaved ones are kept (parked) and come back when the user
+ * switches to that project again, so a project switch never loses edits.
+ */
 export function registryFor(monaco: MonacoApi, projectId: string): DocumentRegistry {
   if (current && current.projectId === projectId) return current;
-  current?.dispose();
-  current = new DocumentRegistry(monaco, projectId);
+  if (current) {
+    if (current.park()) parked.set(current.projectId, current);
+    else current.dispose();
+  }
+  const resumed = parked.get(projectId);
+  parked.delete(projectId);
+  current = resumed ?? new DocumentRegistry(monaco, projectId);
   return current;
+}
+
+/**
+ * Frees the parked documents of projects that no longer exist (deleted or
+ * archived): nobody can switch back to them.
+ */
+export function pruneParkedDocuments(liveProjectIds: ReadonlySet<string>): void {
+  for (const [id, registry] of [...parked]) {
+    if (liveProjectIds.has(id)) continue;
+    registry.dispose();
+    parked.delete(id);
+  }
 }
 
 /** The current registry, if the Code panel has loaded one. */

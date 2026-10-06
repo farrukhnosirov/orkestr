@@ -10,7 +10,7 @@ import { clsx } from "clsx";
 import { Check, Pause, Play, RotateCcw } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
-import { useT } from "../../../i18n";
+import { useFormat, useT } from "../../../i18n";
 import { Segmented, Switch } from "../../settings/controls";
 import {
   ACCESSORY_IDS,
@@ -60,6 +60,7 @@ function usePreviewState(pinned: RobotState | null, playing: boolean): RobotStat
 
 export function RobotDesigner({ value, mode, saving, onSave, onResetToDefault }: RobotDesignerProps) {
   const { t } = useT(["robots", "common"]);
+  const fmt = useFormat();
   const [draft, setDraft] = useState<RobotDesign>(value);
   const [pinned, setPinned] = useState<RobotState | null>(null);
   const [playing, setPlaying] = useState(true);
@@ -185,7 +186,7 @@ export function RobotDesigner({ value, mode, saving, onSave, onResetToDefault }:
         <div className="rd__row">
           <label className="rd__field rd__field--inline">
             <span className="rd__label">
-              {t("robots:designer.scale")} <output>{Math.round(draft.scale * 100)}%</output>
+              {t("robots:designer.scale")} <output>{fmt.percent(draft.scale)}</output>
             </span>
             <input
               type="range"
@@ -199,7 +200,7 @@ export function RobotDesigner({ value, mode, saving, onSave, onResetToDefault }:
           </label>
           <label className="rd__field rd__field--inline">
             <span className="rd__label">
-              {t("robots:designer.intensity")} <output>{Math.round(draft.animationIntensity * 100)}%</output>
+              {t("robots:designer.intensity")} <output>{fmt.percent(draft.animationIntensity)}</output>
             </span>
             <input
               type="range"

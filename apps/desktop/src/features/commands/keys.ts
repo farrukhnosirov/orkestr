@@ -56,6 +56,28 @@ export function matchesShortcut(e: ShortcutEventLike, shortcut: string): boolean
   if (!key) return false;
   const want = { ctrl: parts.includes("ctrl"), shift: parts.includes("shift"), alt: parts.includes("alt") };
   if (want.ctrl !== (e.ctrlKey || e.metaKey) || want.shift !== e.shiftKey || want.alt !== e.altKey) return false;
-  if (key === "`") return e.key === "`" || e.code === "Backquote";
-  return shortcutKey(e) === key;
+  return keyMatches(e, key);
+}
+
+const PHYSICAL_PUNCTUATION: Readonly<Record<string, string>> = Object.fromEntries(
+  Object.entries(PUNCTUATION_CODES).map(([code, ch]) => [ch, code]),
+);
+
+/** Physical `KeyboardEvent.code` of a shortcut key (`k` → `KeyK`, `,` → `Comma`), or null for named keys. */
+export function physicalCode(key: string): string | null {
+  const k = key.toLowerCase();
+  if (/^[a-z]$/.test(k)) return `Key${k.toUpperCase()}`;
+  if (/^[0-9]$/.test(k)) return `Digit${k}`;
+  return PHYSICAL_PUNCTUATION[k] ?? null;
+}
+
+/**
+ * Whether the event's main key is `key` (lower-case shortcut key such as
+ * `k`, `,`, `` ` ``, `f11`, `backspace`), ignoring modifiers. The backquote
+ * key is matched physically on every layout (Ctrl+` toggles the terminal).
+ */
+export function keyMatches(e: KeyEventLike, key: string): boolean {
+  const want = key.toLowerCase();
+  if (want === "`") return e.key === "`" || e.code === "Backquote";
+  return shortcutKey(e) === want;
 }

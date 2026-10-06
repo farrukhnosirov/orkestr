@@ -25,6 +25,8 @@ export interface AppState {
   lastSeq: number;
   paletteOpen: boolean;
   createProjectOpen: boolean;
+  /** Project whose delete confirmation is open, if any. */
+  deleteProjectId: string | null;
   themeId: string;
 
   setConnection: (patch: Partial<ConnectionInfo>) => void;
@@ -35,6 +37,8 @@ export interface AppState {
   noteSeq: (seq: number) => void;
   setPaletteOpen: (open: boolean) => void;
   setCreateProjectOpen: (open: boolean) => void;
+  /** Opens (id) or closes (null) the delete-project confirmation. */
+  setDeleteProjectId: (projectId: string | null) => void;
   setThemeId: (id: string) => void;
 }
 
@@ -80,6 +84,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
   lastSeq: 0,
   paletteOpen: false,
   createProjectOpen: false,
+  deleteProjectId: null,
   themeId: readLocal(THEME_KEY) ?? "nebula",
 
   setConnection: (patch) => set((s) => ({ connection: { ...s.connection, ...patch } })),
@@ -115,7 +120,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
       const projects = s.projects.filter((p) => p.id !== projectId);
       const activeProjectId = s.activeProjectId === projectId ? (projects[0]?.id ?? null) : s.activeProjectId;
       writeLocal(ACTIVE_PROJECT_KEY, activeProjectId);
-      return { projects, activeProjectId };
+      return { projects, activeProjectId, deleteProjectId: s.deleteProjectId === projectId ? null : s.deleteProjectId };
     }),
 
   setActiveProject: (projectId) => {
@@ -126,6 +131,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
   noteSeq: (seq) => set((s) => (seq > s.lastSeq ? { lastSeq: seq } : s)),
   setPaletteOpen: (open) => set({ paletteOpen: open }),
   setCreateProjectOpen: (open) => set({ createProjectOpen: open, paletteOpen: open ? false : get().paletteOpen }),
+  setDeleteProjectId: (projectId) => set({ deleteProjectId: projectId, paletteOpen: projectId ? false : get().paletteOpen }),
   setThemeId: (id) => {
     writeLocal(THEME_KEY, id);
     set({ themeId: id });

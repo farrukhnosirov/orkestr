@@ -82,9 +82,11 @@ function DetachedTitleBar({ route }: { route: DetachedRoute }) {
             <span className="titlebar__sep" data-tauri-drag-region>
               /
             </span>
-            <span className="titlebar__project" data-tauri-drag-region>
+            <span className="titlebar__project" title={project.name} data-tauri-drag-region>
               <span className="titlebar__project-dot" style={{ background: project.color ?? undefined }} />
-              {project.name}
+              <span className="titlebar__project-name" data-tauri-drag-region>
+                {project.name}
+              </span>
             </span>
           </>
         )}

@@ -9,6 +9,7 @@ import {
   Expand,
   FolderPlus,
   FolderSearch,
+  FolderX,
   Maximize,
   OctagonX,
   ScrollText,
@@ -81,6 +82,21 @@ export const coreCommands: AppCommand[] = [
     // Ctrl+P is "Go to File…" (files area), as in common editors.
     shortcut: "Ctrl+Alt+P",
     run: () => usePaletteStore.getState().openPalette(SEARCH_PREFIX),
+  },
+  {
+    id: "project.delete",
+    get title() {
+      return t("shell:commands.projectDelete");
+    },
+    get group() {
+      return t("shell:commandGroups.projects");
+    },
+    icon: FolderX,
+    keywords: ["delete", "remove", "forget", "удалить", "убрать", "проект"],
+    enabled: (ctx) => ctx.projectId !== null,
+    run: (ctx) => {
+      if (ctx.projectId) useAppStore.getState().setDeleteProjectId(ctx.projectId);
+    },
   },
   {
     id: "settings.open",

@@ -364,10 +364,10 @@ function AssistantVoiceRows({
         </SettingRow>
       )}
       <SettingRow title={t("settings.tts.rate")}>
-        <Slider value={config.ratePct} min={50} max={200} step={5} label={t("settings.tts.rate")} format={(v) => `${v}%`} onCommit={(v) => patch((c) => ({ ...c, ratePct: v }))} />
+        <Slider value={config.ratePct} min={50} max={200} step={5} label={t("settings.tts.rate")} format={(v) => fmt.percent(v / 100)} onCommit={(v) => patch((c) => ({ ...c, ratePct: v }))} />
       </SettingRow>
       <SettingRow title={t("settings.tts.pitch")}>
-        <Slider value={config.pitchPct} min={50} max={200} step={5} label={t("settings.tts.pitch")} format={(v) => `${v}%`} onCommit={(v) => patch((c) => ({ ...c, pitchPct: v }))} />
+        <Slider value={config.pitchPct} min={50} max={200} step={5} label={t("settings.tts.pitch")} format={(v) => fmt.percent(v / 100)} onCommit={(v) => patch((c) => ({ ...c, pitchPct: v }))} />
       </SettingRow>
       <SettingRow title={t("settings.tts.test")} description={t("settings.tts.testDesc")}>
         <Button variant="secondary" leftIcon={<Play size={14} />} onClick={test}>

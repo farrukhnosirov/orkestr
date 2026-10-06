@@ -187,6 +187,7 @@ function AlertRow({ a }: { a: Alert }) {
   if (a.kind === "budget") {
     params["spent"] = fmt.currency(Number(a.params["spent"] ?? 0));
     params["limit"] = fmt.currency(Number(a.params["limit"] ?? 0));
+    params["percent"] = fmt.percent(Number(a.params["fraction"] ?? 0));
   }
   if (a.kind === "rateLimited") params["secs"] = fmt.duration(Number(a.params["secs"] ?? 0) * 1000);
   if (a.kind === "approval" && isRisk(a.params["risk"])) params["risk"] = t(`security:risk.${a.params["risk"]}`);

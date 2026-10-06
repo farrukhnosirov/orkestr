@@ -81,7 +81,7 @@ export function alertFromEvent(ev: Event): Alert | null {
         ev,
         "budget",
         ev.payload.fraction >= 1 ? "critical" : "warning",
-        { percent: Math.round(ev.payload.fraction * 100), scope: ev.payload.scope, spent: ev.payload.spentUsd, limit: ev.payload.limitUsd },
+        { fraction: ev.payload.fraction, scope: ev.payload.scope, spent: ev.payload.spentUsd, limit: ev.payload.limitUsd },
       );
     case "AgentStateChanged":
       return ev.payload.to === "Error" ? base(ev, "agentError", "critical", {}, ev.payload.activity) : null;

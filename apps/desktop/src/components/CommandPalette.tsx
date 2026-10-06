@@ -5,7 +5,6 @@ import {
   Clock,
   CornerDownLeft,
   FolderOpen,
-  LayoutGrid,
   Palette,
   PanelsTopLeft,
   Search,
@@ -58,15 +57,7 @@ function builtinItems(themes: readonly ThemeConfig[], selectTheme: (id: string) 
       run: () => workspaceActions.openPanel(panel.id),
     });
   }
-  list.push({
-    id: "layout.reset",
-    title: t("shell:palette.resetLayout"),
-    group: t("shell:palette.groups.layout"),
-    keywords: "reset layout coding раскладка сбросить",
-    icon: LayoutGrid,
-    indices: [],
-    run: () => workspaceActions.resetLayout(),
-  });
+  // "Reset layout" comes from the layout feature's registry command (`layout.reset`).
   for (const theme of themes) {
     list.push({
       id: `theme.${theme.id}`,
@@ -94,6 +85,20 @@ function fromCommand(c: AppCommand, projectId: string | null): PaletteItem {
   if (c.icon) item.icon = c.icon;
   if (c.shortcut) item.shortcut = c.shortcut;
   return item;
+}
+
+/**
+ * Drops later items whose id is already taken: ids are React keys and DOM ids
+ * (`aria-activedescendant`), so a duplicate would break both. Registry
+ * commands come first and win.
+ */
+export function uniqueById<T extends { id: string }>(items: T[]): T[] {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    if (seen.has(item.id)) return false;
+    seen.add(item.id);
+    return true;
+  });
 }
 
 /** Ranks `items` for `query`; empty query keeps registry order. */
@@ -216,7 +221,11 @@ export function CommandPalette() {
   }, [open, searchMode, searchQuery, projectsVersion]);
 
   const allItems = useMemo<PaletteItem[]>(
-    () => [...registryCommands.map((c) => fromCommand(c, projectId)), ...builtinItems(themes, (id) => void useThemeStore.getState().selectTheme(id))],
+    () =>
+      uniqueById([
+        ...registryCommands.map((c) => fromCommand(c, projectId)),
+        ...builtinItems(themes, (id) => void useThemeStore.getState().selectTheme(id)),
+      ]),
     // `open`: `enabled()` and dynamic titles are evaluated each time the palette
     // opens — memoized once, a command disabled at startup (voice config not
     // loaded yet) stayed disabled and Enter silently did nothing.

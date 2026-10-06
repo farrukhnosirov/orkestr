@@ -42,9 +42,17 @@ export interface EditorState {
   searchOpen: boolean;
   /** Diff view of the active tab against the last saved content. */
   diff: boolean;
+  /**
+   * Unsaved tabs of projects that are not active, keyed by project id. A
+   * project switch parks the dirty tabs here (their Monaco models are kept
+   * by the Code panel's document registry) and restores them on switch back.
+   */
+  parked: Record<string, ParkedSession>;
 
-  /** Switches project; tabs of another project are closed. */
+  /** Switches project; clean tabs are closed, dirty ones are parked and restored on return. */
   setProject: (projectId: string | null) => void;
+  /** Drops the tabs (open or parked) of a deleted project. */
+  forgetProject: (projectId: string) => void;
   /** Opens (or focuses) a tab, optionally revealing a position. */
   openFile: (path: string, at?: RevealTarget) => void;
   closeTab: (path: string) => void;
@@ -64,6 +72,25 @@ export interface EditorState {
   setDiff: (on: boolean) => void;
 }
 
+/** Dirty tabs of an inactive project. */
+export interface ParkedSession {
+  tabs: EditorTab[];
+  activePath: string | null;
+}
+
+/** Projects other than `projectId` that hold unsaved tabs. */
+export function projectsWithUnsavedTabs(state: Pick<EditorState, "projectId" | "tabs" | "parked">): string[] {
+  const ids = Object.keys(state.parked).filter((id) => state.parked[id]?.tabs.some((t) => t.dirty));
+  if (state.projectId !== null && state.tabs.some((t) => t.dirty) && !ids.includes(state.projectId)) ids.push(state.projectId);
+  return ids;
+}
+
+/** Number of unsaved tabs a project holds (open or parked). */
+export function unsavedTabCount(state: Pick<EditorState, "projectId" | "tabs" | "parked">, projectId: string): number {
+  const tabs = state.projectId === projectId ? state.tabs : (state.parked[projectId]?.tabs ?? []);
+  return tabs.filter((t) => t.dirty).length;
+}
+
 const within = (p: string, base: string) => p === base || p.startsWith(`${base}/`);
 
 let nonce = 0;
@@ -81,17 +108,52 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
   quickOpen: false,
   searchOpen: false,
   diff: false,
+  parked: {},
 
   setProject: (projectId) => {
-    const current = get().projectId;
+    const { projectId: current, tabs: currentTabs, activePath: currentActive, parked } = get();
     if (current === projectId) return;
     // First binding (e.g. a file opened from the Files panel before the Code panel mounted): keep tabs.
-    if (current === null && projectId !== null) {
+    if (current === null && projectId !== null && !(projectId in parked)) {
       set({ projectId });
       return;
     }
-    set({ projectId, tabs: [], activePath: null, reveal: null, agentModified: {}, quickOpen: false, diff: false });
+    // Never drop unsaved edits on a switch: park the dirty tabs of the project
+    // being left (the document registry keeps their models) and bring back the
+    // ones parked for the project being entered.
+    const nextParked = { ...parked };
+    if (current !== null) {
+      const dirty = currentTabs.filter((t) => t.dirty);
+      if (dirty.length > 0) {
+        const activePath = dirty.some((t) => t.path === currentActive) ? currentActive : (dirty[0]?.path ?? null);
+        nextParked[current] = { tabs: dirty, activePath };
+      } else delete nextParked[current];
+    }
+    const restored = projectId !== null ? nextParked[projectId] : undefined;
+    if (projectId !== null) delete nextParked[projectId];
+    set({
+      projectId,
+      tabs: restored?.tabs ?? [],
+      activePath: restored?.activePath ?? null,
+      reveal: null,
+      agentModified: {},
+      quickOpen: false,
+      diff: false,
+      parked: nextParked,
+    });
   },
+
+  forgetProject: (projectId) =>
+    set((s) => {
+      // The deleted project's own tabs must not be parked by the next switch.
+      if (s.projectId === projectId) {
+        return { projectId: null, tabs: [], activePath: null, reveal: null, agentModified: {}, quickOpen: false, diff: false };
+      }
+      if (!(projectId in s.parked)) return s;
+      const parked = { ...s.parked };
+      delete parked[projectId];
+      return { parked };
+    }),
 
   openFile: (path, at) =>
     set((s) => {

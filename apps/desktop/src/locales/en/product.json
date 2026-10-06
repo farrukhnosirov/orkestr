@@ -11,7 +11,7 @@
     "Approved": "Approved",
     "Discarded": "Discarded"
   },
-  "progress": "{{percent}}% done",
+  "progress": "{{percent}} done",
   "progressLabel": "Progress of the approved tasks",
   "drafted": "Draft \"{{title}}\" is ready to edit.",
   "idea": {

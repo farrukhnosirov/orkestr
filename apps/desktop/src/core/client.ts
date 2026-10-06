@@ -10,6 +10,7 @@ import { TOPIC_GLOBAL } from "@orkestr/protocol";
 import { t } from "../i18n";
 import { getCoreConnection } from "../lib/tauri";
 import { useAppStore } from "../store/app";
+import { useEditorStore } from "../store/editor";
 
 let client: OrkestrClient | null = null;
 let booting: Promise<OrkestrClient> | null = null;
@@ -35,6 +36,7 @@ function onGlobalEvent(event: Event): void {
       break;
     case "ProjectDeleted":
       store.removeProject(event.payload.projectId);
+      useEditorStore.getState().forgetProject(event.payload.projectId);
       break;
     default:
       break;

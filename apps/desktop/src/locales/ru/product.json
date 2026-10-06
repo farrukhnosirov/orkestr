@@ -11,7 +11,7 @@
     "Approved": "Подтверждён",
     "Discarded": "Отклонён"
   },
-  "progress": "выполнено {{percent}}%",
+  "progress": "выполнено {{percent}}",
   "progressLabel": "Ход выполнения подтверждённых задач",
   "drafted": "Черновик «{{title}}» готов к правке.",
   "idea": {

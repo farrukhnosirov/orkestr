@@ -32,7 +32,8 @@ import { useFileEvents } from "../../features/files/rpc";
 import { useT } from "../../i18n";
 import { describeError } from "../../i18n/errors";
 import { type EditorTab, useEditorStore } from "../../store/editor";
-import { type Doc, registryFor, SaveConflictError } from "./documents";
+import { useAppStore } from "../../store/app";
+import { type Doc, pruneParkedDocuments, registryFor, SaveConflictError } from "./documents";
 import { CodeEditor, DiffEditor, type EditorCallbacks } from "./EditorHost";
 import { applyTokensTheme, getMonaco } from "./monaco";
 import { useThemeRevision } from "../../features/theme/useThemeRevision";
@@ -91,9 +92,19 @@ export default function Workbench({ projectId }: { projectId: string }) {
     return () => cancelAnimationFrame(id);
   }, [themeId]);
 
-  // Load documents for new tabs.
+  // Unsaved documents parked for deleted projects can never come back.
+  const projects = useAppStore((s) => s.projects);
   useEffect(() => {
-    for (const tab of tabs) if (tab.status === "loading") void registry.load(tab.path);
+    pruneParkedDocuments(new Set(projects.map((p) => p.id)));
+  }, [projects]);
+
+  // Load documents for new tabs (and for restored tabs whose model is gone).
+  useEffect(() => {
+    // Right after a switch the store may still hold the previous project's tabs.
+    if (useEditorStore.getState().projectId !== registry.projectId) return;
+    for (const tab of tabs) {
+      if (tab.status === "loading" || (tab.status === "ready" && !registry.get(tab.path))) void registry.load(tab.path);
+    }
   }, [tabs, registry]);
 
   const active: EditorTab | null = tabs.find((tab) => tab.path === activePath) ?? null;

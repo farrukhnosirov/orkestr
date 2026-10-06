@@ -10,7 +10,7 @@ import { clsx } from "clsx";
 import { AlertTriangle, BellOff, Volume2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { useT } from "../../../i18n";
+import { useFormat, useT } from "../../../i18n";
 import { Segmented, SettingGroup, SettingRow, Switch } from "../../settings/controls";
 import type { SettingsSectionProps } from "../../settings/sections";
 import { useSettingsStore } from "../../settings/settingsStore";
@@ -25,6 +25,7 @@ const PRESETS: readonly SoundPreset[] = ["Auto", "Nebula", "Crystal", "Pulse", "
 
 export function SoundSection(_props: SettingsSectionProps) {
   const { t } = useT(["voice", "common"]);
+  const fmt = useFormat();
   const { config, loading, error, load, patch } = useVoiceStore();
   const dnd = useSettingsStore((s) => s.settings?.doNotDisturb ?? false);
   const perf = useSettingsStore((s) => s.settings?.performanceMode ?? "Balanced");
@@ -69,7 +70,7 @@ export function SoundSection(_props: SettingsSectionProps) {
             max={100}
             step={5}
             label={t("sound.volume")}
-            format={(v) => `${v}%`}
+            format={(v) => fmt.percent(v / 100)}
             disabled={!snd.enabled}
             onCommit={(v) => {
               up((c) => ({ ...c, sound: { ...c.sound, volumePct: v } }));

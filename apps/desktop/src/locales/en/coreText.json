@@ -69,7 +69,8 @@
     "beforeRestore": "Before restoring {{path}}",
     "beforeTaskRollback": "Before rolling back task {{id}}",
     "beforeDiscard_one": "Before discarding {{count}} path",
-    "beforeDiscard_other": "Before discarding {{count}} paths"
+    "beforeDiscard_other": "Before discarding {{count}} paths",
+    "beforeMerge": "Before merge into {{branch}}"
   },
   "terminal": {
     "agentCommands": "Agent commands",
@@ -84,7 +85,12 @@
     "changedFiles": "changed files: {{count}}",
     "hits": "matches: {{count}}",
     "snapshots": "snapshots: {{count}}",
-    "overview": "tasks: {{tasks}}, running agents: {{agents}}"
+    "overview": "tasks: {{tasks}}, running agents: {{agents}}",
+    "started": "started {{agent}}",
+    "stopped": "stopped {{agent}}",
+    "agentState": "{{agent}}: {{state}}",
+    "recorded": "decision recorded: “{{title}}”",
+    "uiChangeProposed": "interface change proposed: {{summary}}"
   },
   "note": {
     "started": "Started on “{{task}}” with {{model}} — {{place}}.",
@@ -120,7 +126,9 @@
     "memory": "memory: {{title}}",
     "decision": "decision: {{title}}",
     "snapshot": "snapshot {{label}}",
-    "exit": "`{{command}}` → exit {{code}}"
+    "exit": "`{{command}}` → exit {{code}}",
+    "listed": "listed {{path}} (entries: {{count}})",
+    "matches": "matches for /{{pattern}}/: {{count}}"
   },
   "taskReason": {
     "created": "Task created",

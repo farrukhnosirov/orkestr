@@ -9,7 +9,7 @@ import { Button, EmptyState, IconButton, Input, Spinner } from "@orkestr/ui";
 import { Bot, ChevronDown, ChevronRight, Play, RotateCcw } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { t as tGlobal, useT } from "../../../i18n";
+import { t as tGlobal, useFormat, useT } from "../../../i18n";
 import { templateName } from "../../../lib/coreText";
 import { loadTemplates } from "../agentVoices";
 import { assistantOptions } from "../agentVoices";
@@ -27,6 +27,7 @@ function profileSummary(p: VoiceProfile | null): string {
 
 export function AgentVoices({ config, patch }: { config: VoiceConfig; patch: (fn: (c: VoiceConfig) => VoiceConfig) => void }) {
   const { t } = useT(["voice", "common"]);
+  const fmt = useFormat();
   const [templates, setTemplates] = useState<AgentTemplate[] | null>(null);
   const [open, setOpen] = useState<string | null>(null);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
@@ -109,11 +110,11 @@ export function AgentVoices({ config, patch }: { config: VoiceConfig; patch: (fn
                 </label>
                 <label className="vx-field">
                   <span>{t("settings.tts.rate")}</span>
-                  <Slider value={p.ratePct ?? 100} min={50} max={200} step={5} label={t("settings.tts.rate")} format={(v) => `${v}%`} onCommit={(v) => edit((x) => ({ ...x, ratePct: v }))} />
+                  <Slider value={p.ratePct ?? 100} min={50} max={200} step={5} label={t("settings.tts.rate")} format={(v) => fmt.percent(v / 100)} onCommit={(v) => edit((x) => ({ ...x, ratePct: v }))} />
                 </label>
                 <label className="vx-field">
                   <span>{t("settings.tts.pitch")}</span>
-                  <Slider value={p.pitchPct ?? 100} min={50} max={200} step={5} label={t("settings.tts.pitch")} format={(v) => `${v}%`} onCommit={(v) => edit((x) => ({ ...x, pitchPct: v }))} />
+                  <Slider value={p.pitchPct ?? 100} min={50} max={200} step={5} label={t("settings.tts.pitch")} format={(v) => fmt.percent(v / 100)} onCommit={(v) => edit((x) => ({ ...x, pitchPct: v }))} />
                 </label>
                 <label className="vx-field">
                   <span>{t("settings.agents.style")}</span>

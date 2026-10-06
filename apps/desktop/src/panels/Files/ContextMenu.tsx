@@ -1,4 +1,6 @@
 /** Accessible context menu (role=menu, arrow keys, Escape, click-outside). */
+import "../../features/files/shared.css";
+
 import { clsx } from "clsx";
 import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
 
