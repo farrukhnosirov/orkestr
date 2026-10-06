@@ -160,6 +160,29 @@ async fn voice_config_consent_cloud_speech_and_command_log() {
     assert_eq!(s["audioBase64"], "AQID");
     assert_eq!(s["mimeType"], "audio/mpeg");
 
+    // Audit r1: consent is bound to the provider that receives the data.
+    let first = providers[0]["id"].clone();
+    let second = c
+        .ok("providers.create", json!({"kind": "OpenAiCompatible", "name": "Other", "baseUrl": base, "apiKey": "k"}))
+        .await;
+    let second_id = second["provider"]["provider"]["id"].clone();
+    assert!(second_id.is_string(), "{second}");
+    let mut cfg = c.ok("voice.getConfig", json!({})).await["config"].clone();
+    cfg["cloudProviderId"] = second_id.clone();
+    c.ok("voice.setConfig", json!({"config": cfg.clone()})).await;
+    let audio = json!({"audioBase64": "UklGRnh4eHg=", "mimeType": "audio/wav"});
+    assert_eq!(c.err_code("voice.transcribe", audio.clone()).await, "forbidden", "consent was for the first provider");
+    assert_eq!(c.err_code("voice.synthesize", json!({"text": "x", "voice": "alloy"})).await, "forbidden");
+    c.ok("voice.setConsent", json!({"scope": "SpeechRecognition", "engine": "OpenAiWhisper", "granted": true})).await;
+    c.ok("voice.transcribe", audio.clone()).await;
+    // A disabled provider never receives audio, and cannot be selected.
+    c.ok("providers.update", json!({"providerId": second_id, "patch": {"enabled": false}})).await;
+    assert_eq!(c.err_code("voice.transcribe", audio.clone()).await, "bad_request");
+    cfg["cloudProviderId"] = first;
+    c.ok("voice.setConfig", json!({"config": cfg.clone()})).await;
+    cfg["cloudProviderId"] = second_id;
+    assert_eq!(c.err_code("voice.setConfig", json!({"config": cfg})).await, "bad_request");
+
     // Revoking falls back to local engines.
     let r = c.ok("voice.setConsent", json!({"scope": "SpeechRecognition", "granted": false})).await;
     assert_eq!(r["config"]["sttEngine"], "Disabled");
