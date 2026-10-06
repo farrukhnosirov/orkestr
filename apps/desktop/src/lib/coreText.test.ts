@@ -11,10 +11,13 @@ import {
   agentActivity,
   agentName,
   agentNote,
+  agentStopDetail,
   agentToolSummary,
+  fallbackReason,
   managerToolSummary,
   planWarning,
   snapshotLabel,
+  taskReason,
   taskTag,
   templateDescription,
   templateName,
@@ -46,6 +49,21 @@ describe("core text in Russian", () => {
     );
     expect(agentToolSummary("created tests/a.test.mjs")).toBe("создан tests/a.test.mjs");
     expect(agentToolSummary("`node --test` → exit 0")).toBe("`node --test` → код 0");
+  });
+
+  it("translates fallback reasons, stop details and task reasons", async () => {
+    await applyLanguagePreference("ru");
+    expect(agentNote("Provider fallback: a → b (rate_limited). A structured handoff was created.")).toBe(
+      "Переход на резервную модель: a → b (лимит запросов). Контекст передан в структурированном виде.",
+    );
+    expect(fallbackReason("network")).toBe("сетевая ошибка");
+    expect(fallbackReason("something_new")).toBe("something_new");
+    expect(agentNote("Stopped: stopped by the user")).toBe("Остановлен: остановлен пользователем");
+    expect(agentStopDetail("interrupted by a core restart")).toBe("прерван перезапуском ядра");
+    expect(agentStopDetail("LIMIT: too many tokens")).toBe("LIMIT: too many tokens");
+    expect(taskReason("agent_result_partial")).toBe("результат агента: выполнено частично");
+    expect(taskReason("EmergencyStop")).toBe("экстренная остановка");
+    expect(taskReason("manual")).toBe("manual");
   });
 
   it("translates snapshot labels, tags, warnings, terminal titles and tool summaries", async () => {

@@ -50,6 +50,16 @@ describe("describeEvent", () => {
     );
   });
 
+  it("translates the provider fallback reason code", async () => {
+    await i18n.changeLanguage("ru");
+    const fallback = (reason: string) =>
+      describeEvent(ev("ProviderFallback", { from: { providerId: "p", model: "gpt-a" }, to: { providerId: "p", model: "gpt-b" }, reason }));
+    expect(fallback("rate_limited")).toBe("Переход на резервную модель: gpt-a → gpt-b (лимит запросов)");
+    expect(fallback("brand_new")).toBe("Переход на резервную модель: gpt-a → gpt-b (brand_new)");
+    await i18n.changeLanguage("en");
+    expect(fallback("rate_limited")).toBe("Model fallback: gpt-a → gpt-b (rate limit)");
+  });
+
   it("classifies events", () => {
     const e = ev("BuildFailed", { summary: "x" });
     expect(categoryOf(e)).toBe("build");
