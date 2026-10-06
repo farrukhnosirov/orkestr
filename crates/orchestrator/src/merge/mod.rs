@@ -1262,7 +1262,14 @@ impl MergeManager {
             self.inner.deps.vcs.worktrees(project.id, root).await.unwrap_or_default();
         for b in p.branches.iter().filter(|b| matches!(b.state, MergeBranchState::Merged | MergeBranchState::UpToDate))
         {
-            if !git.is_ancestor(root, &b.commit, head).await.unwrap_or(false) {
+            // The branch's *current* tip must be in the merge result: commits
+            // added after the analysis (the approval can wait for hours) are
+            // not merged, so such a branch and its worktree are kept.
+            let Ok(Some(tip)) = git.rev_parse(root, &format!("refs/heads/{}", b.branch)).await else {
+                continue;
+            };
+            if !git.is_ancestor(root, &tip, head).await.unwrap_or(false) {
+                tracing::info!(branch = %b.branch, %tip, "the branch moved after the merge analysis; kept it");
                 continue;
             }
             if let Some(w) =
@@ -1277,7 +1284,9 @@ impl MergeManager {
                 }
             }
             if p.policy.cleanup == orkestr_protocol::methods::merge::MergeCleanup::RemoveWorktreesAndBranches {
-                match git.delete_branch(root, &b.branch, true).await {
+                // Deleted only while it still points at the checked tip
+                // (atomic), never with `-D` on whatever it points at now.
+                match git.delete_branch_at(root, &b.branch, &tip).await {
                     Ok(_) => cleaned.push(b.branch.clone()),
                     Err(e) => tracing::info!(error = %e, branch = %b.branch, "kept the merged branch"),
                 }

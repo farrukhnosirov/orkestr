@@ -80,8 +80,9 @@ pub trait RecoveryHook: Send + Sync {
     async fn recover(&self, services: &Services) -> Result<String, String>;
 }
 
-/// Task engine: `Running/Waiting/Testing/Review` → `Interrupted` through the
-/// privileged `SystemRecovery` edges (contract §5, ADR-0022); emits
+/// Task engine: `Running/Waiting/Testing` → `Interrupted` through the
+/// privileged `SystemRecovery` edges (contract §5, ADR-0022; `Review` waits
+/// for a human and survives a restart); emits
 /// `TaskStatusChanged` + `TaskUpdated` per task.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct TaskRecoveryHook;

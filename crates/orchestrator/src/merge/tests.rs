@@ -706,3 +706,33 @@ async fn blockers_dirty_worktrees_unfinished_tasks_and_run_collection() {
     let p2 = h.propose(&[("agent/done-1", Some(done))]).await;
     assert!(p2.blockers.iter().any(|b| b.kind == MergeBlockerKind::TargetDirty));
 }
+
+#[tokio::test]
+async fn cleanup_keeps_a_branch_that_moved_after_the_analysis() {
+    let Some(h) = harness(Arc::new(NoGateSource), None).await else { return };
+    h.policy(|p| {
+        p.require_review = false;
+        p.require_tests = false;
+        p.cleanup = orkestr_protocol::methods::merge::MergeCleanup::RemoveWorktreesAndBranches;
+    })
+    .await;
+    h.branch("feat/a", "main", &[("a.txt", "a\n")]);
+    h.branch("feat/b", "main", &[("b.txt", "b\n")]);
+    let p = h.propose(&[("feat/a", None), ("feat/b", None)]).await;
+    let p = h.mm.execute(exec(p.id)).await.unwrap();
+    assert_eq!(p.status, MergeProposalStatus::AwaitingApproval);
+    // While the approval is pending the user commits more work on feat/b.
+    git(&["checkout", "-q", "feat/b"], &h.root);
+    std::fs::write(h.root.join("b2.txt"), "later fix\n").unwrap();
+    git(&["add", "-A"], &h.root);
+    git(&["commit", "-q", "-m", "later fix"], &h.root);
+    git(&["checkout", "-q", "main"], &h.root);
+    let later = h.rev("feat/b");
+    h.approve(&p).await;
+    let done = h.wait_status(p.id, &[MergeProposalStatus::Completed, MergeProposalStatus::Failed]).await;
+    assert_eq!(done.status, MergeProposalStatus::Completed, "{:?}", done.status_detail);
+    let branches = h.branches();
+    assert!(!branches.contains("feat/a"), "the merged, unchanged branch is cleaned up: {branches}");
+    assert!(branches.contains("feat/b"), "the moved branch is kept: {branches}");
+    assert_eq!(h.rev("feat/b"), later, "its unmerged commit survives");
+}

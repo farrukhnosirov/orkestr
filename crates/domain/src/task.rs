@@ -61,10 +61,15 @@ impl TaskStatus {
         matches!(self, TaskStatus::Completed | TaskStatus::Cancelled)
     }
 
-    /// States that become `Interrupted` after a crash (contract §5, §62.13).
+    /// States that become `Interrupted` after a crash or shutdown (contract
+    /// §5, §62.13): work that was in flight. `Review` is not: the agent has
+    /// finished and the result only waits for a human (or the quality
+    /// pipeline, which restarts on resume), so it survives a restart and can
+    /// still be accepted — interrupting it would make a resume redo finished
+    /// work. A fix agent working on a reviewed task moves it to `Running`.
     #[must_use]
     pub fn is_interruptible_on_crash(self) -> bool {
-        matches!(self, TaskStatus::Running | TaskStatus::Waiting | TaskStatus::Testing | TaskStatus::Review)
+        matches!(self, TaskStatus::Running | TaskStatus::Waiting | TaskStatus::Testing)
     }
 }
 
@@ -345,7 +350,10 @@ mod tests {
         assert_eq!(TaskStatus::ALL.len(), 12);
         assert!(TaskStatus::Completed.is_terminal());
         assert!(!TaskStatus::Failed.is_terminal());
-        assert!(TaskStatus::Review.is_interruptible_on_crash());
+        assert!(TaskStatus::Running.is_interruptible_on_crash());
+        assert!(TaskStatus::Testing.is_interruptible_on_crash());
+        // Finished work waiting for a human survives a restart.
+        assert!(!TaskStatus::Review.is_interruptible_on_crash());
         assert!(!TaskStatus::Ready.is_interruptible_on_crash());
     }
 

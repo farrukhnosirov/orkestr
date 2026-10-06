@@ -62,6 +62,7 @@ flowchart TD
   pub enum TransitionCause { User, Agent, Manager, Scheduler, Dependency, Policy, Shutdown, CrashRecovery, EmergencyStop }
   ```
   The edges `{Waiting, Review, Testing} → Interrupted` are allowed **only** with `Shutdown | CrashRecovery` (CA-2). The normal table stays as in contract §5.
+  - **Amendment (audit r1):** recovery no longer moves `Review` tasks. In `Review` the agent has finished and the result only waits for a human (or the quality pipeline, which restarts on resume); interrupting it blocked approval after every restart and made a resumed run redo finished work. A fix agent working on a reviewed task moves it to `Running`, which is still interrupted.
 - **Resume summary** (`system.resumeSummary`, §57): `{lastSessionEndedAt, clean, tasks: {completed: n, interrupted: [{taskId, title, lastState, lastSnapshotId}], failed: n}, pendingApprovals: n, lastSnapshot, providersDown: []}`. It is rendered in the Manager panel.
 
 ### Resuming an interrupted task
