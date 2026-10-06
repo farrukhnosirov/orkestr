@@ -71,7 +71,8 @@
     "beforeDiscard_one": "Перед отменой изменений в {{count}} файле",
     "beforeDiscard_few": "Перед отменой изменений в {{count}} файлах",
     "beforeDiscard_many": "Перед отменой изменений в {{count}} файлах",
-    "beforeDiscard_other": "Перед отменой изменений в {{count}} файла"
+    "beforeDiscard_other": "Перед отменой изменений в {{count}} файла",
+    "beforeMerge": "Перед слиянием в {{branch}}"
   },
   "terminal": {
     "agentCommands": "Команды агента",
@@ -88,7 +89,12 @@
     "changedFiles": "изменённых файлов: {{count}}",
     "hits": "совпадений: {{count}}",
     "snapshots": "снимков: {{count}}",
-    "overview": "задач: {{tasks}}, работающих агентов: {{agents}}"
+    "overview": "задач: {{tasks}}, работающих агентов: {{agents}}",
+    "started": "запущен агент {{agent}}",
+    "stopped": "остановлен агент {{agent}}",
+    "agentState": "{{agent}}: {{state}}",
+    "recorded": "записано решение «{{title}}»",
+    "uiChangeProposed": "предложено изменение интерфейса: {{summary}}"
   },
   "note": {
     "started": "Начата работа над задачей «{{task}}», модель {{model}} — {{place}}.",
@@ -124,6 +130,8 @@
     "memory": "память: {{title}}",
     "decision": "решение: {{title}}",
     "snapshot": "снимок «{{label}}»",
-    "exit": "`{{command}}` → код {{code}}"
+    "exit": "`{{command}}` → код {{code}}",
+    "listed": "содержимое {{path}} (элементов: {{count}})",
+    "matches": "совпадений с /{{pattern}}/: {{count}}"
   }
 }

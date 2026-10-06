@@ -34,8 +34,18 @@ export function errorMessage(e: unknown): string {
   return describeError(e);
 }
 
+/** What a load produced, tagged with the key it was loaded for. */
+interface Loaded<T> {
+  key: string;
+  data: T | null;
+  error: string | null;
+}
+
 /**
- * `key` identifies the query: when it changes, data is reloaded.
+ * `key` identifies the query: when it changes, data is reloaded and the
+ * previous key's data/error are no longer returned (callers never see one
+ * project's data under another project's key while the new load runs or
+ * after it fails). Event-triggered reloads of the same key keep the data.
  * Event-triggered reloads are debounced (150 ms) to coalesce bursts.
  */
 export function useRpcQuery<T>(
@@ -44,8 +54,7 @@ export function useRpcQuery<T>(
   options: RpcQueryOptions = {},
 ): RpcQuery<T> {
   const connected = useAppStore((s) => s.connection.state === "open");
-  const [data, setData] = useState<T | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState<Loaded<T>>({ key, data: null, error: null });
   const [loading, setLoading] = useState(false);
   const [tick, setTick] = useState(0);
   const loaderRef = useRef(loader);
@@ -58,8 +67,7 @@ export function useRpcQuery<T>(
 
   useEffect(() => {
     if (!enabled) {
-      setData(null);
-      setError(null);
+      setLoaded({ key, data: null, error: null });
       setLoading(false);
       return;
     }
@@ -71,11 +79,13 @@ export function useRpcQuery<T>(
       .current(client)
       .then((res) => {
         if (cancelled) return;
-        setData(res);
-        setError(null);
+        setLoaded({ key, data: res, error: null });
       })
       .catch((e: unknown) => {
-        if (!cancelled) setError(errorMessage(e));
+        if (cancelled) return;
+        // A failed reload of the same key keeps its last good data.
+        const message = errorMessage(e);
+        setLoaded((prev) => ({ key, data: prev.key === key ? prev.data : null, error: message }));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -102,7 +112,8 @@ export function useRpcQuery<T>(
     };
   }, [topicsKey, reloadKey, connected, enabled]);
 
-  return { data, error, loading, reload };
+  const current = loaded.key === key;
+  return { data: current ? loaded.data : null, error: current ? loaded.error : null, loading, reload };
 }
 
 /** The connected client, or an error suitable for UI display. */

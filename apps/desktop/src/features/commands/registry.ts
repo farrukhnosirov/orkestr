@@ -5,6 +5,7 @@
 import type { LucideIcon } from "lucide-react";
 
 import { coreCommands } from "./coreCommands";
+import { keyMatches } from "./keys";
 import { providerCommands } from "../providers";
 import { taskCommands } from "../../panels/Tasks/commands";
 import { agentCommands } from "../../panels/Agents/commands";
@@ -53,6 +54,7 @@ commands.push(...terminalCommands);
 /**
  * Whether a keyboard event matches a shortcut string like `Ctrl+Shift+T` or
  * `Ctrl+\``. `Ctrl` also matches ⌘ on macOS. Modifiers must match exactly.
+ * The main key is matched independently of the keyboard layout (see `keys.ts`).
  */
 export function matchesShortcut(e: Pick<KeyboardEvent, "key" | "code" | "ctrlKey" | "metaKey" | "shiftKey" | "altKey">, shortcut: string): boolean {
   const parts = shortcut.split("+").map((p) => p.trim().toLowerCase());
@@ -60,8 +62,7 @@ export function matchesShortcut(e: Pick<KeyboardEvent, "key" | "code" | "ctrlKey
   if (!key) return false;
   const want = { ctrl: parts.includes("ctrl"), shift: parts.includes("shift"), alt: parts.includes("alt") };
   if (want.ctrl !== (e.ctrlKey || e.metaKey) || want.shift !== e.shiftKey || want.alt !== e.altKey) return false;
-  if (key === "`") return e.key === "`" || e.code === "Backquote";
-  return e.key.toLowerCase() === key;
+  return keyMatches(e, key);
 }
 
 // files-editor (Phase 1)

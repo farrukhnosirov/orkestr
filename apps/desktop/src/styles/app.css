@@ -97,6 +97,7 @@ body {
 }
 
 .titlebar__wordmark {
+  flex-shrink: 0;
   font-family: var(--ok-font-display);
   font-size: var(--ok-font-size-md);
   font-weight: var(--ok-font-weight-semibold);
@@ -108,19 +109,28 @@ body {
 }
 
 .titlebar__sep {
+  flex-shrink: 0;
   color: var(--ok-color-text-subtle);
 }
 
+/* The name is truncated with an ellipsis (on an inner span: text-overflow
+   does not apply to the anonymous flex item of an inline-flex parent) and
+   never squeezed below a readable width; the full name is in `title`. */
 .titlebar__project {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  min-width: 72px;
   max-width: 260px;
+  color: var(--ok-color-text);
+  font-weight: var(--ok-font-weight-medium);
+}
+
+.titlebar__project-name {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--ok-color-text);
-  font-weight: var(--ok-font-weight-medium);
 }
 
 .titlebar__project-dot {
@@ -176,7 +186,8 @@ body {
   .titlebar__search {
     position: static;
     transform: none;
-    flex: 1 1 auto;
+    /* Shrinks before the project name in the brand group. */
+    flex: 1 4 auto;
     width: auto;
     min-width: 120px;
     max-width: 440px;
@@ -285,6 +296,18 @@ body {
 
 .rail__tile:active {
   transform: scale(0.95);
+}
+
+/* A non-active project with unsaved editor changes. */
+.rail__tile-dirty {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 2px solid var(--ok-color-bg);
+  background: var(--ok-color-warning);
 }
 
 .rail__tile--active {

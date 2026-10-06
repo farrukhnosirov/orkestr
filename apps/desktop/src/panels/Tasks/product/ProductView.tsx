@@ -14,7 +14,7 @@ import { clsx } from "clsx";
 import { CheckCircle2, ClipboardList, Lightbulb, Plus, RefreshCw, Save, Trash2, TriangleAlert, X } from "lucide-react";
 import { useMemo, useState } from "react";
 
-import { useT } from "../../../i18n";
+import { useFormat, useT } from "../../../i18n";
 import { BUILTIN_ROLES, roleLabel } from "../../Agents/model";
 import { useTeams } from "../../Agents/teamsData";
 import { teamName } from "../../Agents/teamsModel";
@@ -27,6 +27,7 @@ import { PM_LIMITS, allTasks, counts, edit, progressPercent, validateEpic } from
 
 export function ProductView({ projectId, tasks }: { projectId: string; tasks: readonly Task[] }) {
   const { t } = useT(["product", "common"]);
+  const fmt = useFormat();
   const { drafts, loading, error, reload } = usePmDrafts(projectId);
   const [selected, setSelected] = useState<string | null>(null);
   const current = drafts.find((d) => d.id === selected) ?? drafts[0] ?? null;
@@ -73,7 +74,7 @@ export function ProductView({ projectId, tasks }: { projectId: string; tasks: re
                 <span className="pm-draft-item__title">{d.epic.title}</span>
                 <span className="pm-draft-item__meta">
                   <Badge tone={d.status === "Approved" ? "success" : d.status === "Discarded" ? "neutral" : "accent"}>{t(`status.${d.status}`)}</Badge>
-                  {d.status === "Approved" && <span>{t("progress", { percent: progressPercent(d) })}</span>}
+                  {d.status === "Approved" && <span>{t("progress", { percent: fmt.percent(progressPercent(d) / 100) })}</span>}
                 </span>
               </button>
             </li>

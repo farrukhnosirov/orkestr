@@ -15,6 +15,7 @@ import { AiUiLayer } from "./features/aiui/AiUiLayer";
 import { VisualLayer } from "./features/performance/VisualLayer";
 import { registerSecurityFeature } from "./features/security/register";
 import { SecurityLayer } from "./features/security/SecurityLayer";
+import { keyMatches } from "./features/commands/keys";
 import { commands, matchesShortcut } from "./features/commands/registry";
 import { Toasts } from "./features/notifications/NotificationCenter";
 import { OnboardingWizard } from "./features/onboarding/OnboardingWizard";
@@ -39,7 +40,7 @@ function useGlobalShortcuts() {
   const setPaletteOpen = useAppStore((s) => s.setPaletteOpen);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "k") {
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && keyMatches(e, "k")) {
         e.preventDefault();
         // Keep Ctrl+K away from Monaco: there it starts a chord (Ctrl+K Ctrl+C …)
         // and the editor would swallow the next key — the palette's Enter.

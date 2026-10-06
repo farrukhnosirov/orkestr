@@ -4,6 +4,7 @@ import { EmptyState, Spinner } from "@orkestr/ui";
 import { FileCode } from "lucide-react";
 import { lazy, Suspense, useEffect } from "react";
 
+import { keyMatches } from "../../features/commands/keys";
 import { RootFolderForm } from "../../features/files/RootFolderForm";
 import { useT } from "../../i18n";
 import { useActiveProject } from "../../store/app";
@@ -31,11 +32,10 @@ export default function CodePanel({ projectId }: PanelProps) {
     if (!projectId || !hasRoot) return;
     const onKey = (e: KeyboardEvent) => {
       if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
-      const key = e.key.toLowerCase();
-      if (key === "p" && !e.shiftKey) {
+      if (keyMatches(e, "p") && !e.shiftKey) {
         e.preventDefault();
         useEditorStore.getState().setQuickOpen(true);
-      } else if (key === "f" && e.shiftKey) {
+      } else if (keyMatches(e, "f") && e.shiftKey) {
         e.preventDefault();
         useEditorStore.getState().setSearchOpen(true);
       }

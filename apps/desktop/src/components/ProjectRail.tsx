@@ -1,11 +1,15 @@
 import type { Project } from "@orkestr/protocol";
 import { IconButton, Tooltip } from "@orkestr/ui";
 import { clsx } from "clsx";
-import { Command, Plus } from "lucide-react";
+import { Command, FolderOpen, Plus, Trash2 } from "lucide-react";
+import { useCallback, useState } from "react";
 
 import { openProject } from "../core/client";
 import { useT } from "../i18n";
+import { ContextMenu } from "../panels/Files/ContextMenu";
 import { useAppStore } from "../store/app";
+import { projectsWithUnsavedTabs, useEditorStore } from "../store/editor";
+import { DeleteProjectDialog } from "./DeleteProjectDialog";
 
 /** Up to two initials for a project tile. */
 export function projectInitials(name: string): string {
@@ -44,6 +48,12 @@ export function ProjectRail() {
   const loaded = useAppStore((s) => s.projectsLoaded);
   const setCreateOpen = useAppStore((s) => s.setCreateProjectOpen);
   const setPaletteOpen = useAppStore((s) => s.setPaletteOpen);
+  const setDeleteProjectId = useAppStore((s) => s.setDeleteProjectId);
+  // Joined so the selector returns a stable primitive.
+  const unsavedKey = useEditorStore((s) => projectsWithUnsavedTabs(s).sort().join("|"));
+  const unsaved = new Set(unsavedKey ? unsavedKey.split("|") : []);
+  const [menu, setMenu] = useState<{ project: Project; x: number; y: number } | null>(null);
+  const closeMenu = useCallback(() => setMenu(null), []);
   const { t } = useT("shell");
 
   return (
@@ -51,21 +61,39 @@ export function ProjectRail() {
       <div className="rail__list" role="list">
         {projects.map((p) => {
           const active = p.id === activeId;
+          const dirty = !active && unsaved.has(p.id);
           return (
             <div role="listitem" key={p.id} className="rail__item">
-              <Tooltip content={p.name} side="right">
+              <Tooltip content={dirty ? t("rail.unsaved", { name: p.name }) : p.name} side="right">
                 <button
                   type="button"
                   className={clsx("rail__tile", active && "rail__tile--active")}
                   style={tileStyle(p)}
-                  aria-label={t("rail.openProject", { name: p.name })}
+                  aria-label={
+                    dirty
+                      ? `${t("rail.openProject", { name: p.name })}. ${t("rail.unsaved", { name: p.name })}`
+                      : t("rail.openProject", { name: p.name })
+                  }
+                  aria-haspopup="menu"
                   aria-current={active ? "true" : undefined}
                   data-robot-drop={p.id}
                   onClick={() => {
                     if (!active) void openProject(p.id);
                   }}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    setMenu({ project: p, x: e.clientX, y: e.clientY });
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "ContextMenu" || (e.shiftKey && e.key === "F10")) {
+                      e.preventDefault();
+                      const r = e.currentTarget.getBoundingClientRect();
+                      setMenu({ project: p, x: r.right, y: r.top });
+                    }
+                  }}
                 >
                   {projectInitials(p.name)}
+                  {dirty && <span className="rail__tile-dirty" aria-hidden="true" />}
                 </button>
               </Tooltip>
             </div>
@@ -81,6 +109,34 @@ export function ProjectRail() {
         </Tooltip>
         <IconButton label={t("rail.palette")} icon={<Command size={16} />} onClick={() => setPaletteOpen(true)} tooltip="right" />
       </div>
+      {menu && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          label={t("rail.menu", { name: menu.project.name })}
+          onClose={closeMenu}
+          items={[
+            {
+              type: "item",
+              id: "open",
+              label: t("rail.open"),
+              icon: <FolderOpen size={14} />,
+              disabled: menu.project.id === activeId,
+              onSelect: () => void openProject(menu.project.id),
+            },
+            { type: "separator", id: "sep" },
+            {
+              type: "item",
+              id: "delete",
+              label: t("rail.delete"),
+              icon: <Trash2 size={14} />,
+              danger: true,
+              onSelect: () => setDeleteProjectId(menu.project.id),
+            },
+          ]}
+        />
+      )}
+      <DeleteProjectDialog />
     </nav>
   );
 }

@@ -89,6 +89,7 @@ export function snapshotLabel(label: string): string {
   if ((m = label.match(/^Before rollback to “(.+)”$/))) return t("coreText:snapshot.beforeRollbackTo", { label: snapshotLabel(m[1] ?? "") });
   if ((m = label.match(/^Before restoring (.+)$/))) return t("coreText:snapshot.beforeRestore", { path: m[1] });
   if ((m = label.match(/^Before rolling back task (\S+)$/))) return t("coreText:snapshot.beforeTaskRollback", { id: m[1] });
+  if ((m = label.match(/^Before merge into (.+)$/))) return t("coreText:snapshot.beforeMerge", { branch: m[1] });
   return label;
 }
 
@@ -100,9 +101,25 @@ export function terminalTitle(title: string): string {
   return key ? t(`coreText:terminal.${key}`) : title;
 }
 
-/** Summary line of a Manager tool call (fixed English shapes, crates/orchestrator/src/tools.rs). */
+const AGENT_STATES = ["Idle", "Listening", "Thinking", "Coding", "Testing", "Reviewing", "Waiting", "Error", "Completed", "Stopped"] as const;
+const APPROVAL_STATUSES = ["Pending", "Approved", "Rejected", "Expired", "Cancelled"] as const;
+const AGENT_STATE_RE = new RegExp(`^(.+) is (${AGENT_STATES.join("|")})$`);
+
+/** Summary line of a Manager tool call (fixed English shapes, crates/orchestrator/src/tools.rs and ui_tools.rs). */
 export function managerToolSummary(summary: string): string {
   let m: RegExpMatchArray | null;
+  // `ask_user`: the bare decision status (`{status:?}`).
+  if ((APPROVAL_STATUSES as readonly string[]).includes(summary)) return t(`common:status.approval.${summary as (typeof APPROVAL_STATUSES)[number]}`);
+  if ((m = summary.match(/^started (.+)$/))) return t("coreText:tool.started", { agent: agentName(m[1] ?? "") });
+  if ((m = summary.match(/^stopped (.+)$/))) return t("coreText:tool.stopped", { agent: agentName(m[1] ?? "") });
+  if ((m = summary.match(AGENT_STATE_RE))) {
+    return t("coreText:tool.agentState", {
+      agent: agentName(m[1] ?? ""),
+      state: t(`common:status.agent.${m[2] as (typeof AGENT_STATES)[number]}`),
+    });
+  }
+  if ((m = summary.match(/^recorded "([\s\S]*)"$/))) return t("coreText:tool.recorded", { title: m[1] });
+  if ((m = summary.match(/^UI change proposed: ([\s\S]*)$/))) return t("coreText:tool.uiChangeProposed", { summary: m[1] });
   const n = (i: number) => Number(m?.[i] ?? 0);
   if ((m = summary.match(/^plan with (\d+) task\(s\)$/))) return t("coreText:tool.plan", { count: n(1) });
   if ((m = summary.match(/^(\d+) project\(s\)$/))) return t("common:count.projects", { count: n(1) });
@@ -177,6 +194,8 @@ export function planWarning(w: string): string {
 export function agentToolSummary(summary: string): string {
   let m: RegExpMatchArray | null;
   if (summary === "no changes") return t("coreText:agentTool.noChanges");
+  if ((m = summary.match(/^listed (.*) \((\d+) entries\)$/))) return t("coreText:agentTool.listed", { path: m[1], count: Number(m[2]) });
+  if ((m = summary.match(/^(\d+) match\(es\) for \/([\s\S]*)\/$/))) return t("coreText:agentTool.matches", { pattern: m[2], count: Number(m[1]) });
   if ((m = summary.match(/^read (.+) \((\d+) lines\)$/))) return t("coreText:agentTool.read", { path: m[1], count: Number(m[2]) });
   if ((m = summary.match(/^created (\S.*)$/))) return t("coreText:agentTool.created", { path: m[1] });
   if ((m = summary.match(/^updated (\S.*)$/))) return t("coreText:agentTool.updated", { path: m[1] });

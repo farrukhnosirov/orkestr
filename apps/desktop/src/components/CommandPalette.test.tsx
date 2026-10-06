@@ -10,7 +10,8 @@ import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { type AppCommand, commands } from "../features/commands/registry";
 import { i18n } from "../i18n";
 import { useAppStore } from "../store/app";
-import { CommandPalette } from "./CommandPalette";
+import { registerLayoutFeature } from "../features/layout/register";
+import { CommandPalette, uniqueById } from "./CommandPalette";
 
 let ready = false;
 let ran = 0;
@@ -53,5 +54,25 @@ describe("command palette enablement", () => {
     fireEvent.keyDown(item, { key: "Enter" });
     expect(ran).toBe(1);
     commands.splice(commands.indexOf(probe), 1);
+  });
+});
+
+describe("palette item ids", () => {
+  it("lists 'Reset layout' once and never renders duplicate option ids", () => {
+    registerLayoutFeature();
+    render(<CommandPalette />);
+    act(() => useAppStore.getState().setPaletteOpen(true));
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "reset layout" } });
+    expect(screen.getAllByRole("option").filter((o) => o.id === "palette-layout.reset")).toHaveLength(1);
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "" } });
+    const ids = screen.getAllByRole("option").map((o) => o.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it("uniqueById keeps the first item of each id", () => {
+    expect(uniqueById([{ id: "a", n: 1 }, { id: "b", n: 2 }, { id: "a", n: 3 }])).toEqual([
+      { id: "a", n: 1 },
+      { id: "b", n: 2 },
+    ]);
   });
 });

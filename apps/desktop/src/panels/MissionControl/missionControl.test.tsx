@@ -178,6 +178,8 @@ describe("feed", () => {
     expect(alertFromEvent(ev("TestRunFinished", { runId: "r", passed: 3, failed: 0, skipped: 0, durationMs: 1, summary: "" }))).toBeNull();
     expect(alertFromEvent(ev("BudgetThreshold", { scope: "global", spentUsd: 9, limitUsd: 10, fraction: 0.9 }))?.severity).toBe("warning");
     expect(alertFromEvent(ev("BudgetThreshold", { scope: "global", spentUsd: 12, limitUsd: 10, fraction: 1.2 }))?.severity).toBe("critical");
+    // The ratio is carried as is and formatted with fmt.percent at render («80 %» in Russian).
+    expect(alertFromEvent(ev("BudgetThreshold", { scope: "global", spentUsd: 8, limitUsd: 10, fraction: 0.8 }))?.params["fraction"]).toBe(0.8);
     expect(alertFromEvent(ev("Log", { level: "info", target: "x", message: "m", fields: null }))).toBeNull();
     expect(alertFromEvent(ev("Log", { level: "error", target: "core", message: "m", fields: null }))?.kind).toBe("coreError");
     expect(alertFromEvent(ev("ProviderRateLimited", { providerId: "p", model: "m", retryAfterSecs: 30 }))?.params).toEqual({ model: "m", secs: 30 });

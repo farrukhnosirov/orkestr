@@ -189,7 +189,7 @@
       "rateLimited": "Rate limit hit for {{model}}, retry in {{secs}}",
       "providerDown": "Provider is down",
       "providerDegraded": "Provider is degraded",
-      "budget": "Budget at {{percent}}%: {{spent}} of {{limit}}",
+      "budget": "Budget at {{percent}}: {{spent}} of {{limit}}",
       "agentError": "Agent failed",
       "taskFailed": "Task failed",
       "emergency_one": "Emergency stop: {{count}} agent stopped",

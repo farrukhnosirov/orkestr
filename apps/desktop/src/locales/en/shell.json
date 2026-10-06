@@ -37,7 +37,11 @@
     "empty": "No projects",
     "newProject": "New project",
     "createProject": "Create project",
-    "palette": "Command palette (Ctrl+K)"
+    "palette": "Command palette (Ctrl+K)",
+    "menu": "Project actions: {{name}}",
+    "open": "Open",
+    "delete": "Delete project…",
+    "unsaved": "Unsaved changes in {{name}}"
   },
   "createProject": {
     "title": "New project",
@@ -51,6 +55,17 @@
     "nameRequired": "Give the project a name.",
     "failed": "Could not create the project.",
     "submit": "Create project"
+  },
+  "deleteProject": {
+    "title": "Delete project “{{name}}”?",
+    "subtitle": "The project is removed from Orkestr. This cannot be undone.",
+    "filesKept": "Files on disk are not touched: the folder {{path}} stays as it is, and you can add it again later.",
+    "noFolder": "No folder is linked, so no files are affected.",
+    "unsaved_one": "The editor has {{count}} unsaved file in this project. Its changes will be lost.",
+    "unsaved_other": "The editor has {{count}} unsaved files in this project. Their changes will be lost.",
+    "confirm": "Delete project",
+    "cancel": "Cancel",
+    "failed": "Could not delete the project."
   },
   "workspace": {
     "unknownPanel": "Unknown panel",
@@ -78,11 +93,9 @@
     "groups": {
       "recent": "Recent",
       "panels": "Panels",
-      "layout": "Layout",
       "appearance": "Appearance"
     },
     "openPanel": "Open Panel: {{title}}",
-    "resetLayout": "Reset Layout (Coding preset)",
     "theme": "Theme: {{name}}",
     "themeModes": {
       "Dark": "dark",
@@ -179,7 +192,8 @@
     "toggleFullscreen": "Toggle Fullscreen",
     "stopAll": "Stop All AI",
     "switchLanguage": "Switch Language",
-    "switchLanguageTo": "Switch to {{language}}"
+    "switchLanguageTo": "Switch to {{language}}",
+    "projectDelete": "Delete Project…"
   },
   "stopAll": {
     "doneTitle": "All AI activity stopped",

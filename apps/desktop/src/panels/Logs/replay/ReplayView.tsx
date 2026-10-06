@@ -64,9 +64,10 @@ export function ReplayView({ projectId }: ReplayViewProps) {
   const runs = runsQuery.data?.runs ?? [];
   const run = runs.find((r) => r.runId === runId) ?? null;
 
-  // Default to the newest run.
+  // Default to the newest run; a selection that is not one of this project's
+  // runs (e.g. carried over a project switch) falls back to it as well.
   useEffect(() => {
-    if (!runId && runs[0]) setRunId(runs[0].runId);
+    if (runs[0] && (!runId || !runs.some((r) => r.runId === runId))) setRunId(runs[0].runId);
   }, [runId, runs]);
 
   const params = useMemo<ReplayTimelineParams | null>(() => {

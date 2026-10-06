@@ -65,6 +65,22 @@ describe("core text in Russian", () => {
     expect(managerToolSummary("5 task(s), 2 running agent(s)")).toBe("задач: 5, работающих агентов: 2");
   });
 
+  it("translates merge snapshots and the remaining agent / Manager tool summaries", async () => {
+    await applyLanguagePreference("ru");
+    expect(snapshotLabel("Before merge into main")).toBe("Перед слиянием в main");
+    expect(agentToolSummary("listed src (12 entries)")).toBe("содержимое src (элементов: 12)");
+    expect(agentToolSummary("3 match(es) for /foo/")).toBe("совпадений с /foo/: 3");
+    expect(managerToolSummary("started QA Engineer #1")).toBe("запущен агент Тестировщик #1");
+    expect(managerToolSummary("stopped Backend Engineer #2")).toBe("остановлен агент Бэкенд-разработчик #2");
+    expect(managerToolSummary("QA Engineer #1 is Coding")).toBe("Тестировщик #1: Пишет код");
+    expect(managerToolSummary('recorded "Use SQLite"')).toBe("записано решение «Use SQLite»");
+    expect(managerToolSummary("Approved")).toBe("Подтверждено");
+    expect(managerToolSummary("UI change proposed: Compact layout")).toBe("предложено изменение интерфейса: Compact layout");
+    await applyLanguagePreference("en");
+    expect(snapshotLabel("Before merge into main")).toBe("Before merge into main");
+    expect(managerToolSummary("started QA Engineer #1")).toBe("started QA Engineer #1");
+  });
+
   it("builds the Manager resume banner from its counters", async () => {
     await applyLanguagePreference("ru");
     const base = {
