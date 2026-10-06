@@ -889,6 +889,53 @@ async fn budget_bound_stops_the_run() {
 }
 
 #[tokio::test]
+async fn concurrent_agents_share_the_run_budget() {
+    let h = harness(false, ApprovalMode::SemiAuto).await;
+    // Three independent tasks start in one scheduler pass and wait for each
+    // other, so all three are live at once.
+    h.mock_gated("gpt-4o", &["alpha", "beta", "gamma"], 3);
+    let plan = h
+        .custom_plan(vec![
+            ptask("a", "Implement the alpha module", AgentRole::Backend, &[]),
+            ptask("b", "Implement the beta module", AgentRole::Backend, &[]),
+            ptask("c", "Implement the gamma module", AgentRole::Backend, &[]),
+        ])
+        .await;
+    h.mgr.approve_plan(ApprovePlanParams { plan_id: plan.id, edits: None, start_run: Some(false) }).await.unwrap();
+    let max = 3.0;
+    let run = h
+        .mgr
+        .start_run(ManagerRunParams {
+            plan_id: Some(plan.id),
+            run_id: None,
+            limits: Some(RunLimitsPatch {
+                max_cost_usd: Some(max),
+                max_parallel_agents: Some(3),
+                ..RunLimitsPatch::default()
+            }),
+        })
+        .await
+        .unwrap();
+    let live = h
+        .mgr
+        .wait_run(run.id, Duration::from_secs(60), |r| {
+            final_status(r.status) || r.tasks.iter().all(|t| t.agent_id.is_some())
+        })
+        .await
+        .unwrap();
+    let mut caps = Vec::new();
+    for t in &live.tasks {
+        let a = h.rt.get(t.agent_id.unwrap()).await.unwrap();
+        caps.push(a.budget.and_then(|b| b.max_cost_usd).expect("every run agent has a cost cap"));
+    }
+    let total: f64 = caps.iter().sum();
+    assert!(total <= max + 1e-6, "the agents' caps together stay within the run budget: {caps:?}");
+    assert!(caps.iter().all(|c| (c - max / 3.0).abs() < 0.05), "an even split: {caps:?}");
+    let done = h.mgr.wait_run(run.id, Duration::from_secs(120), |r| final_status(r.status)).await.unwrap();
+    assert!(done.cost_usd <= max, "{}", done.cost_usd);
+}
+
+#[tokio::test]
 async fn ask_policy_waits_for_review_and_interrupted_runs_resume() {
     let h = harness(false, ApprovalMode::Ask).await;
     h.mock("mock-smart");

@@ -20,7 +20,7 @@ use std::time::{Duration, Instant};
 
 use orkestr_agent_runtime::AgentError;
 use orkestr_domain::{
-    now, AgentRole, Budget, BudgetPeriod, ManagerRunId, Project, TaskActor, TaskStatus, WorktreePolicy,
+    now, AgentRole, Budget, BudgetPeriod, ManagerRunId, Project, TaskActor, TaskId, TaskStatus, WorktreePolicy,
 };
 use orkestr_protocol::methods::agents::{AgentStopMode, SpawnAgentParams};
 use orkestr_protocol::methods::manager::{
@@ -448,6 +448,31 @@ struct Supervisor {
     pipelines_open: BTreeSet<String>,
     /// The project's quality pipeline is on (finished results wait for it).
     pipeline_enabled: bool,
+    /// Run-budget reservations of live work (agent, team lead or quality
+    /// pipeline) by task: `(cap handed out, task cost when handed out)`.
+    /// The run budget is shared: live work never holds more than
+    /// `max − spent` in total, so concurrent agents cannot each spend the
+    /// whole remainder.
+    reservations: BTreeMap<TaskId, (f64, f64)>,
+    /// Tasks whose agent used up its run-budget share: `(index, share)`;
+    /// retried once more budget is free, or the run ends "budget
+    /// exhausted" when nothing live can return any.
+    budget_waiting: BTreeMap<TaskId, (usize, f64)>,
+}
+
+/// Smallest run-budget share worth starting an agent with (USD).
+const MIN_SHARE_USD: f64 = 0.01;
+
+/// The structured limit an agent run stopped on (never the summary text).
+fn stop_code(task: &orkestr_domain::Task) -> Option<&str> {
+    task.result.as_ref().and_then(|r| r.stop_code.as_deref())
+}
+
+/// A failure caused by a template/project budget, the turn limit or the
+/// wall-clock limit is not retried blindly (the same limit would stop the
+/// next agent). A run-budget share stop is decided by the supervisor.
+fn limit_failure(task: &orkestr_domain::Task) -> bool {
+    matches!(stop_code(task), Some("budget_exceeded" | "project_budget_exceeded" | "max_turns" | "time_limit"))
 }
 
 impl Supervisor {
@@ -476,7 +501,76 @@ impl Supervisor {
             handled: BTreeSet::new(),
             pipelines_open: BTreeSet::new(),
             pipeline_enabled: false,
+            reservations: BTreeMap::new(),
+            budget_waiting: BTreeMap::new(),
         }
+    }
+
+    // -----------------------------------------------------------------
+    // shared run budget
+    // -----------------------------------------------------------------
+
+    fn task_cost(&self, id: TaskId) -> f64 {
+        self.run.tasks.iter().find(|t| t.task_id == id).map_or(0.0, |t| t.cost_usd)
+    }
+
+    /// Run budget neither spent nor reserved by live work (`None` = the run
+    /// has no budget).
+    fn budget_available(&self) -> Option<f64> {
+        let max = self.run.limits.max_cost_usd?;
+        let outstanding: f64 = self
+            .reservations
+            .iter()
+            .map(|(id, (cap, base))| (cap - (self.task_cost(*id) - base).max(0.0)).max(0.0))
+            .sum();
+        Some((max - self.run.cost_usd - outstanding).max(0.0))
+    }
+
+    /// Reserves `1/share` of the available run budget for `task` and returns
+    /// it (the cap of the task's agent / lead / pipeline).
+    fn reserve(&mut self, task: TaskId, share: usize) -> Option<f64> {
+        self.reservations.remove(&task);
+        let avail = self.budget_available()?;
+        let cap = avail / f64::from(u32::try_from(share.max(1)).unwrap_or(u32::MAX));
+        self.reservations.insert(task, (cap, self.task_cost(task)));
+        Some(cap)
+    }
+
+    /// How many shares the available budget is split into for work that
+    /// starts outside a scheduler pass (pipelines, team leads): the open
+    /// tasks without a reservation, at most the parallel limit.
+    fn open_share(&self) -> usize {
+        let open = self
+            .run
+            .tasks
+            .iter()
+            .filter(|t| !matches!(t.status, TaskStatus::Completed | TaskStatus::Cancelled))
+            .filter(|t| !self.reservations.contains_key(&t.task_id))
+            .count();
+        open.clamp(1, (self.run.limits.max_parallel_agents as usize).max(1))
+    }
+
+    /// Frees the reservations of tasks with no live agent and no live
+    /// pipeline (what they did not spend returns to the pool).
+    fn release_idle(&mut self) {
+        let idle: Vec<TaskId> = self
+            .reservations
+            .keys()
+            .copied()
+            .filter(|id| {
+                let agent = self.run.tasks.iter().find(|t| t.task_id == *id).and_then(|t| t.agent_id);
+                !agent.is_some_and(|a| self.agent_live(a)) && !self.inner.pipeline_live(*id)
+            })
+            .collect();
+        for id in idle {
+            self.reservations.remove(&id);
+        }
+    }
+
+    /// The run budget cannot fund another agent while nothing live holds a
+    /// share that could still come back.
+    fn budget_exhausted(&self) -> bool {
+        self.budget_available().is_some_and(|a| a < MIN_SHARE_USD)
     }
 
     fn root(&self) -> Option<PathBuf> {
@@ -633,8 +727,8 @@ impl Supervisor {
     /// Reloads task states, agent facts and costs; handles finished agents
     /// (failure streaks, retries).
     async fn refresh(&mut self) {
-        let max_attempts = self.run.limits.max_attempts_per_task;
         let mut total = 0.0;
+        let mut ended_now: Vec<(usize, orkestr_domain::Task)> = Vec::new();
         for i in 0..self.run.tasks.len() {
             let tid = self.run.tasks[i].task_id;
             let Ok(task) = self.inner.deps.tasks.get(tid).await else {
@@ -679,55 +773,77 @@ impl Supervisor {
                         self.run.consecutive_failures += 1;
                         let why = task.result.as_ref().map(|r| one_line(&r.summary, 300));
                         self.run.tasks[i].last_error = why.or_else(|| Some(format!("ended {:?}", task.status)));
-                        if self.run.limits.max_cost_usd.is_some()
-                            && task.result.as_ref().is_some_and(|r| r.summary.to_ascii_lowercase().contains("budget"))
-                        {
-                            self.budget_hit = true;
-                        }
-                        let attempts = self.run.tasks[i].attempts;
-                        let retry = task.status == TaskStatus::Failed
-                            && attempts < max_attempts
-                            && self.run.consecutive_failures < self.run.limits.max_consecutive_failures
-                            && !self.limit_failure(&task);
-                        if retry {
-                            match self.inner.deps.tasks.retry(tid, TaskActor::Manager).await {
-                                Ok(c) => {
-                                    self.run.tasks[i].status = c.task.status;
-                                    self.inner
-                                        .system_event(
-                                            self.project.id,
-                                            &if crate::util::is_ru(&self.inner.deps.config.ui_language.get()) {
-                                                format!(
-                                                    "Задача «{}» не выполнена (попытка {attempts} из {max_attempts}) — повторяю с новым агентом.",
-                                                    task.title
-                                                )
-                                            } else {
-                                                format!(
-                                                    "Task \"{}\" failed (attempt {attempts} of {max_attempts}) — retrying with a new agent.",
-                                                    task.title
-                                                )
-                                            },
-                                            MessageExtras { run_id: Some(self.run.id), ..MessageExtras::default() },
-                                        )
-                                        .await;
-                                }
-                                Err(e) => tracing::warn!(task_id = %tid, error = %e, "retry failed"),
-                            }
-                        }
+                        ended_now.push((i, task));
                     }
                     _ => {}
                 }
             }
         }
         self.run.cost_usd = (total * 1_000_000.0).round() / 1_000_000.0;
+        let shares: BTreeMap<TaskId, f64> =
+            ended_now.iter().filter_map(|(_, t)| self.reservations.get(&t.id).map(|(c, _)| (t.id, *c))).collect();
+        self.release_idle();
+        // Decided with the fresh spend and the finished agents' shares back
+        // in the pool.
+        for (i, task) in ended_now {
+            if stop_code(&task) == Some("run_budget_exceeded") && self.run.limits.max_cost_usd.is_some() {
+                // The agent used up its share of the run budget: it is tried
+                // again only once more budget than it had is free.
+                self.budget_waiting.insert(task.id, (i, shares.get(&task.id).copied().unwrap_or(0.0)));
+                continue;
+            }
+            self.retry_failed(i, &task).await;
+        }
+        let waiting = std::mem::take(&mut self.budget_waiting);
+        for (id, (i, had)) in waiting {
+            let avail = self.budget_available().unwrap_or(0.0);
+            if avail >= MIN_SHARE_USD && avail > had + 1e-9 {
+                if let Ok(task) = self.inner.deps.tasks.get(id).await {
+                    self.retry_failed(i, &task).await;
+                }
+            } else if self.reservations.is_empty() {
+                // Nothing live could return budget: the run budget is spent.
+                self.budget_hit = true;
+            } else {
+                self.budget_waiting.insert(id, (i, had));
+            }
+        }
     }
 
-    /// A failure caused by a budget/turn/time limit is not retried blindly.
-    fn limit_failure(&self, task: &orkestr_domain::Task) -> bool {
-        task.result.as_ref().is_some_and(|r| {
-            let s = r.summary.to_ascii_lowercase();
-            s.contains("budget") || s.contains("turn limit") || s.contains("wall-clock")
-        })
+    /// Retries a failed run task with a new agent within the attempt and
+    /// failure-streak bounds (limit failures are not retried blindly).
+    async fn retry_failed(&mut self, i: usize, task: &orkestr_domain::Task) {
+        let max_attempts = self.run.limits.max_attempts_per_task;
+        let attempts = self.run.tasks[i].attempts;
+        let retry = task.status == TaskStatus::Failed
+            && attempts < max_attempts
+            && self.run.consecutive_failures < self.run.limits.max_consecutive_failures
+            && !limit_failure(task);
+        if retry {
+            match self.inner.deps.tasks.retry(task.id, TaskActor::Manager).await {
+                Ok(c) => {
+                    self.run.tasks[i].status = c.task.status;
+                    self.inner
+                        .system_event(
+                            self.project.id,
+                            &if crate::util::is_ru(&self.inner.deps.config.ui_language.get()) {
+                                format!(
+                                    "Задача «{}» не выполнена (попытка {attempts} из {max_attempts}) — повторяю с новым агентом.",
+                                    task.title
+                                )
+                            } else {
+                                format!(
+                                    "Task \"{}\" failed (attempt {attempts} of {max_attempts}) — retrying with a new agent.",
+                                    task.title
+                                )
+                            },
+                            MessageExtras { run_id: Some(self.run.id), ..MessageExtras::default() },
+                        )
+                        .await;
+                }
+                Err(e) => tracing::warn!(task_id = %task.id, error = %e, "retry failed"),
+            }
+        }
     }
 
     /// Phase 2: finished agents' results go through the quality pipeline
@@ -761,17 +877,22 @@ impl Supervisor {
                 if let Some(a) = agent {
                     self.handled.insert(a);
                 }
+                // The pipeline (reviewers, fix agents) gets its share of the
+                // shared run budget, reserved while it runs.
+                let share = self.open_share();
+                let budget_usd = self.reserve(tid, share);
                 let ctx = crate::pipeline::PipelineCtx {
                     task_id: tid,
                     run_id: Some(self.run.id),
                     role: Some(role),
                     policy: self.run.approval_policy,
                     model: self.plan.options.model.clone(),
-                    budget_usd: self.run.limits.max_cost_usd.map(|m| (m - self.run.cost_usd).max(0.0)),
+                    budget_usd,
                     paused: Some(self.control.paused.subscribe()),
                     parent_cancel: self.control.cancel.clone(),
                 };
                 if let Err(e) = self.inner.launch_pipeline(ctx).await {
+                    self.reservations.remove(&tid);
                     tracing::warn!(task_id = %tid, error = %e, "could not start the quality pipeline");
                     self.run.tasks[i].last_error = Some(one_line(&format!("quality pipeline: {e}"), 300));
                 }
@@ -1137,12 +1258,19 @@ impl Supervisor {
             .collect();
         let outcome = self.inner.parallel.admit(self.run.id, self.project.id, max_parallel, candidates, &active);
         let mut started = 0usize;
+        // The available run budget is split evenly across the agents this
+        // pass starts (each one's share is reserved before the next spawn).
+        let planned = outcome.start.len().min(max_parallel.saturating_sub(live)).max(1);
         for task_id in outcome.start {
             if live + started >= max_parallel || self.run.agents_spawned >= self.run.limits.max_agents {
                 break;
             }
+            if self.budget_exhausted() && !self.reservations.is_empty() {
+                // Live work holds the rest of the run budget; wait for it.
+                break;
+            }
             let Some(i) = self.run.tasks.iter().position(|t| t.task_id == task_id) else { continue };
-            match self.spawn_for(i, git).await {
+            match self.spawn_for(i, git, planned.saturating_sub(started)).await {
                 Ok(()) => started += 1,
                 Err(Fatal(reason)) => return Some(reason),
             }
@@ -1248,7 +1376,7 @@ impl Supervisor {
         (Some((*base).to_owned()), note)
     }
 
-    async fn spawn_for(&mut self, i: usize, git: bool) -> Result<(), Fatal> {
+    async fn spawn_for(&mut self, i: usize, git: bool, share: usize) -> Result<(), Fatal> {
         let (key, role, task_id) = {
             let t = &self.run.tasks[i];
             (t.key.clone(), t.role.clone(), t.task_id)
@@ -1259,7 +1387,7 @@ impl Supervisor {
             Err(e) => return Err(Fatal(format!("team delegation failed: {e}"))),
         };
         let member = match route {
-            Some(crate::teams::TeamRoute::Lead(lead)) => return self.delegate_to_lead(i, lead).await,
+            Some(crate::teams::TeamRoute::Lead(lead)) => return self.delegate_to_lead(i, lead, share).await,
             Some(crate::teams::TeamRoute::Member(m)) => Some(m),
             None => None,
         };
@@ -1293,8 +1421,8 @@ impl Supervisor {
         } else {
             WorktreePolicy::SharedWorktree
         };
-        let budget = self.run.limits.max_cost_usd.map(|max| Budget {
-            max_cost_usd: Some((max - self.run.cost_usd).max(0.0)),
+        let budget = self.reserve(task_id, share).map(|cap| Budget {
+            max_cost_usd: Some(cap),
             ..Budget::unrestricted(BudgetPeriod::PerTask)
         });
         let params = SpawnAgentParams {
@@ -1336,6 +1464,7 @@ impl Supervisor {
                 Ok(())
             }
             Err(e) => {
+                self.reservations.remove(&task_id);
                 let msg = one_line(&e.to_string(), 300);
                 match e {
                     AgentError::NoModel(_) | AgentError::Forbidden(_) => {
@@ -1374,12 +1503,17 @@ impl Supervisor {
     /// Phase 2 hierarchy: hands a ready task to its team's lead
     /// (crate::team_lead). The lead's agent record stands in for the task's
     /// agent, so failures are retried by the normal attempt bounds.
-    async fn delegate_to_lead(&mut self, i: usize, lead: crate::teams::LeadRequest) -> Result<(), Fatal> {
+    async fn delegate_to_lead(
+        &mut self,
+        i: usize,
+        lead: crate::teams::LeadRequest,
+        share: usize,
+    ) -> Result<(), Fatal> {
         let task_id = self.run.tasks[i].task_id;
         let d = crate::team_lead::Delegation {
             parent_task: task_id,
             run_id: Some(self.run.id),
-            budget_usd: self.run.limits.max_cost_usd.map(|m| (m - self.run.cost_usd).max(0.0)),
+            budget_usd: self.reserve(task_id, share),
             approval_mode: self.run.approval_policy,
             model: self.plan.options.model.clone(),
             control: Some(Arc::clone(&self.control)),
@@ -1395,10 +1529,14 @@ impl Supervisor {
                 Ok(())
             }
             Err(OrchestratorError::Conflict(m)) => {
+                self.reservations.remove(&task_id);
                 self.run.tasks[i].last_error = Some(one_line(&m, 300));
                 Ok(())
             }
-            Err(e) => Err(Fatal(format!("could not delegate \"{}\" to the team lead: {e}", self.run.tasks[i].title))),
+            Err(e) => {
+                self.reservations.remove(&task_id);
+                Err(Fatal(format!("could not delegate \"{}\" to the team lead: {e}", self.run.tasks[i].title)))
+            }
         }
     }
 
@@ -1637,5 +1775,34 @@ mod tests {
         assert_eq!(human_duration(5), "5s");
         assert_eq!(human_duration(125), "2m 5s");
         assert_eq!(human_duration(3700), "1h 1m");
+    }
+
+    fn failed(summary: &str, code: Option<&str>) -> orkestr_domain::Task {
+        let mut t = orkestr_domain::Task::new(orkestr_domain::ProjectId::new(), "Add monthly budget report", now());
+        t.status = TaskStatus::Failed;
+        t.result = Some(orkestr_domain::TaskResult {
+            success: false,
+            summary: summary.into(),
+            stop_code: code.map(str::to_owned),
+        });
+        t
+    }
+
+    #[test]
+    fn limits_are_read_from_the_stop_code_not_the_summary() {
+        // A task about budgets that failed for an unrelated reason is an
+        // ordinary failure (retried; never "run budget exhausted").
+        let t = failed("could not finish the budget report: failed to compile budget.tsx", None);
+        assert_eq!(stop_code(&t), None);
+        assert!(!limit_failure(&t));
+        // A template's own limit is a limit failure, but not the run budget.
+        let t = failed("token budget exhausted (20000 of 20000 tokens used)", Some("budget_exceeded"));
+        assert!(limit_failure(&t));
+        assert_ne!(stop_code(&t), Some("run_budget_exceeded"));
+        for code in ["project_budget_exceeded", "max_turns", "time_limit"] {
+            assert!(limit_failure(&failed("x", Some(code))), "{code}");
+        }
+        // The run-budget share stop is decided by the supervisor.
+        assert!(!limit_failure(&failed("cost budget exhausted", Some("run_budget_exceeded"))));
     }
 }

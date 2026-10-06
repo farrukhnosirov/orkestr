@@ -149,7 +149,10 @@ pub enum Outcome {
     Failed(String),
     /// Turn / budget / time limit.
     Limit {
-        /// `max_turns`, `budget_exceeded`, `time_limit`.
+        /// `max_turns`, `time_limit`, `run_budget_exceeded` (the caller's
+        /// cost cap), `budget_exceeded` (template limits),
+        /// `project_budget_exceeded` (cost-engine budgets). Stored on the
+        /// task result as `stopCode`.
         code: &'static str,
         /// Human message.
         message: String,
@@ -257,6 +260,11 @@ pub struct Run {
     /// A quality-pipeline fix attempt: a `done` result goes to `Testing` so
     /// the pipeline checks it (never straight to `Completed`).
     pub fix_loop: bool,
+    /// Cost cap handed in by the caller at spawn (the Manager's share of the
+    /// run budget) — tells a run-budget stop from a template-budget stop.
+    pub spawn_cost_cap: Option<f64>,
+    /// Usage not yet written to the task (a failed per-call write).
+    pending_usage: UsageSummary,
     checkpoint_taken: bool,
     budget_warned: bool,
     budget_note: Option<String>,
@@ -312,6 +320,8 @@ impl Run {
             run_usage: UsageSummary::default(),
             briefing: None,
             fix_loop: false,
+            spawn_cost_cap: None,
+            pending_usage: UsageSummary::default(),
             checkpoint_taken: false,
             budget_warned: false,
             budget_note: None,
@@ -560,8 +570,11 @@ impl Run {
             }
             if let Some(max) = b.max_cost_usd {
                 if usage.cost_usd >= max || (usage.cost_usd + estimate > max && estimate > 0.0) {
+                    // The binding cap is the caller's (run budget share) when
+                    // it is not looser than the effective one.
+                    let run_cap = self.spawn_cost_cap.is_some_and(|c| c <= max + 1e-9);
                     return Err(Outcome::Limit {
-                        code: "budget_exceeded",
+                        code: if run_cap { "run_budget_exceeded" } else { "budget_exceeded" },
                         message: format!("cost budget exhausted (${:.4} spent of ${max:.2})", usage.cost_usd),
                     });
                 }
@@ -577,7 +590,7 @@ impl Run {
         match self.deps.cost.check(ctx, estimate).await {
             Ok(r) if r.outcome == orkestr_protocol::methods::cost::BudgetOutcome::Exceeded => {
                 return Err(Outcome::Limit {
-                    code: "budget_exceeded",
+                    code: "project_budget_exceeded",
                     message: "a project/global spending budget would be exceeded".into(),
                 });
             }
@@ -639,6 +652,20 @@ impl Run {
         self.agent.usage.add(&s);
         self.run_usage.add(&s);
         self.execution.usage.add(&s);
+        // The task's usage is the run-level spend ledger the Manager reads
+        // while agents work (shared run budget): written per call, not only
+        // when the agent ends.
+        self.pending_usage.add(&s);
+        let delta = self.pending_usage;
+        match self
+            .deps
+            .tasks
+            .record_agent_run(self.task.id, AgentRunUpdate { usage_delta: Some(delta), ..AgentRunUpdate::default() })
+            .await
+        {
+            Ok(_) => self.pending_usage = UsageSummary::default(),
+            Err(e) => tracing::warn!(error = %e, "could not record usage on the task; retried later"),
+        }
     }
 
     // ------------------------------------------------------------------
@@ -1446,6 +1473,21 @@ impl Run {
             },
         };
 
+        // Another agent owns the task now (a concurrent spawn won the race):
+        // this run must not move it or overwrite its result.
+        let owns_task = match self.deps.tasks.get(self.task.id).await {
+            Ok(t) => {
+                let mine = t.agent_id.is_none_or(|a| a == self.agent.id);
+                self.task = t;
+                mine
+            }
+            Err(_) => true,
+        };
+        if !owns_task {
+            tracing::warn!(agent_id = %self.agent.id, task_id = %self.task.id, "task is owned by another agent; leaving it untouched");
+        }
+        let task_target = task_target.filter(|_| owns_task);
+
         // Task outcome (through the task engine).
         if let Some((target, why)) = task_target {
             match target {
@@ -1479,10 +1521,15 @@ impl Run {
                             files.push(f.clone());
                         }
                     }
-                    Some(TaskResult { success: r.status == SubmitStatus::Done, summary: redact(&r.summary) })
+                    Some(TaskResult {
+                        success: r.status == SubmitStatus::Done,
+                        summary: redact(&r.summary),
+                        stop_code: None,
+                    })
                 }
-                Outcome::Failed(m) | Outcome::Limit { message: m, .. } => {
-                    Some(TaskResult { success: false, summary: redact(m) })
+                Outcome::Failed(m) => Some(TaskResult { success: false, summary: redact(m), stop_code: None }),
+                Outcome::Limit { code, message } => {
+                    Some(TaskResult { success: false, summary: redact(message), stop_code: Some((*code).to_owned()) })
                 }
                 Outcome::Cancelled => None,
             };
@@ -1506,9 +1553,12 @@ impl Run {
             .record_agent_run(
                 self.task.id,
                 AgentRunUpdate {
-                    usage_delta: Some(self.run_usage),
-                    files_touched: files,
-                    result,
+                    // Usage reached the task call by call (record_usage);
+                    // only what could not be written then is left.
+                    usage_delta: (self.pending_usage != UsageSummary::default())
+                        .then(|| std::mem::take(&mut self.pending_usage)),
+                    files_touched: if owns_task { files } else { Vec::new() },
+                    result: result.filter(|_| owns_task),
                     ..AgentRunUpdate::default()
                 },
             )

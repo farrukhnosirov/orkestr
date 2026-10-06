@@ -122,6 +122,13 @@ pub struct TaskResult {
     pub success: bool,
     /// Human-readable summary (no hidden chain-of-thought, §1.14).
     pub summary: String,
+    /// Structured stop code when the agent run ended on a limit
+    /// (`run_budget_exceeded`, `budget_exceeded`, `project_budget_exceeded`,
+    /// `max_turns`, `time_limit`). Decisions (retry, run budget) use this —
+    /// never the free-text summary. Additive.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub stop_code: Option<String>,
 }
 
 /// Task (§10) — all fields from the spec.

@@ -1,14 +1,14 @@
 //! [`AgentRuntime`]: spawn / stop / pause / list / transcript / handoffs /
 //! stats over live runs and persisted instances.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
 use orkestr_domain::{
     now, AgentId, AgentInstance, AgentRole, AgentState, ExecutionId, ExecutionStatus, ModelRef, PermissionRule,
-    PermissionScope, Project, Task, TaskActor, TaskStatus, UsageSummary, WorktreePolicy, WorktreeRef,
+    PermissionScope, Project, Task, TaskActor, TaskId, TaskStatus, UsageSummary, WorktreePolicy, WorktreeRef,
 };
 use orkestr_protocol::event::{
     AgentSpawnedPayload, AgentStateChangedPayload, AgentStoppedPayload, EventKind, StopReason,
@@ -57,6 +57,45 @@ struct Live {
     project_id: orkestr_domain::ProjectId,
 }
 
+/// Spawns in flight: the tasks they claimed and how many there are. A spawn
+/// holds its claim from the busy check until its agent is in `live`, so two
+/// concurrent spawns on one task (or past the running-agent cap) cannot both
+/// pass the check-then-act window (worktree creation, store writes, …).
+#[derive(Default)]
+struct Claims {
+    tasks: HashSet<TaskId>,
+    pending: usize,
+}
+
+/// Releases a spawn's claim when dropped (success or any early return).
+struct ClaimGuard {
+    claims: Arc<Mutex<Claims>>,
+    task: Option<TaskId>,
+}
+
+impl ClaimGuard {
+    fn claim_task(&mut self, task: TaskId) -> AgentResult<()> {
+        if self.task == Some(task) {
+            return Ok(());
+        }
+        if !self.claims.lock().tasks.insert(task) {
+            return Err(AgentError::Conflict("task is already being assigned to another agent".into()));
+        }
+        self.task = Some(task);
+        Ok(())
+    }
+}
+
+impl Drop for ClaimGuard {
+    fn drop(&mut self) {
+        let mut c = self.claims.lock();
+        c.pending = c.pending.saturating_sub(1);
+        if let Some(t) = self.task {
+            c.tasks.remove(&t);
+        }
+    }
+}
+
 /// The agent runtime service (cheap to clone).
 #[derive(Clone)]
 pub struct AgentRuntime {
@@ -64,6 +103,7 @@ pub struct AgentRuntime {
     store: AgentStore,
     templates: TemplateService,
     live: Arc<Mutex<HashMap<AgentId, Live>>>,
+    claims: Arc<Mutex<Claims>>,
 }
 
 impl std::fmt::Debug for AgentRuntime {
@@ -88,7 +128,13 @@ impl AgentRuntime {
     pub fn new(deps: RuntimeDeps) -> Self {
         let store = AgentStore::new(deps.db.clone());
         let templates = TemplateService::new(deps.db.clone());
-        Self { deps: Arc::new(deps), store, templates, live: Arc::new(Mutex::new(HashMap::new())) }
+        Self {
+            deps: Arc::new(deps),
+            store,
+            templates,
+            live: Arc::new(Mutex::new(HashMap::new())),
+            claims: Arc::new(Mutex::new(Claims::default())),
+        }
     }
 
     /// Template service.
@@ -281,12 +327,13 @@ impl AgentRuntime {
         Ok((chain, false))
     }
 
-    async fn resolve_task(&self, p: &SpawnAgentParams, fix_loop: bool) -> AgentResult<Task> {
+    async fn resolve_task(&self, p: &SpawnAgentParams, fix_loop: bool, claim: &mut ClaimGuard) -> AgentResult<Task> {
         let task = match (&p.task_id, &p.new_task) {
             (Some(_), Some(_)) | (None, None) => {
                 return Err(AgentError::Invalid("give exactly one of taskId or newTask".into()));
             }
             (Some(id), None) => {
+                claim.claim_task(*id)?;
                 let t = self.deps.tasks.get(*id).await?;
                 if t.project_id != p.project_id {
                     return Err(AgentError::Invalid("the task belongs to another project".into()));
@@ -310,6 +357,7 @@ impl AgentRuntime {
                     .await?
             }
         };
+        claim.claim_task(task.id)?;
         let busy = self
             .store
             .list(AgentFilter {
@@ -367,13 +415,19 @@ impl AgentRuntime {
         if self.deps.security.emergency.flags().all_stopped {
             return Err(AgentError::Forbidden("Stop All AI is active — reset the emergency controls first".into()));
         }
-        if self.live_count() >= self.deps.config.max_running_agents {
-            return Err(AgentError::Conflict(format!(
-                "{} agents are already running (limit {})",
-                self.live_count(),
-                self.deps.config.max_running_agents
-            )));
-        }
+        // Capacity is checked and reserved atomically (spawns in flight count).
+        let mut claim = {
+            let mut c = self.claims.lock();
+            let running = self.live_count() + c.pending;
+            if running >= self.deps.config.max_running_agents {
+                return Err(AgentError::Conflict(format!(
+                    "{running} agents are already running (limit {})",
+                    self.deps.config.max_running_agents
+                )));
+            }
+            c.pending += 1;
+            ClaimGuard { claims: Arc::clone(&self.claims), task: None }
+        };
         let project = self
             .deps
             .projects
@@ -399,7 +453,7 @@ impl AgentRuntime {
         if cli && policy == WorktreePolicy::None {
             return Err(AgentError::Invalid("CLI coding agents need a workspace (worktree policy None)".into()));
         }
-        let task = self.resolve_task(&p, extras.fix_loop).await?;
+        let task = self.resolve_task(&p, extras.fix_loop, &mut claim).await?;
 
         let agent_id = AgentId::new();
         let cancel = self
@@ -572,7 +626,10 @@ impl AgentRuntime {
         );
         run.briefing = extras.briefing.clone();
         run.fix_loop = extras.fix_loop;
+        run.spawn_cost_cap = p.budget.as_ref().and_then(|b| b.max_cost_usd);
         self.live.lock().insert(agent_id, Live { control, project_id: project.id });
+        // The agent is live: the busy check sees it from here on.
+        drop(claim);
         let live = Arc::clone(&self.live);
         tokio::spawn(async move {
             run.drive().await;
