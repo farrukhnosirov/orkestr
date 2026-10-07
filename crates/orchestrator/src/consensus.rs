@@ -223,7 +223,7 @@ impl Inner {
         let info = self.deps.models.provider(m.provider_id).ok_or_else(|| {
             OrchestratorError::Invalid(format!("provider {} of model `{}` is not configured", m.provider_id, m.model))
         })?;
-        if !project.privacy.allows_provider(m.provider_id, info.is_local) {
+        if !project.effective_privacy().allows_provider(m.provider_id, info.is_local) {
             return Err(OrchestratorError::Forbidden(format!(
                 "model `{}` is not allowed by the project's AI privacy policy",
                 m.model

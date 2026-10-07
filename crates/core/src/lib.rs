@@ -247,7 +247,12 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
     ));
 
     let ui_language = orkestr_agent_runtime::UiLanguage::default();
-    ui_language.set(&settings.get().language);
+    // An explicit preference, else the language the UI last resolved `system`
+    // to (persisted by `settings.setUiLanguage`), so restart notices are not
+    // English for a Russian UI before the UI reconnects.
+    if let Some(lang) = settings.startup_ui_language() {
+        ui_language.set(&lang);
+    }
     // Global parallel scheduler (§11): admission for every Manager run and the
     // API-concurrency gate around the model gateway (agents + Manager).
     let parallel = Arc::new(orkestr_orchestrator::ParallelScheduler::new(orkestr_orchestrator::ParallelDeps {

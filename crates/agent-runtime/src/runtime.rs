@@ -280,7 +280,7 @@ impl AgentRuntime {
             let info = models.provider(m.provider_id).ok_or_else(|| {
                 AgentError::Invalid(format!("provider {} of model `{}` is not configured", m.provider_id, m.model))
             })?;
-            if !project.privacy.allows_provider(m.provider_id, info.is_local) {
+            if !project.effective_privacy().allows_provider(m.provider_id, info.is_local) {
                 return Err(AgentError::Forbidden(format!(
                     "model `{}` is not allowed by the project's AI privacy policy",
                     m.model
@@ -296,7 +296,7 @@ impl AgentRuntime {
                 required: RequiredCapabilities { tools: true, ..RequiredCapabilities::default() },
                 preferred: chain.first().cloned(),
                 fallback_chain: chain.iter().skip(1).cloned().collect(),
-                policy: project.privacy.ai.clone(),
+                policy: project.effective_privacy().ai,
                 max_cost_usd: None,
                 est_input_tokens: 4_000,
                 max_output_tokens: u64::from(self.deps.config.max_output_tokens),

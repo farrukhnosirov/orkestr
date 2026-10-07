@@ -292,7 +292,7 @@ impl DangerousActionGuard {
         shell: ShellKind,
         root: Option<&std::path::Path>,
     ) -> (DangerClass, CommandFacets) {
-        let ctx = rules::Ctx::new(self, root.map(|r| r.to_string_lossy().replace('\\', "/").to_lowercase()));
+        let ctx = rules::Ctx::for_shell(self, root);
         let class = rules::classify_text(&ctx, command, shell.family(), 0);
         (class, ctx.facets.into_inner())
     }

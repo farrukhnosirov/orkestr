@@ -89,6 +89,10 @@ pub async fn write_file(args: &Value, env: &ToolEnv) -> Result<ToolOutput, ToolE
         return Err(ToolError::new(format!("content is larger than {MAX_WRITE_BYTES} bytes")));
     }
     let (abs, rel) = resolve(env, path)?;
+    // `rel` is canonical: 8.3 aliases (`GIT~1`) and in-root links are resolved.
+    if touches_git_dir(&rel) {
+        return Err(ToolError::new("writing inside `.git` is not allowed — use git_commit"));
+    }
     if abs.is_dir() {
         return Err(ToolError::new(format!("`{rel}` is a directory")));
     }
@@ -122,6 +126,10 @@ pub async fn edit_file(args: &Value, env: &ToolEnv) -> Result<ToolOutput, ToolEr
         return Err(ToolError::new("writing inside `.git` is not allowed — use git_commit"));
     }
     let (abs, rel) = resolve(env, path)?;
+    // `rel` is canonical: 8.3 aliases (`GIT~1`) and in-root links are resolved.
+    if touches_git_dir(&rel) {
+        return Err(ToolError::new("writing inside `.git` is not allowed — use git_commit"));
+    }
     let text = read_text(&abs, &rel).await?;
     let count = text.matches(old).count();
     if count == 0 {

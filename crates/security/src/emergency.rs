@@ -234,6 +234,12 @@ impl EmergencyController {
         self.reg.read().agents.values().filter(|(_, t)| !t.is_cancelled()).count()
     }
 
+    /// Number of live agent registrations of one project.
+    #[must_use]
+    pub fn active_agents_in(&self, project: ProjectId) -> usize {
+        self.reg.read().agents.values().filter(|(p, t)| *p == Some(project) && !t.is_cancelled()).count()
+    }
+
     async fn publish(&self, scope: EmergencyScope, agents_stopped: u32, by: Actor) {
         let ev =
             NewEvent::new(EventKind::EmergencyStop(EmergencyStopPayload { scope, agents_stopped, triggered_by: by }));

@@ -17,13 +17,84 @@ pub(crate) struct Ctx<'a> {
     pub guard: &'a DangerousActionGuard,
     /// Lower-cased, `/`-separated confinement root (if known).
     pub root: Option<String>,
+    /// The confinement root as given (original casing), used to resolve
+    /// 8.3 short-name aliases (`GIT~1`, `ENV~1`) against the filesystem.
+    pub root_path: Option<std::path::PathBuf>,
+    /// Whether to check shell path words for 8.3 short-name aliases. Off for
+    /// structured actions: the permission engine classifies their canonical
+    /// (alias-resolved) key separately.
+    pub alias_check: bool,
     /// Facets collected while classifying (network use, secret reads, …).
     pub facets: RefCell<CommandFacets>,
 }
 
 impl<'a> Ctx<'a> {
     pub(crate) fn new(guard: &'a DangerousActionGuard, root: Option<String>) -> Self {
-        Self { guard, root, facets: RefCell::new(CommandFacets::default()) }
+        Self { guard, root, root_path: None, alias_check: false, facets: RefCell::new(CommandFacets::default()) }
+    }
+
+    /// Context for shell-command analysis: aliases are resolved against `root`.
+    pub(crate) fn for_shell(guard: &'a DangerousActionGuard, root: Option<&std::path::Path>) -> Self {
+        Self {
+            guard,
+            root: root.map(|r| r.to_string_lossy().replace('\\', "/").to_lowercase()),
+            root_path: root.map(std::path::Path::to_path_buf),
+            alias_check: true,
+            facets: RefCell::new(CommandFacets::default()),
+        }
+    }
+}
+
+/// Whether one path component looks like an NTFS 8.3 short-name alias
+/// (`git~1`, `env~1`, `progra~1`, `env~1.loc`). Windows resolves these to the
+/// long name, so `GIT~1` may be `.git` and `ENV~1` may be `.env`.
+fn is_short_alias_component(c: &str) -> bool {
+    let (stem, ext) = match c.rsplit_once('.') {
+        Some((s, e)) if !s.is_empty() => (s, e),
+        _ => (c, ""),
+    };
+    if ext.len() > 3 {
+        return false;
+    }
+    let Some((base, num)) = stem.rsplit_once('~') else { return false };
+    !base.is_empty()
+        && base.len() <= 6
+        && !num.is_empty()
+        && num.bytes().all(|b| b.is_ascii_digit())
+        && base.len() + 1 + num.len() <= 8
+}
+
+/// Whether any component of a normalized path is an 8.3 short-name alias.
+pub(crate) fn has_short_name_alias(n: &str) -> bool {
+    n.split('/').any(is_short_alias_component)
+}
+
+/// Result of resolving a path word that may contain 8.3 aliases.
+pub(crate) enum AliasResolution {
+    /// No alias component: the text is what the shell will touch.
+    NoAlias,
+    /// Aliases resolved against the root: the lower-cased, `/`-separated
+    /// canonical path relative to the root.
+    Resolved(String),
+    /// Contains an alias that cannot be resolved inside the root (no root,
+    /// outside the root, variables…): treat it as possibly anything.
+    Unresolved,
+}
+
+/// Resolves 8.3 short-name aliases in a shell path word against the root
+/// (canonicalizing the longest existing ancestor, like the fs tools do).
+pub(crate) fn resolve_short_alias(ctx: &Ctx<'_>, raw: &str) -> AliasResolution {
+    if !ctx.alias_check || !has_short_name_alias(&norm_path(raw)) {
+        return AliasResolution::NoAlias;
+    }
+    let Some(root) = &ctx.root_path else { return AliasResolution::Unresolved };
+    let cleaned = raw.trim().trim_matches(['"', '\'']);
+    if cleaned.starts_with(['$', '%', '~']) {
+        return AliasResolution::Unresolved;
+    }
+    match crate::paths::confine_relative(root, cleaned) {
+        Ok(rel) => AliasResolution::Resolved(rel.to_lowercase()),
+        Err(_) => AliasResolution::Unresolved,
     }
 }
 
@@ -599,6 +670,17 @@ pub(crate) fn check_read_path(ctx: &Ctx<'_>, path: &str) -> DangerClass {
     DangerClass::Safe
 }
 
+/// Whether a normalized path starts with a variable reference (`$x`, `${x}`,
+/// `$env:x`, `$(…)`, `%x%`) other than the working-directory variables. Such a
+/// target can expand to any location, so it is treated as absolute.
+pub(crate) fn is_variable_rooted(n: &str) -> bool {
+    let first = n.split('/').next().unwrap_or(n);
+    if matches!(first, "$pwd" | "${pwd}" | "$(pwd)" | "$pwd.path" | "$env:pwd" | "${env:pwd}" | "%cd%" | ".") {
+        return false;
+    }
+    n.starts_with('$') || (n.starts_with('%') && n[1..].contains('%'))
+}
+
 /// Checks a write (or delete) target path.
 pub(crate) fn check_write_path(ctx: &Ctx<'_>, path: &str, is_delete: bool) -> DangerClass {
     let n = norm_path(path);
@@ -622,10 +704,23 @@ pub(crate) fn check_write_path(ctx: &Ctx<'_>, path: &str, is_delete: bool) -> Da
         }
     }
     let mut acc = DangerClass::Safe;
-    if n.split('/').any(|c| c == ".git") {
+    // 8.3 short names (`GIT~1`, `ENV~1`) reach `.git` / `.env` on Windows:
+    // check the alias-resolved path as well as the text.
+    let mut names = vec![n.clone()];
+    match resolve_short_alias(ctx, path) {
+        AliasResolution::NoAlias => {}
+        AliasResolution::Resolved(rel) => names.push(rel),
+        AliasResolution::Unresolved => {
+            acc = acc.max(d(
+                C::Obfuscation,
+                format!("{verb} through an 8.3 short-name alias that cannot be resolved (`{}`)", path.trim()),
+            ));
+        }
+    }
+    if names.iter().any(|p| p.split('/').any(|c| c == ".git")) {
         acc = acc.max(d(C::GitInternals, format!("{verb} git internals (.git) directly")));
     }
-    if is_secret_file(&n) {
+    if names.iter().any(|p| is_secret_file(p)) {
         acc = acc.max(d(C::SecretChange, format!("{verb} a secrets file (`{}`)", path.trim())));
     }
     if n.ends_with("/etc/hosts") || n.contains("drivers/etc/hosts") {
@@ -660,8 +755,13 @@ pub(crate) fn check_write_path(ctx: &Ctx<'_>, path: &str, is_delete: bool) -> Da
         acc = acc.max(d(C::SystemConfig, format!("{verb} shell startup files (persistence)")));
     }
     if let Some(root) = &ctx.root {
-        let absolute =
-            n.starts_with('/') || n.starts_with('~') || n.starts_with("$home") || n.starts_with("%userprofile%") || {
+        // Variable-rooted targets (`$env:APPDATA\…`, `${HOME}/…`, `%TEMP%\…`,
+        // `$(…)/…`) may expand to anywhere: treat them as absolute, except
+        // the working-directory variables (the cwd is confined to the root).
+        let absolute = n.starts_with('/')
+            || n.starts_with('~')
+            || is_variable_rooted(&n)
+            || {
                 let b = n.as_bytes();
                 b.len() >= 2 && b[0].is_ascii_alphabetic() && b[1] == b':'
             };

@@ -142,6 +142,36 @@ async fn settings_roundtrip_autostart_and_event() {
     core.shutdown().await;
 }
 
+/// Audit r2: with `language = system` (the default) the UI reports its
+/// resolved language; the core uses it at once and again right after the
+/// next start (restart notices run before the UI reconnects).
+#[tokio::test]
+async fn resolved_ui_language_is_used_and_persisted() {
+    let dir = tempfile::tempdir().unwrap();
+    let core = orkestr_core::start(config(dir.path(), Arc::new(MemoryAutostart::default()))).await.unwrap();
+    assert_eq!(core.services.ui_language.get(), "en");
+    let mut ws = connect(&core).await;
+    let mut events = Vec::new();
+    let r = ok(&mut ws, "l1", "settings.setUiLanguage", json!({"language": "ru-RU"}), &mut events).await;
+    assert_eq!(r["language"], "ru");
+    assert_eq!(core.services.ui_language.get(), "ru");
+    let bad = call(&mut ws, "l2", "settings.setUiLanguage", json!({"language": "system"}), &mut events).await;
+    assert_eq!(bad["error"]["code"], "bad_request", "{bad}");
+    let got = ok(&mut ws, "g1", "settings.get", json!({}), &mut events).await;
+    assert_eq!(got["settings"]["language"], "system", "the preference itself is unchanged");
+    core.shutdown().await;
+
+    // Next start: the persisted resolved language applies before any UI call.
+    let core = orkestr_core::start(config(dir.path(), Arc::new(MemoryAutostart::default()))).await.unwrap();
+    assert_eq!(core.services.ui_language.get(), "ru");
+    // An explicit preference wins over a reported language.
+    let mut ws = connect(&core).await;
+    ok(&mut ws, "u1", "settings.update", json!({"patch": {"language": "en"}}), &mut events).await;
+    let r = ok(&mut ws, "l3", "settings.setUiLanguage", json!({"language": "ru"}), &mut events).await;
+    assert_eq!(r["language"], "en");
+    core.shutdown().await;
+}
+
 #[tokio::test]
 async fn nodes_and_system_checks() {
     let dir = tempfile::tempdir().unwrap();

@@ -195,3 +195,81 @@ async fn templates_and_agents_over_ws_with_the_mock_provider() {
     );
     core.shutdown().await;
 }
+
+/// Audit r2: deleting a project while an agent runs in it is refused
+/// (`conflict`, `project_busy`); with `stopWork` the core stops the work
+/// first, then deletes — no agent keeps running with its rows gone.
+#[tokio::test]
+async fn deleting_a_busy_project_is_refused_or_stops_its_work() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().join("proj");
+    std::fs::create_dir_all(&root).unwrap();
+    std::fs::write(root.join("README.md"), "# demo\n").unwrap();
+    let mut config = CoreConfig::with_data_dir(dir.path().join("data"));
+    config.secret_backend = orkestr_security::SecretBackendChoice::Memory;
+    let core = orkestr_core::start(config).await.unwrap();
+    let mut c = Client::connect(&core).await;
+
+    let list = c.ok("templates.list", json!({})).await["templates"].as_array().unwrap().clone();
+    let backend = list.iter().find(|t| t["role"] == "Backend").unwrap().clone();
+    let exported = c.ok("templates.export", json!({"templateId": backend["id"]})).await;
+    let imported = c.ok("templates.import", json!({"json": exported["json"]})).await;
+    let tid = imported["template"]["id"].as_str().unwrap().to_owned();
+    let mut draft = imported["template"].clone();
+    for k in ["id", "source", "createdAt", "updatedAt"] {
+        draft.as_object_mut().unwrap().remove(k);
+    }
+    draft["tools"] = json!(["write_file", "read_file", "submit_result"]);
+    draft["qualityGates"] = json!([]);
+    draft["worktreePolicy"] = "SharedWorktree".into();
+    c.ok("templates.update", json!({"templateId": tid, "template": draft})).await;
+
+    // `Ask` mode: the agent's first write waits for approval, so it stays running.
+    let project = c
+        .ok("projects.create", json!({"name": "Busy", "rootPath": root.to_string_lossy(), "approvalMode": "Ask"}))
+        .await["project"]
+        .clone();
+    let pid = project["id"].as_str().unwrap().to_owned();
+    let providers = c.ok("providers.list", json!({})).await["providers"].as_array().unwrap().clone();
+    let mock = providers.iter().find(|p| p["provider"]["kind"] == "Mock").unwrap()["provider"]["id"].clone();
+    let spawned = c
+        .ok(
+            "agents.spawn",
+            json!({
+                "projectId": pid,
+                "templateId": tid,
+                "newTask": {"title": "Write a hello file"},
+                "model": {"providerId": mock, "model": "mock-smart"}
+            }),
+        )
+        .await;
+    let aid = spawned["agent"]["id"].as_str().unwrap().to_owned();
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(20);
+    loop {
+        let a = c.ok("agents.get", json!({"agentId": aid})).await["agent"].clone();
+        if a["state"] == "Waiting" {
+            break;
+        }
+        assert!(tokio::time::Instant::now() < deadline, "agent never waited for approval: {a}");
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+
+    let e = c.err("projects.delete", json!({"projectId": pid})).await;
+    assert_eq!(e["code"], "conflict", "{e}");
+    assert_eq!(e["data"]["reason"], "project_busy", "{e}");
+    assert_eq!(e["data"]["agents"], 1, "{e}");
+    // Still there.
+    c.ok("projects.get", json!({"projectId": pid})).await;
+    assert_eq!(core.services.security.emergency.active_agents(), 1);
+
+    let r = c.ok("projects.delete", json!({"projectId": pid, "stopWork": true})).await;
+    assert_eq!(r["projectId"], pid);
+    assert_eq!(core.services.security.emergency.active_agents(), 0, "the agent was stopped");
+    assert_eq!(c.err("projects.get", json!({"projectId": pid})).await["code"], "not_found");
+    assert!(root.join("README.md").exists(), "files on disk are kept");
+
+    // An idle project is deleted without `stopWork`.
+    let idle = c.ok("projects.create", json!({"name": "Idle"})).await["project"]["id"].as_str().unwrap().to_owned();
+    c.ok("projects.delete", json!({"projectId": idle})).await;
+    core.shutdown().await;
+}

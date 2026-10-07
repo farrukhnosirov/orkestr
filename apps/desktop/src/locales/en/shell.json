@@ -65,7 +65,9 @@
     "unsaved_other": "The editor has {{count}} unsaved files in this project. Their changes will be lost.",
     "confirm": "Delete project",
     "cancel": "Cancel",
-    "failed": "Could not delete the project."
+    "failed": "Could not delete the project.",
+    "busy": "This project still has running work: agents, Manager runs, merges or quality pipeline runs. Orkestr can stop that work first and then delete the project.",
+    "stopAndDelete": "Stop work and delete"
   },
   "workspace": {
     "unknownPanel": "Unknown panel",

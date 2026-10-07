@@ -505,15 +505,27 @@ impl RuleEngine {
                         path.replace('\\', "/")
                     }
                 };
-                let action = match capability {
-                    Capability::Read => Action::ReadFile { path: path.clone() },
-                    Capability::Delete => Action::DeletePath { path: path.clone(), recursive: *recursive },
-                    _ => Action::WriteFile { path: path.clone() },
+                // Classify both the raw string and the canonical key: the key has
+                // 8.3 short names (`GIT~1`, `ENV~1`) and in-root symlinks /
+                // junctions resolved to their real names, so the `.git` and
+                // secret-file checks cannot be bypassed through an alias.
+                let action_for = |p: &str| match capability {
+                    Capability::Read => Action::ReadFile { path: p.to_owned() },
+                    Capability::Delete => Action::DeletePath { path: p.to_owned(), recursive: *recursive },
+                    _ => Action::WriteFile { path: p.to_owned() },
                 };
-                if capability == Capability::Read && DangerousActionGuard::is_secret_file(path) {
+                let mut class = self.guard.classify_action(&action_for(path));
+                let canonical_differs = inside_root && !key.is_empty() && key != path.replace('\\', "/");
+                if canonical_differs {
+                    class = class.max(self.guard.classify_action(&action_for(&key)));
+                }
+                if capability == Capability::Read
+                    && (DangerousActionGuard::is_secret_file(path)
+                        || (canonical_differs && DangerousActionGuard::is_secret_file(&key)))
+                {
                     effective_cap = Capability::Secrets;
                 }
-                (key, self.guard.classify_action(&action))
+                (key, class)
             }
             Resource::Command { command, shell, cwd } => {
                 if let (Some(root), Some(cwd)) = (&ctx.worktree_root, cwd) {
@@ -965,6 +977,45 @@ mod tests {
             Decision::Ask(r) => assert_eq!(r.code, "secret_file"),
             other => panic!("{other:?}"),
         }
+    }
+
+    /// Audit r2: 8.3 short names (`GIT~1`, `ENV~1`) and in-root links must not
+    /// bypass the `.git` and secret-file checks — the canonical key is checked.
+    #[test]
+    fn audit_r2_aliases_and_links_reach_git_and_secret_checks() {
+        use crate::test_support::{dir_link, short_name};
+        let f = fx();
+        let a = f.agent();
+        let ctx = f.ctx(ApprovalMode::SemiAuto);
+        let root = f.root.path();
+        std::fs::create_dir_all(root.join(".git/hooks")).unwrap();
+        std::fs::write(root.join(".env"), "K=v").unwrap();
+
+        // In-root directory link pointing at `.git`.
+        if dir_link(&root.join(".git"), &root.join("gitlink")) {
+            match f.engine.check(&a, Capability::Write, &path("gitlink/hooks/pre-commit"), &ctx) {
+                Decision::Ask(r) => assert_eq!(r.danger, Some(DangerCategory::GitInternals), "{r:?}"),
+                other => panic!("write through link to .git: {other:?}"),
+            }
+        }
+        // 8.3 short names (only where the volume generates them).
+        if let Some(git) = short_name(&root.join(".git")) {
+            match f.engine.check(&a, Capability::Write, &path(&format!("{git}/hooks/pre-commit")), &ctx) {
+                Decision::Ask(r) => assert_eq!(r.danger, Some(DangerCategory::GitInternals), "{r:?}"),
+                other => panic!("write through {git}: {other:?}"),
+            }
+            assert!(f.engine.check(&a, Capability::Delete, &path(&format!("{git}/config")), &ctx).is_ask());
+        }
+        if let Some(env) = short_name(&root.join(".env")) {
+            match f.engine.check(&a, Capability::Read, &path(&env), &ctx) {
+                Decision::Ask(r) => assert_eq!(r.code, "secret_file", "{r:?}"),
+                other => panic!("read {env}: {other:?}"),
+            }
+            assert!(f.engine.check(&a, Capability::Write, &path(&env), &ctx).is_ask());
+        }
+        // Plain files are unaffected.
+        assert!(f.engine.check(&a, Capability::Write, &path("src/a.rs"), &ctx).is_allow());
+        assert!(f.engine.check(&a, Capability::Read, &path("src/a.rs"), &ctx).is_allow());
     }
 
     #[test]

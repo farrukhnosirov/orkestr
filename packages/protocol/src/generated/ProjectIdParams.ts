@@ -2,7 +2,7 @@
 import type { ProjectId } from "./ProjectId";
 
 /**
- * Params of `projects.get`, `projects.delete`, `projects.open`.
+ * Params of `projects.get`, `projects.open`.
  */
 export type ProjectIdParams = { 
 /**

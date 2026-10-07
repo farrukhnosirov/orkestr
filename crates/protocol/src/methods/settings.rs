@@ -256,6 +256,44 @@ method!(
     Update, "settings.update", UpdateSettingsParams, SettingsResult
 );
 
+/// Params of `settings.setUiLanguage`: the language the UI actually shows
+/// (with `language = system` the UI resolves the OS language itself).
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct SetUiLanguageParams {
+    /// Resolved BCP-47 tag such as `ru` or `en-US` (never `system`).
+    pub language: String,
+}
+
+/// Result of `settings.setUiLanguage`.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct SetUiLanguageResult {
+    /// Language the core now uses for its own text and AI replies (primary subtag).
+    pub language: String,
+}
+
+impl SetUiLanguageParams {
+    /// Validates the tag (`system` is rejected: the UI must resolve it).
+    pub fn validate(&self) -> Result<(), SettingsValidationError> {
+        if is_language_tag(&self.language) {
+            Ok(())
+        } else {
+            Err(invalid("language", "expected a resolved language tag like `en` or `pt-BR`"))
+        }
+    }
+}
+
+method!(
+    /// `settings.setUiLanguage` — the UI reports its resolved language at
+    /// connect and on every change, so core-generated text (restart notices,
+    /// run notices) and agent prompts use it; the core persists it for the
+    /// next start.
+    SetUiLanguage, "settings.setUiLanguage", SetUiLanguageParams, SetUiLanguageResult
+);
+
 #[cfg(test)]
 mod tests {
     use super::*;
