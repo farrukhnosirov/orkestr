@@ -6,7 +6,7 @@
  * data, shared with other clients); only their display is localized.
  * Unknown text (user-entered names, labels, free text) is returned as is.
  */
-import { t } from "../i18n";
+import { formatCurrency, t } from "../i18n";
 
 /** English built-in template name → key under `coreText:templates`. */
 const BUILTIN = {
@@ -289,6 +289,27 @@ const TASK_REASON = {
   "accepted by the AI Manager: the agent reported done (automated review/test loops arrive in Phase 2)": "managerAccepted",
 } as const;
 
+/** A translate function (a hook's `t` re-renders on a language change). */
+export type TextT = (key: string, opts?: Record<string, unknown>) => string;
+
+/**
+ * Self-Healing escalation reasons (`healing::Escalation::reason`, orchestrator
+ * healing.rs): disabled, attempts used, time limit, budget spent, no progress.
+ * Unknown text is returned as is.
+ */
+export function healingReason(reason: string, tr: TextT = t as unknown as TextT): string {
+  const r = reason.trim();
+  let m: RegExpExecArray | null;
+  if (/^self-healing is disabled for this project$/.test(r)) return tr("pipeline:text.reasonDisabled");
+  if (/^no progress: the last fix produced the same failure$/.test(r)) return tr("pipeline:text.noProgress");
+  if ((m = /^(\d+) of (\d+) fix attempt\(s\) used$/.exec(r))) return tr("pipeline:text.attemptsUsed", { used: m[1], allowed: m[2] });
+  if ((m = /^the pipeline's time limit of (\d+) min is reached$/.exec(r))) return tr("pipeline:text.reasonWallTime", { mins: m[1] });
+  if ((m = /^the task's budget is spent \(\$([\d.]+) of \$([\d.]+)\)$/.exec(r))) {
+    return tr("pipeline:text.reasonBudget", { spent: formatCurrency(Number(m[1])), limit: formatCurrency(Number(m[2])) });
+  }
+  return r;
+}
+
 /** Run-limit codes of a failed agent run (`<code>: <message>`, agent-runtime run.rs). */
 const LIMIT_CODES = new Set(["budget_exceeded", "max_turns", "time_limit"]);
 
@@ -309,10 +330,13 @@ export function taskReason(reason: string | null | undefined): string | null {
   if ((m = r.match(/^code review requested changes: ([\s\S]*)$/))) return t("coreText:taskReason.reviewChanges", { detail: m[1] });
   if ((m = r.match(/^adversarial review found unresolved critical issues: ([\s\S]*)$/))) return t("coreText:taskReason.adversarial", { detail: m[1] });
   if ((m = r.match(/^self-healing stopped \(([\s\S]+)\); the user declined further attempts$/))) {
-    return t("coreText:taskReason.healingDeclined", { detail: m[1] });
+    return t("coreText:taskReason.healingDeclined", { detail: healingReason(m[1] ?? "") });
   }
   if ((m = r.match(/^self-healing stopped \(([\s\S]+)\) and the escalation could not be filed: ([\s\S]+)$/))) {
-    return t("coreText:taskReason.healingEscalationFailed", { detail: m[1], error: m[2] });
+    return t("coreText:taskReason.healingEscalationFailed", { detail: healingReason(m[1] ?? ""), error: m[2] });
+  }
+  if ((m = r.match(/^self-healing stopped \(([\s\S]+)\); raise the budget and retry the task to continue$/))) {
+    return t("coreText:taskReason.healingRaiseBudget", { detail: healingReason(m[1] ?? "") });
   }
   if ((m = r.match(/^could not start an agent: ([\s\S]+)$/))) return t("coreText:taskReason.agentStartFailed", { detail: m[1] });
   if ((m = r.match(/^delegated to the lead of ([\s\S]+)$/))) return t("coreText:taskReason.delegated", { team: m[1] });

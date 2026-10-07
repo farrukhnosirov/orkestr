@@ -184,6 +184,7 @@
     "pipelineBuildTests": "Quality pipeline: build and tests",
     "healingDeclined": "Self-healing stopped ({{detail}}); you declined further attempts",
     "healingEscalationFailed": "Self-healing stopped ({{detail}}), and the escalation could not be filed: {{error}}",
+    "healingRaiseBudget": "Self-healing stopped ({{detail}}); raise the budget and retry the task to continue",
     "teamLeadAccepted": "Accepted by the team lead",
     "executorPartial": "The executor reported a partial result",
     "childrenCompleted": "All sub-tasks are done",

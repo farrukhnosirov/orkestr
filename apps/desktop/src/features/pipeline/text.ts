@@ -5,9 +5,10 @@
  * reviewer text, error messages — is shown as written. Pure and unit-tested.
  */
 import { t as translate } from "../../i18n";
+import { healingReason, type TextT } from "../../lib/coreText";
 
 /** A translate function (the hook's `t` re-renders on a language change). */
-export type PipelineT = (key: string, opts?: Record<string, unknown>) => string;
+export type PipelineT = TextT;
 type T = PipelineT;
 
 /** Whole-string forms. */
@@ -35,18 +36,24 @@ const WHOLE: [RegExp, (m: RegExpExecArray, t: T) => string][] = [
   [/^the task has no agent branch — there is no change to attack$/, (_m, t) => t("pipeline:text.noChangeToAttack")],
   [
     /^self-healing stopped \((.+)\); the user declined further attempts$/,
-    (m, t) => t("pipeline:text.declined", { reason: localizeReason(m[1] ?? "", t) }),
+    (m, t) => t("pipeline:text.declined", { reason: healingReason(m[1] ?? "", t) }),
   ],
+  [
+    /^self-healing stopped \((.+)\); raise the budget and retry the task to continue$/,
+    (m, t) => t("pipeline:text.raiseBudget", { reason: healingReason(m[1] ?? "", t) }),
+  ],
+  [
+    /^self-healing stopped \((.+?)\) and the escalation could not be filed: (.+)$/,
+    (m, t) => t("pipeline:text.escalationFailed", { reason: healingReason(m[1] ?? "", t), error: m[2] }),
+  ],
+  // Every escalation (`Escalated` status reason).
+  [/^self-healing stopped: (.+)$/, (m, t) => t("pipeline:text.escalated", { reason: healingReason(m[1] ?? "", t) })],
+  [/^more self-healing time granted by the user$/, (_m, t) => t("pipeline:text.moreTime")],
+  [/^more self-healing budget granted by the user$/, (_m, t) => t("pipeline:text.moreBudget")],
+  [/^waiting for your decision$/, (_m, t) => t("pipeline:text.waitingDecision")],
+  [/^superseded by a new attempt of the task$/, (_m, t) => t("pipeline:text.superseded")],
+  [/^stopped with the run$/, (_m, t) => t("pipeline:text.stoppedWithRun")],
 ];
-
-/** Escalation reasons inside other forms. */
-function localizeReason(reason: string, t: T): string {
-  const repeat = /^no progress: the last fix produced the same failure$/.exec(reason);
-  if (repeat) return t("pipeline:text.noProgress");
-  const attempts = /^(\d+) of (\d+) fix attempt\(s\) used$/.exec(reason);
-  if (attempts) return t("pipeline:text.attemptsUsed", { used: attempts[1], allowed: attempts[2] });
-  return reason;
-}
 
 /** In-string pieces (healing analysis summaries). */
 const PARTS: [RegExp, (m: RegExpExecArray, t: T) => string][] = [
@@ -63,6 +70,9 @@ export function localizePipelineText(text: string, t: T = translate as unknown a
     const m = re.exec(s);
     if (m) return f(m, t);
   }
+  // A bare escalation reason (e.g. the pipeline's Failed reason).
+  const reason = healingReason(s, t);
+  if (reason !== s) return reason;
   let out = s;
   for (const [re, f] of PARTS) {
     out = out.replace(re, (...args: unknown[]) => {
