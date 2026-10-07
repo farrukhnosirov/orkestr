@@ -10,6 +10,7 @@ import { create } from "zustand";
 import { maybeClient } from "../../core/client";
 import { describeError } from "../../i18n/errors";
 import { t } from "../../i18n";
+import { approvalSummary } from "../../lib/coreText";
 import { useAppStore } from "../../store/app";
 import { useSettingsStore } from "../settings/settingsStore";
 import { EMPTY_FLAGS, removeApproval, upsertApproval } from "./logic";
@@ -188,7 +189,7 @@ function onSecurityEvent(event: Event): void {
       s.applyApproval(a);
       s.pushToast({
         title: t("security:toast.approvalRequested"),
-        body: a.actionSummary,
+        body: approvalSummary(a.actionSummary),
         tone: a.risk === "Critical" || a.risk === "High" ? "danger" : "warning",
         approvalId: a.id,
       });

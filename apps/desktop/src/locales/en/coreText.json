@@ -138,6 +138,58 @@
     "listed": "listed {{path}} (entries: {{count}})",
     "matches": "matches for /{{pattern}}/: {{count}}"
   },
+  "approval": {
+    "wantsTo": "{{agent}} wants to {{action}}: {{resource}}",
+    "wantsToBare": "{{agent}} wants to {{action}}",
+    "action": {
+      "read_file": "read a file",
+      "write_file": "write a file",
+      "edit_file": "edit a file",
+      "list_dir": "list a folder",
+      "search_files": "search files",
+      "run_command": "run a command",
+      "git_commit": "commit changes",
+      "git_diff": "view the diff",
+      "git_status": "check the Git status",
+      "create_snapshot": "create a snapshot",
+      "record_memory": "save to memory",
+      "record_decision": "record a decision",
+      "ask_user": "ask you",
+      "submit_result": "submit the result"
+    },
+    "questionFrom": "Question from {{agent}}",
+    "runCommand": "Run command",
+    "runCommandTerminal": "Run command (agent terminal)",
+    "merge_one": "Merge {{count}} branch into `{{target}}`",
+    "merge_other": "Merge {{count}} branches into `{{target}}`",
+    "healingGaveUp": "Self-healing gave up on “{{task}}” — continue fixing?",
+    "codex": "Let {{agent}} run Codex in its sandbox",
+    "startAgent": "Start a {{role}} agent on “{{task}}”",
+    "createTasks_one": "Create {{count}} task",
+    "createTasks_other": "Create {{count}} tasks",
+    "reason": {
+      "agentAsks": "The agent asks: {{question}}",
+      "mergePolicy": "The Merge Manager merges agent branches only with your approval (merge policy).",
+      "managerAsk": "The AI Manager's approval mode is Ask",
+      "managerDecision": "The AI Manager asks for your decision",
+      "codex": "Codex runs commands inside its own workspace-write sandbox; Orkestr cannot approve each command. Approve to let it work in the agent worktree.",
+      "healing": "The quality pipeline could not fix the {{stage}} stage automatically: {{reason}}. Last failure: {{failure}}. Approve to grant {{offer}}; reject to mark the task failed.",
+      "offerMinutes": "another {{count}} min of self-healing",
+      "offerBudget": "another {{amount}} of self-healing spend",
+      "offerAttempts_one": "{{count}} more attempt (a different model is tried)",
+      "offerAttempts_other": "{{count}} more attempts (a different model is tried)",
+      "what": {
+        "network": "the command uses the network",
+        "secret_file": "the command reads a secrets file",
+        "outside_worktree": "the command reads files outside the worktree"
+      },
+      "whatRequires": "{{what}} ({{capability}} requires approval)",
+      "computerControl": "computer control always requires approval",
+      "rule": "a permission rule requires approval for {{capability}}",
+      "secretFile": "reading a secrets file requires approval",
+      "modeDefault": "{{capability}} requires approval in {{mode}} mode"
+    }
+  },
   "stopDetail": {
     "byUser": "stopped by the user",
     "byUserCancelled": "stopped by the user (task cancelled)",

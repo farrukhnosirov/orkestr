@@ -347,3 +347,142 @@ export function taskReason(reason: string | null | undefined): string | null {
   if (/^[a-z][a-z0-9]*(?:_[a-z0-9]+)+$/.test(r) || /^[A-Z][a-z]+(?:[A-Z][a-z]+)+$/.test(r)) return null;
   return r;
 }
+
+// ---------------------------------------------------------------------------
+// Approval requests: the core writes `actionSummary` / `reason` in English
+// (agent tool asks, questions, shell gate, merge, Self-Healing escalation,
+// Manager gate, Codex, permission engine reasons). Display only.
+// ---------------------------------------------------------------------------
+
+const AGENT_TOOLS = [
+  "read_file",
+  "write_file",
+  "edit_file",
+  "list_dir",
+  "search_files",
+  "run_command",
+  "git_commit",
+  "git_diff",
+  "git_status",
+  "create_snapshot",
+  "record_memory",
+  "record_decision",
+  "ask_user",
+  "submit_result",
+] as const;
+
+/** `prompt::role_name` (English display) → `agents:roles` key. */
+const ROLE_KEYS: Record<string, string> = {
+  Manager: "Manager",
+  Architect: "Architect",
+  Backend: "Backend",
+  Frontend: "Frontend",
+  Database: "Database",
+  QA: "Qa",
+  Security: "Security",
+  DevOps: "DevOps",
+  "UI/UX": "UiUx",
+  "Product Manager": "ProductManager",
+  Reviewer: "Reviewer",
+  Researcher: "Researcher",
+};
+
+const CAPABILITIES = [
+  "Read",
+  "Write",
+  "Delete",
+  "Terminal",
+  "Git",
+  "Network",
+  "Browser",
+  "DbRead",
+  "DbWrite",
+  "Docker",
+  "Ssh",
+  "Deploy",
+  "ComputerControl",
+  "Secrets",
+] as const;
+const MODES = ["Ask", "SemiAuto", "FullAuto"] as const;
+const STAGES = ["Author", "Review", "Build", "Test", "Security", "Merge"] as const;
+
+function capabilityLabel(cap: string): string {
+  return (CAPABILITIES as readonly string[]).includes(cap) ? t(`security:capability.${cap as (typeof CAPABILITIES)[number]}`) : cap;
+}
+
+function roleLabel(role: string): string {
+  const key = ROLE_KEYS[role];
+  return key ? t(`agents:roles.${key as "Backend"}`) : role;
+}
+
+/** Display text of an approval's `actionSummary`. Unknown text is returned as is. */
+export function approvalSummary(summary: string): string {
+  const s = summary.trim();
+  let m: RegExpMatchArray | null;
+  if ((m = s.match(/^(.+?) wants to ([a-z_]+)(?: ([\s\S]*))?$/)) && (AGENT_TOOLS as readonly string[]).includes(m[2] ?? "")) {
+    const agent = agentName(m[1] ?? "");
+    const action = t(`coreText:approval.action.${m[2] as (typeof AGENT_TOOLS)[number]}`);
+    const resource = (m[3] ?? "").trim();
+    return resource ? t("coreText:approval.wantsTo", { agent, action, resource }) : t("coreText:approval.wantsToBare", { agent, action });
+  }
+  if ((m = s.match(/^Question from ([\s\S]+)$/))) return t("coreText:approval.questionFrom", { agent: agentName(m[1] ?? "") });
+  if (s === "Run command (agent terminal)") return t("coreText:approval.runCommandTerminal");
+  if (s === "Run command") return t("coreText:approval.runCommand");
+  if ((m = s.match(/^Merge (\d+) branch\(es\) into `([\s\S]+)`$/))) return t("coreText:approval.merge", { count: Number(m[1]), target: m[2] });
+  if ((m = s.match(/^Self-healing gave up on "([\s\S]*)" — continue fixing\?$/))) return t("coreText:approval.healingGaveUp", { task: m[1] });
+  if ((m = s.match(/^Let ([\s\S]+) run Codex in its sandbox$/))) return t("coreText:approval.codex", { agent: agentName(m[1] ?? "") });
+  if ((m = s.match(/^Start a ([\s\S]+?) agent on "([\s\S]*)"$/))) return t("coreText:approval.startAgent", { role: roleLabel(m[1] ?? ""), task: m[2] });
+  if ((m = s.match(/^Create (\d+) task\(s\)$/))) return t("coreText:approval.createTasks", { count: Number(m[1]) });
+  return s;
+}
+
+function healingOffer(offer: string): string {
+  let m: RegExpMatchArray | null;
+  if ((m = offer.match(/^another (\d+) min of self-healing$/))) return t("coreText:approval.reason.offerMinutes", { count: Number(m[1]) });
+  if ((m = offer.match(/^another \$([\d.]+) of self-healing spend$/))) {
+    return t("coreText:approval.reason.offerBudget", { amount: formatCurrency(Number(m[1])) });
+  }
+  if ((m = offer.match(/^(\d+) more attempt\(s\) \(a different model is tried\)$/))) {
+    return t("coreText:approval.reason.offerAttempts", { count: Number(m[1]) });
+  }
+  return offer;
+}
+
+const ENGINE_WHAT: Record<string, "network" | "secret_file" | "outside_worktree"> = {
+  "the command uses the network": "network",
+  "the command reads a secrets file": "secret_file",
+  "the command reads files outside the worktree": "outside_worktree",
+};
+
+/** Display text of an approval's `reason`. Unknown text (e.g. a guard's danger reason) is returned as is. */
+export function approvalReason(reason: string): string {
+  const r = reason.trim();
+  let m: RegExpMatchArray | null;
+  if ((m = r.match(/^The agent asks: ([\s\S]*)$/))) return t("coreText:approval.reason.agentAsks", { question: m[1] });
+  if (r === "The Merge Manager merges agent branches only with your approval (merge policy).") return t("coreText:approval.reason.mergePolicy");
+  if (r === "the AI Manager's approval policy is Ask") return t("coreText:approval.reason.managerAsk");
+  if (r === "the AI Manager asks for your decision") return t("coreText:approval.reason.managerDecision");
+  if (r.startsWith("Codex runs commands inside its own workspace-write sandbox;")) return t("coreText:approval.reason.codex");
+  if (
+    (m = r.match(
+      /^The quality pipeline could not fix the (\w+) stage automatically: ([\s\S]+?)\. Last failure: ([\s\S]*)\. Approve to grant ([\s\S]+); reject to mark the task failed\.$/,
+    ))
+  ) {
+    const stage = (STAGES as readonly string[]).includes(m[1] ?? "") ? t(`pipeline:stage.${m[1] as (typeof STAGES)[number]}`) : (m[1] ?? "");
+    return t("coreText:approval.reason.healing", { stage, reason: healingReason(m[2] ?? ""), failure: m[3], offer: healingOffer(m[4] ?? "") });
+  }
+  if ((m = r.match(/^([\s\S]+) \((\w+) requires approval\)$/)) && ENGINE_WHAT[m[1] ?? ""]) {
+    const what = t(`coreText:approval.reason.what.${ENGINE_WHAT[m[1] ?? ""] ?? "outside_worktree"}`);
+    return t("coreText:approval.reason.whatRequires", { what, capability: capabilityLabel(m[2] ?? "") });
+  }
+  if (r === "computer control always requires approval") return t("coreText:approval.reason.computerControl");
+  if ((m = r.match(/^a permission rule requires approval for (\w+)$/))) return t("coreText:approval.reason.rule", { capability: capabilityLabel(m[1] ?? "") });
+  if (r === "reading a secrets file requires approval") return t("coreText:approval.reason.secretFile");
+  if ((m = r.match(/^(\w+) requires approval in (\w+) mode$/)) && (MODES as readonly string[]).includes(m[2] ?? "")) {
+    return t("coreText:approval.reason.modeDefault", {
+      capability: capabilityLabel(m[1] ?? ""),
+      mode: t(`common:status.approvalMode.${m[2] as (typeof MODES)[number]}`),
+    });
+  }
+  return r;
+}

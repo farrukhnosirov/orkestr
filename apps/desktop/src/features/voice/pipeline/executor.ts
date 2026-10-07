@@ -8,7 +8,7 @@
 import type { AgentInstance, AgentState, Approval, Task } from "@orkestr/protocol";
 
 import { t } from "../../../i18n";
-import { agentActivity, agentName } from "../../../lib/coreText";
+import { agentActivity, agentName, approvalSummary } from "../../../lib/coreText";
 import type { Intent, PanelTarget, ProjectRef } from "../intent/parser";
 import { EMPTY_QUALITY, projectFacts, type QualitySnapshot, summaryParts, type SummaryPart } from "./summary";
 
@@ -147,7 +147,7 @@ export function confirmationPrompt(intent: Intent, deps: Pick<VoiceDeps, "pendin
     case "reject": {
       const a = approvalFor(intent, deps);
       const key = intent.kind === "approve" ? "voice:confirm.approve" : "voice:confirm.reject";
-      return t(key, { action: a?.actionSummary ?? "" });
+      return t(key, { action: approvalSummary(a?.actionSummary ?? "") });
     }
     default:
       return "";
@@ -164,7 +164,7 @@ export function precheck(intent: Intent, deps: Pick<VoiceDeps, "pendingApprovals
     const a = approvalFor(intent, deps);
     if (!a) return intent.approvalId !== undefined ? result("failed", t("voice:reply.approvalGone"), "warn") : result("failed", t("voice:reply.noApprovals"), "info");
     // Dangerous actions (§23, §70) are approved only in the app, never by a spoken "yes".
-    if (intent.kind === "approve" && a.danger) return result("failed", t("voice:reply.dangerousInApp", { action: a.actionSummary }), "warn", a.projectId);
+    if (intent.kind === "approve" && a.danger) return result("failed", t("voice:reply.dangerousInApp", { action: approvalSummary(a.actionSummary) }), "warn", a.projectId);
   }
   return null;
 }
@@ -264,7 +264,7 @@ export async function executeIntent(intent: Intent, deps: VoiceDeps): Promise<Co
       await deps.resolveApproval(a.id, intent.kind === "approve" ? "Approve" : "Reject");
       return result(
         "ok",
-        intent.kind === "approve" ? t("voice:reply.approved", { action: a.actionSummary }) : t("voice:reply.rejected", { action: a.actionSummary }),
+        intent.kind === "approve" ? t("voice:reply.approved", { action: approvalSummary(a.actionSummary) }) : t("voice:reply.rejected", { action: approvalSummary(a.actionSummary) }),
         "ok",
         a.projectId,
       );

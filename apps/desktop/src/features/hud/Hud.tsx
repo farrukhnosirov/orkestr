@@ -13,7 +13,7 @@ import { ErrorBoundary } from "../../components/ErrorBoundary";
 import { Logo } from "../../components/Logo";
 import { useT } from "../../i18n";
 import { describeError } from "../../i18n/errors";
-import { agentName } from "../../lib/coreText";
+import { agentName, approvalSummary } from "../../lib/coreText";
 import { managerActions } from "../../panels/Manager/data";
 import { useProjectAgents } from "../../panels/Agents/data";
 import { roleInitials } from "../../panels/Agents/model";
@@ -120,12 +120,12 @@ function Approvals() {
   };
   return (
     <span className="hud-approvals">
-      <span className="hud-chip hud-chip--warning" title={next.actionSummary}>
+      <span className="hud-chip hud-chip--warning" title={approvalSummary(next.actionSummary)}>
         <ShieldAlert size={12} /> {t("approvals", { count: pending.length })}
       </span>
       {quick ? (
         <>
-          <button type="button" className="hud-icon-btn hud-icon-btn--ok" disabled={busy} title={t("approveTitle", { summary: next.actionSummary })} aria-label={t("approveTitle", { summary: next.actionSummary })} onClick={() => decide("Approve")}>
+          <button type="button" className="hud-icon-btn hud-icon-btn--ok" disabled={busy} title={t("approveTitle", { summary: approvalSummary(next.actionSummary) })} aria-label={t("approveTitle", { summary: approvalSummary(next.actionSummary) })} onClick={() => decide("Approve")}>
             <Check size={13} />
           </button>
           <button type="button" className="hud-icon-btn" disabled={busy} title={t("reject")} aria-label={t("reject")} onClick={() => decide("Reject")}>
