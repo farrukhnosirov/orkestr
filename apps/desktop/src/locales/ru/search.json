@@ -1,5 +1,13 @@
 {
   "providers": {
-    "projects": "Проекты"
+    "projects": "Проекты",
+    "tasks": "Задачи",
+    "memory": "Память",
+    "knowledge": "База знаний",
+    "files": "Файлы"
+  },
+  "scope": {
+    "project": "память проекта",
+    "global": "глобальная память"
   }
 }

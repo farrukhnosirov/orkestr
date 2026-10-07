@@ -5,6 +5,7 @@ import { type FormEvent, useEffect, useState } from "react";
 
 import { useFormat, useT } from "../../i18n";
 import { errorMessage, requireClient, useRpcQuery } from "../../lib/rpcQuery";
+import { useMemoryFocus } from "./focus";
 import { INDEX_STATUS_TONE } from "./kinds";
 import { Highlighted } from "./markdown";
 
@@ -24,6 +25,15 @@ export function KnowledgeBase({ projectId }: { projectId: string | null }) {
     const timer = setTimeout(() => setDebounced(query.trim()), 250);
     return () => clearTimeout(timer);
   }, [query]);
+
+  // A global-search hit: run the same search here.
+  const focus = useMemoryFocus((s) => s.focus);
+  useEffect(() => {
+    if (focus?.tab !== "knowledge") return;
+    setQuery(focus.query);
+    setDebounced(focus.query.trim());
+    useMemoryFocus.getState().clear();
+  }, [focus]);
 
   const sources = useRpcQuery<KnowledgeSource[]>(
     `knowledge:${scopeKey}`,

@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { useFormat, useT } from "../../i18n";
 import { errorMessage, requireClient, useRpcQuery } from "../../lib/rpcQuery";
+import { useMemoryFocus } from "./focus";
 import { KIND_INFO, kindLabel } from "./kinds";
 import { Highlighted, Markdown } from "./markdown";
 import { MemoryEditor } from "./MemoryEditor";
@@ -43,6 +44,16 @@ export function MemoryList({ scope, kinds }: MemoryListProps) {
   const q = useDebounced(query.trim(), 200);
   const projectId = scope.scope === "Project" ? scope.projectId : null;
   const scopeKey = projectId ?? scope.scope;
+
+  // A global-search hit for this tab: show it (query + expanded card).
+  const focus = useMemoryFocus((s) => s.focus);
+  useEffect(() => {
+    if (!focus || focus.tab !== (scope.scope === "Project" ? "project" : "global")) return;
+    setQuery(focus.query);
+    setKindFilter(null);
+    setExpanded(focus.expand);
+    useMemoryFocus.getState().clear();
+  }, [focus, scope.scope]);
 
   const { data, error, loading, reload } = useRpcQuery<Row[]>(
     `memory:${scopeKey}:${kindFilter ?? ""}:${q}`,
