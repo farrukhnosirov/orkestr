@@ -35,7 +35,7 @@ in separate panels.
 | 23 | Visual Task Graph | Partial | Partial (above plan) | The graph is interactive already (drag to add a dependency, Delete removes one), with a MiniMap. |
 | 28 | Voice Command Center | Arch | — | No `voice.*` namespace or `Microphone` trait yet; the seam is still to be added. |
 | 31 | Approval Levels | Full | Full | "Remember this decision" is open. |
-| 34 | Rollback Everything | Partial | Partial | Task and workspace rollback work for every agent task (after-checkpoints are now always taken); HEAD/index restore is open. |
+| 34 | Rollback Everything | Partial | Partial | Task and workspace rollback work for every agent task (after-checkpoints are now always taken); HEAD/index restore is open. Permission-rule versions are **not built**: `permissions.delete`/`set` overwrite or hard-delete rules with no history or restore. |
 | 35 | Snapshots | Full | Partial | Capture, diff, restore and task rollback work; snapshot GC and the 500-file timing benchmark are open. |
 | 37 | Smart Budgeting | Partial | Partial | Budgets are checked before each API model call; CLI agents are checked after the run only. |
 | 49 | Decision Log | Arch | Partial | Decisions are recorded through the Manager's `record_decision` tool and the Memory panel; plan approvals do not record one automatically. |
@@ -60,7 +60,7 @@ tested.
 | 28 | Voice Command Center | Full | Partial | Scenario G passes through the post-STT path (`simulateTranscript` seam, TTS called), and typed HUD commands work, e.g. «show build errors» answered from the quality runner. Push-to-talk and destructive-intent confirmations work. STT is WebSpeech or OpenAI Whisper (cloud, consent-gated); **no local Whisper**. A real microphone was not exercised in acceptance. |
 | 29 | Wake Word | Full | Partial | Local MFCC/DTW spotter with enrollment, opt-in, VAD-gated, paused in Battery Saver. SP-15 budgets and the zero-network packet capture were not measured. |
 | 30 | Voice Notifications | Full | Full | Spoken notifications with DND / quiet hours. Robots with voice on speak for their agent, with no double announcement. |
-| 34 | Rollback Everything | Full | Full (UI part) | Every UI config change is versioned; AI patches carry an exact inverse patch, and Undo is verified. Scenario J was not re-run on the Phase 3 build. |
+| 34 | Rollback Everything | Full | Partial | UI part: every UI config change is versioned; AI patches carry an exact inverse patch, and Undo is verified. Scenario J was not re-run on the Phase 3 build. Memory-item and permission-rule versions are **not built** (hard delete, in-place update, no restore RPC), so the item as a whole is Partial. |
 | 45 | Live Infrastructure Monitor | Partial | Partial | Local node resources shown in Monitoring and Mission Control. |
 | — | Custom Visual OS | Full | Full | Frameless shell and custom controls. Transparent robot windows, verified: alpha-0 corners, `WS_EX_LAYERED|TRANSPARENT`, topmost. Floating and detached panels. |
 | — | Floating robots | Full | Partial | Scenario H passes: robot per agent, live states, completion pose + bubble, click opens the result. Click-through, context menu, drag/snap, drop-on-project and overflow cluster all work. Missing: per-robot CPU/RAM budget not measured; no Linux Wayland fallback; robot windows do not follow the battery / frame-rate auto-downgrade. |
@@ -114,7 +114,7 @@ tested.
 | 31 | Approval Levels | §23 | 1 | security, task-engine | Approvals, Settings, TitleBar | Full | Full | Full | Ask, SemiAuto, FullAuto + Disable Full Auto (ADR-0010). Phase 4: remote approvals; Phase 5: mobile approvals |
 | 32 | Permission Sandbox | §23 | 2 | security, platform, terminal | Settings (Permissions), Approvals | Partial | Full | Full | P1: capability engine, scopes, worktree/path confinement, network deny switch. P2: OS-level process sandbox where practical (SP-17 → ADR) and containers for Docker-capable tasks |
 | 33 | Dangerous Action Guard | §23 | 1 | security | Approvals | Full | Full | Full | ≥ 150 test cases; SQL/git/shell classification (ADR-0010) |
-| 34 | Rollback Everything | §25 | 2 | snapshots, security (rules versions), protocol (ui config versions), memory | Snapshots, Settings, ThemeEditor | Partial | Full | Full | P1: task and workspace rollback, UI config versions, permission rule versions. P2: merged-task revert proposals, memory versions, rollback from Replay. Remote side effects are not reversible (RR-A4) |
+| 34 | Rollback Everything | §25 | 2 | snapshots, security (rules versions), protocol (ui config versions), memory | Snapshots, Settings, ThemeEditor | Partial | Partial | Partial | Delivered: task and workspace rollback, UI config versions. **Not delivered:** permission rule versions (planned P1) and memory versions (planned P2) — `memory.delete` and `permissions.delete` hard-delete, updates overwrite in place, and there is no history or restore RPC; merged-task revert proposals and rollback from Replay are open too. Remote side effects are not reversible (RR-A4) |
 | 35 | Snapshots | §25 | 1 | snapshots, storage (objects), vcs | Snapshots | Full | Full | Full | ADR-0021. P2 adds automatic checkpoints in loops. P4 syncs snapshots |
 | 36 | Cost & Limit Center | §22 | 2 | cost, providers | Costs | Partial | Full | Full | P1: usage and estimated cost per provider/model/agent/project/task, daily and monthly budgets. P2: provider quota/limit state, forecasts. P3: Mission Control tiles |
 | 37 | Smart Budgeting | §22 | 2 | cost, orchestrator | Costs, Settings | Partial | Full | Full | P1: per-task max, per-project monthly, "unrestricted" scopes, `BudgetThreshold` (RR-G4). P2: budget-aware routing and spawning |
@@ -199,7 +199,7 @@ not built or not verified. Details are in `mvp-milestones.md` → Phase 2 Status
 | 11 | AI Merge Manager | Run-wide proposal, DAG order, approval, merged into `main` on disk; superseded per-task proposals | Revert proposals still open |
 | 12, 15, 16 | Review, auto testing, Self-Healing | Real `npm run build/test` (Windows), parsed `node --test` failure, healed in 1 attempt; stop on "no progress" → escalation → declined → Failed | Browser tool (stretch) not built |
 | 13 | Consensus | Decision with 3 alternatives | Only one model available (perspectives, not providers) |
-| 34, 35 | Rollback | Rollback Task across healing worktrees; unrelated edits survive | Merged-task revert, rollback from Replay |
+| 34, 35 | Rollback | Rollback Task across healing worktrees; unrelated edits survive | Merged-task revert, rollback from Replay; memory-item and permission-rule versions **not built** |
 | 38, 39 | Benchmarks, agent analytics | Rows from the real runs | — |
 | 40 | Context optimizer | — | ≥ 90 % context-pack eval not run |
 | 41 | MCP Hub | — | **Not built** (no stdio MCP client) |
@@ -213,8 +213,8 @@ not built or not verified. Details are in `mvp-milestones.md` → Phase 2 Status
 
 | Level | P1 | P2 | P3 |
 |---|---|---|---|
-| Full | 10 | 36 | 57 |
-| Partial | 28 | 19 | 9 |
+| Full | 10 | 35 | 56 |
+| Partial | 28 | 20 | 10 |
 | Arch | 30 | 17 | 13 |
 | — | 14 | 10 | 3 |
 

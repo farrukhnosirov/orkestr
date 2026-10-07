@@ -336,15 +336,13 @@ impl ChatCompletionsDecoder {
 
     fn flush_calls(&mut self) -> Vec<ChatEvent> {
         std::mem::take(&mut self.calls)
-            .into_iter()
-            .map(|(i, c)| {
+            .into_values()
+            .map(|c| {
                 self.output_chars += c.args.len();
                 ChatEvent::ToolCall {
-                    id: match (c.id.is_empty(), i.checked_sub(UNINDEXED_BASE)) {
-                        (false, _) => c.id,
-                        (true, Some(n)) => format!("call_u{n}"),
-                        (true, None) => format!("call_{i}"),
-                    },
+                    // Id-less calls get a process-unique id: per-response
+                    // numbering would repeat across turns.
+                    id: if c.id.is_empty() { crate::types::unique_call_id("call") } else { c.id },
                     name: c.name,
                     arguments: parse_tool_arguments(&c.args),
                 }
@@ -621,6 +619,25 @@ mod tests {
             .unwrap();
         assert_eq!(out.len(), 2);
         assert!(matches!(&out[1], ChatEvent::ToolCall { id, name, .. } if id == "e" && name == "g"));
+    }
+
+    #[test]
+    fn id_less_calls_get_unique_ids_across_responses() {
+        let chunk = r#"{"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"name":"f","arguments":"{}"}}]},"finish_reason":"tool_calls"}]}"#;
+        let id = || {
+            let mut d = ChatCompletionsDecoder::default();
+            d.data(chunk)
+                .unwrap()
+                .into_iter()
+                .find_map(|e| match e {
+                    ChatEvent::ToolCall { id, .. } => Some(id),
+                    _ => None,
+                })
+                .unwrap()
+        };
+        let (a, b) = (id(), id());
+        assert!(!a.is_empty());
+        assert_ne!(a, b);
     }
 
     #[test]

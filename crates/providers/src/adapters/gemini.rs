@@ -7,7 +7,6 @@
 //! turn whose earlier `functionCall` lost its signature.
 
 use std::collections::{HashMap, VecDeque};
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -279,8 +278,7 @@ pub fn build_body_with(req: &ChatRequest, signature: &dyn Fn(&str) -> Option<Str
 /// Unique id for a function call Gemini returned without one (ids must not
 /// repeat across turns: thought signatures are keyed by them).
 fn generated_call_id() -> String {
-    static NEXT: AtomicU64 = AtomicU64::new(0);
-    format!("gemini_call_{:x}_{}", chrono::Utc::now().timestamp_millis(), NEXT.fetch_add(1, Ordering::Relaxed))
+    crate::types::unique_call_id("gemini_call")
 }
 
 /// Incremental decoder for `streamGenerateContent` SSE chunks.
@@ -303,6 +301,7 @@ impl GeminiDecoder {
             return Err(match status {
                 "RESOURCE_EXHAUSTED" => ProviderError::RateLimited { retry_after_secs: None },
                 "UNAUTHENTICATED" | "PERMISSION_DENIED" => ProviderError::Auth(msg),
+                "INVALID_ARGUMENT" if crate::http::is_invalid_api_key(data) => ProviderError::Auth(msg),
                 "INVALID_ARGUMENT" | "NOT_FOUND" | "FAILED_PRECONDITION" => ProviderError::BadRequest(msg),
                 _ => ProviderError::Server(msg),
             });
@@ -599,6 +598,16 @@ mod tests {
         assert!(c.get("id0").is_none());
         assert_eq!(c.get(&format!("id{}", MAX_SIGNATURES + 9)), Some("s"));
         assert_eq!(c.map.len(), MAX_SIGNATURES);
+    }
+
+    #[test]
+    fn decoder_maps_invalid_api_key_to_auth() {
+        let mut d = GeminiDecoder::default();
+        let chunk = r#"{"error":{"code":400,"message":"API key expired. Please renew the API key.","status":"INVALID_ARGUMENT","details":[{"reason":"API_KEY_INVALID"}]}}"#;
+        assert!(matches!(d.data(chunk), Err(ProviderError::Auth(_))));
+        let mut d = GeminiDecoder::default();
+        let chunk = r#"{"error":{"code":400,"message":"Invalid value","status":"INVALID_ARGUMENT"}}"#;
+        assert!(matches!(d.data(chunk), Err(ProviderError::BadRequest(_))));
     }
 
     #[test]

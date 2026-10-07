@@ -298,7 +298,18 @@ impl ProviderRegistry {
     /// Loads persisted providers and performs first-start registration
     /// (Mock, plus detected CLIs and a reachable local Ollama).
     pub async fn init(&self) -> RegistryResult<()> {
-        for p in self.store.list().await? {
+        for mut p in self.store.list().await? {
+            // `is_local` is persisted, but the loopback rules may have been
+            // tightened since it was stored: always re-derive it so routing
+            // and privacy checks never trust a stale flag.
+            let local = is_local(&p);
+            if p.is_local != local {
+                tracing::info!(provider = %p.id, is_local = local, "recomputed stale is_local flag");
+                p.is_local = local;
+                if let Err(e) = self.store.update(&p).await {
+                    tracing::warn!(provider = %p.id, error = %e, "failed to persist recomputed is_local");
+                }
+            }
             match build_adapter(&p, &self.deps) {
                 Ok(adapter) => {
                     self.entries.write().insert(p.id, Entry { config: p, adapter });
@@ -1223,6 +1234,38 @@ mod tests {
         );
         reg2.init().await.unwrap();
         assert_eq!(reg2.list().len(), 1);
+    }
+
+    /// A provider stored with a stale `is_local = 1` (saved before the
+    /// loopback rules were tightened) must be re-evaluated on load, otherwise
+    /// LocalModelsOnly projects would still route to a remote host.
+    #[tokio::test]
+    async fn init_recomputes_stale_is_local_flag() {
+        let (reg, creds, _sink, db) = registry().await;
+        let v = reg
+            .create(NewProvider {
+                kind: Some(ProviderKind::OpenAiCompatible),
+                base_url: Some("http://127.gpu.example.com:11434/v1".into()),
+                ..NewProvider::default()
+            })
+            .await
+            .unwrap();
+        assert!(!v.provider.is_local);
+        let id = v.provider.id;
+        let store = ProviderStore::new(db.clone());
+        let mut stale = store.get(id).await.unwrap().unwrap();
+        stale.is_local = true;
+        store.update(&stale).await.unwrap();
+
+        let reg2 = ProviderRegistry::with_options(
+            db,
+            AdapterDeps::new(creds),
+            Arc::new(Sink::default()),
+            RegistryOptions { detect_on_first_start: false, ..RegistryOptions::default() },
+        );
+        reg2.init().await.unwrap();
+        assert!(!reg2.get(id).unwrap().provider.is_local, "in-memory flag recomputed");
+        assert!(!store.get(id).await.unwrap().unwrap().is_local, "recomputed flag persisted");
     }
 
     #[tokio::test]

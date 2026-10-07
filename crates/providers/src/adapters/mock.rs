@@ -851,6 +851,17 @@ const BUILD_WORDS: [&str; 18] = [
 const STATUS_WORDS: [&str; 9] =
     ["status", "progress", "how are", "what's going", "overview", "tasks", "agents", "статус", "прогресс"];
 
+/// Task count and parallelism from the `propose_plan` tool content
+/// ("Plan <id> (<status>) with N task(s), up to M in parallel...").
+fn plan_counts(content: &str) -> Option<(usize, usize)> {
+    let num_after = |marker: &str| -> Option<usize> {
+        let rest = &content[content.find(marker)? + marker.len()..];
+        let digits: String = rest.chars().take_while(char::is_ascii_digit).collect();
+        digits.parse().ok()
+    };
+    Some((num_after(" with ")?, num_after(" up to ")?))
+}
+
 /// Scripted AI Manager chat: build requests → `propose_plan`; status
 /// questions → `project_overview`; tool results → a short summary.
 fn manager_script(req: &ChatRequest) -> MockScript {
@@ -881,9 +892,25 @@ _— Mock (offline demo)_".to_owned(),
 _— Mock (офлайн-демо)_".to_owned(),
             )
         } else if tool == "propose_plan" {
+            // Summarise from the structured counts instead of echoing the raw
+            // (English, UUID-bearing) tool content into the chat.
+            let counts = plan_counts(&m.content);
+            let (en_plan, ru_plan) = match counts {
+                Some((tasks, parallel)) => (
+                    format!(
+                        "a plan with {tasks} task{} (up to {parallel} in parallel)",
+                        if tasks == 1 { "" } else { "s" }
+                    ),
+                    format!(
+                        "план из {tasks} {} (до {parallel} одновременно)",
+                        if tasks % 10 == 1 && tasks % 100 != 11 { "задачи" } else { "задач" }
+                    ),
+                ),
+                None => ("a plan".to_owned(), "план".to_owned()),
+            };
             lang.pick(
-                format!("I studied the project and drafted a plan: {result}\n\nReview the **plan card** below — approve it to start the agents (each works in its own worktree), edit task titles or remove tasks first, or reject it.\n\n_— Mock (offline demo)_"),
-                format!("Я изучил проект и подготовил план: {result}\n\nПосмотрите **карточку плана** ниже: подтвердите её, чтобы запустить агентов (каждый работает в своей рабочей копии), при необходимости сначала измените названия задач или уберите лишние — или отклоните план.\n\n_— Mock (офлайн-демо)_"),
+                format!("I studied the project and drafted {en_plan}.\n\nReview the **plan card** below — approve it to start the agents (each works in its own worktree), edit task titles or remove tasks first, or reject it.\n\n_— Mock (offline demo)_"),
+                format!("Я изучил проект и подготовил {ru_plan}.\n\nПосмотрите **карточку плана** ниже: подтвердите её, чтобы запустить агентов (каждый работает в своей рабочей копии), при необходимости сначала измените названия задач или уберите лишние — или отклоните план.\n\n_— Mock (офлайн-демо)_"),
             )
         } else {
             lang.pick(
@@ -1407,6 +1434,24 @@ Fix the failing test.
         let mut h = ChatRequest::new("mock-smart", vec![ChatMessage::user("hi")]);
         h.tools = r.tools.clone();
         assert!(matches!(script(&h), MockScript::Text(t) if t.contains("Mock (offline demo)")));
+    }
+
+    #[test]
+    fn plan_reply_summarises_counts_without_raw_tool_content() {
+        let content = "Plan 01a11582-0000-0000-0000-000000000000 (Proposed) with 4 task(s), up to 2 in parallel:\nt1 [Architect] Design\nt2 [Backend] Build (after t1)\nSummary: x";
+        assert_eq!(plan_counts(content), Some((4, 2)));
+        let mut r = ChatRequest::new("mock-smart", vec![ChatMessage::user("Создай модуль hello")]);
+        r.tools = vec![tool("propose_plan", json!({"type": "object"}))];
+        r.messages.push(ChatMessage::assistant_tool_calls(
+            "",
+            vec![crate::types::ToolCallPart { id: "c".into(), name: "propose_plan".into(), arguments: json!({}) }],
+        ));
+        r.messages.push(ChatMessage::tool_result("c", content, false));
+        let MockScript::Text(t) = script(&r) else { panic!() };
+        assert!(t.contains("план из 4 задач (до 2 одновременно)"), "{t}");
+        for raw in ["01a11582", "Proposed", "task(s)", "in parallel", "[Architect]"] {
+            assert!(!t.contains(raw), "raw tool content leaked: {raw} in {t}");
+        }
     }
 
     #[test]

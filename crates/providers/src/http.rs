@@ -247,16 +247,46 @@ pub fn retry_after_secs(headers: &HeaderMap, body: &str) -> Option<u64> {
         .find_map(|d| d.get("retryDelay").and_then(|r| r.as_str()).and_then(parse_duration_secs))
 }
 
+/// Explicit, machine-readable "out of money / credits" codes. These win over
+/// any retry hint: waiting does not help.
+const EXPLICIT_QUOTA_CODES: &[&str] = &["insufficient_quota", "billing_hard_limit"];
+
+/// Wording that indicates an exhausted balance. Deliberately does NOT include
+/// the bare word "billing": Gemini's per-minute 429 says "please check your plan
+/// and billing details" and OpenAI rate-limit messages link to
+/// `/account/billing`, yet both are short, retryable rate limits.
 const HARD_QUOTA_MARKERS: &[&str] = &[
     "insufficient_quota",
     "billing_hard_limit",
-    "billing",
     "credit balance",
     "insufficient balance",
     "insufficient_balance",
     "payment required",
     "usage limit",
 ];
+
+/// Signals that a 429 is a short-window rate limit (RPM/TPM), not an
+/// exhausted quota.
+const RATE_WINDOW_MARKERS: &[&str] = &["per_minute", "perminute", "per minute", "rate-limits", "rate limit"];
+
+/// True for Gemini's "bad / expired API key" answer, which arrives as
+/// HTTP 400 `INVALID_ARGUMENT` with reason `API_KEY_INVALID`.
+#[must_use]
+pub fn is_invalid_api_key(body: &str) -> bool {
+    let lower = body.to_ascii_lowercase();
+    if lower.contains("api key not valid") || lower.contains("api key expired") {
+        return true;
+    }
+    let Ok(v) = serde_json::from_str::<serde_json::Value>(body) else {
+        return false;
+    };
+    let v = if let Some(arr) = v.as_array() { arr.first().cloned().unwrap_or_default() } else { v };
+    v.pointer("/error/details").and_then(|d| d.as_array()).is_some_and(|details| {
+        details
+            .iter()
+            .any(|d| matches!(d.get("reason").and_then(|r| r.as_str()), Some("API_KEY_INVALID" | "API_KEY_EXPIRED")))
+    })
+}
 
 /// Classifies a non-2xx HTTP response (spec §4 classification table).
 #[must_use]
@@ -271,17 +301,19 @@ pub fn classify_http_error(status: u16, headers: &HeaderMap, body: &str) -> Prov
         403 => ProviderError::Auth(message),
         429 => {
             let retry = retry_after_secs(headers, body);
-            if hard_quota {
+            let rate_window = RATE_WINDOW_MARKERS.iter().any(|m| lower.contains(m));
+            if EXPLICIT_QUOTA_CODES.iter().any(|m| lower.contains(m)) {
                 ProviderError::QuotaExceeded(message)
-            } else if retry.is_some() {
+            } else if retry.is_some() || rate_window {
                 ProviderError::RateLimited { retry_after_secs: retry }
-            } else if lower.contains("quota") {
+            } else if hard_quota || lower.contains("quota") {
                 ProviderError::QuotaExceeded(message)
             } else {
                 ProviderError::RateLimited { retry_after_secs: None }
             }
         }
         400 if hard_quota => ProviderError::QuotaExceeded(message),
+        400 if is_invalid_api_key(body) => ProviderError::Auth(message),
         408 => ProviderError::Network(format!("request timeout: {message}")),
         400..=499 => ProviderError::BadRequest(format!("HTTP {status}: {message}")),
         _ => ProviderError::Server(format!("HTTP {status}: {message}")),
@@ -584,6 +616,40 @@ mod tests {
             classify_http_error(429, &none, r#"{"error":{"message":"daily quota reached"}}"#),
             ProviderError::QuotaExceeded(_)
         ));
+    }
+
+    /// Real-world 429 bodies that mention "billing" but are short rate limits.
+    #[test]
+    fn rate_limits_mentioning_billing_are_not_hard_quota() {
+        let none = HeaderMap::new();
+        let gemini_rpm = r#"{"error":{"code":429,"message":"You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. * Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 10 Please retry in 46.170754599s.","status":"RESOURCE_EXHAUSTED","details":[{"@type":"type.googleapis.com/google.rpc.QuotaFailure","violations":[{"quotaMetric":"generativelanguage.googleapis.com/generate_content_free_tier_requests","quotaId":"GenerateRequestsPerMinutePerProjectPerModel-FreeTier"}]},{"@type":"type.googleapis.com/google.rpc.RetryInfo","retryDelay":"46s"}]}}"#;
+        assert_eq!(
+            classify_http_error(429, &none, gemini_rpm),
+            ProviderError::RateLimited { retry_after_secs: Some(46) }
+        );
+        let openai_rpm = r#"{"error":{"message":"Rate limit reached for gpt-4o-mini in organization org-x on requests per min (RPM): Limit 3, Used 3, Requested 1. Please try again in 20s. Visit https://platform.openai.com/account/rate-limits to learn more. You can increase your rate limit by adding a payment method to your account at https://platform.openai.com/account/billing.","type":"requests","param":null,"code":"rate_limit_exceeded"}}"#;
+        assert!(matches!(classify_http_error(429, &none, openai_rpm), ProviderError::RateLimited { .. }));
+        assert_eq!(
+            classify_http_error(429, &headers(&[("x-ratelimit-reset-requests", "20s")]), openai_rpm),
+            ProviderError::RateLimited { retry_after_secs: Some(20) }
+        );
+        // An explicit insufficient_quota code still wins over a retry hint.
+        let openai_quota = r#"{"error":{"message":"You exceeded your current quota, please check your plan and billing details.","type":"insufficient_quota","code":"insufficient_quota"}}"#;
+        assert!(matches!(
+            classify_http_error(429, &headers(&[("retry-after", "5")]), openai_quota),
+            ProviderError::QuotaExceeded(_)
+        ));
+    }
+
+    #[test]
+    fn gemini_invalid_api_key_is_auth() {
+        let none = HeaderMap::new();
+        let body = r#"[{"error":{"code":400,"message":"API key not valid. Please pass a valid API key.","status":"INVALID_ARGUMENT","details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"API_KEY_INVALID","domain":"googleapis.com"}]}}]"#;
+        assert!(matches!(classify_http_error(400, &none, body), ProviderError::Auth(_)));
+        let by_reason = r#"{"error":{"code":400,"message":"bad","status":"INVALID_ARGUMENT","details":[{"reason":"API_KEY_INVALID"}]}}"#;
+        assert!(matches!(classify_http_error(400, &none, by_reason), ProviderError::Auth(_)));
+        let other = r#"{"error":{"code":400,"message":"Invalid JSON payload","status":"INVALID_ARGUMENT"}}"#;
+        assert!(matches!(classify_http_error(400, &none, other), ProviderError::BadRequest(_)));
     }
 
     #[test]
