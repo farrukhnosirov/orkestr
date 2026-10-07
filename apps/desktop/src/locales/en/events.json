@@ -85,5 +85,8 @@
   "healingAttempt": "Self-healing attempt {{n}}: {{summary}}",
   "uiPatchProposed": "UI change proposed: {{summary}}",
   "uiConfigPatched": "Interface settings saved (version {{version}}): {{summary}}",
-  "voiceCommand": "Voice command “{{transcript}}” → {{intent}}"
+  "voiceCommand": "Voice command “{{transcript}}” → {{intent}}",
+  "vscodeStatus": "VS Code server: {{state}}",
+  "vscodeStatusError": "VS Code server: {{state}} — {{error}}",
+  "vscodeProgress": "VS Code install: {{phase}}"
 }

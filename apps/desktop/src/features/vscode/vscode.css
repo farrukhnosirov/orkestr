@@ -1,0 +1,204 @@
+/* VS Code panel + install dialog + settings section. Tokens only (--ok-*). */
+.vsc-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  color: var(--ok-color-text);
+  font-size: var(--ok-font-size-sm);
+}
+.vsc-panel--center {
+  align-items: center;
+  justify-content: center;
+  gap: var(--ok-space-2);
+  flex-direction: row;
+}
+.vsc-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--ok-space-2);
+  padding: var(--ok-space-2) var(--ok-space-3);
+  border-bottom: 1px solid var(--ok-color-border);
+}
+.vsc-head h3 {
+  margin: 0;
+  font-size: var(--ok-font-size-md);
+  font-weight: var(--ok-font-weight-semibold);
+}
+.vsc-spacer {
+  flex: 1;
+}
+.vsc-toolbar {
+  display: flex;
+  gap: var(--ok-space-1);
+}
+.vsc-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--ok-space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-3);
+}
+.vsc-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-2);
+  padding: var(--ok-space-3) var(--ok-space-4);
+  border: 1px solid var(--ok-color-border);
+  border-radius: var(--ok-radius-md);
+  background: var(--ok-color-surface);
+  max-width: 760px;
+}
+.vsc-card h4 {
+  margin: 0;
+  font-size: var(--ok-font-size-md);
+  font-weight: var(--ok-font-weight-semibold);
+}
+.vsc-card p {
+  margin: 0;
+  line-height: 1.5;
+}
+.vsc-row {
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-2);
+  flex-wrap: wrap;
+}
+.vsc-muted {
+  color: var(--ok-color-text-muted);
+}
+.vsc-path {
+  font-family: var(--ok-font-mono);
+  overflow-wrap: anywhere;
+}
+.vsc-actions {
+  display: flex;
+  gap: var(--ok-space-2);
+  flex-wrap: wrap;
+}
+.vsc-hints {
+  margin: 0;
+  padding-left: var(--ok-space-4);
+  color: var(--ok-color-text-muted);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-1);
+}
+.vsc-alert {
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-2);
+  padding: var(--ok-space-2) var(--ok-space-3);
+  border-radius: var(--ok-radius-sm);
+  background: var(--ok-color-danger-soft);
+  color: var(--ok-color-text);
+  overflow-wrap: anywhere;
+}
+.vsc-error {
+  color: var(--ok-color-danger);
+  overflow-wrap: anywhere;
+}
+.vsc-progress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-2);
+  align-items: flex-start;
+}
+.vsc-progress__bar {
+  width: 100%;
+  height: 8px;
+  border-radius: var(--ok-radius-sm);
+  background: var(--ok-color-surface-sunken);
+  overflow: hidden;
+  position: relative;
+}
+.vsc-progress__fill {
+  display: block;
+  height: 100%;
+  background: var(--ok-gradient-accent);
+  transition: width var(--ok-duration-base) var(--ok-ease);
+}
+.vsc-progress__fill--busy {
+  width: 30%;
+  animation: vsc-indeterminate 1.4s var(--ok-ease) infinite;
+}
+@keyframes vsc-indeterminate {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(340%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vsc-progress__fill--busy {
+    animation: none;
+    width: 100%;
+    opacity: 0.5;
+  }
+}
+.vsc-logs h4 {
+  margin: 0 0 var(--ok-space-1);
+  font-size: var(--ok-font-size-sm);
+}
+.vsc-logs pre {
+  margin: 0;
+  max-height: 260px;
+  overflow: auto;
+  padding: var(--ok-space-2);
+  border-radius: var(--ok-radius-sm);
+  background: var(--ok-color-surface-sunken);
+  font-family: var(--ok-font-mono);
+  font-size: var(--ok-font-size-xs);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.vsc-facts {
+  margin: 0;
+  display: grid;
+  gap: var(--ok-space-1);
+}
+.vsc-facts__row {
+  display: grid;
+  grid-template-columns: minmax(120px, max-content) 1fr;
+  gap: var(--ok-space-3);
+}
+.vsc-facts__row dt {
+  color: var(--ok-color-text-muted);
+}
+.vsc-facts__row dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.vsc-risk {
+  display: flex;
+  gap: var(--ok-space-2);
+  padding: var(--ok-space-2) var(--ok-space-3);
+  border-radius: var(--ok-radius-sm);
+  background: var(--ok-color-warning-soft);
+  border: 1px solid var(--ok-color-warning);
+}
+.vsc-risk p {
+  margin: var(--ok-space-1) 0 0;
+  line-height: 1.5;
+}
+.vsc-check {
+  display: flex;
+  gap: var(--ok-space-2);
+  align-items: flex-start;
+  cursor: pointer;
+}
+.vsc-check input {
+  margin-top: 3px;
+}
+.vsc-select {
+  background: var(--ok-color-surface-sunken);
+  color: var(--ok-color-text);
+  border: 1px solid var(--ok-color-border);
+  border-radius: var(--ok-radius-sm);
+  padding: var(--ok-space-1) var(--ok-space-2);
+  font: inherit;
+}

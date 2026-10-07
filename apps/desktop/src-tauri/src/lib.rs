@@ -29,6 +29,7 @@
 mod app_commands;
 mod hud;
 pub mod stop_all;
+pub mod vscode_window;
 pub mod windows;
 
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -403,6 +404,7 @@ pub fn run() {
             language: std::sync::Mutex::new("en".to_owned()),
         })
         .manage(robots::RobotsState::default())
+        .manage(vscode_window::VsCodeWindowState::default())
         .setup(move |app| {
             let tray_ok = match build_tray(app) {
                 Ok(()) => true,
@@ -496,7 +498,12 @@ pub fn run() {
             robots::robot_close_all,
             robots::robot_set_shape,
             robots::robot_set_drop_zones,
-            robots::robot_to_main
+            robots::robot_to_main,
+            vscode_window::vscode_window_open,
+            vscode_window::vscode_window_close,
+            vscode_window::vscode_window_reload,
+            vscode_window::vscode_window_is_open,
+            vscode_window::vscode_open_external
         ]);
 
     let app = match builder.build(tauri::generate_context!()) {

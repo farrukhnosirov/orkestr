@@ -173,6 +173,10 @@
     "monitoring": {
       "title": "Мониторинг",
       "description": "Ресурсы узла, процессы и состояние ядра"
+    },
+    "vscode": {
+      "title": "VS Code",
+      "description": "Полноценный VS Code (VSCodium) с расширениями Open VSX на папке проекта"
     }
   },
   "phasePlaceholder": {

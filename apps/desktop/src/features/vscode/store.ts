@@ -1,0 +1,230 @@
+/**
+ * Embedded VS Code: status mirror of the core's `vscode.*` area, install
+ * progress, the VS Code window state and the keep-alive heartbeat.
+ *
+ * All data comes over RPC (`vscode.status`, `VsCodeStatusChanged`,
+ * `VsCodeProgress` events). The heartbeat (`vscode.keepAlive`) runs while a
+ * VS Code panel is mounted or the VS Code window is open, so the core's
+ * idle auto-stop only stops the server when nobody is using it.
+ */
+import type { OrkestrClient } from "@orkestr/client";
+import type { Event, VsCodeConfigPatch, VsCodeProgress, VsCodeRelease, VsCodeStatus } from "@orkestr/protocol";
+import { TOPIC_GLOBAL } from "@orkestr/protocol";
+import { create } from "zustand";
+
+import { maybeClient } from "../../core/client";
+import { t } from "../../i18n";
+import { describeError } from "../../i18n/errors";
+import { vscodeWindow } from "./windowControls";
+
+/** Heartbeat period (the core's idle grace period is ≥ 30 s). */
+export const KEEPALIVE_MS = 20_000;
+
+export interface VsCodeStore {
+  status: VsCodeStatus | null;
+  progress: VsCodeProgress | null;
+  release: VsCodeRelease | null;
+  releaseError: string | null;
+  checkingRelease: boolean;
+  logs: string[];
+  /** Last action error (start / stop / install…), localized. */
+  error: string | null;
+  busy: "start" | "stop" | "install" | "uninstall" | "config" | null;
+  windowOpen: boolean;
+  /** Mounted VS Code panels (heartbeat while > 0). */
+  viewers: number;
+  /** URL of the last start (contains the token: memory only, never persisted). */
+  lastUrl: string | null;
+  lastOrigin: string | null;
+
+  load(): Promise<void>;
+  checkRelease(): Promise<VsCodeRelease | null>;
+  install(version: string | null): Promise<void>;
+  cancelInstall(): Promise<void>;
+  uninstall(purge: boolean): Promise<void>;
+  /** Starts (or reuses) the server for a project and opens the VS Code window. */
+  open(projectId: string | null, title: string): Promise<void>;
+  stop(): Promise<void>;
+  setConfig(patch: VsCodeConfigPatch): Promise<void>;
+  loadLogs(): Promise<void>;
+  /** Panel mount / unmount (drives the heartbeat). */
+  attach(): () => void;
+  setWindowOpen(open: boolean): void;
+  applyEvent(event: Event): void;
+}
+
+function client(): OrkestrClient {
+  const c = maybeClient();
+  if (!c) throw new Error(t("common:errors.notInitialised"));
+  return c;
+}
+
+let subscribed: OrkestrClient | null = null;
+let unsubscribe: (() => void) | null = null;
+let heartbeat: ReturnType<typeof setInterval> | null = null;
+let windowListener: Promise<() => void> | null = null;
+
+function syncHeartbeat(): void {
+  const { viewers, windowOpen } = useVsCodeStore.getState();
+  const wanted = viewers > 0 || windowOpen;
+  if (wanted && !heartbeat) {
+    const beat = () => void maybeClient()?.call("vscode.keepAlive", {}).catch(() => undefined);
+    beat();
+    heartbeat = setInterval(beat, KEEPALIVE_MS);
+  } else if (!wanted && heartbeat) {
+    clearInterval(heartbeat);
+    heartbeat = null;
+  }
+}
+
+function ensureSubscribed(): void {
+  const c = maybeClient();
+  if (!c || subscribed === c) return;
+  unsubscribe?.();
+  subscribed = c;
+  unsubscribe = c.subscribe([TOPIC_GLOBAL], (ev) => useVsCodeStore.getState().applyEvent(ev));
+  windowListener ??= vscodeWindow.onChange((open) => useVsCodeStore.getState().setWindowOpen(open));
+  void vscodeWindow
+    .isOpen()
+    .then((open) => useVsCodeStore.getState().setWindowOpen(open))
+    .catch(() => undefined);
+}
+
+export const useVsCodeStore = create<VsCodeStore>((set, get) => ({
+  status: null,
+  progress: null,
+  release: null,
+  releaseError: null,
+  checkingRelease: false,
+  logs: [],
+  error: null,
+  busy: null,
+  windowOpen: false,
+  viewers: 0,
+  lastUrl: null,
+  lastOrigin: null,
+
+  async load() {
+    ensureSubscribed();
+    try {
+      const status = await client().call("vscode.status", {});
+      set({ status, progress: status.progress });
+    } catch (e) {
+      set({ error: describeError(e) });
+    }
+  },
+
+  async checkRelease() {
+    set({ checkingRelease: true, releaseError: null });
+    try {
+      const release = await client().call("vscode.checkUpdate", {});
+      set({ release, checkingRelease: false });
+      return release;
+    } catch (e) {
+      set({ releaseError: describeError(e), checkingRelease: false });
+      return null;
+    }
+  },
+
+  async install(version) {
+    set({ busy: "install", error: null });
+    try {
+      const status = await client().call("vscode.install", version ? { accept: true, version } : { accept: true });
+      set({ status, busy: null });
+    } catch (e) {
+      set({ error: describeError(e), busy: null });
+    }
+  },
+
+  async cancelInstall() {
+    try {
+      set({ status: await client().call("vscode.cancelInstall", {}) });
+    } catch (e) {
+      set({ error: describeError(e) });
+    }
+  },
+
+  async uninstall(purge) {
+    set({ busy: "uninstall", error: null });
+    try {
+      await vscodeWindow.close().catch(() => undefined);
+      const status = await client().call("vscode.uninstall", { purge });
+      set({ status, busy: null, lastUrl: null, lastOrigin: null, release: null });
+    } catch (e) {
+      set({ error: describeError(e), busy: null });
+    }
+  },
+
+  async open(projectId, title) {
+    set({ busy: "start", error: null });
+    try {
+      const res = await client().call("vscode.start", projectId ? { projectId } : {});
+      set({ status: res.status, lastUrl: res.url, lastOrigin: res.origin, busy: null });
+      await vscodeWindow.open(res.url, title);
+    } catch (e) {
+      set({ error: describeError(e), busy: null });
+      void get().loadLogs();
+    }
+  },
+
+  async stop() {
+    set({ busy: "stop", error: null });
+    try {
+      await vscodeWindow.close().catch(() => undefined);
+      const status = await client().call("vscode.stop", {});
+      set({ status, busy: null, lastUrl: null, lastOrigin: null });
+    } catch (e) {
+      set({ error: describeError(e), busy: null });
+    }
+  },
+
+  async setConfig(patch) {
+    set({ busy: "config", error: null });
+    try {
+      set({ status: await client().call("vscode.setConfig", patch), busy: null });
+    } catch (e) {
+      set({ error: describeError(e), busy: null });
+    }
+  },
+
+  async loadLogs() {
+    try {
+      const { lines } = await client().call("vscode.logs", {});
+      set({ logs: lines });
+    } catch {
+      // Logs are best effort.
+    }
+  },
+
+  attach() {
+    ensureSubscribed();
+    set((s) => ({ viewers: s.viewers + 1 }));
+    syncHeartbeat();
+    return () => {
+      set((s) => ({ viewers: Math.max(0, s.viewers - 1) }));
+      syncHeartbeat();
+    };
+  },
+
+  setWindowOpen(open) {
+    set({ windowOpen: open });
+    syncHeartbeat();
+  },
+
+  applyEvent(event) {
+    if (event.kind === "VsCodeStatusChanged") {
+      const status = event.payload.status;
+      const running = status.state === "running" || status.state === "starting" || status.state === "restarting";
+      set((s) => ({
+        status,
+        progress: status.state === "installing" ? s.progress : null,
+        lastUrl: running ? s.lastUrl : null,
+        lastOrigin: running ? s.lastOrigin : null,
+      }));
+      if (!running && get().windowOpen) void vscodeWindow.close().catch(() => undefined);
+      if (status.state === "error") void get().loadLogs();
+    } else if (event.kind === "VsCodeProgress") {
+      set({ progress: event.payload.progress });
+    }
+  },
+}));

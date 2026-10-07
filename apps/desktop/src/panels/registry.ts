@@ -7,6 +7,7 @@ import {
   Activity,
   Bot,
   BrainCircuit,
+  Code2,
   Coins,
   Database,
   FileCode,
@@ -38,6 +39,7 @@ import MissionControlPanel from "./MissionControl";
 import MonitoringPanel from "./Monitoring";
 import TasksPanel from "./Tasks";
 import TerminalPanel from "./Terminal";
+import VsCodePanel from "./VsCode";
 import { t } from "../i18n";
 import type shellEn from "../locales/en/shell.json";
 import { PLANNED_PHASE } from "./plannedPhases";
@@ -79,6 +81,8 @@ export const PANELS: readonly PanelDefinition[] = [
   // mission-control (Phase 3)
   panel("missionControl", LayoutDashboard, 0, MissionControlPanel),
   panel("monitoring", Activity, 0, MonitoringPanel),
+  // Embedded VS Code (VSCodium REH web server + Open VSX extensions).
+  panel("vscode", Code2, 0, VsCodePanel),
 ];
 
 const BY_ID = new Map(PANELS.map((p) => [p.id, p]));

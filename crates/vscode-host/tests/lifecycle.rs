@@ -118,6 +118,8 @@ async fn start_crash_restart_stop() {
     let running = h.status().running.unwrap();
     assert_eq!(running.restarts, 1);
     assert_eq!(running.port, port, "the port (and so the UI origin) is stable across restarts");
+    let after = http.get(&started.url).send().await.unwrap();
+    assert_eq!(after.status(), 200, "the token survives a crash restart, so an open window reconnects");
 
     // Stop kills the process.
     let stopped = h.stop().await.unwrap();

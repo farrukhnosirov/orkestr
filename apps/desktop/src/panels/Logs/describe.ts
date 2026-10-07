@@ -80,6 +80,8 @@ export function severityOf(event: Event): EventSeverity {
       return event.payload.status === "Failed" ? "warning" : event.payload.status === "Passed" ? "success" : "info";
     case "TestRunFinished":
       return event.payload.failed > 0 ? "error" : "success";
+    case "VsCodeStatusChanged":
+      return event.payload.status.state === "error" ? "error" : event.payload.status.state === "restarting" ? "warning" : "info";
     case "ProjectCreated":
       return "success";
     case "ProjectDeleted":
@@ -346,6 +348,14 @@ export function describeEvent(event: Event): string {
       return t("events:uiConfigPatched", { summary: event.payload.summary, version: event.payload.version });
     case "VoiceCommand":
       return t("events:voiceCommand", { transcript: event.payload.transcript.slice(0, 120), intent: event.payload.intent });
+    // Embedded VS Code server.
+    case "VsCodeStatusChanged": {
+      const status = event.payload.status;
+      const state = t(`vscode:state.${status.state}`);
+      return status.error ? t("events:vscodeStatusError", { state, error: status.error }) : t("events:vscodeStatus", { state });
+    }
+    case "VsCodeProgress":
+      return t("events:vscodeProgress", { phase: t(`vscode:phase.${event.payload.progress.phase}`) });
   }
 }
 

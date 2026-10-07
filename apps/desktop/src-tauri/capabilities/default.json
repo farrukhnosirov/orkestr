@@ -42,6 +42,11 @@
     "allow-robot-close-all",
     "allow-robot-set-shape",
     "allow-robot-set-drop-zones",
-    "allow-robot-to-main"
+    "allow-robot-to-main",
+    "allow-vscode-window-open",
+    "allow-vscode-window-close",
+    "allow-vscode-window-reload",
+    "allow-vscode-window-is-open",
+    "allow-vscode-open-external"
   ]
 }

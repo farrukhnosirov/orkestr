@@ -29,4 +29,9 @@ pub const APP_COMMANDS: &[&str] = &[
     "robot_set_shape",
     "robot_set_drop_zones",
     "robot_to_main",
+    "vscode_window_open",
+    "vscode_window_close",
+    "vscode_window_reload",
+    "vscode_window_is_open",
+    "vscode_open_external",
 ];

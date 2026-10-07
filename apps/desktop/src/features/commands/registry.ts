@@ -15,6 +15,7 @@ import { FILE_COMMANDS } from "../files/commands";
 import { qualityCommands } from "../quality";
 import { hudCommands } from "../hud/commands";
 import { voiceCommands } from "../voice";
+import { vscodeCommands } from "../vscode";
 
 export interface CommandContext {
   projectId: string | null;
@@ -69,3 +70,5 @@ commands.push(...qualityCommands);
 commands.push(...hudCommands);
 // voice-sound (Phase 3)
 commands.push(...voiceCommands);
+// Embedded VS Code
+commands.push(...vscodeCommands);

@@ -752,13 +752,13 @@ impl VsCodeHost {
     /// Supervises one user start: runs the server, restarts it after crashes
     /// (back-off), stops on request.
     async fn supervise(&self, generation: u64, stop: CancellationToken, dir: PathBuf, target: ServerTarget) {
+        // One token per user start: restarts after a crash keep it (and the
+        // port), so an open VS Code window reconnects with its cookie.
+        let token = SecretGuard::new(server::generate_token());
         let mut first = true;
         loop {
-            let outcome = self.run_once(generation, &stop, &dir, &target).await;
-            let unregister = self.inner.st.lock().proc.take();
-            if let Some(p) = unregister {
-                orkestr_security::redact::unregister_secret(&p.token);
-            }
+            let outcome = self.run_once(generation, &stop, &dir, &target, &token.0).await;
+            self.inner.st.lock().proc = None;
             let _ = std::fs::remove_file(self.inner.layout.token_file());
             if stop.is_cancelled() || self.inner.shutdown.is_cancelled() {
                 let _ = self.transition(Trigger::Stopped);
@@ -833,6 +833,7 @@ impl VsCodeHost {
         stop: &CancellationToken,
         dir: &Path,
         target: &ServerTarget,
+        token: &str,
     ) -> RunOutcome {
         let fail = |reason: String| RunOutcome::Exited { was_ready: false, reason };
         let layout = &self.inner.layout;
@@ -841,8 +842,6 @@ impl VsCodeHost {
                 return fail(format!("cannot create {}: {e}", d.display()));
             }
         }
-        let token = server::generate_token();
-        orkestr_security::redact::register_secret(&token);
         if let Err(e) = orkestr_platform::fs::write_private_file(&layout.token_file(), token.as_bytes()) {
             return fail(format!("cannot write the connection token file: {e}"));
         }
@@ -884,7 +883,7 @@ impl VsCodeHost {
                 port: None,
                 pid,
                 started_at: chrono::Utc::now(),
-                token: token.clone(),
+                token: token.to_owned(),
             });
         }
         self.log(&format!("Orkestr: started VS Code server (pid {}, port {})", pid.unwrap_or(0), if port == 0 { "auto".to_owned() } else { port.to_string() }));
@@ -1048,6 +1047,22 @@ fn ignore_missing(e: std::io::Error) -> std::io::Result<()> {
         Ok(())
     } else {
         Err(e)
+    }
+}
+
+/// A token registered for log redaction while it is in use.
+struct SecretGuard(String);
+
+impl SecretGuard {
+    fn new(token: String) -> Self {
+        orkestr_security::redact::register_secret(&token);
+        Self(token)
+    }
+}
+
+impl Drop for SecretGuard {
+    fn drop(&mut self) {
+        orkestr_security::redact::unregister_secret(&self.0);
     }
 }
 

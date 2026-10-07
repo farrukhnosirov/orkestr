@@ -101,5 +101,8 @@
   "healingAttempt": "Попытка самовосстановления {{n}}: {{summary}}",
   "uiPatchProposed": "Предложено изменение интерфейса: {{summary}}",
   "uiConfigPatched": "Настройки интерфейса сохранены (версия {{version}}): {{summary}}",
-  "voiceCommand": "Голосовая команда «{{transcript}}» → {{intent}}"
+  "voiceCommand": "Голосовая команда «{{transcript}}» → {{intent}}",
+  "vscodeStatus": "Сервер VS Code: {{state}}",
+  "vscodeStatusError": "Сервер VS Code: {{state}} — {{error}}",
+  "vscodeProgress": "Установка VS Code: {{phase}}"
 }
