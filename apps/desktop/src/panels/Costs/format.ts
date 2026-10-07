@@ -50,6 +50,43 @@ export const LEVEL_TONE: Record<BudgetLevel, Tone> = {
 
 const short = (id: string) => id.slice(-6);
 
+/** Display names the client already knows, by id, for the breakdown dimensions. */
+export interface BreakdownNames {
+  projects: ReadonlyMap<string, string>;
+  providers: ReadonlyMap<string, string>;
+  agents: ReadonlyMap<string, string>;
+  tasks: ReadonlyMap<string, string>;
+}
+
+/**
+ * Row label of the cost breakdown: the project / provider / agent name or
+ * task title when it is known, the model name for the Model dimension, and a
+ * short id (`…f45a08a5`) only when the lookup fails (the full id is the
+ * row's tooltip).
+ */
+export function breakdownLabel(
+  dimension: "Provider" | "Model" | "Agent" | "Project" | "Task",
+  row: { key: string; model: string | null },
+  names: BreakdownNames,
+): string {
+  if (row.key === "none") return t("costs:breakdown.unattributed");
+  const fallback = `…${row.key.slice(-8)}`;
+  switch (dimension) {
+    case "Model":
+      return row.model ?? row.key;
+    case "Project":
+      return names.projects.get(row.key) ?? fallback;
+    case "Provider":
+      return names.providers.get(row.key) ?? fallback;
+    case "Agent":
+      return names.agents.get(row.key) ?? fallback;
+    case "Task":
+      return names.tasks.get(row.key) ?? fallback;
+    default:
+      return fallback;
+  }
+}
+
 /** Human label of a budget scope, in the current UI language. */
 export function scopeLabel(scope: BudgetScope, projects: readonly Project[]): string {
   switch (scope.scope) {

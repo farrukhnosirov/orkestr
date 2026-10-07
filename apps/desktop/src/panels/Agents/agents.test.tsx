@@ -1,5 +1,5 @@
-import type { AgentInstance, AgentTemplate, AgentToolCallView, Event } from "@orkestr/protocol";
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import type { AgentInstance, AgentTemplate, AgentToolCallView, Event, TemplateDraft } from "@orkestr/protocol";
+import { act, cleanup, fireEvent, render, renderHook, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { applyLanguagePreference } from "../../i18n";
@@ -14,9 +14,11 @@ import {
   formatCost,
   formatTokens,
   mergeTranscript,
+  permissionsSummary,
   roleInitials,
   timeline,
   validateDraft,
+  voiceFromInput,
 } from "./model";
 import { useAgentsUi } from "./store";
 
@@ -212,6 +214,41 @@ vi.mock("../../core/client", () => ({
 }));
 
 const { default: AgentsPanel } = await import("./index");
+const { useProjectAgents } = await import("./data");
+
+describe("useProjectAgents", () => {
+  beforeEach(() => {
+    useAppStore.getState().setConnection({ state: "open" });
+  });
+  afterEach(() => cleanup());
+
+  it("keeps an event that arrives before the (older) agents.list response", async () => {
+    let resolveList: (v: { agents: AgentInstance[] }) => void = () => {};
+    fakeClient.call.mockImplementationOnce(
+      (method: string) =>
+        new Promise((res) => {
+          expect(method).toBe("agents.list");
+          resolveList = res as typeof resolveList;
+        }),
+    );
+    const { result } = renderHook(() => useProjectAgents(PROJECT));
+    expect(handlers.length).toBeGreaterThan(0);
+    // The agent finishes while the list is loading; the snapshot still says Coding.
+    act(() => {
+      for (const h of handlers) h(ev("AgentStateChanged", { agentId: AGENT, from: "Coding", to: "Completed", activity: "Finished" }));
+    });
+    await act(async () => {
+      resolveList({ agents: [agent({ state: "Coding" })] });
+    });
+    await waitFor(() => expect(result.current.agents).toHaveLength(1));
+    expect(result.current.agents[0]?.state).toBe("Completed");
+    // Later events still apply live.
+    act(() => {
+      for (const h of handlers) h(ev("AgentStateChanged", { agentId: AGENT, from: "Completed", to: "Stopped", activity: null }));
+    });
+    expect(result.current.agents[0]?.state).toBe("Stopped");
+  });
+});
 
 describe("AgentsPanel", () => {
   beforeEach(() => {
@@ -311,5 +348,42 @@ describe("AgentsPanel in Russian", () => {
     fireEvent.click(screen.getByRole("button", { name: "Дублировать шаблон" }));
     await screen.findByRole("dialog", { name: "Новый шаблон" });
     expect((screen.getByLabelText("Название") as HTMLInputElement).value).toBe("Бэкенд-разработчик (копия)");
+  });
+});
+
+describe("template editor helpers", () => {
+  afterEach(async () => {
+    await act(async () => {
+      await applyLanguagePreference("en");
+    });
+  });
+
+  it("shows requested permissions with localized capability and effect names", async () => {
+    const perms = [
+      { capability: "Network", effect: "Deny" },
+      { capability: "Deploy", effect: "Ask" },
+    ] as TemplateDraft["permissions"];
+    await act(async () => {
+      await applyLanguagePreference("ru");
+    });
+    const ru = permissionsSummary(perms, "ru");
+    expect(ru).toContain("Запретить");
+    expect(ru).not.toMatch(/Network|Deny/);
+    await act(async () => {
+      await applyLanguagePreference("en");
+    });
+    expect(permissionsSummary(perms, "en")).toMatch(/— Deny.*— Ask/);
+  });
+
+  it("a newly entered voice speaks in the UI language, an existing one keeps its language", () => {
+    expect(voiceFromInput("system:Microsoft Irina", null)).toEqual({ provider: "system", voice: "Microsoft Irina", language: "auto", style: null });
+    expect(voiceFromInput("openai:alloy", { provider: "openai", voice: "nova", language: "ru-RU", style: "calm" })).toEqual({
+      provider: "openai",
+      voice: "alloy",
+      language: "ru-RU",
+      style: "calm",
+    });
+    expect(voiceFromInput("system", null)).toBeNull();
+    expect(voiceFromInput("", null)).toBeNull();
   });
 });

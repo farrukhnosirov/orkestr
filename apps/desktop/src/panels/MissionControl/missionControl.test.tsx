@@ -18,13 +18,15 @@ import {
   serializeArrangement,
   setArrangementStorage,
   setHidden,
+  SIZE_COLUMNS,
 } from "./arrangement";
-import { focusGraph, LINGER_MS, visibleAgents } from "./data";
+import { focusGraph, LINGER_MS, liveTickMs, SNAPSHOT_REFRESH_MS, snapshotRefreshMs, visibleAgents } from "./data";
+import { resolvePolicy } from "../../features/performance/policy";
 import { alertFromEvent, applyQualityEvent, mergeAlerts, type QualityRun } from "./feed";
 import { MissionControlOverlay } from "./index";
 import { useMissionControlStore } from "./store";
 import { visualBudget } from "./visual";
-import { statusGroup } from "./widgets/graph";
+import { graphNodeWidth, statusGroup } from "./widgets/graph";
 import { secondsUntil } from "./widgets/infra";
 import { topBudgets } from "./widgets/money";
 import { AgentCard } from "./widgets/agents";
@@ -144,6 +146,18 @@ describe("widget registry", () => {
     expect(ids).toEqual(expect.arrayContaining(["overview", "agents", "approvals", "projects", "taskGraph", "nodes", "providers", "budgets", "alerts", "quality", "deployments"]));
   });
 
+  it("the default arrangement packs into full 12-column rows", () => {
+    // Same placement as `grid-auto-flow: row dense`: each widget goes into the first row with room.
+    const rows: number[] = [];
+    for (const w of widgets()) {
+      const span = SIZE_COLUMNS[w.size];
+      const i = rows.findIndex((used) => used + span <= 12);
+      if (i >= 0) rows[i] = (rows[i] ?? 0) + span;
+      else rows.push(span);
+    }
+    expect(rows.every((used) => used === 12)).toBe(true);
+  });
+
   it("rejects duplicate ids and invalid default sizes", () => {
     const base = getWidget("deployments");
     if (!base) throw new Error("missing widget");
@@ -156,6 +170,20 @@ describe("widget registry", () => {
     expect(getWidget("alerts")?.title).toBe("Оповещения");
     applyLanguagePreference("en");
     expect(getWidget("alerts")?.title).toBe("Alerts");
+  });
+});
+
+describe("refresh follows the performance policy", () => {
+  it("polls the snapshot no faster than the mode's chart refresh and not at all while paused", () => {
+    const balanced = resolvePolicy("Balanced", { hidden: false, reducedMotion: false });
+    expect(snapshotRefreshMs(balanced)).toBe(SNAPSHOT_REFRESH_MS);
+    expect(snapshotRefreshMs({ chartRefreshMs: 30_000, paused: false })).toBe(30_000);
+    const hidden = resolvePolicy("Balanced", { hidden: true, reducedMotion: false });
+    expect(snapshotRefreshMs(hidden)).toBeNull();
+    expect(liveTickMs(hidden)).toBe(0);
+    const saver = resolvePolicy("BatterySaver", { hidden: false, reducedMotion: false });
+    expect(liveTickMs(saver)).toBe(saver.chartRefreshMs);
+    expect(liveTickMs({ chartRefreshMs: 200, paused: false })).toBe(1000);
   });
 });
 
@@ -233,6 +261,15 @@ describe("data helpers", () => {
     criticalPath: ["a", "b", "c"],
     criticalPathLength: 3,
   } as TaskGraph;
+
+  it("sizes graph nodes from the widget width instead of a fixed box", () => {
+    expect(graphNodeWidth(null, 3)).toBe(132);
+    // 769px widget, 3 columns: each column gets ~230px for longer titles.
+    expect(graphNodeWidth(769, 3)).toBeGreaterThan(200);
+    expect(graphNodeWidth(769, 3) * 3 + 2 * 34).toBeLessThanOrEqual(769);
+    expect(graphNodeWidth(2000, 1)).toBe(280);
+    expect(graphNodeWidth(300, 5)).toBe(132);
+  });
 
   it("focuses the graph on the live run, else on open tasks", () => {
     const run = { tasks: [{ taskId: "a" }, { taskId: "b" }] } as unknown as ManagerRun;

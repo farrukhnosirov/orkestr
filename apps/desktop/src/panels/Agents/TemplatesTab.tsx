@@ -4,10 +4,10 @@ import { Bot, Copy, Download, FileUp, LayoutTemplate, Lock, Palette, Pencil, Plu
 import { type FormEvent, useEffect, useState } from "react";
 
 import { ModelPicker } from "../../features/providers/ModelPicker";
-import { useFormat, useT } from "../../i18n";
+import { useFormat, useLanguage, useT } from "../../i18n";
 import { useProvidersLive } from "../../features/providers/store";
 import { downloadText, errorMessage, templateActions } from "./data";
-import { ALL_TOOLS, BUILTIN_ROLES, blankDraft, draftOf, duplicateDraft, isBuiltin, roleLabel, validateDraft } from "./model";
+import { ALL_TOOLS, BUILTIN_ROLES, blankDraft, draftOf, duplicateDraft, isBuiltin, permissionsSummary, roleLabel, validateDraft, voiceFromInput } from "./model";
 import { RoleAvatar } from "./parts";
 import { useAgentsUi } from "./store";
 import { templateDescription, templateName } from "../../lib/coreText";
@@ -102,6 +102,7 @@ function toggle<T>(list: readonly T[], item: T): T[] {
 
 function TemplateEditor({ onSaved }: { onSaved: () => void }) {
   const { t } = useT(["agents", "common"]);
+  const lng = useLanguage();
   const editor = useAgentsUi((s) => s.editor);
   const setEditor = useAgentsUi((s) => s.setEditor);
   const toast = useAgentsUi((s) => s.toast);
@@ -318,13 +319,12 @@ function TemplateEditor({ onSaved }: { onSaved: () => void }) {
               value={d.voice ? `${d.voice.provider}:${d.voice.voice}` : ""}
               placeholder={t("editor.voicePlaceholder")}
               onChange={(e) => {
-                const [provider, voice] = e.target.value.split(":");
-                set({ voice: provider && voice ? { provider, voice, language: d.voice?.language ?? "en-US", style: null } : null });
+                set({ voice: voiceFromInput(e.target.value, d.voice) });
               }}
             />
           </div>
           {d.permissions.length > 0 && (
-            <p className="agents-muted">{t("editor.permissions", { list: d.permissions.map((p) => `${p.capability} ${p.effect}`).join(", ") })}</p>
+            <p className="agents-muted">{t("editor.permissions", { list: permissionsSummary(d.permissions, lng) })}</p>
           )}
           {error && (
             <p className="agents-error" role="alert">

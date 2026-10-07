@@ -412,3 +412,20 @@ export function modelLabel(config: ManagerConfig | null, providerName: (id: stri
   const p = providerName(m.providerId);
   return p ? `${m.model} · ${p}` : m.model;
 }
+
+/** Below this panel height the Manager panel switches to its compact layout. */
+export const SHORT_PANEL_PX = 560;
+/** Largest auto-grow height of the composer input. */
+export const COMPOSER_MAX_PX = 220;
+
+/**
+ * Layout of the Manager panel for its measured height: in a short panel
+ * (the default Coding layout at the minimum 960×600 window) the resume
+ * banner collapses, the composer drops its keyboard hint and its input may
+ * grow to only ~18% of the panel, so the conversation keeps room and the
+ * composer never overflows the panel.
+ */
+export function panelFit(height: number | null | undefined): { short: boolean; maxInputPx: number } {
+  if (!height || !Number.isFinite(height) || height >= SHORT_PANEL_PX) return { short: false, maxInputPx: COMPOSER_MAX_PX };
+  return { short: true, maxInputPx: Math.max(36, Math.min(COMPOSER_MAX_PX, Math.round(height * 0.18))) };
+}

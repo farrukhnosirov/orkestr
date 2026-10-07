@@ -12,7 +12,7 @@ import { Trans } from "react-i18next";
 
 import { ModelPicker, useProvidersLive } from "../../features/providers";
 import { useT } from "../../i18n";
-import { EMPTY_EXPERT, type ExpertFields, attachmentLabel, buildOptions, composerKeyAction } from "./model";
+import { COMPOSER_MAX_PX, EMPTY_EXPERT, type ExpertFields, attachmentLabel, buildOptions, composerKeyAction } from "./model";
 
 export interface ComposerProps {
   disabled: boolean;
@@ -27,11 +27,29 @@ export interface ComposerProps {
   /** AI Product Manager mode (§9): the text is an idea for a product breakdown, not a chat message. */
   pmMode?: boolean;
   onTogglePm?: () => void;
+  /** Largest auto-grow height of the input (px); smaller in a short panel. */
+  maxInputPx?: number;
+  /** Short panel: the static keyboard / PM hint is left out (errors and progress still show). */
+  compact?: boolean;
 }
 
 const MAX = 20_000;
 
-export function Composer({ disabled, busy, expert, focusNonce, text, onText, attachment, onClearAttachment, onSend, pmMode = false, onTogglePm }: ComposerProps) {
+export function Composer({
+  disabled,
+  busy,
+  expert,
+  focusNonce,
+  text,
+  onText,
+  attachment,
+  onClearAttachment,
+  onSend,
+  pmMode = false,
+  onTogglePm,
+  maxInputPx = COMPOSER_MAX_PX,
+  compact = false,
+}: ComposerProps) {
   const { t } = useT("manager");
   const area = useRef<HTMLTextAreaElement>(null);
   const [fields, setFields] = useState<ExpertFields>(EMPTY_EXPERT);
@@ -44,13 +62,14 @@ export function Composer({ disabled, busy, expert, focusNonce, text, onText, att
     if (focusNonce > 0) area.current?.focus();
   }, [focusNonce]);
 
-  // Auto-grow up to ~10 lines.
+  // Auto-grow up to ~10 lines (fewer in a short panel).
   useEffect(() => {
     const el = area.current;
     if (!el) return;
     el.style.height = "auto";
-    el.style.height = `${Math.min(el.scrollHeight, 220)}px`;
-  }, [text]);
+    el.style.maxHeight = `${maxInputPx}px`;
+    el.style.height = `${Math.min(el.scrollHeight, maxInputPx)}px`;
+  }, [text, maxInputPx]);
 
   const canSend = !disabled && !busy && !sending && text.trim().length > 0 && text.length <= MAX;
 
@@ -141,6 +160,7 @@ export function Composer({ disabled, busy, expert, focusNonce, text, onText, att
           {pmMode ? t("composer.sendPm") : t("composer.send")}
         </Button>
       </div>
+      {(!compact || error || busy) && (
       <div className="mgr-composer__hint">
         {error ? (
           <span className="mgr-error" role="alert">
@@ -156,6 +176,7 @@ export function Composer({ disabled, busy, expert, focusNonce, text, onText, att
           </span>
         )}
       </div>
+      )}
     </div>
   );
 }

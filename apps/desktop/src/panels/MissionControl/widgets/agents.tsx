@@ -6,19 +6,22 @@ import { useEffect, useState } from "react";
 
 import { workspaceActions } from "../../../components/workspaceActions";
 import { openProject } from "../../../core/client";
+import { usePerfPolicy } from "../../../features/performance/perfStore";
 import { useFormat, useLanguage, useT } from "../../../i18n";
 import { agentActivity, agentName } from "../../../lib/coreText";
 import { useAppStore } from "../../../store/app";
 import { elapsed, roleInitials, roleLabel } from "../../Agents/model";
 import { useAgentsUi } from "../../Agents/store";
 import { type WidgetProps, useMission } from "../context";
-import { useActiveAgents, visibleAgents } from "../data";
+import { liveTickMs, useActiveAgents, visibleAgents } from "../data";
 import { WidgetEmpty, WidgetStatus } from "./common";
 
 /** Re-renders every `ms` while mounted (live elapsed counters). */
 export function useNow(ms: number): number {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
+    if (ms <= 0) return undefined;
+    setNow(Date.now());
     const id = window.setInterval(() => setNow(Date.now()), ms);
     return () => window.clearInterval(id);
   }, [ms]);
@@ -85,7 +88,7 @@ export function AgentsWidget(_props: WidgetProps) {
   const { budget } = useMission();
   const { agents, loading, error } = useActiveAgents();
   const projects = useAppStore((s) => s.projects);
-  const now = useNow(1000);
+  const now = useNow(liveTickMs(usePerfPolicy()));
   const shown = visibleAgents(agents, now);
   if (shown.length === 0) {
     if (loading || error) return <WidgetStatus loading={loading} error={error} />;

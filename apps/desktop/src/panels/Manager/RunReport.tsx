@@ -7,6 +7,7 @@
 import type { ManagerRun, PipelineReport, RunReport as Report } from "@orkestr/protocol";
 
 import { useLanguage, useT } from "../../i18n";
+import { runReason } from "../../lib/coreText";
 import { roleLabel } from "../Agents/model";
 import { formatDuration, formatUsd } from "./model";
 
@@ -54,7 +55,7 @@ export function RunReport({ run, report }: { run: ManagerRun; report: Report }) 
           duration: formatDuration(report.durationSecs, lng),
           cost: formatUsd(report.costUsd, lng),
         })}
-        {run.statusReason ? ` (${run.statusReason})` : ""}
+        {run.statusReason ? ` (${runReason(run.statusReason)})` : ""}
       </p>
       <h3>{t("report.whatWasDone")}</h3>
       <ul>

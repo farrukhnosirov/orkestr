@@ -6,7 +6,11 @@
  * data, shared with other clients); only their display is localized.
  * Unknown text (user-entered names, labels, free text) is returned as is.
  */
-import { t } from "../i18n";
+import type { WaitReason } from "@orkestr/protocol";
+
+import { localizePipelineText } from "../features/pipeline/text";
+import { modelName, providerName, reasonText } from "../features/scheduler/model";
+import { formatBytes, formatNumber, formatPercent, i18n, t } from "../i18n";
 
 /** English built-in template name → key under `coreText:templates`. */
 const BUILTIN = {
@@ -322,4 +326,158 @@ export function taskReason(reason: string | null | undefined): string | null {
   // A bare machine code this client does not know: the caller shows its localized default.
   if (/^[a-z][a-z0-9]*(?:_[a-z0-9]+)+$/.test(r) || /^[A-Z][a-z]+(?:[A-Z][a-z]+)+$/.test(r)) return null;
   return r;
+}
+
+// ── AI Manager runs ─────────────────────────────────────────────────────
+
+/** Fixed run status reasons (crates/orchestrator/src/run.rs, parallel.rs). */
+const RUN_REASON = {
+  "paused by the user — no new agents start": "paused",
+  "paused by the user when Orkestr stopped — resume it to continue": "pausedOnShutdown",
+  "Orkestr stopped while the run was active — resume it to continue": "interrupted",
+  "cancelled by the user": "cancelled",
+  "emergency stop": "emergency",
+  "the task was deleted": "taskDeleted",
+  "the project is not a git repository with a commit — agents share the checkout instead of own worktrees": "noGit",
+  // Team lead runs (crates/orchestrator/src/team_lead.rs, teams.rs).
+  "the Manager run was cancelled": "managerRunCancelled",
+  "Orkestr is shutting down": "shuttingDown",
+  "Orkestr stopped while the team lead was working — resume the run to retry": "leadInterrupted",
+} as const;
+
+const TASK_STATUS_RE = /"([^"]*)" \((\w+)\)/g;
+
+/** A `$` amount written by the core, in the UI locale with the core's precision ("$0.5012" stays 4 decimals). */
+const usd = (v: string | undefined) => {
+  const digits = Math.min(6, Math.max(2, (v ?? "").split(".")[1]?.length ?? 0));
+  return formatNumber(Number(v ?? 0), { style: "currency", currency: "USD", currencyDisplay: "narrowSymbol", minimumFractionDigits: digits, maximumFractionDigits: digits });
+};
+
+function taskStatusLabel(status: string): string {
+  const key = `common:status.task.${status}`;
+  return i18n.exists(key) ? t(key as "common:status.task.Completed") : status;
+}
+
+const waiting = (reason: string) => t("scheduler:reason.waiting", { reason });
+
+/**
+ * A scheduler wait text (`waiting: …`: crates/task-engine scheduler.rs
+ * `Deferral` and orchestrator parallel.rs `hold_text`) in the UI language;
+ * `null` when the shape is unknown.
+ */
+function waitText(text: string): string | null {
+  const m0 = text.match(/^waiting: ([\s\S]+)$/);
+  if (!m0) return null;
+  const s = m0[1] ?? "";
+  let m: RegExpMatchArray | null;
+  const n = (i: number) => Number(m?.[i] ?? 0);
+  let reason: WaitReason | null = null;
+  if (s === "the run is paused") reason = { kind: "paused" };
+  else if ((m = s.match(/^run agent limit (\d+)\/(\d+)$/))) reason = { kind: "agentBudget", spawned: n(1), limit: n(2) };
+  else if ((m = s.match(/^global parallel limit (\d+)\/(\d+)$/))) reason = { kind: "globalLimit", running: n(1), limit: n(2) };
+  else if ((m = s.match(/^project parallel limit (\d+)\/(\d+)$/))) reason = { kind: "projectLimit", running: n(1), limit: n(2) };
+  else if ((m = s.match(/^team (.+) limit (\d+)\/(\d+)$/))) {
+    return waiting(t("scheduler:reason.teamLimit", { team: m[1], running: n(2), limit: n(3) }));
+  } else if ((m = s.match(/^provider (\S+) is rate-limited until (\S+)$/))) {
+    return waiting(t("scheduler:reason.rateLimited", { provider: providerName(null, m[1] ?? ""), time: `${m[2] ?? ""} UTC` }));
+  } else if ((m = s.match(/^provider concurrency (\d+)\/(\d+) \((\S+)\)$/))) {
+    return waiting(t("scheduler:reason.providerConcurrency", { running: n(1), limit: n(2), provider: providerName(null, m[3] ?? "") }));
+  } else if ((m = s.match(/^model concurrency (\d+)\/(\d+) \((.+)\)$/))) {
+    return waiting(t("scheduler:reason.modelConcurrency", { running: n(1), limit: n(2), model: modelName(m[3] ?? "") }));
+  } else if ((m = s.match(/^CPU would reach (\d+)% \(limit (\d+)%\)$/))) {
+    return waiting(t("scheduler:reason.cpu", { projected: formatPercent(n(1) / 100), limit: formatPercent(n(2) / 100) }));
+  } else if ((m = s.match(/^(\d+) MiB RAM free, (\d+) MiB needed$/))) {
+    return waiting(t("scheduler:reason.memory", { free: formatBytes(n(1) * MB), needed: formatBytes(n(2) * MB) }));
+  } else if ((m = s.match(/^(\d+) MiB disk free \(reserve (\d+) MiB\)$/))) {
+    return waiting(t("scheduler:reason.disk", { free: formatBytes(n(1) * MB), min: formatBytes(n(2) * MB) }));
+  } else if ((m = s.match(/^GPU at (\d+)% \(limit (\d+)%\)$/))) {
+    return waiting(t("scheduler:reason.gpu", { usage: formatPercent(n(1) / 100), limit: formatPercent(n(2) / 100) }));
+  } else if ((m = s.match(/^(.+) is being edited by task (\S+)$/))) {
+    return waiting(t("scheduler:reason.fileConflict", { path: m[1] }));
+  }
+  return reason ? waiting(reasonText(reason)) : null;
+}
+
+const MB = 1024 * 1024;
+
+/** One part of a run status reason in the UI language; `null` when the shape is unknown. */
+function runReasonPart(part: string): string | null {
+  const key = RUN_REASON[part as keyof typeof RUN_REASON];
+  if (key) return t(`coreText:runReason.${key}`);
+  let m: RegExpMatchArray | null;
+  const n = (i: number) => Number(m?.[i] ?? 0);
+  if ((m = part.match(/^budget exhausted: \$([\d.]+) spent of \$([\d.]+)$/))) {
+    return t("coreText:runReason.budget", { spent: usd(m[1]), limit: usd(m[2]) });
+  }
+  if ((m = part.match(/^budget exhausted: an agent could not continue within the remaining run budget \(\$([\d.]+) spent of \$([\d.]+)\)$/))) {
+    return t("coreText:runReason.budgetAgent", { spent: usd(m[1]), limit: usd(m[2]) });
+  }
+  if ((m = part.match(/^time limit of (\d+) min reached$/))) return t("coreText:runReason.timeLimit", { count: n(1) });
+  if ((m = part.match(/^(\d+) consecutive task failures \(limit (\d+)\)$/))) {
+    return t("coreText:runReason.consecutiveFailures", { count: n(1), limit: n(2) });
+  }
+  if ((m = part.match(/^(\d+) task\(s\) were cancelled$/))) return t("coreText:runReason.tasksCancelled", { count: n(1) });
+  if ((m = part.match(/^(\d+) task\(s\) wait for your review$/))) return t("coreText:runReason.review", { count: n(1) });
+  if ((m = part.match(/^(\d+) agent\(s\) wait for an approval$/))) return t("coreText:runReason.approval", { count: n(1) });
+  if ((m = part.match(/^agent limit reached \((\d+) agents spawned\)$/))) return t("coreText:runReason.agentLimit", { spawned: n(1) });
+  if ((m = part.match(/^no task can proceed: ([\s\S]*)$/))) {
+    const list = (m[1] ?? "").replace(TASK_STATUS_RE, (_all, title: string, status: string) =>
+      t("coreText:runReason.stuckTask", { title, status: taskStatusLabel(status) }),
+    );
+    return t("coreText:runReason.stuck", { list });
+  }
+  if ((m = part.match(/^could not start an agent for "([\s\S]+?)": ([\s\S]+)$/))) {
+    return t("coreText:runReason.agentStartFailed", { task: m[1], detail: m[2] });
+  }
+  if ((m = part.match(/^could not delegate "([\s\S]+?)" to the team lead: ([\s\S]+)$/))) {
+    return t("coreText:runReason.delegateFailed", { task: m[1], detail: m[2] });
+  }
+  if ((m = part.match(/^team delegation failed: ([\s\S]+)$/))) return t("coreText:runReason.teamDelegationFailed", { detail: m[1] });
+  if ((m = part.match(/^the team's time limit of (\d+) min was reached$/))) return t("coreText:runReason.timeLimit", { count: n(1) });
+  if ((m = part.match(/^sub-task "([\s\S]+?)" was deleted$/))) return t("coreText:runReason.subtaskDeleted", { task: m[1] });
+  if ((m = part.match(/^sub-task "([\s\S]+?)" failed after (\d+) attempt\(s\)(?:: ([\s\S]+))?$/))) {
+    const detail = m[3] ? (taskReason(m[3]) ?? m[3]) : null;
+    return detail
+      ? t("coreText:runReason.subtaskFailedWhy", { task: m[1], count: n(2), detail })
+      : t("coreText:runReason.subtaskFailed", { task: m[1], count: n(2) });
+  }
+  if ((m = part.match(/^sub-task "([\s\S]+?)" is (\w+)$/))) return t("coreText:runReason.subtaskStatus", { task: m[1], status: taskStatusLabel(m[2] ?? "") });
+  if ((m = part.match(/^the lead could not decompose the task: ([\s\S]+)$/))) return t("coreText:runReason.decomposeFailed", { detail: m[1] });
+  if ((m = part.match(/^could not create the sub-tasks: ([\s\S]+)$/))) return t("coreText:runReason.subtasksFailed", { detail: m[1] });
+  if ((m = part.match(/^could not create the review sub-task: ([\s\S]+)$/))) return t("coreText:runReason.reviewSubtaskFailed", { detail: m[1] });
+  if ((m = part.match(/^could not retry "([\s\S]+?)": ([\s\S]+)$/))) return t("coreText:runReason.retryFailed", { task: m[1], detail: m[2] });
+  if ((m = part.match(/^the template of "([\s\S]+?)" is missing$/))) return t("coreText:runReason.templateMissing", { task: m[1] });
+  if ((m = part.match(/^ended (\w+)$/))) return t("coreText:runReason.ended", { status: taskStatusLabel(m[1] ?? "") });
+  if ((m = part.match(/^quality pipeline: ([\s\S]+)$/))) {
+    return t("coreText:runReason.pipeline", { detail: localizePipelineText(m[1] ?? "") });
+  }
+  if ((m = part.match(/^(\d+) task\(s\) (waiting: [\s\S]+)$/))) {
+    const w = waitText(m[2] ?? "");
+    if (w) return t("coreText:runReason.waitingTasks", { count: n(1), reason: w });
+  }
+  return waitText(part);
+}
+
+/**
+ * Display text of an AI Manager run status reason (`ManagerRun.statusReason`).
+ * The orchestrator writes fixed English shapes (joined with "; " while the
+ * run waits); known shapes are shown in the UI language with locale number
+ * and currency formatting, anything else (error messages) as written.
+ */
+export function runReason(reason: string | null | undefined): string | null {
+  const r = reason?.trim();
+  if (!r) return null;
+  const whole = runReasonPart(r);
+  if (whole !== null) return whole;
+  return r
+    .split("; ")
+    .map((p) => runReasonPart(p) ?? p)
+    .join("; ");
+}
+
+/** Display text of a run task's `lastError` (run shapes, task status reasons, pipeline texts). */
+export function runTaskError(error: string | null | undefined): string | null {
+  const e = error?.trim();
+  if (!e) return null;
+  return runReasonPart(e) ?? taskReason(e) ?? localizePipelineText(e);
 }

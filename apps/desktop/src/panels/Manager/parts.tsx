@@ -10,7 +10,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { instanceName, ModelPicker, useProvidersLive } from "../../features/providers";
 import { formatDate, formatPercent, t as translate, useLanguage, useT } from "../../i18n";
-import { managerToolSummary, snapshotLabel } from "../../lib/coreText";
+import { managerToolSummary, runReason, snapshotLabel } from "../../lib/coreText";
 import { Markdown } from "../Memory/markdown";
 import { errorMessage, managerActions } from "./data";
 import { formatUsd, modelLabel } from "./model";
@@ -137,7 +137,7 @@ export function resumeLines(summary: ManagerResumeSummary): string[] {
     const status = translate(`logs:enums.runStatus.${run.status}`);
     lines.push(
       run.statusReason
-        ? translate("manager:resume.runLineReason", { status, reason: run.statusReason })
+        ? translate("manager:resume.runLineReason", { status, reason: runReason(run.statusReason) })
         : translate("manager:resume.runLine", { status }),
     );
   }

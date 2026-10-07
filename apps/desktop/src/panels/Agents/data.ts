@@ -17,7 +17,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { getClient, maybeClient } from "../../core/client";
 import { describeError } from "../../i18n/errors";
 import { useAppStore } from "../../store/app";
-import { EMPTY_TRANSCRIPT, applyAgentEvent, applyTranscriptEvent, mergeTranscript, type TranscriptState } from "./model";
+import { EMPTY_TRANSCRIPT, applyAgentEvent, applyTranscriptEvent, mergeTranscript, replayAgentEvents, type TranscriptState } from "./model";
 
 /** Localized message for a failed call (see `i18n/errors.ts`). */
 export function errorMessage(e: unknown): string {
@@ -48,21 +48,38 @@ export function useProjectAgents(projectId: string | null): ProjectAgents {
     const client = maybeClient();
     if (!client) return undefined;
     let cancelled = false;
+    // Subscribe first and buffer the events that arrive while the list is
+    // loading: the core may deliver an event before the (older) list
+    // response, and applying it directly would let the snapshot overwrite it.
+    let buffer: Event[] | null = [];
+    const off = client.subscribe([topic.project(projectId)], (ev: Event) => {
+      if (!AGENT_EVENTS.has(ev.kind)) return;
+      if (buffer) {
+        buffer.push(ev);
+        return;
+      }
+      setAgents((prev) => applyAgentEvent(prev, ev));
+    });
     setLoading(true);
     client
       .call("agents.list", { projectId })
       .then((r) => {
-        if (!cancelled) setAgents(r.agents);
+        if (cancelled) return;
+        const pending = buffer ?? [];
+        buffer = null;
+        setAgents(replayAgentEvents(r.agents, pending));
       })
       .catch((e: unknown) => {
-        if (!cancelled) setError(errorMessage(e));
+        if (cancelled) return;
+        // Without a snapshot, live events still keep what we know current.
+        const pending = buffer ?? [];
+        buffer = null;
+        setAgents((prev) => replayAgentEvents(prev, pending));
+        setError(errorMessage(e));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
-    const off = client.subscribe([topic.project(projectId)], (ev: Event) => {
-      if (AGENT_EVENTS.has(ev.kind)) setAgents((prev) => applyAgentEvent(prev, ev));
-    });
     return () => {
       cancelled = true;
       off();
