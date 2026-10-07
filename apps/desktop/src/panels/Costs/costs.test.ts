@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { i18n } from "../../i18n";
 import { buildScope } from "./BudgetEditor";
-import { dayLabel, formatPct, formatTokens, formatUsd, levelLabel, limitLabel, niceMax, scopeLabel } from "./format";
+import { breakdownLabel, dayLabel, formatPct, formatTokens, formatUsd, levelLabel, limitLabel, niceMax, scopeLabel } from "./format";
 
 const NBSP = "\u00a0";
 
@@ -14,7 +14,7 @@ beforeEach(async () => {
 afterEach(async () => {
   await i18n.changeLanguage("en");
 });
-import { layoutBars } from "./SpendChart";
+import { chartWidth, layoutBars } from "./SpendChart";
 
 const ID = "0190f0b0-0000-7000-8000-000000000001";
 
@@ -101,5 +101,38 @@ describe("spend chart layout", () => {
     expect(c.reportedH).toBe(0);
     expect(c.estimatedH).toBeGreaterThan(0);
     expect(a.x).toBeLessThan(b.x);
+  });
+
+  it("draws at the measured pixel width so axis text does not scale with the panel", () => {
+    // 1 SVG unit = 1 CSS px: the viewBox follows the card width (falls back to 640, never below 280).
+    expect(chartWidth(1460)).toBe(1460);
+    expect(chartWidth(null)).toBe(640);
+    expect(chartWidth(120)).toBe(280);
+    const pts = Array.from({ length: 30 }, (_, i) => point(`2026-09-${String(i + 1).padStart(2, "0")}`, 1, 0));
+    const wide = layoutBars(pts, 1, 1460);
+    const last = wide[wide.length - 1];
+    expect(last && last.x + last.width).toBeLessThanOrEqual(1460 - 8);
+    expect(last && last.x + last.width).toBeGreaterThan(1300);
+  });
+});
+
+describe("breakdown labels", () => {
+  const PROV = "0190f0b0-0000-7000-8000-0000f45a08a5";
+  const names = {
+    projects: new Map([[ID, "Shop"]]),
+    providers: new Map([[PROV, "OpenAI work"]]),
+    agents: new Map([["a1", "QA Engineer #1"]]),
+    tasks: new Map([["t1", "Implement the module"]]),
+  };
+  it("resolves provider, agent, task and project names instead of id tails", () => {
+    expect(breakdownLabel("Provider", { key: PROV, model: null }, names)).toBe("OpenAI work");
+    expect(breakdownLabel("Agent", { key: "a1", model: null }, names)).toBe("QA Engineer #1");
+    expect(breakdownLabel("Task", { key: "t1", model: null }, names)).toBe("Implement the module");
+    expect(breakdownLabel("Project", { key: ID, model: null }, names)).toBe("Shop");
+    expect(breakdownLabel("Model", { key: `${PROV}/gpt`, model: "gpt" }, names)).toBe("gpt");
+  });
+  it("falls back to a short id and labels unattributed usage", () => {
+    expect(breakdownLabel("Provider", { key: "0190f0b0-0000-7000-8000-00000000dead", model: null }, names)).toBe("…0000dead");
+    expect(breakdownLabel("Task", { key: "none", model: null }, names)).toBe("Unattributed");
   });
 });

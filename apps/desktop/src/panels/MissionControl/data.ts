@@ -20,10 +20,12 @@ import type {
   TaskGraph,
 } from "@orkestr/protocol";
 import { topic } from "@orkestr/protocol";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { create } from "zustand";
 
 import { maybeClient } from "../../core/client";
+import type { PerfPolicy } from "../../features/performance/policy";
+import { usePerfPolicy } from "../../features/performance/perfStore";
 import { describeError } from "../../i18n/errors";
 import { type RpcQuery, useRpcQuery } from "../../lib/rpcQuery";
 import { mergeMissionRows, missionRowsOf } from "../../features/quality/signals";
@@ -64,8 +66,24 @@ const SNAPSHOT_RELOAD: readonly EventKindName[] = [
   "EmergencyStop",
 ];
 
-/** Periodic refresh (spend, latency) while mounted. */
+/** Periodic refresh (spend, latency) while mounted; never faster than this. */
 export const SNAPSHOT_REFRESH_MS = 15_000;
+
+/**
+ * Polling interval of the dashboard snapshot under a performance policy:
+ * at least 15 s, slower when the mode's chart refresh is slower (Battery
+ * Saver, hidden window), and `null` (no polling) while the app is paused.
+ */
+export function snapshotRefreshMs(policy: Pick<PerfPolicy, "chartRefreshMs" | "paused">): number | null {
+  if (policy.paused) return null;
+  return Math.max(SNAPSHOT_REFRESH_MS, policy.chartRefreshMs);
+}
+
+/** Tick interval of live counters (agent elapsed time): the mode's chart refresh, at least 1 s; `0` = stopped. */
+export function liveTickMs(policy: Pick<PerfPolicy, "chartRefreshMs" | "paused">): number {
+  if (policy.paused) return 0;
+  return Math.max(1000, policy.chartRefreshMs);
+}
 
 export function useDashboardSnapshot(): RpcQuery<DashboardSnapshot> {
   const topics = useProjectTopics();
@@ -74,10 +92,21 @@ export function useDashboardSnapshot(): RpcQuery<DashboardSnapshot> {
     reloadOn: SNAPSHOT_RELOAD,
   });
   const { reload } = q;
+  const interval = snapshotRefreshMs(usePerfPolicy());
+  const wasPaused = useRef(false);
   useEffect(() => {
-    const id = window.setInterval(reload, SNAPSHOT_REFRESH_MS);
+    if (interval === null) {
+      wasPaused.current = true;
+      return undefined;
+    }
+    // Back from a pause (window shown again): refresh right away.
+    if (wasPaused.current) {
+      wasPaused.current = false;
+      reload();
+    }
+    const id = window.setInterval(reload, interval);
     return () => window.clearInterval(id);
-  }, [reload]);
+  }, [reload, interval]);
   return q;
 }
 

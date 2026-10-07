@@ -18,7 +18,7 @@ import type {
 } from "@orkestr/protocol";
 
 import { t } from "../../i18n";
-import { leadReason } from "../../lib/coreText";
+import { runReason } from "../../lib/coreText";
 
 /** Bounds (same numbers as `orkestr_protocol::methods::teams`). */
 export const TEAM_LIMITS = {
@@ -218,7 +218,7 @@ export function hierarchyTree(view: TeamView, leadRole: AgentRole | null, runs: 
       status: run.status,
       attempts: 0,
       agentId: run.leadAgentId ?? null,
-      note: run.statusReason ? leadReason(run.statusReason) : null,
+      note: runReason(run.statusReason),
       children: run.subtasks.map((s) => ({
         id: s.taskId,
         level: s.isReview ? "reviewer" : "executor",

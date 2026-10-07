@@ -220,6 +220,37 @@
   flex-direction: column;
 }
 
+/* ── short panel (e.g. the Coding layout at 960×600) ─────
+   Everything around the conversation gives way so the composer stays inside
+   the panel: the resume banner collapses to a scrollable strip, chips and
+   composer tighten, and the input grows less (Composer `maxInputPx`). */
+.mgr-panel--short .mgr-resume {
+  max-height: 60px;
+  margin-top: var(--ok-space-1);
+  padding-block: var(--ok-space-1);
+  flex-shrink: 1;
+  min-height: 32px;
+}
+
+.mgr-panel--short .mgr-body {
+  min-height: 72px;
+}
+
+.mgr-panel--short .mgr-chips {
+  padding-bottom: var(--ok-space-1);
+}
+
+.mgr-panel--short .mgr-composer {
+  padding: var(--ok-space-1) var(--ok-space-3) var(--ok-space-2);
+}
+
+.mgr-panel--short .mgr-run--compact {
+  max-height: 96px;
+  overflow-y: auto;
+  flex-shrink: 1;
+  min-height: 40px;
+}
+
 .mgr-list {
   flex: 1;
   min-height: 0;

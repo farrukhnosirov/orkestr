@@ -1,7 +1,7 @@
 import type { TaskGraph, TaskStatus } from "@orkestr/protocol";
 import { clsx } from "clsx";
 import { Network } from "lucide-react";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { workspaceActions } from "../../../components/workspaceActions";
 import { useT } from "../../../i18n";
@@ -11,8 +11,44 @@ import { type WidgetProps, useMission } from "../context";
 import { useMiniGraph } from "../data";
 import { WidgetEmpty, WidgetStatus } from "./common";
 
+/** Narrowest node; the graph scales down (viewBox) when even this does not fit. */
 const NODE_W = 132;
+/** Widest node: wider boxes stop helping legibility. */
+const NODE_W_MAX = 280;
 const NODE_H = 30;
+const COLUMN_GAP = 34;
+/** Space left of the title (status dot) and right padding inside a node. */
+const TEXT_X = 22;
+const TEXT_PAD_RIGHT = 8;
+
+/**
+ * Node width for a DAG of `depth` columns in `available` px: the columns
+ * share the widget width (so a wide widget shows longer titles), clamped to
+ * [132, 280]. Unknown width → the minimum.
+ */
+export function graphNodeWidth(available: number | null | undefined, depth: number): number {
+  if (!available || !Number.isFinite(available) || available <= 0 || depth <= 0) return NODE_W;
+  const per = (available - 8 - (depth - 1) * COLUMN_GAP) / depth;
+  return Math.max(NODE_W, Math.min(NODE_W_MAX, Math.floor(per)));
+}
+
+/** Measured width of an element attached through the returned callback ref (it may mount later). */
+function useWidth(): [(el: HTMLDivElement | null) => void, number | null] {
+  const [el, setEl] = useState<HTMLDivElement | null>(null);
+  const [width, setWidth] = useState<number | null>(null);
+  useEffect(() => {
+    if (!el) return undefined;
+    setWidth(el.clientWidth || null);
+    if (typeof ResizeObserver === "undefined") return undefined;
+    const ro = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width;
+      if (w) setWidth(w);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [el]);
+  return [setEl, width];
+}
 
 /** Visual group of a task status (CSS class suffix). */
 export function statusGroup(s: TaskStatus): "done" | "running" | "waiting" | "failed" | "idle" | "cancelled" {
@@ -37,26 +73,25 @@ export function statusGroup(s: TaskStatus): "done" | "running" | "waiting" | "fa
   }
 }
 
-function truncate(s: string, n: number): string {
-  return s.length > n ? `${s.slice(0, n - 1)}…` : s;
-}
-
-function MiniDag({ graph, animate }: { graph: TaskGraph; animate: boolean }) {
+function MiniDag({ graph, animate, available }: { graph: TaskGraph; animate: boolean; available: number | null }) {
   const { t } = useT(["missionControl", "common"]);
+  const ids = useMemo(() => graph.nodes.map((n) => n.id), [graph]);
+  const edges = useMemo(() => graph.edges.map((e) => ({ from: e.dependsOn, to: e.taskId })), [graph]);
+  // The column count does not depend on the node width.
+  const depth = useMemo(
+    () => layoutDag(ids, edges, { nodeWidth: NODE_W, nodeHeight: NODE_H, columnGap: COLUMN_GAP, rowGap: 10, sweeps: 0 }).layers.length,
+    [ids, edges],
+  );
+  const nodeW = graphNodeWidth(available, depth);
   const layout = useMemo(
-    () =>
-      layoutDag(
-        graph.nodes.map((n) => n.id),
-        graph.edges.map((e) => ({ from: e.dependsOn, to: e.taskId })),
-        { nodeWidth: NODE_W, nodeHeight: NODE_H, columnGap: 34, rowGap: 10, sweeps: 3 },
-      ),
-    [graph],
+    () => layoutDag(ids, edges, { nodeWidth: nodeW, nodeHeight: NODE_H, columnGap: COLUMN_GAP, rowGap: 10, sweeps: 3 }),
+    [ids, edges, nodeW],
   );
   const pos = layout.positions;
   let w = 0;
   let h = 0;
   for (const p of pos.values()) {
-    w = Math.max(w, p.x + NODE_W);
+    w = Math.max(w, p.x + nodeW);
     h = Math.max(h, p.y + NODE_H);
   }
   const critical = new Set(graph.criticalPath);
@@ -73,7 +108,7 @@ function MiniDag({ graph, animate }: { graph: TaskGraph; animate: boolean }) {
         const a = pos.get(e.dependsOn);
         const b = pos.get(e.taskId);
         if (!a || !b) return null;
-        const x1 = a.x + NODE_W;
+        const x1 = a.x + nodeW;
         const y1 = a.y + NODE_H / 2;
         const x2 = b.x;
         const y2 = b.y + NODE_H / 2;
@@ -93,11 +128,14 @@ function MiniDag({ graph, animate }: { graph: TaskGraph; animate: boolean }) {
         return (
           <g key={n.id} transform={`translate(${p.x},${p.y})`} className={clsx("mc-dag__node", `mc-dag__node--${group}`)}>
             <title>{`${n.title} — ${t(`common:status.task.${n.status}`)}`}</title>
-            <rect width={NODE_W} height={NODE_H} rx={7} className="mc-dag__box" />
+            <rect width={nodeW} height={NODE_H} rx={7} className="mc-dag__box" />
             <circle cx={12} cy={NODE_H / 2} r={4} className="mc-dag__dot" />
-            <text x={22} y={NODE_H / 2 + 4} className="mc-dag__text">
-              {truncate(n.title, 17)}
-            </text>
+            {/* Pixel-accurate ellipsis (CSS text-overflow) instead of a fixed character count. */}
+            <foreignObject x={TEXT_X} y={0} width={Math.max(0, nodeW - TEXT_X - TEXT_PAD_RIGHT)} height={NODE_H}>
+              <div className="mc-dag__text" style={{ lineHeight: `${NODE_H}px` }}>
+                {n.title}
+              </div>
+            </foreignObject>
           </g>
         );
       })}
@@ -112,10 +150,11 @@ export function TaskGraphWidget(_props: WidgetProps) {
   const projects = useAppStore((s) => s.projects);
   const { graph, run, loading, error } = useMiniGraph(focusProjectId);
   const project = projects.find((p) => p.id === focusProjectId);
+  const [boxRef, available] = useWidth();
   if (!focusProjectId) return <WidgetEmpty icon={<Network size={20} />} title={t("graph.noProject")} />;
   if (!graph) return <WidgetStatus loading={loading || !error} error={error} />;
   return (
-    <div className="mc-graph">
+    <div className="mc-graph" ref={boxRef}>
       <div className="mc-graph__head">
         <span className="mc-graph__project">{project?.name ?? ""}</span>
         <span className="mc-graph__run">{run
@@ -130,7 +169,7 @@ export function TaskGraphWidget(_props: WidgetProps) {
       {graph.nodes.length === 0 ? (
         <WidgetEmpty icon={<Network size={20} />} title={t("graph.empty")} />
       ) : (
-        <MiniDag graph={graph} animate={budget.animate} />
+        <MiniDag graph={graph} animate={budget.animate} available={available} />
       )}
     </div>
   );

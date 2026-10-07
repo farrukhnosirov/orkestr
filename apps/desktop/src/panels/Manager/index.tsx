@@ -12,7 +12,7 @@ import "./manager.css";
 import type { ChatAttachment, ManagerRequestOptions } from "@orkestr/protocol";
 import { Button, EmptyState, IconButton, Spinner, Tabs } from "@orkestr/ui";
 import { Eraser, FolderOpen, RefreshCw, Scale, Sparkles, TriangleAlert } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { ConsensusDialog } from "../../features/reviews/ConsensusDialog";
 import { useConsensusUi } from "../../features/reviews/store";
@@ -23,7 +23,7 @@ import { useTasksUi } from "../Tasks/store";
 import type { PanelProps } from "../types";
 import { Composer } from "./Composer";
 import { errorMessage, managerActions, useManagerChat, useResumeSummary } from "./data";
-import { type ChatItem, attachmentOf, chatItems, latestProposedPlan, pinnedRun, suggestions } from "./model";
+import { type ChatItem, attachmentOf, chatItems, latestProposedPlan, panelFit, pinnedRun, suggestions } from "./model";
 import { MessageRow, ModelIndicator, ResumeBanner, StreamingRow, ThinkingRow, Toasts } from "./parts";
 import { RunCard } from "./RunCard";
 import { type ManagerMode, useManagerUi } from "./store";
@@ -56,7 +56,36 @@ export default function ManagerPanel({ projectId }: PanelProps) {
   const setConsensusOpen = useConsensusUi((s) => s.setOpen);
   const [pmMode, setPmMode] = useState(false);
   const [pmBusy, setPmBusy] = useState(false);
+  // Measured height → compact layout in short panels (see `panelFit`).
+  const [panelEl, setPanelEl] = useState<HTMLDivElement | null>(null);
+  const [panelHeight, setPanelHeight] = useState<number | null>(null);
+  useEffect(() => {
+    if (!panelEl) return undefined;
+    setPanelHeight(panelEl.clientHeight || null);
+    if (typeof ResizeObserver === "undefined") return undefined;
+    const ro = new ResizeObserver((entries) => {
+      const h = entries[0]?.contentRect.height;
+      if (h) setPanelHeight(h);
+    });
+    ro.observe(panelEl);
+    return () => ro.disconnect();
+  }, [panelEl]);
+  const fit = panelFit(panelHeight);
   const modes = MODE_IDS.map((id) => ({ id, label: t(`modes.${id}`) }));
+
+  // The draft (text, code attachment, PM toggle) belongs to one project. The
+  // panel is not remounted on a project switch, so drop it here: otherwise
+  // project A's selected source would be sent to project B's Manager (and to
+  // B's provider, bypassing A's privacy policy). Declared before the prefill
+  // effect so a prefill for the new project survives the reset.
+  const draftProject = useRef(projectId);
+  useEffect(() => {
+    if (draftProject.current === projectId) return;
+    draftProject.current = projectId;
+    setText("");
+    setAttachment(null);
+    setPmMode(false);
+  }, [projectId]);
 
   // Consume a request from the Code panel ("Ask Manager about selection").
   useEffect(() => {
@@ -64,11 +93,12 @@ export default function ManagerPanel({ projectId }: PanelProps) {
     if (prefill.projectId && prefill.projectId !== projectId) return;
     const a = attachmentOf(prefill);
     setAttachment(a);
-    if (!a && prefill.text.trim()) setText((cur) => (cur.trim() ? `${cur}\n${prefill.text}` : prefill.text));
-    else if (a && !text.trim()) setText(translate("manager:explainCode", { path: a.path }));
+    if (!a && prefill.text.trim()) setText((cur) => (cur.trim() ? `${cur}
+${prefill.text}` : prefill.text));
+    else if (a) setText((cur) => (cur.trim() ? cur : translate("manager:explainCode", { path: a.path })));
     setPrefill(null);
     requestFocus();
-  }, [prefill, projectId, setPrefill, requestFocus, text]);
+  }, [prefill, projectId, setPrefill, requestFocus]);
 
   const proposed = latestProposedPlan(state);
   useEffect(() => {
@@ -123,8 +153,10 @@ export default function ManagerPanel({ projectId }: PanelProps) {
     setPending(true);
     try {
       await managerActions.chat(projectId, body, attachment, options);
-      setText("");
-      setAttachment(null);
+      if (draftProject.current === projectId) {
+        setText("");
+        setAttachment(null);
+      }
       return true;
     } catch (e) {
       setPending(false);
@@ -207,7 +239,7 @@ export default function ManagerPanel({ projectId }: PanelProps) {
   }
 
   return (
-    <div className="mgr-panel">
+    <div className={fit.short ? "mgr-panel mgr-panel--short" : "mgr-panel"} ref={setPanelEl}>
       <div className="mgr-toolbar">
         <Sparkles size={15} className="mgr-toolbar__icon" aria-hidden="true" />
         <strong className="mgr-toolbar__title">{t("title")}</strong>
@@ -261,6 +293,8 @@ export default function ManagerPanel({ projectId }: PanelProps) {
         onSend={send}
         pmMode={pmMode}
         onTogglePm={() => setPmMode((m) => !m)}
+        maxInputPx={fit.maxInputPx}
+        compact={fit.short}
       />
       <Toasts />
       {consensusOpen && <ConsensusDialog projectId={projectId} onClose={() => setConsensusOpen(false)} />}

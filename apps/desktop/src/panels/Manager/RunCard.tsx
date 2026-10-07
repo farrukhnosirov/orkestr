@@ -14,6 +14,7 @@ import { useState } from "react";
 import { workspaceActions } from "../../components/workspaceActions";
 import { PipelineStages } from "../../features/pipeline";
 import { useLanguage, useT } from "../../i18n";
+import { runReason, runTaskError } from "../../lib/coreText";
 import { roleLabel } from "../Agents/model";
 import { useAgentsUi } from "../Agents/store";
 import { STATUS_TONE } from "../Tasks/model";
@@ -74,7 +75,7 @@ function TaskRow({ task, live }: { task: RunTask; live: boolean }) {
           task={task.title}
         />
       )}
-      {task.lastError && <div className="mgr-rtask__meta mgr-rtask__meta--warn">{task.lastError}</div>}
+      {task.lastError && <div className="mgr-rtask__meta mgr-rtask__meta--warn">{runTaskError(task.lastError)}</div>}
       {task.awaitingReview && (
         <div className="mgr-rtask__review">
           {task.summary && <span className="mgr-muted">{task.summary}</span>}
@@ -157,7 +158,7 @@ export function RunCard({ run, compact = false }: { run: ManagerRun; compact?: b
       >
         <div className={clsx("mgr-progress__bar", !final && "mgr-progress__bar--live")} style={{ width: `${progress.percent}%` }} />
       </div>
-      {run.statusReason && <p className="mgr-run__reason">{run.statusReason}</p>}
+      {run.statusReason && <p className="mgr-run__reason">{runReason(run.statusReason)}</p>}
       {compact ? (
         liveTasks.length > 0 && (
           <div className="mgr-run__agents">

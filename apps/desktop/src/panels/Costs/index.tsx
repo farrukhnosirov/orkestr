@@ -1,18 +1,21 @@
-import type { BudgetRule, BudgetStatus, CostBreakdownRow, CostDimension, CostPoint, CostSummaryResult, CostWindow } from "@orkestr/protocol";
+import type { AgentInstance, BudgetRule, BudgetStatus, CostBreakdownRow, CostDimension, CostPoint, CostSummaryResult, CostWindow, Task } from "@orkestr/protocol";
 import { topic } from "@orkestr/protocol";
 import { Badge, Button, EmptyState, IconButton, Spinner, Tabs } from "@orkestr/ui";
 import { clsx } from "clsx";
 import { AlertTriangle, Coins, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
+import { instanceName } from "../../features/providers/logic";
+import { useProvidersLive } from "../../features/providers/store";
 import { useFormat, useLanguage, useT } from "../../i18n";
+import { agentName } from "../../lib/coreText";
 import { errorMessage, requireClient, useRpcQuery } from "../../lib/rpcQuery";
 import { useAppStore } from "../../store/app";
 import type { PanelProps } from "../types";
 import { AgentPerformance, ModelBenchmarks } from "./Benchmarks";
 import { BudgetEditor } from "./BudgetEditor";
 import "./costs.css";
-import { formatPct, formatTokens, formatUsd, LEVEL_TONE, levelLabel, limitLabel, scopeLabel } from "./format";
+import { breakdownLabel, formatPct, formatTokens, formatUsd, LEVEL_TONE, levelLabel, limitLabel, scopeLabel } from "./format";
 import { SpendChart } from "./SpendChart";
 
 const DIMENSIONS: CostDimension[] = ["Provider", "Model", "Agent", "Project", "Task"];
@@ -82,6 +85,27 @@ export default function CostsPanel({ projectId }: PanelProps) {
     async (c) => (await c.call("cost.timeseries", { granularity: "Day", buckets: 30, ...filter })).points,
     { topics, reloadOn: RELOAD_ON },
   );
+  // Names for the Agent / Task breakdown rows (loaded only for those dimensions).
+  const agentList = useRpcQuery<AgentInstance[]>(
+    `cost-agents:${pid ?? "all"}`,
+    async (c) => (await c.call("agents.list", filter)).agents,
+    { enabled: dimension === "Agent" },
+  );
+  const taskList = useRpcQuery<Task[]>(
+    `cost-tasks:${pid ?? "all"}`,
+    async (c) => (await c.call("tasks.list", filter)).tasks,
+    { enabled: dimension === "Task" },
+  );
+  const providerViews = useProvidersLive().providers;
+  const names = useMemo(
+    () => ({
+      projects: new Map(projects.map((p) => [p.id, p.name])),
+      providers: new Map(providerViews.map((v) => [v.provider.id, instanceName(v.provider)])),
+      agents: new Map((agentList.data ?? []).map((a) => [a.id, agentName(a.name)])),
+      tasks: new Map((taskList.data ?? []).map((x) => [x.id, x.title])),
+    }),
+    [projects, providerViews, agentList.data, taskList.data],
+  );
   const budgets = useRpcQuery<BudgetStatus[]>(
     `budgets:${pid ?? "all"}`,
     async (c) => (await c.call("budgets.list", filter)).budgets,
@@ -93,6 +117,8 @@ export default function CostsPanel({ projectId }: PanelProps) {
     breakdown.reload();
     series.reload();
     budgets.reload();
+    if (dimension === "Agent") agentList.reload();
+    if (dimension === "Task") taskList.reload();
   };
 
   const removeBudget = async (b: BudgetRule) => {
@@ -121,12 +147,7 @@ export default function CostsPanel({ projectId }: PanelProps) {
   const hasSpend = points.some((p) => p.totals.requests > 0);
   const anyLoading = summary.loading || breakdown.loading || series.loading || budgets.loading;
   const loadError = summary.error ?? breakdown.error ?? series.error ?? budgets.error;
-  const labelFor = (r: CostBreakdownRow): string => {
-    if (r.key === "none") return t("breakdown.unattributed");
-    if (dimension === "Project") return projects.find((p) => p.id === r.key)?.name ?? `…${r.key.slice(-6)}`;
-    if (dimension === "Model") return r.model ?? r.key;
-    return `…${r.key.slice(-8)}`;
-  };
+  const labelFor = (r: CostBreakdownRow): string => breakdownLabel(dimension, r, names);
 
   return (
     <div className="cost-panel">

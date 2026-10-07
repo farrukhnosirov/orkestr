@@ -913,10 +913,15 @@
   animation: mc-blink 1.2s ease-in-out infinite;
 }
 
+/* Node title: an HTML box inside <foreignObject>, ellipsized by pixel width. */
 .mc-dag__text {
-  fill: var(--ok-color-text);
+  color: var(--ok-color-text);
   font-family: var(--ok-font-sans);
   font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
 }
 
 .mc-dag__node--cancelled .mc-dag__text {

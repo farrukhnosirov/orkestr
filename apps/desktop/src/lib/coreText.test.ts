@@ -21,6 +21,8 @@ import {
   managerToolSummary,
   mergeDetail,
   planWarning,
+  runReason,
+  runTaskError,
   snapshotLabel,
   taskReason,
   taskTag,
@@ -217,5 +219,52 @@ describe("core text in Russian", () => {
     expect(mergeDetail("Orkestr stopped while the merge was running")).toBe("Orkestr остановился во время слияния");
     expect(mergeDetail("approval failed: db locked")).toBe("Не удалось запросить подтверждение: db locked");
     expect(mergeDetail("merging agent/x failed: boom")).toBe("merging agent/x failed: boom");
+  });
+});
+
+describe("AI Manager run reasons", () => {
+  afterEach(async () => {
+    await applyLanguagePreference("en");
+  });
+
+  it("are shown in Russian with locale numbers and money", async () => {
+    await applyLanguagePreference("ru");
+    expect(runReason("paused by the user — no new agents start")).toBe("Приостановлен вами — новые агенты не запускаются");
+    expect(runReason("cancelled by the user")).toBe("Отменён вами");
+    expect(runReason("emergency stop")).toBe("Экстренная остановка");
+    expect(runReason("Orkestr stopped while the run was active — resume it to continue")).toMatch(/^Orkestr остановился во время запуска/);
+    expect(runReason("paused by the user when Orkestr stopped — resume it to continue")).toMatch(/^Был приостановлен/);
+    expect(nb(runReason("budget exhausted: $0.5012 spent of $0.50") ?? "")).toMatch(/^Бюджет исчерпан: потрачено 0,5012 \$ из 0,50 \$$/);
+    expect(runReason("time limit of 30 min reached")).toBe("Достигнут лимит времени: 30 мин");
+    expect(runReason("3 consecutive task failures (limit 3)")).toBe("3 задачи подряд завершились ошибкой (лимит 3)");
+    expect(runReason("2 task(s) were cancelled")).toBe("2 задачи отменены");
+    expect(runReason("1 task(s) wait for your review; 2 agent(s) wait for an approval")).toBe(
+      "1 задача ждёт вашего ревью; 2 агента ждут подтверждения",
+    );
+    expect(runReason('no task can proceed: "Build API" (Failed), "Docs" (Blocked)')).toBe(
+      `Ни одна задача не может продолжиться: «Build API» (${t("common:status.task.Failed")}), «Docs» (${t("common:status.task.Blocked")})`,
+    );
+    expect(runReason("waiting: the run is paused")).toBe(t("scheduler:reason.waiting", { reason: t("scheduler:reason.paused") }));
+    expect(runReason("3 task(s) waiting: global parallel limit 2/2")).toBe(
+      `3 задачи — ${t("scheduler:reason.waiting", { reason: t("scheduler:reason.globalLimit", { running: 2, limit: 2 }) })}`,
+    );
+    // Unknown parts (errors, notes) stay as written; known ones around them are translated.
+    expect(runReason("1 task(s) wait for your review; something custom")).toBe("1 задача ждёт вашего ревью; something custom");
+    expect(runReason("provider exploded")).toBe("provider exploded");
+    expect(runReason(null)).toBeNull();
+    // Team lead runs.
+    expect(runReason("the Manager run was cancelled")).toBe("Запуск менеджера отменён");
+    expect(runReason('sub-task "Write tests" failed after 2 attempt(s)')).toBe("Подзадача «Write tests» не выполнена после 2 попыток");
+  });
+
+  it("localizes per-task errors of a run", async () => {
+    await applyLanguagePreference("ru");
+    expect(runTaskError("the task was deleted")).toBe("Задача удалена");
+    expect(runTaskError("ended Failed")).toBe(`Завершилась со статусом «${t("common:status.task.Failed")}»`);
+    expect(runTaskError("stopped by the user")).toBe(taskReason("stopped by the user"));
+    expect(runTaskError("disk full")).toBe("disk full");
+    await applyLanguagePreference("en");
+    expect(runReason("1 task(s) wait for your review")).toBe("1 task waits for your review");
+    expect(runReason("budget exhausted: $0.5012 spent of $0.50")).toBe("Budget exhausted: $0.5012 spent of $0.50");
   });
 });

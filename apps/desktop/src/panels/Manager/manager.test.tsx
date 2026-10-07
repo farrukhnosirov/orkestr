@@ -14,6 +14,7 @@ import {
   composerKeyAction,
   draftToEdits,
   latestProposedPlan,
+  panelFit,
   pinnedRun,
   planLevels,
   planTree,
@@ -149,6 +150,16 @@ const CONFIG: ManagerConfig = {
 // ── pure logic ───────────────────────────────────────────
 
 describe("manager model", () => {
+  it("switches to the compact layout in a short panel so the composer fits", () => {
+    // Coding layout at the minimum 960x600 window: the Manager panel is ~479px tall.
+    const short = panelFit(479);
+    expect(short.short).toBe(true);
+    expect(short.maxInputPx).toBeLessThanOrEqual(90);
+    expect(short.maxInputPx).toBeGreaterThanOrEqual(36);
+    expect(panelFit(900)).toEqual({ short: false, maxInputPx: 220 });
+    expect(panelFit(null).short).toBe(false);
+  });
+
   it("streams deltas and replaces them with the stored reply", () => {
     let s = applyManagerEvent(EMPTY_CHAT, ev("ManagerMessageAdded", { message: msg("u1", "User", "hi"), busy: true }));
     s = applyManagerEvent(s, ev("ManagerMessage", { agentId: null, messageId: "r1", role: "Assistant", delta: "Hel", done: false }));
@@ -409,6 +420,25 @@ describe("ManagerPanel", () => {
       attachment: { path: "src/a.rs", text: "fn a() {}", startLine: 3, endLine: 5, language: "rust" },
       options: { budgetUsd: 1.5, maxParallelAgents: 3, language: "en" },
     });
+  });
+
+  it("drops the draft and code attachment when the project changes", async () => {
+    const OTHER = "0190f0b0-0000-7000-8000-eeeeeeeeeeee";
+    askManager({ text: "secret()", projectId: PROJECT, path: "src/a.rs", startLine: 1, endLine: 2, language: "rust" });
+    const { rerender } = render(<ManagerPanel projectId={PROJECT} />);
+    await screen.findByText("src/a.rs:1-2");
+    const box = screen.getByLabelText("Message to the AI Manager") as HTMLTextAreaElement;
+    expect(box.value).toBe("Explain this code from src/a.rs");
+    rerender(<ManagerPanel projectId={OTHER} />);
+    await waitFor(() => expect(screen.queryByText("src/a.rs:1-2")).toBeNull());
+    const box2 = screen.getByLabelText("Message to the AI Manager") as HTMLTextAreaElement;
+    expect(box2.value).toBe("");
+    fireEvent.change(box2, { target: { value: "hi" } });
+    fireEvent.keyDown(box2, { key: "Enter" });
+    await waitFor(() => expect(calls.some((c) => c.method === "manager.chat")).toBe(true));
+    const params = calls.find((c) => c.method === "manager.chat")?.params as { projectId: string; attachment?: unknown };
+    expect(params.projectId).toBe(OTHER);
+    expect(params.attachment).toBeUndefined();
   });
 
   it("Approve Plan and Ask Manager commands", async () => {

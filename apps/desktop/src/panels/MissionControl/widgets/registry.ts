@@ -76,6 +76,11 @@ function widget(
   };
 }
 
+/**
+ * Built-in widgets in default order. Default sizes are chosen so the 12-column
+ * grid packs into full rows (12 | 8+4 | 6+6 | 6+6 | 6+6 | 4+4+4) with no
+ * permanent holes; a test guards it.
+ */
 const BUILTIN: WidgetManifest[] = [
   widget("overview", Gauge, "full", ["xl", "full"], { methods: ["dashboard.snapshot"], events: ["AgentStateChanged", "TaskStatusChanged"] }, OverviewWidget),
   widget("agents", Bot, "xl", ["l", "xl", "full"], { methods: ["agents.list"], events: ["AgentSpawned", "AgentStateChanged", "AgentUpdated", "AgentStopped"] }, AgentsWidget),
@@ -83,12 +88,12 @@ const BUILTIN: WidgetManifest[] = [
   widget("projects", FolderKanban, "l", ["m", "l", "xl"], { methods: ["dashboard.snapshot"], events: ["ProjectCreated", "ProjectUpdated"] }, ProjectsWidget),
   widget("taskGraph", Network, "l", ["l", "xl", "full"], { methods: ["tasks.graph", "manager.status"], events: ["TaskStatusChanged", "ManagerRunUpdated"] }, TaskGraphWidget),
   widget("nodes", Server, "l", ["l", "xl", "full"], { methods: ["nodes.list", "nodes.resources"], events: ["NodeStatus"] }, NodesWidget),
-  widget("providers", Activity, "m", ["m", "l"], { methods: ["dashboard.snapshot"], events: ["ProviderStatusChanged", "ProviderRateLimited"] }, ProvidersWidget),
-  widget("budgets", Coins, "m", ["m", "l", "xl"], { methods: ["dashboard.snapshot", "budgets.list"], events: ["BudgetThreshold"] }, BudgetsWidget),
-  widget("alerts", BellRing, "m", ["m", "l"], { methods: ["events.replay"], events: ["BuildFailed", "ProviderRateLimited", "BudgetThreshold", "AgentStateChanged", "ReviewUpdated", "MergeProposalUpdated"] }, AlertsWidget),
+  widget("providers", Activity, "l", ["m", "l"], { methods: ["dashboard.snapshot"], events: ["ProviderStatusChanged", "ProviderRateLimited"] }, ProvidersWidget),
+  widget("budgets", Coins, "l", ["m", "l", "xl"], { methods: ["dashboard.snapshot", "budgets.list"], events: ["BudgetThreshold"] }, BudgetsWidget),
+  widget("alerts", BellRing, "l", ["m", "l"], { methods: ["events.replay"], events: ["BuildFailed", "ProviderRateLimited", "BudgetThreshold", "AgentStateChanged", "ReviewUpdated", "MergeProposalUpdated"] }, AlertsWidget),
   widget("quality", TestTube2, "m", ["m", "l"], { methods: ["events.replay", "quality.runs", "quality.getRun"], events: ["BuildStarted", "BuildFailed", "BuildSucceeded", "TestRunFinished"] }, QualityWidget),
   widget("reviews", ShieldEllipsis, "m", ["m", "l"], { methods: ["reviews.list", "merge.list"], events: ["ReviewUpdated", "MergeProposalUpdated"] }, ReviewsWidget),
-  widget("deployments", Rocket, "s", ["s", "m"], { methods: [], events: ["DeploymentFinished"] }, DeploymentsWidget),
+  widget("deployments", Rocket, "m", ["s", "m"], { methods: [], events: ["DeploymentFinished"] }, DeploymentsWidget),
 ];
 
 const registry: WidgetManifest[] = [...BUILTIN];

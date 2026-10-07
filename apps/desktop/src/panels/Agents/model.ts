@@ -16,7 +16,8 @@ import type {
 } from "@orkestr/protocol";
 import type { Tone } from "@orkestr/ui";
 
-import { formatCurrency, formatDuration, formatNumber, t } from "../../i18n";
+import { capabilityLabel, effectLabel } from "../../features/security/logic";
+import { formatCurrency, formatDuration, formatList, formatNumber, t } from "../../i18n";
 import { templateName } from "../../lib/coreText";
 
 export const AGENT_STATES: readonly AgentState[] = [
@@ -127,6 +128,18 @@ export function applyAgentEvent(list: AgentInstance[], ev: Event): AgentInstance
     default:
       return list;
   }
+}
+
+/**
+ * Replays live events (in arrival order) on top of a loaded `agents.list`
+ * snapshot. The events were buffered while the list was loading; the
+ * subscription was opened before the request, so replaying the whole ordered
+ * sequence ends in the newest state even when the snapshot is older than
+ * some of the events (agent events carry full state, so replaying one the
+ * snapshot already contains is harmless).
+ */
+export function replayAgentEvents(list: AgentInstance[], events: readonly Event[]): AgentInstance[] {
+  return events.reduce(applyAgentEvent, list);
 }
 
 export interface TranscriptState {
@@ -334,4 +347,29 @@ export function validateDraft(d: TemplateDraft): string | null {
 
 export function isBuiltin(tpl: AgentTemplate): boolean {
   return tpl.source === "Builtin" || tpl.source === "Official";
+}
+
+/**
+ * Requested permissions of a template draft in the UI language
+ * («Сеть — Запретить, Развёртывание — Запретить»), never the raw enums.
+ */
+export function permissionsSummary(perms: TemplateDraft["permissions"], lng?: string): string {
+  return formatList(
+    perms.map((p) => `${capabilityLabel(p.capability)} — ${effectLabel(p.effect)}`),
+    "conjunction",
+    lng,
+  );
+}
+
+/**
+ * Voice profile for a voice typed into the template editor as
+ * `provider:voice`. A new profile speaks in the UI language ("auto"), like
+ * the Agent Voices settings; an existing profile keeps its language.
+ */
+export function voiceFromInput(value: string, current: TemplateDraft["voice"]): TemplateDraft["voice"] {
+  const i = value.indexOf(":");
+  const provider = i > 0 ? value.slice(0, i).trim() : "";
+  const voice = i > 0 ? value.slice(i + 1) : "";
+  if (!provider || !voice) return null;
+  return { provider, voice, language: current?.language ?? "auto", style: current?.style ?? null };
 }
