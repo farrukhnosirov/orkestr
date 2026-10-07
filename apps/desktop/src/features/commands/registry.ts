@@ -17,6 +17,7 @@ import { hudCommands } from "../hud/commands";
 import { voiceCommands } from "../voice";
 import { WORKBENCH_COMMANDS } from "../workbench/commands";
 import { vscodeCommands } from "../vscode";
+import { claudeCodeCommands } from "../claudeCode/commands";
 
 export interface CommandContext {
   projectId: string | null;
@@ -75,3 +76,5 @@ commands.push(...voiceCommands);
 commands.push(...WORKBENCH_COMMANDS);
 // Embedded VS Code
 commands.push(...vscodeCommands);
+// Claude Code panel
+commands.push(...claudeCodeCommands);

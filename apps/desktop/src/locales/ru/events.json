@@ -108,5 +108,7 @@
   "extensionsChanged": "Расширения изменены ({{reason}}): {{id}}",
   "extensionInstallProgress": "Расширение {{key}}: {{phase}}",
   "lspMessage": "Сообщение языкового сервера (сеанс {{session}})",
-  "lspStatus": "Языковой сервер {{server}}: {{state}}"
+  "lspStatus": "Языковой сервер {{server}}: {{state}}",
+  "claudeCodeEvent": "Claude Code {{session}}: {{type}}",
+  "claudeCodeStatus": "Claude Code {{session}}: {{state}}"
 }

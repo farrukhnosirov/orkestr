@@ -47,6 +47,7 @@
   },
   "editor": {
     "askManager": "Ask Manager about selection",
+    "askClaude": "Ask Claude about selection",
     "agentChanged": "Changed by an agent"
   },
   "tabs": {

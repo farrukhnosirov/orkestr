@@ -26,9 +26,10 @@ import {
 import type { ReactNode } from "react";
 import { useState } from "react";
 
+import type { ToolCallView, ToolCardProps } from "./types";
+
 import { useT } from "../../i18n";
-import { openChangedFile } from "../../features/claudeCode/bridge";
-import { editPairs, field, relativeTo, todos, toolSubject, type ChatItem, type ToolItem } from "../../features/claudeCode/model";
+import { editPairs, field, relativeTo, todos, toolSubject } from "../../features/claudeCode/model";
 import { InlineDiff } from "./InlineDiff";
 
 const EDIT_TOOLS = new Set(["Edit", "MultiEdit", "Write", "NotebookEdit"]);
@@ -51,13 +52,6 @@ function openByDefault(name: string): boolean {
   return EDIT_TOOLS.has(name) || SHELL_TOOLS.has(name) || name === "TodoWrite" || name === "Task" || name === "Agent";
 }
 
-export interface ToolCardProps {
-  item: ToolItem;
-  root: string | null;
-  cwd: string | null;
-  renderChildren: (items: ChatItem[]) => ReactNode;
-}
-
 function Output({ text, isError }: { text: string; isError: boolean }) {
   const { t } = useT("claudeCode");
   const [all, setAll] = useState(false);
@@ -76,7 +70,7 @@ function Output({ text, isError }: { text: string; isError: boolean }) {
   );
 }
 
-function Todos({ item }: { item: ToolItem }) {
+function Todos({ item }: { item: ToolCallView }) {
   const { t } = useT("claudeCode");
   const list = todos(item.input);
   return (
@@ -91,15 +85,15 @@ function Todos({ item }: { item: ToolItem }) {
   );
 }
 
-export function ToolCard({ item, root, cwd, renderChildren }: ToolCardProps) {
+export function ToolCard({ call: item, result, root, cwd, onOpenFile, risk, children }: ToolCardProps) {
   const { t } = useT("claudeCode");
   const [open, setOpen] = useState(openByDefault(item.name));
   const subject = toolSubject(item.name, item.input);
   const filePath = typeof field(item.input, "file_path") === "string" ? (field(item.input, "file_path") as string) : null;
   const rel = filePath ? relativeTo(root, filePath, cwd) : null;
   const shownSubject = rel ?? subject;
-  const done = item.result !== null;
-  const failed = item.result?.isError ?? false;
+  const done = result !== null;
+  const failed = result?.isError ?? false;
 
   let body: ReactNode = null;
   if (EDIT_TOOLS.has(item.name)) {
@@ -109,7 +103,7 @@ export function ToolCard({ item, root, cwd, renderChildren }: ToolCardProps) {
         {pairs.map(([before, after], i) => (
           <InlineDiff key={i} before={before} after={after} path={filePath ?? ""} />
         ))}
-        {item.result?.isError && <Output text={item.result.content} isError />}
+        {result?.isError && <Output text={result.content} isError />}
       </>
     );
   } else if (SHELL_TOOLS.has(item.name)) {
@@ -117,8 +111,13 @@ export function ToolCard({ item, root, cwd, renderChildren }: ToolCardProps) {
     body = (
       <>
         {typeof description === "string" && <div className="cc-muted">{description}</div>}
+        {risk && (
+          <Badge tone={risk.level === "forbidden" ? "danger" : "warning"} title={risk.reason}>
+            {t(`permission.risk.${risk.level}`)}
+          </Badge>
+        )}
         <pre className="cc-command">{subject}</pre>
-        {item.result && <Output text={item.result.content} isError={item.result.isError} />}
+        {result && <Output text={result.content} isError={result.isError} />}
       </>
     );
   } else if (item.name === "TodoWrite") {
@@ -128,17 +127,17 @@ export function ToolCard({ item, root, cwd, renderChildren }: ToolCardProps) {
     body = (
       <>
         {typeof prompt === "string" && <div className="cc-muted cc-clamp">{prompt}</div>}
-        {item.children.length > 0 && <div className="cc-subagent">{renderChildren(item.children)}</div>}
-        {item.result && <Output text={item.result.content} isError={item.result.isError} />}
+        {children && <div className="cc-subagent">{children}</div>}
+        {result && <Output text={result.content} isError={result.isError} />}
       </>
     );
   } else if (["Read", "Glob", "Grep", "WebFetch", "WebSearch", "LS"].includes(item.name)) {
-    body = item.result ? <Output text={item.result.content} isError={item.result.isError} /> : null;
+    body = result ? <Output text={result.content} isError={result.isError} /> : null;
   } else {
     body = (
       <>
         <pre className="cc-output">{JSON.stringify(item.input, null, 2)}</pre>
-        {item.result && <Output text={item.result.content} isError={item.result.isError} />}
+        {result && <Output text={result.content} isError={result.isError} />}
       </>
     );
   }
@@ -158,7 +157,7 @@ export function ToolCard({ item, root, cwd, renderChildren }: ToolCardProps) {
           <span className="cc-tool__name">{item.name}</span>
         </button>
         {rel !== null && rel !== "" ? (
-          <button type="button" className="cc-tool__subject cc-link" title={t("tool.openFile")} onClick={() => openChangedFile(rel)}>
+          <button type="button" className="cc-tool__subject cc-link" title={t("tool.openFile")} onClick={() => onOpenFile(rel)}>
             {shownSubject}
           </button>
         ) : (

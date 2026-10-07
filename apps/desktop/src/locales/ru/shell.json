@@ -44,7 +44,8 @@
     "delete": "Удалить проект…",
     "unsaved": "Несохранённые изменения в проекте «{{name}}»",
     "vscode": "VS Code",
-    "extensions": "Расширения (Ctrl+Shift+X)"
+    "extensions": "Расширения (Ctrl+Shift+X)",
+    "claudeCode": "Claude Code (Ctrl+Alt+C)"
   },
   "createProject": {
     "title": "Новый проект",
@@ -187,6 +188,10 @@
     "extensions": {
       "title": "Расширения",
       "description": "Расширения VS Code из Open VSX: темы, значки, грамматики, языковые серверы"
+    },
+    "claudeCode": {
+      "title": "Claude Code",
+      "description": "Чат с Claude Code (официальный CLI) о проекте, с разрешениями прямо в чате"
     }
   },
   "phasePlaceholder": {

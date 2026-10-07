@@ -84,7 +84,7 @@ pub async fn probe_version(program: &Path) -> Result<String, String> {
 /// `claude auth status` → login state + the CLI's projects directory.
 pub async fn probe_auth(program: &Path) -> Result<(ClaudeAuthInfo, Option<PathBuf>), String> {
     let (_, text) = run_probe(program, &["auth", "status"]).await?;
-    parse::auth_status(&text)
-        .map(|(info, dir)| (info, dir.map(PathBuf::from)))
-        .ok_or_else(|| format!("unexpected `claude auth status` output: {}", text.trim().chars().take(300).collect::<String>()))
+    parse::auth_status(&text).map(|(info, dir)| (info, dir.map(PathBuf::from))).ok_or_else(|| {
+        format!("unexpected `claude auth status` output: {}", text.trim().chars().take(300).collect::<String>())
+    })
 }

@@ -5,7 +5,6 @@
  * message is queued and sent after the turn. "Selection" attaches the Code
  * editor's selection with `@path:lines`.
  */
-import type { ClaudeSlashCommand } from "@orkestr/protocol";
 import { IconButton } from "@orkestr/ui";
 import clsx from "clsx";
 import { FileCode2, SendHorizontal, Square, TextSelect, X } from "lucide-react";
@@ -15,6 +14,7 @@ import { getClient } from "../../core/client";
 import { useT } from "../../i18n";
 import { currentSelection } from "../../features/claudeCode/bridge";
 import { composerKey, composerPopup, insertMention, selectionPrompt } from "../../features/claudeCode/model";
+import type { ComposerProps } from "./types";
 
 const MAX_INPUT_PX = 220;
 const MAX_CHARS = 100_000;
@@ -26,19 +26,6 @@ interface Suggestion {
   apply: () => void;
 }
 
-export interface ComposerProps {
-  projectId: string;
-  disabled: boolean;
-  running: boolean;
-  queue: string[];
-  commands: ClaudeSlashCommand[];
-  /** Text to insert (selection from the editor), with a nonce. */
-  insert: string | null;
-  onInsertConsumed: () => void;
-  onSend: (text: string) => Promise<boolean>;
-  onInterrupt: () => void;
-  onDequeue: (index: number) => void;
-}
 
 export function Composer({
   projectId,
@@ -141,7 +128,7 @@ export function Composer({
   const send = async () => {
     const body = text.trim();
     if (!body || disabled || body.length > MAX_CHARS) return;
-    const ok = await onSend(body);
+    const ok = await onSend({ text: body });
     if (ok) {
       setText("");
       setCaret(0);

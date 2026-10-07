@@ -153,7 +153,9 @@ pub fn is_valid_model(model: &str) -> bool {
     !model.is_empty()
         && model.len() <= 100
         && !model.starts_with('-')
-        && model.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-' | ':' | '[' | ']' | '/' | '@'))
+        && model
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-' | ':' | '[' | ']' | '/' | '@'))
 }
 
 impl LaunchSpec {
@@ -258,7 +260,8 @@ impl Session {
 
     fn write(&self, line: String) -> SessionResult<()> {
         let guard = self.proc.lock();
-        let proc = guard.as_ref().ok_or_else(|| SessionError::Conflict("the Claude Code process is not running".into()))?;
+        let proc =
+            guard.as_ref().ok_or_else(|| SessionError::Conflict("the Claude Code process is not running".into()))?;
         proc.stdin.send(line).map_err(|_| SessionError::Conflict("the Claude Code process is not running".into()))
     }
 }
@@ -290,7 +293,8 @@ pub fn sanitized_command(program: &std::path::Path, args: &[String]) -> tokio::p
     cmd.env_clear();
     for (k, v) in std::env::vars_os() {
         if let Some(key) = k.to_str() {
-            let allowed = crate::adapters::cli::ENV_ALLOWLIST.iter().chain(EXTRA_ENV).any(|a| a.eq_ignore_ascii_case(key));
+            let allowed =
+                crate::adapters::cli::ENV_ALLOWLIST.iter().chain(EXTRA_ENV).any(|a| a.eq_ignore_ascii_case(key));
             if allowed {
                 cmd.env(&k, v);
             }
@@ -311,7 +315,11 @@ fn shorten(text: &str, max: usize) -> String {
 impl ClaudeSessionManager {
     /// Creates the manager; events go to `tx`.
     #[must_use]
-    pub fn new(tx: mpsc::Sender<SessionEvent>, policy: Arc<dyn PermissionPolicy>, process: Arc<dyn ProcessControl>) -> Self {
+    pub fn new(
+        tx: mpsc::Sender<SessionEvent>,
+        policy: Arc<dyn PermissionPolicy>,
+        process: Arc<dyn ProcessControl>,
+    ) -> Self {
         Self { inner: Arc::new(Inner { sessions: Mutex::default(), tx, policy, process }) }
     }
 
@@ -335,7 +343,7 @@ impl ClaudeSessionManager {
             .map(|s| s.info.lock().clone())
             .filter(|i| project.is_none_or(|p| i.project_id == p))
             .collect();
-        v.sort_by(|a, b| a.started_at.cmp(&b.started_at));
+        v.sort_by_key(|i| i.started_at);
         v
     }
 
@@ -465,7 +473,10 @@ impl ClaudeSessionManager {
                 },
             )
             .await;
-            self.inner.policy.record(&s.ctx(), &p.tool_name, &p.input, p.risk.as_ref(), PermissionOutcome::Cancelled).await;
+            self.inner
+                .policy
+                .record(&s.ctx(), &p.tool_name, &p.input, p.risk.as_ref(), PermissionOutcome::Cancelled)
+                .await;
         }
         self.control(&s, "interrupt", control::interrupt()).await?;
         {
@@ -511,7 +522,9 @@ impl ClaudeSessionManager {
             (info.state, info.claude_session_id.clone())
         };
         if !matches!(state, ClaudeSessionState::Idle | ClaudeSessionState::Starting) {
-            return Err(SessionError::Conflict("wait until Claude finishes (or interrupt it) before switching to bypass mode".into()));
+            return Err(SessionError::Conflict(
+                "wait until Claude finishes (or interrupt it) before switching to bypass mode".into(),
+            ));
         }
         {
             let mut spec = s.spec.lock();
@@ -700,7 +713,8 @@ fn spawn_proc(inner: &Arc<Inner>, s: &Arc<Session>, generation: u64) -> SessionR
     cmd.current_dir(&spec.cwd);
     let mut child = cmd.spawn().map_err(|e| SessionError::Spawn(format!("{}: {e}", spec.program.display())))?;
     let pid = child.id();
-    let (Some(mut stdin), Some(stdout), Some(mut stderr)) = (child.stdin.take(), child.stdout.take(), child.stderr.take())
+    let (Some(mut stdin), Some(stdout), Some(mut stderr)) =
+        (child.stdin.take(), child.stdout.take(), child.stderr.take())
     else {
         return Err(SessionError::Spawn("the process has no stdio".into()));
     };
@@ -798,7 +812,11 @@ fn spawn_proc(inner: &Arc<Inner>, s: &Arc<Session>, generation: u64) -> SessionR
                 None
             }
         };
-        let stderr_tail = tokio::time::timeout(Duration::from_secs(2), stderr_task).await.ok().and_then(Result::ok).unwrap_or_default();
+        let stderr_tail = tokio::time::timeout(Duration::from_secs(2), stderr_task)
+            .await
+            .ok()
+            .and_then(Result::ok)
+            .unwrap_or_default();
         if s.generation.load(Ordering::SeqCst) != generation {
             return; // replaced by a restart
         }
@@ -880,7 +898,10 @@ async fn handle(inner: &Arc<Inner>, s: &Arc<Session>, item: Inbound) {
         Inbound::ControlCancel { request_id } => {
             let removed = s.pending.lock().remove(&request_id);
             if let Some(p) = removed {
-                inner.policy.record(&s.ctx(), &p.tool_name, &p.input, p.risk.as_ref(), PermissionOutcome::Cancelled).await;
+                inner
+                    .policy
+                    .record(&s.ctx(), &p.tool_name, &p.input, p.risk.as_ref(), PermissionOutcome::Cancelled)
+                    .await;
                 emit_item(
                     inner,
                     s,
