@@ -40,6 +40,7 @@
     "palette": "Command palette (Ctrl+K)",
     "menu": "Project actions: {{name}}",
     "open": "Open",
+    "stopProject": "Stop project AI…",
     "delete": "Delete project…",
     "unsaved": "Unsaved changes in {{name}}"
   },
@@ -191,6 +192,7 @@
     "toggleMaximize": "Toggle Maximize Panel",
     "toggleFullscreen": "Toggle Fullscreen",
     "stopAll": "Stop All AI",
+    "stopProject": "Stop AI in Current Project…",
     "switchLanguage": "Switch Language",
     "switchLanguageTo": "Switch to {{language}}",
     "projectDelete": "Delete Project…"

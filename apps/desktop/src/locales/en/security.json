@@ -41,6 +41,7 @@
     "agentsStopped_other": "{{count}} agents stopped",
     "approvalsCancelled_one": "{{count}} pending approval cancelled",
     "approvalsCancelled_other": "{{count}} pending approvals cancelled",
+    "projectStoppedTitle": "AI in “{{name}}” stopped",
     "rearmedTitle": "Emergency stop lifted",
     "rearmedBody": "Agents can start again.",
     "vaultLockedTitle": "Vault locked",
@@ -59,7 +60,12 @@
     "description": "Immediately stops every agent and the Manager and cancels their pending approvals. Works offline.",
     "activeControls": "Active emergency controls",
     "rearm": "Lift the stop",
-    "stopAll": "Stop all AI"
+    "stopAll": "Stop all AI",
+    "titleProject": "Stop AI in “{{name}}”?",
+    "descriptionProject": "Immediately stops this project's agents, Manager runs and checks and cancels their pending approvals. Other projects keep working. Works offline.",
+    "stopProject": "Stop project",
+    "stopProjectNamed": "Stop only “{{name}}”",
+    "stopProjectTitle": "Stop the AI work of project “{{name}}” only; other projects keep working"
   },
   "flags": {
     "allStopped": "All AI stopped",

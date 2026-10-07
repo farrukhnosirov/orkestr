@@ -31,11 +31,15 @@ export interface SecurityState {
   flags: EmergencyFlagsView;
   inboxOpen: boolean;
   confirmStopOpen: boolean;
+  /** When set, the emergency dialog confirms stopping only this project (§52 Stop Project). */
+  stopProjectId: string | null;
   centerOpen: boolean;
   centerTab: SecurityTab;
   toasts: Toast[];
   setInboxOpen: (open: boolean) => void;
   setConfirmStopOpen: (open: boolean) => void;
+  /** Opens the emergency dialog scoped to one project. */
+  openStopProject: (projectId: string) => void;
   openCenter: (tab?: SecurityTab) => void;
   closeCenter: () => void;
   pushToast: (t: Omit<Toast, "id">) => void;
@@ -72,11 +76,13 @@ export const useSecurityStore = create<SecurityState>()((set) => ({
   flags: EMPTY_FLAGS,
   inboxOpen: false,
   confirmStopOpen: false,
+  stopProjectId: null,
   centerOpen: false,
   centerTab: "permissions",
   toasts: [],
   setInboxOpen: (inboxOpen) => set({ inboxOpen }),
-  setConfirmStopOpen: (confirmStopOpen) => set({ confirmStopOpen }),
+  setConfirmStopOpen: (confirmStopOpen) => set({ confirmStopOpen, stopProjectId: null }),
+  openStopProject: (stopProjectId) => set({ confirmStopOpen: true, stopProjectId }),
   // The shared Settings view hosts the "security" / "secrets" sections.
   openCenter: (tab) => {
     const t = tab ?? "permissions";
@@ -154,6 +160,15 @@ export async function stopAllAi(): Promise<{ agentsStopped: number; approvalsCan
   if (!c) throw new OrkestrError("disconnected", "not connected to the core");
   const r = await c.call("emergency.stopAll", {});
   useSecurityStore.getState().setFlags(r.flags);
+  await refreshPending();
+  return { agentsStopped: r.agentsStopped, approvalsCancelled: r.approvalsCancelled };
+}
+
+/** Stop Project (§52): stops one project's agents, Manager runs and checks. Purely local in the core. */
+export async function stopProjectAi(projectId: string): Promise<{ agentsStopped: number; approvalsCancelled: number }> {
+  const c = maybeClient();
+  if (!c) throw new OrkestrError("disconnected", "not connected to the core");
+  const r = await c.call("emergency.stopProject", { projectId });
   await refreshPending();
   return { agentsStopped: r.agentsStopped, approvalsCancelled: r.approvalsCancelled };
 }
