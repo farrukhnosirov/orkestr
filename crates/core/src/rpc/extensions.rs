@@ -42,12 +42,8 @@ pub fn register(router: &mut RpcRouter) {
             Ok(ExtensionIconResult { data_url })
         })
         .method::<m::Install, _, _>(|ctx: RpcContext, p: InstallExtensionParams| async move {
-            let extension = ctx
-                .services
-                .extensions
-                .install(&p.namespace, &p.name, p.version.as_deref())
-                .await
-                .map_err(to_rpc)?;
+            let extension =
+                ctx.services.extensions.install(&p.namespace, &p.name, p.version.as_deref()).await.map_err(to_rpc)?;
             Ok(InstalledExtensionResult { extension })
         })
         .method::<m::InstallVsix, _, _>(|ctx: RpcContext, p: InstallVsixParams| async move {
@@ -118,8 +114,9 @@ pub fn to_rpc(err: ExtError) -> RpcError {
         e @ (ExtError::Invalid(_) | ExtError::TooLarge(_)) => RpcError::bad_request(e.to_string()),
         e @ (ExtError::Unsafe(_) | ExtError::Checksum { .. }) => RpcError::forbidden(e.to_string()),
         e @ ExtError::Network(_) => RpcError::new(RpcErrorCode::ProviderError, e.to_string()),
-        ExtError::Unsupported(m) => RpcError::bad_request(format!("unsupported: {m}"))
-            .with_data(serde_json::json!({ "reason": "unsupported" })),
+        ExtError::Unsupported(m) => {
+            RpcError::bad_request(format!("unsupported: {m}")).with_data(serde_json::json!({ "reason": "unsupported" }))
+        }
         e @ ExtError::Conflict(_) => RpcError::conflict(e.to_string()),
         e @ (ExtError::Io(_) | ExtError::Storage(_)) => {
             tracing::warn!(error = %e, "extension operation failed");

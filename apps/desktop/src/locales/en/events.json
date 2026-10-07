@@ -85,5 +85,9 @@
   "healingAttempt": "Self-healing attempt {{n}}: {{summary}}",
   "uiPatchProposed": "UI change proposed: {{summary}}",
   "uiConfigPatched": "Interface settings saved (version {{version}}): {{summary}}",
-  "voiceCommand": "Voice command “{{transcript}}” → {{intent}}"
+  "voiceCommand": "Voice command “{{transcript}}” → {{intent}}",
+  "extensionsChanged": "Extensions changed ({{reason}}): {{id}}",
+  "extensionInstallProgress": "Extension {{key}}: {{phase}}",
+  "lspMessage": "Language server message (session {{session}})",
+  "lspStatus": "Language server {{server}}: {{state}}"
 }

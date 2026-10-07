@@ -30,6 +30,8 @@ import { type DragEvent, type KeyboardEvent, useCallback, useEffect, useLayoutEf
 import { getClient } from "../../core/client";
 import { openInEditor } from "../../features/files/actions";
 import { ActionDialog } from "../../features/files/Dialog";
+import { useIconThemeSync } from "../../features/extensions/appearance";
+import { FileTypeIcon } from "../../features/extensions/FileTypeIcon";
 import { fileIcon } from "../../features/files/icons";
 import { basename, dirname, isWithin, joinPath } from "../../features/files/paths";
 import { RootFolderForm } from "../../features/files/RootFolderForm";
@@ -84,6 +86,8 @@ function FileExplorer({ projectId, rootPath }: { projectId: string; rootPath: st
   const { t } = useT(["files", "common"]);
   const [showIgnored, setShowIgnored] = useState(false);
   const tree = useFileTree(projectId, showIgnored);
+  // File icon theme from an installed VS Code extension (ADR-0025).
+  useIconThemeSync();
   const [filter, setFilter] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
   const [editing, setEditing] = useState<Editing | null>(null);
@@ -501,7 +505,6 @@ function FileExplorer({ projectId, rootPath }: { projectId: string; rootPath: st
               }
               const { entry, depth, expanded } = row;
               const isDir = entry.kind === "dir";
-              const { icon: Icon, color } = fileIcon(entry.name, entry.kind, expanded);
               const isSelected = selected === entry.path;
               const agent = isDir
                 ? Object.keys(agentModified).some((p) => isWithin(p, entry.path) && p !== entry.path)
@@ -551,7 +554,9 @@ function FileExplorer({ projectId, rootPath }: { projectId: string; rootPath: st
                   <span className="fx-row__chevron" aria-hidden="true">
                     {isDir ? row.loading ? <Spinner size={10} /> : expanded ? <ChevronDown size={13} /> : <ChevronRight size={13} /> : null}
                   </span>
-                  <Icon size={14} style={{ color }} className="fx-row__icon" />
+                  <span className="fx-row__icon">
+                    <FileTypeIcon name={entry.name} kind={entry.kind} open={expanded} />
+                  </span>
                   {renaming ? (
                     <InlineInput initial={entry.name} onCommit={(v) => void commitEdit(v)} onCancel={() => setEditing(null)} label={t("tree.rename", { name: entry.name })} />
                   ) : (

@@ -1,0 +1,38 @@
+/* Shared by the Files / Code icons and Settings → Editor (ADR-0025). */
+.ok-file-icon {
+  display: inline-block;
+  flex-shrink: 0;
+  object-fit: contain;
+  text-align: center;
+  font-style: normal;
+}
+
+.ext-settings .ext-muted {
+  color: var(--ok-color-text-muted);
+  font-size: var(--ok-font-size-sm);
+}
+
+.ext-settings .ext-error {
+  color: var(--ok-color-danger);
+  font-size: var(--ok-font-size-sm);
+  overflow-wrap: anywhere;
+}
+
+.ext-lsp-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--ok-space-2);
+}
+
+.ext-lsp-row__langs {
+  color: var(--ok-color-text-subtle);
+  font-size: var(--ok-font-size-xs, 11px);
+}
+
+.ext-lsp-row__session {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ok-space-1);
+}

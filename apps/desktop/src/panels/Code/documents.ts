@@ -13,6 +13,8 @@ import { changedLines } from "../../features/files/lineDiff";
 import { errorInfo } from "../../features/files/rpc";
 import { describeError } from "../../i18n/errors";
 import { type EditorTab, useEditorStore } from "../../store/editor";
+import { contributedLanguageFor } from "./ext/editorExtensions";
+import { lspCoordinator } from "./lsp/bridge";
 import { type MonacoApi, modelUri } from "./monaco";
 
 export interface Doc {
@@ -143,7 +145,8 @@ export class DocumentRegistry {
   private createDoc(path: string, content: string, res: ReadFileResult): Doc {
     const uri = modelUri(this.projectId, path);
     this.monaco.editor.getModel(uri)?.dispose();
-    const model = this.monaco.editor.createModel(content, res.language, uri);
+    // A language contributed by an installed VS Code extension wins (ADR-0025).
+    const model = this.monaco.editor.createModel(content, contributedLanguageFor(path) ?? res.language, uri);
     this.applyEol(model, res.lineEnding);
     const doc: Doc = {
       path,
@@ -190,6 +193,7 @@ export class DocumentRegistry {
       doc.savedVersion = version;
       this.updateStore(path, { dirty: this.isDirty(doc), stale: false, deleted: false });
       this.emit();
+      lspCoordinator.saved(doc.model);
     } catch (e) {
       const info = errorInfo(e);
       if (info.reason === "stale") {

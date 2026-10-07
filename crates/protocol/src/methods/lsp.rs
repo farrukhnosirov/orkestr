@@ -32,6 +32,7 @@ pub enum LspServerSource {
     /// Bundled in an installed extension.
     Extension {
         /// Extension id.
+        #[serde(rename = "extensionId")]
         extension_id: String,
     },
     /// Found on `PATH`.

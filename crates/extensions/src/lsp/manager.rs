@@ -344,7 +344,8 @@ impl Supervisor {
                     loop {
                         match dec.next_message() {
                             Ok(Some(message)) => {
-                                if events.send(LspEvent::Message { session_id: id, project_id, message }).await.is_err() {
+                                if events.send(LspEvent::Message { session_id: id, project_id, message }).await.is_err()
+                                {
                                     return;
                                 }
                             }
@@ -568,7 +569,8 @@ while (($n = $in.Read($buf, 0, $buf.Length)) -gt 0) { $out.Write($buf, 0, $n); $
         let dir = tempfile::tempdir().unwrap();
         // A "server" that exits immediately.
         #[cfg(windows)]
-        let (program, args) = (orkestr_platform::process::which("cmd").unwrap(), vec!["/c".to_string(), "exit 3".to_string()]);
+        let (program, args) =
+            (orkestr_platform::process::which("cmd").unwrap(), vec!["/c".to_string(), "exit 3".to_string()]);
         #[cfg(not(windows))]
         let (program, args) = (orkestr_platform::process::which("false").unwrap(), Vec::<String>::new());
         let cfg = LspConfig { max_restarts: 2, base_backoff: Duration::from_millis(10), ..LspConfig::default() };

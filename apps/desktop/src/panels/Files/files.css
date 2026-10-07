@@ -262,3 +262,8 @@
   align-items: center;
   gap: var(--ok-space-2);
 }
+
+.fx-row__icon {
+  display: inline-flex;
+  align-items: center;
+}

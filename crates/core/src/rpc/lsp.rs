@@ -104,7 +104,26 @@ fn file_uri(path: &Path) -> String {
             out.push('/');
         }
         for b in seg.bytes() {
-            let keep = b.is_ascii_alphanumeric() || matches!(b, b'-' | b'.' | b'_' | b'~' | b':' | b'@' | b'!' | b'$' | b'&' | b'\'' | b'(' | b')' | b'*' | b'+' | b',' | b';' | b'=');
+            let keep = b.is_ascii_alphanumeric()
+                || matches!(
+                    b,
+                    b'-' | b'.'
+                        | b'_'
+                        | b'~'
+                        | b':'
+                        | b'@'
+                        | b'!'
+                        | b'$'
+                        | b'&'
+                        | b'\''
+                        | b'('
+                        | b')'
+                        | b'*'
+                        | b'+'
+                        | b','
+                        | b';'
+                        | b'='
+                );
             if keep {
                 out.push(b as char);
             } else {
@@ -182,7 +201,10 @@ async fn start(ctx: RpcContext, p: LspStartParams) -> Result<LspStartResult, Rpc
                             .with_data(serde_json::json!({ "approvalId": id })));
                     }
                     other => {
-                        return Err(RpcError::forbidden(format!("running {} was not approved ({other:?})", recipe.name)));
+                        return Err(RpcError::forbidden(format!(
+                            "running {} was not approved ({other:?})",
+                            recipe.name
+                        )));
                     }
                 }
             }

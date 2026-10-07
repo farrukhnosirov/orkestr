@@ -101,5 +101,9 @@
   "healingAttempt": "Попытка самовосстановления {{n}}: {{summary}}",
   "uiPatchProposed": "Предложено изменение интерфейса: {{summary}}",
   "uiConfigPatched": "Настройки интерфейса сохранены (версия {{version}}): {{summary}}",
-  "voiceCommand": "Голосовая команда «{{transcript}}» → {{intent}}"
+  "voiceCommand": "Голосовая команда «{{transcript}}» → {{intent}}",
+  "extensionsChanged": "Расширения изменены ({{reason}}): {{id}}",
+  "extensionInstallProgress": "Расширение {{key}}: {{phase}}",
+  "lspMessage": "Сообщение языкового сервера (сеанс {{session}})",
+  "lspStatus": "Языковой сервер {{server}}: {{state}}"
 }

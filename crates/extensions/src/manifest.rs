@@ -86,7 +86,9 @@ fn identifier(v: &Value, field: &str) -> ExtResult<String> {
     if s.is_empty() {
         return Err(ExtError::Invalid(format!("package.json has no `{field}`")));
     }
-    if s.len() > 128 || !s.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.')) || s.starts_with('.')
+    if s.len() > 128
+        || !s.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'))
+        || s.starts_with('.')
     {
         return Err(ExtError::Invalid(format!("package.json `{field}` `{s}` is not a valid identifier")));
     }
@@ -127,7 +129,8 @@ pub fn parse(text: &str, nls_table: Option<&Value>) -> ExtResult<Manifest> {
     let license = v.get("license").and_then(Value::as_str).map(str::to_owned);
     let engine = v.pointer("/engines/vscode").and_then(Value::as_str).map(str::to_owned);
     let icon = v.get("icon").and_then(Value::as_str).and_then(|p| paths::normalize(p).ok());
-    let has_code = v.get("main").and_then(Value::as_str).is_some() || v.get("browser").and_then(Value::as_str).is_some();
+    let has_code =
+        v.get("main").and_then(Value::as_str).is_some() || v.get("browser").and_then(Value::as_str).is_some();
     let contributes = v.get("contributes").and_then(Value::as_object).cloned().unwrap_or_default();
     Ok(Manifest { publisher, name, display_name, version, description, license, engine, icon, has_code, contributes })
 }
@@ -226,7 +229,8 @@ pub fn summarize(m: &Manifest, nls_table: Option<&Value>) -> ContributionSummary
             Value::Object(_) => 1,
             _ => 1,
         };
-        out.unsupported.push(UnsupportedContribution { kind: k.clone(), count: u32::try_from(count).unwrap_or(u32::MAX) });
+        out.unsupported
+            .push(UnsupportedContribution { kind: k.clone(), count: u32::try_from(count).unwrap_or(u32::MAX) });
     }
     if m.has_code {
         out.unsupported.push(UnsupportedContribution { kind: "activation".into(), count: 1 });

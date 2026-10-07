@@ -6,6 +6,7 @@ import { Info, MonitorCog, SlidersHorizontal, type LucideIcon } from "lucide-rea
 import type { ComponentType } from "react";
 
 import { t } from "../../i18n";
+import { editorSettingsSection } from "../extensions";
 import { visualSettingsSection } from "../performance/section";
 import { managerSettingsSection, providersSettingsSection } from "../providers";
 import { qualitySettingsSection } from "../quality";
@@ -65,6 +66,8 @@ settingsSections.push(qualitySettingsSection);
 settingsSections.push(visualSettingsSection);
 // voice-sound (Phase 3)
 settingsSections.push(voiceSettingsSection, soundSettingsSection);
+// VS Code extensions: editor theme, icon theme, language servers (ADR-0025)
+settingsSections.push(editorSettingsSection);
 
 /** Sections in display order (stable for equal `order`). */
 export function orderedSections(list: readonly SettingsSection[] = settingsSections): SettingsSection[] {

@@ -459,3 +459,53 @@
   color: var(--ok-color-text-subtle);
   font-size: var(--ok-font-size-sm);
 }
+
+/* Language server prompts (ADR-0025). */
+.code-lsp-banners {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  border-bottom: 1px solid var(--ok-color-border);
+}
+
+.code-lsp-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-2);
+  padding: var(--ok-space-2) var(--ok-space-3);
+  background: var(--ok-color-surface-hover);
+  color: var(--ok-color-text);
+  font-size: var(--ok-font-size-sm);
+}
+
+.code-lsp-banner > svg {
+  flex-shrink: 0;
+  color: var(--ok-color-accent);
+}
+
+.code-lsp-banner--error > svg {
+  color: var(--ok-color-warning);
+}
+
+.code-lsp-banner__text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.code-lsp-banner__cmd {
+  overflow: hidden;
+  color: var(--ok-color-text-muted);
+  font-family: var(--ok-font-mono);
+  font-size: var(--ok-font-size-xs, 11px);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.code-lsp-banner__error {
+  color: var(--ok-color-danger);
+  overflow-wrap: anywhere;
+}
+

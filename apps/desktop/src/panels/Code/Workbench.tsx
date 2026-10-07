@@ -26,7 +26,9 @@ import { getClient } from "../../core/client";
 import { shortcutKey } from "../../features/commands/keys";
 import { askManager } from "../../features/files/actions";
 import { ActionDialog } from "../../features/files/Dialog";
-import { fileIcon } from "../../features/files/icons";
+import { useIconThemeSync } from "../../features/extensions/appearance";
+import { FileTypeIcon } from "../../features/extensions/FileTypeIcon";
+import { useExtensionsStore } from "../../features/extensions/store";
 import { ancestry, basename } from "../../features/files/paths";
 import { useFileEvents } from "../../features/files/rpc";
 import { useT } from "../../i18n";
@@ -35,6 +37,8 @@ import { type EditorTab, useEditorStore } from "../../store/editor";
 import { useAppStore } from "../../store/app";
 import { type Doc, pruneParkedDocuments, registryFor, SaveConflictError } from "./documents";
 import { CodeEditor, DiffEditor, type EditorCallbacks } from "./EditorHost";
+import { applyEditorExtensions } from "./ext/editorExtensions";
+import { LspBanner } from "./lsp/LspBanner";
 import { applyTokensTheme, getMonaco } from "./monaco";
 import { useThemeRevision } from "../../features/theme/useThemeRevision";
 
@@ -85,6 +89,14 @@ export default function Workbench({ projectId }: { projectId: string }) {
   const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => registry.onChange(rerender), [registry]);
+
+  // VS Code extensions: languages, grammars, snippets, editor theme, icon theme (ADR-0025).
+  useIconThemeSync();
+  const installedExtensions = useExtensionsStore((s) => s.installed);
+  const editorPrefs = useExtensionsStore((s) => s.prefs);
+  useEffect(() => {
+    applyEditorExtensions(monaco, installedExtensions, editorPrefs).catch((e: unknown) => console.warn("editor extensions", e));
+  }, [monaco, installedExtensions, editorPrefs]);
 
   // File events are watched only while a project is shown: catch up on return.
   useEffect(() => {
@@ -254,9 +266,9 @@ export default function Workbench({ projectId }: { projectId: string }) {
 
   return (
     <div className="code-wb">
+      <LspBanner projectId={projectId} />
       <div className="code-tabs" role="tablist" aria-label={t("tabs.label")}>
         {tabs.map((tab, i) => {
-          const { icon: Icon, color } = fileIcon(basename(tab.path), "file");
           const selected = tab.path === activePath;
           return (
             <div
@@ -271,7 +283,7 @@ export default function Workbench({ projectId }: { projectId: string }) {
               onAuxClick={(e) => e.button === 1 && requestClose(tab.path)}
               onKeyDown={(e) => onTabKey(e, i)}
             >
-              <Icon size={14} style={{ color }} />
+              <FileTypeIcon name={basename(tab.path)} kind="file" />
               <span className="code-tab__name">{basename(tab.path)}</span>
               {tab.agentLines.length > 0 && <Bot size={12} className="code-tab__agent" aria-label={t("tabs.agentChanged")} />}
               {tab.stale && <TriangleAlert size={12} className="code-tab__stale" aria-label={t("tabs.stale")} />}
@@ -298,11 +310,10 @@ export default function Workbench({ projectId }: { projectId: string }) {
           <nav className="code-crumbs" aria-label={t("bar.breadcrumbs")}>
             {ancestry(active.path).map((part, i, all) => {
               const last = i === all.length - 1;
-              const { icon: Icon, color } = fileIcon(part.name, last ? "file" : "dir");
               return (
                 <span key={part.path} className={clsx("code-crumbs__part", last && "code-crumbs__part--last")}>
                   {i > 0 && <ChevronRight size={12} className="code-crumbs__sep" />}
-                  <Icon size={13} style={{ color }} />
+                  <FileTypeIcon name={part.name} kind={last ? "file" : "dir"} size={13} />
                   {part.name}
                 </span>
               );

@@ -173,6 +173,10 @@
     "monitoring": {
       "title": "Мониторинг",
       "description": "Ресурсы узла, процессы и состояние ядра"
+    },
+    "extensions": {
+      "title": "Расширения",
+      "description": "Расширения VS Code из Open VSX: темы, значки, грамматики, языковые серверы"
     }
   },
   "phasePlaceholder": {

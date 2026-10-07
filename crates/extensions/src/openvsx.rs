@@ -249,7 +249,12 @@ impl OpenVsxClient {
         let items = v
             .get("extensions")
             .and_then(Value::as_array)
-            .map(|a| a.iter().filter(|e| !e.get("deprecated").and_then(Value::as_bool).unwrap_or(false)).filter_map(summary_of).collect())
+            .map(|a| {
+                a.iter()
+                    .filter(|e| !e.get("deprecated").and_then(Value::as_bool).unwrap_or(false))
+                    .filter_map(summary_of)
+                    .collect()
+            })
             .unwrap_or_default();
         Ok((total, items))
     }
@@ -298,7 +303,9 @@ impl OpenVsxClient {
             .pointer("/files/sha256")
             .and_then(Value::as_str)
             .ok_or_else(|| {
-                ExtError::Unsupported(format!("{namespace}.{name}: Open VSX publishes no SHA-256 checksum for this build"))
+                ExtError::Unsupported(format!(
+                    "{namespace}.{name}: Open VSX publishes no SHA-256 checksum for this build"
+                ))
             })?
             .to_owned();
         Ok(Build {
@@ -313,7 +320,11 @@ impl OpenVsxClient {
     }
 
     /// Downloads a build and verifies its SHA-256. `progress(received, total)`.
-    pub async fn download(&self, build: &Build, mut progress: impl FnMut(u64, Option<u64>) + Send) -> ExtResult<(Vec<u8>, String)> {
+    pub async fn download(
+        &self,
+        build: &Build,
+        mut progress: impl FnMut(u64, Option<u64>) + Send,
+    ) -> ExtResult<(Vec<u8>, String)> {
         self.ensure_registry_url(&build.download_url)?;
         let expected = parse_sha256_file(&self.get_text(&build.sha256_url, 4096).await?)?;
         let resp = self.http()?.get(&build.download_url).send().await.map_err(|e| ExtError::Network(e.to_string()))?;

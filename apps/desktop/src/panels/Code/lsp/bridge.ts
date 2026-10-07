@@ -539,7 +539,7 @@ class LspCoordinator {
   /** User allowed the server: approve and start. */
   async approve(entry: LspEntry): Promise<void> {
     if (!entry.approvalId) return;
-    await getClient().call("approvals.resolve", { approvalId: entry.approvalId, decision: "approve" });
+    await getClient().call("approvals.resolve", { approvalId: entry.approvalId, decision: "Approve" });
     const server = useLspStore.getState().servers.find((s) => s.id === entry.serverId);
     this.declined.delete(keyOf(entry.projectId, entry.serverId));
     if (server) await this.start(entry.projectId, server, entry.approvalId);
@@ -551,7 +551,7 @@ class LspCoordinator {
     setEntry({ ...entry, state: "denied" });
     if (entry.approvalId) {
       await getClient()
-        .call("approvals.resolve", { approvalId: entry.approvalId, decision: "reject" })
+        .call("approvals.resolve", { approvalId: entry.approvalId, decision: "Reject" })
         .catch(() => undefined);
     }
   }

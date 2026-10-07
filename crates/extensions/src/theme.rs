@@ -56,8 +56,8 @@ fn is_plist(rel: &str, text: &str) -> bool {
 
 /// Parses a plist document into JSON.
 pub fn plist_to_json(text: &str) -> ExtResult<Value> {
-    let v: plist::Value = plist::from_bytes(text.as_bytes())
-        .map_err(|e| ExtError::Invalid(format!("invalid plist: {e}")))?;
+    let v: plist::Value =
+        plist::from_bytes(text.as_bytes()).map_err(|e| ExtError::Invalid(format!("invalid plist: {e}")))?;
     serde_json::to_value(v).map_err(|e| ExtError::Invalid(format!("invalid plist: {e}")))
 }
 

@@ -101,7 +101,12 @@ fn mime_of(path: &str) -> Option<(&'static str, bool)> {
 
 impl ExtensionService {
     /// Opens the service; `root` is `<data_dir>/extensions`.
-    pub async fn open(db: Db, root: PathBuf, registry: OpenVsxClient, events: Arc<dyn ExtensionEvents>) -> ExtResult<Self> {
+    pub async fn open(
+        db: Db,
+        root: PathBuf,
+        registry: OpenVsxClient,
+        events: Arc<dyn ExtensionEvents>,
+    ) -> ExtResult<Self> {
         std::fs::create_dir_all(&root)?;
         let svc = Self {
             root,
@@ -179,7 +184,14 @@ impl ExtensionService {
         Ok(row)
     }
 
-    fn progress(&self, key: &str, phase: ExtensionInstallPhase, received: u64, total: Option<u64>, error: Option<String>) {
+    fn progress(
+        &self,
+        key: &str,
+        phase: ExtensionInstallPhase,
+        received: u64,
+        total: Option<u64>,
+        error: Option<String>,
+    ) {
         self.events.progress(ExtensionInstallProgressPayload { key: key.to_owned(), phase, received, total, error });
     }
 
@@ -213,7 +225,10 @@ impl ExtensionService {
         let mut header = openvsx::summary_of(&meta).ok_or_else(|| ExtError::NotFound(format!("{namespace}.{name}")))?;
         header.installed_version = self.store.get(&header.id).await?.map(|r| r.ext.version);
         let list = |k: &str| -> Vec<String> {
-            meta.get(k).and_then(Value::as_array).map(|a| a.iter().filter_map(Value::as_str).map(str::to_owned).collect()).unwrap_or_default()
+            meta.get(k)
+                .and_then(Value::as_array)
+                .map(|a| a.iter().filter_map(Value::as_str).map(str::to_owned).collect())
+                .unwrap_or_default()
         };
         let mut versions: Vec<String> = meta
             .get("allVersions")
@@ -274,7 +289,14 @@ impl ExtensionService {
             self.progress(&key, ExtensionInstallPhase::Verifying, bytes.len() as u64, Some(bytes.len() as u64), None);
             self.progress(&key, ExtensionInstallPhase::Extracting, bytes.len() as u64, Some(bytes.len() as u64), None);
             let ext = self
-                .install_bytes(bytes, sha, ExtensionSource::OpenVsx, Some(build.verified), Some(build.target.clone()), Some(&key))
+                .install_bytes(
+                    bytes,
+                    sha,
+                    ExtensionSource::OpenVsx,
+                    Some(build.verified),
+                    Some(build.target.clone()),
+                    Some(&key),
+                )
                 .await?;
             Ok::<_, ExtError>(ext)
         }

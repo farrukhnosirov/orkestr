@@ -64,7 +64,11 @@ pub const RECIPES: &[Recipe] = &[
         name: "rust-analyzer",
         languages: &["rust"],
         candidates: &[
-            Candidate::ExtensionBinary { extension: "rust-lang.rust-analyzer", path: "server/rust-analyzer", args: &[] },
+            Candidate::ExtensionBinary {
+                extension: "rust-lang.rust-analyzer",
+                path: "server/rust-analyzer",
+                args: &[],
+            },
             Candidate::PathProgram { name: "rust-analyzer", args: &[] },
         ],
         install_hint: "rust-lang.rust-analyzer (Open VSX) or `rustup component add rust-analyzer`",
@@ -76,7 +80,11 @@ pub const RECIPES: &[Recipe] = &[
         candidates: &[
             Candidate::PathProgram { name: "basedpyright-langserver", args: STDIO },
             Candidate::PathProgram { name: "pyright-langserver", args: STDIO },
-            Candidate::ExtensionNodeScript { extension: "detachhead.basedpyright", path: "dist/server.js", args: STDIO },
+            Candidate::ExtensionNodeScript {
+                extension: "detachhead.basedpyright",
+                path: "dist/server.js",
+                args: STDIO,
+            },
             Candidate::ExtensionNodeScript { extension: "ms-pyright.pyright", path: "dist/server.js", args: STDIO },
         ],
         install_hint: "`pip install basedpyright` or `npm install -g pyright`",
@@ -175,7 +183,10 @@ impl Resolved {
     /// Display form of the command line.
     #[must_use]
     pub fn display(&self) -> String {
-        std::iter::once(self.program.display().to_string()).chain(self.args.iter().cloned()).collect::<Vec<_>>().join(" ")
+        std::iter::once(self.program.display().to_string())
+            .chain(self.args.iter().cloned())
+            .collect::<Vec<_>>()
+            .join(" ")
     }
 }
 
@@ -213,7 +224,9 @@ pub fn resolve(
                 }
             }
             Candidate::ExtensionNodeScript { extension, path, args } => {
-                if let (Some(script), Some(node)) = (ext_dir(extension).and_then(|d| in_extension(&d, path)), which("node")) {
+                if let (Some(script), Some(node)) =
+                    (ext_dir(extension).and_then(|d| in_extension(&d, path)), which("node"))
+                {
                     return Some(Resolved {
                         program: node,
                         args: std::iter::once(script.display().to_string())

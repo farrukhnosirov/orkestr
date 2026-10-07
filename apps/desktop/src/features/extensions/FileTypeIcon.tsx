@@ -2,6 +2,8 @@
  * File / folder icon: the active VS Code file icon theme when one is
  * selected (Settings → Editor), else Orkestr's built-in icons.
  */
+import "./extensions.css";
+
 import { useEffect } from "react";
 
 import { fileIcon } from "../files/icons";

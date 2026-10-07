@@ -166,8 +166,12 @@ export const useIconThemeStore = create<IconThemeState>(() => ({
 const pending = new Set<string>();
 
 /** Loads (or clears) the icon theme named by the preferences. */
-export async function applyIconTheme(ref: { extensionId: string; themeId: string } | null, light: boolean): Promise<void> {
-  const key = ref ? `${ref.extensionId}/${ref.themeId}/${light ? "l" : "d"}` : null;
+export async function applyIconTheme(
+  ref: { extensionId: string; themeId: string } | null,
+  light: boolean,
+  revision = 0,
+): Promise<void> {
+  const key = ref ? `${ref.extensionId}/${ref.themeId}/${light ? "l" : "d"}/${revision}` : null;
   if (useIconThemeStore.getState().loadedKey === key) return;
   if (!ref) {
     useIconThemeStore.setState({ theme: null, associations: null, icons: {}, fonts: {}, loadedKey: null });
@@ -175,7 +179,14 @@ export async function applyIconTheme(ref: { extensionId: string; themeId: string
   }
   const client = maybeClient();
   if (!client) return;
-  const theme = await client.call("extensions.iconTheme", ref);
+  let theme: ResolvedIconTheme;
+  try {
+    theme = await client.call("extensions.iconTheme", ref);
+  } catch (e) {
+    // Disabled / removed extension: fall back to the built-in icons.
+    useIconThemeStore.setState({ theme: null, associations: null, icons: {}, fonts: {}, loadedKey: key });
+    throw e;
+  }
   const fonts: Record<string, string> = {};
   for (const f of theme.fonts) {
     const family = `orkestr-icon-${theme.theme.extensionId}-${f.id}`.replace(/[^a-zA-Z0-9-]/g, "-");

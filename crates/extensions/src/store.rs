@@ -68,7 +68,8 @@ impl Store {
             .db
             .call(|c| {
                 let mut st = c.prepare("SELECT doc, dir, enabled FROM ext_installed ORDER BY id")?;
-                let rows = st.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, i64>(2)?)))?;
+                let rows =
+                    st.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, i64>(2)?)))?;
                 let mut out = Vec::new();
                 for row in rows {
                     let (doc, dir, enabled) = row?;
@@ -94,8 +95,13 @@ impl Store {
     /// Inserts or replaces a row.
     pub async fn upsert(&self, ext: &InstalledExtension, dir: &str) -> ExtResult<()> {
         let doc = serde_json::to_string(ext)?;
-        let (id, version, dir, enabled, at) =
-            (ext.id.clone(), ext.version.clone(), dir.to_owned(), i64::from(ext.enabled), ext.installed_at.to_rfc3339());
+        let (id, version, dir, enabled, at) = (
+            ext.id.clone(),
+            ext.version.clone(),
+            dir.to_owned(),
+            i64::from(ext.enabled),
+            ext.installed_at.to_rfc3339(),
+        );
         self.db
             .call(move |c| {
                 c.execute(
@@ -115,7 +121,8 @@ impl Store {
         Ok(self
             .db
             .call(move |c| {
-                Ok(c.execute("UPDATE ext_installed SET enabled = ?2 WHERE id = ?1", params![id, i64::from(enabled)])? > 0)
+                Ok(c.execute("UPDATE ext_installed SET enabled = ?2 WHERE id = ?1", params![id, i64::from(enabled)])?
+                    > 0)
             })
             .await?)
     }
@@ -166,7 +173,13 @@ impl Store {
     }
 
     /// Remembers an approved language-server command.
-    pub async fn trust(&self, fingerprint: &str, server_id: &str, command: &str, approval_id: Option<String>) -> ExtResult<()> {
+    pub async fn trust(
+        &self,
+        fingerprint: &str,
+        server_id: &str,
+        command: &str,
+        approval_id: Option<String>,
+    ) -> ExtResult<()> {
         let (fp, sid, cmd, at) =
             (fingerprint.to_owned(), server_id.to_owned(), command.to_owned(), chrono::Utc::now().to_rfc3339());
         self.db

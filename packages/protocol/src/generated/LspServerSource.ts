@@ -7,4 +7,4 @@ export type LspServerSource = { "kind": "extension",
 /**
  * Extension id.
  */
-extension_id: string, } | { "kind": "path" };
+extensionId: string, } | { "kind": "path" };

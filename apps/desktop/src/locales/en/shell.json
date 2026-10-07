@@ -169,6 +169,10 @@
     "monitoring": {
       "title": "Monitoring",
       "description": "Node resources, processes and core health"
+    },
+    "extensions": {
+      "title": "Extensions",
+      "description": "VS Code extensions from Open VSX: themes, icons, grammars, language servers"
     }
   },
   "phasePlaceholder": {

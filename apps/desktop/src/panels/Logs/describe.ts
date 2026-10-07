@@ -346,6 +346,14 @@ export function describeEvent(event: Event): string {
       return t("events:uiConfigPatched", { summary: event.payload.summary, version: event.payload.version });
     case "VoiceCommand":
       return t("events:voiceCommand", { transcript: event.payload.transcript.slice(0, 120), intent: event.payload.intent });
+    case "ExtensionsChanged":
+      return t("events:extensionsChanged", { id: event.payload.extensionId ?? "—", reason: event.payload.reason });
+    case "ExtensionInstallProgress":
+      return t("events:extensionInstallProgress", { key: event.payload.key, phase: event.payload.phase });
+    case "LspMessage":
+      return t("events:lspMessage", { session: short(event.payload.sessionId) });
+    case "LspStatus":
+      return t("events:lspStatus", { server: event.payload.session.serverId, state: event.payload.session.state });
   }
 }
 
