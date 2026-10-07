@@ -20,6 +20,7 @@ pub mod approvals;
 pub mod architecture;
 pub mod audit;
 pub mod benchmarks;
+pub mod claude_code;
 pub mod consensus;
 pub mod context;
 pub mod cost;
@@ -442,6 +443,19 @@ pub fn registry() -> Vec<MethodDescriptor> {
         MethodDescriptor::of::<lsp::Send>(),
         MethodDescriptor::of::<lsp::Stop>(),
         MethodDescriptor::of::<lsp::Revoke>(),
+        // Claude Code panel (official `claude` CLI, stream-json)
+        MethodDescriptor::of::<claude_code::Status>(),
+        MethodDescriptor::of::<claude_code::Sessions>(),
+        MethodDescriptor::of::<claude_code::Start>(),
+        MethodDescriptor::of::<claude_code::Send>(),
+        MethodDescriptor::of::<claude_code::Interrupt>(),
+        MethodDescriptor::of::<claude_code::SetMode>(),
+        MethodDescriptor::of::<claude_code::SetModel>(),
+        MethodDescriptor::of::<claude_code::RespondPermission>(),
+        MethodDescriptor::of::<claude_code::Stop>(),
+        MethodDescriptor::of::<claude_code::LoginInTerminal>(),
+        MethodDescriptor::of::<claude_code::SetBinaryPath>(),
+        MethodDescriptor::of::<claude_code::Transcript>(),
     ]
 }
 

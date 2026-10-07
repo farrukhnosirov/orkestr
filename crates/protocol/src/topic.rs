@@ -1,7 +1,7 @@
 //! Subscription topics (contract §4).
 //!
 //! Topics: `global`, `project:<id>`, `task:<id>`, `agent:<id>`,
-//! `terminal:<id>`, `node:<id>`, `lsp:<sessionId>`, plus the wildcard `*` (every event; intended
+//! `terminal:<id>`, `node:<id>`, `lsp:<sessionId>`, `claude:<sessionId>`, plus the wildcard `*` (every event; intended
 //! for the Logs panel and diagnostics).
 //!
 //! Routing rules ([`event_topics`]):
@@ -45,6 +45,11 @@ pub fn terminal(id: impl std::fmt::Display) -> String {
 pub fn lsp(id: impl std::fmt::Display) -> String {
     format!("lsp:{id}")
 }
+/// `claude:<sessionId>` — one Claude Code chat session.
+#[must_use]
+pub fn claude(id: impl std::fmt::Display) -> String {
+    format!("claude:{id}")
+}
 /// `node:<id>`.
 #[must_use]
 pub fn node(id: impl std::fmt::Display) -> String {
@@ -60,7 +65,7 @@ pub fn is_valid(topic: &str) -> bool {
     let Some((prefix, id)) = topic.split_once(':') else {
         return false;
     };
-    matches!(prefix, "project" | "task" | "agent" | "terminal" | "node" | "lsp") && uuid::Uuid::parse_str(id).is_ok()
+    matches!(prefix, "project" | "task" | "agent" | "terminal" | "node" | "lsp" | "claude") && uuid::Uuid::parse_str(id).is_ok()
 }
 
 /// Topics an event is published on (see module docs).
@@ -79,6 +84,14 @@ pub fn event_topics(event: &Event) -> Vec<String> {
     }
     if let EventKind::LspStatus(p) = &event.kind {
         topics.push(lsp(p.session.session_id));
+    }
+    // Claude Code chat items go only to their session topic (and `*`).
+    if let EventKind::ClaudeCodeEvent(p) = &event.kind {
+        topics.push(claude(p.session_id));
+        return topics;
+    }
+    if let EventKind::ClaudeCodeStatus(p) = &event.kind {
+        topics.push(claude(p.session.session_id));
     }
     let lifecycle = matches!(
         event.kind,
