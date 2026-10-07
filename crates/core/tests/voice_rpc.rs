@@ -89,7 +89,11 @@ async fn mock_openai() -> String {
 #[tokio::test]
 async fn voice_config_consent_cloud_speech_and_command_log() {
     let dir = tempfile::tempdir().unwrap();
-    let core = orkestr_core::start(CoreConfig::with_data_dir(dir.path().join("data"))).await.unwrap();
+    // In-memory secrets: `providers.create` below stores API keys, which must
+    // never land in the developer's real OS keyring.
+    let config = CoreConfig::for_tests(dir.path().join("data"));
+    assert_eq!(config.secret_backend, orkestr_security::SecretBackendChoice::Memory);
+    let core = orkestr_core::start(config).await.unwrap();
     let mut c = Client::connect(&core).await;
 
     // Defaults: private.

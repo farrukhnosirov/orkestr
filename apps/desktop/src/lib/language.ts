@@ -5,6 +5,7 @@
  */
 import { setUiStrings } from "@orkestr/ui";
 
+import { maybeClient } from "../core/client";
 import { useSettingsStore } from "../features/settings/settingsStore";
 import {
   applyLanguagePreference,
@@ -16,10 +17,22 @@ import {
 } from "../i18n";
 import { shellControls } from "./tauri";
 
+/**
+ * Tells the core which language the UI shows (it cannot resolve `system`
+ * itself). Before the connection is open this is skipped: the client reports
+ * the language on every (re)connect.
+ */
+export function reportUiLanguage(lng: UiLanguage): void {
+  const c = maybeClient();
+  if (!c || c.state !== "open") return;
+  c.call("settings.setUiLanguage", { language: lng }).catch((e: unknown) => console.warn("core language", e));
+}
+
 function syncSurroundings(lng: UiLanguage): void {
   if (typeof document !== "undefined") document.documentElement.lang = lng;
   setUiStrings({ loading: t("common:state.loading") });
   shellControls.setUiLanguage(lng).catch((e: unknown) => console.warn("tray language", e));
+  reportUiLanguage(lng);
 }
 
 let installed = false;

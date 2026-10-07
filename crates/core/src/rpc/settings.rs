@@ -17,7 +17,27 @@ use crate::services::Services;
 
 /// Registers the area.
 pub fn register(router: &mut RpcRouter) {
-    router.method::<m::Get, _, _>(|ctx: RpcContext, _| get(ctx)).method::<m::Update, _, _>(update);
+    router
+        .method::<m::Get, _, _>(|ctx: RpcContext, _| get(ctx))
+        .method::<m::Update, _, _>(update)
+        .method::<m::SetUiLanguage, _, _>(set_ui_language);
+}
+
+/// `settings.setUiLanguage`: the UI reports the language it shows (its
+/// resolution of `system`). An explicit `language` preference wins; the
+/// reported value is persisted for the next start either way.
+async fn set_ui_language(ctx: RpcContext, p: m::SetUiLanguageParams) -> Result<m::SetUiLanguageResult, RpcError> {
+    p.validate().map_err(|e| RpcError::bad_request(e.to_string()))?;
+    let services = &ctx.services;
+    let Some(lang) = orkestr_agent_runtime::language::normalize(&p.language) else {
+        return Err(RpcError::bad_request("language: expected a resolved language tag"));
+    };
+    services.settings.save_resolved_ui_language(&lang).await.map_err(storage_to_rpc)?;
+    let pref = services.settings.get().language;
+    if pref == m::LANGUAGE_SYSTEM {
+        services.ui_language.set(&lang);
+    }
+    Ok(m::SetUiLanguageResult { language: services.ui_language.get() })
 }
 
 fn platform_to_rpc(context: &str, e: PlatformError) -> RpcError {

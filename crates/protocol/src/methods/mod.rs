@@ -272,6 +272,7 @@ pub fn registry() -> Vec<MethodDescriptor> {
         MethodDescriptor::of::<system::ResumeSummaryMethod>(),
         MethodDescriptor::of::<settings::Get>(),
         MethodDescriptor::of::<settings::Update>(),
+        MethodDescriptor::of::<settings::SetUiLanguage>(),
         MethodDescriptor::of::<nodes::List>(),
         MethodDescriptor::of::<nodes::Info>(),
         MethodDescriptor::of::<nodes::Resources>(),

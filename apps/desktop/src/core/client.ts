@@ -7,7 +7,7 @@ import { OrkestrClient, OrkestrError } from "@orkestr/client";
 import type { Event, Project } from "@orkestr/protocol";
 import { TOPIC_GLOBAL } from "@orkestr/protocol";
 
-import { t } from "../i18n";
+import { currentLanguage, t } from "../i18n";
 import { getCoreConnection } from "../lib/tauri";
 import { useAppStore } from "../store/app";
 import { useEditorStore } from "../store/editor";
@@ -81,6 +81,11 @@ export function bootstrapCore(): Promise<OrkestrClient> {
       if (state === "open") {
         useAppStore.getState().noteSeq(c.server?.lastSeq ?? 0);
         refreshProjects(c).catch((err: unknown) => console.error("failed to load projects", err));
+        // The core cannot resolve `system` itself: tell it the language the UI shows,
+        // so core notices and agent replies match it (it also persists it).
+        c.call("settings.setUiLanguage", { language: currentLanguage() }).catch((err: unknown) =>
+          console.warn("failed to report the UI language", err),
+        );
       }
     });
     c.subscribe([TOPIC_GLOBAL], onGlobalEvent);

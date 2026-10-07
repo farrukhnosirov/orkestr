@@ -92,6 +92,13 @@ impl CoreConfig {
         Self { data_dir: Some(dir.into()), ..Self::default() }
     }
 
+    /// Config for integration tests: rooted at `dir`, with an in-memory
+    /// secret backend so tests never write to the real OS keyring.
+    #[must_use]
+    pub fn for_tests(dir: impl Into<PathBuf>) -> Self {
+        Self { secret_backend: orkestr_security::SecretBackendChoice::Memory, ..Self::with_data_dir(dir) }
+    }
+
     /// Validates security-relevant settings.
     pub fn validate(&self) -> Result<(), CoreError> {
         if !self.bind_addr.ip().is_loopback() {

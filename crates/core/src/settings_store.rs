@@ -31,8 +31,13 @@ pub const SETTINGS_MIGRATIONS: &[Migration] = &[Migration {
 pub struct SettingsStore {
     db: Db,
     current: RwLock<AppSettings>,
+    resolved_ui_language: RwLock<Option<String>>,
     write_lock: tokio::sync::Mutex<()>,
 }
+
+/// Row key of the UI's last resolved language (not an `AppSettings` field,
+/// so `merge_rows` ignores it).
+const RESOLVED_UI_LANGUAGE_KEY: &str = "$resolvedUiLanguage";
 
 impl std::fmt::Debug for SettingsStore {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -75,13 +80,61 @@ impl SettingsStore {
                 Ok(rows.collect::<Result<Vec<_>, _>>()?)
             })
             .await?;
-        Ok(Self { db, current: RwLock::new(merge_rows(&rows)), write_lock: tokio::sync::Mutex::new(()) })
+        let resolved = rows
+            .iter()
+            .find(|(k, _)| k == RESOLVED_UI_LANGUAGE_KEY)
+            .and_then(|(_, v)| serde_json::from_str::<String>(v).ok());
+        Ok(Self {
+            db,
+            current: RwLock::new(merge_rows(&rows)),
+            resolved_ui_language: RwLock::new(resolved),
+            write_lock: tokio::sync::Mutex::new(()),
+        })
     }
 
     /// Current settings.
     #[must_use]
     pub fn get(&self) -> AppSettings {
         self.current.read().clone()
+    }
+
+    /// The language the UI last reported (its resolution of `system`), so
+    /// startup work (restart recovery) uses it before the UI connects.
+    #[must_use]
+    pub fn resolved_ui_language(&self) -> Option<String> {
+        self.resolved_ui_language.read().clone()
+    }
+
+    /// Persists the UI's resolved language (no-op when unchanged).
+    pub async fn save_resolved_ui_language(&self, lang: &str) -> StorageResult<()> {
+        if self.resolved_ui_language.read().as_deref() == Some(lang) {
+            return Ok(());
+        }
+        let value = serde_json::to_string(lang).map_err(StorageError::from)?;
+        let now = chrono::Utc::now().to_rfc3339();
+        self.db
+            .call(move |c| {
+                c.execute(
+                    "INSERT INTO core_settings (key, value, updated_at) VALUES (?1, ?2, ?3)
+                     ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
+                    params![RESOLVED_UI_LANGUAGE_KEY, value, now],
+                )?;
+                Ok::<_, StorageError>(())
+            })
+            .await?;
+        *self.resolved_ui_language.write() = Some(lang.to_owned());
+        Ok(())
+    }
+
+    /// The language the core should use at startup: an explicit preference,
+    /// else the last language the UI resolved `system` to.
+    #[must_use]
+    pub fn startup_ui_language(&self) -> Option<String> {
+        let pref = self.get().language;
+        if pref != orkestr_protocol::methods::settings::LANGUAGE_SYSTEM {
+            return Some(pref);
+        }
+        self.resolved_ui_language()
     }
 
     /// Serializes read-modify-write cycles (hold the guard across
