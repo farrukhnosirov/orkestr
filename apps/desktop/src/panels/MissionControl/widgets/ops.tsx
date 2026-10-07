@@ -21,7 +21,7 @@ import { useState } from "react";
 
 import { useFormat, useT } from "../../../i18n";
 import { describeError } from "../../../i18n/errors";
-import { taskReason } from "../../../lib/coreText";
+import { approvalSummary, taskReason } from "../../../lib/coreText";
 import { useAppStore } from "../../../store/app";
 import { resolveApproval, useSecurityStore } from "../../../features/security/store";
 import { type WidgetProps, useMission } from "../context";
@@ -53,7 +53,7 @@ function ApprovalRow({ a }: { a: Approval }) {
     <li className={clsx("mc-approval", `mc-approval--${a.risk.toLowerCase()}`)}>
       <div className="mc-approval__head">
         <Badge tone={RISK_TONE[a.risk]}>{t(`security:risk.${a.risk}`)}</Badge>
-        <span className="mc-approval__summary">{a.actionSummary}</span>
+        <span className="mc-approval__summary">{approvalSummary(a.actionSummary)}</span>
       </div>
       {a.commandPreview && <code className="mc-approval__cmd">{a.commandPreview}</code>}
       <div className="mc-approval__foot">
@@ -68,7 +68,7 @@ function ApprovalRow({ a }: { a: Approval }) {
             leftIcon={<X size={13} aria-hidden="true" />}
             disabled={busy !== null}
             onClick={() => void decide("Reject")}
-            aria-label={t("approvals.rejectLabel", { action: a.actionSummary })}
+            aria-label={t("approvals.rejectLabel", { action: approvalSummary(a.actionSummary) })}
           >
             {t("common:actions.reject")}
           </Button>
@@ -78,7 +78,7 @@ function ApprovalRow({ a }: { a: Approval }) {
             leftIcon={<Check size={13} aria-hidden="true" />}
             disabled={busy !== null}
             onClick={() => void decide("Approve")}
-            aria-label={t("approvals.approveLabel", { action: a.actionSummary })}
+            aria-label={t("approvals.approveLabel", { action: approvalSummary(a.actionSummary) })}
           >
             {t("common:actions.approve")}
           </Button>
@@ -192,7 +192,7 @@ function AlertRow({ a }: { a: Alert }) {
   if (a.kind === "rateLimited") params["secs"] = fmt.duration(Number(a.params["secs"] ?? 0) * 1000);
   if (a.kind === "approval" && isRisk(a.params["risk"])) params["risk"] = t(`security:risk.${a.params["risk"]}`);
   // Task reasons are core codes / English sentences: localized (an unknown bare code is hidden).
-  const detail = a.kind === "taskFailed" ? taskReason(a.detail) : a.detail;
+  const detail = a.kind === "taskFailed" ? taskReason(a.detail) : a.kind === "approval" && a.detail ? approvalSummary(a.detail) : a.detail;
   return (
     <li className={clsx("mc-alert", `mc-alert--${a.severity}`)}>
       <Icon size={15} className="mc-alert__icon" aria-hidden="true" />

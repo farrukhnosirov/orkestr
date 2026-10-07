@@ -47,6 +47,8 @@
   "decisionRecorded": "Decision: {{title}}",
   "emergencyStop_one": "EMERGENCY STOP ({{scope}}): {{count}} agent stopped",
   "emergencyStop_other": "EMERGENCY STOP ({{scope}}): {{count}} agents stopped",
+  "emergencyFlags": "Emergency controls: {{flags}}",
+  "emergencyFlagsClear": "Emergency controls cleared: AI work allowed again",
   "notification": "{{title}}: {{body}}",
   "settingsChanged": "Settings changed: {{keys}}",
   "managerMessage": "Manager conversation: {{who}} — {{text}}",

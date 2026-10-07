@@ -19,7 +19,10 @@ import { applyLanguagePreference, languagePreference, useT } from "../../i18n";
 import { isTauri, windowControls } from "../../lib/tauri";
 import { getPanel } from "../../panels/registry";
 import { useAppStore } from "../../store/app";
+import { useAiUiRuntime } from "../aiui/useAiUiRuntime";
+import { hostPanelIntents } from "../files/actions";
 import { Toasts } from "../notifications/NotificationCenter";
+import { usePerformanceRuntime } from "../performance/usePerformanceRuntime";
 import { EmergencyStopButton } from "../security/EmergencyStop";
 import { ApprovalsBadge } from "../security/ApprovalsInbox";
 import { SecurityLayer } from "../security/SecurityLayer";
@@ -138,8 +141,17 @@ function DetachedBody({ route }: { route: DetachedRoute }) {
 
 export function DetachedPanelApp({ route }: { route: DetachedRoute }) {
   const [ready, setReady] = useState(false);
+  const connected = useAppStore((s) => s.connection.state === "open");
   useThemeEngine(ready);
   useDetachedSettings(ready);
+  // Like the main window and the HUD: the user's Performance Mode (with auto
+  // Battery Saver and the frame budget), policy on <html>, pause while
+  // hidden/minimized — and the AI-editable UI prefs (density, font scale).
+  usePerformanceRuntime(connected);
+  useAiUiRuntime(connected, false);
+  // This window hosts exactly its panel: files to open / Manager requests
+  // aimed at it from other windows land here.
+  useEffect(() => hostPanelIntents((panelId) => panelId === route.panelId), [route.panelId]);
   const boot = useCallback(() => {
     bootstrapCore().then(
       () => setReady(true),

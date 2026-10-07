@@ -1,10 +1,11 @@
 import type { Project } from "@orkestr/protocol";
 import { IconButton, Tooltip } from "@orkestr/ui";
 import { clsx } from "clsx";
-import { Command, FolderOpen, Plus, Trash2 } from "lucide-react";
+import { Command, FolderOpen, FolderX, Plus, Trash2 } from "lucide-react";
 import { useCallback, useState } from "react";
 
 import { openProject } from "../core/client";
+import { useSecurityStore } from "../features/security/store";
 import { useT } from "../i18n";
 import { ContextMenu } from "../panels/Files/ContextMenu";
 import { useAppStore } from "../store/app";
@@ -123,6 +124,14 @@ export function ProjectRail() {
               icon: <FolderOpen size={14} />,
               disabled: menu.project.id === activeId,
               onSelect: () => void openProject(menu.project.id),
+            },
+            {
+              type: "item",
+              id: "stop",
+              label: t("rail.stopProject"),
+              icon: <FolderX size={14} />,
+              danger: true,
+              onSelect: () => useSecurityStore.getState().openStopProject(menu.project.id),
             },
             { type: "separator", id: "sep" },
             {

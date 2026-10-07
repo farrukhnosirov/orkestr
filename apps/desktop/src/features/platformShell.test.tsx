@@ -9,6 +9,7 @@ import { relativeTime } from "./notifications/NotificationCenter";
 import { MAX_HISTORY, unreadCount, useNotificationsStore } from "./notifications/notificationsStore";
 import {
   canFinishAt,
+  CURRENT_PHASE,
   LAST_ACTIVE_STEP,
   ONBOARDING_STEPS,
   stepState,
@@ -199,8 +200,11 @@ describe("notifications", () => {
 describe("onboarding steps", () => {
   it("has the 12 §55 steps with later phases marked", () => {
     expect(ONBOARDING_STEPS).toHaveLength(12);
-    expect(ONBOARDING_STEPS.slice(8).every((s) => s.phase > 1)).toBe(true);
-    expect(ONBOARDING_STEPS[LAST_ACTIVE_STEP]?.id).toBe("terminal");
+    expect(ONBOARDING_STEPS.slice(9).every((s) => s.phase > CURRENT_PHASE)).toBe(true);
+    // Voice shipped (Phase 3): it is a real, interactive step, not a "coming later" teaser.
+    expect(ONBOARDING_STEPS[8]?.id).toBe("voice");
+    expect(ONBOARDING_STEPS[8]!.phase).toBeLessThanOrEqual(CURRENT_PHASE);
+    expect(ONBOARDING_STEPS[LAST_ACTIVE_STEP]?.id).toBe("voice");
     expect(canFinishAt(LAST_ACTIVE_STEP)).toBe(true);
     expect(canFinishAt(0)).toBe(false);
   });
@@ -210,6 +214,7 @@ describe("onboarding steps", () => {
     expect(stepState(0, 2, visited)).toBe("done");
     expect(stepState(2, 2, visited)).toBe("current");
     expect(stepState(3, 2, visited)).toBe("upcoming");
+    expect(stepState(8, 2, visited)).toBe("upcoming");
     expect(stepState(10, 2, visited)).toBe("later");
   });
 

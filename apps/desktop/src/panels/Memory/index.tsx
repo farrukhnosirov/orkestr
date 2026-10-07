@@ -1,17 +1,18 @@
 import { EmptyState, Tabs } from "@orkestr/ui";
 import { BookOpen, BrainCircuit, FolderOpen, Globe, Scale } from "lucide-react";
-import { type ReactElement, useState } from "react";
+import { type ReactElement, useEffect, useState } from "react";
 
 import { useT } from "../../i18n";
 import { useAppStore } from "../../store/app";
 import type { PanelProps } from "../types";
 import { DecisionLog } from "./DecisionLog";
+import { type MemoryTab, useMemoryFocus } from "./focus";
 import { GLOBAL_KINDS, PROJECT_KINDS } from "./kinds";
 import { KnowledgeBase } from "./KnowledgeBase";
 import "./memory.css";
 import { MemoryList } from "./MemoryList";
 
-type Tab = "project" | "global" | "decisions" | "knowledge";
+type Tab = MemoryTab;
 
 const TAB_ICONS: Record<Tab, ReactElement> = {
   project: <BrainCircuit size={13} />,
@@ -28,7 +29,12 @@ function NeedsProject({ what }: { what: "projectMemory" | "decisions" }) {
 /** Memory panel (§20–21): project & global memory, decision log, knowledge base. */
 export default function MemoryPanel({ projectId }: PanelProps) {
   const { t } = useT("memory");
-  const [tab, setTab] = useState<Tab>("project");
+  const focus = useMemoryFocus((s) => s.focus);
+  const [tab, setTab] = useState<Tab>(() => focus?.tab ?? "project");
+  // A global-search hit picks the tab; the list there applies the query.
+  useEffect(() => {
+    if (focus) setTab(focus.tab);
+  }, [focus]);
   const tabs = (Object.keys(TAB_ICONS) as Tab[]).map((id) => ({ id, label: t(`tabs.${id}`), icon: TAB_ICONS[id] }));
   const connected = useAppStore((s) => s.connection.state === "open");
 

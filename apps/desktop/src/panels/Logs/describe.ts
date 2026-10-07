@@ -1,7 +1,8 @@
 import type { Event, EventKindName } from "@orkestr/protocol";
 
 import { formatCurrency, formatDuration, t } from "../../i18n";
-import { agentActivity, agentName, builtinTeamName, fallbackReason, snapshotLabel } from "../../lib/coreText";
+import { agentActivity, agentName, approvalSummary, builtinTeamName, fallbackReason, snapshotLabel } from "../../lib/coreText";
+import { activeFlags } from "../../features/security/logic";
 import { useAppStore } from "../../store/app";
 import { budgetScopeText } from "../Costs/format";
 
@@ -182,7 +183,7 @@ export function describeEvent(event: Event): string {
     case "ReviewFinished":
       return t("events:reviewFinished", { verdict: t(`logs:enums.reviewVerdict.${event.payload.verdict}`), summary: event.payload.summary });
     case "ApprovalRequested":
-      return t("events:approvalRequested", { summary: event.payload.approval.actionSummary });
+      return t("events:approvalRequested", { summary: approvalSummary(event.payload.approval.actionSummary) });
     case "ApprovalResolved":
       return t("events:approvalResolved", {
         id: short(event.payload.approvalId),
@@ -233,6 +234,10 @@ export function describeEvent(event: Event): string {
       return t("events:decisionRecorded", { title: event.payload.decision.title });
     case "EmergencyStop":
       return t("events:emergencyStop", { scope: t(`logs:enums.emergencyScope.${event.payload.scope.scope}`), count: event.payload.agentsStopped });
+    case "EmergencyFlagsChanged": {
+      const active = activeFlags(event.payload.flags);
+      return active.length === 0 ? t("events:emergencyFlagsClear") : t("events:emergencyFlags", { flags: active.join(", ") });
+    }
     case "Notification":
       return t("events:notification", { title: event.payload.notification.title, body: event.payload.notification.body });
     case "Log":

@@ -958,6 +958,7 @@ export const EVENT_KINDS = [
   "UiPatchProposed",
   "UiConfigPatched",
   "VoiceCommand",
+  "EmergencyFlagsChanged",
 ] as const;
 
 /** UI config schema version (see orkestr-protocol ui_config). */

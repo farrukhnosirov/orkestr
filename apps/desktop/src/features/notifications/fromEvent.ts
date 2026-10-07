@@ -8,7 +8,7 @@
 import type { Event, NotificationLevel } from "@orkestr/protocol";
 
 import { formatCurrency, formatDuration, formatPercent, t } from "../../i18n";
-import { taskReason } from "../../lib/coreText";
+import { approvalSummary, taskReason } from "../../lib/coreText";
 import { budgetScopeText } from "../../panels/Costs/format";
 import { useAppStore } from "../../store/app";
 
@@ -38,7 +38,7 @@ export function notificationFromEvent(ev: Event): AppNotification | null {
     }
     case "ApprovalRequested": {
       const a = ev.payload.approval;
-      return base(ev, a.risk === "Critical" || a.risk === "High" ? "Warning" : "Info", t("notifications:events.approvalNeeded"), a.actionSummary);
+      return base(ev, a.risk === "Critical" || a.risk === "High" ? "Warning" : "Info", t("notifications:events.approvalNeeded"), approvalSummary(a.actionSummary));
     }
     case "BuildFailed":
       return base(

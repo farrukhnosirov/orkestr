@@ -11,6 +11,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useT } from "../../i18n";
 import { describeError } from "../../i18n/errors";
 import { useAppStore } from "../../store/app";
+import { PipelineSettings } from "../pipeline/PipelineSettings";
 import { SettingGroup, SettingRow, Switch } from "../settings/controls";
 import type { SettingsSectionProps } from "../settings/sections";
 import { blankCheck, CHECK_KINDS, validateProfile } from "./logic";
@@ -275,6 +276,7 @@ export function QualitySettings({ projectId }: SettingsSectionProps) {
       <p className="q-muted">{t("settings.intro")}</p>
       <GatesEditor projectId={projectId} config={gates} onChange={setGates} />
       <ChecksEditor projectId={projectId} profile={profile} onChange={setProfile} />
+      <PipelineSettings key={projectId} projectId={projectId} />
     </div>
   );
 }

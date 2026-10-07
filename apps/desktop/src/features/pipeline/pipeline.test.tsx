@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { applyLanguagePreference } from "../../i18n";
+import { taskReason } from "../../lib/coreText";
 import { useAppStore } from "../../store/app";
 import { localizePipelineText } from "./text";
 
@@ -222,5 +223,36 @@ describe("localizePipelineText", () => {
     expect(
       localizePipelineText("self-healing stopped (no progress: the last fix produced the same failure); the user declined further attempts"),
     ).toBe("самовосстановление остановлено (нет прогресса: последнее исправление дало тот же сбой); пользователь отказался от новых попыток");
+  });
+
+  it("translates every escalation and its reasons (status line, task history)", async () => {
+    await applyLanguagePreference("ru");
+    // The most common Escalated status reason.
+    expect(localizePipelineText("self-healing stopped: 3 of 3 fix attempt(s) used")).toBe(
+      "самовосстановление остановлено: использовано попыток исправления: 3 из 3",
+    );
+    expect(localizePipelineText("self-healing stopped: the pipeline's time limit of 60 min is reached")).toBe(
+      "самовосстановление остановлено: исчерпан лимит времени конвейера качества (60 мин)",
+    );
+    expect(localizePipelineText("self-healing stopped: self-healing is disabled for this project")).toBe(
+      "самовосстановление остановлено: самовосстановление отключено для этого проекта",
+    );
+    const budget = localizePipelineText("self-healing stopped (the task's budget is spent ($0.2000 of $0.20)); raise the budget and retry the task to continue");
+    expect(budget).toMatch(/^самовосстановление остановлено \(бюджет задачи исчерпан \(0,20\s\$ из 0,20\s\$\)\); увеличьте бюджет/);
+    expect(localizePipelineText("more self-healing time granted by the user")).toBe("пользователь выделил самовосстановлению больше времени");
+    expect(localizePipelineText("more self-healing budget granted by the user")).toBe("пользователь увеличил бюджет самовосстановления");
+    expect(localizePipelineText("waiting for your decision")).toBe("ждёт вашего решения");
+    expect(localizePipelineText("superseded by a new attempt of the task")).toBe("заменено новой попыткой задачи");
+    expect(localizePipelineText("stopped with the run")).toBe("остановлено вместе с запуском");
+    expect(localizePipelineText("self-healing stopped (2 of 2 fix attempt(s) used) and the escalation could not be filed: db locked")).toBe(
+      "самовосстановление остановлено (использовано попыток исправления: 2 из 2), и эскалацию создать не удалось: db locked",
+    );
+    // Task history (coreText.taskReason) uses the same reason localizer.
+    expect(taskReason("self-healing stopped (the task's budget is spent ($0.2000 of $0.20)); the user declined further attempts")).toMatch(
+      /^Самовосстановление остановлено \(бюджет задачи исчерпан \(0,20\s\$ из 0,20\s\$\)\); вы отказались от новых попыток$/,
+    );
+    expect(taskReason("self-healing stopped (3 of 3 fix attempt(s) used); raise the budget and retry the task to continue")).toBe(
+      "Самовосстановление остановлено (использовано попыток исправления: 3 из 3); увеличьте бюджет и повторите задачу, чтобы продолжить",
+    );
   });
 });

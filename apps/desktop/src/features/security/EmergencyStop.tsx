@@ -1,11 +1,12 @@
 import { Button, Kbd } from "@orkestr/ui";
 import { clsx } from "clsx";
-import { OctagonX, RotateCcw, X } from "lucide-react";
+import { FolderX, OctagonX, RotateCcw, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { useT } from "../../i18n";
+import { useAppStore } from "../../store/app";
 import { activeFlags } from "./logic";
-import { errorMessage, resetEmergency, stopAllAi, useSecurityStore } from "./store";
+import { errorMessage, resetEmergency, stopAllAi, stopProjectAi, useSecurityStore } from "./store";
 
 /**
  * Shortcut of the registered `ai.stopAll` command (coreCommands). Not
@@ -33,12 +34,19 @@ export function EmergencyStopButton() {
   );
 }
 
-/** Confirmation dialog for Stop All AI (and re-arming afterwards). */
+/**
+ * Confirmation dialog for Stop All AI (and re-arming afterwards), and for
+ * Stop Project (§52) — scoped to the project it was opened for, or offered
+ * for the active project next to Stop All.
+ */
 export function EmergencyConfirmDialog() {
   const open = useSecurityStore((s) => s.confirmStopOpen);
   const setOpen = useSecurityStore((s) => s.setConfirmStopOpen);
   const flags = useSecurityStore((s) => s.flags);
   const pushToast = useSecurityStore((s) => s.pushToast);
+  const scopedId = useSecurityStore((s) => s.stopProjectId);
+  const activeProjectId = useAppStore((s) => s.activeProjectId);
+  const projects = useAppStore((s) => s.projects);
   const { t } = useT(["security", "common"]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -55,6 +63,32 @@ export function EmergencyConfirmDialog() {
   if (!open) return null;
   const close = () => !busy && setOpen(false);
   const active = activeFlags(flags);
+  // Stop Project: the project the dialog was opened for, else the active one.
+  const projectId = scopedId ?? activeProjectId;
+  const project = projectId ? (projects.find((p) => p.id === projectId) ?? null) : null;
+  const projectOnly = scopedId !== null && project !== null && !flags.allStopped;
+
+  const stopProject = async () => {
+    if (!project) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await stopProjectAi(project.id);
+      pushToast({
+        title: t("toast.projectStoppedTitle", { name: project.name }),
+        body: t("toast.stoppedBody", {
+          agents: t("toast.agentsStopped", { count: r.agentsStopped }),
+          approvals: t("toast.approvalsCancelled", { count: r.approvalsCancelled }),
+        }),
+        tone: "danger",
+      });
+      setOpen(false);
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const stop = async () => {
     setBusy(true);
@@ -107,10 +141,10 @@ export function EmergencyConfirmDialog() {
           </div>
           <div>
             <h2 id="sec-estop-title" className="dialog__title">
-              {flags.allStopped ? t("emergency.titleEngaged") : t("emergency.title")}
+              {flags.allStopped ? t("emergency.titleEngaged") : projectOnly ? t("emergency.titleProject", { name: project.name }) : t("emergency.title")}
             </h2>
             <p id="sec-estop-desc" className="dialog__subtitle">
-              {flags.allStopped ? t("emergency.descriptionEngaged") : t("emergency.description")}
+              {flags.allStopped ? t("emergency.descriptionEngaged") : projectOnly ? t("emergency.descriptionProject") : t("emergency.description")}
             </p>
           </div>
           <button type="button" className="dialog__close" aria-label={t("common:actions.close")} onClick={close}>
@@ -139,10 +173,32 @@ export function EmergencyConfirmDialog() {
             <Button ref={confirmRef} variant="primary" leftIcon={<RotateCcw size={14} />} loading={busy} onClick={() => void rearm()}>
               {t("emergency.rearm")}
             </Button>
+          ) : projectOnly ? (
+            <>
+              <Button variant="secondary" leftIcon={<OctagonX size={14} />} disabled={busy} onClick={() => void stop()}>
+                {t("emergency.stopAll")}
+              </Button>
+              <Button ref={confirmRef} variant="danger" leftIcon={<FolderX size={14} />} loading={busy} onClick={() => void stopProject()}>
+                {t("emergency.stopProject")} <Kbd>Enter</Kbd>
+              </Button>
+            </>
           ) : (
-            <Button ref={confirmRef} variant="danger" leftIcon={<OctagonX size={14} />} loading={busy} onClick={() => void stop()}>
-              {t("emergency.stopAll")} <Kbd>Enter</Kbd>
-            </Button>
+            <>
+              {project && (
+                <Button
+                  variant="secondary"
+                  leftIcon={<FolderX size={14} />}
+                  disabled={busy}
+                  title={t("emergency.stopProjectTitle", { name: project.name })}
+                  onClick={() => void stopProject()}
+                >
+                  {t("emergency.stopProjectNamed", { name: project.name })}
+                </Button>
+              )}
+              <Button ref={confirmRef} variant="danger" leftIcon={<OctagonX size={14} />} loading={busy} onClick={() => void stop()}>
+                {t("emergency.stopAll")} <Kbd>Enter</Kbd>
+              </Button>
+            </>
           )}
         </footer>
       </div>

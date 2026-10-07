@@ -12,7 +12,7 @@ import { agentActions, errorMessage, useAgentTranscript } from "./data";
 import { TOOL_TONE, elapsed, formatCost, formatTokens, isActive, roleLabel, timeline } from "./model";
 import { RoleAvatar, StateChip } from "./parts";
 import { useAgentsUi } from "./store";
-import { agentName, agentNote, agentToolSummary, PAUSED_ACTIVITY } from "../../lib/coreText";
+import { agentName, agentNote, agentToolSummary, approvalReason, approvalSummary, PAUSED_ACTIVITY } from "../../lib/coreText";
 
 function ToolCallItem({ view }: { view: AgentToolCallView }) {
   const { t } = useT("agents");
@@ -59,13 +59,13 @@ function ApprovalCard({ approval }: { approval: Approval }) {
     }
   };
   return (
-    <div className="agents-approval" role="group" aria-label={t("approval.group", { action: approval.actionSummary })}>
+    <div className="agents-approval" role="group" aria-label={t("approval.group", { action: approvalSummary(approval.actionSummary) })}>
       <div className="agents-approval__head">
         <ShieldAlert size={15} aria-hidden="true" />
-        <strong>{approval.actionSummary}</strong>
+        <strong>{approvalSummary(approval.actionSummary)}</strong>
         <Badge tone={approval.risk === "Low" ? "info" : approval.risk === "Medium" ? "warning" : "danger"}>{t(`risk.${approval.risk}`)}</Badge>
       </div>
-      <p className="agents-approval__reason">{approval.reason}</p>
+      <p className="agents-approval__reason">{approvalReason(approval.reason)}</p>
       {approval.commandPreview && <pre className="agents-pre">{approval.commandPreview}</pre>}
       <div className="agents-approval__actions">
         <input

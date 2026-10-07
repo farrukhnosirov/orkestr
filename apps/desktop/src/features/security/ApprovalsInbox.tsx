@@ -5,6 +5,7 @@ import { Bot, Check, Inbox, ShieldAlert, ShieldCheck, Terminal, X } from "lucide
 import { useEffect, useRef, useState } from "react";
 
 import { useFormat, useT } from "../../i18n";
+import { approvalReason, approvalSummary } from "../../lib/coreText";
 import { useAppStore } from "../../store/app";
 import { capabilityLabel, dangerLabel, riskLabel, riskTone, shortId } from "./logic";
 import { errorMessage, refreshPending, resolveApproval, useSecurityStore } from "./store";
@@ -56,7 +57,7 @@ function ApprovalCard({ approval }: { approval: Approval }) {
   };
 
   return (
-    <article className="sec-approval" aria-label={t("approval.ariaLabel", { summary: approval.actionSummary })}>
+    <article className="sec-approval" aria-label={t("approval.ariaLabel", { summary: approvalSummary(approval.actionSummary) })}>
       <header className="sec-approval__head">
         <Badge tone={riskTone(approval.risk)}>{riskLabel(approval.risk)}</Badge>
         <Badge tone="violet">{capabilityLabel(approval.capability)}</Badge>
@@ -69,7 +70,7 @@ function ApprovalCard({ approval }: { approval: Approval }) {
           {fmt.relative(approval.requestedAt)}
         </span>
       </header>
-      <h3 className="sec-approval__title">{approval.actionSummary}</h3>
+      <h3 className="sec-approval__title">{approvalSummary(approval.actionSummary)}</h3>
       <div className="sec-approval__meta">
         <span>
           <Bot size={12} /> {approval.agentId ? t("approval.agent", { id: shortId(approval.agentId) }) : t("approval.managerOrSystem")}
@@ -81,7 +82,7 @@ function ApprovalCard({ approval }: { approval: Approval }) {
           <Terminal size={12} aria-hidden="true" /> {approval.commandPreview}
         </pre>
       )}
-      <p className="sec-approval__reason">{approval.reason}</p>
+      <p className="sec-approval__reason">{approvalReason(approval.reason)}</p>
       <label className="sec-approval__note">
         <span className="sr-only">{t("approval.note")}</span>
         <input

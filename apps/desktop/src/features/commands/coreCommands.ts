@@ -220,6 +220,22 @@ export const coreCommands: AppCommand[] = [
     run: () => useSecurityStore.getState().setConfirmStopOpen(true),
   },
   {
+    id: "ai.stopProject",
+    get title() {
+      return t("shell:commands.stopProject");
+    },
+    get group() {
+      return t("shell:commandGroups.safety");
+    },
+    icon: FolderX,
+    keywords: ["emergency", "stop project", "halt project", "экстренная остановка", "остановить проект", "стоп проект"],
+    enabled: (ctx) => ctx.projectId !== null,
+    // Confirms in the security dialog, scoped to the active project (§52 Stop Project).
+    run: (ctx) => {
+      if (ctx.projectId) useSecurityStore.getState().openStopProject(ctx.projectId);
+    },
+  },
+  {
     id: "language.switch",
     // Bilingual on purpose: whoever cannot read the current language still finds the switch.
     get title() {

@@ -1,5 +1,13 @@
 {
   "providers": {
-    "projects": "Projects"
+    "projects": "Projects",
+    "tasks": "Tasks",
+    "memory": "Memory",
+    "knowledge": "Knowledge base",
+    "files": "Files"
+  },
+  "scope": {
+    "project": "project memory",
+    "global": "global memory"
   }
 }

@@ -190,7 +190,7 @@ Section D counts are computed from these delivered columns.
 | Session resume and handoff | §57 | Partial | Full | Full | core recovery, orchestrator (ADR-0022) |
 | Quality gates and DoD | §58 | Arch | Full | Full | orchestrator |
 | Command palette | §54 | Partial | Full | Full | apps/desktop (RR-G6) |
-| Global search | §54 | — | Full | Full | memory FTS, core `search.query` |
+| Global search | §54 | — | Full | Full | palette `/` providers: projects, tasks, memory + knowledge (core FTS5 `memory.search` / `knowledge.search`), files (`files.find`); logs are searched in the Logs panel |
 | Onboarding | §55 | Partial (steps 1–8) | Partial | Partial (+9 voice) | apps/desktop (RR-G7); 10–12 in Phases 4–5 |
 | No hidden chain-of-thought stored | §1.14, §21 | Full | Full | Full | providers (no reasoning variant), RR-A5 |
 
