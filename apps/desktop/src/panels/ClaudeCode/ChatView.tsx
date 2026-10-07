@@ -15,8 +15,8 @@ import { useFormat, useT } from "../../i18n";
 import { SafeMarkdown } from "../../features/extensions/markdown";
 import { openChangedFile } from "../../features/claudeCode/bridge";
 import { inputTokens, relativeTo, type ChatItem, type ChatState, type ResultItem } from "../../features/claudeCode/model";
-import { PermissionCard } from "./PermissionCard";
-import { ToolCard } from "./ToolCard";
+import { PermissionCard } from "./permissions";
+import { ToolCard } from "./tools";
 
 export interface ChatViewProps {
   chat: ChatState;

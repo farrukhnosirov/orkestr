@@ -75,7 +75,7 @@
     "bypassPermissions": "No confirmations",
     "bypassPermissionsHint": "Claude acts without asking — dangerous",
     "confirmTitle": "Turn off confirmations?",
-    "confirmBody": "Claude will edit files and run any command without asking. Orkestr's guard still blocks forbidden commands, but dangerous ones will run right away. Use this only in an isolated worktree.",
+    "confirmBody": "Claude will edit files and run any command without asking — Orkestr's checks of dangerous and forbidden commands no longer apply in this chat. Applies to this chat only and is never remembered; the chat restarts in the new mode. Use this only in an isolated worktree.",
     "confirm": "Turn off confirmations",
     "cancel": "Cancel"
   },

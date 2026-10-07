@@ -9,6 +9,8 @@
  *   window); the window hosting the panel puts it into the composer;
  * - opening the panel and files changed by Claude.
  */
+import { useEffect, useState } from "react";
+
 import { workspaceActions } from "../../components/workspaceActions";
 import { ASK_CLAUDE_EVENT, askClaude, openInEditor } from "../files/actions";
 import { selectionPrompt } from "./model";
@@ -27,13 +29,36 @@ export interface EditorSelection {
 }
 
 let selectionSource: (() => EditorSelection | null) | null = null;
+const selectionListeners = new Set<() => void>();
+
+/** Tells subscribers (the composer's selection chip) that the editor selection changed. */
+export function notifySelectionChanged(): void {
+  for (const l of selectionListeners) l();
+}
 
 /** Registers the Code editor's selection getter (returns a disposer). */
 export function setSelectionSource(source: () => EditorSelection | null): () => void {
   selectionSource = source;
+  notifySelectionChanged();
   return () => {
-    if (selectionSource === source) selectionSource = null;
+    if (selectionSource === source) {
+      selectionSource = null;
+      notifySelectionChanged();
+    }
   };
+}
+
+/** The current editor selection, re-rendering when it changes. */
+export function useEditorSelection(): EditorSelection | null {
+  const [, setVersion] = useState(0);
+  useEffect(() => {
+    const l = () => setVersion((v) => v + 1);
+    selectionListeners.add(l);
+    return () => {
+      selectionListeners.delete(l);
+    };
+  }, []);
+  return currentSelection();
 }
 
 /** The current non-empty editor selection, if any. */

@@ -9,18 +9,18 @@ import type { ClaudeHistoryEntry } from "@orkestr/protocol";
 import { Badge, Button, EmptyState, IconButton, Spinner } from "@orkestr/ui";
 import clsx from "clsx";
 import { FolderOpen, History, LogIn, MessageSquarePlus, RefreshCw, Sparkle, X } from "lucide-react";
-import { type FormEvent, useCallback, useEffect, useState } from "react";
+import { type ComponentProps, type FormEvent, useCallback, useEffect, useState } from "react";
 
 import { workspaceActions } from "../../components/workspaceActions";
 import { useFormat, useT } from "../../i18n";
 import { useAppStore } from "../../store/app";
 import { useClaudeStore } from "../../features/claudeCode/store";
-import "../../features/claudeCode/bridge";
+import { useEditorSelection } from "../../features/claudeCode/bridge";
 import { useTerminalUi } from "../Terminal/store";
 import type { PanelProps } from "../types";
 import { ChatView } from "./ChatView";
-import { Composer } from "./Composer";
-import { ModelPicker, ModeSwitcher } from "./Controls";
+import { Composer, ModelPicker } from "./composer";
+import { ModeSwitcher } from "./permissions";
 import "./claudeCode.css";
 
 const EMPTY: string[] = [];
@@ -182,6 +182,12 @@ function StatusLine({ sessionId }: { sessionId: string | null }) {
   );
 }
 
+/** The composer, re-rendered (alone) when the editor selection changes. */
+function LiveComposer(props: Omit<ComponentProps<typeof Composer>, "selection">) {
+  const selection = useEditorSelection();
+  return <Composer {...props} selection={selection} />;
+}
+
 function ChatWorkspace({ projectId, root }: { projectId: string; root: string }) {
   const { t } = useT("claudeCode");
   const tabs = useClaudeStore((s) => s.tabs[projectId] ?? EMPTY);
@@ -282,9 +288,10 @@ function ChatWorkspace({ projectId, root }: { projectId: string; root: string })
               </Button>
             </div>
           ) : (
-            <Composer
+            <LiveComposer
               projectId={projectId}
-              disabled={ended}
+              disabled={ended || view.chat.authRequired}
+              disabledReason={ended ? "ended" : view.chat.authRequired ? "notSignedIn" : null}
               running={view.chat.running}
               queue={view.queue}
               commands={view.chat.commands}

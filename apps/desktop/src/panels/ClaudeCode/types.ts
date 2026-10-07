@@ -4,10 +4,10 @@
  * `features/claudeCode/model.ts`; the store (RPC + events) in
  * `features/claudeCode/store.ts`.
  *
- * Reference implementations already exist in this folder (`ToolCard.tsx`,
- * `PermissionCard.tsx`, `Composer.tsx`, `InlineDiff.tsx`, `MonacoDiff.tsx`);
- * `tools/`, `composer/` and `permissions/` may refine and replace them while
- * keeping these contracts.
+ * Implementations: `tools/` (ToolCard), `composer/` (Composer, ModelPicker),
+ * `permissions/` (PermissionCard, ModeSwitcher); the shell (`index.tsx`,
+ * `ChatView.tsx`) wires them to the store.
+ *
  */
 import type {
   ClaudeModelOption,

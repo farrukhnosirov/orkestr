@@ -8,7 +8,7 @@ import { useEffect, useRef } from "react";
 import { toRanges } from "../../features/files/lineDiff";
 import { t, useLanguage } from "../../i18n";
 import { useEditorStore } from "../../store/editor";
-import { setSelectionSource } from "../../features/claudeCode/bridge";
+import { notifySelectionChanged, setSelectionSource } from "../../features/claudeCode/bridge";
 import type { Doc } from "./documents";
 import { editorThemeName } from "./ext/editorExtensions";
 import { tokenHex } from "./theme";
@@ -116,6 +116,7 @@ export function CodeEditor({
       const model = editor.getModel();
       const selected = model ? model.getValueLengthInRange(e.selection) : 0;
       cb.current.onCursor(e.selection.positionLineNumber, e.selection.positionColumn, selected);
+      notifySelectionChanged();
     });
     return () => {
       if (shownDoc.current) shownDoc.current.viewState = editor.saveViewState();

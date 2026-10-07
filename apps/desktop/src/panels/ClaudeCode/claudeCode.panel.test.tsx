@@ -92,7 +92,7 @@ async function openChat() {
   responses.set("claudeCode.start", { session: info(), history: [] });
   render(<ClaudeCodePanel projectId={P} />);
   fireEvent.click((await screen.findAllByRole("button", { name: "New chat" }))[0] as HTMLElement);
-  await screen.findByRole("textbox", { name: "Message to Claude Code" });
+  await screen.findByRole("combobox", { name: "Message to Claude" });
 }
 
 describe("Claude Code panel", () => {
@@ -127,7 +127,7 @@ describe("Claude Code panel", () => {
     expect(screen.getByText("now").tagName).toBe("STRONG");
     emit({ type: "toolUse", id: "t1", name: "Edit", input: { file_path: "C:\\work\\app\\src\\a.ts", old_string: "a", new_string: "b" }, parentToolUseId: null });
     emit({ type: "toolUse", id: "t2", name: "TodoWrite", input: { todos: [{ content: "Step one", status: "in_progress" }] }, parentToolUseId: null });
-    expect(screen.getByRole("button", { name: "src/a.ts" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Open src/a.ts" })).toBeTruthy();
     expect(screen.getByText("Step one")).toBeTruthy();
     emit({
       type: "permissionRequest",
@@ -143,8 +143,8 @@ describe("Claude Code panel", () => {
     expect(screen.getByText(/Dangerous · Destructive git/)).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Allow for this session" })).toBeNull();
     responses.set("claudeCode.respondPermission", info({ state: "running" }));
-    fireEvent.click(screen.getByRole("button", { name: "Deny…" }));
-    fireEvent.change(screen.getByLabelText("Note for Claude"), { target: { value: "use a PR" } });
+    fireEvent.click(screen.getByRole("button", { name: "Deny with a reason…" }));
+    fireEvent.change(screen.getByLabelText("Reason for Claude"), { target: { value: "use a PR" } });
     fireEvent.click(screen.getByRole("button", { name: "Deny" }));
     await waitFor(() =>
       expect(calls.find((c) => c.method === "claudeCode.respondPermission")?.params).toEqual({
@@ -155,21 +155,21 @@ describe("Claude Code panel", () => {
       }),
     );
     emit({ type: "permissionResolved", requestId: "req-1", decision: "deny", byPolicy: false, message: "use a PR" });
-    expect(screen.getByText(/Denied — use a PR/)).toBeTruthy();
+    expect(screen.getByText(/Denied/)).toBeTruthy();
     emit({ type: "toolResult", toolUseId: "t1", content: "ok", isError: false, parentToolUseId: null });
     emit({ type: "fileChanged", path: "C:\\work\\app\\src\\a.ts" });
     emit({ type: "result", isError: false, subtype: "success", result: "done", durationMs: 1200, numTurns: 2, totalCostUsd: 0, usage: { inputTokens: 10, outputTokens: 20, cacheReadTokens: 5, cacheWriteTokens: 0 } });
     expect(screen.getByText("1 file changed:")).toBeTruthy();
     expect(screen.getByText(/15 in · 20 out tokens/)).toBeTruthy();
-    // Clicking a changed file opens it in the Code panel.
-    fireEvent.click(screen.getAllByRole("button", { name: "src/a.ts" })[1] as HTMLElement);
+    // Clicking a changed file (result footer) opens it in the Code panel.
+    fireEvent.click(screen.getByRole("button", { name: "src/a.ts" }));
     expect(opened).toContain("code");
   });
 
   it("composer: Enter sends, queues while running, Esc interrupts, / completes commands", async () => {
     await openChat();
     emit({ type: "capabilities", models: [], commands: [{ name: "compact", description: "Compact the conversation", argumentHint: null }], account: null });
-    const box = screen.getByRole("textbox", { name: "Message to Claude Code" });
+    const box = screen.getByRole("combobox", { name: "Message to Claude" });
     fireEvent.change(box, { target: { value: "/co", selectionStart: 3 } });
     expect(await screen.findByRole("option", { name: /\/compact/ })).toBeTruthy();
     fireEvent.keyDown(box, { key: "Enter" });
@@ -182,7 +182,7 @@ describe("Claude Code panel", () => {
     // Busy: the next message is queued, not sent.
     fireEvent.change(box, { target: { value: "and then", selectionStart: 8 } });
     fireEvent.keyDown(box, { key: "Enter" });
-    expect(await screen.findByText("Queued: and then")).toBeTruthy();
+    expect(await screen.findByText("and then")).toBeTruthy();
     expect(calls.filter((c) => c.method === "claudeCode.send")).toHaveLength(1);
     responses.set("claudeCode.interrupt", info());
     fireEvent.keyDown(box, { key: "Escape" });
@@ -208,13 +208,13 @@ describe("Claude Code panel", () => {
     await openChat();
     act(() => askClaude("@src/a.ts:3\n```\nx\n```\n"));
     expect(opened).toContain("claudeCode");
-    await waitFor(() => expect((screen.getByRole("textbox", { name: "Message to Claude Code" }) as HTMLTextAreaElement).value).toContain("@src/a.ts:3"));
+    await waitFor(() => expect((screen.getByRole("combobox", { name: "Message to Claude" }) as HTMLTextAreaElement).value).toContain("@src/a.ts:3"));
   });
 
   it("bypass mode needs a danger confirmation", async () => {
     await openChat();
     responses.set("claudeCode.setMode", info({ permissionMode: "bypassPermissions", bypassAllowed: true }));
-    fireEvent.change(screen.getByLabelText("Permission mode"), { target: { value: "bypassPermissions" } });
+    fireEvent.click(screen.getByRole("radio", { name: /No confirmations/ }));
     expect(calls.some((c) => c.method === "claudeCode.setMode")).toBe(false);
     fireEvent.click(await screen.findByRole("button", { name: "Turn off confirmations" }));
     await waitFor(() =>
