@@ -1,0 +1,162 @@
+{
+  "tabs": {
+    "label": "Extension views",
+    "marketplace": "Open VSX",
+    "installed": "Installed ({{n}})"
+  },
+  "search": {
+    "label": "Search extensions",
+    "placeholder": "Search Open VSX (themes, languages, icons…)",
+    "refresh": "Search again",
+    "source": "Extensions come from Open VSX (open-vsx.org), the vendor-neutral registry of the Eclipse Foundation. Orkestr applies themes, icons, grammars, snippets and language servers; extension code never runs.",
+    "empty": "Nothing found",
+    "emptyHint": "Try other words, or install a .vsix file you downloaded.",
+    "results": "Search results",
+    "loading": "Searching…",
+    "more": "Show more ({{shown}} of {{total}})"
+  },
+  "support": {
+    "full": "Works in Orkestr",
+    "partial": "Partly works in Orkestr",
+    "none": "Needs VS Code"
+  },
+  "compat": {
+    "title": "Compatibility",
+    "works": "Works in the Orkestr editor",
+    "nothing": "Nothing this extension contributes can be used by the Orkestr editor.",
+    "needsVsCode": "Needs the full VS Code",
+    "code": "Extension code (JavaScript) — never run by Orkestr",
+    "kind": {
+      "themes_one": "{{count}} color theme",
+      "themes_other": "{{count}} color themes",
+      "iconThemes_one": "{{count}} file icon theme",
+      "iconThemes_other": "{{count}} file icon themes",
+      "grammars_one": "{{count}} syntax grammar",
+      "grammars_other": "{{count}} syntax grammars",
+      "languages_one": "{{count}} language definition",
+      "languages_other": "{{count}} language definitions",
+      "snippets_one": "{{count}} snippet file",
+      "snippets_other": "{{count}} snippet files",
+      "languageServers_one": "{{count}} language server",
+      "languageServers_other": "{{count}} language servers"
+    }
+  },
+  "verified": {
+    "label": "Verified",
+    "tooltip": "Open VSX verified that this publisher owns the namespace"
+  },
+  "unverified": {
+    "label": "Unverified publisher",
+    "tooltip": "Open VSX has not verified the owner of this namespace"
+  },
+  "install": {
+    "failed": "Installation failed",
+    "phase": {
+      "downloading": "Downloading…",
+      "verifying": "Checking the SHA-256 checksum…",
+      "extracting": "Unpacking…",
+      "done": "Installed",
+      "failed": "Failed"
+    }
+  },
+  "actions": {
+    "install": "Install",
+    "update": "Update to {{version}}",
+    "uninstall": "Uninstall",
+    "enable": "Enable",
+    "disable": "Disable"
+  },
+  "installed": {
+    "badge": "Installed",
+    "disabled": "Disabled",
+    "label": "Installed extensions",
+    "empty": "No extensions installed",
+    "emptyHint": "Find one on the Open VSX tab or install a .vsix file."
+  },
+  "meta": {
+    "downloads": "Downloads",
+    "rating": "Rating",
+    "license": "License"
+  },
+  "source": {
+    "openVsx": "From Open VSX",
+    "vsix": "From a .vsix file"
+  },
+  "details": {
+    "label": "Extension details",
+    "close": "Close details",
+    "loading": "Loading details…",
+    "readme": "README"
+  },
+  "facts": {
+    "id": "Identifier",
+    "version": "Version",
+    "preRelease": "Pre-release",
+    "license": "License",
+    "unknown": "Not specified",
+    "engine": "VS Code version",
+    "platform": "Build",
+    "noBuild": "No build for {{target}}",
+    "repository": "Repository",
+    "source": "Source",
+    "sha256": "SHA-256",
+    "universal": "Universal (any platform)"
+  },
+  "vsix": {
+    "button": "Install from .vsix…",
+    "label": "Full path of a .vsix file on this computer",
+    "placeholder": "C:\\Downloads\\extension.vsix",
+    "install": "Install",
+    "cancel": "Cancel",
+    "hint": "The archive is checked before it is unpacked: unsafe paths, links and oversized files are rejected.",
+    "dialogTitle": "Choose a .vsix file"
+  },
+  "lsp": {
+    "approveTitle": "Allow the language server {{name}} to run?",
+    "approveBody": "It is a third-party program that runs with your user rights and reads this project. You approve it once; a changed program asks again.",
+    "allow": "Allow",
+    "notNow": "Not now",
+    "failedTitle": "The language server {{name}} is not working",
+    "dismiss": "Dismiss",
+    "found": "Found",
+    "foundAt": "Command: {{command}}",
+    "notFound": "Not installed. Install: {{hint}}",
+    "fromExtension": "From {{id}}",
+    "trusted": "Allowed",
+    "untrusted": "Not allowed yet",
+    "needsProject": "Open a project with a folder to allow or start language servers.",
+    "stop": "Stop",
+    "revoke": "Revoke permission",
+    "state": {
+      "starting": "Starting",
+      "running": "Running",
+      "restarting": "Restarting",
+      "stopped": "Stopped",
+      "failed": "Failed"
+    }
+  },
+  "settings": {
+    "title": "Editor",
+    "appearance": "Appearance",
+    "colorTheme": "Editor color theme",
+    "colorThemeHint": "Applies to the code editor only; the Orkestr interface keeps its own theme.",
+    "followUiTheme": "Follow the Orkestr theme",
+    "themeOption": "{{theme}} — {{extension}}",
+    "iconTheme": "File icon theme",
+    "iconThemeHint": "Icons in the Files panel and the editor tabs.",
+    "builtinIcons": "Orkestr icons",
+    "noThemes": "Install a theme or icon theme extension in the Extensions panel to choose it here.",
+    "languageServers": "Language servers",
+    "languageServersHint": "Completion, hover, go to definition, references, rename, formatting and diagnostics in the Code panel. A server starts when you open a file of its language, after you allow it once.",
+    "loading": "Loading…"
+  },
+  "vscode": {
+    "hint": "This extension runs fully in Orkestr's VS Code (VSCodium): install it there to use its commands and views.",
+    "install": "Install in VS Code",
+    "installing": "Installing in VS Code…",
+    "installed": "Installed in VS Code",
+    "open": "Open in VS Code",
+    "missing": "To use this extension fully, install VS Code (VSCodium) in the VS Code panel first.",
+    "openPanel": "Open the VS Code panel"
+  }
+}

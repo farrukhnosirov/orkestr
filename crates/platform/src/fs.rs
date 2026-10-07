@@ -110,6 +110,25 @@ pub fn set_unix_mode(path: &Path, mode: u32) -> PlatformResult<()> {
     }
 }
 
+/// Marks a file executable for its owner (Unix `chmod u+x`; a no-op on
+/// Windows, where executability follows the file extension). Used only
+/// after the user approved running a program unpacked from an archive,
+/// whose executable bits were deliberately not applied at extraction.
+pub fn make_executable(path: &Path) -> PlatformResult<()> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perm = std::fs::metadata(path)?.permissions();
+        perm.set_mode(perm.mode() | 0o100);
+        std::fs::set_permissions(path, perm)?;
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = path;
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

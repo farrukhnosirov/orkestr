@@ -498,6 +498,7 @@ Each row is a test case `(shell, command) → expected level`:
 | P8 | The user's primary checkout is never written by agents; changes reach it only through the Merge Manager with approval (git strategy §6). |
 | P9 | Plugins/widgets get no filesystem or secrets access implicitly (§48); they declare capabilities in their manifest and are checked as `Actor::Plugin` (Phase 7). |
 | P10 | Remote sessions (Phase 4) cannot switch a project to FullAuto, unlock the vault, or approve Critical-risk actions without fresh WebAuthn. |
+| P11 | VS Code extensions (ADR-0025) are untrusted content: only declarative contributions are read (themes, icon themes, grammars, language configurations, snippets); extension JavaScript never runs. A language server (third-party program) starts only after a user approval (capability `Terminal`) bound to the exact command and the SHA-256 of the program file; a changed binary asks again. Sessions stop on emergency stop and project deletion. |
 
 ---
 

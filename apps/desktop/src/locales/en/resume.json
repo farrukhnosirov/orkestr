@@ -158,6 +158,14 @@
     "VsCodeStatusChanged_one": "{{count}} VS Code server status change",
     "VsCodeStatusChanged_other": "{{count}} VS Code server status changes",
     "VsCodeProgress_one": "{{count}} VS Code install progress update",
-    "VsCodeProgress_other": "{{count}} VS Code install progress updates"
+    "VsCodeProgress_other": "{{count}} VS Code install progress updates",
+    "ExtensionsChanged_one": "{{count}} extension change",
+    "ExtensionsChanged_other": "{{count}} extension changes",
+    "ExtensionInstallProgress_one": "{{count}} extension install step",
+    "ExtensionInstallProgress_other": "{{count}} extension install steps",
+    "LspMessage_one": "{{count}} language server message",
+    "LspMessage_other": "{{count}} language server messages",
+    "LspStatus_one": "{{count}} language server status change",
+    "LspStatus_other": "{{count}} language server status changes"
   }
 }

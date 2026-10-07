@@ -88,5 +88,9 @@
   "voiceCommand": "Voice command “{{transcript}}” → {{intent}}",
   "vscodeStatus": "VS Code server: {{state}}",
   "vscodeStatusError": "VS Code server: {{state}} — {{error}}",
-  "vscodeProgress": "VS Code install: {{phase}}"
+  "vscodeProgress": "VS Code install: {{phase}}",
+  "extensionsChanged": "Extensions changed ({{reason}}): {{id}}",
+  "extensionInstallProgress": "Extension {{key}}: {{phase}}",
+  "lspMessage": "Language server message (session {{session}})",
+  "lspStatus": "Language server {{server}}: {{state}}"
 }

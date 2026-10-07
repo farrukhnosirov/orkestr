@@ -6,7 +6,10 @@
  *   — no CDN, works offline inside Tauri.
  * - Built-in language services provide diagnostics; module-resolution
  *   errors are ignored because the editor sees one file at a time.
- * - Theme `orkestr-dark` generated from the live `--ok-*` tokens.
+ * - Theme `orkestr-dark` generated from the live `--ok-*` tokens, or the
+ *   VS Code color theme chosen in Settings → Editor (ADR-0025).
+ * - Installed VS Code extensions contribute languages, TextMate grammars,
+ *   snippets and language servers (`./ext`, `./lsp`).
  */
 import * as monaco from "monaco-editor";
 import EditorWorker from "monaco-editor/editor/editor.worker?worker";
@@ -15,7 +18,8 @@ import HtmlWorker from "monaco-editor/language/html/html.worker?worker";
 import JsonWorker from "monaco-editor/language/json/json.worker?worker";
 import TsWorker from "monaco-editor/language/typescript/ts.worker?worker";
 
-import { buildTheme, MONACO_THEME } from "./theme";
+import { refreshEditorTheme } from "./ext/editorExtensions";
+import { lspCoordinator } from "./lsp/bridge";
 
 export type MonacoApi = typeof monaco;
 
@@ -63,13 +67,15 @@ function configure(): void {
   ts.typescriptDefaults.setDiagnosticsOptions(diagnostics);
   ts.javascriptDefaults.setDiagnosticsOptions(diagnostics);
   applyTokensTheme();
+  lspCoordinator.attach(monaco);
 }
 
-/** (Re)defines `orkestr-dark` from the current CSS tokens and activates it. */
+/**
+ * (Re)defines the editor theme and activates it: `orkestr-dark` from the
+ * current CSS tokens, or the selected VS Code theme.
+ */
 export function applyTokensTheme(): void {
-  const style = getComputedStyle(document.documentElement);
-  monaco.editor.defineTheme(MONACO_THEME, buildTheme((t) => style.getPropertyValue(t)));
-  monaco.editor.setTheme(MONACO_THEME);
+  refreshEditorTheme(monaco);
 }
 
 /** Configured Monaco API. */

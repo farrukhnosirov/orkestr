@@ -43,10 +43,15 @@ describe("extensions entry point", () => {
     expect(shortcutCommand(ev, commands, { projectId: null })?.id).toBe("extensions.open");
   });
 
-  it("falls back to the VS Code panel's Extensions section until the native panel exists", () => {
+  it("opens the native Extensions panel", () => {
     expect(NATIVE_EXTENSIONS_PANEL_ID).toBe("extensions");
-    expect(hasNativeExtensionsPanel()).toBe(false);
+    expect(hasNativeExtensionsPanel()).toBe(true);
     openExtensions();
+    expect(opened).toEqual(["extensions"]);
+  });
+
+  it("'Install extension…' opens the VS Code panel's Extensions section", () => {
+    commands.find((c) => c.id === "vscode.installExtension")?.run({ projectId: null });
     expect(opened).toEqual(["vscode"]);
     expect(useVsCodeStore.getState().view).toBe("extensions");
     expect(useVsCodeStore.getState().viewNonce).toBe(1);

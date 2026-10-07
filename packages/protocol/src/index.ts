@@ -49,6 +49,9 @@ export const EPHEMERAL_EVENT_KINDS: ReadonlySet<EventKindName> = new Set<EventKi
   "ManagerMessageAdded",
   "SchedulerUpdated",
   "VsCodeProgress",
+  "ExtensionInstallProgress",
+  "LspMessage",
+  "LspStatus",
 ]);
 
 /** Local notices from the server (e.g. "subscription lagged") carry `seq === 0`. */

@@ -38,6 +38,8 @@ describe("panel registry", () => {
       "Mission Control",
       // embedded VS Code (VSCodium REH web)
       "VS Code",
+      // VS Code extensions for the native editor (ADR-0025)
+      "Extensions",
     ];
     expect(PANELS.map((p) => p.title).sort()).toEqual([...expected].sort());
     expect(new Set(PANELS.map((p) => p.id)).size).toBe(PANELS.length);

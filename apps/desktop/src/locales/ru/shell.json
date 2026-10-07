@@ -183,6 +183,10 @@
     "vscode": {
       "title": "VS Code",
       "description": "Полноценный VS Code (VSCodium) с расширениями Open VSX на папке проекта"
+    },
+    "extensions": {
+      "title": "Расширения",
+      "description": "Расширения VS Code из Open VSX: темы, значки, грамматики, языковые серверы"
     }
   },
   "phasePlaceholder": {

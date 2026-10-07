@@ -34,6 +34,9 @@ pub enum CoreError {
     /// Security subsystem failure.
     #[error(transparent)]
     Security(#[from] orkestr_security::SecurityError),
+    /// Extension subsystem failure (ADR-0025).
+    #[error("extensions: {0}")]
+    Extensions(#[from] orkestr_extensions::ExtError),
 }
 
 /// Maps storage errors to RPC errors without leaking internals.

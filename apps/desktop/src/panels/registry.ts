@@ -17,6 +17,7 @@ import {
   LayoutDashboard,
   ListTodo,
   Network,
+  Puzzle,
   Rocket,
   ScrollText,
   Sparkles,
@@ -30,6 +31,7 @@ import CodePanel from "./Code";
 import CostsPanel from "./Costs";
 import DatabasePanel from "./Database";
 import DeploymentsPanel from "./Deployments";
+import ExtensionsPanel from "./Extensions";
 import FilesPanel from "./Files";
 import GitPanel from "./Git";
 import LogsPanel from "./Logs";
@@ -83,6 +85,8 @@ export const PANELS: readonly PanelDefinition[] = [
   panel("monitoring", Activity, 0, MonitoringPanel),
   // Embedded VS Code (VSCodium REH web server + Open VSX extensions).
   panel("vscode", Code2, 0, VsCodePanel),
+  // VS Code extensions for the native editor (ADR-0025)
+  panel("extensions", Puzzle, 0, ExtensionsPanel),
 ];
 
 const BY_ID = new Map(PANELS.map((p) => [p.id, p]));

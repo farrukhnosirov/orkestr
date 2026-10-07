@@ -104,5 +104,9 @@
   "voiceCommand": "Голосовая команда «{{transcript}}» → {{intent}}",
   "vscodeStatus": "Сервер VS Code: {{state}}",
   "vscodeStatusError": "Сервер VS Code: {{state}} — {{error}}",
-  "vscodeProgress": "Установка VS Code: {{phase}}"
+  "vscodeProgress": "Установка VS Code: {{phase}}",
+  "extensionsChanged": "Расширения изменены ({{reason}}): {{id}}",
+  "extensionInstallProgress": "Расширение {{key}}: {{phase}}",
+  "lspMessage": "Сообщение языкового сервера (сеанс {{session}})",
+  "lspStatus": "Языковой сервер {{server}}: {{state}}"
 }

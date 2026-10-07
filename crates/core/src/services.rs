@@ -88,6 +88,10 @@ pub struct Services {
     pub benchmarks: Arc<crate::benchmarks::BenchmarkStats>,
     /// Embedded VS Code server (VSCodium REH web, `vscode.*`).
     pub vscode: orkestr_vscode_host::VsCodeHost,
+    /// VS Code extensions for the native editor (ADR-0025).
+    pub extensions: Arc<orkestr_extensions::ExtensionService>,
+    /// Language-server sessions (ADR-0025).
+    pub lsp: orkestr_extensions::lsp::LspManager,
 }
 
 impl std::fmt::Debug for Services {

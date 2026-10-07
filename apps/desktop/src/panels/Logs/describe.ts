@@ -356,6 +356,14 @@ export function describeEvent(event: Event): string {
     }
     case "VsCodeProgress":
       return t("events:vscodeProgress", { phase: t(`vscode:phase.${event.payload.progress.phase}`) });
+    case "ExtensionsChanged":
+      return t("events:extensionsChanged", { id: event.payload.extensionId ?? "—", reason: event.payload.reason });
+    case "ExtensionInstallProgress":
+      return t("events:extensionInstallProgress", { key: event.payload.key, phase: event.payload.phase });
+    case "LspMessage":
+      return t("events:lspMessage", { session: short(event.payload.sessionId) });
+    case "LspStatus":
+      return t("events:lspStatus", { server: event.payload.session.serverId, state: event.payload.session.state });
   }
 }
 

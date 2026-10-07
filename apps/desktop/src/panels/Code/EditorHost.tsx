@@ -9,7 +9,8 @@ import { toRanges } from "../../features/files/lineDiff";
 import { t, useLanguage } from "../../i18n";
 import { useEditorStore } from "../../store/editor";
 import type { Doc } from "./documents";
-import { MONACO_THEME, tokenHex } from "./theme";
+import { editorThemeName } from "./ext/editorExtensions";
+import { tokenHex } from "./theme";
 import type { MonacoApi } from "./monaco";
 
 export interface EditorCallbacks {
@@ -24,7 +25,7 @@ function baseOptions(): Monaco.editor.IStandaloneEditorConstructionOptions {
   const style = getComputedStyle(document.documentElement);
   const mono = style.getPropertyValue("--ok-font-mono").trim();
   return {
-    theme: MONACO_THEME,
+    theme: editorThemeName(),
     automaticLayout: true,
     fontFamily: mono || "Consolas, monospace",
     fontSize: 13,

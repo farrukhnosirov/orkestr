@@ -137,6 +137,13 @@ consistently and add it to this table in the same change.
 | Feature (product breakdown) | функция | Добавить функцию | Epic → функции → истории → критерии приёмки → задачи. |
 | User story | пользовательская история, история | Добавить историю | «Как пользователь, я могу …». |
 | Product draft | черновик продукта | Подтвердить / Отклонить | Statuses: Черновик / Подтверждён / Отклонён. |
+| Extension (VS Code) | расширение | Установить / Удалить / Включить / Отключить | «Установить из .vsix…». Registry name «Open VSX» as is. |
+| Language server | языковой сервер | Разрешить / Остановить / Отозвать разрешение | |
+| Color theme (editor) | цветовая тема редактора | — | Separate from the Orkestr UI theme. |
+| File icon theme | тема значков файлов | — | Default: «Значки Orkestr». |
+| Grammar (TextMate) | грамматика подсветки синтаксиса | — | |
+| Snippet | сниппет | — | |
+| Verified publisher | подтверждённый издатель | — | Badge «Подтверждён». |
 
 Task statuses: Запланирована, Готова к работе, Выполняется, Ожидает,
 Заблокирована, На ревью, Тестируется, Выполнена, Сбой, Отменена, Прервана,

@@ -26,8 +26,10 @@ pub mod cost;
 pub mod dashboard;
 pub mod emergency;
 pub mod events;
+pub mod extensions;
 pub mod files;
 pub mod layouts;
+pub mod lsp;
 pub mod manager;
 pub mod memory;
 pub mod merge;
@@ -418,6 +420,28 @@ pub fn registry() -> Vec<MethodDescriptor> {
         MethodDescriptor::of::<vscode::Logs>(),
         MethodDescriptor::of::<vscode::ListExtensions>(),
         MethodDescriptor::of::<vscode::InstallExtension>(),
+        // VS Code extensions in the native editor + language servers (ADR-0025)
+        MethodDescriptor::of::<extensions::Search>(),
+        MethodDescriptor::of::<extensions::Details>(),
+        MethodDescriptor::of::<extensions::Icon>(),
+        MethodDescriptor::of::<extensions::Install>(),
+        MethodDescriptor::of::<extensions::InstallVsix>(),
+        MethodDescriptor::of::<extensions::List>(),
+        MethodDescriptor::of::<extensions::SetEnabled>(),
+        MethodDescriptor::of::<extensions::Uninstall>(),
+        MethodDescriptor::of::<extensions::Readme>(),
+        MethodDescriptor::of::<extensions::Theme>(),
+        MethodDescriptor::of::<extensions::IconTheme>(),
+        MethodDescriptor::of::<extensions::ReadAsset>(),
+        MethodDescriptor::of::<extensions::LanguageConfig>(),
+        MethodDescriptor::of::<extensions::Snippets>(),
+        MethodDescriptor::of::<extensions::GetPrefs>(),
+        MethodDescriptor::of::<extensions::SetPrefs>(),
+        MethodDescriptor::of::<lsp::Servers>(),
+        MethodDescriptor::of::<lsp::Start>(),
+        MethodDescriptor::of::<lsp::Send>(),
+        MethodDescriptor::of::<lsp::Stop>(),
+        MethodDescriptor::of::<lsp::Revoke>(),
     ]
 }
 
