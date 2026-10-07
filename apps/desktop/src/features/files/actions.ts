@@ -1,7 +1,8 @@
 /**
- * Cross-panel actions: open a file in the Code panel, and "Ask Manager about
+ * Cross-panel actions: open a file in the Code panel, "Ask Manager about
  * selection" (the Manager panel listens for the `orkestr:ask-manager` window
- * event).
+ * event) and "Ask Claude about selection" (`orkestr:ask-claude`, consumed by
+ * the Claude Code feature).
  *
  * A panel lives in exactly one window: docked in the main window, or popped
  * out into its own window (§28, ADR-0013). Each window is a separate webview
@@ -28,10 +29,15 @@ export interface AskManagerDetail {
 /** Event name consumed by the Manager panel. */
 export const ASK_MANAGER_EVENT = "orkestr:ask-manager";
 
+/** Event name consumed by the Claude Code panel (detail: the prompt text to insert). */
+export const ASK_CLAUDE_EVENT = "orkestr:ask-claude";
+
 /** Work for a panel that may live in another window. */
 export type PanelIntent =
   | { type: "openFile"; path: string; at?: RevealTarget }
   | { type: "askManager"; detail: AskManagerDetail }
+  /** Text for the Claude Code composer ("Ask Claude about selection"). */
+  | { type: "askClaude"; text: string }
   /** File → Save / Save all for the Code panel. */
   | { type: "saveFiles"; all: boolean };
 
@@ -39,7 +45,9 @@ const INTENT_CHANNEL = "orkestr.panel-intents";
 
 /** The panel each intent is for. */
 export function intentPanel(intent: PanelIntent): string {
-  return intent.type === "askManager" ? "manager" : "code";
+  if (intent.type === "askManager") return "manager";
+  if (intent.type === "askClaude") return "claudeCode";
+  return "code";
 }
 
 /** Whether this window hosts `panelId` (`null` = not declared: everything is local). */
@@ -53,6 +61,9 @@ function applyLocally(intent: PanelIntent): void {
   } else if (intent.type === "saveFiles") {
     // Unsaved tabs but no mounted editor: show the Code panel; the save runs when it mounts.
     if (requestSave(intent.all) === "queued") workspaceActions.openPanel("code");
+  } else if (intent.type === "askClaude") {
+    window.dispatchEvent(new CustomEvent<string>(ASK_CLAUDE_EVENT, { detail: intent.text }));
+    workspaceActions.openPanel("claudeCode");
   } else {
     window.dispatchEvent(new CustomEvent<AskManagerDetail>(ASK_MANAGER_EVENT, { detail: intent.detail }));
     workspaceActions.openPanel("manager");
@@ -65,6 +76,7 @@ function isIntent(v: unknown): v is PanelIntent {
   if (o.type === "openFile") return typeof o.path === "string";
   if (o.type === "askManager") return !!o.detail && typeof (o.detail as { text?: unknown }).text === "string";
   if (o.type === "saveFiles") return typeof (o as { all?: unknown }).all === "boolean";
+  if (o.type === "askClaude") return typeof (o as { text?: unknown }).text === "string";
   return false;
 }
 
@@ -127,6 +139,11 @@ export function openInEditor(path: string, at?: RevealTarget): void {
 /** Saves the active Code tab (or all unsaved tabs), in whichever window hosts the Code panel. */
 export function saveEditor(all: boolean): void {
   dispatchPanelIntent({ type: "saveFiles", all });
+}
+
+/** Sends text to the Claude Code composer, in whichever window hosts the panel. */
+export function askClaude(text: string): void {
+  dispatchPanelIntent({ type: "askClaude", text });
 }
 
 /** Sends the ask-manager request to the Manager panel, in whichever window hosts it. */

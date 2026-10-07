@@ -52,6 +52,8 @@ export const EPHEMERAL_EVENT_KINDS: ReadonlySet<EventKindName> = new Set<EventKi
   "ExtensionInstallProgress",
   "LspMessage",
   "LspStatus",
+  "ClaudeCodeEvent",
+  "ClaudeCodeStatus",
 ]);
 
 /** Local notices from the server (e.g. "subscription lagged") carry `seq === 0`. */

@@ -2,7 +2,7 @@
  * Subscription topics — mirrors `orkestr_protocol::topic` (Rust).
  *
  * - every event is published on each scope topic it carries
- *   (`project:`, `task:`, `agent:`, `node:`, `terminal:`, `lsp:`);
+ *   (`project:`, `task:`, `agent:`, `node:`, `terminal:`, `lsp:`, `claude:`);
  * - events without a project scope, and project lifecycle events, are also
  *   published on `global` — except node heartbeats (`NodeStatus` with a
  *   node id), which only go to `node:<id>`;
@@ -19,7 +19,8 @@ export type ScopedTopic =
   | `agent:${string}`
   | `terminal:${string}`
   | `node:${string}`
-  | `lsp:${string}`;
+  | `lsp:${string}`
+  | `claude:${string}`;
 export type Topic = typeof TOPIC_ALL | typeof TOPIC_GLOBAL | ScopedTopic;
 
 export const topic = {
@@ -31,10 +32,11 @@ export const topic = {
   terminal: (id: string): ScopedTopic => `terminal:${id}`,
   node: (id: string): ScopedTopic => `node:${id}`,
   lsp: (id: string): ScopedTopic => `lsp:${id}`,
+  claude: (id: string): ScopedTopic => `claude:${id}`,
 } as const;
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const SCOPES = new Set(["project", "task", "agent", "terminal", "node", "lsp"]);
+const SCOPES = new Set(["project", "task", "agent", "terminal", "node", "lsp", "claude"]);
 
 /** Whether the server will accept this topic. */
 export function isValidTopic(t: string): t is Topic {
@@ -54,6 +56,9 @@ export function eventTopics(event: Event): string[] {
   // Language server traffic goes only to its session topic.
   if (event.kind === "LspMessage") return [topic.lsp(event.payload.sessionId)];
   if (event.kind === "LspStatus") out.push(topic.lsp(event.payload.session.sessionId));
+  // Claude Code chat items go only to their session topic.
+  if (event.kind === "ClaudeCodeEvent") return [topic.claude(event.payload.sessionId)];
+  if (event.kind === "ClaudeCodeStatus") out.push(topic.claude(event.payload.session.sessionId));
   // Node heartbeats (every 2 s) only go to `node:<id>`, never `global`.
   const heartbeat = event.kind === "NodeStatus" && event.nodeId != null;
   if ((event.projectId == null && !heartbeat) || LIFECYCLE.has(event.kind)) out.push(TOPIC_GLOBAL);
