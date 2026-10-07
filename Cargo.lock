@@ -3030,6 +3030,7 @@ dependencies = [
  "orkestr-task-engine",
  "orkestr-terminal",
  "orkestr-vcs",
+ "orkestr-vscode-host",
  "parking_lot",
  "rand 0.9.5",
  "regex",

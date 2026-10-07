@@ -364,6 +364,14 @@ import type { UpdateTeamParams } from "./UpdateTeamParams";
 import type { UpdateTemplateParams } from "./UpdateTemplateParams";
 import type { VaultStatusResult } from "./VaultStatusResult";
 import type { VoiceConfigResult } from "./VoiceConfigResult";
+import type { VsCodeConfigPatch } from "./VsCodeConfigPatch";
+import type { VsCodeInstallParams } from "./VsCodeInstallParams";
+import type { VsCodeLogsResult } from "./VsCodeLogsResult";
+import type { VsCodeRelease } from "./VsCodeRelease";
+import type { VsCodeStartParams } from "./VsCodeStartParams";
+import type { VsCodeStartResult } from "./VsCodeStartResult";
+import type { VsCodeStatus } from "./VsCodeStatus";
+import type { VsCodeUninstallParams } from "./VsCodeUninstallParams";
 import type { WatchFilesParams } from "./WatchFilesParams";
 import type { WatchFilesResult } from "./WatchFilesResult";
 import type { WorktreeResult } from "./WorktreeResult";
@@ -629,6 +637,16 @@ export type Methods = {
   "voice.transcribe": [TranscribeParams, TranscribeResult];
   "voice.synthesize": [SynthesizeParams, SynthesizeResult];
   "voice.recordCommand": [RecordVoiceCommandParams, Empty];
+  "vscode.status": [Empty, VsCodeStatus];
+  "vscode.checkUpdate": [Empty, VsCodeRelease];
+  "vscode.install": [VsCodeInstallParams, VsCodeStatus];
+  "vscode.cancelInstall": [Empty, VsCodeStatus];
+  "vscode.uninstall": [VsCodeUninstallParams, VsCodeStatus];
+  "vscode.start": [VsCodeStartParams, VsCodeStartResult];
+  "vscode.stop": [Empty, VsCodeStatus];
+  "vscode.keepAlive": [Empty, Empty];
+  "vscode.setConfig": [VsCodeConfigPatch, VsCodeStatus];
+  "vscode.logs": [Empty, VsCodeLogsResult];
 };
 
 /** All implemented method names. */
@@ -888,6 +906,16 @@ export const METHOD_NAMES = [
   "voice.transcribe",
   "voice.synthesize",
   "voice.recordCommand",
+  "vscode.status",
+  "vscode.checkUpdate",
+  "vscode.install",
+  "vscode.cancelInstall",
+  "vscode.uninstall",
+  "vscode.start",
+  "vscode.stop",
+  "vscode.keepAlive",
+  "vscode.setConfig",
+  "vscode.logs",
 ] as const;
 
 /** Wire protocol version (see orkestr-protocol PROTOCOL_VERSION). */
@@ -959,6 +987,8 @@ export const EVENT_KINDS = [
   "UiConfigPatched",
   "VoiceCommand",
   "EmergencyFlagsChanged",
+  "VsCodeStatusChanged",
+  "VsCodeProgress",
 ] as const;
 
 /** UI config schema version (see orkestr-protocol ui_config). */

@@ -55,7 +55,12 @@ pub async fn stop_all(services: &Services) -> Result<EmergencyStopResult, RpcErr
     let out = sec.stop_all(sec.user()).await.map_err(security_to_rpc)?;
     let terminals = services.terminals.stop_all_agents().await;
     let terminals = terminals + services.quality.cancel_all();
-    Ok(stop_result_for(services, out, terminals))
+    // The VS Code server runs (untrusted) extension code: Stop All stops it too.
+    let vscode = usize::from(services.vscode.status().running.is_some());
+    if let Err(e) = services.vscode.stop().await {
+        tracing::error!(error = %e, "Stop All AI could not stop the VS Code server");
+    }
+    Ok(stop_result_for(services, out, terminals + vscode))
 }
 
 /// Wire form of the flags.

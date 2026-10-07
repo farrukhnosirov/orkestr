@@ -42,6 +42,7 @@ pub mod terminal;
 pub mod ui;
 pub mod vcs;
 pub mod voice;
+pub mod vscode;
 
 use std::collections::BTreeMap;
 use std::future::Future;
@@ -188,6 +189,8 @@ pub fn build_router() -> RpcRouter {
     router.register(robots::register);
     // voice-sound (Phase 3)
     router.register(voice::register);
+    // embedded VS Code (VSCodium REH web server)
+    router.register(vscode::register);
     router
 }
 
