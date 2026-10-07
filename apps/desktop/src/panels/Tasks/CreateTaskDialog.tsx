@@ -8,6 +8,7 @@ import { useAppStore } from "../../store/app";
 import { errorMessage, taskActions } from "./data";
 import { PRIORITIES } from "./model";
 import { useTasksUi } from "./store";
+import { Overlay } from "../../components/Overlay";
 
 /** Modal to create a task via `tasks.create`. */
 export function CreateTaskDialog({ projectId, tasks }: { projectId: string; tasks: Task[] }) {
@@ -86,7 +87,7 @@ export function CreateTaskDialog({ projectId, tasks }: { projectId: string; task
   };
 
   return (
-    <div className="overlay" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && close()}>
+    <Overlay onDismiss={close}>
       <form
         className="dialog tasks-dialog"
         role="dialog"
@@ -200,6 +201,6 @@ export function CreateTaskDialog({ projectId, tasks }: { projectId: string; task
           </Button>
         </footer>
       </form>
-    </div>
+    </Overlay>
   );
 }

@@ -15,6 +15,7 @@ import { type Segment, segmentsFromPositions, splitPathPositions } from "../../f
 import { useT } from "../../i18n";
 import { describeError } from "../../i18n/errors";
 import { useEditorStore } from "../../store/editor";
+import { Overlay } from "../../components/Overlay";
 
 function Highlighted({ segments }: { segments: Segment[] }) {
   return (
@@ -94,7 +95,7 @@ export function QuickOpen({ projectId, onOpen }: { projectId: string; onOpen: (p
   };
 
   return (
-    <div className="overlay overlay--top" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && setOpen(false)}>
+    <Overlay className="overlay--top" onDismiss={() => setOpen(false)}>
       <div className="palette qo" role="dialog" aria-modal="true" aria-label={t("quickOpen.label")}>
         <div className="palette__search">
           <Search size={18} />
@@ -180,6 +181,6 @@ export function QuickOpen({ projectId, onOpen }: { projectId: string; onOpen: (p
           </span>
         </div>
       </div>
-    </div>
+    </Overlay>
   );
 }

@@ -15,6 +15,7 @@ import { planAssign } from "../model/assign";
 import type { RobotSlot } from "../model/visibility";
 import type { RobotDrop } from "../shell";
 import { spawnInProject } from "./focus";
+import { Overlay } from "../../../components/Overlay";
 import "../designer/designer.css";
 
 export interface AssignDialogProps {
@@ -76,7 +77,7 @@ export function AssignDialog({ request, slot, onClose }: AssignDialogProps) {
   }
 
   return (
-    <div className="overlay" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+    <Overlay onDismiss={onClose}>
       <div
         className="dialog robots-assign"
         role="dialog"
@@ -115,6 +116,6 @@ export function AssignDialog({ request, slot, onClose }: AssignDialogProps) {
           )}
         </footer>
       </div>
-    </div>
+    </Overlay>
   );
 }

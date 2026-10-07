@@ -13,6 +13,7 @@ import { useT } from "../../../i18n";
 import { Notice } from "../components";
 import { branchNameError } from "../model";
 import { errorMessage, gitScope, useAsync } from "../state";
+import { Overlay } from "../../../components/Overlay";
 
 // ── shared frame ──────────────────────────────────────────
 
@@ -44,7 +45,7 @@ function FormDialog({ title, description, icon, submitLabel, busy, error, submit
     if (!busy && !submitDisabled) onSubmit();
   };
   return (
-    <div className="overlay" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && cancel()}>
+    <Overlay onDismiss={cancel}>
       <form
         className="dialog git-dialog--wide"
         role="dialog"
@@ -83,7 +84,7 @@ function FormDialog({ title, description, icon, submitLabel, busy, error, submit
           </Button>
         </footer>
       </form>
-    </div>
+    </Overlay>
   );
 }
 

@@ -203,6 +203,7 @@ export const coreCommands: AppCommand[] = [
     icon: Maximize,
     keywords: ["full screen", "maximize", "zen", "полный экран", "полноэкранный"],
     shortcut: "F11",
+    inTerminal: true,
     run: () => shellControls.toggleFullscreen(),
   },
   {
@@ -216,6 +217,7 @@ export const coreCommands: AppCommand[] = [
     icon: OctagonX,
     keywords: ["emergency", "kill", "halt", "panic", "stop agents", "экстренная остановка", "остановить", "стоп", "агенты"],
     shortcut: "Ctrl+Shift+Backspace",
+    inTerminal: true,
     // Opens the security confirmation dialog (stop + re-arm live there).
     run: () => useSecurityStore.getState().setConfirmStopOpen(true),
   },

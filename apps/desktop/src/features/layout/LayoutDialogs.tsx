@@ -7,6 +7,7 @@ import { useT } from "../../i18n";
 import * as layout from "./controller";
 import { isValidLayoutName } from "./schema";
 import { useLayoutStore } from "./store";
+import { Overlay } from "../../components/Overlay";
 
 function NameDialog({ mode, initial, id }: { mode: "saveAs" | "rename"; initial: string; id?: string }) {
   const { t } = useT(["layout", "common"]);
@@ -38,7 +39,7 @@ function NameDialog({ mode, initial, id }: { mode: "saveAs" | "rename"; initial:
 
   const titleId = "layout-name-dialog-title";
   return (
-    <div className="overlay" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && close()}>
+    <Overlay onDismiss={close}>
       <form className="dialog" role="dialog" aria-modal="true" aria-labelledby={titleId} onSubmit={(e) => void submit(e)} onKeyDown={(e) => e.key === "Escape" && close()}>
         <header className="dialog__header">
           <div className="dialog__icon">
@@ -77,7 +78,7 @@ function NameDialog({ mode, initial, id }: { mode: "saveAs" | "rename"; initial:
           </Button>
         </footer>
       </form>
-    </div>
+    </Overlay>
   );
 }
 
@@ -109,7 +110,7 @@ function ImportDialog() {
   };
 
   return (
-    <div className="overlay" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && close()}>
+    <Overlay onDismiss={close}>
       <div className="dialog" role="dialog" aria-modal="true" aria-labelledby="layout-import-title" onKeyDown={(e) => e.key === "Escape" && close()}>
         <header className="dialog__header">
           <div className="dialog__icon">
@@ -142,7 +143,7 @@ function ImportDialog() {
           </Button>
         </footer>
       </div>
-    </div>
+    </Overlay>
   );
 }
 

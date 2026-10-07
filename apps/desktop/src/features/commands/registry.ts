@@ -35,6 +35,13 @@ export interface AppCommand {
   keywords?: string[];
   /** Shortcut, e.g. `Ctrl+Shift+T` (dispatched globally via `matchesShortcut`). */
   shortcut?: string;
+  /**
+   * Whether the shortcut also fires while focus is in a terminal. By default
+   * terminal keystrokes go to the shell (Ctrl+P is previous-history, Ctrl+1..5
+   * and Ctrl+Shift+… are used by TUIs), so only keys the shell never needs —
+   * the terminal toggle, the emergency stop, F11 — opt in.
+   */
+  inTerminal?: boolean;
   /** Whether the command can run now. */
   enabled?: (ctx: CommandContext) => boolean;
   run: (ctx: CommandContext) => void | Promise<void>;

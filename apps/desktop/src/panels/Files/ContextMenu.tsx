@@ -3,6 +3,7 @@ import "../../features/files/shared.css";
 
 import { clsx } from "clsx";
 import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 export type MenuItem =
   | { type: "item"; id: string; label: string; icon?: ReactNode; shortcut?: string; danger?: boolean; disabled?: boolean; onSelect: () => void }
@@ -43,7 +44,10 @@ export function ContextMenu({ x, y, items, onClose, label }: { x: number; y: num
     buttons[(i + dir + buttons.length) % buttons.length]?.focus();
   };
 
-  return (
+  // Portaled to <body>: a dock group with backdrop-filter is the containing
+  // block of position:fixed descendants, so viewport coordinates would be
+  // offset by (and clipped to) the group otherwise.
+  return createPortal(
     <div
       ref={ref}
       className="fx-menu"
@@ -85,6 +89,7 @@ export function ContextMenu({ x, y, items, onClose, label }: { x: number; y: num
           </button>
         ),
       )}
-    </div>
+    </div>,
+    document.body,
   );
 }

@@ -267,4 +267,32 @@ describe("AI Manager run reasons", () => {
     expect(runReason("1 task(s) wait for your review")).toBe("1 task waits for your review");
     expect(runReason("budget exhausted: $0.5012 spent of $0.50")).toBe("Budget exhausted: $0.5012 spent of $0.50");
   });
+
+  // Audit r2: run/project budget codes were shown raw, and known limit codes
+  // embedded the core's English message (mixed language, US money format).
+  it("localizes every run-limit reason and its numbers", async () => {
+    await applyLanguagePreference("ru");
+    expect(nb(taskReason("run_budget_exceeded: cost budget exhausted ($0.2501 spent of $0.25)")!)).toBe(
+      "Бюджет запуска исчерпан: потрачено 0,2501 $ из 0,25 $",
+    );
+    expect(nb(taskReason("budget_exceeded: cost budget exhausted ($0.0042 spent of $0.00)")!)).toBe(
+      "Бюджет исчерпан: потрачено 0,0042 $ из 0,00 $",
+    );
+    expect(taskReason("project_budget_exceeded: a project/global spending budget would be exceeded")).toBe(
+      "Бюджет расходов исчерпан: следующий запрос превысил бы бюджет проекта или глобальный бюджет",
+    );
+    expect(nb(taskReason("budget_exceeded: token budget exhausted (120500 of 100000 tokens used)")!)).toBe(
+      "Бюджет исчерпан: использовано токенов: 120 500 из 100 000",
+    );
+    expect(taskReason("max_turns: turn limit of 30 reached without submit_result")).toBe("Достигнут лимит ходов: нет результата за 30 ходов");
+    expect(taskReason("max_turns: turn limit of 1 reached without submit_result")).toBe("Достигнут лимит ходов: нет результата за 1 ход");
+    expect(nb(taskReason("time_limit: wall-clock limit reached after 125s")!)).toBe("Достигнут лимит времени: прошло 2 мин 5 с");
+    // AgentStopped detail and the transcript note carry the same text.
+    expect(agentStopDetail("run_budget_exceeded: cost budget exhausted ($0.2501 spent of $0.25)")).not.toContain("run_budget_exceeded");
+    expect(agentNote("Stopped: max_turns: turn limit of 30 reached without submit_result")).toContain("нет результата за 30 ходов");
+    expect(agentStopDetail("provider exploded")).toBe("provider exploded");
+    await applyLanguagePreference("en");
+    expect(taskReason("run_budget_exceeded: cost budget exhausted ($0.2501 spent of $0.25)")).toBe("Run budget exceeded: $0.2501 spent of $0.25");
+    expect(taskReason("max_turns: turn limit of 1 reached without submit_result")).toBe("Turn limit reached: no result after 1 turn");
+  });
 });

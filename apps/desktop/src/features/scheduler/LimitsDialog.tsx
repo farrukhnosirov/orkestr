@@ -13,6 +13,7 @@ import { useT } from "../../i18n";
 import { describeError } from "../../i18n/errors";
 import { schedulerActions } from "./data";
 import { fromForm, type LimitsForm, shortId, toForm } from "./model";
+import { Overlay } from "../../components/Overlay";
 
 const POLICIES: readonly AutoResumePolicy[] = ["off", "followApproval", "always"];
 const POLICY_KEY = { off: "limits.autoResumeOff", followApproval: "limits.autoResumeFollowApproval", always: "limits.autoResumeAlways" } as const;
@@ -81,7 +82,7 @@ export function LimitsDialog({
   );
 
   return (
-    <div className="overlay" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && dismiss()}>
+    <Overlay onDismiss={dismiss}>
       <form
         className="dialog sched-dialog"
         role="dialog"
@@ -181,6 +182,6 @@ export function LimitsDialog({
           </Button>
         </footer>
       </form>
-    </div>
+    </Overlay>
   );
 }

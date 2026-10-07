@@ -12,6 +12,7 @@ import { RoleAvatar } from "./parts";
 import { useAgentsUi } from "./store";
 import { templateDescription, templateName } from "../../lib/coreText";
 import { openRobotDesigner } from "../../features/robots/store";
+import { Overlay } from "../../components/Overlay";
 
 const GATES: QualityGate[] = ["Build", "Lint", "Typecheck", "Tests", "Security", "Review", "AcceptanceCriteria"];
 const POLICIES: WorktreePolicy[] = ["DedicatedWorktree", "SharedWorktree", "ReadOnlyMain", "None"];
@@ -153,7 +154,7 @@ function TemplateEditor({ onSaved }: { onSaved: () => void }) {
   const budget = d.budget ?? { maxCostUsd: null, maxTokens: null, maxDurationSecs: null, period: "PerTask" as const, warnAt: 0.8 };
 
   return (
-    <div className="overlay" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && close()}>
+    <Overlay onDismiss={close}>
       <form
         className="dialog agents-dialog agents-dialog--wide"
         role="dialog"
@@ -341,7 +342,7 @@ function TemplateEditor({ onSaved }: { onSaved: () => void }) {
           </Button>
         </footer>
       </form>
-    </div>
+    </Overlay>
   );
 }
 
@@ -387,7 +388,7 @@ function ImportDialog({ onImported }: { onImported: () => void }) {
     }
   };
   return (
-    <div className="overlay" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && close()}>
+    <Overlay onDismiss={close}>
       <form className="dialog agents-dialog" role="dialog" aria-modal="true" aria-labelledby="tpl-import-title" onSubmit={(e) => void submit(e)}>
         <header className="dialog__header">
           <div className="dialog__icon">
@@ -435,7 +436,7 @@ function ImportDialog({ onImported }: { onImported: () => void }) {
           </Button>
         </footer>
       </form>
-    </div>
+    </Overlay>
   );
 }
 

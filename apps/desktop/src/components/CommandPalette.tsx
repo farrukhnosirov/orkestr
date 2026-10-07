@@ -23,6 +23,7 @@ import { PANELS } from "../panels/registry";
 import { useThemeStore } from "../features/theme/themeStore";
 import { useAppStore } from "../store/app";
 import { workspaceActions } from "./workspaceActions";
+import { Overlay } from "./Overlay";
 
 export { fuzzyScore } from "../features/search/fuzzy";
 
@@ -332,7 +333,7 @@ export function CommandPalette() {
   );
 
   return (
-    <div className="overlay overlay--top" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && setOpen(false)}>
+    <Overlay className="overlay--top" onDismiss={() => setOpen(false)}>
       <div className="palette" role="dialog" aria-modal="true" aria-label={ts("shell:palette.label")} onKeyDown={onKeyDown}>
         <div className="palette__search">
           {searchMode ? <span className="palette__mode">{ts("shell:palette.searchMode")}</span> : <Search size={16} />}
@@ -408,7 +409,7 @@ export function CommandPalette() {
           <span className="palette__footer-panels">{searchMode ? ts("shell:palette.globalSearch") : ts("shell:palette.commandCount", { count: allItems.length })}</span>
         </div>
       </div>
-    </div>
+    </Overlay>
   );
 }
 
