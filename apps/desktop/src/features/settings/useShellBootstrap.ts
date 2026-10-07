@@ -12,7 +12,7 @@ import { getClient } from "../../core/client";
 import { applyLanguagePreference, languagePreference } from "../../i18n";
 import { shellControls } from "../../lib/tauri";
 import { useAppStore } from "../../store/app";
-import { stopAllAi } from "../commands/coreCommands";
+import { reportTrayStopAll } from "../commands/coreCommands";
 import { notificationFromEvent } from "../notifications/fromEvent";
 import { useNotificationsStore } from "../notifications/notificationsStore";
 import { useOnboardingStore } from "../onboarding/onboardingStore";
@@ -82,15 +82,14 @@ export function useShellBootstrap(ready: boolean): void {
     };
   }, [ready]);
 
-  // Tray "Stop All AI": immediate emergency stop (no dialog — the user picked it explicitly).
+  // Tray "Stop All AI": the shell stops natively (works even when this page is
+  // hidden, hung or disconnected); the page only shows the outcome.
   // Shell shortcuts (Ctrl+, F11, Ctrl+Shift+Backspace…) run through the command registry in App.
   useEffect(() => {
     let off: (() => void) | undefined;
     let disposed = false;
     shellControls
-      .onTrayStopAll(() => {
-        void stopAllAi();
-      })
+      .onTrayStopAll(reportTrayStopAll)
       .then(
         (u) => (disposed ? u() : (off = u)),
         (e: unknown) => console.warn("tray listener", e),

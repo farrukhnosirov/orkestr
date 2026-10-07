@@ -127,6 +127,12 @@ export async function stopAllAi(): Promise<{ agentsStopped: number; approvalsCan
   return { agentsStopped: r.agentsStopped, approvalsCancelled: r.approvalsCancelled };
 }
 
+/** Refreshes the emergency flags and the approvals inbox after a stop made elsewhere (the tray). */
+export async function refreshAfterStop(): Promise<void> {
+  await refreshFlags();
+  await refreshPending();
+}
+
 export async function resetEmergency(): Promise<void> {
   const c = maybeClient();
   if (!c) return;

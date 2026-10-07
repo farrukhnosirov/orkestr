@@ -1,8 +1,10 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Main window: custom title bar window controls, fullscreen, hide-to-tray and tray events. Business data never flows through Tauri — the webview talks to the core over the RPC protocol.",
-  "windows": ["main"],
+  "description": "Main window: custom title bar window controls, fullscreen, hide-to-tray and tray events, plus every shell command (app commands are declared in build.rs, so other windows only get what their capability grants). Business data never flows through Tauri — the webview talks to the core over the RPC protocol.",
+  "windows": [
+    "main"
+  ],
   "permissions": [
     "core:default",
     "core:window:allow-minimize",
@@ -17,6 +19,29 @@
     "core:window:allow-show",
     "core:window:allow-set-focus",
     "core:window:allow-set-fullscreen",
-    "core:window:allow-is-fullscreen"
+    "core:window:allow-is-fullscreen",
+    "allow-core-connection",
+    "allow-shell-set-prefs",
+    "allow-shell-quit",
+    "allow-set-ui-language",
+    "allow-window-list-monitors",
+    "allow-window-open-panel",
+    "allow-window-close-panel",
+    "allow-window-redock-panel",
+    "allow-window-list-panels",
+    "allow-window-main-placement",
+    "allow-window-move-to-monitor",
+    "allow-window-reconcile",
+    "allow-hud-show",
+    "allow-hud-hide",
+    "allow-hud-toggle",
+    "allow-hud-collapse",
+    "allow-hud-expand",
+    "allow-robot-open",
+    "allow-robot-close",
+    "allow-robot-close-all",
+    "allow-robot-set-shape",
+    "allow-robot-set-drop-zones",
+    "allow-robot-to-main"
   ]
 }

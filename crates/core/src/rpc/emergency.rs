@@ -10,17 +10,12 @@ use orkestr_security::{EmergencyFlags, EmergencyOutcome};
 
 use super::{RpcContext, RpcRouter};
 use crate::error::security_to_rpc;
+use crate::Services;
 
 /// Registers the area.
 pub fn register(router: &mut RpcRouter) {
     router
-        .method::<m::StopAll, _, _>(|ctx: RpcContext, _| async move {
-            let sec = &ctx.services.security;
-            let out = sec.stop_all(sec.user()).await.map_err(security_to_rpc)?;
-            let terminals = ctx.services.terminals.stop_all_agents().await;
-            let terminals = terminals + ctx.services.quality.cancel_all();
-            Ok(stop_result(&ctx, out, terminals))
-        })
+        .method::<m::StopAll, _, _>(|ctx: RpcContext, _| async move { stop_all(&ctx.services).await })
         .method::<m::StopProject, _, _>(|ctx: RpcContext, p: StopProjectParams| async move {
             let sec = &ctx.services.security;
             let out = sec.stop_project(p.project_id, sec.user()).await.map_err(security_to_rpc)?;
@@ -52,6 +47,17 @@ pub fn register(router: &mut RpcRouter) {
         });
 }
 
+/// Stop All AI (§52): every agent, agent terminal and quality run. The
+/// `emergency.stopAll` handler and embedding hosts (the desktop tray's native
+/// *Stop All AI*, which must work without the webview) share this path.
+pub async fn stop_all(services: &Services) -> Result<EmergencyStopResult, RpcError> {
+    let sec = &services.security;
+    let out = sec.stop_all(sec.user()).await.map_err(security_to_rpc)?;
+    let terminals = services.terminals.stop_all_agents().await;
+    let terminals = terminals + services.quality.cancel_all();
+    Ok(stop_result_for(services, out, terminals))
+}
+
 /// Wire form of the flags.
 #[must_use]
 pub fn flags_view(f: EmergencyFlags) -> EmergencyFlagsView {
@@ -73,10 +79,14 @@ fn status(ctx: &RpcContext) -> EmergencyStatusResult {
 
 /// `terminals` = agent commands / agent terminals stopped by the terminal service.
 fn stop_result(ctx: &RpcContext, out: EmergencyOutcome, terminals: usize) -> EmergencyStopResult {
+    stop_result_for(&ctx.services, out, terminals)
+}
+
+fn stop_result_for(services: &Services, out: EmergencyOutcome, terminals: usize) -> EmergencyStopResult {
     EmergencyStopResult {
         agents_stopped: out.report.agents_stopped,
         other_stopped: out.report.other_stopped.saturating_add(u32::try_from(terminals).unwrap_or(u32::MAX)),
         approvals_cancelled: out.approvals_cancelled,
-        flags: flags_view(ctx.services.security.emergency.flags()),
+        flags: flags_view(services.security.emergency.flags()),
     }
 }
