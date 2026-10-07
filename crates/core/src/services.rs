@@ -86,6 +86,10 @@ pub struct Services {
     pub seq_high_water: Arc<crate::housekeeping::SeqHighWater>,
     /// Historical model statistics for router auto-scoring (Phase 2, §22).
     pub benchmarks: Arc<crate::benchmarks::BenchmarkStats>,
+    /// VS Code extensions for the native editor (ADR-0025).
+    pub extensions: Arc<orkestr_extensions::ExtensionService>,
+    /// Language-server sessions (ADR-0025).
+    pub lsp: orkestr_extensions::lsp::LspManager,
 }
 
 impl std::fmt::Debug for Services {

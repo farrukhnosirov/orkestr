@@ -289,6 +289,8 @@ async fn delete(ctx: RpcContext, p: DeleteProjectParams) -> Result<DeleteProject
         return Err(RpcError::not_found(format!("project {} not found", p.project_id)));
     }
     tracing::info!(project_id = %p.project_id, "project deleted (metadata only)");
+    // Language servers of the project (ADR-0025).
+    ctx.services.lsp.stop_project(p.project_id);
     publish(&ctx, EventKind::ProjectDeleted(ProjectDeletedPayload { project_id: p.project_id })).await?;
     Ok(DeleteProjectResult { project_id: p.project_id })
 }

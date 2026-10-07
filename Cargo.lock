@@ -3025,6 +3025,7 @@ dependencies = [
  "orkestr-cost",
  "orkestr-domain",
  "orkestr-events",
+ "orkestr-extensions",
  "orkestr-files",
  "orkestr-insight",
  "orkestr-memory",

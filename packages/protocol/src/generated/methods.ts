@@ -92,6 +92,7 @@ import type { DiffParams } from "./DiffParams";
 import type { DiffResult } from "./DiffResult";
 import type { DiscardParams } from "./DiscardParams";
 import type { DiscardResult } from "./DiscardResult";
+import type { EditorPrefs } from "./EditorPrefs";
 import type { EffectiveRulesParams } from "./EffectiveRulesParams";
 import type { EffectiveRulesResult } from "./EffectiveRulesResult";
 import type { EmergencyStatusResult } from "./EmergencyStatusResult";
@@ -100,6 +101,12 @@ import type { Empty } from "./Empty";
 import type { EvaluateParams } from "./EvaluateParams";
 import type { ExecLineParams } from "./ExecLineParams";
 import type { ExportTemplateResult } from "./ExportTemplateResult";
+import type { ExtensionAssetResult } from "./ExtensionAssetResult";
+import type { ExtensionFileParams } from "./ExtensionFileParams";
+import type { ExtensionIconParams } from "./ExtensionIconParams";
+import type { ExtensionIconResult } from "./ExtensionIconResult";
+import type { ExtensionIdParams } from "./ExtensionIdParams";
+import type { ExtensionReadmeResult } from "./ExtensionReadmeResult";
 import type { FileEntryResult } from "./FileEntryResult";
 import type { FilePathParams } from "./FilePathParams";
 import type { FindFilesParams } from "./FindFilesParams";
@@ -116,9 +123,13 @@ import type { HealthResult } from "./HealthResult";
 import type { ImportTemplateParams } from "./ImportTemplateParams";
 import type { ImportTemplateResult } from "./ImportTemplateResult";
 import type { InitParams } from "./InitParams";
+import type { InstallExtensionParams } from "./InstallExtensionParams";
+import type { InstallVsixParams } from "./InstallVsixParams";
+import type { InstalledExtensionResult } from "./InstalledExtensionResult";
 import type { KnowledgeIdParams } from "./KnowledgeIdParams";
 import type { KnowledgeListResult } from "./KnowledgeListResult";
 import type { KnowledgeSourceResult } from "./KnowledgeSourceResult";
+import type { LanguageConfigResult } from "./LanguageConfigResult";
 import type { LayoutIdParams } from "./LayoutIdParams";
 import type { LayoutsDeviceParams } from "./LayoutsDeviceParams";
 import type { LayoutsState } from "./LayoutsState";
@@ -132,6 +143,7 @@ import type { ListBudgetsParams } from "./ListBudgetsParams";
 import type { ListConsensusParams } from "./ListConsensusParams";
 import type { ListConsensusResult } from "./ListConsensusResult";
 import type { ListDecisionsParams } from "./ListDecisionsParams";
+import type { ListExtensionsResult } from "./ListExtensionsResult";
 import type { ListFilesParams } from "./ListFilesParams";
 import type { ListFilesResult } from "./ListFilesResult";
 import type { ListKnowledgeParams } from "./ListKnowledgeParams";
@@ -168,6 +180,13 @@ import type { ListTrashParams } from "./ListTrashParams";
 import type { ListTrashResult } from "./ListTrashResult";
 import type { LogParams } from "./LogParams";
 import type { LogResult } from "./LogResult";
+import type { LspRevokeParams } from "./LspRevokeParams";
+import type { LspSendParams } from "./LspSendParams";
+import type { LspServersParams } from "./LspServersParams";
+import type { LspServersResult } from "./LspServersResult";
+import type { LspSessionParams } from "./LspSessionParams";
+import type { LspStartParams } from "./LspStartParams";
+import type { LspStartResult } from "./LspStartResult";
 import type { ManagerChatParams } from "./ManagerChatParams";
 import type { ManagerChatResult } from "./ManagerChatResult";
 import type { ManagerClearResult } from "./ManagerClearResult";
@@ -183,6 +202,8 @@ import type { ManagerRunParams } from "./ManagerRunParams";
 import type { ManagerRunResult } from "./ManagerRunResult";
 import type { ManagerStatusParams } from "./ManagerStatusParams";
 import type { ManagerStatusResult } from "./ManagerStatusResult";
+import type { MarketplaceDetails } from "./MarketplaceDetails";
+import type { MarketplaceRef } from "./MarketplaceRef";
 import type { MemoryIdParams } from "./MemoryIdParams";
 import type { MemoryItemResult } from "./MemoryItemResult";
 import type { MemoryListResult } from "./MemoryListResult";
@@ -238,6 +259,7 @@ import type { ProviderViewResult } from "./ProviderViewResult";
 import type { QualityProfile } from "./QualityProfile";
 import type { QualityProjectParams } from "./QualityProjectParams";
 import type { QualityRun } from "./QualityRun";
+import type { ReadExtensionAssetParams } from "./ReadExtensionAssetParams";
 import type { ReadFileParams } from "./ReadFileParams";
 import type { ReadFileResult } from "./ReadFileResult";
 import type { RecordVoiceCommandParams } from "./RecordVoiceCommandParams";
@@ -264,6 +286,8 @@ import type { RequestReviewParams } from "./RequestReviewParams";
 import type { ResizeTerminalParams } from "./ResizeTerminalParams";
 import type { ResolveApprovalParams } from "./ResolveApprovalParams";
 import type { ResolveFindingParams } from "./ResolveFindingParams";
+import type { ResolvedIconTheme } from "./ResolvedIconTheme";
+import type { ResolvedTheme } from "./ResolvedTheme";
 import type { RestoreFileParams } from "./RestoreFileParams";
 import type { RestoreFileResult } from "./RestoreFileResult";
 import type { RestoreTrashedParams } from "./RestoreTrashedParams";
@@ -289,6 +313,8 @@ import type { SchedulerExplainParams } from "./SchedulerExplainParams";
 import type { SchedulerExplanation } from "./SchedulerExplanation";
 import type { SchedulerStatus } from "./SchedulerStatus";
 import type { SchedulerStatusParams } from "./SchedulerStatusParams";
+import type { SearchExtensionsParams } from "./SearchExtensionsParams";
+import type { SearchExtensionsResult } from "./SearchExtensionsResult";
 import type { SearchFilesParams } from "./SearchFilesParams";
 import type { SearchFilesResult } from "./SearchFilesResult";
 import type { SearchKnowledgeParams } from "./SearchKnowledgeParams";
@@ -298,6 +324,7 @@ import type { SearchMemoryResult } from "./SearchMemoryResult";
 import type { SecretResult } from "./SecretResult";
 import type { SetBudgetParams } from "./SetBudgetParams";
 import type { SetCredentialParams } from "./SetCredentialParams";
+import type { SetExtensionEnabledParams } from "./SetExtensionEnabledParams";
 import type { SetGatesParams } from "./SetGatesParams";
 import type { SetModeParams } from "./SetModeParams";
 import type { SetPipelineConfigParams } from "./SetPipelineConfigParams";
@@ -323,6 +350,7 @@ import type { SnapshotDiffParams } from "./SnapshotDiffParams";
 import type { SnapshotDiffResult } from "./SnapshotDiffResult";
 import type { SnapshotIdParams } from "./SnapshotIdParams";
 import type { SnapshotResult } from "./SnapshotResult";
+import type { SnippetsResult } from "./SnippetsResult";
 import type { SpawnAgentParams } from "./SpawnAgentParams";
 import type { SpawnAgentResult } from "./SpawnAgentResult";
 import type { StartPipelineParams } from "./StartPipelineParams";
@@ -347,6 +375,7 @@ import type { TerminalIdParams } from "./TerminalIdParams";
 import type { TerminalSessionResult } from "./TerminalSessionResult";
 import type { TestProviderParams } from "./TestProviderParams";
 import type { TestProviderResult } from "./TestProviderResult";
+import type { ThemeRef } from "./ThemeRef";
 import type { ThemesResult } from "./ThemesResult";
 import type { ToggleParams } from "./ToggleParams";
 import type { TranscribeParams } from "./TranscribeParams";
@@ -629,6 +658,27 @@ export type Methods = {
   "voice.transcribe": [TranscribeParams, TranscribeResult];
   "voice.synthesize": [SynthesizeParams, SynthesizeResult];
   "voice.recordCommand": [RecordVoiceCommandParams, Empty];
+  "extensions.search": [SearchExtensionsParams, SearchExtensionsResult];
+  "extensions.details": [MarketplaceRef, MarketplaceDetails];
+  "extensions.icon": [ExtensionIconParams, ExtensionIconResult];
+  "extensions.install": [InstallExtensionParams, InstalledExtensionResult];
+  "extensions.installVsix": [InstallVsixParams, InstalledExtensionResult];
+  "extensions.list": [Empty, ListExtensionsResult];
+  "extensions.setEnabled": [SetExtensionEnabledParams, InstalledExtensionResult];
+  "extensions.uninstall": [ExtensionIdParams, Empty];
+  "extensions.readme": [ExtensionIdParams, ExtensionReadmeResult];
+  "extensions.theme": [ThemeRef, ResolvedTheme];
+  "extensions.iconTheme": [ThemeRef, ResolvedIconTheme];
+  "extensions.readAsset": [ReadExtensionAssetParams, ExtensionAssetResult];
+  "extensions.languageConfig": [ExtensionFileParams, LanguageConfigResult];
+  "extensions.snippets": [ExtensionFileParams, SnippetsResult];
+  "extensions.getPrefs": [Empty, EditorPrefs];
+  "extensions.setPrefs": [EditorPrefs, EditorPrefs];
+  "lsp.servers": [LspServersParams, LspServersResult];
+  "lsp.start": [LspStartParams, LspStartResult];
+  "lsp.send": [LspSendParams, Empty];
+  "lsp.stop": [LspSessionParams, Empty];
+  "lsp.revoke": [LspRevokeParams, Empty];
 };
 
 /** All implemented method names. */
@@ -888,6 +938,27 @@ export const METHOD_NAMES = [
   "voice.transcribe",
   "voice.synthesize",
   "voice.recordCommand",
+  "extensions.search",
+  "extensions.details",
+  "extensions.icon",
+  "extensions.install",
+  "extensions.installVsix",
+  "extensions.list",
+  "extensions.setEnabled",
+  "extensions.uninstall",
+  "extensions.readme",
+  "extensions.theme",
+  "extensions.iconTheme",
+  "extensions.readAsset",
+  "extensions.languageConfig",
+  "extensions.snippets",
+  "extensions.getPrefs",
+  "extensions.setPrefs",
+  "lsp.servers",
+  "lsp.start",
+  "lsp.send",
+  "lsp.stop",
+  "lsp.revoke",
 ] as const;
 
 /** Wire protocol version (see orkestr-protocol PROTOCOL_VERSION). */
@@ -959,6 +1030,10 @@ export const EVENT_KINDS = [
   "UiConfigPatched",
   "VoiceCommand",
   "EmergencyFlagsChanged",
+  "ExtensionsChanged",
+  "ExtensionInstallProgress",
+  "LspMessage",
+  "LspStatus",
 ] as const;
 
 /** UI config schema version (see orkestr-protocol ui_config). */

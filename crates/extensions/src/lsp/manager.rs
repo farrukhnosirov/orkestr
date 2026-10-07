@@ -56,6 +56,8 @@ pub struct LaunchSpec {
     pub program: PathBuf,
     /// Arguments.
     pub args: Vec<String>,
+    /// External stop signal (emergency stop); the session stops when it fires.
+    pub stop: Option<CancellationToken>,
 }
 
 /// Supervision tunables.
@@ -162,10 +164,11 @@ impl LspManager {
             error: None,
         };
         let (tx, rx) = mpsc::channel(1024);
+        let cancel = spec.stop.as_ref().map_or_else(CancellationToken::new, CancellationToken::child_token);
         let handle = Handle {
             info: Arc::new(Mutex::new(info.clone())),
             tx,
-            cancel: CancellationToken::new(),
+            cancel,
             last_activity: Arc::new(Mutex::new(Instant::now())),
         };
         let sup = Supervisor {
@@ -491,6 +494,7 @@ while (($n = $in.Read($buf, 0, $buf.Length)) -gt 0) { $out.Write($buf, 0, $n); $
                 root_uri: "file:///tmp".into(),
                 cwd: dir.to_path_buf(),
                 program: ps,
+                stop: None,
                 args: vec![
                     "-NoProfile".into(),
                     "-NonInteractive".into(),
@@ -510,6 +514,7 @@ while (($n = $in.Read($buf, 0, $buf.Length)) -gt 0) { $out.Write($buf, 0, $n); $
                 cwd: dir.to_path_buf(),
                 program: orkestr_platform::process::which("cat")?,
                 args: vec![],
+                stop: None,
             })
         }
     }
@@ -575,6 +580,7 @@ while (($n = $in.Read($buf, 0, $buf.Length)) -gt 0) { $out.Write($buf, 0, $n); $
             cwd: dir.path().to_path_buf(),
             program,
             args,
+            stop: None,
         };
         let info = m.start(spec).unwrap();
         let r1 = next_status(&mut rx, LspState::Restarting).await;
@@ -598,10 +604,24 @@ while (($n = $in.Read($buf, 0, $buf.Length)) -gt 0) { $out.Write($buf, 0, $n); $
             cwd: dir.path().to_path_buf(),
             program: dir.path().join("does-not-exist-server"),
             args: vec![],
+            stop: None,
         };
         m.start(spec).unwrap();
         let f = next_status(&mut rx, LspState::Failed).await;
         assert!(f.error.unwrap().contains("could not start"));
+    }
+
+    #[tokio::test]
+    async fn external_stop_token_stops_the_session() {
+        let dir = tempfile::tempdir().unwrap();
+        let Some(mut spec) = echo_spec(dir.path()) else { return };
+        let emergency = CancellationToken::new();
+        spec.stop = Some(emergency.clone());
+        let (m, mut rx) = manager(LspConfig::default());
+        m.start(spec).unwrap();
+        next_status(&mut rx, LspState::Running).await;
+        emergency.cancel();
+        next_status(&mut rx, LspState::Stopped).await;
     }
 
     #[tokio::test]
@@ -614,6 +634,7 @@ while (($n = $in.Read($buf, 0, $buf.Length)) -gt 0) { $out.Write($buf, 0, $n); $
             cwd: PathBuf::from("."),
             program: PathBuf::from("x"),
             args: vec![],
+            stop: None,
         };
         assert!(matches!(m.start(spec), Err(ExtError::Conflict(_))));
     }

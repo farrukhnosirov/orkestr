@@ -89,7 +89,8 @@ pub struct Build {
 /// Open VSX client.
 #[derive(Debug, Clone)]
 pub struct OpenVsxClient {
-    http: reqwest::Client,
+    /// Built on first use (TLS roots are loaded lazily, keeping core start fast).
+    http: std::sync::Arc<std::sync::OnceLock<reqwest::Client>>,
     base: String,
 }
 
@@ -140,13 +141,20 @@ impl OpenVsxClient {
             .unwrap_or_else(|| DEFAULT_BASE.to_owned())
             .trim_end_matches('/')
             .to_owned();
-        let http = reqwest::Client::builder()
+        Ok(Self { http: std::sync::Arc::new(std::sync::OnceLock::new()), base })
+    }
+
+    fn http(&self) -> ExtResult<&reqwest::Client> {
+        if let Some(c) = self.http.get() {
+            return Ok(c);
+        }
+        let built = reqwest::Client::builder()
             .user_agent(concat!("Orkestr/", env!("CARGO_PKG_VERSION"), " (+open-vsx client)"))
             .connect_timeout(Duration::from_secs(15))
             .timeout(Duration::from_secs(600))
             .build()
             .map_err(|e| ExtError::Network(e.to_string()))?;
-        Ok(Self { http, base })
+        Ok(self.http.get_or_init(|| built))
     }
 
     /// Registry base URL.
@@ -156,7 +164,7 @@ impl OpenVsxClient {
     }
 
     async fn get_json(&self, url: &str) -> ExtResult<Value> {
-        let resp = self.http.get(url).send().await.map_err(|e| ExtError::Network(e.to_string()))?;
+        let resp = self.http()?.get(url).send().await.map_err(|e| ExtError::Network(e.to_string()))?;
         let status = resp.status();
         if status == reqwest::StatusCode::NOT_FOUND {
             return Err(ExtError::NotFound(format!("Open VSX: {url}")));
@@ -177,7 +185,7 @@ impl OpenVsxClient {
 
     async fn get_text(&self, url: &str, max: usize) -> ExtResult<String> {
         self.ensure_registry_url(url)?;
-        let resp = self.http.get(url).send().await.map_err(|e| ExtError::Network(e.to_string()))?;
+        let resp = self.http()?.get(url).send().await.map_err(|e| ExtError::Network(e.to_string()))?;
         if !resp.status().is_success() {
             return Err(ExtError::Network(format!("HTTP {} for {url}", resp.status())));
         }
@@ -308,7 +316,7 @@ impl OpenVsxClient {
     pub async fn download(&self, build: &Build, mut progress: impl FnMut(u64, Option<u64>) + Send) -> ExtResult<(Vec<u8>, String)> {
         self.ensure_registry_url(&build.download_url)?;
         let expected = parse_sha256_file(&self.get_text(&build.sha256_url, 4096).await?)?;
-        let resp = self.http.get(&build.download_url).send().await.map_err(|e| ExtError::Network(e.to_string()))?;
+        let resp = self.http()?.get(&build.download_url).send().await.map_err(|e| ExtError::Network(e.to_string()))?;
         if !resp.status().is_success() {
             return Err(ExtError::Network(format!("HTTP {} downloading {}", resp.status(), build.download_url)));
         }
@@ -344,7 +352,7 @@ impl OpenVsxClient {
     /// Fetches an icon as a `data:` URL.
     pub async fn icon(&self, url: &str) -> ExtResult<Option<String>> {
         self.ensure_registry_url(url)?;
-        let resp = self.http.get(url).send().await.map_err(|e| ExtError::Network(e.to_string()))?;
+        let resp = self.http()?.get(url).send().await.map_err(|e| ExtError::Network(e.to_string()))?;
         if !resp.status().is_success() {
             return Ok(None);
         }

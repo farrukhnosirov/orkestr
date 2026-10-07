@@ -15,8 +15,10 @@ pub mod cost;
 pub mod dashboard;
 pub mod emergency;
 pub mod events;
+pub mod extensions;
 pub mod files;
 pub mod layouts;
+pub mod lsp;
 pub mod manager;
 pub mod memory;
 pub mod merge;
@@ -188,6 +190,8 @@ pub fn build_router() -> RpcRouter {
     router.register(robots::register);
     // voice-sound (Phase 3)
     router.register(voice::register);
+    // VS Code extensions in the native editor + language servers (ADR-0025)
+    router.register(extensions::register).register(lsp::register);
     router
 }
 
