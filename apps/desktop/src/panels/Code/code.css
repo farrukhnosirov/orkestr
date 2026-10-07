@@ -470,6 +470,7 @@
 
 .code-lsp-banner {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--ok-space-2);
   padding: var(--ok-space-2) var(--ok-space-3);
@@ -489,7 +490,7 @@
 
 .code-lsp-banner__text {
   display: flex;
-  flex: 1;
+  flex: 1 1 240px;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
