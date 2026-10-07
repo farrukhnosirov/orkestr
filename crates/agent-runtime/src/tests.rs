@@ -64,11 +64,18 @@ struct Scripted {
     id: ProviderId,
     steps: Mutex<VecDeque<Step>>,
     requests: Mutex<Vec<ChatRequest>>,
+    /// Billing override (default: the mock's `Local`).
+    cost_model: Mutex<Option<orkestr_providers::CostModelKind>>,
 }
 
 impl Scripted {
     fn new(steps: Vec<Step>) -> Arc<Self> {
-        Arc::new(Self { id: ProviderId::new(), steps: Mutex::new(steps.into()), requests: Mutex::new(Vec::new()) })
+        Arc::new(Self {
+            id: ProviderId::new(),
+            steps: Mutex::new(steps.into()),
+            requests: Mutex::new(Vec::new()),
+            cost_model: Mutex::new(None),
+        })
     }
 }
 
@@ -78,7 +85,11 @@ impl ProviderAdapter for Scripted {
         self.id
     }
     fn descriptor(&self) -> ProviderDescriptor {
-        MockAdapter::new(self.id, "Mock (offline demo)", MockOptions::default()).descriptor()
+        let mut d = MockAdapter::new(self.id, "Mock (offline demo)", MockOptions::default()).descriptor();
+        if let Some(c) = self.cost_model.lock().clone() {
+            d.cost_model = c;
+        }
+        d
     }
     async fn auth_state(&self) -> AuthStatus {
         AuthStatus::Ready { label: "scripted".into() }
@@ -574,7 +585,10 @@ async fn dangerous_command_waits_for_approval_then_runs() {
     let tpl = h.template(&["run_command", "submit_result"], WorktreePolicy::SharedWorktree, None).await;
     // A local dangerous command: since audit r1 a `git push` also needs the
     // Network capability, which the Backend template denies.
-    h.provider(vec![tool("run_command", json!({"command": "git branch -D no-such-branch"})), submit("done", "deleted")]);
+    h.provider(vec![
+        tool("run_command", json!({"command": "git branch -D no-such-branch"})),
+        submit("done", "deleted"),
+    ]);
     let a = h.spawn(tpl, None).await;
     let ap = h.pending_approval(a.id).await;
     h.wait_state(a.id, AgentState::Waiting).await;
@@ -712,6 +726,45 @@ async fn budget_exceeded_stops_cleanly() {
     assert!((a.usage.cost_usd - 0.5).abs() < 1e-9);
     assert_eq!(a.turns_used, 1, "no further model call after the budget was exhausted");
     assert_eq!(h.task_status(&a).await, TaskStatus::Failed);
+}
+
+fn price_warnings(sub: &mut orkestr_events::Subscription) -> usize {
+    let mut n = 0;
+    while let Some(Some(Received::Event(e))) = sub.recv().now_or_never() {
+        if let orkestr_protocol::event::EventKind::Log(l) = &e.kind {
+            if l.fields.get("code").and_then(Value::as_str) == Some("model_price_unknown") {
+                n += 1;
+            }
+        }
+    }
+    n
+}
+
+#[tokio::test]
+async fn unknown_price_of_a_billed_model_is_warned_once() {
+    let h = harness(ApprovalMode::SemiAuto).await;
+    let mut sub = h.events.subscribe_all();
+    let budget = Budget {
+        max_cost_usd: Some(1.0),
+        max_tokens: None,
+        max_duration_secs: None,
+        period: BudgetPeriod::PerTask,
+        warn_at: 0.8,
+    };
+    let tpl = h.template(&["read_file", "submit_result"], WorktreePolicy::SharedWorktree, Some(budget)).await;
+    let p = h.provider(vec![tool("read_file", json!({"path": "README.md"})), submit("done", "read it")]);
+    *p.cost_model.lock() = Some(orkestr_providers::CostModelKind::PerToken);
+    let a = h.spawn(tpl, None).await;
+    let a = h.wait_done(a.id).await;
+    assert_eq!(a.state, AgentState::Completed, "{:?}", a.last_error);
+    assert_eq!(price_warnings(&mut sub), 1, "one warning per run, not per turn");
+
+    // Local / subscription billing has no marginal price: nothing to warn about.
+    let mut sub = h.events.subscribe_all();
+    h.provider(vec![submit("done", "ok")]);
+    let a = h.spawn(tpl, None).await;
+    h.wait_done(a.id).await;
+    assert_eq!(price_warnings(&mut sub), 0);
 }
 
 #[tokio::test]

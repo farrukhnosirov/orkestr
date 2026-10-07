@@ -3,8 +3,31 @@
  */
 import type { ShellDescriptor, TerminalSession } from "@orkestr/protocol";
 
+import { shortcutKey } from "../../features/commands/keys";
 import { t } from "../../i18n";
 import { describeError } from "../../i18n/errors";
+
+/** What the terminal does with a keydown before xterm sees it. */
+export type TerminalKeyAction = "copy" | "paste" | "global" | null;
+
+/**
+ * Clipboard / pass-through keys of the terminal, layout-independent (on
+ * ЙЦУКЕН Ctrl+C arrives as `key: "с"`, Ctrl+V as `"м"`): Ctrl+Shift+C/V and
+ * Ctrl/Shift+Insert always; plain Ctrl+C copies only with a selection —
+ * otherwise it is left to xterm, which sends ^C (SIGINT) from the key code.
+ * `global`: Ctrl+` is left to the app's "Open Terminal" shortcut.
+ */
+export function terminalKeyAction(
+  e: Pick<KeyboardEvent, "key" | "code" | "ctrlKey" | "metaKey" | "shiftKey">,
+  hasSelection: boolean,
+): TerminalKeyAction {
+  const ctrl = e.ctrlKey || e.metaKey;
+  const key = shortcutKey(e);
+  if (ctrl && (key === "`" || e.code === "Backquote")) return "global";
+  if (ctrl && (key === "c" || key === "insert") && (e.shiftKey || hasSelection)) return "copy";
+  if ((ctrl && key === "v") || (e.shiftKey && key === "insert")) return "paste";
+  return null;
+}
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();

@@ -416,15 +416,17 @@ try {
     /git clean -fd/.test(approval.commandPreview ?? approval.actionSummary) && approval.status === "Pending",
     `${approval.actionSummary} (${approval.danger ?? approval.risk})`,
   );
-  const waitingTask = await waitFor(
+  // The runtime moves the task to Waiting first, then the agent (audit r1):
+  // wait until both are observed.
+  const { waitingTask, waitingAgent } = await waitFor(
     async () => {
       const t = (await rpc.call("tasks.get", { taskId: dangerTaskId })).task;
-      return t.status === "Waiting" ? t : null;
+      const a = (await rpc.call("agents.get", { agentId: dangerAgentId })).agent;
+      return t.status === "Waiting" && a.state === "Waiting" ? { waitingTask: t, waitingAgent: a } : null;
     },
     15_000,
-    "task Waiting",
+    "task + agent Waiting",
   );
-  const waitingAgent = (await rpc.call("agents.get", { agentId: dangerAgentId })).agent;
   check("agent + task wait for the user", waitingAgent.state === "Waiting" && waitingTask.status === "Waiting");
   await rpc.call("approvals.resolve", { approvalId: approval.id, decision: "Approve", note: "acceptance" });
   await rpc.waitEvent((e) => e.kind === "ApprovalResolved" && e.payload.approvalId === approval.id && e.payload.status === "Approved", 10_000, "ApprovalResolved");
@@ -513,6 +515,10 @@ try {
   check("emergency.reset", (await rpc.call("emergency.status")).flags.allStopped === false);
 
   section("6. crash recovery");
+  // Phase 2 resumes interrupted runs automatically after a restart; this
+  // check is about the Phase 1 recovery state itself, so auto-resume is off.
+  const sched = (await rpc.call("scheduler.status", {})).settings;
+  await rpc.call("scheduler.setLimits", { settings: { ...sched, autoResume: "off" } });
   const { reply: r3 } = await chatForPlan(rpc, projectId, "Create a counter module with tests");
   const ap3 = await rpc.call("manager.approvePlan", { planId: r3.planId });
   const run3Id = ap3.run.id;

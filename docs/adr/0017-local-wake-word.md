@@ -31,7 +31,7 @@
 
 ## Decision
 
-- **Default interaction is push-to-talk**, through a global hotkey (`PlatformAdapter::hotkeys`, default `Ctrl+Alt+Space`) and the HUD mic button. The wake word is **off by default** and is enabled in onboarding step 9 or in Settings.
+- **Default interaction is push-to-talk**, through a hold hotkey (default `Ctrl+Space`, configurable; the same default in `VoiceConfig::default()` and the UI fallback) and the HUD mic button. The wake word is **off by default** and is enabled in onboarding step 9 or in Settings.
 - **Pipeline (`orkestr-core::voice`; platform capture in `orkestr-platform::microphone`):**
   ```mermaid
   flowchart LR

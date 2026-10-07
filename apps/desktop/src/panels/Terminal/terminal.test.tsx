@@ -14,6 +14,7 @@ import {
   orderShells,
   sessionSubtitle,
   sessionsForProject,
+  terminalKeyAction,
   themeFromTokens,
   utf8Length,
 } from "./logic";
@@ -126,6 +127,30 @@ describe("terminal wiring", () => {
     expect(matchesShortcut({ ...base, key: "ё", code: "Backquote" }, "Ctrl+`")).toBe(true);
     expect(matchesShortcut({ ...base, shiftKey: true, key: "`", code: "Backquote" }, "Ctrl+`")).toBe(false);
     expect(matchesShortcut({ ...base, key: "k", code: "KeyK" }, "Ctrl+K")).toBe(true);
+  });
+
+  it("copy / paste / Ctrl+C work on the Russian layout", () => {
+    const ev = (key: string, code: string, mods: { ctrlKey?: boolean; shiftKey?: boolean } = {}) => ({
+      key,
+      code,
+      ctrlKey: mods.ctrlKey ?? false,
+      metaKey: false,
+      shiftKey: mods.shiftKey ?? false,
+    });
+    // ЙЦУКЕН: Ctrl+C arrives as "с", Ctrl+V as "м".
+    expect(terminalKeyAction(ev("с", "KeyC", { ctrlKey: true }), true)).toBe("copy");
+    // No selection: Ctrl+C is left to xterm (sends ^C / SIGINT).
+    expect(terminalKeyAction(ev("с", "KeyC", { ctrlKey: true }), false)).toBeNull();
+    expect(terminalKeyAction(ev("С", "KeyC", { ctrlKey: true, shiftKey: true }), false)).toBe("copy");
+    expect(terminalKeyAction(ev("м", "KeyV", { ctrlKey: true }), false)).toBe("paste");
+    expect(terminalKeyAction(ev("М", "KeyV", { ctrlKey: true, shiftKey: true }), false)).toBe("paste");
+    expect(terminalKeyAction(ev("ё", "Backquote", { ctrlKey: true }), false)).toBe("global");
+    // Latin layouts and plain typing are unaffected.
+    expect(terminalKeyAction(ev("c", "KeyC", { ctrlKey: true }), true)).toBe("copy");
+    expect(terminalKeyAction(ev("v", "KeyV", { ctrlKey: true }), false)).toBe("paste");
+    expect(terminalKeyAction(ev("Insert", "Insert", { shiftKey: true }), false)).toBe("paste");
+    expect(terminalKeyAction(ev("с", "KeyC"), false)).toBeNull();
+    expect(terminalKeyAction(ev("м", "KeyV"), false)).toBeNull();
   });
 
   it("the command requests a terminal", () => {

@@ -18,9 +18,8 @@ import { useEffect, useRef, useState } from "react";
 
 import { t as i18nT, useT } from "../../i18n";
 import { terminalTitle } from "../../lib/coreText";
-import { shortcutKey } from "../../features/commands/keys";
 import { useThemeRevision } from "../../features/theme/useThemeRevision";
-import { dedupeChunk, errorMessage, isReadOnly, terminalFontFamily, themeFromTokens } from "./logic";
+import { dedupeChunk, errorMessage, isReadOnly, terminalFontFamily, terminalKeyAction, themeFromTokens } from "./logic";
 
 export interface TerminalViewProps {
   client: OrkestrClient;
@@ -84,17 +83,16 @@ export function TerminalView({ client, session, active, onExited }: TerminalView
       // Copy / paste: Ctrl+Shift+C/V always; Ctrl+C copies when there is a selection.
       term.attachCustomKeyEventHandler((e) => {
         if (e.type !== "keydown") return true;
-        const ctrl = e.ctrlKey || e.metaKey;
-        const key = shortcutKey(e); // physical key on non-Latin layouts (Ctrl+C is "с" on ЙЦУКЕН)
-        if (ctrl && key === "`") return false; // let the global "Open Terminal" shortcut through
-        if (ctrl && (key === "c" || key === "insert") && (e.shiftKey || term.hasSelection())) {
+        const action = terminalKeyAction(e, term.hasSelection());
+        if (action === "global") return false; // let the global "Open Terminal" shortcut through
+        if (action === "copy") {
           const sel = term.getSelection();
           if (sel) void navigator.clipboard?.writeText(sel).catch(() => undefined);
           if (!e.shiftKey) term.clearSelection();
           e.preventDefault();
           return false;
         }
-        if ((ctrl && key === "v") || (e.shiftKey && key === "insert")) {
+        if (action === "paste") {
           e.preventDefault();
           if (!readOnly && runningRef.current) {
             void navigator.clipboard

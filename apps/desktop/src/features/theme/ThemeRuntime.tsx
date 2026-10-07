@@ -38,8 +38,13 @@ export function useReducedMotion(): boolean {
 
 export { useThemeRevision } from "./useThemeRevision";
 
-/** Mounted once in App: keeps `:root` in sync with the active theme. */
-export function useThemeEngine(ready: boolean): void {
+/**
+ * Mounted once per window: keeps `:root` in sync with the active theme.
+ * `modeOverride` is the effective Performance Mode of a secondary window that
+ * does not run the perf runtime itself (robot windows follow the main
+ * window's broadcast effective mode, not the user's raw choice).
+ */
+export function useThemeEngine(ready: boolean, modeOverride?: PerformanceMode): void {
   const theme = useThemeStore(activeTheme);
   const settingsMode = useSettingsStore((s) => s.settings?.performanceMode);
   const configMode = useThemeStore((s) => s.config?.performanceMode);
@@ -48,7 +53,7 @@ export function useThemeEngine(ready: boolean): void {
   // back to the stored choice.
   const perfMode = usePerfStore((s) => s.mode);
   const perfReady = useSettingsStore((s) => s.settings !== null);
-  const performanceMode: PerformanceMode = perfReady ? perfMode : (settingsMode ?? configMode ?? "Balanced");
+  const performanceMode: PerformanceMode = modeOverride ?? (perfReady ? perfMode : (settingsMode ?? configMode ?? "Balanced"));
   const reducedMotion = useReducedMotion();
 
   useLayoutEffect(() => {

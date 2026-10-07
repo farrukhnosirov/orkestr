@@ -267,6 +267,8 @@ pub struct Run {
     pending_usage: UsageSummary,
     checkpoint_taken: bool,
     budget_warned: bool,
+    /// The "model has no known price" warning was emitted for this run.
+    unpriced_warned: bool,
     budget_note: Option<String>,
     started: Instant,
 }
@@ -324,6 +326,7 @@ impl Run {
             pending_usage: UsageSummary::default(),
             checkpoint_taken: false,
             budget_warned: false,
+            unpriced_warned: false,
             budget_note: None,
             started: Instant::now(),
         }
@@ -568,6 +571,9 @@ impl Run {
     pub async fn check_budget(&mut self, est_input_tokens: u64) -> Result<(), Outcome> {
         let usage = self.agent.usage;
         let model = self.head_model();
+        if let Some(m) = &model {
+            self.warn_if_unpriced(m).await;
+        }
         let estimate = model.as_ref().and_then(|m| orkestr_providers::pricing_for(&m.model)).map_or(0.0, |p| {
             orkestr_providers::pricing::preflight_estimate(
                 &p,
@@ -615,6 +621,39 @@ impl Run {
             Err(e) => tracing::warn!(error = %e, "budget check failed; continuing"),
         }
         Ok(())
+    }
+
+    /// Budget rule (§22, provider spec §8): spend is never silently counted as
+    /// $0. When the model bills per token (or its billing is unknown) but has
+    /// no known price, cost budgets — the agent's cap and project/global
+    /// budgets — cannot be enforced from estimates; only token, turn and time
+    /// limits (and a provider-reported cost) apply. Warned once per run.
+    async fn warn_if_unpriced(&mut self, model: &ModelRef) {
+        if self.unpriced_warned || orkestr_providers::pricing_for(&model.model).is_some() {
+            return;
+        }
+        let billed = self.deps.models.adapter(model.provider_id).is_some_and(|a| {
+            matches!(
+                a.descriptor().cost_model,
+                orkestr_providers::CostModelKind::PerToken | orkestr_providers::CostModelKind::Unknown
+            )
+        });
+        if !billed {
+            return;
+        }
+        self.unpriced_warned = true;
+        let cap = self.agent.budget.as_ref().and_then(|b| b.max_cost_usd);
+        tracing::warn!(model = %model.model, ?cap, agent_id = %self.agent.id, "model price unknown; cost budgets cannot be enforced");
+        self.publish(EventKind::Log(orkestr_protocol::event::LogPayload {
+            level: orkestr_protocol::event::LogLevel::Warn,
+            target: "orkestr_agent_runtime::budget".into(),
+            message: format!(
+                "The price of model {} is unknown: its spend is counted only when the provider reports it, so cost budgets cannot be enforced for it (token, turn and time limits still apply).",
+                model.model
+            ),
+            fields: json!({ "model": model.model, "providerId": model.provider_id, "maxCostUsd": cap, "code": "model_price_unknown" }),
+        }))
+        .await;
     }
 
     async fn maybe_warn(&mut self, what: &str, spent: f64, limit: f64, warn_at: f64) {

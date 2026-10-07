@@ -62,7 +62,7 @@ describe("hardcoded UI strings", () => {
       for (const f of scan(full)) problems.push(`${path}:${f.line} ${f.kind}${f.prop ? `(${f.prop})` : ""} "${f.text}"`);
     }
     expect(problems, `Hardcoded strings — move them to src/locales/{en,ru}/*.json:\n${problems.join("\n")}`).toEqual([]);
-  });
+  }, 30_000); // scans every source file; slow under a loaded full-suite run
 
   it("the allow-list only names unconverted files that exist", () => {
     const existing = new Set(files.map(rel));

@@ -445,6 +445,12 @@ pub struct AgentBudget {
   may ask the user to extend (task `Failed → Ready` retry with new budget).
 - `max_turns` is never unlimited (§64 "no uncontrolled autonomous loops"); FullAuto
   does not lift it.
+- Unknown price: when the head model bills per token (cost model `PerToken` /
+  `Unknown`) but has no known price, its spend is counted only when the
+  provider reports a cost, so cost budgets cannot be enforced from estimates.
+  The run emits one `Log` warning per run (`fields.code = "model_price_unknown"`)
+  instead of silently counting $0; token, turn and time limits still apply.
+  Local and subscription models are not warned about.
 
 ---
 

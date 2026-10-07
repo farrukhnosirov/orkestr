@@ -54,7 +54,8 @@ export function RobotApp() {
   const { t } = useT("robots");
   const [route] = useState(() => parseRobotRoute(window.location.hash));
   const env = useRobotEnv();
-  useThemeEngine(env.ready);
+  // Tokens/effects follow the same effective mode the robots render with.
+  useThemeEngine(env.ready, env.ready ? env.mode : undefined);
   const reducedMotion = useReducedMotion();
 
   let content;
