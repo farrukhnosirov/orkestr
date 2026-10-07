@@ -5,7 +5,9 @@
  * that come from agents (summaries, test lines, issues) are shown as written.
  */
 import type { ManagerRun, PipelineReport, RunReport as Report } from "@orkestr/protocol";
+import { useState } from "react";
 
+import { TaskRollbackButton, canRollbackTask } from "../../features/rollback";
 import { useLanguage, useT } from "../../i18n";
 import { roleLabel } from "../Agents/model";
 import { formatDuration, formatUsd } from "./model";
@@ -43,6 +45,7 @@ export function RunReport({ run, report }: { run: ManagerRun; report: Report }) 
   const { t } = useT(["manager", "common", "pipeline", "reviews", "quality"]);
   const lng = useLanguage();
   const tt = t as unknown as (key: string, opts?: Record<string, unknown>) => string;
+  const [rolledBack, setRolledBack] = useState<string | null>(null);
   return (
     <div className="mgr-md mgr-report">
       <p>
@@ -62,9 +65,19 @@ export function RunReport({ run, report }: { run: ManagerRun; report: Report }) 
           <li key={task.taskId}>
             <strong>{task.title}</strong> ({roleLabel(task.role)}) — {t(`common:status.task.${task.status}`)}
             {task.summary ? `: ${task.summary}` : ""}
+            {canRollbackTask(task.status) && (
+              <span className="mgr-report__task-action">
+                <TaskRollbackButton projectId={run.projectId} taskId={task.taskId} taskTitle={task.title} onDone={setRolledBack} />
+              </span>
+            )}
           </li>
         ))}
       </ul>
+      {rolledBack && (
+        <p className="mgr-report__notice" role="status">
+          {rolledBack}
+        </p>
+      )}
       {report.filesChanged.length > 0 && (
         <>
           <h3>{t("report.filesChanged")}</h3>

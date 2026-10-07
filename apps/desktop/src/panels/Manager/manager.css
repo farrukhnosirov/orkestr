@@ -918,3 +918,15 @@
     transition: none;
   }
 }
+
+/* Run report: per-task Rollback Task action */
+.mgr-report__task-action {
+  display: inline-flex;
+  margin-left: var(--ok-space-2);
+  vertical-align: middle;
+}
+
+.mgr-report__notice {
+  color: var(--ok-color-success, inherit);
+  font-size: var(--ok-font-size-sm);
+}

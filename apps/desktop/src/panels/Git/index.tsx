@@ -20,7 +20,7 @@ import { HistoryTab } from "./HistoryTab";
 import { MergeTab } from "./merge/MergeTab";
 import { statusSummary } from "./model";
 import { SnapshotsTab } from "./SnapshotsTab";
-import { type GitTab, errorMessage, useGitUi, useProjectRefresh } from "./state";
+import { type GitTab, errorMessage, gitScope, useGitUi, useProjectRefresh } from "./state";
 import { WorktreesTab } from "./WorktreesTab";
 
 const TABS: { id: GitTab; icon: ReactNode }[] = [
@@ -62,7 +62,9 @@ export default function GitPanel({ projectId }: PanelProps) {
       </div>
     );
   }
-  return <GitWorkspace projectId={projectId} rootPath={project.rootPath} />;
+  // Keyed by project: the dock keeps this panel mounted across project
+  // switches, and no local state (status, selections, dialogs) may carry over.
+  return <GitWorkspace key={projectId} projectId={projectId} rootPath={project.rootPath} />;
 }
 
 function GitWorkspace({ projectId, rootPath }: { projectId: string; rootPath: string }) {
@@ -199,7 +201,9 @@ function GitWorkspace({ projectId, rootPath }: { projectId: string; rootPath: st
             }}
           />
         )}
-        {tab === "snapshots" && <SnapshotsTab projectId={projectId} worktree={worktree} refresh={version} />}
+        {tab === "snapshots" && (
+          <SnapshotsTab key={gitScope(projectId, worktree)} projectId={projectId} worktree={worktree} refresh={version} />
+        )}
         {tab === "merge" && <MergeTab projectId={projectId} currentBranch={status.branch ?? null} />}
       </div>
     </div>

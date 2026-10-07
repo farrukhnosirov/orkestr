@@ -40,7 +40,8 @@
     "showIgnored": "Show ignored files",
     "hideIgnored": "Hide ignored files",
     "openFolderIde": "Open folder in external IDE",
-    "dismiss": "Dismiss"
+    "dismiss": "Dismiss",
+    "trash": "Orkestr trash"
   },
   "loading": "Loading files…",
   "readError": "Could not read the project folder",
@@ -69,5 +70,25 @@
     "folder": "The folder and everything inside it will be deleted.",
     "file": "The file will be deleted from disk.",
     "trash": "A copy is kept in Orkestr’s trash so it can be restored."
+  },
+  "trash": {
+    "title": "Orkestr trash",
+    "subtitle": "Copies of files deleted in Orkestr. Restore puts a file back at its original path.",
+    "list": "Deleted files",
+    "loading": "Loading the trash…",
+    "empty": "The trash is empty.",
+    "meta": "{{time}} · {{size}} · deleted by {{actor}}",
+    "actor": {
+      "user": "you",
+      "agent": "an agent",
+      "external": "another program"
+    },
+    "restoredBadge": "Restored",
+    "restore": "Restore",
+    "restoreItem": "Restore {{path}}",
+    "restored": "Restored {{path}}.",
+    "replaceTitle": "Replace {{path}}?",
+    "replaceDescription": "A file already exists at this path. Replacing it overwrites the current file with the copy from the trash.",
+    "replace": "Replace file"
   }
 }

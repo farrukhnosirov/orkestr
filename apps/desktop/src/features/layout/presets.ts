@@ -97,11 +97,9 @@ const CODING: BuiltinPreset = {
     { panel: "logs", height: 0.3 },
   ],
   focus: ["manager"],
-  // Code on monitor 1, Mission Control on 2, Browser on 3 (§34).
-  spread: [
-    { panel: MISSION_CONTROL_PANEL, monitor: 2 },
-    { panel: "browser", monitor: 3 },
-  ],
+  // Code on monitor 1, Mission Control on 2 (§34). The Browser panel (monitor 3
+  // in §34) joins once it is functional: presets never place placeholders.
+  spread: [{ panel: MISSION_CONTROL_PANEL, monitor: 2 }],
   // Three columns on a small window: the file tree shares the right column
   // with agents / tasks (below them) instead of a fourth, 150 px column.
   compact: {
@@ -144,10 +142,7 @@ const MISSION_CONTROL: BuiltinPreset = {
     { panel: "monitoring", height: 0.34 },
   ],
   focus: [MISSION_CONTROL_PANEL, "manager"],
-  spread: [
-    { panel: "monitoring", monitor: 2 },
-    { panel: "browser", monitor: 3 },
-  ],
+  spread: [{ panel: "monitoring", monitor: 2 }],
 };
 
 const MONITORING: BuiltinPreset = {
@@ -161,7 +156,6 @@ const MONITORING: BuiltinPreset = {
     { panel: "agents", position: { referencePanel: "costs", direction: "below" } },
     { panel: "logs", position: { referencePanel: "monitoring", direction: "below" } },
     { panel: "terminal", position: { referencePanel: "logs", direction: "within" } },
-    { panel: "deployments", position: { referencePanel: "logs", direction: "within" } },
   ],
   sizes: [
     { panel: "costs", width: 0.32 },

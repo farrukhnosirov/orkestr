@@ -5,6 +5,7 @@ import { Check, ChevronRight, GitBranch, OctagonX, Pause, Play, ShieldAlert, Tri
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useFormat, useLanguage, useT } from "../../i18n";
+import { TaskRollbackButton } from "../../features/rollback";
 import { resolveApproval } from "../../features/security/store";
 import { useSecurityStore } from "../../features/security/store";
 import { agentActions, errorMessage, useAgentTranscript } from "./data";
@@ -144,6 +145,14 @@ export function AgentDetail({ agent, taskTitle, now }: { agent: AgentInstance; t
             >
               {paused ? t("detail.resume") : t("detail.pause")}
             </Button>
+          )}
+          {!active && agent.taskId && (
+            <TaskRollbackButton
+              projectId={agent.projectId}
+              taskId={agent.taskId}
+              taskTitle={taskTitle ?? agentName(agent.name)}
+              onDone={(message) => toast("success", message)}
+            />
           )}
           {active && (
             <Button

@@ -14,7 +14,7 @@ import { t as i18nT, useT } from "../../i18n";
 import { snapshotLabel } from "../../lib/coreText";
 import { ConfirmDialog, type DiffContent, DiffPane, Notice } from "./components";
 import { formatBytes, reasonLabel, relativeTime, shortId, statusBadge, summarizePlan } from "./model";
-import { errorMessage, useAsync, useGitUi } from "./state";
+import { errorMessage, gitScope, useAsync, useGitUi } from "./state";
 
 interface Props {
   projectId: string;
@@ -27,12 +27,16 @@ export function SnapshotsTab({ projectId, worktree, refresh }: Props) {
   const { data, error, loading, reload } = useAsync(
     () => getClient().call("snapshots.list", worktree ? { projectId, workspacePath: worktree, limit: 300 } : { projectId, limit: 300 }),
     [projectId, worktree, refresh],
+    gitScope(projectId, worktree),
   );
   const [label, setLabel] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [selected, setSelected] = useState<WorkspaceSnapshot | null>(null);
+  const [picked, setSelected] = useState<WorkspaceSnapshot | null>(null);
+  // Defence in depth (the panel is also keyed by project): a snapshot of
+  // another project is never shown as selected nor offered for rollback.
+  const selected = picked && picked.projectId === projectId ? picked : null;
   const [changes, setChanges] = useState<SnapshotDiffResult | null>(null);
   const [changesLoading, setChangesLoading] = useState(false);
   const [file, setFile] = useState<string | null>(null);
@@ -238,7 +242,7 @@ export function SnapshotsTab({ projectId, worktree, refresh }: Props) {
         />
       </div>
 
-      {rollback && (
+      {rollback && rollback.projectId === projectId && (
         <RollbackDialog
           snapshot={rollback}
           onClose={() => setRollback(null)}

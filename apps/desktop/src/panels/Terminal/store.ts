@@ -30,15 +30,24 @@ export function scopeKey(projectId: string | null): string {
 interface TerminalUiState {
   /** Active terminal id per project scope. */
   active: Record<string, string>;
-  /** Incremented by the "Open Terminal" command; the panel reacts to changes. */
+  /** Incremented by the "Open Terminal" command (kept for observers/tests). */
   openRequest: number;
+  /**
+   * True while an "Open Terminal" request has not been handled by a panel yet.
+   * A pending flag (not a counter snapshot) so a request issued before the
+   * panel mounts — the dock mounts panel content asynchronously — is not lost.
+   */
+  pendingOpen: boolean;
   setActive: (projectId: string | null, terminalId: string | null) => void;
   requestOpen: () => void;
+  /** Clears the pending request; returns whether one was pending. */
+  consumeOpenRequest: () => boolean;
 }
 
-export const useTerminalUi = create<TerminalUiState>((set) => ({
+export const useTerminalUi = create<TerminalUiState>((set, get) => ({
   active: readActive(),
   openRequest: 0,
+  pendingOpen: false,
   setActive: (projectId, terminalId) =>
     set((s) => {
       const active = { ...s.active };
@@ -52,5 +61,10 @@ export const useTerminalUi = create<TerminalUiState>((set) => ({
       }
       return { active };
     }),
-  requestOpen: () => set((s) => ({ openRequest: s.openRequest + 1 })),
+  requestOpen: () => set((s) => ({ openRequest: s.openRequest + 1, pendingOpen: true })),
+  consumeOpenRequest: () => {
+    if (!get().pendingOpen) return false;
+    set({ pendingOpen: false });
+    return true;
+  },
 }));

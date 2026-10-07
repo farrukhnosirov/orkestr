@@ -1,12 +1,13 @@
 import type { Task, TaskAttempt, TaskHistoryEntry, TaskPriority, TaskStatus } from "@orkestr/protocol";
 import { Button, IconButton, Spinner } from "@orkestr/ui";
 import { clsx } from "clsx";
-import { Check, Coins, FileCode2, GitFork, History, Plus, RotateCcw, Trash2, X } from "lucide-react";
+import { Check, Coins, FileCode2, GitFork, History, Plus, RotateCcw, Trash2, Undo2, X } from "lucide-react";
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 
 import { PipelineSection } from "../../features/pipeline";
 import { QualitySection } from "../../features/quality";
 import { ReviewsSection } from "../../features/reviews/ReviewsSection";
+import { TaskRollbackDialog, canRollbackTask } from "../../features/rollback";
 import { t as translate, useFormat, useT } from "../../i18n";
 import { taskReason } from "../../lib/coreText";
 import { ContextPreview } from "./ContextPreview";
@@ -47,7 +48,7 @@ function useHistory(taskId: string, version: number) {
 }
 
 export function TaskDrawer({ task, tasks }: { task: Task; tasks: Task[] }) {
-  const { t } = useT(["tasks", "common"]);
+  const { t } = useT(["tasks", "common", "git"]);
   const fmt = useFormat();
   const statusLabel = (s: TaskStatus) => t(`common:status.task.${s}`);
   const select = useTasksUi((s) => s.select);
@@ -58,6 +59,9 @@ export function TaskDrawer({ task, tasks }: { task: Task; tasks: Task[] }) {
   const [newCriterion, setNewCriterion] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [depPick, setDepPick] = useState("");
+  const [rollbackOpen, setRollbackOpen] = useState(false);
+  const rollbackRequest = useTasksUi((s) => s.rollbackRequest);
+  const requestRollback = useTasksUi((s) => s.requestRollback);
   const history = useHistory(task.id, task.version);
   const closeRef = useRef<HTMLButtonElement>(null);
 
@@ -69,8 +73,15 @@ export function TaskDrawer({ task, tasks }: { task: Task; tasks: Task[] }) {
   useEffect(() => {
     setConfirmDelete(false);
     setDepPick("");
+    setRollbackOpen(false);
     closeRef.current?.focus();
   }, [task.id]);
+  // "Roll Back Selected Task" command.
+  useEffect(() => {
+    if (rollbackRequest !== task.id) return;
+    requestRollback(null);
+    setRollbackOpen(true);
+  }, [rollbackRequest, task.id, requestRollback]);
 
   const run = async (key: string, fn: () => Promise<unknown>, success?: string) => {
     setBusy(key);
@@ -115,6 +126,18 @@ export function TaskDrawer({ task, tasks }: { task: Task; tasks: Task[] }) {
 
   return (
     <aside className="tasks-drawer" aria-label={t("drawer.label", { title: task.title })} onKeyDown={onKeyDown}>
+      {rollbackOpen && (
+        <TaskRollbackDialog
+          projectId={task.projectId}
+          taskId={task.id}
+          taskTitle={task.title}
+          onClose={() => setRollbackOpen(false)}
+          onDone={(message) => {
+            setRollbackOpen(false);
+            toast("success", message);
+          }}
+        />
+      )}
       <header className="tasks-drawer__header" style={{ ["--status-color" as string]: statusColor(task.status) }}>
         <div className="tasks-drawer__eyebrow">
           <StatusBadge status={task.status} />
@@ -167,6 +190,11 @@ export function TaskDrawer({ task, tasks }: { task: Task; tasks: Task[] }) {
                 onClick={() => void run("retry", () => taskActions.retry(task.id), t("drawer.requeued"))}
               >
                 {t("common:actions.retry")}
+              </Button>
+            )}
+            {canRollbackTask(task.status) && (
+              <Button size="sm" variant="ghost" leftIcon={<Undo2 size={13} />} disabled={busy !== null} onClick={() => setRollbackOpen(true)}>
+                {t("git:taskRollback.action")}
               </Button>
             )}
             {(task.status === "Planned" || task.status === "Cancelled") &&
