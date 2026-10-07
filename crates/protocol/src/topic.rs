@@ -146,6 +146,25 @@ mod tests {
     }
 
     #[test]
+    fn claude_code_events_route_to_their_session() {
+        use crate::methods::claude_code::{ClaudeCodeEvent, ClaudeCodeEventPayload};
+        use orkestr_domain::ClaudeSessionId;
+        let sid = ClaudeSessionId::new();
+        let pid = ProjectId::new();
+        let ev = NewEvent::new(EventKind::ClaudeCodeEvent(ClaudeCodeEventPayload {
+            session_id: sid,
+            project_id: pid,
+            event: ClaudeCodeEvent::Thinking,
+        }))
+        .into_event(4, now());
+        assert_eq!(ev.project_id, Some(pid));
+        assert_eq!(event_topics(&ev), vec![claude(sid)], "chat items never flood project / global topics");
+        assert!(ev.kind.is_ephemeral());
+        assert!(is_valid(&claude(sid)));
+        assert!(!is_valid("claude:x"));
+    }
+
+    #[test]
     fn global_event_routes_to_global_only() {
         let ev = NewEvent::new(log()).into_event(1, now());
         assert_eq!(event_topics(&ev), vec!["global".to_string()]);
