@@ -181,6 +181,7 @@ pub(crate) struct Structured {
 pub(crate) async fn structured_call<T>(
     inner: &Inner,
     project: ProjectId,
+    task: Option<TaskId>,
     chain: Vec<ModelRef>,
     system: String,
     user: String,
@@ -225,7 +226,7 @@ pub(crate) async fn structured_call<T>(
         let usage = out.usage.unwrap_or_else(|| {
             orkestr_providers::Usage::estimate(messages.iter().map(|m| m.content.len()).sum(), out.text.len())
         });
-        usage_total.add(&record_usage(&inner.deps, project, &model, usage, out.first_ms, true).await);
+        usage_total.add(&record_usage(&inner.deps, project, task, &model, usage, out.first_ms, true).await);
         let parsed = extract_object(&out.text)
             .ok_or_else(|| "the answer contained no JSON object".to_owned())
             .and_then(|doc| parse(&doc).map(|t| (t, doc)));
@@ -833,6 +834,7 @@ impl Inner {
         let result = structured_call(
             self,
             project.id,
+            Some(task.id),
             chain,
             review_system(&language),
             format!("{brief}\nReview this change now."),

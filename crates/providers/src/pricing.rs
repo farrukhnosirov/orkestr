@@ -7,7 +7,7 @@
 
 use orkestr_domain::ModelPricing;
 
-use crate::types::Usage;
+use crate::types::{CostModelKind, Usage};
 
 /// Date the table was last reviewed (shown next to estimates).
 pub const PRICING_TABLE_DATE: &str = "2026-10-01";
@@ -108,6 +108,33 @@ pub fn estimate_cost(model: &str, usage: &Usage) -> Option<f64> {
     pricing_for(model).map(|p| cost_with(&p, usage))
 }
 
+/// Cost of a call split into real spend and API-equivalent value
+/// (provider-adapter-spec §8): on a `Subscription` or `Local` instance the
+/// marginal spend is $0 — a reported or list-price cost (e.g. Claude Code's
+/// `total_cost_usd` on a Pro/Max login) is only what the call *would* cost
+/// at API prices, kept for benchmarks and excluded from spend totals and
+/// budgets.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CallCost {
+    /// Spend in USD (budgets, caps, totals).
+    pub spend_usd: f64,
+    /// API-equivalent value of a call that is not metered in $.
+    pub api_equivalent_usd: Option<f64>,
+}
+
+/// [`CallCost`] of a call on an instance with `cost_model` (`None` = the
+/// adapter is unknown: treated as metered).
+#[must_use]
+pub fn call_cost(cost_model: Option<&CostModelKind>, model: &str, usage: &Usage) -> CallCost {
+    let cost = estimate_cost(model, usage).filter(|c| c.is_finite() && *c >= 0.0).unwrap_or(0.0);
+    match cost_model {
+        Some(CostModelKind::Subscription | CostModelKind::Local) => {
+            CallCost { spend_usd: 0.0, api_equivalent_usd: (cost > 0.0).then_some(cost) }
+        }
+        _ => CallCost { spend_usd: cost, api_equivalent_usd: None },
+    }
+}
+
 /// Pre-flight estimate for the router's budget filter:
 /// `input_estimate × input_price + max_output × output_price`.
 #[must_use]
@@ -140,6 +167,21 @@ mod tests {
         let reported = Usage { reported_cost_usd: Some(0.42), ..usage };
         assert_eq!(estimate_cost("unknown-model", &reported), Some(0.42));
         assert_eq!(estimate_cost("unknown-model", &usage), None);
+    }
+
+    #[test]
+    fn subscription_and_local_calls_are_not_spend() {
+        // Claude Code on a Pro/Max login reports `total_cost_usd`: API-equivalent only.
+        let usage = Usage { input_tokens: 10, output_tokens: 10, reported_cost_usd: Some(1.25), ..Usage::default() };
+        let sub = call_cost(Some(&CostModelKind::Subscription), "claude-sonnet-4-5", &usage);
+        assert_eq!(sub, CallCost { spend_usd: 0.0, api_equivalent_usd: Some(1.25) });
+        let local = call_cost(Some(&CostModelKind::Local), "llama3.2:3b", &usage);
+        assert_eq!(local.spend_usd, 0.0);
+        let metered = call_cost(Some(&CostModelKind::PerToken), "claude-sonnet-4-5", &usage);
+        assert_eq!(metered, CallCost { spend_usd: 1.25, api_equivalent_usd: None });
+        assert_eq!(call_cost(None, "x", &usage).spend_usd, 1.25, "an unknown adapter is metered");
+        let free = Usage { reported_cost_usd: Some(f64::NAN), ..usage };
+        assert_eq!(call_cost(Some(&CostModelKind::PerToken), "x", &free).spend_usd, 0.0);
     }
 
     #[test]

@@ -57,6 +57,9 @@ impl AdapterSource for Source {
 /// an agent cannot finish before its sibling was admitted.
 struct GatedMock {
     inner: MockAdapter,
+    /// Bill like a per-token API (the shipped Mock is `Local`, $0): a Mock
+    /// answering under a priced model id then costs money.
+    metered: bool,
     group: Vec<String>,
     need: usize,
     arrived: Mutex<std::collections::BTreeSet<String>>,
@@ -79,7 +82,11 @@ impl ProviderAdapter for GatedMock {
         self.inner.id()
     }
     fn descriptor(&self) -> orkestr_providers::ProviderDescriptor {
-        self.inner.descriptor()
+        let mut d = self.inner.descriptor();
+        if self.metered {
+            d.cost_model = orkestr_providers::CostModelKind::PerToken;
+        }
+        d
     }
     async fn auth_state(&self) -> orkestr_providers::AuthStatus {
         self.inner.auth_state().await
@@ -381,12 +388,24 @@ async fn harness(with_git: bool, policy: ApprovalMode) -> H {
 
 impl H {
     /// Registers the shipped Mock adapter and routes everything to `model`.
+    /// Under a priced model id (`gpt-4o`) it bills like that API, so usage
+    /// costs money.
     fn mock(&self, model: &str) -> ModelRef {
         let pid = ProviderId::new();
-        self.source.adapters.lock().insert(
-            pid,
-            Arc::new(MockAdapter::new(pid, "Mock (offline demo)", MockOptions { chunk_delay: Duration::ZERO })),
-        );
+        let inner = MockAdapter::new(pid, "Mock (offline demo)", MockOptions { chunk_delay: Duration::ZERO });
+        let adapter: Arc<dyn ProviderAdapter> = if orkestr_providers::pricing_for(model).is_some() {
+            Arc::new(GatedMock {
+                inner,
+                metered: true,
+                group: Vec::new(),
+                need: 0,
+                arrived: Mutex::new(std::collections::BTreeSet::new()),
+                notify: tokio::sync::Notify::new(),
+            })
+        } else {
+            Arc::new(inner)
+        };
+        self.source.adapters.lock().insert(pid, adapter);
         let m = ModelRef { provider_id: pid, model: model.into() };
         *self.gateway.chain.lock() = vec![m.clone()];
         self.hub.cfg.lock().model = Some(m.clone());
@@ -399,6 +418,7 @@ impl H {
         let inner = MockAdapter::new(pid, "Mock (offline demo)", MockOptions { chunk_delay: Duration::ZERO });
         let gated = GatedMock {
             inner,
+            metered: orkestr_providers::pricing_for(model).is_some(),
             group: group.iter().map(|g| (*g).to_owned()).collect(),
             need,
             arrived: Mutex::new(std::collections::BTreeSet::new()),
@@ -848,6 +868,70 @@ async fn cancel_stops_agents_and_cancels_unfinished_tasks() {
     }
     assert_eq!(h.mgr.get_plan(plan.id).await.unwrap().status, PlanStatus::Cancelled);
     assert!(h.mgr.cancel(run.id).await.is_err(), "already final");
+}
+
+/// A run task left `Running` with no agent (a pipeline between stages) is
+/// cancelled with the run instead of holding a scheduler slot forever.
+#[tokio::test]
+async fn cancel_also_ends_agentless_running_tasks() {
+    let h = harness(false, ApprovalMode::SemiAuto).await;
+    h.mock("mock-slow");
+    let plan = h
+        .custom_plan(vec![
+            ptask("a", "Implement the alpha module", AgentRole::Backend, &[]),
+            ptask("c", "Implement the gamma module", AgentRole::Backend, &[]),
+        ])
+        .await;
+    h.mgr.approve_plan(ApprovePlanParams { plan_id: plan.id, edits: None, start_run: Some(false) }).await.unwrap();
+    let run = h
+        .mgr
+        .start_run(ManagerRunParams {
+            plan_id: Some(plan.id),
+            run_id: None,
+            limits: Some(RunLimitsPatch { max_parallel_agents: Some(1), ..RunLimitsPatch::default() }),
+        })
+        .await
+        .unwrap();
+    let live = h
+        .mgr
+        .wait_run(run.id, Duration::from_secs(20), |r| r.tasks.iter().any(|t| t.agent_id.is_some()))
+        .await
+        .unwrap();
+    let idle = live.tasks.iter().find(|t| t.agent_id.is_none()).unwrap().task_id;
+    let task = h.tasks.get(idle).await.unwrap();
+    assert_eq!(task.status, TaskStatus::Ready, "the parallel cap holds the second task back");
+    h.tasks.transition(idle, TaskStatus::Running, orkestr_domain::TaskActor::Manager, None, None).await.unwrap();
+    let cancelled = h.mgr.cancel(run.id).await.unwrap();
+    assert_eq!(cancelled.status, ManagerRunStatus::Cancelled);
+    assert_eq!(h.tasks.get(idle).await.unwrap().status, TaskStatus::Cancelled, "no agentless Running task is left");
+}
+
+#[tokio::test]
+async fn stop_project_cancels_an_in_flight_manager_chat_turn() {
+    let h = harness(false, ApprovalMode::SemiAuto).await;
+    h.mock("mock-slow");
+    let chat = h.mgr.chat_and_wait(ManagerChatParams {
+        project_id: h.project,
+        text: "Create a hello module with tests".into(),
+        attachment: None,
+        options: None,
+    });
+    let stop = async {
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(10);
+        while !h.mgr.is_busy(h.project) {
+            assert!(tokio::time::Instant::now() < deadline, "the turn never started");
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        tokio::time::sleep(Duration::from_millis(150)).await;
+        h.sec.stop_project(h.project, h.sec.user()).await.unwrap();
+        tokio::time::Instant::now()
+    };
+    let (reply, stopped_at) = tokio::join!(chat, stop);
+    let (_, reply) = reply.unwrap();
+    assert!(stopped_at.elapsed() < Duration::from_millis(1_500), "the turn kept streaming after the stop");
+    assert!(reply.plan_id.is_none(), "no plan was proposed after the stop: {:?}", reply.tool_events);
+    assert!(!reply.tool_events.iter().any(|e| e.name == "propose_plan"), "{:?}", reply.tool_events);
+    assert!(!h.mgr.is_busy(h.project));
 }
 
 #[tokio::test]

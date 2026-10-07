@@ -16,6 +16,8 @@
 //! * **Budget** — model-aware: the model's context window (provider
 //!   descriptor / model list) minus reserved output and the system prompt,
 //!   capped by the runtime's context budget.
+//! * **Knowledge** — Knowledge Base chunks matching the task (indexed docs,
+//!   FTS relevance), rendered after the bundle within a share of the budget.
 //! * **Handoff** — every handoff of the task, compressed: by the model
 //!   configured for the `Summarize` routing purpose when there is one
 //!   (bounded by a timeout, usage recorded), else deterministically.
@@ -34,7 +36,7 @@ use orkestr_context::{
 use orkestr_domain::{
     now, MemoryAccess, MemoryItem, MemoryKind, MemoryScope, ModelRef, Project, Task, TaskId, UsageRecord, UsageRecordId,
 };
-use orkestr_protocol::methods::memory::{ListMemoryParams, SearchMemoryParams};
+use orkestr_protocol::methods::memory::{KnowledgeHit, ListMemoryParams, SearchKnowledgeParams, SearchMemoryParams};
 use orkestr_providers::{ChatEvent, ChatMessage, ChatRequest, HANDOFF_SUMMARY_MARKER};
 use tokio_util::sync::CancellationToken;
 
@@ -124,6 +126,62 @@ pub struct PlannedContext {
     pub index: IndexFacts,
     /// Handoff compression, when the task has a history.
     pub handoff: Option<CompressedHistory>,
+    /// Knowledge Base chunks relevant to the task (indexed docs the agent
+    /// can cite), best first.
+    pub knowledge: Vec<KnowledgeHit>,
+    /// `knowledge` rendered for the initial message (empty when none),
+    /// within its share of the context budget.
+    pub knowledge_text: String,
+}
+
+/// Knowledge Base hits considered for a task.
+const KNOWLEDGE_HITS: u32 = 6;
+
+/// Relevant Knowledge Base chunks of the task (project sources, plus the
+/// global ones unless the template's memory access is project-only).
+async fn knowledge(deps: &RuntimeDeps, access: MemoryAccess, project: &Project, task: &Task) -> Vec<KnowledgeHit> {
+    let params = SearchKnowledgeParams {
+        query: query_text(task),
+        project_id: Some(project.id),
+        include_global: Some(access != MemoryAccess::ProjectOnly),
+        limit: Some(KNOWLEDGE_HITS),
+    };
+    match deps.memory.search_knowledge(params).await {
+        Ok(hits) => hits,
+        Err(e) => {
+            tracing::warn!(error = %e, "context: knowledge search failed");
+            Vec::new()
+        }
+    }
+}
+
+/// Renders knowledge hits within `max_chars` (whole entries only).
+#[must_use]
+pub fn render_knowledge(hits: &[KnowledgeHit], max_chars: usize) -> String {
+    let mut out = String::new();
+    for h in hits {
+        let snippet: String = h.snippet.chars().filter(|c| *c != '\u{2}' && *c != '\u{3}').collect();
+        let snippet = snippet.split_whitespace().collect::<Vec<_>>().join(" ");
+        if snippet.is_empty() {
+            continue;
+        }
+        let place = if h.heading_path.trim().is_empty() {
+            h.path.clone()
+        } else {
+            format!("{} › {}", h.path, h.heading_path)
+        };
+        let line = format!("- **{}** — {place}: {snippet}\n", h.source_name);
+        if out.len() + line.len() > max_chars {
+            break;
+        }
+        out.push_str(&line);
+    }
+    if out.is_empty() {
+        return out;
+    }
+    format!(
+        "\n## Project knowledge (indexed docs)\nExcerpts of the project's Knowledge Base that match this task — follow them and cite the source when you rely on one.\n{out}"
+    )
 }
 
 /// Task header of the initial message (title, description, criteria).
@@ -200,7 +258,7 @@ impl Summarizer for GatewaySummarizer<'_> {
             }
         };
         if let Some(u) = usage {
-            let cost = orkestr_providers::estimate_cost(&self.model.model, &u).unwrap_or(0.0);
+            let priced = crate::gateway::call_cost(self.deps.models.as_ref(), &self.model, &u);
             let rec = UsageRecord {
                 id: UsageRecordId::new(),
                 ts: now(),
@@ -214,7 +272,8 @@ impl Summarizer for GatewaySummarizer<'_> {
                 output_tokens: u.output_tokens,
                 cached_input_tokens: u.cached_input_tokens,
                 reasoning_tokens: u.reasoning_tokens,
-                cost_usd: cost,
+                cost_usd: priced.spend_usd,
+                api_equivalent_usd: priced.api_equivalent_usd,
                 estimated: u.estimated || u.reported_cost_usd.is_none(),
                 latency_ms: Some(u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX)),
                 success: true,
@@ -347,6 +406,10 @@ pub async fn plan_context(
     } else {
         (rules(deps, project).await, memory(deps, access, project, task).await)
     };
+    let knowledge =
+        if access == MemoryAccess::None { Vec::new() } else { knowledge(deps, access, project, task).await };
+    // About an eighth of the bundle budget (≈ 4 chars per token).
+    let knowledge_text = render_knowledge(&knowledge, (effective_budget as usize / 8).clamp(400, 8_000) * 4);
 
     let history = handoff_history(deps, task, fallback_handoff).await;
     let handoff = if history.is_empty() {
@@ -428,6 +491,8 @@ pub async fn plan_context(
         context_window,
         index,
         handoff,
+        knowledge,
+        knowledge_text,
     }
 }
 

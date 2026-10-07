@@ -254,6 +254,7 @@ async fn cost_and_budgets_over_websocket() {
         cached_input_tokens: 0,
         reasoning_tokens: 0,
         cost_usd: 8.5,
+        api_equivalent_usd: None,
         estimated: true,
         latency_ms: Some(900),
         success: true,

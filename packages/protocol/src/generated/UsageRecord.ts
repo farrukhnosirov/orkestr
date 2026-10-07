@@ -59,9 +59,16 @@ cachedInputTokens: number,
  */
 reasoningTokens: number, 
 /**
- * Cost in USD.
+ * Cost in USD (spend: budgets and totals). 0 on a subscription or local
+ * instance (see `apiEquivalentUsd`).
  */
 costUsd: number, 
+/**
+ * What a call on a subscription / local instance would cost at API
+ * prices (e.g. Claude Code's reported `total_cost_usd` on a Pro/Max
+ * login), kept for benchmarks; never counted as spend.
+ */
+apiEquivalentUsd?: number, 
 /**
  * True when cost is estimated from list prices (subscription/CLI usage).
  */

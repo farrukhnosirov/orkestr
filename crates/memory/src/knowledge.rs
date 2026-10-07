@@ -29,10 +29,10 @@ const MARKDOWN_EXTENSIONS: &[&str] = &["md", "markdown", "mdx"];
 
 /// Message stored for PDF sources.
 pub const PDF_UNSUPPORTED: &str =
-    "PDF ingestion is not supported yet (planned for Phase 2). Convert the PDF to Markdown or text and add that file instead.";
+    "PDF ingestion is not supported yet. Convert the PDF to Markdown or text and add that file instead.";
 /// Message stored for URL sources.
 pub const URL_UNSUPPORTED: &str =
-    "URL sources are not supported yet (planned for Phase 2). Save the page as Markdown or text and add the file instead.";
+    "URL sources are not supported yet. Save the page as Markdown or text and add the file instead.";
 
 /// Max location length.
 const MAX_LOCATION_LEN: usize = 4096;

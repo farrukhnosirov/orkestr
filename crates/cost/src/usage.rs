@@ -78,6 +78,7 @@ fn record_from_row(r: &Row<'_>) -> rusqlite::Result<UsageRecord> {
         cached_input_tokens: u(r.get(10)?),
         reasoning_tokens: u(r.get(11)?),
         cost_usd: micros_to_usd(r.get(12)?),
+        api_equivalent_usd: r.get::<_, Option<i64>>(16)?.map(micros_to_usd),
         estimated: r.get(13)?,
         latency_ms: r.get::<_, Option<i64>>(14)?.map(u),
         success: r.get(15)?,
@@ -85,7 +86,8 @@ fn record_from_row(r: &Row<'_>) -> rusqlite::Result<UsageRecord> {
 }
 
 const RECORD_COLS: &str = "id, ts, provider_id, model, project_id, task_id, agent_id, execution_id, input_tokens,
-    output_tokens, cached_input_tokens, reasoning_tokens, cost_micros, estimated, latency_ms, success";
+    output_tokens, cached_input_tokens, reasoning_tokens, cost_micros, estimated, latency_ms, success,
+    api_equivalent_micros";
 
 impl CostEngine {
     /// Stores a usage record, then fires budget thresholds for its context.
@@ -97,6 +99,9 @@ impl CostEngine {
         if !record.cost_usd.is_finite() || record.cost_usd < 0.0 {
             return Err(CostError::Invalid("costUsd must be a non-negative amount".into()));
         }
+        if record.api_equivalent_usd.is_some_and(|v| !v.is_finite() || v < 0.0) {
+            return Err(CostError::Invalid("apiEquivalentUsd must be a non-negative amount".into()));
+        }
         let r = record.clone();
         let day = self.calendar.day_key(&r.ts);
         let month = self.calendar.month_key(&r.ts);
@@ -106,8 +111,8 @@ impl CostEngine {
                 let res = c.execute(
                     "INSERT INTO usage_records (id, ts, day, month, provider_id, model, project_id, task_id, agent_id,
                         execution_id, input_tokens, output_tokens, cached_input_tokens, reasoning_tokens, cost_micros,
-                        estimated, latency_ms, success)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18)",
+                        estimated, latency_ms, success, api_equivalent_micros)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)",
                     params![
                         r.id.to_string(),
                         ts_key(&r.ts),
@@ -126,7 +131,8 @@ impl CostEngine {
                         usd_to_micros(r.cost_usd),
                         r.estimated,
                         r.latency_ms.map(i),
-                        r.success
+                        r.success,
+                        r.api_equivalent_usd.map(usd_to_micros)
                     ],
                 );
                 match res {

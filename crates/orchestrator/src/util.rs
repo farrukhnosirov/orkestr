@@ -19,6 +19,13 @@ pub fn redact(text: &str) -> String {
     orkestr_security::redact::redact(text)
 }
 
+/// Cancellation token of project-level AI work (Manager chat turns, PM /
+/// planner calls, merge suggestions): a child of the emergency registry, so
+/// Stop All AI and Stop project cancel it. Refused while Stop All is active.
+pub fn emergency_token(deps: &OrchestratorDeps, project: ProjectId) -> OrchResult<CancellationToken> {
+    deps.security.emergency.register_project(project).map_err(|e| OrchestratorError::Forbidden(e.to_string()))
+}
+
 /// Whether user-facing Manager notices should be written in Russian.
 #[must_use]
 pub fn is_ru(lang: &str) -> bool {
@@ -250,22 +257,28 @@ async fn publish_delta(deps: &OrchestratorDeps, s: &DeltaSink, delta: String) {
 }
 
 /// Records the usage of a Manager call in the cost engine and returns it.
+/// A call made for a task (code / adversarial review, consensus on a task)
+/// is attributed to it: the usage record carries the task and the cost is
+/// added to the task's usage, which the run budget, the self-healing budget
+/// and the run report read.
 pub async fn record_usage(
     deps: &OrchestratorDeps,
     project: ProjectId,
+    task: Option<orkestr_domain::TaskId>,
     model: &ModelRef,
     usage: Usage,
     latency_ms: Option<u64>,
     success: bool,
 ) -> UsageSummary {
-    let cost = orkestr_providers::estimate_cost(&model.model, &usage).unwrap_or(0.0);
+    let priced = orkestr_agent_runtime::call_cost(deps.models.as_ref(), model, &usage);
+    let cost = priced.spend_usd;
     let rec = UsageRecord {
         id: UsageRecordId::new(),
         ts: now(),
         provider_id: model.provider_id,
         model: model.model.clone(),
         project_id: Some(project),
-        task_id: None,
+        task_id: task,
         agent_id: None,
         execution_id: None,
         input_tokens: usage.input_tokens,
@@ -273,6 +286,7 @@ pub async fn record_usage(
         cached_input_tokens: usage.cached_input_tokens,
         reasoning_tokens: usage.reasoning_tokens,
         cost_usd: cost,
+        api_equivalent_usd: priced.api_equivalent_usd,
         estimated: usage.estimated || usage.reported_cost_usd.is_none(),
         latency_ms,
         success,
@@ -280,7 +294,14 @@ pub async fn record_usage(
     if let Err(e) = deps.cost.ingest(&rec).await {
         tracing::warn!(error = %e, "manager usage ingest failed");
     }
-    UsageSummary { input_tokens: usage.input_tokens, output_tokens: usage.output_tokens, cost_usd: cost }
+    let summary = UsageSummary { input_tokens: usage.input_tokens, output_tokens: usage.output_tokens, cost_usd: cost };
+    if let Some(task) = task {
+        let update = orkestr_task_engine::AgentRunUpdate { usage_delta: Some(summary), ..Default::default() };
+        if let Err(e) = deps.tasks.record_agent_run(task, update).await {
+            tracing::warn!(%task, error = %e, "could not add review usage to the task");
+        }
+    }
+    summary
 }
 
 /// Display name of a role (also the routing purpose).

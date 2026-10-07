@@ -127,6 +127,7 @@ pub async fn initial_message(
     let mut out = planned.task_header;
     out.push_str("\n# Context (selected by Orkestr)\n");
     out.push_str(&planned.plan.bundle.render());
+    out.push_str(&planned.knowledge_text);
     out.push_str("\nStart by exploring what you need, then do the work and finish with submit_result.\n");
     out
 }

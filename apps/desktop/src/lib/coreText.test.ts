@@ -15,8 +15,11 @@ import {
   agentNote,
   agentStopDetail,
   agentToolSummary,
+  builtinTeamName,
   fallbackReason,
+  leadReason,
   managerToolSummary,
+  mergeDetail,
   planWarning,
   snapshotLabel,
   taskReason,
@@ -188,5 +191,31 @@ describe("core text in Russian", () => {
     expect(taskReason("tests failed in CI")).toBe("tests failed in CI");
     await applyLanguagePreference("en");
     expect(taskReason("agent_result_done")).toBe("The agent reported the task done");
+  });
+
+  it("translates team leads, built-in team names and lead stop reasons", async () => {
+    await applyLanguagePreference("ru");
+    expect(builtinTeamName("Web Team")).toBe("Веб-команда");
+    expect(builtinTeamName("My crew")).toBe("My crew");
+    expect(agentName("Web Team — Software Architect")).toBe(`Веб-команда — ${templateName("Software Architect")}`);
+    expect(agentName("My crew — Lead")).toBe("My crew — Lead");
+    expect(agentActivity("Coordinating executors")).toBe("Координирует исполнителей");
+    expect(agentActivity("Delegated task done")).toBe("Делегированная задача выполнена");
+    expect(leadReason("emergency stop")).toBe("Экстренная остановка");
+    expect(nb(leadReason("budget exhausted: $1.2500 spent of $1.00"))).toBe("Бюджет исчерпан: потрачено 1,25 $ из 1,00 $");
+    expect(leadReason("disk full")).toBe("disk full");
+    const delegated = taskReason("delegated to the lead of Web Team") ?? "";
+    expect(delegated).toContain("Веб-команда");
+    expect(delegated).not.toContain("Web Team");
+    expect(taskReason("waiting for the user's acceptance")).toBe("Ждёт вашей приёмки");
+  });
+
+  it("translates merge status details instead of showing Debug names", async () => {
+    await applyLanguagePreference("ru");
+    expect(mergeDetail("Rejected")).toBe(t("common:status.approval.Rejected"));
+    expect(mergeDetail("Expired: no answer")).toBe(`${t("common:status.approval.Expired")}: no answer`);
+    expect(mergeDetail("Orkestr stopped while the merge was running")).toBe("Orkestr остановился во время слияния");
+    expect(mergeDetail("approval failed: db locked")).toBe("Не удалось запросить подтверждение: db locked");
+    expect(mergeDetail("merging agent/x failed: boom")).toBe("merging agent/x failed: boom");
   });
 });

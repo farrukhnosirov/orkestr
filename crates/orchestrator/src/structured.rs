@@ -116,7 +116,7 @@ impl Inner {
             let usage = out.usage.unwrap_or_else(|| {
                 orkestr_providers::Usage::estimate(messages.iter().map(|m| m.content.len()).sum(), out.text.len())
             });
-            usage_total.add(&record_usage(&self.deps, call.project.id, &model, usage, out.first_ms, true).await);
+            usage_total.add(&record_usage(&self.deps, call.project.id, None, &model, usage, out.first_ms, true).await);
             let parsed = extract_object(&out.text, call.key)
                 .ok_or_else(|| {
                     OrchestratorError::Planning(format!("the answer contained no JSON object with `{}`", call.key))

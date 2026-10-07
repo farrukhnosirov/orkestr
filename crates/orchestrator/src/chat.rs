@@ -137,7 +137,11 @@ impl Manager {
             }
         }
         let project = self.inner.project(p.project_id).await?;
-        let cancel = CancellationToken::new();
+        // Child of the emergency registry: Stop All AI / Stop project cancel
+        // the turn (streaming, further provider rounds, tool calls). While
+        // Stop All is active the turn itself refuses with a notice.
+        let cancel =
+            crate::util::emergency_token(&self.inner.deps, project.id).unwrap_or_else(|_| CancellationToken::new());
         {
             let mut busy = self.inner.busy.lock();
             if busy.contains_key(&project.id) {
@@ -286,6 +290,9 @@ impl Inner {
         let max_turns = self.deps.config.chat_max_turns.max(1);
         let mut exhausted = true;
         for _ in 0..max_turns {
+            if self.deps.security.emergency.flags().all_stopped {
+                return Err(OrchestratorError::Forbidden("Stop All AI is active".into()));
+            }
             if cancel.is_cancelled() {
                 return Err(OrchestratorError::Conflict("cancelled".into()));
             }
@@ -304,7 +311,7 @@ impl Inner {
             let u = out.usage.unwrap_or_else(|| {
                 orkestr_providers::Usage::estimate(messages.iter().map(|m| m.content.len()).sum(), out.text.len())
             });
-            usage.add(&record_usage(&self.deps, project.id, &used, u, out.first_ms, true).await);
+            usage.add(&record_usage(&self.deps, project.id, None, &used, u, out.first_ms, true).await);
             if !out.text.trim().is_empty() {
                 if !text.is_empty() {
                     text.push_str("\n\n");

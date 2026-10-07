@@ -412,8 +412,17 @@ async fn non_conflicting_branches_merge_in_dependency_order_after_approval() {
     // The integration branch is gone.
     assert!(!h.branches().contains("orkestr/integration-"), "{}", h.branches());
     // The single-branch proposal is superseded (its branch is merged), and
-    // the completion hook ran once.
-    let single = h.mm.get(single.id).await.unwrap();
+    // the completion hook ran once (both happen right after the Completed
+    // save — wait for them instead of racing the poll above).
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(30);
+    let single = loop {
+        let s = h.mm.get(single.id).await.unwrap();
+        let ran = hook.0.load(std::sync::atomic::Ordering::SeqCst) >= 1;
+        if (s.status == MergeProposalStatus::Superseded && ran) || tokio::time::Instant::now() >= deadline {
+            break s;
+        }
+        tokio::time::sleep(Duration::from_millis(30)).await;
+    };
     assert_eq!(single.status, MergeProposalStatus::Superseded, "{:?}", single.status_detail);
     assert!(single.status_detail.as_deref().unwrap_or_default().contains(&done.id.to_string()));
     assert_eq!(hook.0.load(std::sync::atomic::Ordering::SeqCst), 1);
@@ -596,6 +605,86 @@ async fn failed_quality_checks_roll_back_and_leave_the_target_untouched() {
     assert!(h.branches().contains("agent/q-1"), "the agent branch is kept");
     // A finished proposal cannot be executed again.
     assert!(h.mm.execute(exec(p.id)).await.is_err());
+}
+
+#[tokio::test]
+async fn a_merge_interrupted_after_the_fast_forward_is_finished_on_restart() {
+    let Some(h) = harness(Arc::new(NoGateSource), None).await else { return };
+    h.policy(|p| {
+        p.require_review = false;
+        p.require_tests = false;
+    })
+    .await;
+    h.branch("agent/docs-1", "main", &[("docs/guide.md", "# Guide\n")]);
+    let other = h.propose(&[("agent/docs-1", None)]).await;
+    let p = h.propose(&[("agent/docs-1", None)]).await;
+    let p = h.mm.execute(exec(p.id)).await.unwrap();
+    h.approve(&p).await;
+    let done = h.wait_status(p.id, &[MergeProposalStatus::Completed, MergeProposalStatus::Failed]).await;
+    assert_eq!(done.status, MergeProposalStatus::Completed, "{:?}", done.status_detail);
+    // Simulate a stop right after the fast-forward: the stored proposal is
+    // still Merging (final commit recorded), its integration branch is left
+    // over, and another proposal of the same branch is still open.
+    let integration = done.execution.as_ref().unwrap().integration_branch.clone().unwrap();
+    git(&["branch", integration.as_str(), "main"], &h.root);
+    let mut stuck = done.clone();
+    stuck.status = MergeProposalStatus::Merging;
+    stuck.execution.as_mut().unwrap().finished_at = None;
+    h.mm.store().save(&stuck).await.unwrap();
+    let mut open = h.mm.get(other.id).await.unwrap();
+    open.status = MergeProposalStatus::Proposed;
+    open.status_detail = None;
+    h.mm.store().save(&open).await.unwrap();
+    let hook = Arc::new(CountHook::default());
+    h.mm.on_completed(Arc::clone(&hook) as Arc<dyn MergeCompletedHook>);
+    h.mm.init().await.unwrap();
+    let after = h.mm.get(p.id).await.unwrap();
+    assert_eq!(after.status, MergeProposalStatus::Completed, "{:?}", after.status_detail);
+    assert_eq!(after.execution.as_ref().unwrap().final_commit.as_deref(), Some(h.rev("main").as_str()));
+    assert!(!h.branches().contains("orkestr/integration-"), "{}", h.branches());
+    assert_eq!(h.mm.get(other.id).await.unwrap().status, MergeProposalStatus::Superseded);
+    assert_eq!(hook.0.load(std::sync::atomic::Ordering::SeqCst), 1, "completion hooks ran");
+}
+
+#[tokio::test]
+async fn re_resolving_a_resolved_file_never_deletes_it_and_concurrent_resolutions_both_stick() {
+    let Some(h) = harness(Arc::new(NoGateSource), None).await else { return };
+    h.policy(|p| {
+        p.require_review = false;
+        p.require_tests = false;
+    })
+    .await;
+    h.branch("agent/a-1", "main", &[("one.txt", "A1\n"), ("two.txt", "A2\n")]);
+    h.branch("agent/b-1", "main", &[("one.txt", "B1\n"), ("two.txt", "B2\n")]);
+    let p = h.propose(&[("agent/a-1", None), ("agent/b-1", None)]).await;
+    let p = h.mm.execute(exec(p.id)).await.unwrap();
+    h.approve(&p).await;
+    let c = h.wait_status(p.id, &[MergeProposalStatus::Conflicted, MergeProposalStatus::Failed]).await;
+    assert_eq!(c.status, MergeProposalStatus::Conflicted, "{:?}", c.status_detail);
+    let resolve = |path: &str, resolution: MergeResolution| {
+        h.mm.resolve_conflict(MergeResolveConflictParams { proposal_id: p.id, path: path.into(), resolution })
+    };
+    // Two files resolved at the same time: neither overwrites the other's flag.
+    let (r1, r2) = tokio::join!(resolve("one.txt", MergeResolution::Ours), resolve("two.txt", MergeResolution::Theirs));
+    r1.unwrap();
+    r2.unwrap();
+    let both = h.mm.get(p.id).await.unwrap();
+    assert!(both.execution.as_ref().unwrap().conflicts.iter().all(|c| c.resolved), "{:?}", both.execution);
+    // The user changes their mind on one.txt: ours → theirs → edited → ours.
+    let r = resolve("one.txt", MergeResolution::Theirs).await.unwrap();
+    let one = |r: &MergeManagerProposal| {
+        r.execution.as_ref().unwrap().conflicts.iter().find(|c| c.path == "one.txt").unwrap().clone()
+    };
+    assert_eq!(one(&r).result.map(|t| t.replace('\r', "")).as_deref(), Some("B1\n"));
+    resolve("one.txt", MergeResolution::Content { content: "edited\n".into() }).await.unwrap();
+    let r = resolve("one.txt", MergeResolution::Ours).await.unwrap();
+    assert!(one(&r).resolved);
+    assert_eq!(one(&r).result.map(|t| t.replace('\r', "")).as_deref(), Some("A1\n"), "the file is kept, not deleted");
+    h.mm.execute(exec(p.id)).await.unwrap();
+    let done = h.wait_status(p.id, &[MergeProposalStatus::Completed, MergeProposalStatus::Failed]).await;
+    assert_eq!(done.status, MergeProposalStatus::Completed, "{:?}", done.status_detail);
+    assert_eq!(std::fs::read_to_string(h.root.join("one.txt")).unwrap().replace('\r', ""), "A1\n");
+    assert_eq!(std::fs::read_to_string(h.root.join("two.txt")).unwrap().replace('\r', ""), "B2\n");
 }
 
 #[tokio::test]

@@ -460,6 +460,9 @@ struct Supervisor {
     /// `max − spent` in total, so concurrent agents cannot each spend the
     /// whole remainder.
     reservations: BTreeMap<TaskId, (f64, f64)>,
+    /// Share of the last reservation freed by `release_idle` per task (its
+    /// failure may be observed only on a later refresh).
+    released: BTreeMap<TaskId, f64>,
     /// Tasks whose agent used up its run-budget share: `(index, share)`;
     /// retried once more budget is free, or the run ends "budget
     /// exhausted" when nothing live can return any.
@@ -508,6 +511,7 @@ impl Supervisor {
             pipelines_open: BTreeSet::new(),
             pipeline_enabled: false,
             reservations: BTreeMap::new(),
+            released: BTreeMap::new(),
             budget_waiting: BTreeMap::new(),
         }
     }
@@ -569,7 +573,9 @@ impl Supervisor {
             })
             .collect();
         for id in idle {
-            self.reservations.remove(&id);
+            if let Some((cap, _)) = self.reservations.remove(&id) {
+                self.released.insert(id, cap);
+            }
         }
     }
 
@@ -737,6 +743,10 @@ impl Supervisor {
         let mut ended_now: Vec<(usize, orkestr_domain::Task)> = Vec::new();
         for i in 0..self.run.tasks.len() {
             let tid = self.run.tasks[i].task_id;
+            // Liveness first: an agent seen ended always comes with its
+            // final task status (read after it).
+            let agent = self.run.tasks[i].agent_id;
+            let agent_live = agent.is_some_and(|a| self.agent_live(a));
             let Ok(task) = self.inner.deps.tasks.get(tid).await else {
                 let rt = &mut self.run.tasks[i];
                 if rt.status != TaskStatus::Cancelled {
@@ -745,8 +755,6 @@ impl Supervisor {
                 }
                 continue;
             };
-            let agent = self.run.tasks[i].agent_id;
-            let agent_live = agent.is_some_and(|a| self.agent_live(a));
             {
                 let rt = &mut self.run.tasks[i];
                 rt.status = task.status;
@@ -786,8 +794,13 @@ impl Supervisor {
             }
         }
         self.run.cost_usd = (total * 1_000_000.0).round() / 1_000_000.0;
-        let shares: BTreeMap<TaskId, f64> =
-            ended_now.iter().filter_map(|(_, t)| self.reservations.get(&t.id).map(|(c, _)| (t.id, *c))).collect();
+        let shares: BTreeMap<TaskId, f64> = ended_now
+            .iter()
+            .filter_map(|(_, t)| {
+                let share = self.reservations.get(&t.id).map(|(c, _)| *c).or_else(|| self.released.get(&t.id).copied());
+                share.map(|c| (t.id, c))
+            })
+            .collect();
         self.release_idle();
         // Decided with the fresh spend and the finished agents' shares back
         // in the pool.
@@ -1153,7 +1166,12 @@ impl Supervisor {
             let Ok(task) = self.inner.deps.tasks.get(t.task_id).await else { continue };
             let target = match task.status {
                 TaskStatus::Completed | TaskStatus::Cancelled => continue,
-                TaskStatus::Running | TaskStatus::Waiting => continue, // the agent's stop handles these
+                // A live agent's stop handles these; a Running / Waiting task
+                // without one (a pipeline between stages) would otherwise
+                // keep a scheduler slot and its file locks forever.
+                TaskStatus::Running | TaskStatus::Waiting if task.agent_id.is_some_and(|a| self.agent_live(a)) => {
+                    continue
+                }
                 _ => TaskStatus::Cancelled,
             };
             if let Err(e) =
@@ -1590,6 +1608,10 @@ impl Supervisor {
         let mut issues: Vec<String> = Vec::new();
         let mut merge = Vec::new();
         let root = self.root();
+        // The report is the run's final chat message: written in the UI
+        // language (labels, durations, money), never as Debug enums.
+        let ru = crate::util::is_ru(&self.inner.deps.config.ui_language.get());
+        let l = |en: &'static str, ru_text: &'static str| if ru { ru_text } else { en };
         for t in &self.run.tasks {
             files.extend(t.files_changed.iter().cloned());
             if let Some(a) = t.agent_id {
@@ -1600,7 +1622,11 @@ impl Supervisor {
                                 "{} — `{}`: {}",
                                 t.title,
                                 ts.command,
-                                if ts.passed { "passed" } else { "failed" }
+                                if ts.passed {
+                                    l("passed", "пройдены")
+                                } else {
+                                    l("failed", "не пройдены")
+                                }
                             ));
                         }
                         issues.extend(h.unresolved_issues.iter().map(|i| format!("{}: {}", t.title, one_line(i, 200))));
@@ -1609,9 +1635,9 @@ impl Supervisor {
             }
             if matches!(t.status, TaskStatus::Failed | TaskStatus::Interrupted) {
                 issues.push(format!(
-                    "{} ended {:?}{}",
+                    "{} — {}{}",
                     t.title,
-                    t.status,
+                    task_status_label(t.status, ru),
                     t.last_error.as_ref().map(|e| format!(": {e}")).unwrap_or_default()
                 ));
             }
@@ -1664,83 +1690,79 @@ impl Supervisor {
             self.run.tasks.iter().filter(|t| matches!(t.status, TaskStatus::Failed | TaskStatus::Interrupted)).count();
         let not_done = self.run.tasks.len() - completed - failed;
         let secs = self.base_active_secs + self.segment_start.elapsed().as_secs();
-        let mut md = format!(
-            "**Run {}** — {completed}/{} task(s) completed in {}, ${:.4} spent{}.\n\n",
-            match self.run.status {
-                ManagerRunStatus::Completed => "completed",
-                ManagerRunStatus::Cancelled => "cancelled",
-                ManagerRunStatus::Interrupted => "interrupted",
-                ManagerRunStatus::Paused => "paused",
-                ManagerRunStatus::Running => "running",
-                ManagerRunStatus::Failed => "stopped",
-            },
-            self.run.tasks.len(),
-            human_duration(secs),
-            self.run.cost_usd,
-            self.run.status_reason.as_ref().map(|r| format!(" ({r})")).unwrap_or_default()
-        );
-        md.push_str("### What was done\n");
+        let total = self.run.tasks.len();
+        let reason = self.run.status_reason.as_ref().map(|r| format!(" ({r})")).unwrap_or_default();
+        let mut md = if ru {
+            format!(
+                "**Запуск: {}** — выполнено задач: {completed} из {total} за {}, потрачено {}{reason}.\n\n",
+                crate::util::ru_run_status(self.run.status).to_lowercase(),
+                human_duration_ru(secs),
+                crate::util::ru_money(self.run.cost_usd, 4),
+            )
+        } else {
+            format!(
+                "**Run {}** — {completed}/{total} task(s) completed in {}, ${:.4} spent{reason}.\n\n",
+                match self.run.status {
+                    ManagerRunStatus::Completed => "completed",
+                    ManagerRunStatus::Cancelled => "cancelled",
+                    ManagerRunStatus::Interrupted => "interrupted",
+                    ManagerRunStatus::Paused => "paused",
+                    ManagerRunStatus::Running => "running",
+                    ManagerRunStatus::Failed => "stopped",
+                },
+                human_duration(secs),
+                self.run.cost_usd,
+            )
+        };
+        md.push_str(l("### What was done\n", "### Что сделано\n"));
         for t in &self.run.tasks {
             md.push_str(&format!(
-                "- **{}** ({}) — {:?}{}\n",
+                "- **{}** ({}) — {}{}\n",
                 t.title,
-                role_name(&t.role),
-                t.status,
+                if ru { role_name_ru(&t.role) } else { role_name(&t.role) },
+                task_status_label(t.status, ru),
                 t.summary.as_ref().map(|s| format!(": {}", one_line(s, 200))).unwrap_or_default()
             ));
         }
         if !files.is_empty() {
             md.push_str(&format!(
-                "\n### Files changed\n{}\n",
+                "\n{}{}\n",
+                l("### Files changed\n", "### Изменённые файлы\n"),
                 files.iter().take(40).map(|f| format!("- `{f}`")).collect::<Vec<_>>().join("\n")
             ));
         }
         if !tests.is_empty() {
             md.push_str(&format!(
-                "\n### Tests\n{}\n",
+                "\n{}{}\n",
+                l("### Tests\n", "### Тесты\n"),
                 tests.iter().map(|t| format!("- {t}")).collect::<Vec<_>>().join("\n")
             ));
         }
         if !issues.is_empty() {
             md.push_str(&format!(
-                "\n### Open issues\n{}\n",
+                "\n{}{}\n",
+                l("### Open issues\n", "### Открытые вопросы\n"),
                 issues.iter().take(20).map(|t| format!("- {t}")).collect::<Vec<_>>().join("\n")
             ));
         }
         if !pipelines.is_empty() {
-            md.push_str("\n### Quality pipeline\n");
+            md.push_str(l("\n### Quality pipeline\n", "\n### Конвейер качества\n"));
             for p in &pipelines {
-                let mut parts = vec![format!("{:?}", p.status)];
-                if let Some(v) = p.review_verdict {
-                    parts.push(format!("review {v:?}"));
-                }
-                if let Some(v) = p.security_verdict {
-                    parts.push(format!("security {v:?}"));
-                }
-                if let Some(g) = p.gates {
-                    if p.failed_gates.is_empty() {
-                        parts.push(format!("gates {g:?}"));
-                    } else {
-                        let list = p.failed_gates.iter().map(|g| format!("{g:?}")).collect::<Vec<_>>().join(", ");
-                        parts.push(format!("gates {g:?} ({list})"));
-                    }
-                }
-                if p.healing_attempts > 0 {
-                    parts.push(format!("self-healing: {} attempt(s)", p.healing_attempts));
-                }
-                if let Some(m) = &p.merge_outcome {
-                    parts.push(format!("merge: {}", one_line(m, 120)));
-                }
-                md.push_str(&format!("- **{}** — {}\n", p.title, parts.join(" · ")));
+                md.push_str(&format!("- **{}** — {}\n", p.title, pipeline_line(p, ru)));
             }
         }
         if !merge.is_empty() {
-            md.push_str("\n### Merge proposals\n");
+            md.push_str(l("\n### Merge proposals\n", "\n### Предложения слияния\n"));
             for m in &merge {
+                let n = m.files_changed.len();
+                let count = if ru {
+                    format!("{n} {}", crate::util::ru_plural(n, "файл", "файла", "файлов"))
+                } else {
+                    format!("{n} file(s)")
+                };
                 md.push_str(&format!(
-                    "- `{}` — {} file(s){}\n",
+                    "- `{}` — {count}{}\n",
                     m.branch,
-                    m.files_changed.len(),
                     match (m.additions, m.deletions) {
                         (Some(a), Some(d)) => format!(", +{a} −{d}"),
                         _ => String::new(),
@@ -1766,6 +1788,157 @@ impl Supervisor {
 
 struct Fatal(String);
 
+/// Task status in the run report.
+fn task_status_label(s: TaskStatus, ru: bool) -> &'static str {
+    match (s, ru) {
+        (TaskStatus::Planned, false) => "planned",
+        (TaskStatus::Ready, false) => "ready",
+        (TaskStatus::Running, false) => "running",
+        (TaskStatus::Waiting, false) => "waiting",
+        (TaskStatus::Blocked, false) => "blocked",
+        (TaskStatus::Review, false) => "in review",
+        (TaskStatus::Testing, false) => "testing",
+        (TaskStatus::Completed, false) => "completed",
+        (TaskStatus::Failed, false) => "failed",
+        (TaskStatus::Cancelled, false) => "cancelled",
+        (TaskStatus::Interrupted, false) => "interrupted",
+        (TaskStatus::Recovering, false) => "recovering",
+        (TaskStatus::Planned, true) => "запланирована",
+        (TaskStatus::Ready, true) => "готова к работе",
+        (TaskStatus::Running, true) => "выполняется",
+        (TaskStatus::Waiting, true) => "ожидает",
+        (TaskStatus::Blocked, true) => "заблокирована",
+        (TaskStatus::Review, true) => "на ревью",
+        (TaskStatus::Testing, true) => "тестируется",
+        (TaskStatus::Completed, true) => "выполнена",
+        (TaskStatus::Failed, true) => "сбой",
+        (TaskStatus::Cancelled, true) => "отменена",
+        (TaskStatus::Interrupted, true) => "прервана",
+        (TaskStatus::Recovering, true) => "восстанавливается",
+    }
+}
+
+/// Russian role name (as the Agents panel shows it).
+fn role_name_ru(role: &orkestr_domain::AgentRole) -> String {
+    use orkestr_domain::AgentRole as R;
+    match role {
+        R::Manager => "Менеджер".into(),
+        R::Architect => "Архитектор".into(),
+        R::Backend => "Бэкенд-разработчик".into(),
+        R::Frontend => "Фронтенд-разработчик".into(),
+        R::Database => "Специалист по БД".into(),
+        R::Qa => "Тестировщик".into(),
+        R::Security => "Специалист по безопасности".into(),
+        R::DevOps => "DevOps-инженер".into(),
+        R::UiUx => "UI/UX-дизайнер".into(),
+        R::ProductManager => "Продакт-менеджер".into(),
+        R::Reviewer => "Ревьюер".into(),
+        R::Researcher => "Исследователь".into(),
+        R::Custom(_) => role_name(role),
+    }
+}
+
+/// One pipeline line of the run report: status · review · security · gates ·
+/// self-healing · merge.
+fn pipeline_line(p: &orkestr_protocol::methods::pipeline::PipelineReport, ru: bool) -> String {
+    use orkestr_protocol::methods::pipeline::PipelineStatus as P;
+    use orkestr_protocol::methods::quality::{GateKind as G, GateStatus as GS};
+    use orkestr_protocol::methods::reviews::ReviewVerdict as V;
+    let status = match (p.status, ru) {
+        (P::Running, false) => "running",
+        (P::Healing, false) => "self-healing",
+        (P::AwaitingUser, false) => "waiting for you",
+        (P::Escalated, false) => "escalated to you",
+        (P::Passed, false) => "passed",
+        (P::Failed, false) => "failed",
+        (P::Cancelled, false) => "cancelled",
+        (P::Running, true) => "выполняется",
+        (P::Healing, true) => "самовосстановление",
+        (P::AwaitingUser, true) => "ждёт вас",
+        (P::Escalated, true) => "передан вам",
+        (P::Passed, true) => "пройден",
+        (P::Failed, true) => "сбой",
+        (P::Cancelled, true) => "отменён",
+    };
+    let verdict = |v: V| match (v, ru) {
+        (V::Approve, false) => "approved",
+        (V::RequestChanges, false) => "changes requested",
+        (V::Reject, false) => "rejected",
+        (V::Approve, true) => "одобрено",
+        (V::RequestChanges, true) => "нужны доработки",
+        (V::Reject, true) => "отклонено",
+    };
+    let gate_status = |g: GS| match (g, ru) {
+        (GS::Passed, false) => "passed",
+        (GS::Failed, false) => "failed",
+        (GS::Pending, false) => "pending",
+        (GS::Unknown, false) => "unknown",
+        (GS::Skipped, false) => "skipped",
+        (GS::Passed, true) => "пройдены",
+        (GS::Failed, true) => "не пройдены",
+        (GS::Pending, true) => "ожидают",
+        (GS::Unknown, true) => "неизвестно",
+        (GS::Skipped, true) => "пропущены",
+    };
+    let gate = |g: &G| match (g, ru) {
+        (G::BuildPasses, false) => "build passes",
+        (G::TypecheckPasses, false) => "type check passes",
+        (G::LintPasses, false) => "lint passes",
+        (G::FormatPasses, false) => "formatting",
+        (G::TestsPass, false) => "tests pass",
+        (G::NoCriticalSecurity, false) => "no critical security issues",
+        (G::ReviewerApproved, false) => "reviewer approved",
+        (G::AcceptanceCriteriaMet, false) => "acceptance criteria met",
+        (G::BuildPasses, true) => "сборка проходит",
+        (G::TypecheckPasses, true) => "проверка типов проходит",
+        (G::LintPasses, true) => "линтер без ошибок",
+        (G::FormatPasses, true) => "форматирование в порядке",
+        (G::TestsPass, true) => "тесты проходят",
+        (G::NoCriticalSecurity, true) => "нет критических проблем безопасности",
+        (G::ReviewerApproved, true) => "ревьюер одобрил изменения",
+        (G::AcceptanceCriteriaMet, true) => "критерии приёмки выполнены",
+    };
+    let mut parts = vec![status.to_owned()];
+    if let Some(v) = p.review_verdict {
+        parts.push(format!("{}: {}", if ru { "ревью" } else { "review" }, verdict(v)));
+    }
+    if let Some(v) = p.security_verdict {
+        parts.push(format!("{}: {}", if ru { "безопасность" } else { "security" }, verdict(v)));
+    }
+    if let Some(g) = p.gates {
+        let label = if ru { "критерии качества" } else { "gates" };
+        if p.failed_gates.is_empty() {
+            parts.push(format!("{label}: {}", gate_status(g)));
+        } else {
+            let list = p.failed_gates.iter().map(gate).collect::<Vec<_>>().join(", ");
+            parts.push(format!("{label}: {} ({list})", gate_status(g)));
+        }
+    }
+    if p.healing_attempts > 0 {
+        let n = p.healing_attempts as usize;
+        parts.push(if ru {
+            format!("самовосстановление: {n} {}", crate::util::ru_plural(n, "попытка", "попытки", "попыток"))
+        } else {
+            format!("self-healing: {n} attempt(s)")
+        });
+    }
+    if let Some(m) = &p.merge_outcome {
+        parts.push(format!("{}: {}", if ru { "слияние" } else { "merge" }, one_line(m, 120)));
+    }
+    parts.join(" · ")
+}
+
+/// Russian duration of the run report: «45 с», «2 мин 5 с», «1 ч 3 мин».
+fn human_duration_ru(secs: u64) -> String {
+    if secs < 60 {
+        format!("{secs}\u{a0}с")
+    } else if secs < 3600 {
+        format!("{}\u{a0}мин {}\u{a0}с", secs / 60, secs % 60)
+    } else {
+        format!("{}\u{a0}ч {}\u{a0}мин", secs / 3600, (secs % 3600) / 60)
+    }
+}
+
 fn human_duration(secs: u64) -> String {
     if secs < 60 {
         format!("{secs}s")
@@ -1779,6 +1952,38 @@ fn human_duration(secs: u64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_run_report_speaks_the_ui_language_without_debug_enums() {
+        use orkestr_protocol::methods::pipeline::{PipelineReport, PipelineStatus};
+        use orkestr_protocol::methods::quality::{GateKind, GateStatus};
+        use orkestr_protocol::methods::reviews::ReviewVerdict;
+        let p: PipelineReport = serde_json::from_value(serde_json::json!({
+            "taskId": orkestr_domain::TaskId::new(),
+            "title": "Fix login",
+            "status": "Escalated",
+            "stages": [],
+            "reviewVerdict": "RequestChanges",
+            "gates": "Failed",
+            "failedGates": ["TestsPass"],
+            "healingAttempts": 2,
+        }))
+        .unwrap();
+        assert_eq!(p.status, PipelineStatus::Escalated);
+        assert_eq!((p.review_verdict, p.gates), (Some(ReviewVerdict::RequestChanges), Some(GateStatus::Failed)));
+        assert_eq!(p.failed_gates, vec![GateKind::TestsPass]);
+        let ru = pipeline_line(&p, true);
+        assert_eq!(
+            ru,
+            "передан вам · ревью: нужны доработки · критерии качества: не пройдены (тесты проходят) · самовосстановление: 2 попытки"
+        );
+        let en = pipeline_line(&p, false);
+        assert!(!en.contains("RequestChanges") && en.contains("changes requested"), "{en}");
+        assert_eq!(task_status_label(TaskStatus::Failed, true), "сбой");
+        assert_eq!(human_duration_ru(125), "2\u{a0}мин 5\u{a0}с");
+        assert_eq!(human_duration_ru(3_780), "1\u{a0}ч 3\u{a0}мин");
+        assert_eq!(role_name_ru(&orkestr_domain::AgentRole::Backend), "Бэкенд-разработчик");
+    }
 
     #[test]
     fn durations() {

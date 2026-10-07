@@ -265,6 +265,10 @@ fn model(p: &Scripted, m: &str) -> ModelRef {
 }
 
 async fn harness(mode: ApprovalMode) -> H {
+    harness_with(mode, orkestr_snapshots::ScanOptions::default()).await
+}
+
+async fn harness_with(mode: ApprovalMode, scan: orkestr_snapshots::ScanOptions) -> H {
     let dir = tempfile::tempdir().unwrap();
     let root = dir.path().join("project");
     let outside = dir.path().join("outside");
@@ -309,7 +313,7 @@ async fn harness(mode: ApprovalMode) -> H {
         db.clone(),
         objects as Arc<dyn orkestr_storage::ObjectStore>,
         None,
-        orkestr_snapshots::ScanOptions::default(),
+        scan,
     ));
     let terminals = orkestr_terminal::TerminalService::builder()
         .gate(Arc::new(TestGate { sec: Arc::clone(&sec), pending: Mutex::new(HashMap::new()) }))
@@ -557,6 +561,88 @@ async fn task_rollback_in_shared_root_spares_concurrent_writers() {
     assert!(std::fs::read_to_string(h.root.join("README.md")).unwrap().contains("user edit during the task"));
 }
 
+/// Same, for a task whose only change came from a command (no reported
+/// files): the command's own change is attributed to the task, other
+/// writers' work in the shared checkout is never reverted.
+#[tokio::test]
+async fn command_only_task_rollback_in_shared_root_spares_concurrent_writers() {
+    let h = harness(ApprovalMode::FullAuto).await;
+    let tpl = h.template(&["run_command", "submit_result"], WorktreePolicy::SharedWorktree, None).await;
+    let root = h.root.clone();
+    let others: Arc<dyn Fn() + Send + Sync> = Arc::new(move || {
+        std::fs::create_dir_all(root.join("src")).unwrap();
+        std::fs::write(root.join("src/api.rs"), "agent B's work\n").unwrap();
+    });
+    h.provider(vec![
+        tool("run_command", json!({"command": "echo changed > notes.txt"})),
+        Step::Act(others, Box::new(submit("done", "formatted"))),
+    ]);
+    let a = h.wait_done(h.spawn(tpl, None).await.id).await;
+    assert_eq!(a.state, AgentState::Completed, "{:?}", a.last_error);
+    let rb = h.snapshots.rollback_task(h.project, a.task_id.unwrap(), None, None, false).await.unwrap();
+    assert_eq!(rb.deleted, vec!["notes.txt"], "{rb:?}");
+    let conflicts: Vec<_> = rb.conflicts.iter().map(|c| c.path.as_str()).collect();
+    assert_eq!(conflicts, vec!["src/api.rs"], "{rb:?}");
+    assert_eq!(std::fs::read_to_string(h.root.join("src/api.rs")).unwrap(), "agent B's work\n");
+}
+
+/// Indexed Knowledge Base docs that match the task reach the agent in its
+/// initial context.
+#[tokio::test]
+async fn relevant_knowledge_base_chunks_reach_the_agent() {
+    let h = harness(ApprovalMode::FullAuto).await;
+    let docs = tempfile::tempdir().unwrap();
+    std::fs::write(
+        docs.path().join("conventions.md"),
+        "# Greeting conventions\nEvery greeting file ends with an exclamation mark and names the team.\n",
+    )
+    .unwrap();
+    h.rt.deps()
+        .memory
+        .add_knowledge(orkestr_protocol::methods::memory::AddKnowledgeParams {
+            project_id: Some(h.project),
+            location: docs.path().to_string_lossy().into_owned(),
+            name: Some("Team docs".into()),
+            kind: None,
+        })
+        .await
+        .unwrap();
+    let tpl = h.template(&["submit_result"], WorktreePolicy::SharedWorktree, None).await;
+    let p = h.provider(vec![submit("done", "ok")]);
+    h.wait_done(h.spawn(tpl, None).await.id).await;
+    let first = p.requests.lock()[0].messages[0].content.clone();
+    assert!(first.contains("## Project knowledge"), "{first}");
+    assert!(first.contains("**Team docs**") && first.contains("exclamation mark"), "{first}");
+}
+
+/// No checkpoint, no change: when the task's `Before` checkpoint cannot be
+/// taken, a changing tool is refused (the task stays undoable) and the
+/// checkpoint is tried again before the next change.
+#[tokio::test]
+async fn a_change_without_a_checkpoint_is_refused() {
+    // Any workspace is "too large" for this snapshot engine.
+    let scan = orkestr_snapshots::ScanOptions { max_files: 0, ..orkestr_snapshots::ScanOptions::default() };
+    let h = harness_with(ApprovalMode::FullAuto, scan).await;
+    let tpl = h.template(&["write_file", "run_command", "submit_result"], WorktreePolicy::SharedWorktree, None).await;
+    h.provider(vec![
+        tool("write_file", json!({"path": "src/hello.txt", "content": "hello"})),
+        tool("run_command", json!({"command": "echo changed > notes.txt"})),
+        submit("blocked", "no checkpoint"),
+    ]);
+    let a = h.wait_done(h.spawn(tpl, None).await.id).await;
+    assert!(!h.root.join("src/hello.txt").exists(), "the write was not made");
+    assert!(!h.root.join("notes.txt").exists(), "the command was not run");
+    let tr = h.rt.transcript(a.id, None).await.unwrap();
+    let failed: Vec<_> = tr
+        .tool_calls
+        .iter()
+        .filter(|c| c.result.as_deref().unwrap_or_default().contains("could not take the task's checkpoint"))
+        .collect();
+    assert_eq!(failed.len(), 2, "both changes refused, the checkpoint retried: {:?}", tr.tool_calls);
+    let snaps = h.snapshots.list(h.project, a.task_id, None, 10).await.unwrap();
+    assert!(snaps.is_empty(), "no lone After checkpoint: {snaps:?}");
+}
+
 #[tokio::test]
 async fn path_escapes_and_git_dir_are_denied() {
     let h = harness(ApprovalMode::FullAuto).await;
@@ -749,7 +835,7 @@ async fn budget_exceeded_stops_cleanly() {
         warn_at: 0.8,
     };
     let tpl = h.template(&["read_file", "submit_result"], WorktreePolicy::SharedWorktree, Some(budget)).await;
-    h.provider(vec![
+    let p = h.provider(vec![
         Step::Events(vec![
             ChatEvent::ToolCall { id: "c1".into(), name: "read_file".into(), arguments: json!({"path": "README.md"}) },
             ChatEvent::Usage(Usage {
@@ -762,6 +848,7 @@ async fn budget_exceeded_stops_cleanly() {
         ]),
         submit("done", "never reached"),
     ]);
+    *p.cost_model.lock() = Some(orkestr_providers::CostModelKind::PerToken);
     let a = h.spawn(tpl, None).await;
     let a = h.wait_done(a.id).await;
     assert_eq!(a.state, AgentState::Error);
@@ -769,6 +856,46 @@ async fn budget_exceeded_stops_cleanly() {
     assert!((a.usage.cost_usd - 0.5).abs() < 1e-9);
     assert_eq!(a.turns_used, 1, "no further model call after the budget was exhausted");
     assert_eq!(h.task_status(&a).await, TaskStatus::Failed);
+}
+
+#[tokio::test]
+async fn a_subscription_cli_cost_is_api_equivalent_not_spend() {
+    let h = harness(ApprovalMode::SemiAuto).await;
+    let budget = Budget {
+        max_cost_usd: Some(0.4),
+        max_tokens: None,
+        max_duration_secs: None,
+        period: BudgetPeriod::PerTask,
+        warn_at: 0.8,
+    };
+    let tpl = h.template(&["read_file", "submit_result"], WorktreePolicy::SharedWorktree, Some(budget)).await;
+    // A Pro/Max login reports `total_cost_usd` on every call (here above the cap).
+    let reported = |c: f64| {
+        ChatEvent::Usage(Usage { input_tokens: 10, output_tokens: 10, reported_cost_usd: Some(c), ..Usage::default() })
+    };
+    let p = h.provider(vec![
+        Step::Events(vec![
+            ChatEvent::ToolCall { id: "c1".into(), name: "read_file".into(), arguments: json!({"path": "README.md"}) },
+            reported(0.5),
+            ChatEvent::Done { stop_reason: StopReason::ToolUse },
+        ]),
+        submit("done", "read it"),
+    ]);
+    *p.cost_model.lock() = Some(orkestr_providers::CostModelKind::Subscription);
+    let a = h.wait_done(h.spawn(tpl, None).await.id).await;
+    assert_eq!(a.state, AgentState::Completed, "{:?}", a.last_error);
+    assert_eq!(a.usage.cost_usd, 0.0, "no money was spent");
+    assert!(a.usage.input_tokens >= 10, "usage is still tracked: {:?}", a.usage);
+    let task = h.tasks.get(a.task_id.unwrap()).await.unwrap();
+    assert_eq!(task.usage.cost_usd, 0.0);
+    let records =
+        h.rt.deps()
+            .cost
+            .records(orkestr_protocol::methods::cost::CostRecordsParams { agent_id: Some(a.id), ..Default::default() })
+            .await
+            .unwrap();
+    assert!(records.iter().all(|r| r.cost_usd == 0.0), "{records:?}");
+    assert!(records.iter().any(|r| r.api_equivalent_usd == Some(0.5)), "{records:?}");
 }
 
 fn price_warnings(sub: &mut orkestr_events::Subscription) -> usize {
@@ -817,6 +944,7 @@ async fn fallback_to_a_provider_over_its_budget_is_refused() {
     let first =
         h.provider(vec![Step::Events(vec![ChatEvent::Error(ProviderError::QuotaExceeded("out of credits".into()))])]);
     let second = Scripted::new(vec![submit("done", "finished on the fallback model")]);
+    *second.cost_model.lock() = Some(orkestr_providers::CostModelKind::PerToken);
     h.source.adapters.lock().insert(second.id, Arc::clone(&second) as Arc<dyn ProviderAdapter>);
     // A priced model, so the pre-flight estimate is above the tiny limit.
     *h.gateway.chain.lock() = vec![model(&first, "primary"), model(&second, "gpt-4o")];

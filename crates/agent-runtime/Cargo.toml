@@ -21,6 +21,7 @@ orkestr-vcs.workspace = true
 orkestr-snapshots.workspace = true
 orkestr-terminal.workspace = true
 orkestr-cost.workspace = true
+orkestr-files.workspace = true
 async-trait.workspace = true
 futures.workspace = true
 serde.workspace = true

@@ -31,7 +31,6 @@ use orkestr_providers::adapters::mock_teams_pm::PM_MARKER;
 use orkestr_storage::rusqlite::{params, OptionalExtension};
 use orkestr_storage::{Db, StorageError};
 use serde_json::{json, Value};
-use tokio_util::sync::CancellationToken;
 
 use crate::error::{OrchResult, OrchestratorError};
 use crate::plan::{parse_priority, parse_role, PLAN_ROLES};
@@ -574,7 +573,7 @@ impl Manager {
             schema: pm_schema(),
             key: "epic",
         };
-        let cancel = CancellationToken::new();
+        let cancel = crate::util::emergency_token(&self.inner.deps, project.id)?;
         let out = match self.inner.structured_call(call, &cancel, normalize_pm).await {
             Ok(o) => o,
             Err(e) => {

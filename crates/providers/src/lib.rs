@@ -55,7 +55,7 @@ pub use fallback::{
     ProviderEvent, ProviderEventSink,
 };
 pub use history::{ModelHistory, ModelStatsSource};
-pub use pricing::{estimate_cost, pricing_for, PRICING_TABLE_DATE};
+pub use pricing::{call_cost, estimate_cost, pricing_for, CallCost, PRICING_TABLE_DATE};
 pub use registry::{
     migrations, ModelsOutcome, NewProvider, ProviderPatch, ProviderRegistry, ProviderView, RegistryError,
     RegistryOptions, RegistryResult, TestOutcome,

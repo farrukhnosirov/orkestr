@@ -198,7 +198,9 @@ async fn update(ctx: RpcContext, p: UpdateProviderParams) -> Result<ProviderView
 async fn test(ctx: RpcContext, p: TestProviderParams) -> Result<TestProviderResult, RpcError> {
     let o = ctx.services.providers.test(p.provider_id, p.model).await.map_err(to_rpc)?;
     if let Some(u) = o.usage {
-        let record = usage_record(p.provider_id, &o.model, &u, UsageScope::default(), Some(o.latency_ms), o.ok);
+        let kind = ctx.services.providers.adapter(p.provider_id).map(|a| a.descriptor().cost_model);
+        let record =
+            usage_record(p.provider_id, kind.as_ref(), &o.model, &u, UsageScope::default(), Some(o.latency_ms), o.ok);
         record_usage(&ctx.services, &record).await;
     }
     Ok(TestProviderResult {
@@ -228,9 +230,12 @@ pub struct UsageScope {
 /// Builds the cost-engine record of one provider call. The cost is the
 /// provider/CLI-reported amount when present, otherwise a list-price
 /// estimate (`estimated = true`), or 0 when the model has no known price.
+/// On a subscription / local instance (`cost_model`) that amount is only
+/// API-equivalent: the spend is 0.
 #[must_use]
 pub fn usage_record(
     provider_id: ProviderId,
+    cost_model: Option<&orkestr_providers::CostModelKind>,
     model: &str,
     usage: &orkestr_providers::Usage,
     scope: UsageScope,
@@ -238,7 +243,7 @@ pub fn usage_record(
     success: bool,
 ) -> orkestr_domain::UsageRecord {
     let reported = usage.reported_cost_usd.is_some();
-    let cost = orkestr_providers::estimate_cost(model, usage).unwrap_or(0.0);
+    let priced = orkestr_providers::call_cost(cost_model, model, usage);
     orkestr_domain::UsageRecord {
         id: orkestr_domain::UsageRecordId::new(),
         ts: chrono::Utc::now(),
@@ -252,7 +257,8 @@ pub fn usage_record(
         output_tokens: usage.output_tokens,
         cached_input_tokens: usage.cached_input_tokens,
         reasoning_tokens: usage.reasoning_tokens,
-        cost_usd: if cost.is_finite() && cost >= 0.0 { cost } else { 0.0 },
+        cost_usd: priced.spend_usd,
+        api_equivalent_usd: priced.api_equivalent_usd,
         estimated: !reported || usage.estimated,
         latency_ms,
         success,

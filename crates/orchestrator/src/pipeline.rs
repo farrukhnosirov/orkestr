@@ -366,6 +366,7 @@ impl Inner {
                         h.finished_at = Some(now());
                     }
                 }
+                p.heal_since = Some(resumed_heal_since(&p, now()));
                 p
             }
             None => {
@@ -397,6 +398,8 @@ impl Inner {
                     healing: Vec::new(),
                     limits: cfg.healing.clone(),
                     granted_attempts: 0,
+                    granted_budget_usd: None,
+                    heal_since: None,
                     author_agent_id: task.agent_id,
                     author_model: task.model.clone(),
                     branch: task.worktree.as_ref().map(|w| w.branch.clone()).filter(|b| b.starts_with("agent/")),
@@ -432,8 +435,6 @@ impl Inner {
             git,
             sched_id: ManagerRunId::new(),
             forced: false,
-            heal_since: pipeline.started_at,
-            granted_budget_usd: 0.0,
         };
         let inner = Arc::clone(self);
         let task_id = task.id;
@@ -579,12 +580,15 @@ struct Driver {
     git: bool,
     sched_id: ManagerRunId,
     forced: bool,
-    /// Start of the self-healing time window (the pipeline start; reset when
-    /// the user approves more time after a wall-time escalation).
-    heal_since: orkestr_domain::Timestamp,
-    /// Extra self-healing spend the user approved after a budget escalation
-    /// of the pipeline's own healing budget (USD).
-    granted_budget_usd: f64,
+}
+
+/// Start of a resumed pipeline's self-healing window: the stored start
+/// shifted by the time the pipeline was not running (from its last save to
+/// now), so a closed Orkestr does not use up `max_wall_mins`.
+fn resumed_heal_since(p: &TaskPipeline, at: orkestr_domain::Timestamp) -> orkestr_domain::Timestamp {
+    let since = p.heal_since.unwrap_or(p.started_at);
+    let downtime = (at - p.updated_at).max(chrono::TimeDelta::zero());
+    (since + downtime).min(at)
 }
 
 /// Whether approving an escalation can let self-healing continue, and how.
@@ -763,10 +767,12 @@ impl Driver {
                     }
                 }
                 self.p.finished_at = Some(now());
+                self.release_agentless_task(TaskStatus::Failed, &r).await;
                 self.set_status(PipelineStatus::Failed, Some(r)).await;
             }
             End::Cancelled(r) => {
                 self.p.finished_at = Some(now());
+                self.release_agentless_task(TaskStatus::Cancelled, &r).await;
                 self.set_status(PipelineStatus::Cancelled, Some(r)).await;
             }
             End::Stopped => {
@@ -948,6 +954,15 @@ impl Driver {
             }
             _ => {
                 self.stage(kind, StageStatus::Failed, detail, rid).await;
+                // apply_review moved Review → Running ("changes requested")
+                // with no agent attached. Park the task in Testing like every
+                // other failed stage: the fix agent's spawn moves it to
+                // Running. An agentless Running task would hold a scheduler
+                // slot and be lost to crash recovery.
+                if self.task().await.is_ok_and(|t| t.status == TaskStatus::Running) {
+                    self.move_task(TaskStatus::Testing, "code review requested changes — self-healing fixes them")
+                        .await;
+                }
                 let root = self.workspace().await;
                 let text = self.task_text().await;
                 Step::Failed(Box::new(healing::analyze_review(kind, &review, root.as_deref(), &text)))
@@ -1128,10 +1143,34 @@ impl Driver {
             .then(|| format!("required quality gates failed: {}", failed.join(", ")))
     }
 
+    /// Finished work that waits for a human sits in `Review`: crash /
+    /// shutdown recovery keeps `Review` tasks (a `Testing` or agentless
+    /// `Running` task would become `Interrupted` and be redone by a new
+    /// agent on resume, losing the pending decision).
+    async fn park_for_user(&self, reason: &str) {
+        let Ok(task) = self.task().await else { return };
+        let agentless = task.agent_id.is_none_or(|a| !self.inner.deps.agents.is_live(a));
+        if task.status == TaskStatus::Testing || (task.status == TaskStatus::Running && agentless) {
+            self.move_task(TaskStatus::Review, reason).await;
+        }
+    }
+
+    /// A pipeline that ends while its task is `Running` / `Waiting` with no
+    /// live agent (between stages) ends the task too: nothing else would
+    /// move it, and an active task holds a scheduler slot and file locks.
+    async fn release_agentless_task(&self, to: TaskStatus, reason: &str) {
+        let Ok(task) = self.task().await else { return };
+        let agentless = task.agent_id.is_none_or(|a| !self.inner.deps.agents.is_live(a));
+        if matches!(task.status, TaskStatus::Running | TaskStatus::Waiting) && agentless {
+            self.move_task(to, &format!("quality pipeline ended: {reason}")).await;
+        }
+    }
+
     /// Waits for the user to accept (Completed) or reject the task.
     async fn await_user(&mut self, reason: String) -> UserDecision {
         let fresh = self.p.status != PipelineStatus::AwaitingUser;
         self.set_status(PipelineStatus::AwaitingUser, Some(reason.clone())).await;
+        self.park_for_user("waiting for the user's acceptance").await;
         if fresh {
             let title = self.task().await.map(|t| t.title).unwrap_or_default();
             self.notice(
@@ -1189,7 +1228,8 @@ impl Driver {
             // The pipeline's own healing budget (the user can approve more of
             // it) and the hard budgets of the task / run (only raising those
             // helps — an approval here cannot).
-            let healing_budget = self.p.limits.max_budget_usd.map(|b| b + self.granted_budget_usd);
+            let healing_budget =
+                self.p.limits.max_budget_usd.map(|b| b + self.p.granted_budget_usd.unwrap_or_default());
             let mut hard: Option<f64> = None;
             for b in [
                 task.budget.as_ref().and_then(|b| b.max_cost_usd),
@@ -1219,7 +1259,7 @@ impl Driver {
                 )
                 .await
                 .is_ok_and(|r| r.outcome == orkestr_protocol::methods::cost::BudgetOutcome::Exceeded);
-            let elapsed = (now() - self.heal_since).to_std().unwrap_or_default();
+            let elapsed = (now() - self.p.heal_since.unwrap_or(self.p.started_at)).to_std().unwrap_or_default();
             let decision = healing::decide(&HealState {
                 limits: &self.p.limits,
                 granted: self.p.granted_attempts,
@@ -1325,6 +1365,7 @@ impl Driver {
         };
         self.p.approval_id = Some(approval.id.to_string());
         self.save().await;
+        self.park_for_user("self-healing waits for the user's decision").await;
         let status = self
             .inner
             .deps
@@ -1342,11 +1383,14 @@ impl Driver {
             // decision does not stop on the same limit again.
             let note = match grant {
                 Grant::WallTime => {
-                    self.heal_since = now();
+                    self.p.heal_since = Some(now());
                     "more self-healing time granted by the user"
                 }
                 Grant::HealingBudget => {
-                    self.granted_budget_usd += self.p.limits.max_budget_usd.unwrap_or_default();
+                    self.p.granted_budget_usd = Some(
+                        self.p.granted_budget_usd.unwrap_or_default()
+                            + self.p.limits.max_budget_usd.unwrap_or_default(),
+                    );
                     "more self-healing budget granted by the user"
                 }
                 Grant::Attempts | Grant::None => {
@@ -1438,6 +1482,11 @@ impl Driver {
                 .await
                 .unwrap_or_default()
                 .iter()
+                // The task itself is not "active" while it waits for its fix
+                // agent (a review that requested changes may have left it
+                // `Running` with no agent): counting it would make the
+                // scheduler drop the candidate forever.
+                .filter(|t| t.id != task.id)
                 .map(|t| Inner::active_sched(t, self.git))
                 .collect();
             let candidate = crate::parallel::Candidate { sched, title: task.title.clone() };
@@ -1862,5 +1911,48 @@ mod grant_tests {
         // Healing budget spent; approval adds another `max_budget_usd`.
         assert!(matches!(decide(&state(Duration::ZERO, 1.0)), HealDecision::Escalate(Escalation::Budget { .. })));
         assert!(matches!(decide(&state(Duration::ZERO, 1.0 + 1.0)), HealDecision::Attempt { .. }));
+    }
+}
+
+#[cfg(test)]
+mod resume_tests {
+    use orkestr_domain::Timestamp;
+    use orkestr_protocol::methods::pipeline::HealingLimits;
+
+    use super::*;
+
+    fn pipeline(started: Timestamp, updated: Timestamp, heal_since: Option<Timestamp>) -> TaskPipeline {
+        serde_json::from_value(serde_json::json!({
+            "id": "p1",
+            "projectId": orkestr_domain::ProjectId::new(),
+            "taskId": orkestr_domain::TaskId::new(),
+            "status": "Healing",
+            "stages": [],
+            "limits": HealingLimits::default(),
+            "grantedBudgetUsd": 2.5,
+            "healSince": heal_since,
+            "costAtStartUsd": 0.0,
+            "costUsd": 0.0,
+            "startedAt": started,
+            "updatedAt": updated,
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn a_resumed_pipeline_does_not_count_downtime_and_keeps_its_grants() {
+        let at = now();
+        let h = chrono::TimeDelta::hours;
+        let m = chrono::TimeDelta::minutes;
+        // Started 13 h ago, healed for 20 min, then Orkestr was closed overnight.
+        let p = pipeline(at - h(13), at - h(13) + m(20), None);
+        assert_eq!(p.granted_budget_usd, Some(2.5), "the granted healing budget survives a restart");
+        assert_eq!(at - resumed_heal_since(&p, at), m(20), "only the time the pipeline ran counts");
+        // A window the user restarted (more time granted) 5 min before the shutdown.
+        let p = pipeline(at - h(13), at - h(12), Some(at - h(12) - m(5)));
+        assert_eq!(at - resumed_heal_since(&p, at), m(5));
+        // A clock that went backwards never yields a window in the future.
+        let p = pipeline(at, at + h(1), None);
+        assert!(resumed_heal_since(&p, at) <= at);
     }
 }

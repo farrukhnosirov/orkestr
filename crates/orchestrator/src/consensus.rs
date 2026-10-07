@@ -271,10 +271,14 @@ impl Inner {
             PERSPECTIVES[index % PERSPECTIVES.len()],
             orkestr_agent_runtime::reply_language_instruction(&language)
         );
-        let project_id = run.lock().await.project_id;
+        let (project_id, task_id) = {
+            let r = run.lock().await;
+            (r.project_id, r.task_id)
+        };
         let out = structured_call(
             self,
             project_id,
+            task_id,
             vec![model.clone()],
             system,
             user,
@@ -391,6 +395,7 @@ impl Inner {
         let out = structured_call(
             self,
             run.project_id,
+            run.task_id,
             synthesizer,
             system,
             s,

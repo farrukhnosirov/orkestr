@@ -27,6 +27,11 @@ pub fn resolve(env: &ToolEnv, path: &str) -> Result<(PathBuf, String), ToolError
 }
 
 async fn read_text(abs: &Path, rel: &str) -> Result<String, ToolError> {
+    read_bytes_text(abs, rel).await.map(|(_, t)| t)
+}
+
+/// The file's bytes and their (lossy) text.
+async fn read_bytes_text(abs: &Path, rel: &str) -> Result<(Vec<u8>, String), ToolError> {
     let meta = tokio::fs::metadata(abs).await.map_err(|e| ToolError::new(format!("cannot read `{rel}`: {e}")))?;
     if meta.is_dir() {
         return Err(ToolError::new(format!("`{rel}` is a directory — use list_dir")));
@@ -41,7 +46,32 @@ async fn read_text(abs: &Path, rel: &str) -> Result<String, ToolError> {
     if bytes.contains(&0) {
         return Err(ToolError::new(format!("`{rel}` looks like a binary file")));
     }
-    Ok(String::from_utf8_lossy(&bytes).into_owned())
+    let text = String::from_utf8_lossy(&bytes).into_owned();
+    Ok((bytes, text))
+}
+
+/// Writes `bytes` to `abs` atomically (temp file in the same folder, fsync,
+/// rename: a stop or crash mid-write never leaves a truncated file). With
+/// `expected`, the file must still hold exactly those bytes right before the
+/// rename — an edit made meanwhile (the user's save, another agent) is
+/// reported as a conflict instead of being overwritten.
+async fn write_atomic(abs: &Path, rel: &str, bytes: Vec<u8>, expected: Option<Vec<u8>>) -> Result<(), ToolError> {
+    let target = abs.to_path_buf();
+    let label = rel.to_owned();
+    tokio::task::spawn_blocking(move || {
+        if let Some(expected) = expected {
+            let current = std::fs::read(&target).map_err(|e| ToolError::new(format!("cannot read `{label}`: {e}")))?;
+            if current != expected {
+                return Err(ToolError::new(format!(
+                    "`{label}` was changed by someone else while you edited it; read it again and redo the edit"
+                )));
+            }
+        }
+        orkestr_files::ops::atomic_write(&target, &bytes, &label)
+            .map_err(|e| ToolError::new(format!("cannot write `{label}`: {e}")))
+    })
+    .await
+    .map_err(|e| ToolError::new(format!("the write was interrupted: {e}")))?
 }
 
 async fn file_changed(env: &ToolEnv, rel: &str, change: FileChangeKind) {
@@ -100,9 +130,7 @@ pub async fn write_file(args: &Value, env: &ToolEnv) -> Result<ToolOutput, ToolE
     if let Some(parent) = abs.parent() {
         tokio::fs::create_dir_all(parent).await.map_err(|e| ToolError::new(format!("cannot create folder: {e}")))?;
     }
-    tokio::fs::write(&abs, content.as_bytes())
-        .await
-        .map_err(|e| ToolError::new(format!("cannot write `{rel}`: {e}")))?;
+    write_atomic(&abs, &rel, content.as_bytes().to_vec(), None).await?;
     file_changed(env, &rel, if existed { FileChangeKind::Modified } else { FileChangeKind::Created }).await;
     let verb = if existed { "updated" } else { "created" };
     let mut out = ToolOutput::ok(
@@ -130,7 +158,8 @@ pub async fn edit_file(args: &Value, env: &ToolEnv) -> Result<ToolOutput, ToolEr
     if touches_git_dir(&rel) {
         return Err(ToolError::new("writing inside `.git` is not allowed — use git_commit"));
     }
-    let text = read_text(&abs, &rel).await?;
+    // `original`: the exact bytes the edit is based on.
+    let (original, text) = read_bytes_text(&abs, &rel).await?;
     let count = text.matches(old).count();
     if count == 0 {
         return Err(ToolError::new(format!("`old` text not found in {rel} — read the file and copy the exact text")));
@@ -144,9 +173,7 @@ pub async fn edit_file(args: &Value, env: &ToolEnv) -> Result<ToolOutput, ToolEr
     if updated.len() > MAX_WRITE_BYTES * 2 {
         return Err(ToolError::new("resulting file is too large"));
     }
-    tokio::fs::write(&abs, updated.as_bytes())
-        .await
-        .map_err(|e| ToolError::new(format!("cannot write `{rel}`: {e}")))?;
+    write_atomic(&abs, &rel, updated.into_bytes(), Some(original)).await?;
     file_changed(env, &rel, FileChangeKind::Modified).await;
     let n = if all { count } else { 1 };
     let mut out =
@@ -290,4 +317,30 @@ pub async fn search_files(args: &Value, env: &ToolEnv) -> Result<ToolOutput, Too
     .map_err(|e| ToolError::new(format!("search failed: {e}")))?;
     let content = if hits.is_empty() { format!("no matches for /{pattern}/ in {rel}") } else { hits.join("\n") };
     Ok(ToolOutput::ok(content, format!("{} match(es) for /{pattern}/", hits.len())))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn edits_never_overwrite_a_concurrent_change_and_leave_no_temp_files() {
+        let dir = tempfile::tempdir().unwrap();
+        let f = dir.path().join("app.ts");
+        std::fs::write(&f, "old\n").unwrap();
+        // The user saved the file after the agent read it: conflict, the save survives.
+        let err = write_atomic(&f, "app.ts", b"agent\n".to_vec(), Some(b"stale\n".to_vec())).await.unwrap_err();
+        assert!(err.message.contains("changed by someone else"), "{}", err.message);
+        assert_eq!(std::fs::read_to_string(&f).unwrap(), "old\n");
+        // Unchanged since the read: written in full.
+        write_atomic(&f, "app.ts", b"agent\n".to_vec(), Some(b"old\n".to_vec())).await.unwrap();
+        assert_eq!(std::fs::read_to_string(&f).unwrap(), "agent\n");
+        // A new file, no expectation.
+        write_atomic(&dir.path().join("new.txt"), "new.txt", b"x".to_vec(), None).await.unwrap();
+        let names: Vec<String> = std::fs::read_dir(dir.path())
+            .unwrap()
+            .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(names.len(), 2, "no temp file left behind: {names:?}");
+    }
 }

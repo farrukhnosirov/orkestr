@@ -61,7 +61,12 @@
     "stoppedTaskCancelled": "Остановлен пользователем (задача отменена)",
     "emergencyStop": "Экстренная остановка",
     "coreShutdown": "Ядро завершает работу",
-    "runningCli": "Работает через CLI {{cli}}"
+    "runningCli": "Работает через CLI {{cli}}",
+    "decomposing": "Разбивает задачу",
+    "coordinating": "Координирует исполнителей",
+    "waitingReviewer": "Ждёт ревьюера",
+    "delegatedDone": "Делегированная задача выполнена",
+    "cancelled": "Отменён"
   },
   "snapshot": {
     "manual": "Снимок вручную",
@@ -198,6 +203,28 @@
       "budget_exceeded": "Бюджет исчерпан: {{detail}}",
       "max_turns": "Достигнут лимит ходов: {{detail}}",
       "time_limit": "Достигнут лимит времени: {{detail}}"
-    }
+    },
+    "reviewChangesHealing": "Ревью кода запросило доработку — её выполнит самовосстановление",
+    "awaitingAcceptance": "Ждёт вашей приёмки",
+    "healingAwaitsDecision": "Самовосстановление ждёт вашего решения",
+    "pipelineEnded": "Конвейер качества завершился: {{detail}}"
+  },
+  "leadReason": {
+    "emergencyStop": "Экстренная остановка",
+    "runCancelled": "Запуск AI-менеджера отменён",
+    "shutdown": "Orkestr завершает работу",
+    "interrupted": "Orkestr остановился во время работы лида — возобновите запуск, чтобы повторить",
+    "budget": "Бюджет исчерпан: потрачено {{spent}} из {{limit}}",
+    "timeLimit": "Достигнут лимит времени команды ({{mins}} мин)",
+    "decompose": "Лид не смог разбить задачу: {{detail}}"
+  },
+  "mergeDetail": {
+    "approval": "{{status}}",
+    "approvalNote": "{{status}}: {{note}}",
+    "stopped": "Orkestr остановился во время слияния",
+    "checksFailed": "Проверки качества в интеграционной ветке не пройдены",
+    "aborted": "Прервано",
+    "approvalFailed": "Не удалось запросить подтверждение: {{detail}}",
+    "checksError": "Не удалось запустить проверки качества: {{detail}}"
   }
 }

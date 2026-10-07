@@ -57,6 +57,17 @@ limits: HealingLimits,
  */
 grantedAttempts: number, 
 /**
+ * Extra self-healing spend granted by the user after a healing-budget
+ * escalation (USD).
+ */
+grantedBudgetUsd?: number, 
+/**
+ * Start of the current self-healing time window (the pipeline start, or
+ * when the user granted more time). Time the pipeline was not running
+ * (Orkestr closed) is not counted: a resumed pipeline shifts it.
+ */
+healSince?: string, 
+/**
  * The agent that implemented the task.
  */
 authorAgentId?: AgentId, 
