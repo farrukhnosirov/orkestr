@@ -47,6 +47,7 @@ function fakeDock(): DockviewApi {
     onDidLayoutChange: () => ({ dispose: () => undefined }),
     onDidMaximizedGroupChange: () => ({ dispose: () => undefined }),
     onDidAddGroup: () => ({ dispose: () => undefined }),
+    onDidActivePanelChange: () => ({ dispose: () => undefined }),
     clear: () => {
       panels = [];
     },

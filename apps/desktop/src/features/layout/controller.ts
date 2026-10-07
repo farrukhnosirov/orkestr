@@ -29,6 +29,7 @@ import {
 } from "./schema";
 import { captureArrangement, type LayoutPlan, monitorsChanged, planLayout, planStartup } from "./selection";
 import { useLayoutStore } from "./store";
+import { createTabRevealer } from "./tabReveal";
 import { canDetach, type RedockPayload, windowsApi } from "./windowsApi";
 
 const SAVE_DEBOUNCE_MS = 800;
@@ -348,13 +349,27 @@ function clearLegacy(): void {
 /** Called by the Workspace when dockview is ready. */
 export async function attachDock(dock: DockviewApi): Promise<void> {
   api = dock;
+  // The active tab of every group stays visible after the strips change width.
+  const revealer = createTabRevealer(() => (typeof document === "undefined" ? null : document));
+  disposers.push(() => revealer.dispose());
   const sub = dock.onDidLayoutChange(() => {
     syncDockSummary();
     scheduleSave();
+    revealer.request();
   });
   disposers.push(() => sub.dispose());
-  const maxSub = dock.onDidMaximizedGroupChange(() => onMaximizedChange(dock));
+  const maxSub = dock.onDidMaximizedGroupChange(() => {
+    onMaximizedChange(dock);
+    revealer.request();
+  });
   disposers.push(() => maxSub.dispose());
+  const activeSub = dock.onDidActivePanelChange(() => revealer.request());
+  disposers.push(() => activeSub.dispose());
+  if (typeof window !== "undefined") {
+    const onResize = () => revealer.request();
+    window.addEventListener("resize", onResize);
+    disposers.push(() => window.removeEventListener("resize", onResize));
+  }
   // Groups the user creates (split, drop, re-dock) get the same minimum width.
   const groupSub = dock.onDidAddGroup((g) => constrainGroup(g));
   disposers.push(() => groupSub.dispose());
