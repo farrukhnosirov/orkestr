@@ -511,6 +511,10 @@ function watchManagerReply(projectId: string, messageId: string): void {
 let wakeOff: (() => void) | null = null;
 let spotter: WakeSpotter | null = null;
 let wakeKey = "";
+/** Generation of the latest sync: a start that resolves after a newer sync is superseded. */
+let wakeGen = 0;
+/** The start in flight (opening the mic), shared by syncs with the same key. */
+let wakeStarting: { key: string; promise: Promise<void> } | null = null;
 
 /** Whether the wake listener should run with the current config and performance mode. */
 export function wakeWanted(): { run: boolean; status: "off" | "needsEnrollment" | "pausedBattery" | "ok" } {
@@ -529,9 +533,13 @@ export async function syncWakeListener(): Promise<void> {
   const want = wakeWanted();
   const c = useVoiceStore.getState().config;
   const key = want.run && c ? `${c.wake.sensitivity}|${c.wake.cpuBudgetPct}|${c.inputDeviceId ?? ""}|${loadWakeTemplates()?.samples.length ?? 0}` : "";
-  if (key === wakeKey && (want.run ? wakeOff !== null : wakeOff === null)) return;
+  // Same target as the start in flight: share it (one segment subscription only).
+  if (wakeStarting && wakeStarting.key === key && key !== "") return wakeStarting.promise;
+  if (key === wakeKey && !wakeStarting && (want.run ? wakeOff !== null : wakeOff === null)) return;
   stopWake();
+  const gen = ++wakeGen;
   wakeKey = key;
+  wakeStarting = null;
   const s = useVoiceStore.getState();
   if (!want.run || !c) {
     s.setRuntime({ wakeStatus: want.status === "ok" ? "off" : want.status });
@@ -541,10 +549,29 @@ export async function syncWakeListener(): Promise<void> {
   if (!stored) return;
   spotter = new WakeSpotter(stored.samples, c.wake.sensitivity);
   s.setRuntime({ wakeStatus: "starting", wakeError: null });
+  const promise = startWake(gen, c.wake.cpuBudgetPct);
+  wakeStarting = { key, promise };
+  return promise;
+}
+
+/**
+ * Opens the mic for wake spotting. A start superseded while the mic was
+ * opening (wake word off, Battery Saver, device change, shutdown) gives its
+ * "wake" claim back unless a newer start owns it — otherwise the microphone
+ * stayed open with no consumer.
+ */
+async function startWake(gen: number, cpuBudgetPct: number): Promise<void> {
+  const s = useVoiceStore.getState();
+  const current = () => gen === wakeGen;
+  /** A newer sync either holds the listener or is opening it: the "wake" claim is theirs. */
+  const newerOwnsMic = () => wakeOff !== null || wakeStarting !== null;
   try {
     const m = await openMic("wake");
-    if (wakeKey !== key) return; // superseded meanwhile
-    m.setBudget(c.wake.cpuBudgetPct);
+    if (!current()) {
+      if (!newerOwnsMic()) releaseMic("wake");
+      return;
+    }
+    m.setBudget(cpuBudgetPct);
     m.setSegmenting(true);
     const unsub = m.subscribe((msg) => {
       if (msg.type !== "segment" || !spotter) return;
@@ -560,8 +587,14 @@ export async function syncWakeListener(): Promise<void> {
     };
     s.setRuntime({ wakeStatus: "listening" });
   } catch (e) {
+    if (!current()) {
+      if (!newerOwnsMic()) releaseMic("wake");
+      return;
+    }
     releaseMic("wake");
     s.setRuntime({ wakeStatus: "error", wakeError: micErrorText(e) });
+  } finally {
+    if (current()) wakeStarting = null;
   }
 }
 
@@ -581,6 +614,9 @@ export function shutdownVoice(): void {
   cancelVoice();
   stopWake();
   wakeKey = "";
+  // Supersede a start still opening the mic: it releases its claim when it lands.
+  wakeGen += 1;
+  wakeStarting = null;
   managerWatch?.();
   closeMic();
   useVoiceStore.getState().setRuntime({ wakeStatus: "off" });
