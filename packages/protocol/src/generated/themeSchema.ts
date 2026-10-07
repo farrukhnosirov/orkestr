@@ -118,10 +118,24 @@ export const CONTRAST_RULES: ReadonlyArray<{ id: string; fg: string; bg: string;
     "min": 4.5
   },
   {
+    "bg": "color-bg",
+    "fg": "color-text-subtle",
+    "hard": false,
+    "id": "subtle-bg",
+    "min": 4.5
+  },
+  {
     "bg": "color-accent",
     "fg": "color-text-inverse",
     "hard": false,
     "id": "accent-fg",
+    "min": 4.5
+  },
+  {
+    "bg": "gradient-accent",
+    "fg": "color-text-inverse",
+    "hard": false,
+    "id": "accent-gradient-fg",
     "min": 4.5
   },
   {
@@ -165,7 +179,9 @@ export const BASE_COLORS: { Dark: Readonly<Record<string, string>>; Light: Reado
     "color-text": "#e8ecff",
     "color-text-inverse": "#040611",
     "color-text-muted": "#9aa3c8",
-    "color-warning": "#fbbf24"
+    "color-text-subtle": "#727ba6",
+    "color-warning": "#fbbf24",
+    "gradient-accent": "linear-gradient(135deg, #22d3ee 0%, #6d8bff 52%, #a78bfa 100%)"
   },
   "Light": {
     "color-accent": "#0e7490",
@@ -176,7 +192,9 @@ export const BASE_COLORS: { Dark: Readonly<Record<string, string>>; Light: Reado
     "color-text": "#121633",
     "color-text-inverse": "#ffffff",
     "color-text-muted": "#4b5378",
-    "color-warning": "#a16207"
+    "color-text-subtle": "#636b90",
+    "color-warning": "#a16207",
+    "gradient-accent": "linear-gradient(135deg, #22d3ee 0%, #6d8bff 52%, #a78bfa 100%)"
   }
 };
 
@@ -283,7 +301,7 @@ export const BUILTIN_THEME_LIST: readonly ThemeConfig[] = [
       "color-surface-sunken": "rgba(4, 6, 10, 0.6)",
       "color-text": "#e6e9f0",
       "color-text-muted": "#9aa3b5",
-      "color-text-subtle": "#6b7387",
+      "color-text-subtle": "#747c91",
       "color-violet": "#9d8cff",
       "color-violet-strong": "#7c6cf0",
       "gradient-accent": "linear-gradient(135deg, #5b9dff 0%, #7c8cff 55%, #9d8cff 100%)",
@@ -410,7 +428,7 @@ export const BUILTIN_THEME_LIST: readonly ThemeConfig[] = [
       "color-surface-sunken": "rgba(6, 6, 7, 0.7)",
       "color-text": "#ececee",
       "color-text-muted": "#a1a1a8",
-      "color-text-subtle": "#6e6e76",
+      "color-text-subtle": "#7c7c85",
       "color-violet": "#fcd34d",
       "color-violet-strong": "#fbbf24",
       "gradient-accent": "linear-gradient(135deg, #f59e0b 0%, #f97316 100%)",
@@ -481,11 +499,11 @@ export const BUILTIN_THEME_LIST: readonly ThemeConfig[] = [
       "color-text": "#23190c",
       "color-text-inverse": "#ffffff",
       "color-text-muted": "#5e5140",
-      "color-text-subtle": "#8a7c66",
+      "color-text-subtle": "#76674f",
       "color-violet": "#6d28d9",
       "color-violet-strong": "#5b21b6",
       "color-warning": "#a16207",
-      "gradient-accent": "linear-gradient(135deg, #d97706 0%, #ea580c 50%, #db2777 100%)",
+      "gradient-accent": "linear-gradient(135deg, #b45309 0%, #c2410c 50%, #be185d 100%)",
       "gradient-space": "radial-gradient(1200px 700px at 10% -10%, rgba(251, 191, 36, 0.22) 0%, rgba(251, 246, 236, 0) 60%), radial-gradient(900px 600px at 105% 15%, rgba(249, 115, 22, 0.12) 0%, rgba(251, 246, 236, 0) 55%), linear-gradient(180deg, #fdf9f1 0%, #f8f1e3 100%)",
       "shadow-panel": "0 12px 36px rgba(90, 60, 20, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.7)"
     }

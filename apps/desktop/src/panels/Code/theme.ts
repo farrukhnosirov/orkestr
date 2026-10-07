@@ -60,7 +60,7 @@ const FALLBACK: Record<string, string> = {
   "--ok-color-border-strong": "#96afff3d",
   "--ok-color-text": "#e8ecff",
   "--ok-color-text-muted": "#9aa3c8",
-  "--ok-color-text-subtle": "#646d96",
+  "--ok-color-text-subtle": "#727ba6",
   "--ok-color-accent": "#22d3ee",
   "--ok-color-violet": "#a78bfa",
   "--ok-color-magenta": "#f472b6",

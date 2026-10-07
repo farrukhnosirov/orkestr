@@ -5,7 +5,7 @@
 import type { ContrastCheck, Rgba, ThemeConfig } from "@orkestr/protocol";
 import { BASE_COLORS, CONTRAST_RULES } from "@orkestr/protocol";
 
-import { parseColor } from "./grammar";
+import { GRADIENT_FNS, parseColor, splitTopLevel } from "./grammar";
 
 function lin(c: number): number {
   const v = c / 255;
@@ -39,14 +39,45 @@ export function baseColor(mode: ThemeConfig["mode"], token: string): string | nu
   return BASE_COLORS[mode][token] ?? null;
 }
 
-function resolve(theme: ThemeConfig, token: string): Rgba | null {
-  const v = theme.tokens[token];
-  if (v !== undefined) return parseColor(v);
-  const base = baseColor(theme.mode, token);
-  return base === null ? null : parseColor(base);
+/**
+ * The color stops of a gradient accepted by the `Gradient` grammar
+ * (`GRADIENT_FNS`), or a single color for a plain color value. Parts that
+ * are not colors (angles, `to right`, `circle at …`) are skipped. `null` when
+ * the value is neither, or has no literal color stop (e.g. `var(...)` stops).
+ * Mirror of `orkestr_protocol::ui_theme::color_stops`.
+ */
+export function colorStops(input: string): Rgba[] | null {
+  const s = input.trim().toLowerCase();
+  const single = parseColor(s);
+  if (single) return [single];
+  const fn = GRADIENT_FNS.find((f) => s.startsWith(f));
+  if (fn === undefined || !s.endsWith(")")) return null;
+  const stops: Rgba[] = [];
+  for (const raw of splitTopLevel(s.slice(fn.length, -1))) {
+    const part = raw.trim();
+    const open = part.indexOf("(");
+    let color: string | undefined;
+    if (open >= 0 && !/\s/.test(part.slice(0, open))) {
+      const close = part.indexOf(")");
+      color = close >= 0 ? part.slice(0, close + 1) : undefined;
+    } else {
+      color = part.split(/\s+/).find((p) => p !== "");
+    }
+    const c = color === undefined ? null : parseColor(color);
+    if (c) stops.push(c);
+    else if (color?.startsWith("var(")) return null;
+  }
+  return stops.length > 0 ? stops : null;
 }
 
-/** Runs every contrast rule whose colors resolve to literals. */
+function resolve(theme: ThemeConfig, token: string): Rgba[] | null {
+  const v = theme.tokens[token];
+  if (v !== undefined) return colorStops(v);
+  const base = baseColor(theme.mode, token);
+  return base === null ? null : colorStops(base);
+}
+
+/** Runs every contrast rule whose colors resolve to literals (gradients: worst stop). */
 export function contrastReport(theme: ThemeConfig): ContrastCheck[] {
   const canvas: Rgba = theme.mode === "Light" ? { r: 255, g: 255, b: 255, a: 1 } : { r: 0, g: 0, b: 0, a: 1 };
   const out: ContrastCheck[] = [];
@@ -54,7 +85,10 @@ export function contrastReport(theme: ThemeConfig): ContrastCheck[] {
     const fg = resolve(theme, rule.fg);
     const bg = resolve(theme, rule.bg);
     if (!fg || !bg) continue;
-    const ratio = Math.round(contrastRatio(fg, bg, canvas) * 100) / 100;
+    // The worst pair decides (a text color is a single stop).
+    let worst = Infinity;
+    for (const f of fg) for (const b of bg) worst = Math.min(worst, contrastRatio(f, b, canvas));
+    const ratio = Math.round(worst * 100) / 100;
     out.push({ id: rule.id, fg: rule.fg, bg: rule.bg, ratio, min: rule.min, hard: rule.hard, pass: ratio >= rule.min });
   }
   return out;

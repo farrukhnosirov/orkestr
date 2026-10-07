@@ -98,7 +98,7 @@ export function themeFromTokens(root?: HTMLElement): TerminalTheme {
   const v = (name: string, fallback: string) => cssVar(name, fallback, root);
   const text = v("--ok-color-text", "#e8ecff");
   const muted = v("--ok-color-text-muted", "#9aa3c8");
-  const subtle = v("--ok-color-text-subtle", "#646d96");
+  const subtle = v("--ok-color-text-subtle", "#727ba6");
   const accent = v("--ok-color-accent", "#22d3ee");
   const violet = v("--ok-color-violet", "#a78bfa");
   const magenta = v("--ok-color-magenta", "#f472b6");

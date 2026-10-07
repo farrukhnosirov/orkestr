@@ -62,7 +62,7 @@ export function applyTheme(): void {
     colors: {
       "editor.background": token("--ok-color-bg-elevated", "#0a0d1c"),
       "editor.foreground": text,
-      "editorLineNumber.foreground": token("--ok-color-text-subtle", "#646d96"),
+      "editorLineNumber.foreground": token("--ok-color-text-subtle", "#727ba6"),
       "editorLineNumber.activeForeground": token("--ok-color-text-muted", "#9aa3c8"),
       "editor.selectionBackground": token("--ok-color-surface-active", "#26326480"),
       "editorGutter.background": token("--ok-color-bg-elevated", "#0a0d1c"),

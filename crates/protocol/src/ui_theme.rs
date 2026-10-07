@@ -565,11 +565,13 @@ pub const BASE_DARK: &[(&str, &str)] = &[
     ("color-bg-elevated", "#0a0d1c"),
     ("color-text", "#e8ecff"),
     ("color-text-muted", "#9aa3c8"),
+    ("color-text-subtle", "#727ba6"),
     ("color-text-inverse", "#040611"),
     ("color-accent", "#22d3ee"),
     ("color-danger", "#fb7185"),
     ("color-success", "#34d399"),
     ("color-warning", "#fbbf24"),
+    ("gradient-accent", "linear-gradient(135deg, #22d3ee 0%, #6d8bff 52%, #a78bfa 100%)"),
 ];
 
 /// Light base values of the contrast-relevant tokens.
@@ -578,11 +580,14 @@ pub const BASE_LIGHT: &[(&str, &str)] = &[
     ("color-bg-elevated", "#ffffff"),
     ("color-text", "#121633"),
     ("color-text-muted", "#4b5378"),
+    ("color-text-subtle", "#636b90"),
     ("color-text-inverse", "#ffffff"),
     ("color-accent", "#0e7490"),
     ("color-danger", "#be123c"),
     ("color-success", "#047857"),
     ("color-warning", "#a16207"),
+    // Light mode inherits the root (dark) accent gradient in tokens.css.
+    ("gradient-accent", "linear-gradient(135deg, #22d3ee 0%, #6d8bff 52%, #a78bfa 100%)"),
 ];
 
 /// One contrast check (`hard` failures make the theme invalid).
@@ -606,22 +611,55 @@ pub struct ContrastCheck {
     pub pass: bool,
 }
 
-/// `(id, fg, bg, min, hard)`.
+/// `(id, fg, bg, min, hard)`. A gradient token (`gradient-accent`) is checked
+/// against every color stop and reports the worst one, because primary
+/// buttons paint `color-text-inverse` directly on that gradient.
 pub const CONTRAST_RULES: &[(&str, &str, &str, f64, bool)] = &[
     ("text-bg", "color-text", "color-bg", 4.5, true),
     ("text-elevated", "color-text", "color-bg-elevated", 4.5, false),
     ("muted-bg", "color-text-muted", "color-bg", 4.5, false),
+    ("subtle-bg", "color-text-subtle", "color-bg", 4.5, false),
     ("accent-fg", "color-text-inverse", "color-accent", 4.5, false),
+    ("accent-gradient-fg", "color-text-inverse", "gradient-accent", 4.5, false),
     ("accent-bg", "color-accent", "color-bg", 3.0, false),
     ("danger-bg", "color-danger", "color-bg", 3.0, true),
     ("success-bg", "color-success", "color-bg", 3.0, false),
     ("warning-bg", "color-warning", "color-bg", 3.0, false),
 ];
 
-fn resolve_color(theme: &ThemeConfig, token: &str) -> Option<Rgba> {
+/// The color stops of a gradient accepted by the `Gradient` grammar
+/// (`GRADIENT_FNS`), or a single color for a plain color value. Parts that
+/// are not colors (angles, `to right`, `circle at …`) are skipped. `None` when
+/// the value is neither, or has no literal color stop (e.g. `var(...)` stops).
+#[must_use]
+pub fn color_stops(input: &str) -> Option<Vec<Rgba>> {
+    let s = input.trim().to_ascii_lowercase();
+    if let Some(c) = parse_color(&s) {
+        return Some(vec![c]);
+    }
+    let inner = GRADIENT_FNS.iter().find_map(|f| s.strip_prefix(f))?.strip_suffix(')')?;
+    let mut stops = Vec::new();
+    for part in split_top_level(inner) {
+        let part = part.trim();
+        // A color function keeps its own spaces: take it up to its `)`.
+        let color = match part.find('(') {
+            Some(open) if !part[..open].contains(char::is_whitespace) => part.find(')').map(|close| &part[..=close]),
+            _ => part.split_whitespace().next(),
+        };
+        if let Some(c) = color.and_then(parse_color) {
+            stops.push(c);
+        } else if color.is_some_and(|c| c.starts_with("var(")) {
+            // A stop we cannot resolve: the whole gradient is unknowable.
+            return None;
+        }
+    }
+    (!stops.is_empty()).then_some(stops)
+}
+
+fn resolve_colors(theme: &ThemeConfig, token: &str) -> Option<Vec<Rgba>> {
     match theme.tokens.get(token) {
-        Some(v) => parse_color(v),
-        None => base_color(theme.mode, token).and_then(parse_color),
+        Some(v) => color_stops(v),
+        None => base_color(theme.mode, token).and_then(color_stops),
     }
 }
 
@@ -637,7 +675,13 @@ pub fn contrast_report(theme: &ThemeConfig) -> Vec<ContrastCheck> {
     CONTRAST_RULES
         .iter()
         .filter_map(|(id, fg, bg, min, hard)| {
-            let ratio = contrast_ratio(resolve_color(theme, fg)?, resolve_color(theme, bg)?, canvas);
+            let fgs = resolve_colors(theme, fg)?;
+            let bgs = resolve_colors(theme, bg)?;
+            // The worst pair decides (a text color is a single stop).
+            let ratio = fgs
+                .iter()
+                .flat_map(|f| bgs.iter().map(move |b| contrast_ratio(*f, *b, canvas)))
+                .fold(f64::INFINITY, f64::min);
             let ratio = (ratio * 100.0).round() / 100.0;
             Some(ContrastCheck {
                 id: (*id).into(),
@@ -831,6 +875,41 @@ mod tests {
         for bad in ["#ggg", "rgb(1,2)", "rgb(300,0,0)", "hsl(1,2,3)", "red", "1e3", "rgb(1e2,0,0)"] {
             assert!(parse_color(bad).is_none(), "{bad}");
         }
+    }
+
+    #[test]
+    fn gradient_color_stops() {
+        let hex = |s: &str| color_stops(s).map(|v| v.iter().map(|c| (c.r, c.g, c.b)).collect::<Vec<_>>());
+        assert_eq!(hex("#ffffff"), Some(vec![(255.0, 255.0, 255.0)]));
+        assert_eq!(
+            hex("linear-gradient(135deg, #000 0%, rgba(255, 0, 0, 0.5) 50%, hsl(0 0% 100%) 100%)"),
+            Some(vec![(0.0, 0.0, 0.0), (255.0, 0.0, 0.0), (255.0, 255.0, 255.0)])
+        );
+        assert_eq!(hex("repeating-radial-gradient(circle at 10% 20%, #fff, #000 40px)").map(|v| v.len()), Some(2));
+        assert_eq!(hex("linear-gradient(to right, var(--ok-color-accent), #fff)"), None);
+        assert_eq!(hex("url(x.png)"), None);
+        assert_eq!(hex("linear-gradient(135deg)"), None);
+    }
+
+    /// Regression: primary buttons paint `color-text-inverse` on the accent
+    /// gradient, so every stop must be checked (Solar Light used to pass with
+    /// white text at 3.19:1 on its amber stop).
+    #[test]
+    fn accent_gradient_rule_reports_worst_stop() {
+        let mut t = builtin_themes().into_iter().find(|t| t.id == "solar-light").unwrap();
+        t.tokens.insert(
+            "gradient-accent".into(),
+            "linear-gradient(135deg, #d97706 0%, #ea580c 50%, #db2777 100%)".into(),
+        );
+        t.tokens.insert("color-text-subtle".into(), "#8a7c66".into());
+        let report = contrast_report(&t);
+        let get = |id: &str| report.iter().find(|c| c.id == id).unwrap_or_else(|| panic!("no {id}"));
+        assert!((get("accent-gradient-fg").ratio - 3.19).abs() < 0.011);
+        assert!(!get("accent-gradient-fg").pass);
+        assert!(!get("subtle-bg").pass);
+        assert!(get("accent-fg").pass, "the flat accent alone hid the failure");
+        // Soft rules: the theme stays valid but no longer claims AA.
+        assert!(t.validate().is_ok());
     }
 
     #[test]
