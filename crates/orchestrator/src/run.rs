@@ -1004,6 +1004,12 @@ impl Supervisor {
         self.run.tasks.iter().filter(|t| t.agent_id.is_some_and(|a| self.agent_live(a))).count()
     }
 
+    /// Records the current number of live agents in `peak_parallel`.
+    fn note_parallel(&mut self) {
+        let parallel = u32::try_from(self.live_agents()).unwrap_or(u32::MAX);
+        self.run.peak_parallel = self.run.peak_parallel.max(parallel);
+    }
+
     fn check_bounds(&self) -> Option<(ManagerRunStatus, String)> {
         let l = &self.run.limits;
         if let Some(max) = l.max_cost_usd {
@@ -1277,15 +1283,19 @@ impl Supervisor {
             }
             let Some(i) = self.run.tasks.iter().position(|t| t.task_id == task_id) else { continue };
             match self.spawn_for(i, git, planned.saturating_sub(started)).await {
-                Ok(()) => started += 1,
+                Ok(()) => {
+                    started += 1;
+                    // Sampled after every spawn: a fast agent may already have
+                    // finished by the end of the pass (spawns are sequential).
+                    self.note_parallel();
+                }
                 Err(Fatal(reason)) => return Some(reason),
             }
         }
         if let Some((_, first)) = outcome.deferred.first() {
             tracing::debug!(run_id = %self.run.id, deferred = outcome.deferred.len(), first = %first, "tasks held back by the scheduler");
         }
-        let parallel = u32::try_from(self.live_agents()).unwrap_or(u32::MAX);
-        self.run.peak_parallel = self.run.peak_parallel.max(parallel);
+        self.note_parallel();
         self.inner.parallel.publish_if_changed().await;
         self.check_merge_risks(git).await;
         None
