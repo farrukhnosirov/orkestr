@@ -1,0 +1,260 @@
+/* Claude Code composer + model picker (premium dark glass). */
+
+.ccx-composer {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-2);
+  padding: var(--ok-space-3);
+  border-top: 1px solid var(--ok-color-border);
+  background: var(--ok-gradient-panel);
+  backdrop-filter: blur(var(--ok-blur));
+}
+
+.ccx-composer__box {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--ok-space-2);
+  padding: var(--ok-space-2) var(--ok-space-2) var(--ok-space-2) var(--ok-space-3);
+  border: 1px solid var(--ok-color-border-strong);
+  border-radius: var(--ok-radius-lg);
+  background: var(--ok-color-surface-sunken);
+  transition:
+    border-color var(--ok-duration-fast) var(--ok-ease),
+    box-shadow var(--ok-duration-fast) var(--ok-ease);
+}
+
+.ccx-composer__box:focus-within {
+  border-color: var(--ok-color-border-accent);
+  box-shadow: var(--ok-glow-accent);
+}
+
+.ccx-composer--running .ccx-composer__box {
+  border-color: var(--ok-color-violet);
+}
+
+.ccx-composer--disabled .ccx-composer__box {
+  opacity: 0.6;
+}
+
+.ccx-composer__input {
+  flex: 1;
+  min-height: 24px;
+  max-height: 240px;
+  padding: var(--ok-space-1) 0;
+  resize: none;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--ok-color-text);
+  font: inherit;
+  font-size: var(--ok-font-size-md);
+  line-height: var(--ok-line-height);
+  overflow-y: auto;
+}
+
+.ccx-composer__input::placeholder {
+  color: var(--ok-color-text-subtle);
+}
+
+.ccx-composer__buttons {
+  display: flex;
+  gap: var(--ok-space-1);
+}
+
+.ccx-composer__hint {
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-1);
+  font-size: var(--ok-font-size-xs);
+  color: var(--ok-color-text-subtle);
+}
+
+.ccx-composer__hint--warn {
+  color: var(--ok-color-warning);
+}
+
+/* Chips: queued messages, attached selection. */
+.ccx-queue,
+.ccx-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ok-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ccx-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ok-space-1);
+  max-width: 100%;
+  padding: 2px var(--ok-space-2);
+  border: 1px solid var(--ok-color-border);
+  border-radius: var(--ok-radius-pill);
+  background: var(--ok-color-surface);
+  color: var(--ok-color-text-muted);
+  font-size: var(--ok-font-size-xs);
+}
+
+.ccx-chip__text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ccx-chip__tag {
+  color: var(--ok-color-violet);
+  font-weight: var(--ok-font-weight-semibold);
+}
+
+.ccx-chip__meta {
+  font-family: var(--ok-font-mono);
+  color: var(--ok-color-text-subtle);
+}
+
+.ccx-chip--queued {
+  border-color: var(--ok-color-violet-soft);
+  background: var(--ok-color-violet-soft);
+}
+
+.ccx-chip--selection {
+  border-color: var(--ok-color-border-accent);
+  background: var(--ok-color-accent-soft);
+  color: var(--ok-color-text);
+}
+
+.ccx-chip--action {
+  cursor: pointer;
+  border-style: dashed;
+}
+
+.ccx-chip--action:hover {
+  background: var(--ok-color-surface-hover);
+  color: var(--ok-color-text);
+}
+
+.ccx-chip__x {
+  display: inline-flex;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.ccx-chip__x:hover {
+  opacity: 1;
+}
+
+/* Suggestions popup (above the input). */
+.ccx-suggest {
+  position: absolute;
+  left: var(--ok-space-3);
+  right: var(--ok-space-3);
+  bottom: calc(100% - var(--ok-space-2));
+  z-index: 20;
+  max-height: 280px;
+  margin: 0;
+  padding: var(--ok-space-1);
+  overflow-y: auto;
+  list-style: none;
+  border: 1px solid var(--ok-color-border-strong);
+  border-radius: var(--ok-radius-md);
+  background: var(--ok-color-bg-elevated);
+  box-shadow: var(--ok-shadow-md);
+  backdrop-filter: blur(var(--ok-blur));
+}
+
+.ccx-suggest__item {
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-2);
+  padding: var(--ok-space-1) var(--ok-space-2);
+  border-radius: var(--ok-radius-sm);
+  color: var(--ok-color-text-muted);
+  font-size: var(--ok-font-size-sm);
+  cursor: pointer;
+}
+
+.ccx-suggest__item--active {
+  background: var(--ok-color-accent-soft);
+  color: var(--ok-color-text);
+}
+
+.ccx-suggest__label {
+  font-family: var(--ok-font-mono);
+  white-space: nowrap;
+}
+
+.ccx-suggest__detail {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ok-color-text-subtle);
+}
+
+.ccx-suggest__empty {
+  padding: var(--ok-space-1) var(--ok-space-2);
+  color: var(--ok-color-text-subtle);
+  font-size: var(--ok-font-size-sm);
+}
+
+/* Model picker. */
+.ccx-model {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ok-space-1);
+  padding: 0 var(--ok-space-2);
+  height: 26px;
+  border: 1px solid var(--ok-color-border);
+  border-radius: var(--ok-radius-pill);
+  background: var(--ok-color-surface);
+  color: var(--ok-color-text-muted);
+  font-size: var(--ok-font-size-xs);
+}
+
+.ccx-model:focus-within {
+  border-color: var(--ok-color-border-accent);
+}
+
+.ccx-model__select,
+.ccx-model__input {
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--ok-color-text);
+  font: inherit;
+}
+
+.ccx-model__select option {
+  background: var(--ok-color-bg-elevated);
+  color: var(--ok-color-text);
+}
+
+.ccx-model__input {
+  width: 180px;
+  font-family: var(--ok-font-mono);
+}
+
+.ccx-model__btn {
+  padding: 0 var(--ok-space-2);
+  border: 0;
+  border-radius: var(--ok-radius-pill);
+  background: var(--ok-color-accent-soft);
+  color: var(--ok-color-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.ccx-model__btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.ccx-model__btn--ghost {
+  background: transparent;
+  color: var(--ok-color-text-muted);
+}
