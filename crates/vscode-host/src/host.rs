@@ -93,6 +93,8 @@ impl HostOptions {
 #[serde(rename_all = "camelCase", default)]
 struct RuntimeState {
     last_port: Option<u16>,
+    /// Pid of the server process while it runs (orphan clean-up after a crash of Orkestr).
+    last_pid: Option<u32>,
 }
 
 struct Proc {
@@ -185,7 +187,11 @@ impl VsCodeHost {
             .build()?;
         let local_http = reqwest::Client::builder().no_proxy().timeout(Duration::from_secs(5)).build()?;
         let config: VsCodeConfig = read_json(&layout.config_file()).unwrap_or_default();
-        let runtime: RuntimeState = read_json(&layout.state_file()).unwrap_or_default();
+        let mut runtime: RuntimeState = read_json(&layout.state_file()).unwrap_or_default();
+        if let Some(pid) = runtime.last_pid.take() {
+            kill_orphan(&*opts.process, pid, &layout.root);
+            let _ = write_json(&layout.state_file(), &runtime);
+        }
         let installed: Option<VsCodeInstallation> =
             read_json::<VsCodeInstallation>(&layout.manifest_file()).filter(|i| {
                 release::is_valid_version(&i.version)
@@ -279,12 +285,7 @@ impl VsCodeHost {
             unsupported_reason,
             installed: st.installed.clone(),
             running: st.proc.as_ref().and_then(|p| {
-                p.port.map(|port| VsCodeRunning {
-                    port,
-                    pid: p.pid,
-                    started_at: p.started_at,
-                    restarts: st.restarts,
-                })
+                p.port.map(|port| VsCodeRunning { port, pid: p.pid, started_at: p.started_at, restarts: st.restarts })
             }),
             progress: st.progress.clone(),
             error: st.error.clone(),
@@ -464,7 +465,10 @@ impl VsCodeHost {
                 Err(e) => {
                     let failed = !matches!(e, HostError::Cancelled);
                     let msg = server::redact_line(&e.to_string(), None);
-                    host.log(&format!("Orkestr: VS Code server install {}: {msg}", if failed { "failed" } else { "cancelled" }));
+                    host.log(&format!(
+                        "Orkestr: VS Code server install {}: {msg}",
+                        if failed { "failed" } else { "cancelled" }
+                    ));
                     let installed = host.inner.st.lock().installed.is_some();
                     if failed {
                         host.inner.st.lock().error = Some(msg.clone());
@@ -495,8 +499,13 @@ impl VsCodeHost {
 
     async fn do_install(&self, version: Option<&str>, cancel: &CancellationToken) -> HostResult<VsCodeInstallation> {
         let target = self.target()?;
-        self.emit_progress(VsCodeProgress { phase: VsCodeInstallPhase::Resolving, done: 0, total: None, version: None })
-            .await;
+        self.emit_progress(VsCodeProgress {
+            phase: VsCodeInstallPhase::Resolving,
+            done: 0,
+            total: None,
+            version: None,
+        })
+        .await;
         let asset = self.fetch_release(version).await?;
         if let Some(v) = version {
             if v != asset.version {
@@ -576,10 +585,9 @@ impl VsCodeHost {
         })
         .await;
         let (part2, dest2, cancel2) = (part.clone(), dest.clone(), cancel.clone());
-        let report =
-            tokio::task::spawn_blocking(move || install::extract_tar_gz(&part2, &dest2, &cancel2, |_| {}))
-                .await
-                .map_err(|e| HostError::Archive(format!("extraction task failed: {e}")))?;
+        let report = tokio::task::spawn_blocking(move || install::extract_tar_gz(&part2, &dest2, &cancel2, |_| {}))
+            .await
+            .map_err(|e| HostError::Archive(format!("extraction task failed: {e}")))?;
         let _ = std::fs::remove_file(&part);
         let report = report?;
         if let Err(e) = install::validate_package(&dest, target.node_executable()) {
@@ -655,7 +663,9 @@ impl VsCodeHost {
             match state {
                 VsCodeState::NotInstalled => return Err(HostError::NotInstalled),
                 VsCodeState::Installing => return Err(HostError::Busy("the VS Code server is being installed".into())),
-                VsCodeState::Stopping => return Err(HostError::Busy("the VS Code server is stopping; try again".into())),
+                VsCodeState::Stopping => {
+                    return Err(HostError::Busy("the VS Code server is stopping; try again".into()))
+                }
                 VsCodeState::Stopped | VsCodeState::Error => {
                     let installed = self.inner.st.lock().installed.clone().ok_or(HostError::NotInstalled)?;
                     let snap = self.transition(Trigger::StartRequested)?;
@@ -690,7 +700,9 @@ impl VsCodeHost {
                     VsCodeState::Running => return Ok(()),
                     VsCodeState::Error | VsCodeState::Stopped | VsCodeState::NotInstalled => {
                         let err = self.inner.st.lock().error.clone();
-                        return Err(HostError::Server(err.unwrap_or_else(|| "the VS Code server did not start".into())));
+                        return Err(HostError::Server(
+                            err.unwrap_or_else(|| "the VS Code server did not start".into()),
+                        ));
                     }
                     _ => {}
                 }
@@ -759,6 +771,7 @@ impl VsCodeHost {
         loop {
             let outcome = self.run_once(generation, &stop, &dir, &target, &token.0).await;
             self.inner.st.lock().proc = None;
+            self.persist_pid(None);
             let _ = std::fs::remove_file(self.inner.layout.token_file());
             if stop.is_cancelled() || self.inner.shutdown.is_cancelled() {
                 let _ = self.transition(Trigger::Stopped);
@@ -876,17 +889,17 @@ impl VsCodeHost {
             Err(e) => return fail(format!("cannot start {}: {e}", spec.node.display())),
         };
         let pid = child.id();
+        self.persist_pid(pid);
         {
             let mut st = self.inner.st.lock();
-            st.proc = Some(Proc {
-                generation,
-                port: None,
-                pid,
-                started_at: chrono::Utc::now(),
-                token: token.to_owned(),
-            });
+            st.proc =
+                Some(Proc { generation, port: None, pid, started_at: chrono::Utc::now(), token: token.to_owned() });
         }
-        self.log(&format!("Orkestr: started VS Code server (pid {}, port {})", pid.unwrap_or(0), if port == 0 { "auto".to_owned() } else { port.to_string() }));
+        self.log(&format!(
+            "Orkestr: started VS Code server (pid {}, port {})",
+            pid.unwrap_or(0),
+            if port == 0 { "auto".to_owned() } else { port.to_string() }
+        ));
         let (line_tx, mut lines) = tokio::sync::mpsc::unbounded_channel::<String>();
         if let Some(out) = child.stdout.take() {
             let tx = line_tx.clone();
@@ -1035,10 +1048,35 @@ impl VsCodeHost {
         }
     }
 
+    fn persist_pid(&self, pid: Option<u32>) {
+        let rt = {
+            let mut st = self.inner.st.lock();
+            st.runtime.last_pid = pid;
+            st.runtime.clone()
+        };
+        if let Err(e) = write_json(&self.inner.layout.state_file(), &rt) {
+            tracing::debug!(error = %e, "could not persist the VS Code server pid");
+        }
+    }
+
     /// `GET /version` (no token needed) answers 200.
     async fn health(&self, port: u16) -> bool {
         let url = format!("{}/version", server::origin(port));
         matches!(self.inner.local_http.get(url).send().await, Ok(r) if r.status().is_success())
+    }
+}
+
+/// Kills a server left running by a previous Orkestr session that crashed or
+/// was killed — only when the pid still runs an executable from our package
+/// directory (pids are reused).
+fn kill_orphan(process: &dyn ProcessControl, pid: u32, root: &Path) {
+    let Some(exe) = orkestr_platform::process::process_exe(pid) else { return };
+    let canon = |p: &Path| std::fs::canonicalize(p).unwrap_or_else(|_| p.to_path_buf());
+    if canon(&exe).starts_with(canon(root)) {
+        tracing::warn!(pid, "killing a VS Code server left over from a previous session");
+        if let Err(e) = process.kill_tree(pid) {
+            tracing::warn!(pid, error = %e, "could not kill the left-over VS Code server");
+        }
     }
 }
 

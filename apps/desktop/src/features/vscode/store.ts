@@ -161,6 +161,7 @@ export const useVsCodeStore = create<VsCodeStore>((set, get) => ({
       const res = await client().call("vscode.start", projectId ? { projectId } : {});
       set({ status: res.status, lastUrl: res.url, lastOrigin: res.origin, busy: null });
       await vscodeWindow.open(res.url, title);
+      get().setWindowOpen(await vscodeWindow.isOpen().catch(() => false));
     } catch (e) {
       set({ error: describeError(e), busy: null });
       void get().loadLogs();

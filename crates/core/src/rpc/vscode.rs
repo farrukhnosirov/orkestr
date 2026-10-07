@@ -3,12 +3,12 @@
 //! Install, start and uninstall are recorded in the audit log: the server runs
 //! extension code as the OS user (untrusted code, threat model TB8).
 
+use orkestr_domain::AuditOutcome;
 use orkestr_protocol::methods::vscode::{
     self as m, VsCodeConfigPatch, VsCodeInstallParams, VsCodeLogsResult, VsCodeStartParams, VsCodeUninstallParams,
 };
 use orkestr_protocol::methods::Empty;
 use orkestr_protocol::RpcError;
-use orkestr_domain::AuditOutcome;
 use orkestr_security::NewAudit;
 use orkestr_vscode_host::HostError;
 
@@ -42,7 +42,9 @@ async fn audit(ctx: &RpcContext, action: &str, resource: String, details: serde_
 /// Registers the area.
 pub fn register(router: &mut RpcRouter) {
     router
-        .method::<m::Status, _, _>(|ctx: RpcContext, _: Empty| async move { Ok::<_, RpcError>(ctx.services.vscode.status()) })
+        .method::<m::Status, _, _>(|ctx: RpcContext, _: Empty| async move {
+            Ok::<_, RpcError>(ctx.services.vscode.status())
+        })
         .method::<m::CheckUpdate, _, _>(|ctx: RpcContext, _: Empty| async move {
             ctx.services.vscode.check_update().await.map_err(host_to_rpc)
         })
@@ -76,9 +78,8 @@ pub fn register(router: &mut RpcRouter) {
                         .await
                         .map_err(|e| RpcError::internal(e.to_string()))?
                         .ok_or_else(|| RpcError::not_found(format!("project {id} not found")))?;
-                    let root = project
-                        .root_path
-                        .ok_or_else(|| RpcError::bad_request("the project has no folder on disk"))?;
+                    let root =
+                        project.root_path.ok_or_else(|| RpcError::bad_request("the project has no folder on disk"))?;
                     Some(std::path::PathBuf::from(root))
                 }
                 None => None,

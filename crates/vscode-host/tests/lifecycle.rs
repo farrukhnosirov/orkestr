@@ -42,8 +42,11 @@ fn fake_install(root: &Path) -> Option<()> {
     let dir = root.join("1.0.0");
     std::fs::create_dir_all(dir.join("out")).unwrap();
     std::fs::write(dir.join("out").join("server-main.js"), FAKE_SERVER).unwrap();
-    std::fs::write(dir.join("product.json"), r#"{"extensionsGallery":{"serviceUrl":"https://open-vsx.org/vscode/gallery"}}"#)
-        .unwrap();
+    std::fs::write(
+        dir.join("product.json"),
+        r#"{"extensionsGallery":{"serviceUrl":"https://open-vsx.org/vscode/gallery"}}"#,
+    )
+    .unwrap();
     std::fs::copy(node, dir.join(target.node_executable())).unwrap();
     let manifest = serde_json::json!({
         "version": "1.0.0", "assetName": target.asset_name("1.0.0"), "sha256": "00", "sizeBytes": 1,
@@ -178,4 +181,30 @@ async fn install_requires_consent_and_config_is_validated() {
     // Persisted.
     let h2 = host(dir.path().join("vscode-server"));
     assert_eq!(h2.status().config.idle_stop_secs, 600);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_server_orphaned_by_a_crashed_session_is_killed_on_next_start() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().join("vscode-server");
+    std::fs::create_dir_all(&root).unwrap();
+    if fake_install(&root).is_none() {
+        eprintln!("skipped: node not found or unsupported host");
+        return;
+    }
+    let first = host(root.clone());
+    first.set_config(VsCodeConfigPatch { auto_restart: Some(false), ..Default::default() }).await.unwrap();
+    first.start(None).await.unwrap();
+    let pid = first.status().running.unwrap().pid.unwrap();
+    let process = NativeProcessControl;
+    assert!(orkestr_platform::ProcessControl::is_alive(&process, pid));
+    // Orkestr "crashed": a new session over the same data dir finds the pid.
+    let _second = host(root);
+    for _ in 0..50 {
+        if !orkestr_platform::ProcessControl::is_alive(&process, pid) {
+            return;
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+    panic!("the orphaned server {pid} is still alive");
 }

@@ -107,6 +107,10 @@ consistently and add it to this table in the same change.
 | CPU / RAM | ЦП / ОЗУ («Оперативная память» in labels) | — | Not «Память» (clashes with project memory); a CPU core is «ядро ЦП» (not the Orkestr core). |
 | Wake word | фраза активации | — | |
 | Push-to-talk | режим рации | Удерживайте клавиши, пока говорите | Voice settings / HUD. |
+| VS Code panel / server | панель VS Code, сервер VS Code | Открыть VS Code / Остановить сервер VS Code | VS Code, VSCodium, Open VSX are proper names. |
+| Extension (VS Code) | расширение | Установить расширение | Not «плагин», not «экстеншен». |
+| Connection token | токен подключения | — | |
+| Checksum | контрольная сумма | — | «контрольная сумма SHA-256». |
 | Voice notifications | голосовые уведомления | — | |
 | Quiet hours | тихие часы | — | |
 | Sound set (preset) | набор звуков | — | Presets: «Как в теме», «Туманность», «Кристалл», «Пульс», «Минимум». |

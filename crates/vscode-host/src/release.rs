@@ -77,8 +77,8 @@ pub fn is_valid_version(v: &str) -> bool {
 
 /// Finds the target's archive + checksum in a GitHub release JSON document.
 pub fn pick_asset(release_json: &str, target: &ServerTarget) -> HostResult<ReleaseAsset> {
-    let release: GhRelease =
-        serde_json::from_str(release_json).map_err(|e| HostError::Release(format!("unexpected release metadata: {e}")))?;
+    let release: GhRelease = serde_json::from_str(release_json)
+        .map_err(|e| HostError::Release(format!("unexpected release metadata: {e}")))?;
     if release.draft {
         return Err(HostError::Release("the release is a draft".into()));
     }

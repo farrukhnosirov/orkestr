@@ -100,9 +100,11 @@ fn open_external(url: &Url) {
     }
 }
 
-/// Opens (or focuses and re-targets) the VS Code window on `url`.
+/// Opens (or focuses and re-targets) the VS Code window on `url`. Async: on
+/// Windows a window built from a synchronous command (main thread) deadlocks
+/// its first navigation.
 #[tauri::command]
-pub fn vscode_window_open(
+pub async fn vscode_window_open(
     app: AppHandle,
     state: tauri::State<'_, VsCodeWindowState>,
     url: String,
@@ -170,7 +172,7 @@ pub fn vscode_window_open(
 
 /// Closes the VS Code window (no-op when it is not open).
 #[tauri::command]
-pub fn vscode_window_close(app: AppHandle) -> Result<(), String> {
+pub async fn vscode_window_close(app: AppHandle) -> Result<(), String> {
     if let Some(w) = app.get_webview_window(VSCODE_WINDOW) {
         w.destroy().map_err(|e| e.to_string())?;
     }
@@ -179,7 +181,7 @@ pub fn vscode_window_close(app: AppHandle) -> Result<(), String> {
 
 /// Reloads the VS Code window.
 #[tauri::command]
-pub fn vscode_window_reload(app: AppHandle) -> Result<(), String> {
+pub async fn vscode_window_reload(app: AppHandle) -> Result<(), String> {
     match app.get_webview_window(VSCODE_WINDOW) {
         Some(w) => w.reload().map_err(|e| e.to_string()),
         None => Err("the VS Code window is not open".into()),

@@ -202,3 +202,8 @@
   padding: var(--ok-space-1) var(--ok-space-2);
   font: inherit;
 }
+.vsc-risk > svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--ok-color-warning);
+}

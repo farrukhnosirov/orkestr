@@ -36,6 +36,8 @@ describe("panel registry", () => {
       "Browser", "Database", "Logs", "Deployments", "Memory", "Costs", "Monitoring",
       // mission-control (Phase 3, §32)
       "Mission Control",
+      // embedded VS Code (VSCodium REH web)
+      "VS Code",
     ];
     expect(PANELS.map((p) => p.title).sort()).toEqual([...expected].sort());
     expect(new Set(PANELS.map((p) => p.id)).size).toBe(PANELS.length);
