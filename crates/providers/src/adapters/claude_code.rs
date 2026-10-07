@@ -33,7 +33,23 @@ pub struct ClaudeStreamParser {
     session_sent: bool,
     pending_files: HashMap<String, (String, FileChangeKind)>,
     terminal: bool,
-    last_text: String,
+    /// Last CLI-synthesised error text (e.g. "API Error: 401 ..."). Ordinary
+    /// assistant text is model output about the user's code and must never
+    /// be classified as a provider error.
+    last_cli_error: Option<String>,
+}
+
+/// True when an assistant event is an error the CLI synthesised itself
+/// (API failure, login prompt, usage limit) rather than model output.
+fn is_cli_error_message(event: &Value, text: &str) -> bool {
+    if event.get("isApiErrorMessage").and_then(Value::as_bool) == Some(true)
+        || event.get("error").is_some_and(|e| !e.is_null())
+    {
+        return true;
+    }
+    let t = text.trim_start();
+    ["API Error", "Invalid API key", "Claude AI usage limit reached"].iter().any(|p| t.starts_with(p))
+        || t.contains("Please run /login")
 }
 
 impl ClaudeStreamParser {
@@ -76,7 +92,9 @@ impl CliStreamParser for ClaudeStreamParser {
                     match block.get("type").and_then(Value::as_str) {
                         Some("text") => {
                             if let Some(t) = block.get("text").and_then(Value::as_str).filter(|t| !t.is_empty()) {
-                                self.last_text = t.to_owned();
+                                if is_cli_error_message(&v, t) {
+                                    self.last_cli_error = Some(t.to_owned());
+                                }
                                 out.push(CodingAgentEvent::Chat(ChatEvent::TextDelta(t.to_owned())));
                             }
                         }
@@ -148,7 +166,9 @@ impl CliStreamParser for ClaudeStreamParser {
     }
 
     fn finish(&mut self, exit_code: Option<i32>, stderr_tail: &str) -> CodingAgentEvent {
-        let combined = format!("{stderr_tail}\n{}", self.last_text);
+        // Only CLI-originated text is classified: the stderr tail and an
+        // error message the CLI itself emitted, never the model's answer.
+        let combined = format!("{stderr_tail}\n{}", self.last_cli_error.as_deref().unwrap_or_default());
         let err = cli::classify_cli_message(&combined).unwrap_or_else(|| match exit_code {
             Some(0) => ProviderError::Server("claude exited without a result event".into()),
             code => ProviderError::Server(format!(
@@ -410,6 +430,20 @@ mod tests {
         assert!(
             matches!(crash.last(), Some(CodingAgentEvent::Chat(ChatEvent::Error(ProviderError::Server(m)))) if m.contains("code 1"))
         );
+    }
+
+    #[test]
+    fn crash_after_model_text_is_not_classified_from_model_output() {
+        let text = r#"{"type":"assistant","message":{"content":[{"type":"text","text":"Now I'll add the authentication check that returns 401 when the quota is exceeded"}]}}"#;
+        let ev = parse(text);
+        assert!(
+            matches!(ev.last(), Some(CodingAgentEvent::Chat(ChatEvent::Error(ProviderError::Server(m)))) if m.contains("code 1") && m.contains("boom")),
+            "got {:?}",
+            ev.last()
+        );
+        let api = r#"{"type":"assistant","message":{"content":[{"type":"text","text":"API Error: 401 {\"type\":\"error\",\"error\":{\"type\":\"authentication_error\"}}"}]}}"#;
+        let ev = parse(api);
+        assert!(matches!(ev.last(), Some(CodingAgentEvent::Chat(ChatEvent::Error(ProviderError::Auth(_))))));
     }
 
     #[test]

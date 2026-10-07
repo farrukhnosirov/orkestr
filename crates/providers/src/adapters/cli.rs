@@ -289,6 +289,17 @@ pub fn validate_cwd(cwd: &str) -> Result<PathBuf, ProviderError> {
     Ok(p)
 }
 
+/// True when `lower` reports HTTP status `code` in an explicit context
+/// ("API Error: 401", "HTTP 429", "status 500", or a message starting with the
+/// code). A bare number elsewhere in the text is not a status.
+fn has_http_status(lower: &str, code: u16) -> bool {
+    let c = code.to_string();
+    lower.trim_start().starts_with(&format!("{c} "))
+        || ["error: ", "error ", "http ", "http/1.1 ", "http/2 ", "status ", "status: ", "status code "]
+            .iter()
+            .any(|p| lower.contains(&format!("{p}{c}")))
+}
+
 /// Classifies a CLI error / result message (spec §5.3). `None` = unknown.
 #[must_use]
 pub fn classify_cli_message(text: &str) -> Option<ProviderError> {
@@ -310,7 +321,7 @@ pub fn classify_cli_message(text: &str) -> Option<ProviderError> {
     }
     if lower.contains("rate limit")
         || lower.contains("rate_limit")
-        || lower.contains("429")
+        || has_http_status(&lower, 429)
         || lower.contains("too many requests")
     {
         return Some(ProviderError::RateLimited { retry_after_secs: None });
@@ -321,19 +332,19 @@ pub fn classify_cli_message(text: &str) -> Option<ProviderError> {
         "invalid api key",
         "authentication",
         "unauthorized",
-        "401",
         "please log in",
         "login required",
         "codex login",
     ]
     .iter()
     .any(|m| lower.contains(m))
+        || has_http_status(&lower, 401)
     {
         return Some(ProviderError::Auth(msg()));
     }
     if lower.contains("overloaded")
-        || lower.contains("529")
-        || lower.contains("500")
+        || has_http_status(&lower, 529)
+        || has_http_status(&lower, 500)
         || lower.contains("internal server error")
     {
         return Some(ProviderError::Server(msg()));
@@ -388,6 +399,10 @@ mod tests {
         assert!(matches!(classify_cli_message("429 Too Many Requests"), Some(ProviderError::RateLimited { .. })));
         assert!(matches!(classify_cli_message("API Error: 529 overloaded"), Some(ProviderError::Server(_))));
         assert_eq!(classify_cli_message("something odd"), None);
+        assert!(matches!(classify_cli_message("API Error: 401 bad token"), Some(ProviderError::Auth(_))));
+        assert!(matches!(classify_cli_message("HTTP 429 slow down"), Some(ProviderError::RateLimited { .. })));
+        // Bare numbers are not HTTP statuses.
+        assert_eq!(classify_cli_message("processed 401 files, 500 lines, 4290 bytes"), None);
     }
 
     #[test]
