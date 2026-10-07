@@ -193,7 +193,17 @@
     "limit": {
       "budget_exceeded": "Budget exceeded: {{detail}}",
       "max_turns": "Turn limit reached: {{detail}}",
-      "time_limit": "Time limit reached: {{detail}}"
+      "time_limit": "Time limit reached: {{detail}}",
+      "run_budget_exceeded": "Run budget exceeded: {{detail}}",
+      "project_budget_exceeded": "Spending budget exceeded: {{detail}}"
     }
+  },
+  "limitDetail": {
+    "tokens": "{{used}} of {{max}} tokens used",
+    "cost": "{{spent}} spent of {{max}}",
+    "turns_one": "no result after {{count}} turn",
+    "turns_other": "no result after {{count}} turns",
+    "time": "{{duration}} elapsed",
+    "projectBudget": "the next request would exceed a project or global budget"
   }
 }

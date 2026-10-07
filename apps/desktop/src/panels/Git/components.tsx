@@ -9,6 +9,7 @@ import { type ReactNode, Suspense, lazy, useEffect, useId, useRef, useState } fr
 
 import { useT } from "../../i18n";
 import { type TreeNode, type Tone, languageForPath } from "./model";
+import { Overlay } from "../../components/Overlay";
 
 const MonacoDiff = lazy(() => import("./MonacoDiff"));
 
@@ -155,7 +156,7 @@ export function ConfirmDialog({
     if (!busy) onCancel();
   };
   return (
-    <div className="overlay" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && cancel()}>
+    <Overlay onDismiss={cancel}>
       <div
         className={clsx("dialog", wide && "git-dialog--wide")}
         role="alertdialog"
@@ -197,7 +198,7 @@ export function ConfirmDialog({
           </Button>
         </footer>
       </div>
-    </div>
+    </Overlay>
   );
 }
 

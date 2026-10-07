@@ -8,6 +8,7 @@ import { createProject } from "../core/client";
 import { useT } from "../i18n";
 import { describeError } from "../i18n/errors";
 import { useAppStore } from "../store/app";
+import { Overlay } from "./Overlay";
 
 /** Accent swatches offered for new projects (stored as `#RRGGBB` on the project). */
 export const PROJECT_COLORS = ["#22d3ee", "#a78bfa", "#f472b6", "#34d399", "#fbbf24", "#60a5fa", "#fb7185"] as const;
@@ -61,7 +62,7 @@ export function CreateProjectDialog() {
   };
 
   return (
-    <div className="overlay" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && close()}>
+    <Overlay onDismiss={close}>
       <form
         className="dialog"
         role="dialog"
@@ -127,6 +128,6 @@ export function CreateProjectDialog() {
           </Button>
         </footer>
       </form>
-    </div>
+    </Overlay>
   );
 }

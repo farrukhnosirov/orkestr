@@ -51,6 +51,12 @@ body {
   flex: 1;
   display: flex;
   min-height: 0;
+  /* Contain the workspace (dock groups are stacking contexts through their
+     backdrop-filter, dockview floats use z-index ~999) in one layer below the
+     title bar, so title-bar popovers are never painted over by panels. */
+  position: relative;
+  z-index: 0;
+  isolation: isolate;
 }
 
 .app__main {
@@ -63,6 +69,10 @@ body {
 /* ── Title bar ─────────────────────────────────────────── */
 .titlebar {
   position: relative;
+  /* backdrop-filter makes the title bar a stacking context: its popovers
+     (notifications, layout switcher) can only rise as high as the bar
+     itself, so the bar must sit above .app__body. */
+  z-index: 1;
   display: flex;
   align-items: center;
   gap: var(--ok-space-3);

@@ -18,7 +18,7 @@ import { bootstrapCore, getClient } from "../../core/client";
 import { applyLanguagePreference, languagePreference, useT } from "../../i18n";
 import { isTauri, windowControls } from "../../lib/tauri";
 import { getPanel } from "../../panels/registry";
-import { useAppStore } from "../../store/app";
+import { followActiveProject, useAppStore } from "../../store/app";
 import { Toasts } from "../notifications/NotificationCenter";
 import { EmergencyStopButton } from "../security/EmergencyStop";
 import { ApprovalsBadge } from "../security/ApprovalsInbox";
@@ -147,6 +147,8 @@ export function DetachedPanelApp({ route }: { route: DetachedRoute }) {
     );
   }, []);
   useEffect(() => boot(), [boot]);
+  // Follow the project picked in the main window (only the main window persists it).
+  useEffect(() => followActiveProject(), []);
   useEffect(() => {
     const def = getPanel(route.panelId);
     if (def) document.title = `${def.title} — Orkestr`;

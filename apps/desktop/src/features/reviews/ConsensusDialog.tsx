@@ -17,6 +17,7 @@ import { ModelPicker, useProvidersLive } from "../providers";
 import { ConsensusRunView } from "./ConsensusRunView";
 import { reviewActions, useConsensusRuns } from "./data";
 import { modelKey, validateConsensus } from "./model";
+import { Overlay } from "../../components/Overlay";
 
 /** Routes offered for automatic participant selection (routing purposes). */
 export const CONSENSUS_PURPOSES = ["Consensus", "Architect", "Security", "Backend", "Frontend", "Database"] as const;
@@ -91,7 +92,7 @@ export function ConsensusDialog({ projectId, onClose }: { projectId: string; onC
   };
 
   return (
-    <div className="overlay" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && close()}>
+    <Overlay onDismiss={close}>
       <div
         className="dialog cs-dialog"
         role="dialog"
@@ -276,6 +277,6 @@ export function ConsensusDialog({ projectId, onClose }: { projectId: string; onC
           )}
         </footer>
       </div>
-    </div>
+    </Overlay>
   );
 }

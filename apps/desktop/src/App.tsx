@@ -15,6 +15,7 @@ import { AiUiLayer } from "./features/aiui/AiUiLayer";
 import { VisualLayer } from "./features/performance/VisualLayer";
 import { registerSecurityFeature } from "./features/security/register";
 import { SecurityLayer } from "./features/security/SecurityLayer";
+import { shortcutCommand } from "./features/commands/dispatch";
 import { commands, matchesShortcut } from "./features/commands/registry";
 import { Toasts } from "./features/notifications/NotificationCenter";
 import { OnboardingWizard } from "./features/onboarding/OnboardingWizard";
@@ -48,15 +49,13 @@ function useGlobalShortcuts() {
         return;
       }
       // Registry commands with shortcuts (§54).
-      for (const cmd of commands) {
-        if (!cmd.shortcut || !matchesShortcut(e, cmd.shortcut)) continue;
-        const ctx = { projectId: useAppStore.getState().activeProjectId };
-        if (cmd.enabled && !cmd.enabled(ctx)) continue;
-        e.preventDefault();
-        e.stopPropagation();
-        void cmd.run(ctx);
-        return;
-      }
+      // In a terminal only `inTerminal` commands fire; other keys reach the shell.
+      const ctx = { projectId: useAppStore.getState().activeProjectId };
+      const cmd = shortcutCommand(e, commands, ctx);
+      if (!cmd) return;
+      e.preventDefault();
+      e.stopPropagation();
+      void cmd.run(ctx);
     };
     window.addEventListener("keydown", onKey, { capture: true });
     return () => window.removeEventListener("keydown", onKey, { capture: true });

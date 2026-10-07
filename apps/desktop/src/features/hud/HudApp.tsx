@@ -11,7 +11,7 @@ import { useEffect, useState } from "react";
 
 import { bootstrapCore, maybeClient } from "../../core/client";
 import { applyLanguagePreference, languagePreference } from "../../i18n";
-import { useAppStore } from "../../store/app";
+import { followActiveProject, useAppStore } from "../../store/app";
 import { useAiUiRuntime } from "../aiui/useAiUiRuntime";
 import { usePerformanceRuntime } from "../performance/usePerformanceRuntime";
 import { initSecurityLive } from "../security/store";
@@ -22,9 +22,6 @@ import { Hud } from "./Hud";
 import { registerHudVoiceSlot } from "./hudData";
 import { hudControls } from "./hudWindow";
 import { useHudShortcut } from "./commands";
-
-/** Key under which the main window stores the active project (`store/app.ts`). */
-const ACTIVE_PROJECT_STORAGE_KEY = "orkestr.activeProject";
 
 /** Settings (language, theme, performance mode) for the HUD window. */
 function useHudSettings(ready: boolean) {
@@ -83,15 +80,7 @@ export function HudApp() {
   useEffect(() => (connected ? initSecurityLive() : undefined), [connected]);
 
   // Follow the project picked in the main window (same-origin local storage).
-  useEffect(() => {
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === ACTIVE_PROJECT_STORAGE_KEY && e.newValue !== useAppStore.getState().activeProjectId) {
-        useAppStore.getState().setActiveProject(e.newValue);
-      }
-    };
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
-  }, []);
+  useEffect(() => followActiveProject(), []);
 
   return (
     <div className="hud-root">

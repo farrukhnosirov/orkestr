@@ -7,6 +7,7 @@
  * Unknown text (user-entered names, labels, free text) is returned as is.
  */
 import { t } from "../i18n";
+import { formatCurrency, formatDuration, formatInteger, formatNumber } from "../i18n/format";
 
 /** English built-in template name → key under `coreText:templates`. */
 const BUILTIN = {
@@ -93,7 +94,8 @@ const STOP_DETAIL = {
 /** Detail of an `AgentStopped` event (crates/agent-runtime run.rs / runtime.rs); error texts stay as is. */
 export function agentStopDetail(detail: string): string {
   const key = STOP_DETAIL[detail as keyof typeof STOP_DETAIL];
-  return key ? t(`coreText:stopDetail.${key}`) : detail;
+  if (key) return t(`coreText:stopDetail.${key}`);
+  return limitReason(detail) ?? detail;
 }
 
 /** Why a provider fell back (`ProviderError::class()` code: rate_limited, network, ...). */
@@ -289,8 +291,41 @@ const TASK_REASON = {
   "accepted by the AI Manager: the agent reported done (automated review/test loops arrive in Phase 2)": "managerAccepted",
 } as const;
 
-/** Run-limit codes of a failed agent run (`<code>: <message>`, agent-runtime run.rs). */
-const LIMIT_CODES = new Set(["budget_exceeded", "max_turns", "time_limit"]);
+/** Run-limit codes of a failed agent run (`<code>: <message>`, agent-runtime run.rs `Outcome::Limit`). */
+const LIMIT_CODES = ["budget_exceeded", "run_budget_exceeded", "project_budget_exceeded", "max_turns", "time_limit"] as const;
+type LimitCode = (typeof LIMIT_CODES)[number];
+
+/**
+ * The fixed English message of a run limit (run.rs) as localized text with
+ * locale-formatted numbers and money; an unknown shape stays as is.
+ */
+function limitDetail(message: string): string {
+  let m: RegExpMatchArray | null;
+  if ((m = message.match(/^token budget exhausted \((\d+) of (\d+) tokens used\)$/))) {
+    return t("coreText:limitDetail.tokens", { used: formatInteger(Number(m[1])), max: formatInteger(Number(m[2])) });
+  }
+  if ((m = message.match(/^cost budget exhausted \(\$(\d+(?:\.\d+)?) spent of \$(\d+(?:\.\d+)?)\)$/))) {
+    // Spend keeps the core's four decimals: $0.2501 over a $0.25 cap must not read as "0.25 of 0.25".
+    const spent = formatNumber(Number(m[1]), { style: "currency", currency: "USD", currencyDisplay: "narrowSymbol", minimumFractionDigits: 2, maximumFractionDigits: 4 });
+    return t("coreText:limitDetail.cost", { spent, max: formatCurrency(Number(m[2])) });
+  }
+  if ((m = message.match(/^turn limit of (\d+) reached without submit_result$/))) {
+    return t("coreText:limitDetail.turns", { count: Number(m[1]) });
+  }
+  if ((m = message.match(/^wall-clock limit reached after (\d+)s$/))) {
+    return t("coreText:limitDetail.time", { duration: formatDuration(Number(m[1]) * 1000) });
+  }
+  if (message === "a project/global spending budget would be exceeded") return t("coreText:limitDetail.projectBudget");
+  return message;
+}
+
+/** `<limit code>: <message>` of a failed run, localized; `null` when it is not a run-limit reason. */
+function limitReason(text: string): string | null {
+  const m = text.match(/^([a-z][a-z0-9_]*): ([\s\S]+)$/);
+  const code = m?.[1];
+  if (!m || !code || !(LIMIT_CODES as readonly string[]).includes(code)) return null;
+  return t(`coreText:taskReason.limit.${code as LimitCode}`, { detail: limitDetail(m[2] ?? "") });
+}
 
 /**
  * Display text of a task status reason. Known codes and sentences are
@@ -316,9 +351,8 @@ export function taskReason(reason: string | null | undefined): string | null {
   }
   if ((m = r.match(/^could not start an agent: ([\s\S]+)$/))) return t("coreText:taskReason.agentStartFailed", { detail: m[1] });
   if ((m = r.match(/^delegated to the lead of ([\s\S]+)$/))) return t("coreText:taskReason.delegated", { team: m[1] });
-  if ((m = r.match(/^([a-z][a-z0-9_]*): ([\s\S]+)$/)) && LIMIT_CODES.has(m[1] ?? "")) {
-    return t(`coreText:taskReason.limit.${m[1] as "budget_exceeded"}`, { detail: m[2] });
-  }
+  const limit = limitReason(r);
+  if (limit !== null) return limit;
   // A bare machine code this client does not know: the caller shows its localized default.
   if (/^[a-z][a-z0-9]*(?:_[a-z0-9]+)+$/.test(r) || /^[A-Z][a-z]+(?:[A-Z][a-z]+)+$/.test(r)) return null;
   return r;

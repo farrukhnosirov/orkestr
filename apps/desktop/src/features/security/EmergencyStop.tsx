@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { useT } from "../../i18n";
 import { activeFlags } from "./logic";
 import { errorMessage, resetEmergency, stopAllAi, useSecurityStore } from "./store";
+import { Overlay } from "../../components/Overlay";
 
 /**
  * Shortcut of the registered `ai.stopAll` command (coreCommands). Not
@@ -92,7 +93,7 @@ export function EmergencyConfirmDialog() {
   };
 
   return (
-    <div className="overlay" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && close()}>
+    <Overlay onDismiss={close}>
       <div
         className="dialog sec-estop-dialog"
         role="alertdialog"
@@ -146,6 +147,6 @@ export function EmergencyConfirmDialog() {
           )}
         </footer>
       </div>
-    </div>
+    </Overlay>
   );
 }

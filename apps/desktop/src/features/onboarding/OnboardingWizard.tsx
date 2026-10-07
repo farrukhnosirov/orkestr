@@ -45,6 +45,7 @@ import {
   validateFolderPath,
   validateProfileName,
 } from "./steps";
+import { Overlay } from "../../components/Overlay";
 
 const STEP_ICONS = [UserRound, HardDrive, KeyRound, Bot, ShieldCheck, FolderPlus, GitBranch, SquareTerminal, Mic, Wifi, Cloud, Smartphone];
 
@@ -438,7 +439,7 @@ export function OnboardingWizard() {
   const later = current.phase > CURRENT_PHASE;
 
   return (
-    <div className="overlay onb-overlay" role="presentation">
+    <Overlay className="onb-overlay">
       <div className="onb" role="dialog" aria-modal="true" aria-labelledby="onb-title" onKeyDown={(e) => e.key === "Escape" && closeWizard()}>
         <aside className="onb-steps" aria-label={t("onboarding:wizard.stepsLabel")}>
           <div className="onb-steps__brand">
@@ -520,6 +521,6 @@ export function OnboardingWizard() {
           </footer>
         </section>
       </div>
-    </div>
+    </Overlay>
   );
 }

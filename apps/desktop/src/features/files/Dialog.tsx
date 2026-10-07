@@ -10,6 +10,7 @@ import { X } from "lucide-react";
 import { type KeyboardEvent, type ReactNode, useEffect, useId, useRef } from "react";
 
 import { t } from "../../i18n";
+import { Overlay } from "../../components/Overlay";
 
 export interface DialogAction {
   id: string;
@@ -65,7 +66,7 @@ export function ActionDialog({ title, subtitle, icon, tone = "accent", children,
   };
 
   return (
-    <div className="overlay" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && onCancel()}>
+    <Overlay onDismiss={onCancel}>
       <div
         ref={ref}
         className={`dialog fx-dialog fx-dialog--${tone}`}
@@ -112,6 +113,6 @@ export function ActionDialog({ title, subtitle, icon, tone = "accent", children,
           ))}
         </footer>
       </div>
-    </div>
+    </Overlay>
   );
 }

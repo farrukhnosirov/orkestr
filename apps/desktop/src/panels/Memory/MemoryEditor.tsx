@@ -7,6 +7,7 @@ import { useT } from "../../i18n";
 import { errorMessage, requireClient } from "../../lib/rpcQuery";
 import { kindLabel } from "./kinds";
 import { Markdown } from "./markdown";
+import { Overlay } from "../../components/Overlay";
 
 export interface MemoryEditorProps {
   /** Item to edit, or null to create. */
@@ -77,7 +78,7 @@ export function MemoryEditor({ item, scope, kinds, onClose, onSaved }: MemoryEdi
   };
 
   return (
-    <div className="overlay" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && close()}>
+    <Overlay onDismiss={close}>
       <form
         className="dialog mem-dialog"
         role="dialog"
@@ -175,6 +176,6 @@ export function MemoryEditor({ item, scope, kinds, onClose, onSaved }: MemoryEdi
           </Button>
         </footer>
       </form>
-    </div>
+    </Overlay>
   );
 }

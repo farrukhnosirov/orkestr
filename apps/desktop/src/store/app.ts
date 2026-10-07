@@ -42,7 +42,7 @@ export interface AppState {
   setThemeId: (id: string) => void;
 }
 
-const ACTIVE_PROJECT_KEY = "orkestr.activeProject";
+export const ACTIVE_PROJECT_KEY = "orkestr.activeProject";
 const THEME_KEY = "orkestr.theme";
 
 function readLocal(key: string): string | null {
@@ -60,6 +60,38 @@ function writeLocal(key: string, value: string | null): void {
   } catch {
     /* storage unavailable */
   }
+}
+
+/**
+ * Whether this window owns the persisted active project. Every window (main
+ * shell, detached panels, HUD, robot windows) runs its own store and
+ * bootstrapCore; only the main shell may write ACTIVE_PROJECT_KEY, otherwise a
+ * secondary window holding a stale id overwrites the main window's choice on
+ * every reconnect or ProjectDeleted. Secondary windows follow it instead
+ * (followActiveProject).
+ */
+let ownsActiveProject = false;
+
+/** Main shell only: this window persists the active project. */
+export function ownActiveProject(): void {
+  ownsActiveProject = true;
+}
+
+function persistActive(projectId: string | null): void {
+  if (ownsActiveProject) writeLocal(ACTIVE_PROJECT_KEY, projectId);
+}
+
+/**
+ * Secondary windows: track the active project the main window persists
+ * (same-origin `storage` events). Returns the unsubscribe function.
+ */
+export function followActiveProject(): () => void {
+  const onStorage = (e: StorageEvent) => {
+    if (e.key !== ACTIVE_PROJECT_KEY || e.newValue === useAppStore.getState().activeProjectId) return;
+    useAppStore.setState({ activeProjectId: e.newValue });
+  };
+  window.addEventListener("storage", onStorage);
+  return () => window.removeEventListener("storage", onStorage);
 }
 
 /** Stable rail order: creation time, then name (switching projects never reorders the rail). */
@@ -94,7 +126,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
     const active = get().activeProjectId;
     const stillThere = active !== null && sorted.some((p) => p.id === active);
     const nextActive = stillThere ? active : (mostRecentlyOpened(sorted)?.id ?? sorted[0]?.id ?? null);
-    writeLocal(ACTIVE_PROJECT_KEY, nextActive);
+    persistActive(nextActive);
     set({ projects: sorted, projectsLoaded: true, activeProjectId: nextActive });
   },
 
@@ -103,13 +135,14 @@ export const useAppStore = create<AppState>()((set, get) => ({
       if (project.archived) {
         const projects = s.projects.filter((p) => p.id !== project.id);
         const activeProjectId = s.activeProjectId === project.id ? (projects[0]?.id ?? null) : s.activeProjectId;
+        if (activeProjectId !== s.activeProjectId) persistActive(activeProjectId);
         return { projects, activeProjectId };
       }
       const exists = s.projects.some((p) => p.id === project.id);
       const projects = exists ? s.projects.map((p) => (p.id === project.id ? project : p)) : [...s.projects, project];
       // With no project open yet, the first one that appears becomes active.
       if (s.activeProjectId === null) {
-        writeLocal(ACTIVE_PROJECT_KEY, project.id);
+        persistActive(project.id);
         return { projects: sortProjects(projects), activeProjectId: project.id };
       }
       return { projects: sortProjects(projects) };
@@ -119,12 +152,12 @@ export const useAppStore = create<AppState>()((set, get) => ({
     set((s) => {
       const projects = s.projects.filter((p) => p.id !== projectId);
       const activeProjectId = s.activeProjectId === projectId ? (projects[0]?.id ?? null) : s.activeProjectId;
-      writeLocal(ACTIVE_PROJECT_KEY, activeProjectId);
+      persistActive(activeProjectId);
       return { projects, activeProjectId, deleteProjectId: s.deleteProjectId === projectId ? null : s.deleteProjectId };
     }),
 
   setActiveProject: (projectId) => {
-    writeLocal(ACTIVE_PROJECT_KEY, projectId);
+    persistActive(projectId);
     set({ activeProjectId: projectId });
   },
 

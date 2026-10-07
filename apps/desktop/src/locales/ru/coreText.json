@@ -197,7 +197,19 @@
     "limit": {
       "budget_exceeded": "Бюджет исчерпан: {{detail}}",
       "max_turns": "Достигнут лимит ходов: {{detail}}",
-      "time_limit": "Достигнут лимит времени: {{detail}}"
+      "time_limit": "Достигнут лимит времени: {{detail}}",
+      "run_budget_exceeded": "Бюджет запуска исчерпан: {{detail}}",
+      "project_budget_exceeded": "Бюджет расходов исчерпан: {{detail}}"
     }
+  },
+  "limitDetail": {
+    "tokens": "использовано токенов: {{used}} из {{max}}",
+    "cost": "потрачено {{spent}} из {{max}}",
+    "turns_one": "нет результата за {{count}} ход",
+    "turns_few": "нет результата за {{count}} хода",
+    "turns_many": "нет результата за {{count}} ходов",
+    "turns_other": "нет результата за {{count}} хода",
+    "time": "прошло {{duration}}",
+    "projectBudget": "следующий запрос превысил бы бюджет проекта или глобальный бюджет"
   }
 }

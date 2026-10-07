@@ -11,6 +11,7 @@ import { agentActions, errorMessage } from "./data";
 import { roleLabel } from "./model";
 import { useAgentsUi } from "./store";
 import { agentName, templateDescription, templateName } from "../../lib/coreText";
+import { Overlay } from "../../components/Overlay";
 
 const POLICIES: readonly WorktreePolicy[] = ["DedicatedWorktree", "SharedWorktree", "ReadOnlyMain", "None"];
 
@@ -113,7 +114,7 @@ export function SpawnDialog({
   };
 
   return (
-    <div className="overlay" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && dismiss()}>
+    <Overlay onDismiss={dismiss}>
       <form
         className="dialog agents-dialog"
         role="dialog"
@@ -237,6 +238,6 @@ export function SpawnDialog({
           </Button>
         </footer>
       </form>
-    </div>
+    </Overlay>
   );
 }

@@ -11,6 +11,7 @@ import { useFormat, useT } from "../../i18n";
 import { errorMessage, requireClient, useRpcQuery } from "../../lib/rpcQuery";
 import { DECISION_STATUS_TONE } from "./kinds";
 import { Markdown } from "./markdown";
+import { Overlay } from "../../components/Overlay";
 
 const STATUSES: DecisionStatus[] = ["Proposed", "Accepted", "Rejected", "Superseded"];
 
@@ -85,7 +86,7 @@ function DecisionDialog({ projectId, onClose, onSaved }: { projectId: string; on
   );
 
   return (
-    <div className="overlay" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && close()}>
+    <Overlay onDismiss={close}>
       <form
         className="dialog mem-dialog"
         role="dialog"
@@ -143,7 +144,7 @@ function DecisionDialog({ projectId, onClose, onSaved }: { projectId: string; on
           </Button>
         </footer>
       </form>
-    </div>
+    </Overlay>
   );
 }
 

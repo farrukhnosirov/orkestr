@@ -18,6 +18,7 @@ export const terminalCommands: AppCommand[] = [
     icon: SquareTerminal,
     keywords: ["terminal", "shell", "console", "pty", "powershell", "cmd", "bash", "терминал", "консоль", "оболочка", "открыть"],
     shortcut: "Ctrl+`",
+    inTerminal: true,
     run: () => {
       workspaceActions.openPanel("terminal");
       useTerminalUi.getState().requestOpen();

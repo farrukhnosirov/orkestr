@@ -40,6 +40,7 @@ import {
   teamName,
   validateTeamDraft,
 } from "./teamsModel";
+import { Overlay } from "../../components/Overlay";
 
 type EditorState = { mode: "create" } | { mode: "edit"; view: TeamView } | null;
 
@@ -365,7 +366,7 @@ function TeamEditor({ projectId, templates }: { projectId: string; templates: re
   };
 
   return (
-    <div className="overlay" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && close()}>
+    <Overlay onDismiss={close}>
       <form
         className="dialog agents-dialog agents-dialog--wide"
         role="dialog"
@@ -548,6 +549,6 @@ function TeamEditor({ projectId, templates }: { projectId: string; templates: re
           </Button>
         </footer>
       </form>
-    </div>
+    </Overlay>
   );
 }

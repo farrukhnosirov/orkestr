@@ -6,6 +6,7 @@ import { type FormEvent, useState } from "react";
 import { t as translate, useT } from "../../i18n";
 import { errorMessage, requireClient } from "../../lib/rpcQuery";
 import { periodLabel } from "./format";
+import { Overlay } from "../../components/Overlay";
 
 type ScopeKind = BudgetScope["scope"];
 
@@ -111,7 +112,7 @@ export function BudgetEditor({ budget, projects, defaultProjectId, onClose, onSa
   };
 
   return (
-    <div className="overlay" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && close()}>
+    <Overlay onDismiss={close}>
       <form
         className="dialog cost-dialog"
         role="dialog"
@@ -220,6 +221,6 @@ export function BudgetEditor({ budget, projects, defaultProjectId, onClose, onSa
           </Button>
         </footer>
       </form>
-    </div>
+    </Overlay>
   );
 }
