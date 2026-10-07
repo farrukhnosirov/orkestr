@@ -91,7 +91,10 @@ pub fn check_override(path: &str) -> Result<PathBuf, String> {
 }
 
 /// Runs discovery. Returns the binary and, when a pinned path was rejected, why.
-pub fn discover(input: &DiscoveryInput, which: &dyn Fn(&str) -> Option<PathBuf>) -> (Option<Discovered>, Option<String>) {
+pub fn discover(
+    input: &DiscoveryInput,
+    which: &dyn Fn(&str) -> Option<PathBuf>,
+) -> (Option<Discovered>, Option<String>) {
     let mut override_error = None;
     if let Some(p) = input.override_path.as_deref().filter(|p| !p.trim().is_empty()) {
         match check_override(p) {
@@ -99,11 +102,7 @@ pub fn discover(input: &DiscoveryInput, which: &dyn Fn(&str) -> Option<PathBuf>)
             Err(e) => override_error = Some(e),
         }
     }
-    let vscode = input
-        .vscode_extension_roots
-        .iter()
-        .filter_map(|r| newest_in_root(r))
-        .max_by(|a, b| a.0.cmp(&b.0));
+    let vscode = input.vscode_extension_roots.iter().filter_map(|r| newest_in_root(r)).max_by(|a, b| a.0.cmp(&b.0));
     if let Some((_, path)) = vscode {
         return (Some(Discovered { path, source: ClaudeBinarySource::VscodeExtension }), override_error);
     }
@@ -162,7 +161,10 @@ mod tests {
         assert!(err.is_none());
 
         input.vscode_extension_roots.clear();
-        assert_eq!(discover(&input, &which).0, Some(Discovered { path: native_bin.clone(), source: ClaudeBinarySource::NativeExtension }));
+        assert_eq!(
+            discover(&input, &which).0,
+            Some(Discovered { path: native_bin.clone(), source: ClaudeBinarySource::NativeExtension })
+        );
 
         input.native_extensions.clear();
         assert_eq!(discover(&input, &which).0.unwrap().source, ClaudeBinarySource::Path);

@@ -185,8 +185,12 @@ impl GuardPolicy {
 fn risk_of(class: DangerClass) -> Option<ClaudeRisk> {
     match class {
         DangerClass::Safe => None,
-        DangerClass::Dangerous { category, reason } => Some(ClaudeRisk { level: ClaudeRiskLevel::Dangerous, category, reason }),
-        DangerClass::Forbidden { category, reason } => Some(ClaudeRisk { level: ClaudeRiskLevel::Forbidden, category, reason }),
+        DangerClass::Dangerous { category, reason } => {
+            Some(ClaudeRisk { level: ClaudeRiskLevel::Dangerous, category, reason })
+        }
+        DangerClass::Forbidden { category, reason } => {
+            Some(ClaudeRisk { level: ClaudeRiskLevel::Forbidden, category, reason })
+        }
     }
 }
 
@@ -214,15 +218,18 @@ pub fn assess_tool(security: &Security, cwd: &Path, tool: &str, input: &Value) -
         "PowerShell" => str_field(input, &["command"]).map(|c| guard.classify_in(c, ShellKind::PowerShell, Some(cwd))),
         "Write" | "Edit" | "MultiEdit" | "NotebookEdit" => str_field(input, &["file_path", "notebook_path"])
             .map(|p| guard.classify_action(&Action::WriteFile { path: p.to_owned() })),
-        "Read" => str_field(input, &["file_path"]).map(|p| guard.classify_action(&Action::ReadFile { path: p.to_owned() })),
+        "Read" => {
+            str_field(input, &["file_path"]).map(|p| guard.classify_action(&Action::ReadFile { path: p.to_owned() }))
+        }
         _ => None,
     };
     class.and_then(risk_of)
 }
 
 fn summary(tool: &str, input: &Value) -> String {
-    let s = str_field(input, &["command", "file_path", "notebook_path", "url", "query", "pattern", "path", "description"])
-        .unwrap_or_default();
+    let s =
+        str_field(input, &["command", "file_path", "notebook_path", "url", "query", "pattern", "path", "description"])
+            .unwrap_or_default();
     let one_line = s.split_whitespace().collect::<Vec<_>>().join(" ");
     let short: String = one_line.chars().take(300).collect();
     if short.is_empty() {
@@ -252,17 +259,18 @@ impl PermissionPolicy for GuardPolicy {
             PermissionOutcome::Denied => (AuditOutcome::Rejected, "denied", false),
             PermissionOutcome::Cancelled => (AuditOutcome::Rejected, "cancelled", false),
         };
-        let entry = NewAudit::new(self.security.user(), "claudeCode.permission", summary(tool_name, input), audit_outcome)
-            .capability(tool_capability(tool_name))
-            .project(Some(ctx.project_id))
-            .details(serde_json::json!({
-                "sessionId": ctx.session_id,
-                "tool": tool_name,
-                "outcome": label,
-                "rememberedForSession": remembered,
-                "risk": risk,
-                "cwd": ctx.cwd.display().to_string(),
-            }));
+        let entry =
+            NewAudit::new(self.security.user(), "claudeCode.permission", summary(tool_name, input), audit_outcome)
+                .capability(tool_capability(tool_name))
+                .project(Some(ctx.project_id))
+                .details(serde_json::json!({
+                    "sessionId": ctx.session_id,
+                    "tool": tool_name,
+                    "outcome": label,
+                    "rememberedForSession": remembered,
+                    "risk": risk,
+                    "cwd": ctx.cwd.display().to_string(),
+                }));
         self.security.audit.record(entry).await;
     }
 }

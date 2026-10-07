@@ -316,6 +316,14 @@
     "LspStatus_one": "{{count}} смена состояния языкового сервера",
     "LspStatus_few": "{{count}} смены состояния языкового сервера",
     "LspStatus_many": "{{count}} смен состояния языкового сервера",
-    "LspStatus_other": "{{count}} смены состояния языкового сервера"
+    "LspStatus_other": "{{count}} смены состояния языкового сервера",
+    "ClaudeCodeEvent_one": "{{count}} сообщение чата Claude Code",
+    "ClaudeCodeEvent_few": "{{count}} сообщения чата Claude Code",
+    "ClaudeCodeEvent_many": "{{count}} сообщений чата Claude Code",
+    "ClaudeCodeEvent_other": "{{count}} сообщения чата Claude Code",
+    "ClaudeCodeStatus_one": "{{count}} смена состояния сеанса Claude Code",
+    "ClaudeCodeStatus_few": "{{count}} смены состояния сеанса Claude Code",
+    "ClaudeCodeStatus_many": "{{count}} смен состояния сеанса Claude Code",
+    "ClaudeCodeStatus_other": "{{count}} смены состояния сеанса Claude Code"
   }
 }

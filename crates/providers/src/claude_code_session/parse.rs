@@ -8,7 +8,9 @@
 
 use std::collections::HashMap;
 
-use orkestr_protocol::methods::claude_code::{ClaudeAuthInfo, ClaudeCodeEvent, ClaudeModelOption, ClaudeSlashCommand, ClaudeUsage};
+use orkestr_protocol::methods::claude_code::{
+    ClaudeAuthInfo, ClaudeCodeEvent, ClaudeModelOption, ClaudeSlashCommand, ClaudeUsage,
+};
 use serde_json::Value;
 
 /// Longest tool output kept per result (characters).
@@ -284,11 +286,14 @@ impl StreamParser {
                             ev(&mut out, ClaudeCodeEvent::Thinking);
                         }
                     }
-                    Some("content_block_delta") => {
-                        if e.pointer("/delta/type").and_then(Value::as_str) == Some("text_delta") {
-                            if let Some(t) = e.pointer("/delta/text").and_then(Value::as_str).filter(|t| !t.is_empty()) {
-                                ev(&mut out, ClaudeCodeEvent::TextDelta { text: t.to_owned(), parent_tool_use_id: parent(v) });
-                            }
+                    Some("content_block_delta")
+                        if e.pointer("/delta/type").and_then(Value::as_str) == Some("text_delta") =>
+                    {
+                        if let Some(t) = e.pointer("/delta/text").and_then(Value::as_str).filter(|t| !t.is_empty()) {
+                            ev(
+                                &mut out,
+                                ClaudeCodeEvent::TextDelta { text: t.to_owned(), parent_tool_use_id: parent(v) },
+                            );
                         }
                     }
                     _ => {}
@@ -305,7 +310,10 @@ impl StreamParser {
                         subtype: s(v, "subtype").unwrap_or_else(|| "success".into()),
                         result: s(v, "result").map(|r| truncate_chars(&r, MAX_TOOL_OUTPUT_CHARS)),
                         duration_ms: v.get("duration_ms").and_then(Value::as_u64),
-                        num_turns: v.get("num_turns").and_then(Value::as_u64).map(|n| u32::try_from(n).unwrap_or(u32::MAX)),
+                        num_turns: v
+                            .get("num_turns")
+                            .and_then(Value::as_u64)
+                            .map(|n| u32::try_from(n).unwrap_or(u32::MAX)),
                         total_cost_usd: v.get("total_cost_usd").and_then(Value::as_f64),
                         usage: ClaudeUsage {
                             input_tokens: get("/usage/input_tokens"),
@@ -404,7 +412,8 @@ impl StreamParser {
                         Some("tool_result") => {
                             let id = s(block, "tool_use_id").unwrap_or_default();
                             let is_error = block.get("is_error").and_then(Value::as_bool).unwrap_or(false);
-                            let content = truncate_chars(&tool_result_text(block.get("content")), MAX_TOOL_OUTPUT_CHARS);
+                            let content =
+                                truncate_chars(&tool_result_text(block.get("content")), MAX_TOOL_OUTPUT_CHARS);
                             let written = self.tools.remove(&id).and_then(|(name, path)| {
                                 (WRITE_TOOLS.contains(&name.as_str()) && !is_error).then_some(path).flatten()
                             });
@@ -516,13 +525,17 @@ mod tests {
         assert_eq!(req.1["tool_name"], "Write");
         assert!(req.1["tool_use_id"].as_str().unwrap().starts_with("toolu_"));
         let ev = events(&items);
-        assert!(matches!(ev.first(), Some(ClaudeCodeEvent::Init { claude_session_id, .. }) if !claude_session_id.is_empty()));
+        assert!(
+            matches!(ev.first(), Some(ClaudeCodeEvent::Init { claude_session_id, .. }) if !claude_session_id.is_empty())
+        );
         assert!(ev.iter().any(|e| matches!(e, ClaudeCodeEvent::Thinking)));
         assert!(ev.iter().any(|e| matches!(e, ClaudeCodeEvent::TextDelta { .. })));
         assert!(ev.iter().any(|e| matches!(e, ClaudeCodeEvent::ToolUse { name, .. } if name == "Write")));
         assert!(ev.iter().any(|e| matches!(e, ClaudeCodeEvent::ToolUse { name, .. } if name == "Bash")));
         assert!(ev.iter().any(|e| matches!(e, ClaudeCodeEvent::FileChanged { path } if path.ends_with("hello.txt"))));
-        assert!(ev.iter().any(|e| matches!(e, ClaudeCodeEvent::ToolResult { content, is_error: false, .. } if content == "done")));
+        assert!(ev
+            .iter()
+            .any(|e| matches!(e, ClaudeCodeEvent::ToolResult { content, is_error: false, .. } if content == "done")));
         let deltas: String = ev
             .iter()
             .filter_map(|e| match e {
@@ -632,7 +645,11 @@ mod tests {
             vec![
                 Inbound::Event(ClaudeCodeEvent::UserMessage { text: "Fix the bug".into() }),
                 Inbound::Event(ClaudeCodeEvent::UserMessage { text: "/cost".into() }),
-                Inbound::Event(ClaudeCodeEvent::Text { text: "Done".into(), parent_tool_use_id: None, synthetic: false }),
+                Inbound::Event(ClaudeCodeEvent::Text {
+                    text: "Done".into(),
+                    parent_tool_use_id: None,
+                    synthetic: false
+                }),
             ]
         );
     }

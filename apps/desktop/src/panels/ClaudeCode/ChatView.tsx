@@ -5,7 +5,7 @@
  * duration, changed files). Sticks to the bottom while new items arrive
  * unless the user scrolled up.
  */
-import type { ClaudePermissionDecision } from "@orkestr/protocol";
+import type { ClaudePermissionDecision, ClaudeRisk } from "@orkestr/protocol";
 import { Button, Spinner } from "@orkestr/ui";
 import clsx from "clsx";
 import { AlertTriangle, CircleStop, FileDiff, LogIn, Terminal as TerminalIcon, User } from "lucide-react";
@@ -105,6 +105,9 @@ export function ChatView({ chat, root, cwd, onRespond, onLogin, empty }: ChatVie
     stick.current = true;
   }, []);
 
+  const risks = new Map<string, ClaudeRisk>();
+  for (const it of chat.items) if (it.kind === "permission" && it.toolUseId && it.risk) risks.set(it.toolUseId, it.risk);
+
   const render = (items: ChatItem[]): ReactNode =>
     items.map((it) => {
       switch (it.kind) {
@@ -123,12 +126,24 @@ export function ChatView({ chat, root, cwd, onRespond, onLogin, empty }: ChatVie
             </div>
           );
         case "tool":
-          return <ToolCard key={it.id} item={it} root={root} cwd={cwd} renderChildren={render} />;
+          return (
+            <ToolCard
+              key={it.id}
+              call={{ id: it.id, name: it.name, input: it.input }}
+              result={it.result}
+              root={root}
+              cwd={cwd}
+              onOpenFile={openChangedFile}
+              risk={risks.get(it.id) ?? null}
+            >
+              {it.children.length > 0 ? render(it.children) : undefined}
+            </ToolCard>
+          );
         case "permission":
           return (
             <PermissionCard
               key={it.id}
-              item={it}
+              request={it}
               root={root}
               cwd={cwd}
               onRespond={(decision, message) => onRespond(it.id, decision, message)}

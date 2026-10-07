@@ -65,7 +65,8 @@ pub fn is_valid(topic: &str) -> bool {
     let Some((prefix, id)) = topic.split_once(':') else {
         return false;
     };
-    matches!(prefix, "project" | "task" | "agent" | "terminal" | "node" | "lsp" | "claude") && uuid::Uuid::parse_str(id).is_ok()
+    matches!(prefix, "project" | "task" | "agent" | "terminal" | "node" | "lsp" | "claude")
+        && uuid::Uuid::parse_str(id).is_ok()
 }
 
 /// Topics an event is published on (see module docs).
@@ -143,6 +144,25 @@ mod tests {
             message: "y".into(),
             fields: serde_json::Value::Null,
         })
+    }
+
+    #[test]
+    fn claude_code_events_route_to_their_session() {
+        use crate::methods::claude_code::{ClaudeCodeEvent, ClaudeCodeEventPayload};
+        use orkestr_domain::ClaudeSessionId;
+        let sid = ClaudeSessionId::new();
+        let pid = ProjectId::new();
+        let ev = NewEvent::new(EventKind::ClaudeCodeEvent(ClaudeCodeEventPayload {
+            session_id: sid,
+            project_id: pid,
+            event: ClaudeCodeEvent::Thinking,
+        }))
+        .into_event(4, now());
+        assert_eq!(ev.project_id, Some(pid));
+        assert_eq!(event_topics(&ev), vec![claude(sid)], "chat items never flood project / global topics");
+        assert!(ev.kind.is_ephemeral());
+        assert!(is_valid(&claude(sid)));
+        assert!(!is_valid("claude:x"));
     }
 
     #[test]

@@ -1,6 +1,6 @@
 //! `orkestr-fake-claude` — a test double of the official `claude` CLI for
 //! the Claude Code panel's end-to-end tests. It speaks the same stream-json
-//! + control protocol as Claude Code 2.1.x (shapes copied from recordings of
+//! and control protocol as Claude Code 2.1.x (shapes copied from recordings of
 //! the real binary, see `crates/providers/tests/fixtures/claude_code`).
 //! Never shipped; never used outside tests.
 //!
@@ -23,7 +23,9 @@ fn out(v: &Value) {
 }
 
 fn ok(id: &str, response: Value) {
-    out(&json!({"type": "control_response", "response": {"subtype": "success", "request_id": id, "response": response}}));
+    out(
+        &json!({"type": "control_response", "response": {"subtype": "success", "request_id": id, "response": response}}),
+    );
 }
 
 struct Fake {
@@ -69,15 +71,21 @@ impl Fake {
                 } else {
                     self.mode.clone_from(&mode);
                     ok(&id, json!({"mode": mode}));
-                    out(&json!({"type": "system", "subtype": "status", "status": null, "permissionMode": mode, "session_id": SESSION}));
+                    out(
+                        &json!({"type": "system", "subtype": "status", "status": null, "permissionMode": mode, "session_id": SESSION}),
+                    );
                 }
             }
             "set_model" => {
                 self.model = req["model"].as_str().unwrap_or("default").to_owned();
-                out(&json!({"type": "user", "message": {"role": "user", "content": format!("<local-command-stdout>Set model to `{}`</local-command-stdout>", self.model)}, "isReplay": true, "session_id": SESSION}));
+                out(
+                    &json!({"type": "user", "message": {"role": "user", "content": format!("<local-command-stdout>Set model to `{}`</local-command-stdout>", self.model)}, "isReplay": true, "session_id": SESSION}),
+                );
                 ok(&id, Value::Null);
             }
-            other => out(&json!({"type": "control_response", "response": {"subtype": "error", "request_id": id, "error": format!("Unsupported control request subtype: {other}")}})),
+            other => out(
+                &json!({"type": "control_response", "response": {"subtype": "error", "request_id": id, "error": format!("Unsupported control request subtype: {other}")}}),
+            ),
         }
         false
     }
@@ -110,12 +118,16 @@ impl Fake {
     }
 
     fn assistant(content: Value) {
-        out(&json!({"type": "assistant", "message": {"model": "fake", "role": "assistant", "content": [content]}, "parent_tool_use_id": null, "session_id": SESSION}));
+        out(
+            &json!({"type": "assistant", "message": {"model": "fake", "role": "assistant", "content": [content]}, "parent_tool_use_id": null, "session_id": SESSION}),
+        );
     }
 
     fn text(t: &str) {
         for chunk in t.split_inclusive(' ') {
-            out(&json!({"type": "stream_event", "event": {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": chunk}}, "parent_tool_use_id": null, "session_id": SESSION}));
+            out(
+                &json!({"type": "stream_event", "event": {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": chunk}}, "parent_tool_use_id": null, "session_id": SESSION}),
+            );
         }
         Self::assistant(json!({"type": "text", "text": t}));
     }
@@ -127,15 +139,21 @@ impl Fake {
     }
 
     fn tool_result(id: &str, content: &str, is_error: bool) {
-        out(&json!({"type": "user", "message": {"role": "user", "content": [{"tool_use_id": id, "type": "tool_result", "content": content, "is_error": is_error}]}, "parent_tool_use_id": null, "session_id": SESSION}));
+        out(
+            &json!({"type": "user", "message": {"role": "user", "content": [{"tool_use_id": id, "type": "tool_result", "content": content, "is_error": is_error}]}, "parent_tool_use_id": null, "session_id": SESSION}),
+        );
     }
 
     fn turn(&mut self, text: &str) -> Option<()> {
         if !self.started {
             self.started = true;
-            out(&json!({"type": "system", "subtype": "init", "cwd": self.cwd, "session_id": SESSION, "tools": ["Bash", "Edit", "Read", "Write"], "model": self.model, "permissionMode": self.mode}));
+            out(
+                &json!({"type": "system", "subtype": "init", "cwd": self.cwd, "session_id": SESSION, "tools": ["Bash", "Edit", "Read", "Write"], "model": self.model, "permissionMode": self.mode}),
+            );
         }
-        out(&json!({"type": "stream_event", "event": {"type": "content_block_start", "index": 0, "content_block": {"type": "thinking", "thinking": "", "signature": ""}}, "session_id": SESSION}));
+        out(
+            &json!({"type": "stream_event", "event": {"type": "content_block_start", "index": 0, "content_block": {"type": "thinking", "thinking": "", "signature": ""}}, "session_id": SESSION}),
+        );
         if text.contains("write") {
             Self::text("I'll write it.");
             let path = std::path::Path::new(&self.cwd).join("fake.txt").display().to_string();
@@ -163,16 +181,19 @@ impl Fake {
             for i in 0..400 {
                 match self.next(Duration::from_millis(50)) {
                     None => return None,
-                    Some(Some(v)) if v["type"] == "control_request" => {
-                        if self.control(&v) {
-                            out(&json!({"type": "user", "message": {"role": "user", "content": [{"type": "text", "text": "[Request interrupted by user]"}]}, "session_id": SESSION}));
-                            Self::result(true, "error_during_execution", "");
-                            return Some(());
-                        }
+                    // `control` answers every request; only `interrupt` ends the turn.
+                    Some(Some(v)) if v["type"] == "control_request" && self.control(&v) => {
+                        out(
+                            &json!({"type": "user", "message": {"role": "user", "content": [{"type": "text", "text": "[Request interrupted by user]"}]}, "session_id": SESSION}),
+                        );
+                        Self::result(true, "error_during_execution", "");
+                        return Some(());
                     }
                     _ => {}
                 }
-                out(&json!({"type": "stream_event", "event": {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": format!("{i} ")}}, "session_id": SESSION}));
+                out(
+                    &json!({"type": "stream_event", "event": {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": format!("{i} ")}}, "session_id": SESSION}),
+                );
             }
             Self::result(false, "success", "counted");
         } else {
@@ -191,7 +212,10 @@ fn main() {
     }
     if args.first().map(String::as_str) == Some("auth") {
         if args.get(1).map(String::as_str) == Some("status") {
-            println!("{}", json!({"loggedIn": true, "authMethod": "claude.ai", "subscriptionType": "max", "email": "dev@example.com"}));
+            println!(
+                "{}",
+                json!({"loggedIn": true, "authMethod": "claude.ai", "subscriptionType": "max", "email": "dev@example.com"})
+            );
         } else {
             println!("Fake login: press Enter");
             let mut s = String::new();

@@ -44,7 +44,8 @@
     "delete": "Delete project…",
     "unsaved": "Unsaved changes in {{name}}",
     "vscode": "VS Code",
-    "extensions": "Extensions (Ctrl+Shift+X)"
+    "extensions": "Extensions (Ctrl+Shift+X)",
+    "claudeCode": "Claude Code (Ctrl+Alt+C)"
   },
   "createProject": {
     "title": "New project",
@@ -183,6 +184,10 @@
     "extensions": {
       "title": "Extensions",
       "description": "VS Code extensions from Open VSX: themes, icons, grammars, language servers"
+    },
+    "claudeCode": {
+      "title": "Claude Code",
+      "description": "Chat with Claude Code (the official CLI) about the project, with inline permissions"
     }
   },
   "phasePlaceholder": {

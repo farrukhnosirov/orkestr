@@ -1,0 +1,179 @@
+{
+  "commands": {
+    "group": "Claude Code",
+    "open": "Claude Code: Open chat",
+    "newChat": "Claude Code: New chat",
+    "askSelection": "Claude Code: Ask about selection",
+    "interrupt": "Claude Code: Interrupt"
+  },
+  "actions": {
+    "checkAgain": "Check again",
+    "newChat": "New chat",
+    "resume": "Resume conversation"
+  },
+  "noProject": {
+    "title": "Open a project",
+    "description": "Claude Code works in a project's folder. Open or create a project first."
+  },
+  "noFolder": {
+    "title": "The project has no folder",
+    "description": "Link a folder to the project so Claude Code can work with its files."
+  },
+  "notFound": {
+    "title": "Claude Code was not found",
+    "description": "Install the Claude Code extension (Extensions → anthropic.claude-code) or the claude CLI, or point Orkestr to the claude executable.",
+    "pathLabel": "Path to the claude executable",
+    "pathPlaceholder": "e.g. C:\\Tools\\claude.exe",
+    "usePath": "Use this path"
+  },
+  "login": {
+    "title": "Sign in to Claude",
+    "description": "Claude Code is installed but not signed in. Sign in once in a terminal; Orkestr never reads your credentials.",
+    "openedHint": "A terminal with “claude auth login” is open. Finish the sign-in there, then press “Check again”.",
+    "signIn": "Sign in to Claude",
+    "continue": "Continue anyway"
+  },
+  "welcome": {
+    "title": "Claude Code",
+    "description": "Chat with Claude Code about this project: it reads and edits files and runs commands — with your permission."
+  },
+  "history": {
+    "title": "Recent conversations",
+    "loading": "Loading conversations…",
+    "empty": "No earlier conversations in this folder.",
+    "resume": "Resume this conversation",
+    "messages_one": "{{count}} message",
+    "messages_other": "{{count}} messages"
+  },
+  "tabs": {
+    "label": "Chats",
+    "newChat": "New chat",
+    "close": "Close chat “{{title}}”"
+  },
+  "status": {
+    "checking": "Looking for Claude Code…",
+    "binary": "Claude Code {{version}}",
+    "source": {
+      "override": "your path",
+      "vscodeExtension": "VS Code extension",
+      "nativeExtension": "extension",
+      "path": "PATH"
+    },
+    "signedIn": "Signed in: {{account}}",
+    "signedOut": "Not signed in",
+    "limit": "Limit used: {{used}}"
+  },
+  "state": {
+    "starting": "Starting",
+    "idle": "Ready",
+    "running": "Working",
+    "waitingPermission": "Waiting for permission",
+    "exited": "Ended",
+    "failed": "Failed"
+  },
+  "mode": {
+    "label": "Permission mode",
+    "default": "Default",
+    "acceptEdits": "Accept edits",
+    "plan": "Plan",
+    "bypassPermissions": "No confirmations",
+    "hint": {
+      "default": "Claude asks before editing files and running commands",
+      "acceptEdits": "File edits are accepted automatically; commands still ask",
+      "plan": "Claude only plans: no edits, no commands",
+      "bypassPermissions": "Nothing asks for permission — use only in a disposable environment"
+    }
+  },
+  "model": {
+    "label": "Model",
+    "default": "Default"
+  },
+  "bypass": {
+    "title": "Turn off all confirmations?",
+    "body": "In this mode Claude Code edits files and runs any command without asking, and Orkestr's checks of dangerous commands no longer apply.",
+    "note": "This applies to this chat only and is never remembered. The conversation restarts with the new mode.",
+    "confirm": "Turn off confirmations"
+  },
+  "chat": {
+    "label": "Conversation with Claude Code",
+    "thinking": "Thinking…",
+    "working": "Working…",
+    "empty": "Ask anything about the project. Type @ to mention a file, / for commands.",
+    "ended": "This chat has ended."
+  },
+  "composer": {
+    "label": "Message to Claude Code",
+    "placeholder": "Message Claude Code… (@ file, / command)",
+    "placeholderBusy": "Claude is working — your message will be queued",
+    "hint": "Enter — send · Shift+Enter — new line",
+    "hintBusy": "Enter — queue · Esc — interrupt",
+    "send": "Send",
+    "queue": "Queue",
+    "interrupt": "Interrupt (Esc)",
+    "attachSelection": "Attach the editor selection",
+    "queued": "Queued messages",
+    "queuedItem": "Queued: {{text}}",
+    "removeQueued": "Remove from the queue",
+    "commands": "Commands",
+    "files": "Files"
+  },
+  "tool": {
+    "running": "Running",
+    "done": "Done",
+    "failed": "Failed",
+    "expand": "Show details",
+    "collapse": "Hide details",
+    "openFile": "Open in the editor",
+    "noOutput": "No output",
+    "showAllLines_one": "Show all {{count}} line",
+    "showAllLines_other": "Show all {{count}} lines",
+    "diff": "Changes",
+    "textDiff": "Simple view",
+    "editorDiff": "Open in diff editor",
+    "todos": "To-do list"
+  },
+  "permission": {
+    "title": "Claude wants to use {{tool}}",
+    "risk": {
+      "dangerous": "Dangerous",
+      "forbidden": "Forbidden"
+    },
+    "blockedPath": "Outside the allowed folders: {{path}}",
+    "allowOnce": "Allow once",
+    "allowSession": "Allow for this session",
+    "allowSessionHint": "Don't ask again for this kind of action until the chat ends",
+    "denyWithNote": "Deny…",
+    "deny": "Deny",
+    "denyNote": "Note for Claude",
+    "denyNotePlaceholder": "Optional: what to do instead",
+    "outcome": {
+      "pending": "Waiting for your decision",
+      "allowOnce": "Allowed once",
+      "allowSession": "Allowed for this session",
+      "deny": "Denied",
+      "policy": "Blocked by Orkestr's security policy"
+    }
+  },
+  "result": {
+    "done": "Done",
+    "failed": "Failed",
+    "interrupted": "Interrupted",
+    "tokens": "{{input}} in · {{output}} out tokens",
+    "cacheHint": "Cache: {{read}} read, {{write}} written",
+    "cost": "≈ {{cost}}",
+    "costHint": "API-equivalent cost reported by Claude Code (a subscription is not charged per request)",
+    "files_one": "{{count}} file changed:",
+    "files_other": "{{count}} files changed:"
+  },
+  "notice": {
+    "interrupted": "Interrupted",
+    "modeChanged": "Permission mode: {{mode}}",
+    "modelChanged": "Model: {{model}}",
+    "exited": "Claude Code stopped",
+    "exitedCode": "Claude Code stopped (code {{code}})"
+  },
+  "errors": {
+    "status": "Could not check Claude Code",
+    "authRequired": "Claude Code is not signed in."
+  }
+}
