@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const calls: { method: string; params: unknown }[] = [];
 const responses = new Map<string, unknown>();
 const fakeClient = {
-  call: (method: string, params: unknown) => {
+  call: (method: string, params: unknown, _opts?: unknown) => {
     calls.push({ method, params });
     if (!responses.has(method)) return Promise.reject(new Error(`unexpected ${method}`));
     return Promise.resolve(responses.get(method));

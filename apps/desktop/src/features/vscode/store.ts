@@ -26,6 +26,10 @@ import { vscodeWindow } from "./windowControls";
 
 /** Heartbeat period (the core's idle grace period is ≥ 30 s). */
 export const KEEPALIVE_MS = 20_000;
+/** Extension installs run the server CLI (large packages, up to 10 min on the core side). */
+export const EXTENSION_INSTALL_TIMEOUT_MS = 11 * 60_000;
+/** Listing runs the server CLI too (Node start-up). */
+export const EXTENSION_LIST_TIMEOUT_MS = 60_000;
 
 export interface VsCodeStore {
   status: VsCodeStatus | null;
@@ -135,7 +139,7 @@ export const useVsCodeStore = create<VsCodeStore>((set, get) => ({
 
   async loadExtensions() {
     try {
-      const { extensions } = await client().call("vscode.listExtensions", {});
+      const { extensions } = await client().call("vscode.listExtensions", {}, { timeoutMs: EXTENSION_LIST_TIMEOUT_MS });
       set({ extensions, extensionsError: null });
     } catch (e) {
       set({ extensionsError: describeError(e) });
@@ -147,7 +151,11 @@ export const useVsCodeStore = create<VsCodeStore>((set, get) => ({
     if (!trimmed) return false;
     set({ installingExtension: trimmed, extensionsError: null });
     try {
-      const { extensions } = await client().call("vscode.installExtension", { id: trimmed });
+      const { extensions } = await client().call(
+        "vscode.installExtension",
+        { id: trimmed },
+        { timeoutMs: EXTENSION_INSTALL_TIMEOUT_MS },
+      );
       set({ extensions, installingExtension: null });
       return true;
     } catch (e) {
