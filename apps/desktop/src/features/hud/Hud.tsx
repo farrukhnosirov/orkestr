@@ -9,6 +9,7 @@ import { clsx } from "clsx";
 import { Check, CornerDownLeft, GripVertical, Maximize2, MicOff, ShieldAlert, X } from "lucide-react";
 import { useState, type FormEvent } from "react";
 
+import { ErrorBoundary } from "../../components/ErrorBoundary";
 import { Logo } from "../../components/Logo";
 import { useT } from "../../i18n";
 import { describeError } from "../../i18n/errors";
@@ -189,9 +190,17 @@ export function Hud() {
         </div>
         {/* The build/test chip lives in the agents row when it is shown, so the project name keeps its room. */}
         {!prefs.hud.showAgents && qualityChip}
-        <Approvals />
+        <ErrorBoundary name="HUD approvals" fallback={null}>
+          <Approvals />
+        </ErrorBoundary>
         <span className="hud__voice" title={VoiceSlot ? t("hud:voice") : t("hud:voiceUnavailable")}>
-          {VoiceSlot ? <VoiceSlot size={18} /> : <MicOff size={14} aria-label={t("hud:voiceUnavailable")} />}
+          {VoiceSlot ? (
+            <ErrorBoundary name="HUD voice slot" fallback={<MicOff size={14} aria-label={t("hud:voiceUnavailable")} />}>
+              <VoiceSlot size={18} />
+            </ErrorBoundary>
+          ) : (
+            <MicOff size={14} aria-label={t("hud:voiceUnavailable")} />
+          )}
         </span>
         <button type="button" className="hud-icon-btn" title={t("hud:expand")} aria-label={t("hud:expand")} onClick={() => void hudControls.expand()}>
           <Maximize2 size={13} />

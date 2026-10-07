@@ -4,7 +4,7 @@
  * voice HUD. Same-origin `BroadcastChannel`, plain data only (never audio).
  * The privacy rule holds in the HUD too: while the mic is open it says so.
  */
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { cancelVoice } from "../controller";
 import { type MicPurpose, useVoiceStore } from "../store";
@@ -75,14 +75,37 @@ export function startVoiceBroadcast(): () => void {
 /** Other windows (HUD): the main window's voice state, live; `null` until it answers. */
 export function useRemoteVoice(): { state: VoiceSnapshot | null; toggle: () => void } {
   const [state, setState] = useState<VoiceSnapshot | null>(null);
-  const [ch] = useState(channel);
+  // The channel belongs to one effect run: created there and closed in that
+  // run's cleanup. (A channel created once per component and closed in the
+  // cleanup threw "Channel is closed" when StrictMode / Fast Refresh re-ran
+  // the effect, which unmounted the whole HUD.)
+  const chRef = useRef<BroadcastChannel | null>(null);
   useEffect(() => {
+    const ch = channel();
     if (!ch) return undefined;
+    chRef.current = ch;
     ch.onmessage = (e: MessageEvent<Message>) => {
       if (e.data?.type === "state") setState(e.data.state);
     };
-    ch.postMessage({ type: "hello" } satisfies Message);
-    return () => ch.close();
-  }, [ch]);
-  return { state, toggle: () => ch?.postMessage({ type: "toggle" } satisfies Message) };
+    safePost(ch, { type: "hello" });
+    return () => {
+      if (chRef.current === ch) chRef.current = null;
+      ch.onmessage = null;
+      ch.close();
+    };
+  }, []);
+  const toggle = useCallback(() => {
+    const ch = chRef.current;
+    if (ch) safePost(ch, { type: "toggle" });
+  }, []);
+  return { state, toggle };
+}
+
+/** Posts unless the channel is already closed; never throws into React. */
+function safePost(ch: BroadcastChannel, msg: Message): void {
+  try {
+    ch.postMessage(msg);
+  } catch {
+    // Closed channel (window tearing down): nothing to tell.
+  }
 }
