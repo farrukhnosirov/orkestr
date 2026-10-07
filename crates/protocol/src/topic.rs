@@ -1,7 +1,7 @@
 //! Subscription topics (contract §4).
 //!
 //! Topics: `global`, `project:<id>`, `task:<id>`, `agent:<id>`,
-//! `terminal:<id>`, `node:<id>`, plus the wildcard `*` (every event; intended
+//! `terminal:<id>`, `node:<id>`, `lsp:<sessionId>`, plus the wildcard `*` (every event; intended
 //! for the Logs panel and diagnostics).
 //!
 //! Routing rules ([`event_topics`]):
@@ -40,6 +40,11 @@ pub fn agent(id: impl std::fmt::Display) -> String {
 pub fn terminal(id: impl std::fmt::Display) -> String {
     format!("terminal:{id}")
 }
+/// `lsp:<sessionId>` — language server traffic of one session.
+#[must_use]
+pub fn lsp(id: impl std::fmt::Display) -> String {
+    format!("lsp:{id}")
+}
 /// `node:<id>`.
 #[must_use]
 pub fn node(id: impl std::fmt::Display) -> String {
@@ -55,7 +60,7 @@ pub fn is_valid(topic: &str) -> bool {
     let Some((prefix, id)) = topic.split_once(':') else {
         return false;
     };
-    matches!(prefix, "project" | "task" | "agent" | "terminal" | "node") && uuid::Uuid::parse_str(id).is_ok()
+    matches!(prefix, "project" | "task" | "agent" | "terminal" | "node" | "lsp") && uuid::Uuid::parse_str(id).is_ok()
 }
 
 /// Topics an event is published on (see module docs).
@@ -66,6 +71,14 @@ pub fn event_topics(event: &Event) -> Vec<String> {
     if let EventKind::TerminalOutput(p) = &event.kind {
         topics.push(terminal(p.terminal_id));
         return topics;
+    }
+    // Language server traffic goes only to its session topic (and `*`).
+    if let EventKind::LspMessage(p) = &event.kind {
+        topics.push(lsp(p.session_id));
+        return topics;
+    }
+    if let EventKind::LspStatus(p) = &event.kind {
+        topics.push(lsp(p.session.session_id));
     }
     let lifecycle = matches!(
         event.kind,

@@ -902,6 +902,9 @@ macro_rules! event_kinds {
                         | EventKind::AgentUpdated(_)
                         | EventKind::ManagerMessageAdded(_)
                         | EventKind::SchedulerUpdated(_)
+                        | EventKind::ExtensionInstallProgress(_)
+                        | EventKind::LspMessage(_)
+                        | EventKind::LspStatus(_)
                 )
             }
 
@@ -1045,6 +1048,14 @@ event_kinds! {
     VoiceCommand(VoiceCommandPayload),
     /// The emergency flags changed (re-arm, stop, FullAuto / network / vault switches). Appended.
     EmergencyFlagsChanged(EmergencyFlagsChangedPayload),
+    /// Installed extensions or editor appearance preferences changed (ADR-0025). Appended.
+    ExtensionsChanged(crate::methods::extensions::ExtensionsChangedPayload),
+    /// Download / install progress of an extension (ephemeral). Appended.
+    ExtensionInstallProgress(crate::methods::extensions::ExtensionInstallProgressPayload),
+    /// One message from a language server (ephemeral, topic `lsp:<sessionId>` only). Appended.
+    LspMessage(crate::methods::lsp::LspMessagePayload),
+    /// Language server session state (ephemeral). Appended.
+    LspStatus(crate::methods::lsp::LspStatusPayload),
 }
 
 // ---------------------------------------------------------------------------
@@ -1220,6 +1231,7 @@ impl NewEvent {
                 self.task_id = n.notification.task_id;
                 self.agent_id = n.notification.agent_id;
             }
+            EventKind::LspStatus(l) => self.project_id = Some(l.session.project_id),
             EventKind::EmergencyStop(e) => match e.scope {
                 EmergencyScope::Project { project_id } => self.project_id = Some(project_id),
                 EmergencyScope::Agent { agent_id } => self.agent_id = Some(agent_id),

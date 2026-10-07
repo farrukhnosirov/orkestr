@@ -169,6 +169,8 @@ define_id!(/// Consensus run id (several models answer one question, §8). Phase
     ConsensusId, "consensus");
 define_id!(/// Merge Manager proposal id (§16).
     MergeProposalId, "mergeProposal");
+define_id!(/// Language server session id (one supervised language server process per editor client).
+    LspSessionId, "lsp");
 
 #[cfg(test)]
 mod tests {

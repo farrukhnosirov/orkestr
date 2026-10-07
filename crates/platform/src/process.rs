@@ -224,6 +224,38 @@ pub fn push_raw_arg(cmd: &mut tokio::process::Command, tail: &str) {
     }
 }
 
+/// A supervised stdio child (language servers, …): `program` with `args`,
+/// stdin/stdout/stderr piped, no console window, its own process group, and
+/// killed when the handle is dropped. On Windows, `.cmd` / `.bat` launchers
+/// (npm shims such as `typescript-language-server.cmd`) run through
+/// `cmd.exe /d /s /c` with the program path quoted; `args` must be fixed
+/// recipe tokens, never user input.
+#[must_use]
+pub fn stdio_command(program: &Path, args: &[String]) -> tokio::process::Command {
+    let is_batch = program
+        .extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|e| e.eq_ignore_ascii_case("cmd") || e.eq_ignore_ascii_case("bat"));
+    let mut cmd = if cfg!(windows) && is_batch {
+        let comspec = std::env::var_os("ComSpec").unwrap_or_else(|| "cmd.exe".into());
+        let mut c = tokio::process::Command::new(comspec);
+        c.arg("/d").arg("/s").arg("/c");
+        let line = std::iter::once(format!("\"{}\"", program.display()))
+            .chain(args.iter().map(|a| if a.contains(' ') { format!("\"{a}\"") } else { a.clone() }))
+            .collect::<Vec<_>>()
+            .join(" ");
+        push_raw_arg(&mut c, &format!("\"{line}\""));
+        c
+    } else {
+        let mut c = tokio::process::Command::new(program);
+        c.args(args);
+        c
+    };
+    cmd.stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped()).kill_on_drop(true);
+    isolate_command(&mut cmd);
+    cmd
+}
+
 fn sys() -> &'static Mutex<sysinfo::System> {
     static SYS: std::sync::OnceLock<Mutex<sysinfo::System>> = std::sync::OnceLock::new();
     SYS.get_or_init(|| Mutex::new(sysinfo::System::new()))
