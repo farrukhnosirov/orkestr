@@ -56,6 +56,8 @@ export interface PerfState {
   power: PowerStatusView | null;
   degradeSteps: number;
   hidden: boolean;
+  /** Visible but not focused (another app is in front). */
+  inactive: boolean;
   reducedMotion: boolean;
   mode: PerformanceMode;
   reason: ModeReason;
@@ -68,10 +70,14 @@ export interface PerfState {
   /** One step down because frames missed their budget; false when already at the floor. */
   degrade: () => boolean;
   setHidden: (hidden: boolean) => void;
+  setInactive: (inactive: boolean) => void;
   setReducedMotion: (reduced: boolean) => void;
 }
 
-type Inputs = Pick<PerfState, "chosen" | "autoBattery" | "autoDegrade" | "power" | "degradeSteps" | "hidden" | "reducedMotion">;
+type Inputs = Pick<
+  PerfState,
+  "chosen" | "autoBattery" | "autoDegrade" | "power" | "degradeSteps" | "hidden" | "inactive" | "reducedMotion"
+>;
 
 function derive(s: Inputs): Pick<PerfState, "mode" | "reason" | "policy"> {
   const onBattery = s.power?.supported && s.power.hasBattery ? s.power.onAcPower === false : null;
@@ -82,7 +88,7 @@ function derive(s: Inputs): Pick<PerfState, "mode" | "reason" | "policy"> {
     autoDegrade: s.autoDegrade,
     degradeSteps: s.degradeSteps,
   });
-  return { mode, reason, policy: resolvePolicy(mode, { reducedMotion: s.reducedMotion, hidden: s.hidden }) };
+  return { mode, reason, policy: resolvePolicy(mode, { reducedMotion: s.reducedMotion, hidden: s.hidden, inactive: s.inactive }) };
 }
 
 const initial: Inputs = {
@@ -92,8 +98,16 @@ const initial: Inputs = {
   power: null,
   degradeSteps: 0,
   hidden: typeof document !== "undefined" ? document.hidden : false,
+  // Only the windows that opt in (see `usePerformanceRuntime`) ever set this.
+  inactive: false,
   reducedMotion: prefersReducedMotion(),
 };
+
+function samePower(a: PowerStatusView | null, b: PowerStatusView | null): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return JSON.stringify(a) === JSON.stringify(b);
+}
 
 export const usePerfStore = create<PerfState>()((set, get) => {
   const update = (patch: Partial<Inputs>) => {
@@ -115,7 +129,11 @@ export const usePerfStore = create<PerfState>()((set, get) => {
       writeFlag(AUTO_DEGRADE_KEY, autoDegrade);
       update({ autoDegrade, degradeSteps: autoDegrade ? get().degradeSteps : 0 });
     },
-    setPower: (power) => update({ power }),
+    // Polled every minute and on every focus: an unchanged reading must not
+    // produce a new policy object (every visual subscriber would re-render).
+    setPower: (power) => {
+      if (!samePower(power, get().power)) update({ power });
+    },
     degrade: () => {
       const s = get();
       const inputs = {
@@ -131,6 +149,9 @@ export const usePerfStore = create<PerfState>()((set, get) => {
     },
     setHidden: (hidden) => {
       if (hidden !== get().hidden) update({ hidden });
+    },
+    setInactive: (inactive) => {
+      if (inactive !== get().inactive) update({ inactive });
     },
     setReducedMotion: (reducedMotion) => update({ reducedMotion }),
   };

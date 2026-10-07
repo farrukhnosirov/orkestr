@@ -11,7 +11,7 @@ import { usePerformanceRuntime } from "./usePerformanceRuntime";
 import "./visual.css";
 
 export function VisualLayer({ connected }: { connected: boolean }) {
-  usePerformanceRuntime(connected);
+  usePerformanceRuntime(connected, { pauseWhenInactive: true });
   // Robot windows follow the effective mode derived here (auto Battery Saver, degrade).
   useEffect(() => startPerfBroadcast(), []);
   return null;

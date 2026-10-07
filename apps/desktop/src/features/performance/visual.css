@@ -44,8 +44,9 @@
   animation-iteration-count: infinite !important;
 }
 
-/* Hidden / minimized window: every CSS animation pauses (§70). */
-:root[data-ok-paused="on"] *,
+/* Hidden / minimized or unfocused window: decorative CSS animation pauses
+   (§31, §70). Spinners keep turning: they tell the user work is in progress. */
+:root[data-ok-paused="on"] *:not(.ok-spinner),
 :root[data-ok-paused="on"] *::before,
 :root[data-ok-paused="on"] *::after {
   animation-play-state: paused !important;
@@ -110,6 +111,25 @@
 :root[data-ok-bg-anim="on"] .app__backdrop::before {
   opacity: calc(0.4 + 0.6 * var(--ok-glow-intensity));
   animation: ok-nebula-drift 48s ease-in-out infinite alternate;
+}
+
+/* Idle decoration is finite below Ultra Visual: an endless loop under blurred
+   glass keeps the GPU compositing every frame of an otherwise still screen. */
+:root:not([data-ok-performance="UltraVisual"]) .ok-empty__icon::before {
+  animation: none;
+}
+:root:not([data-ok-performance="UltraVisual"]) .ok-status-dot::after {
+  animation-iteration-count: 3;
+  animation-fill-mode: forwards; /* ends faded out, like each pulse */
+}
+:root:not([data-ok-performance="UltraVisual"]) .th-editor__live-dot {
+  animation-iteration-count: 3;
+}
+
+/* A procedural canvas already animates the background: a second, CSS-driven
+   moving layer under the blurred glass only doubles the compositing work. */
+:root[data-ok-bg-anim="on"] .app__backdrop--canvas::before {
+  animation: none;
 }
 
 @keyframes ok-nebula-drift {

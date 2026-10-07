@@ -136,7 +136,10 @@ export function ThemeBackdrop() {
   const paused = usePerfStore((s) => s.policy.paused);
   const visuals = applied && paused ? { ...applied, background: { ...applied.background, animated: false } } : applied;
   return (
-    <div className="app__backdrop" aria-hidden="true">
+    <div
+      className={visuals && visuals.background.renderer !== "css" ? "app__backdrop app__backdrop--canvas" : "app__backdrop"}
+      aria-hidden="true"
+    >
       {visuals && <BackgroundCanvas visuals={visuals} className="ok-backdrop__canvas" />}
     </div>
   );

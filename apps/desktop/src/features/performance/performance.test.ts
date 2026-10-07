@@ -41,6 +41,14 @@ describe("performance policy", () => {
     expect(p.chartRefreshMs).toBeGreaterThanOrEqual(30000);
   });
 
+  it("an unfocused but visible window pauses decoration, keeps data and robots", () => {
+    const p = resolvePolicy("UltraVisual", { reducedMotion: false, hidden: false, inactive: true });
+    expect(p).toMatchObject({ paused: true, backgroundAnimation: false, gpuEffects: false });
+    // Robots are separate windows; charts keep their normal refresh.
+    expect(p.robotFps).toBe(60);
+    expect(p.chartRefreshMs).toBe(resolvePolicy("UltraVisual", ENV).chartRefreshMs);
+  });
+
   it("switches to Battery Saver on battery only when allowed", () => {
     const base = { chosen: "UltraVisual" as const, autoBattery: true, onBattery: true, autoDegrade: false, degradeSteps: 0 };
     expect(effectiveMode(base)).toEqual({ mode: "BatterySaver", reason: "battery" });
@@ -138,6 +146,25 @@ describe("performance store", () => {
     s.setHidden(false);
     s.setAutoDegrade(false);
     expect(usePerfStore.getState().degrade()).toBe(false);
+  });
+
+  it("an unchanged power reading keeps the same policy object", () => {
+    const s = usePerfStore.getState();
+    const reading = { supported: true, hasBattery: false, onAcPower: true, batteryPercent: null };
+    s.setPower(reading);
+    const before = usePerfStore.getState().policy;
+    // Polled every minute and on every window focus: must not churn subscribers.
+    s.setPower({ ...reading });
+    expect(usePerfStore.getState().policy).toBe(before);
+  });
+
+  it("an unfocused window pauses decoration and resumes on focus", () => {
+    const s = usePerfStore.getState();
+    s.setChosen("UltraVisual");
+    s.setInactive(true);
+    expect(usePerfStore.getState().policy).toMatchObject({ paused: true, backgroundAnimation: false, gpuEffects: false });
+    s.setInactive(false);
+    expect(usePerfStore.getState().policy).toMatchObject({ paused: false, backgroundAnimation: true });
   });
 });
 

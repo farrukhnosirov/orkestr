@@ -147,7 +147,7 @@ export function DetachedPanelApp({ route }: { route: DetachedRoute }) {
   // Like the main window and the HUD: the user's Performance Mode (with auto
   // Battery Saver and the frame budget), policy on <html>, pause while
   // hidden/minimized — and the AI-editable UI prefs (density, font scale).
-  usePerformanceRuntime(connected);
+  usePerformanceRuntime(connected, { pauseWhenInactive: true });
   useAiUiRuntime(connected, false);
   // This window hosts exactly its panel: files to open / Manager requests
   // aimed at it from other windows land here.

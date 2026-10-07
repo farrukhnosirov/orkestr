@@ -46,7 +46,7 @@ export interface PerfPolicy {
   chartRefreshMs: number;
   /** GPU-heavy effects (WebGL backgrounds, particles) allowed. */
   gpuEffects: boolean;
-  /** Everything paused (window hidden / minimized). */
+  /** Decorative motion paused (window hidden / minimized, or not focused). */
   paused: boolean;
 }
 
@@ -112,6 +112,12 @@ export interface PolicyEnv {
   reducedMotion: boolean;
   /** The window is hidden or minimized. */
   hidden: boolean;
+  /**
+   * The window is visible but not focused (the user is in another app).
+   * Decorative motion pauses so an idle Orkestr window does not keep the GPU
+   * busy re-compositing blurred glass while other apps need it.
+   */
+  inactive?: boolean;
 }
 
 const MOTION_RANK: Record<MotionLevel, number> = { full: 2, reduced: 1, off: 0 };
@@ -131,6 +137,12 @@ export function resolvePolicy(mode: PerformanceMode, env: PolicyEnv): PerfPolicy
     policy.robotFps = 0;
     policy.gpuEffects = false;
     policy.chartRefreshMs = Math.max(policy.chartRefreshMs, 30000);
+  } else if (env.inactive) {
+    // Still visible (e.g. on another monitor): data keeps refreshing, decoration stops.
+    // Robots are separate windows with their own visibility, so robotFps is untouched.
+    policy.paused = true;
+    policy.backgroundAnimation = false;
+    policy.gpuEffects = false;
   }
   return policy;
 }

@@ -45,7 +45,20 @@ function notifyDegraded(): void {
   }
 }
 
-export function usePerformanceRuntime(connected: boolean): void {
+/** Delay before decoration resumes after focus returns (rapid Alt+Tab must not thrash). */
+const RESUME_AFTER_FOCUS_MS = 200;
+
+export interface PerformanceRuntimeOptions {
+  /**
+   * Pause decorative motion while the window is visible but not focused.
+   * On for the main window and detached panels; off for the always-on-top HUD,
+   * which is almost never focused and whose motion carries status.
+   */
+  pauseWhenInactive?: boolean;
+}
+
+export function usePerformanceRuntime(connected: boolean, options: PerformanceRuntimeOptions = {}): void {
+  const pauseWhenInactive = options.pauseWhenInactive ?? false;
   // Policy → <html>, and the user's choice from settings.
   useEffect(() => {
     applyPolicyToRoot(usePerfStore.getState().policy);
@@ -86,6 +99,32 @@ export function usePerformanceRuntime(connected: boolean): void {
     };
   }, []);
 
+  // Focus: a visible but unfocused window stops decorative motion. Blurred
+  // glass over animated layers keeps the GPU process busy every frame, which
+  // starved the compositor (and froze the window) under rapid app switching.
+  useEffect(() => {
+    if (!pauseWhenInactive) return undefined;
+    const store = usePerfStore.getState();
+    let resume = 0;
+    const onBlur = () => {
+      window.clearTimeout(resume);
+      store.setInactive(true);
+    };
+    const onFocus = () => {
+      window.clearTimeout(resume);
+      resume = window.setTimeout(() => usePerfStore.getState().setInactive(false), RESUME_AFTER_FOCUS_MS);
+    };
+    if (typeof document.hasFocus === "function" && !document.hasFocus()) store.setInactive(true);
+    window.addEventListener("blur", onBlur);
+    window.addEventListener("focus", onFocus);
+    return () => {
+      window.clearTimeout(resume);
+      window.removeEventListener("blur", onBlur);
+      window.removeEventListener("focus", onFocus);
+      usePerfStore.getState().setInactive(false);
+    };
+  }, [pauseWhenInactive]);
+
   // Power (RPC).
   useEffect(() => {
     if (!connected) return undefined;
@@ -121,7 +160,7 @@ export function usePerformanceRuntime(connected: boolean): void {
     };
     const burst = () => {
       const s = usePerfStore.getState();
-      if (raf || s.hidden || !s.autoDegrade || s.mode === "Performance" || s.mode === "BatterySaver") return;
+      if (raf || s.hidden || s.inactive || !s.autoDegrade || s.mode === "Performance" || s.mode === "BatterySaver") return;
       // A different mode renders differently: its bad-burst streak starts over.
       if (s.mode !== mode) {
         mode = s.mode;
