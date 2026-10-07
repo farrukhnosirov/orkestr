@@ -14,7 +14,7 @@ import { getClient } from "../../core/client";
 import { useT } from "../../i18n";
 import { ConfirmDialog, Notice } from "./components";
 import { branchNameError, relativeTime, shortId } from "./model";
-import { errorMessage, useAsync } from "./state";
+import { errorMessage, gitScope, useAsync } from "./state";
 
 interface Props {
   projectId: string;
@@ -25,7 +25,7 @@ interface Props {
 
 export function WorktreesTab({ projectId, active, refresh, onOpen }: Props) {
   const { t } = useT("git");
-  const { data, error, loading, reload } = useAsync(() => getClient().call("vcs.worktrees", { projectId }), [projectId, refresh]);
+  const { data, error, loading, reload } = useAsync(() => getClient().call("vcs.worktrees", { projectId }), [projectId, refresh], gitScope(projectId));
   const [branch, setBranch] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);

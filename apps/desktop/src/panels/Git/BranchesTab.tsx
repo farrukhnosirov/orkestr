@@ -12,7 +12,7 @@ import { getClient } from "../../core/client";
 import { useFormat, useT } from "../../i18n";
 import { ConfirmDialog, Notice } from "./components";
 import { branchNameError, relativeTime, shortId } from "./model";
-import { errorCode, errorMessage, rawMessage, useAsync } from "./state";
+import { errorCode, errorMessage, gitScope, rawMessage, useAsync } from "./state";
 
 interface Props {
   projectId: string;
@@ -29,7 +29,7 @@ export function BranchesTab({ projectId, worktree, refresh, onChanged }: Props) 
   const { t } = useT(["git", "common"]);
   const fmt = useFormat();
   const base = worktree ? { projectId, worktree } : { projectId };
-  const { data, error, loading, reload } = useAsync(() => getClient().call("vcs.branches", base), [projectId, worktree, refresh]);
+  const { data, error, loading, reload } = useAsync(() => getClient().call("vcs.branches", base), [projectId, worktree, refresh], gitScope(projectId, worktree));
   const [name, setName] = useState("");
   const [checkout, setCheckout] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);

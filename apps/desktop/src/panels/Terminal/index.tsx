@@ -44,7 +44,8 @@ export default function TerminalPanel({ projectId }: PanelProps) {
 
   const activeMap = useTerminalUi((s) => s.active);
   const setActive = useTerminalUi((s) => s.setActive);
-  const openRequest = useTerminalUi((s) => s.openRequest);
+  const pendingOpen = useTerminalUi((s) => s.pendingOpen);
+  const consumeOpenRequest = useTerminalUi((s) => s.consumeOpenRequest);
 
   const refresh = useCallback(async (c: OrkestrClient) => {
     const { terminals } = await c.call("terminal.list", {});
@@ -138,12 +139,13 @@ export default function TerminalPanel({ projectId }: PanelProps) {
   }, []);
 
   // "Open Terminal" command: open one when none is running, otherwise just show the panel.
-  const handledRequest = useRef(openRequest);
+  // The request stays pending in the store until a mounted panel with loaded
+  // sessions consumes it, so a request made before this panel mounted works.
   useEffect(() => {
-    if (openRequest === handledRequest.current || !client || sessions === null) return;
-    handledRequest.current = openRequest;
+    if (!pendingOpen || !client || sessions === null) return;
+    if (!consumeOpenRequest()) return;
     if (!visible.some((s) => s.status === "running" && !isReadOnly(s))) void openTerminal();
-  }, [openRequest, client, sessions, visible, openTerminal]);
+  }, [pendingOpen, consumeOpenRequest, client, sessions, visible, openTerminal]);
 
   if (!client) {
     return (

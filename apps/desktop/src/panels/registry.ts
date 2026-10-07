@@ -40,6 +40,7 @@ import TasksPanel from "./Tasks";
 import TerminalPanel from "./Terminal";
 import { t } from "../i18n";
 import type shellEn from "../locales/en/shell.json";
+import { PLANNED_PHASE } from "./plannedPhases";
 import type { PanelComponent, PanelDefinition, PanelIcon } from "./types";
 
 type PanelKey = keyof (typeof shellEn)["panels"];
@@ -69,10 +70,10 @@ export const PANELS: readonly PanelDefinition[] = [
   panel("agents", Bot, 0, AgentsPanel),
   panel("tasks", ListTodo, 0, TasksPanel),
   panel("architecture", Network, 0, ArchitecturePanel),
-  panel("browser", Globe, 2, BrowserPanel),
-  panel("database", Database, 2, DatabasePanel),
+  panel("browser", Globe, PLANNED_PHASE.browser, BrowserPanel),
+  panel("database", Database, PLANNED_PHASE.database, DatabasePanel),
   panel("logs", ScrollText, 0, LogsPanel),
-  panel("deployments", Rocket, 2, DeploymentsPanel),
+  panel("deployments", Rocket, PLANNED_PHASE.deployments, DeploymentsPanel),
   panel("memory", BrainCircuit, 0, MemoryPanel),
   panel("costs", Coins, 0, CostsPanel),
   // mission-control (Phase 3)

@@ -175,6 +175,7 @@
   "commands": {
     "group": "Tasks",
     "create": "Create Task",
-    "openGraph": "Open Task Graph"
+    "openGraph": "Open Task Graph",
+    "rollbackTask": "Roll Back Selected Task…"
   }
 }

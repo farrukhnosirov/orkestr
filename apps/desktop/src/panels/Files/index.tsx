@@ -4,6 +4,7 @@ import type { FileEntry } from "@orkestr/protocol";
 import { Button, EmptyState, IconButton, Input, Spinner } from "@orkestr/ui";
 import { clsx } from "clsx";
 import {
+  ArchiveRestore,
   Bot,
   ChevronDown,
   ChevronRight,
@@ -41,6 +42,8 @@ import { useEditorStore } from "../../store/editor";
 import type { PanelProps } from "../types";
 import { ContextMenu, type MenuItem } from "./ContextMenu";
 import { nameError } from "./nameError";
+import { TrashDialog } from "./TrashDialog";
+import { useTrashUi } from "./trashStore";
 import { useFileTree } from "./useFileTree";
 
 const ROW_H = 24;
@@ -89,6 +92,8 @@ function FileExplorer({ projectId, rootPath }: { projectId: string; rootPath: st
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const trashOpen = useTrashUi((s) => s.open);
+  const setTrashOpen = useTrashUi((s) => s.setOpen);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const dragSource = useRef<string | null>(null);
   const agentModified = useEditorStore((s) => s.agentModified);
@@ -402,6 +407,7 @@ function FileExplorer({ projectId, rootPath }: { projectId: string; rootPath: st
           aria-pressed={showIgnored}
           onClick={() => setShowIgnored((v) => !v)}
         />
+        <IconButton label={t("toolbar.trash")} icon={<ArchiveRestore size={15} />} size="sm" tooltip="bottom" onClick={() => setTrashOpen(true)} />
         <IconButton label={t("toolbar.openFolderIde")} icon={<ExternalLink size={15} />} size="sm" tooltip="bottom" onClick={() => openExternal("", "ide")} />
       </div>
 
@@ -584,6 +590,17 @@ function FileExplorer({ projectId, rootPath }: { projectId: string; rootPath: st
         >
           <p className="fx-dialog__text">{t("delete.trash")}</p>
         </ActionDialog>
+      )}
+
+      {trashOpen && (
+        <TrashDialog
+          projectId={projectId}
+          onClose={() => setTrashOpen(false)}
+          onRestored={(path) => {
+            void tree.load(dirname(path));
+            setSelected(path);
+          }}
+        />
       )}
     </div>
   );

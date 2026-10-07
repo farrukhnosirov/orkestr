@@ -62,10 +62,19 @@ export interface AsyncState<T> {
 /**
  * Runs `fn` when deps change (and on `reload()`); keeps the previous data
  * while reloading so lists do not flicker.
+ *
+ * `scope` identifies what the data belongs to (the project, plus the worktree
+ * where relevant). Data and errors loaded for another scope are never
+ * returned: after a scope change the hook reports `data: null` until the new
+ * scope has loaded, and keeps reporting `null` if that load fails, so one
+ * project's data is never shown (or acted on) under another project.
  */
-export function useAsync<T>(fn: () => Promise<T>, deps: DependencyList): AsyncState<T> {
-  const [data, setData] = useState<T | null>(null);
-  const [error, setError] = useState<string | null>(null);
+export function useAsync<T>(fn: () => Promise<T>, deps: DependencyList, scope = ""): AsyncState<T> {
+  const [result, setResult] = useState<{ scope: string; data: T | null; error: string | null }>({
+    scope,
+    data: null,
+    error: null,
+  });
   const [loading, setLoading] = useState(true);
   const [tick, setTick] = useState(0);
   const fnRef = useRef(fn);
@@ -76,12 +85,13 @@ export function useAsync<T>(fn: () => Promise<T>, deps: DependencyList): AsyncSt
     fnRef
       .current()
       .then((d) => {
-        if (cancelled) return;
-        setData(d);
-        setError(null);
+        if (!cancelled) setResult({ scope, data: d, error: null });
       })
       .catch((e: unknown) => {
-        if (!cancelled) setError(errorMessage(e));
+        if (cancelled) return;
+        const error = errorMessage(e);
+        // Same scope: keep the last good data next to the error; new scope: drop it.
+        setResult((prev) => ({ scope, data: prev.scope === scope ? prev.data : null, error }));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -90,9 +100,20 @@ export function useAsync<T>(fn: () => Promise<T>, deps: DependencyList): AsyncSt
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [...deps, tick]);
+  }, [...deps, scope, tick]);
   const reload = useCallback(() => setTick((t) => t + 1), []);
-  return { data, error, loading, reload };
+  const current = result.scope === scope;
+  return {
+    data: current ? result.data : null,
+    error: current ? result.error : null,
+    loading: loading || !current,
+    reload,
+  };
+}
+
+/** Scope key for {@link useAsync}: the project plus the worktree (if any). */
+export function gitScope(projectId: string, worktree?: string | null): string {
+  return `${projectId}|${worktree ?? ""}`;
 }
 
 const REFRESH_KINDS: ReadonlySet<EventKindName> = new Set<EventKindName>([

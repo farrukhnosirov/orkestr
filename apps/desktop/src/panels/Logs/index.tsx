@@ -9,6 +9,7 @@ import { maybeClient } from "../../core/client";
 import { useT } from "../../i18n";
 import { useAppStore } from "../../store/app";
 import type { PanelProps } from "../types";
+import { mergeEvents } from "./merge";
 import { PauseQueue } from "./pauseQueue";
 import { ReplayView } from "./replay/ReplayView";
 import { type EventCategory, categoryOf, describeEvent, formatTime, severityOf } from "./describe";
@@ -74,11 +75,9 @@ function EventsView({ projectId }: PanelProps) {
 
   const append = useCallback((incoming: Event[]) => {
     if (incoming.length === 0) return;
-    setEvents((prev) => {
-      const seen = new Set(prev.map((e) => e.id));
-      const merged = [...prev, ...incoming.filter((e) => !seen.has(e.id))];
-      return merged.length > MAX_EVENTS ? merged.slice(merged.length - MAX_EVENTS) : merged;
-    });
+    // Live events may arrive before the history page that precedes them, so
+    // merge in seq order instead of appending in arrival order.
+    setEvents((prev) => mergeEvents(prev, incoming, MAX_EVENTS));
   }, []);
 
   // History + live subscription (re-established after reconnects by the client).

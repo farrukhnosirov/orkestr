@@ -204,3 +204,61 @@
   border-color: var(--ok-color-danger);
   box-shadow: 0 0 0 2px var(--ok-color-danger-soft);
 }
+
+/* Orkestr trash dialog */
+.fx-trash {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: min(360px, 50vh);
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-1);
+}
+
+.fx-trash__item {
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-2);
+  padding: var(--ok-space-1) var(--ok-space-2);
+  border-radius: var(--ok-radius-sm);
+}
+
+.fx-trash__item:hover {
+  background: var(--ok-color-surface-hover, transparent);
+}
+
+.fx-trash__item--restored .fx-trash__path {
+  color: var(--ok-color-text-muted);
+}
+
+.fx-trash__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.fx-trash__path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--ok-font-mono, monospace);
+  font-size: var(--ok-font-size-sm);
+}
+
+.fx-trash__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-2);
+  color: var(--ok-color-text-muted);
+  font-size: var(--ok-font-size-xs, 11px);
+}
+
+.fx-trash__loading,
+.fx-trash__done {
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-2);
+}

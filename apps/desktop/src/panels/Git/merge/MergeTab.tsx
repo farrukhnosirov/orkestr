@@ -16,7 +16,7 @@ import { getClient, maybeClient } from "../../../core/client";
 import { useFormat, useT } from "../../../i18n";
 import { useAppStore } from "../../../store/app";
 import { Notice } from "../components";
-import { useAsync } from "../state";
+import { gitScope, useAsync } from "../state";
 import { PolicyDialog, ProposeDialog } from "./dialogs";
 import { statusTone, upsertProposal } from "./model";
 import { ProposalDetail } from "./ProposalDetail";
@@ -30,7 +30,7 @@ export function MergeTab({ projectId, currentBranch }: Props) {
   const { t } = useT("merge");
   const fmt = useFormat();
   const connected = useAppStore((s) => s.connection.state === "open");
-  const { data, error, loading, reload } = useAsync(() => getClient().call("merge.list", { projectId }), [projectId]);
+  const { data, error, loading, reload } = useAsync(() => getClient().call("merge.list", { projectId }), [projectId], gitScope(projectId));
   const [proposals, setProposals] = useState<MergeManagerProposal[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [dialog, setDialog] = useState<"propose" | "policy" | null>(null);

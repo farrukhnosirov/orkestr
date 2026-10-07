@@ -7,6 +7,7 @@
     "quickOpen": "Перейти к файлу…",
     "searchProject": "Найти в проекте",
     "showExplorer": "Показать проводник по файлам",
-    "clearAgentMarkers": "Убрать отметки изменений агентов"
+    "clearAgentMarkers": "Убрать отметки изменений агентов",
+    "openTrash": "Открыть корзину Orkestr…"
   }
 }

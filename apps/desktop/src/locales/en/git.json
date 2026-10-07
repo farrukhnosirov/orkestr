@@ -284,5 +284,28 @@
       "uncaptured": "not in the snapshot because it was ignored or unreadable then — kept",
       "unreadable": "can't be read now (locked by another program or access denied) — left as is"
     }
+  },
+  "taskRollback": {
+    "title": "Roll back task “{{title}}”?",
+    "description": "Only this task's changes are undone; edits made by you or other agents are kept. Orkestr takes a safety snapshot first, so this can be undone.",
+    "planning": "Checking what the task changed…",
+    "restore": "Will be restored to the state before the task",
+    "delete": "Will be deleted (created by the task)",
+    "conflicts": "Conflicts — changed by someone else, left as is",
+    "unchanged": "Already reverted",
+    "nothing": "Nothing to roll back: the task's changes are already undone.",
+    "onlyConflicts": "Nothing can be rolled back safely: every file the task changed was changed again by someone else.",
+    "noCheckpoints": "This task has no before/after snapshots, so its changes can't be rolled back on their own. Use Rollback Workspace in Git → Snapshots instead.",
+    "confirm_one": "Roll back {{count}} file",
+    "confirm_other": "Roll back {{count}} files",
+    "done": "Rolled back task “{{title}}”: {{restored}} restored, {{deleted}} deleted. Undo by rolling back to the pre-rollback snapshot.",
+    "doneSkipped": "Rolled back task “{{title}}”: {{restored}} restored, {{deleted}} deleted, {{skipped}} left as is (conflicts). Undo by rolling back to the pre-rollback snapshot.",
+    "action": "Roll back task…",
+    "conflict": {
+      "shared": "changed by someone else in the shared workspace during the task — not reverted",
+      "betweenAttempts": "changed outside the task between its attempts — not overwritten",
+      "uncaptured": "not in the task's before-snapshot (ignored or unreadable then), so it may predate the task — not deleted",
+      "afterTask": "changed by someone else after the task — not overwritten"
+    }
   }
 }

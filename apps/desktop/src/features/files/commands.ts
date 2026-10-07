@@ -1,8 +1,9 @@
 /** Files/Code commands contributed to the command registry (§54). */
-import { FileSearch, FolderTree, Search, SquareCode } from "lucide-react";
+import { ArchiveRestore, FileSearch, FolderTree, Search, SquareCode } from "lucide-react";
 
 import { workspaceActions } from "../../components/workspaceActions";
 import { t } from "../../i18n";
+import { useTrashUi } from "../../panels/Files/trashStore";
 import { useEditorStore } from "../../store/editor";
 import type { AppCommand } from "../commands/registry";
 
@@ -54,6 +55,22 @@ export const FILE_COMMANDS: AppCommand[] = [
     icon: FolderTree,
     keywords: ["tree", "explorer", "дерево", "проводник", "файлы"],
     run: () => workspaceActions.openPanel("files"),
+  },
+  {
+    id: "files.openTrash",
+    get title() {
+      return t("commands:files.openTrash");
+    },
+    get group() {
+      return t("commands:groups.files");
+    },
+    icon: ArchiveRestore,
+    keywords: ["trash", "restore", "deleted", "undo delete", "recycle", "корзина", "восстановить", "удалённые"],
+    enabled: hasProject,
+    run: () => {
+      workspaceActions.openPanel("files");
+      useTrashUi.getState().setOpen(true);
+    },
   },
   {
     id: "editor.clearAgentMarkers",

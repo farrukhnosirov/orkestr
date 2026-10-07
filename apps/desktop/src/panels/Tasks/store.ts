@@ -22,6 +22,12 @@ export interface TasksUiState {
   sortKey: SortKey;
   sortDir: SortDir;
   toasts: Toast[];
+  /**
+   * Task whose Rollback Task dialog should open (set by the palette command,
+   * consumed by the task drawer). A value, not a counter, so a request made
+   * before the panel mounts is not lost.
+   */
+  rollbackRequest: string | null;
   setView: (view: TasksView) => void;
   setCreateOpen: (open: boolean) => void;
   select: (taskId: string | null) => void;
@@ -30,6 +36,7 @@ export interface TasksUiState {
   setSort: (key: SortKey) => void;
   toast: (tone: Toast["tone"], message: string) => void;
   dismissToast: (id: number) => void;
+  requestRollback: (taskId: string | null) => void;
 }
 
 const VIEW_KEY = "orkestr.tasks.view";
@@ -53,6 +60,7 @@ export const useTasksUi = create<TasksUiState>()((set, get) => ({
   sortKey: "priority",
   sortDir: "desc",
   toasts: [],
+  rollbackRequest: null,
   setView: (view) => {
     try {
       window.localStorage.setItem(VIEW_KEY, view);
@@ -76,4 +84,5 @@ export const useTasksUi = create<TasksUiState>()((set, get) => ({
     window.setTimeout(() => get().dismissToast(id), tone === "danger" ? 6000 : 3500);
   },
   dismissToast: (id) => set({ toasts: get().toasts.filter((t) => t.id !== id) }),
+  requestRollback: (rollbackRequest) => set({ rollbackRequest }),
 }));

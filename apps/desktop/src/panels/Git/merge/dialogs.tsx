@@ -12,7 +12,7 @@ import { getClient } from "../../../core/client";
 import { useT } from "../../../i18n";
 import { Notice } from "../components";
 import { branchNameError } from "../model";
-import { errorMessage, useAsync } from "../state";
+import { errorMessage, gitScope, useAsync } from "../state";
 
 // ── shared frame ──────────────────────────────────────────
 
@@ -100,8 +100,8 @@ interface ProposeProps {
 
 export function ProposeDialog({ projectId, defaultTarget, onCreated, onCancel }: ProposeProps) {
   const { t } = useT("merge");
-  const branches = useAsync(() => getClient().call("vcs.branches", { projectId }), [projectId]);
-  const runs = useAsync(() => getClient().call("manager.status", { projectId }), [projectId]);
+  const branches = useAsync(() => getClient().call("vcs.branches", { projectId }), [projectId], gitScope(projectId));
+  const runs = useAsync(() => getClient().call("manager.status", { projectId }), [projectId], gitScope(projectId));
   const [target, setTarget] = useState(defaultTarget);
   const [runId, setRunId] = useState<string>("");
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
@@ -231,7 +231,7 @@ const CLEANUPS: { value: MergeCleanup; key: "cleanupKeep" | "cleanupWorktrees" |
 
 export function PolicyDialog({ projectId, onSaved, onCancel }: PolicyProps) {
   const { t } = useT(["merge", "common"]);
-  const loaded = useAsync(() => getClient().call("merge.policy", { projectId }), [projectId]);
+  const loaded = useAsync(() => getClient().call("merge.policy", { projectId }), [projectId], gitScope(projectId));
   const [draft, setDraft] = useState<MergePolicy | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);

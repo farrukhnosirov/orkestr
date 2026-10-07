@@ -91,6 +91,8 @@ consistently and add it to this table in the same change.
 | System prompt | системный промпт | — | |
 | Staged / Unstaged / Untracked | подготовлено к коммиту / изменения / неотслеживаемые | Добавить в коммит / Убрать из коммита | |
 | Safety snapshot | страховочный снимок | — | Taken automatically before discarding, rollback, restore. |
+| Trash (deleted files) | корзина Orkestr | Восстановить / Заменить | Copies of files deleted in the Files panel. Not the OS «Корзина». |
+| Task rollback | откат задачи | Откатить задачу | Undoes only one task's changes; differs from «Откатить рабочую область». Conflicts — «конфликты». |
 | Upstream branch | вышестоящая ветка | — | |
 | Shell (terminal) | оболочка | Выбрать оболочку | |
 | Session (terminal / app) | сеанс | — | «Сводка сеанса» (session resume). |
