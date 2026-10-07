@@ -282,9 +282,9 @@ pub fn is_invalid_api_key(body: &str) -> bool {
     };
     let v = if let Some(arr) = v.as_array() { arr.first().cloned().unwrap_or_default() } else { v };
     v.pointer("/error/details").and_then(|d| d.as_array()).is_some_and(|details| {
-        details.iter().any(|d| {
-            matches!(d.get("reason").and_then(|r| r.as_str()), Some("API_KEY_INVALID" | "API_KEY_EXPIRED"))
-        })
+        details
+            .iter()
+            .any(|d| matches!(d.get("reason").and_then(|r| r.as_str()), Some("API_KEY_INVALID" | "API_KEY_EXPIRED")))
     })
 }
 
