@@ -2,6 +2,7 @@ import type { Event, EventKindName } from "@orkestr/protocol";
 
 import { formatCurrency, formatDuration, t } from "../../i18n";
 import { agentActivity, agentName, fallbackReason, snapshotLabel } from "../../lib/coreText";
+import { activeFlags } from "../../features/security/logic";
 import { useAppStore } from "../../store/app";
 import { budgetScopeText } from "../Costs/format";
 
@@ -233,6 +234,10 @@ export function describeEvent(event: Event): string {
       return t("events:decisionRecorded", { title: event.payload.decision.title });
     case "EmergencyStop":
       return t("events:emergencyStop", { scope: t(`logs:enums.emergencyScope.${event.payload.scope.scope}`), count: event.payload.agentsStopped });
+    case "EmergencyFlagsChanged": {
+      const active = activeFlags(event.payload.flags);
+      return active.length === 0 ? t("events:emergencyFlagsClear") : t("events:emergencyFlags", { flags: active.join(", ") });
+    }
     case "Notification":
       return t("events:notification", { title: event.payload.notification.title, body: event.payload.notification.body });
     case "Log":

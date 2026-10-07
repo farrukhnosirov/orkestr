@@ -233,6 +233,7 @@ export * from "./DodSetting";
 export * from "./EffectiveRule";
 export * from "./EffectiveRulesParams";
 export * from "./EffectiveRulesResult";
+export * from "./EmergencyFlagsChangedPayload";
 export * from "./EmergencyFlagsView";
 export * from "./EmergencyScope";
 export * from "./EmergencyStatusResult";

@@ -567,6 +567,17 @@ pub struct EmergencyStopPayload {
     pub triggered_by: Actor,
 }
 
+/// `EmergencyFlagsChanged` — the persisted emergency flags changed (re-arm,
+/// Stop All, FullAuto / network tools switched off or on, vault lock), so
+/// every window and client can show the current state without polling.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct EmergencyFlagsChangedPayload {
+    /// The flags now in effect.
+    pub flags: crate::methods::emergency::EmergencyFlagsView,
+}
+
 /// `Notification`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
@@ -1032,6 +1043,8 @@ event_kinds! {
     UiConfigPatched(UiConfigPatchedPayload),
     /// A voice command was handled (transcript + intent, never audio). Phase 3, appended.
     VoiceCommand(VoiceCommandPayload),
+    /// The emergency flags changed (re-arm, stop, FullAuto / network / vault switches). Appended.
+    EmergencyFlagsChanged(EmergencyFlagsChangedPayload),
 }
 
 // ---------------------------------------------------------------------------

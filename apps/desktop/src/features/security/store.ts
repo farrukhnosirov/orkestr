@@ -49,6 +49,22 @@ export interface SecurityState {
 
 let toastSeq = 0;
 
+/*
+ * `approvals.list` snapshots race with live events: the core answers RPCs
+ * and forwards events on separate tasks, so an `ApprovalRequested` /
+ * `ApprovalResolved` applied while a list call is in flight may predate or
+ * postdate the snapshot. Events seen during the latest refresh are journaled
+ * and replayed on top of its snapshot (replaying is idempotent), and the
+ * answer of a superseded refresh is dropped.
+ */
+let refreshGen = 0;
+let refreshesInFlight = 0;
+let journal: ((list: Approval[]) => Approval[])[] = [];
+
+function journalOp(op: (list: Approval[]) => Approval[]): void {
+  if (refreshesInFlight > 0) journal.push(op);
+}
+
 export const useSecurityStore = create<SecurityState>()((set) => ({
   pending: [],
   pendingLoaded: false,
@@ -71,8 +87,14 @@ export const useSecurityStore = create<SecurityState>()((set) => ({
   pushToast: (t) => set((s) => ({ toasts: [...s.toasts.slice(-3), { ...t, id: `t${++toastSeq}` }] })),
   dismissToast: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
   setPending: (pending) => set({ pending, pendingLoaded: true, pendingError: null }),
-  applyApproval: (a) => set((s) => ({ pending: upsertApproval(s.pending, a) })),
-  dropApproval: (id) => set((s) => ({ pending: removeApproval(s.pending, id) })),
+  applyApproval: (a) => {
+    journalOp((list) => upsertApproval(list, a));
+    set((s) => ({ pending: upsertApproval(s.pending, a) }));
+  },
+  dropApproval: (id) => {
+    journalOp((list) => removeApproval(list, id));
+    set((s) => ({ pending: removeApproval(s.pending, id) }));
+  },
   setFlags: (flags) => set({ flags }),
   setPendingError: (pendingError) => set({ pendingError, pendingLoaded: true }),
 }));
@@ -85,11 +107,20 @@ export function errorMessage(e: unknown): string {
 export async function refreshPending(): Promise<void> {
   const c = maybeClient();
   if (!c) return;
+  const gen = ++refreshGen;
+  journal = [];
+  refreshesInFlight += 1;
   try {
     const { approvals } = await c.call("approvals.list", { status: "Pending" });
-    useSecurityStore.getState().setPending(approvals);
+    if (gen !== refreshGen) return; // a newer refresh owns the list
+    const merged = journal.reduce((list, op) => op(list), approvals);
+    journal = [];
+    useSecurityStore.getState().setPending(merged);
   } catch (e) {
-    useSecurityStore.getState().setPendingError(errorMessage(e));
+    if (gen === refreshGen) useSecurityStore.getState().setPendingError(errorMessage(e));
+  } finally {
+    refreshesInFlight -= 1;
+    if (refreshesInFlight === 0) journal = [];
   }
 }
 
@@ -155,6 +186,10 @@ function onSecurityEvent(event: Event): void {
       void refreshFlags();
       void refreshPending();
       break;
+    // Re-arm / flag switches made in another window or client.
+    case "EmergencyFlagsChanged":
+      s.setFlags(event.payload.flags);
+      break;
     default:
       break;
   }
@@ -188,9 +223,18 @@ export function initSecurityLive(): () => void {
       void refreshFlags();
     }
   });
+  // Fallback for missed events (sleep, dropped socket): re-read the flags when
+  // the window comes back.
+  const onVisible = () => {
+    if (!document.hidden) void refreshFlags();
+  };
+  window.addEventListener("focus", onVisible);
+  document.addEventListener("visibilitychange", onVisible);
   void refreshPending();
   void refreshFlags();
   return () => {
+    window.removeEventListener("focus", onVisible);
+    document.removeEventListener("visibilitychange", onVisible);
     offProjects();
     offState();
     unsub?.();

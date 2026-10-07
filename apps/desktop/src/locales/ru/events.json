@@ -55,6 +55,8 @@
   "emergencyStop_few": "ЭКСТРЕННАЯ ОСТАНОВКА ({{scope}}): остановлено {{count}} агента",
   "emergencyStop_many": "ЭКСТРЕННАЯ ОСТАНОВКА ({{scope}}): остановлено {{count}} агентов",
   "emergencyStop_other": "ЭКСТРЕННАЯ ОСТАНОВКА ({{scope}}): остановлено {{count}} агента",
+  "emergencyFlags": "Экстренные ограничения: {{flags}}",
+  "emergencyFlagsClear": "Экстренные ограничения сняты: работа AI снова разрешена",
   "notification": "{{title}}: {{body}}",
   "settingsChanged": "Изменены настройки: {{keys}}",
   "managerMessage": "Диалог с Менеджером: {{who}} — {{text}}",

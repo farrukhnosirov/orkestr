@@ -288,6 +288,10 @@
     "VoiceCommand_one": "{{count}} голосовая команда",
     "VoiceCommand_few": "{{count}} голосовые команды",
     "VoiceCommand_many": "{{count}} голосовых команд",
-    "VoiceCommand_other": "{{count}} голосовой команды"
+    "VoiceCommand_other": "{{count}} голосовой команды",
+    "EmergencyFlagsChanged_one": "{{count}} изменение экстренных ограничений",
+    "EmergencyFlagsChanged_few": "{{count}} изменения экстренных ограничений",
+    "EmergencyFlagsChanged_many": "{{count}} изменений экстренных ограничений",
+    "EmergencyFlagsChanged_other": "{{count}} изменения экстренных ограничений"
   }
 }

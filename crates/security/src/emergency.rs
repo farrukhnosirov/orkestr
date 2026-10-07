@@ -21,7 +21,8 @@ use std::sync::Arc;
 
 use orkestr_domain::{Actor, AgentId, ProjectId};
 use orkestr_events::EventBus;
-use orkestr_protocol::event::{EmergencyScope, EmergencyStopPayload, EventKind};
+use orkestr_protocol::event::{EmergencyFlagsChangedPayload, EmergencyScope, EmergencyStopPayload, EventKind};
+use orkestr_protocol::methods::emergency::EmergencyFlagsView;
 use orkestr_protocol::NewEvent;
 use orkestr_storage::rusqlite::params;
 use orkestr_storage::{Db, Migration};
@@ -243,6 +244,33 @@ impl EmergencyController {
         }
     }
 
+    /// Tells every window / client the flags now in effect (`EmergencyFlagsChanged`).
+    async fn publish_flags(&self, flags: EmergencyFlags) {
+        let ev = NewEvent::new(EventKind::EmergencyFlagsChanged(EmergencyFlagsChangedPayload {
+            flags: EmergencyFlagsView {
+                all_stopped: flags.all_stopped,
+                full_auto_disabled: flags.full_auto_disabled,
+                network_tools_disabled: flags.network_tools_disabled,
+                vault_locked: flags.vault_locked,
+            },
+        }));
+        if let Err(e) = self.events.publish(ev).await {
+            // The change already happened; never fail it because of the event log.
+            tracing::error!(error = %e, "failed to publish EmergencyFlagsChanged");
+        }
+    }
+
+    /// Updates, persists and (when something changed) announces the flags.
+    async fn change_flags(&self, f: impl FnOnce(&mut EmergencyFlags)) -> SecurityResult<EmergencyFlags> {
+        let before = self.flags.get();
+        let flags = self.flags.update(f);
+        self.persist(flags).await?;
+        if flags != before {
+            self.publish_flags(flags).await;
+        }
+        Ok(flags)
+    }
+
     /// Stop All AI: cancels every token, sets `allStopped`, emits `EmergencyStop{All}`.
     pub async fn stop_all(&self, by: Actor) -> SecurityResult<StopReport> {
         let report = {
@@ -255,11 +283,15 @@ impl EmergencyController {
             *reg = Registry::new();
             StopReport { agents_stopped: agents, other_stopped: other }
         };
+        let before = self.flags.get();
         let flags = self.flags.update(|f| f.all_stopped = true);
         tracing::warn!(agents = report.agents_stopped, "EMERGENCY STOP ALL");
         // Persist after the in-memory stop so a DB problem cannot delay it.
         let persisted = self.persist(flags).await;
         self.publish(EmergencyScope::All, report.agents_stopped, by).await;
+        if flags != before {
+            self.publish_flags(flags).await;
+        }
         persisted?;
         Ok(report)
     }
@@ -314,35 +346,31 @@ impl EmergencyController {
 
     /// Sets/clears `fullAutoDisabled`.
     pub async fn set_full_auto_disabled(&self, disabled: bool) -> SecurityResult<EmergencyFlags> {
-        let flags = self.flags.update(|f| f.full_auto_disabled = disabled);
-        self.persist(flags).await?;
-        Ok(flags)
+        self.change_flags(|f| f.full_auto_disabled = disabled).await
     }
 
     /// Sets/clears `networkToolsDisabled`.
     pub async fn set_network_tools_disabled(&self, disabled: bool) -> SecurityResult<EmergencyFlags> {
-        let flags = self.flags.update(|f| f.network_tools_disabled = disabled);
-        self.persist(flags).await?;
-        Ok(flags)
+        self.change_flags(|f| f.network_tools_disabled = disabled).await
     }
 
     /// Sets/clears `vaultLocked` (driven by the secret service).
     pub async fn set_vault_locked(&self, locked: bool) -> SecurityResult<EmergencyFlags> {
-        let flags = self.flags.update(|f| f.vault_locked = locked);
-        self.persist(flags).await?;
-        Ok(flags)
+        self.change_flags(|f| f.vault_locked = locked).await
     }
 
     /// Re-arms after an emergency: clears `allStopped`, `fullAutoDisabled`
     /// and `networkToolsDisabled`. The vault stays locked until explicitly
-    /// unlocked.
+    /// unlocked. Emits `EmergencyFlagsChanged` so every window leaves the
+    /// "stopped" state.
     pub async fn reset(&self) -> SecurityResult<EmergencyFlags> {
-        let flags = self.flags.update(|f| {
-            f.all_stopped = false;
-            f.full_auto_disabled = false;
-            f.network_tools_disabled = false;
-        });
-        self.persist(flags).await?;
+        let flags = self
+            .change_flags(|f| {
+                f.all_stopped = false;
+                f.full_auto_disabled = false;
+                f.network_tools_disabled = false;
+            })
+            .await?;
         tracing::info!("emergency controls reset");
         Ok(flags)
     }
@@ -426,5 +454,41 @@ mod tests {
         assert!(f.full_auto_disabled && f.network_tools_disabled && f.vault_locked && !f.all_stopped);
         let f = c2.reset().await.unwrap();
         assert!(!f.full_auto_disabled && !f.network_tools_disabled && f.vault_locked);
+    }
+
+    /// Next `EmergencyFlagsChanged` payload on `sub` (skipping other kinds).
+    async fn next_flags(sub: &mut orkestr_events::Subscription) -> EmergencyFlagsView {
+        loop {
+            match tokio::time::timeout(std::time::Duration::from_secs(2), sub.recv()).await.unwrap() {
+                Some(Received::Event(ev)) => {
+                    if let EventKind::EmergencyFlagsChanged(p) = ev.kind {
+                        return p.flags;
+                    }
+                }
+                other => panic!("{other:?}"),
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn every_flag_change_is_announced_to_other_windows() {
+        let (_db, bus, c) = controller().await;
+        let mut sub = bus.subscribe(["global"]).unwrap();
+        c.stop_all(Actor::System).await.unwrap();
+        assert!(next_flags(&mut sub).await.all_stopped);
+        // Re-arm must reach every window, or they keep showing "AI stopped".
+        c.reset().await.unwrap();
+        let f = next_flags(&mut sub).await;
+        assert!(!f.all_stopped && !f.full_auto_disabled && !f.network_tools_disabled);
+        c.set_full_auto_disabled(true).await.unwrap();
+        assert!(next_flags(&mut sub).await.full_auto_disabled);
+        c.set_network_tools_disabled(true).await.unwrap();
+        assert!(next_flags(&mut sub).await.network_tools_disabled);
+        c.set_vault_locked(true).await.unwrap();
+        assert!(next_flags(&mut sub).await.vault_locked);
+        // No change, no event: the next one seen is the real change below.
+        c.set_vault_locked(true).await.unwrap();
+        c.set_vault_locked(false).await.unwrap();
+        assert!(!next_flags(&mut sub).await.vault_locked);
     }
 }
