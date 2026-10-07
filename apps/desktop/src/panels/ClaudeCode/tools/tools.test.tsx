@@ -52,7 +52,7 @@ describe("ToolCard", () => {
     expect(screen.getByLabelText("1 lines added")).toBeTruthy();
     expect(screen.queryByTestId("monaco-diff")).toBeNull();
 
-    const head = screen.getByRole("button", { name: "Show details: Edit" });
+    const head = screen.getByRole("button", { name: "Show details: Edit src/a.ts" });
     expect(head.getAttribute("aria-expanded")).toBe("false");
     fireEvent.click(head);
     expect(head.getAttribute("aria-expanded")).toBe("true");

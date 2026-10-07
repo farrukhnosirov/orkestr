@@ -26,8 +26,7 @@
   },
   "card": {
     "expand": "Show details: {{tool}}",
-    "collapse": "Hide details: {{tool}}",
-    "errorTitle": "The tool returned an error"
+    "collapse": "Hide details: {{tool}}"
   },
   "file": {
     "open": "Open file",
@@ -100,8 +99,7 @@
     "prompt": "Question",
     "allowed": "Only: {{list}}",
     "blocked": "Except: {{list}}",
-    "sources": "Sources",
-    "summary": "Summary"
+    "sources": "Sources"
   },
   "task": {
     "agent": "Agent: {{type}}",

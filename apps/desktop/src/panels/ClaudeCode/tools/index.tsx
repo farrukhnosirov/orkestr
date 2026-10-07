@@ -207,7 +207,8 @@ export function ToolCard({ call, result, root, cwd, onOpenFile, risk, children, 
   }
 
   const Icon = ICONS[kind];
-  const toggleLabel = open ? t("card.collapse", { tool: call.name }) : t("card.expand", { tool: call.name });
+  const what = subject ? `${verb} ${subject}` : verb;
+  const toggleLabel = open ? t("card.collapse", { tool: what }) : t("card.expand", { tool: what });
 
   // ── body (only while open) ──
   let body: ReactNode = null;
