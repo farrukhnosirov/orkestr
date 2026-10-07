@@ -33,6 +33,7 @@ import { ManagerSettings, ProviderSetup } from "../providers";
 import { SystemChecksList } from "../settings/sections/SystemChecksList";
 import { useSettingsStore } from "../settings/settingsStore";
 import { useSystemStore } from "../settings/systemStore";
+import { VoiceQuickSetup } from "../voice/settings/VoiceQuickSetup";
 import "../settings/settings.css";
 import "./onboarding.css";
 import { useOnboardingStore } from "./onboardingStore";
@@ -394,12 +395,13 @@ export function OnboardingWizard() {
       break;
     case "voice":
       body = (
-        <LaterCard
-          icon={<Mic size={26} />}
-          phase={current.phase}
-          title={t("onboarding:later.voice.title")}
-          body={t("onboarding:later.voice.body")}
-        />
+        <div className="onb-embed">
+          <p className="onb-hint">
+            <Mic size={14} /> {t("onboarding:voice.lead")}
+          </p>
+          <VoiceQuickSetup />
+          <p className="onb-hint">{t("onboarding:voice.more")}</p>
+        </div>
       );
       break;
     case "remote":

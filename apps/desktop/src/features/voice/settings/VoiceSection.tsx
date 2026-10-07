@@ -239,7 +239,7 @@ export function VoiceSection(_props: SettingsSectionProps) {
   );
 }
 
-function MicrophoneRows({ config, patch }: { config: VoiceConfig; patch: (fn: (c: VoiceConfig) => VoiceConfig) => void }) {
+export function MicrophoneRows({ config, patch }: { config: VoiceConfig; patch: (fn: (c: VoiceConfig) => VoiceConfig) => void }) {
   const { t } = useT("voice");
   const level = useVoiceStore((s) => s.level);
   const [devices, setDevices] = useState<{ id: string; label: string }[]>([]);

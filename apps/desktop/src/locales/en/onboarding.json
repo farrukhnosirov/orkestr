@@ -86,8 +86,11 @@
   "terminal": {
     "lead": "Agents run commands in real terminals. Here is what Orkestr found on this machine."
   },
+  "voice": {
+    "lead": "Talk to the Manager with push-to-talk: hold the keys while you speak. Turn voice commands on, pick the keys and check that the microphone hears you. You can skip this step.",
+    "more": "The wake word, speech recognition engines, spoken replies and agent voices are in Settings → Voice."
+  },
   "later": {
-    "voice": { "title": "Voice control", "body": "Wake word, push-to-talk and spoken notifications for the Manager — processed locally where possible." },
     "remote": { "title": "Remote access", "body": "Reach this machine's agents securely through the Orkestr gateway — the core never opens ports." },
     "sync": { "title": "Cloud sync", "body": "Encrypted sync of projects, memory and settings between your devices." },
     "mobile": { "title": "Mobile pairing", "body": "Approve actions, watch progress and stop agents from your phone." }
