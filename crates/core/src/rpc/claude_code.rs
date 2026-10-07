@@ -181,7 +181,8 @@ async fn load_transcript(
     let dir = ctx.services.claude.projects_dir().ok_or_else(|| RpcError::not_found("no Claude Code history found"))?;
     let (cwd, session) = (cwd.to_path_buf(), session.to_owned());
     tokio::task::spawn_blocking(move || {
-        let folder = history::folder_for(&dir, &cwd).ok_or_else(|| "no Claude Code history for this folder".to_owned())?;
+        let folder =
+            history::folder_for(&dir, &cwd).ok_or_else(|| "no Claude Code history for this folder".to_owned())?;
         history::transcript(&folder, &session)
     })
     .await
@@ -217,7 +218,12 @@ async fn start(ctx: RpcContext, p: ClaudeStartParams) -> Result<ClaudeStartResul
         RpcError::not_found("Claude Code was not found: install the Claude Code extension or set the path to `claude`")
             .with_data(serde_json::json!({ "reason": "binaryNotFound" }))
     })?;
-    let stop = ctx.services.security.emergency.register_project(p.project_id).map_err(|e| RpcError::forbidden(e.to_string()))?;
+    let stop = ctx
+        .services
+        .security
+        .emergency
+        .register_project(p.project_id)
+        .map_err(|e| RpcError::forbidden(e.to_string()))?;
     let history = match p.resume.as_deref() {
         Some(id) => load_transcript(&ctx, &cwd, id).await.map(|(events, _)| events).unwrap_or_default(),
         None => Vec::new(),

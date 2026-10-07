@@ -115,7 +115,9 @@ pub fn summarize(path: &Path) -> Option<ClaudeHistoryEntry> {
         let Ok(v) = serde_json::from_str::<Value>(&line) else { continue };
         match v.get("type").and_then(Value::as_str) {
             Some("ai-title") => title = v.get("aiTitle").and_then(Value::as_str).map(|t| shorten(t, 120)).or(title),
-            Some("summary") if title.is_none() => title = v.get("summary").and_then(Value::as_str).map(|t| shorten(t, 120)),
+            Some("summary") if title.is_none() => {
+                title = v.get("summary").and_then(Value::as_str).map(|t| shorten(t, 120))
+            }
             Some(kind @ ("user" | "assistant")) => {
                 if v.get("isSidechain").and_then(Value::as_bool) == Some(true)
                     || v.get("isMeta").and_then(Value::as_bool) == Some(true)
@@ -156,7 +158,7 @@ pub fn list(folder: &Path) -> Vec<ClaudeHistoryEntry> {
         .filter(|e| e.path().extension().is_some_and(|x| x == "jsonl") && e.path().is_file())
         .filter_map(|e| Some((e.metadata().ok()?.modified().ok()?, e.path())))
         .collect();
-    files.sort_by(|a, b| b.0.cmp(&a.0));
+    files.sort_by_key(|f| std::cmp::Reverse(f.0));
     files.into_iter().take(MAX_HISTORY).filter_map(|(_, p)| summarize(&p)).collect()
 }
 
@@ -199,7 +201,10 @@ mod tests {
 
     #[test]
     fn cwd_encoding_matches_the_cli() {
-        assert_eq!(encode_cwd(Path::new(r"C:\Users\user\Documents\Projects\orkestr")), "C--Users-user-Documents-Projects-orkestr");
+        assert_eq!(
+            encode_cwd(Path::new(r"C:\Users\user\Documents\Projects\orkestr")),
+            "C--Users-user-Documents-Projects-orkestr"
+        );
         assert_eq!(encode_cwd(Path::new("/home/me/my proj.v2")), "-home-me-my-proj-v2");
     }
 

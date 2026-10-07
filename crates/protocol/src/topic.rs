@@ -65,7 +65,8 @@ pub fn is_valid(topic: &str) -> bool {
     let Some((prefix, id)) = topic.split_once(':') else {
         return false;
     };
-    matches!(prefix, "project" | "task" | "agent" | "terminal" | "node" | "lsp" | "claude") && uuid::Uuid::parse_str(id).is_ok()
+    matches!(prefix, "project" | "task" | "agent" | "terminal" | "node" | "lsp" | "claude")
+        && uuid::Uuid::parse_str(id).is_ok()
 }
 
 /// Topics an event is published on (see module docs).

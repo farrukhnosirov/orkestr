@@ -146,11 +146,15 @@ async fn claude_code_session_end_to_end() {
     assert_eq!(req["canRemember"], true);
     assert!(req["risk"].is_null());
     let waiting = c
-        .wait("waiting state", |e| e["kind"] == "ClaudeCodeStatus" && e["payload"]["session"]["state"] == "waitingPermission")
+        .wait("waiting state", |e| {
+            e["kind"] == "ClaudeCodeStatus" && e["payload"]["session"]["state"] == "waitingPermission"
+        })
         .await;
     assert_eq!(waiting["payload"]["session"]["title"], "please write a file");
     let rid = req["requestId"].as_str().unwrap().to_owned();
-    let r = c.call("claudeCode.respondPermission", json!({"sessionId": sid, "requestId": "nope", "decision": "allowOnce"})).await;
+    let r = c
+        .call("claudeCode.respondPermission", json!({"sessionId": sid, "requestId": "nope", "decision": "allowOnce"}))
+        .await;
     assert_eq!(r["error"]["code"], "bad_request");
     c.ok("claudeCode.respondPermission", json!({"sessionId": sid, "requestId": rid, "decision": "allowOnce"})).await;
     let resolved = c.item("permissionResolved").await;
@@ -199,12 +203,19 @@ async fn claude_code_session_end_to_end() {
     let r = c.call("claudeCode.setMode", json!({"sessionId": sid, "mode": "bypassPermissions"})).await;
     assert_eq!(r["error"]["code"], "bad_request", "{r}");
     // Confirmed bypass restarts the process with the bypass flag (resuming the conversation).
-    let info = c.ok("claudeCode.setMode", json!({"sessionId": sid, "mode": "bypassPermissions", "confirmBypass": true})).await;
+    let info =
+        c.ok("claudeCode.setMode", json!({"sessionId": sid, "mode": "bypassPermissions", "confirmBypass": true})).await;
     assert_eq!(info["bypassAllowed"], true);
     assert_eq!(info["permissionMode"], "bypassPermissions");
     c.item("capabilities").await; // the new process answered `initialize`
     c.ok("claudeCode.send", json!({"sessionId": sid, "text": "hello again"})).await;
-    let text = c.wait("pong", |e| e["kind"] == "ClaudeCodeEvent" && e["payload"]["event"]["type"] == "text" && e["payload"]["event"]["text"].as_str().is_some_and(|t| t.starts_with("pong"))).await;
+    let text = c
+        .wait("pong", |e| {
+            e["kind"] == "ClaudeCodeEvent"
+                && e["payload"]["event"]["type"] == "text"
+                && e["payload"]["event"]["text"].as_str().is_some_and(|t| t.starts_with("pong"))
+        })
+        .await;
     assert!(text.to_string().contains("hello again"));
 
     // Every permission decision is audited.
