@@ -1,0 +1,430 @@
+/* Claude Code tool cards (`cct-*`). Tokens only — follows the app theme. */
+
+.cct-card {
+  border: 1px solid var(--ok-color-border);
+  border-radius: var(--ok-radius-md);
+  background: color-mix(in srgb, var(--ok-color-surface) 78%, transparent);
+  backdrop-filter: blur(8px);
+  font-size: var(--ok-font-size-sm);
+  overflow: hidden;
+  transition: border-color var(--ok-duration-fast) var(--ok-ease);
+}
+.cct-card:hover,
+.cct-card:focus-within {
+  border-color: var(--ok-color-border-strong);
+}
+.cct-card--running {
+  border-color: var(--ok-color-border-accent);
+}
+.cct-card--error {
+  border-color: color-mix(in srgb, var(--ok-color-danger) 55%, var(--ok-color-border));
+}
+
+.cct-head {
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-2);
+  padding: 0 var(--ok-space-2) 0 0;
+  min-height: 30px;
+}
+.cct-head__toggle {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-2);
+  padding: var(--ok-space-1) var(--ok-space-2);
+  background: none;
+  border: 0;
+  color: var(--ok-color-text);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  border-radius: var(--ok-radius-md);
+}
+.cct-head__toggle:hover {
+  background: var(--ok-color-surface-hover);
+}
+.cct-head__toggle:focus-visible,
+.cct-icon-btn:focus-visible,
+.cct-path:focus-visible,
+.cct-link:focus-visible,
+.cct-btn:focus-visible,
+.cct-seg__btn:focus-visible {
+  outline: 2px solid var(--ok-color-accent);
+  outline-offset: 1px;
+}
+.cct-head__icon {
+  flex: none;
+  color: var(--ok-color-text-muted);
+}
+.cct-head__verb {
+  flex: none;
+  font-weight: var(--ok-font-weight-semibold);
+}
+.cct-head__subject {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ok-color-text-muted);
+}
+.cct-head__extras {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ok-space-1);
+  flex: none;
+}
+.cct-head__state {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+}
+.cct-ok {
+  color: var(--ok-color-success);
+}
+.cct-mono,
+.cct-code,
+.cct-command,
+.cct-output,
+.cct-diff,
+.cct-snippet,
+.cct-list__text {
+  font-family: var(--ok-font-mono);
+}
+
+.cct-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: var(--ok-radius-sm);
+  background: none;
+  color: var(--ok-color-text-muted);
+  cursor: pointer;
+}
+.cct-icon-btn:hover {
+  background: var(--ok-color-surface-hover);
+  color: var(--ok-color-text);
+}
+
+.cct-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-2);
+  padding: var(--ok-space-2) var(--ok-space-3) var(--ok-space-3);
+  border-top: 1px solid var(--ok-color-border);
+}
+
+.cct-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--ok-space-2);
+  min-width: 0;
+}
+.cct-spacer {
+  flex: 1 1 auto;
+}
+.cct-muted {
+  color: var(--ok-color-text-muted);
+  font-size: var(--ok-font-size-xs);
+}
+.cct-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--ok-space-2);
+  border-radius: var(--ok-radius-pill);
+  background: var(--ok-color-surface-sunken);
+  color: var(--ok-color-text-subtle);
+  font-size: var(--ok-font-size-xs);
+  white-space: nowrap;
+}
+.cct-stats {
+  display: inline-flex;
+  gap: var(--ok-space-1);
+  font-family: var(--ok-font-mono);
+  font-size: var(--ok-font-size-xs);
+}
+.cct-stats__add {
+  color: var(--ok-color-success);
+}
+.cct-stats__del {
+  color: var(--ok-color-danger);
+}
+
+.cct-link,
+.cct-path {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ok-color-accent);
+  font: inherit;
+  font-size: var(--ok-font-size-xs);
+  cursor: pointer;
+  text-align: start;
+}
+.cct-link:hover,
+.cct-path:hover {
+  text-decoration: underline;
+}
+.cct-path {
+  font-family: var(--ok-font-mono);
+  overflow-wrap: anywhere;
+}
+.cct-path--outside {
+  color: var(--ok-color-text-muted);
+  cursor: default;
+}
+.cct-path__line {
+  color: var(--ok-color-text-subtle);
+}
+.cct-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ok-space-1);
+  padding: 2px var(--ok-space-2);
+  border: 1px solid var(--ok-color-border);
+  border-radius: var(--ok-radius-sm);
+  background: var(--ok-color-surface);
+  color: var(--ok-color-text);
+  font: inherit;
+  font-size: var(--ok-font-size-xs);
+  cursor: pointer;
+}
+.cct-btn:hover {
+  border-color: var(--ok-color-border-accent);
+  background: var(--ok-color-surface-hover);
+}
+
+.cct-command,
+.cct-output {
+  margin: 0;
+  padding: var(--ok-space-2);
+  border-radius: var(--ok-radius-sm);
+  background: var(--ok-color-surface-sunken);
+  font-size: var(--ok-font-size-xs);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 420px;
+  overflow: auto;
+}
+.cct-command {
+  color: var(--ok-color-text);
+  border-inline-start: 2px solid var(--ok-color-accent);
+}
+.cct-output {
+  color: var(--ok-color-text-muted);
+}
+.cct-output--error {
+  color: var(--ok-color-danger);
+  background: var(--ok-color-danger-soft);
+}
+.cct-output-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-1);
+}
+
+.cct-diffblock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-1);
+}
+.cct-diffblock__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ok-space-2);
+}
+.cct-seg {
+  display: inline-flex;
+  margin-inline-start: auto;
+  border: 1px solid var(--ok-color-border);
+  border-radius: var(--ok-radius-sm);
+  overflow: hidden;
+}
+.cct-seg__btn {
+  padding: 1px var(--ok-space-2);
+  border: 0;
+  background: none;
+  color: var(--ok-color-text-muted);
+  font: inherit;
+  font-size: var(--ok-font-size-xs);
+  cursor: pointer;
+}
+.cct-seg__btn[aria-pressed="true"] {
+  background: var(--ok-color-accent-soft);
+  color: var(--ok-color-text);
+}
+.cct-monaco {
+  border: 1px solid var(--ok-color-border);
+  border-radius: var(--ok-radius-sm);
+  overflow: hidden;
+}
+.cct-diff,
+.cct-snippet {
+  border-radius: var(--ok-radius-sm);
+  background: var(--ok-color-surface-sunken);
+  font-size: var(--ok-font-size-xs);
+  overflow: auto;
+  max-height: 480px;
+}
+.cct-diff__line,
+.cct-snippet__line {
+  display: flex;
+  white-space: pre;
+}
+.cct-diff__sign,
+.cct-snippet__no {
+  flex: none;
+  width: 3ch;
+  text-align: end;
+  padding-inline-end: 1ch;
+  color: var(--ok-color-text-subtle);
+  user-select: none;
+}
+.cct-snippet__no {
+  width: 5ch;
+}
+.cct-diff__line--add {
+  background: var(--ok-color-success-soft);
+}
+.cct-diff__line--del {
+  background: var(--ok-color-danger-soft);
+}
+.cct-diff__line--add .cct-diff__sign {
+  color: var(--ok-color-success);
+}
+.cct-diff__line--del .cct-diff__sign {
+  color: var(--ok-color-danger);
+}
+
+.cct-list,
+.cct-todos {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.cct-list__item {
+  display: flex;
+  align-items: baseline;
+  gap: var(--ok-space-2);
+  min-width: 0;
+}
+.cct-list__icon {
+  flex: none;
+  color: var(--ok-color-text-subtle);
+  align-self: center;
+}
+.cct-list__text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ok-color-text-muted);
+  font-size: var(--ok-font-size-xs);
+}
+.cct-tree__dir {
+  color: var(--ok-color-text);
+  font-size: var(--ok-font-size-xs);
+  font-family: var(--ok-font-mono);
+}
+.cct-link-item {
+  flex-direction: column;
+  gap: 0;
+}
+.cct-link-item__url {
+  color: var(--ok-color-text-subtle);
+  font-size: var(--ok-font-size-xs);
+  overflow-wrap: anywhere;
+}
+
+.cct-todo {
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-2);
+  color: var(--ok-color-text);
+}
+.cct-todo--completed {
+  color: var(--ok-color-text-subtle);
+}
+.cct-todo--completed .cct-todo__text {
+  text-decoration: line-through;
+}
+.cct-todo--completed svg {
+  color: var(--ok-color-success);
+}
+.cct-todo--in_progress {
+  font-weight: var(--ok-font-weight-medium);
+}
+.cct-todo--in_progress svg {
+  color: var(--ok-color-accent);
+}
+
+.cct-code {
+  font-size: var(--ok-font-size-xs);
+  padding: 1px var(--ok-space-1);
+  border-radius: var(--ok-radius-sm);
+  background: var(--ok-color-surface-sunken);
+  overflow-wrap: anywhere;
+}
+.cct-url {
+  align-self: flex-start;
+}
+.cct-field {
+  display: flex;
+  gap: var(--ok-space-2);
+  font-size: var(--ok-font-size-xs);
+}
+.cct-field__label {
+  color: var(--ok-color-text-subtle);
+  font-size: var(--ok-font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--ok-letter-spacing-caps);
+}
+.cct-field__value {
+  color: var(--ok-color-text-muted);
+}
+.cct-prompt__text {
+  white-space: pre-wrap;
+  color: var(--ok-color-text-muted);
+}
+.cct-clamp {
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.cct-subagent {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-2);
+  padding-inline-start: var(--ok-space-3);
+  border-inline-start: 2px solid var(--ok-color-violet-soft);
+}
+.cct-plan,
+.cct-md {
+  color: var(--ok-color-text);
+  overflow-wrap: anywhere;
+}
+.cct-plan {
+  padding: var(--ok-space-2) var(--ok-space-3);
+  border-radius: var(--ok-radius-sm);
+  background: var(--ok-color-surface-sunken);
+}
+
+.cct-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
