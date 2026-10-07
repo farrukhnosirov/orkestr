@@ -1,0 +1,37 @@
+[package]
+name = "orkestr-vscode-host"
+description = "Orkestr embedded VS Code: on-demand download (sha256-verified) and supervision of the VSCodium REH web server on 127.0.0.1 with a connection token."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+orkestr-domain.workspace = true
+orkestr-protocol.workspace = true
+orkestr-events.workspace = true
+orkestr-platform.workspace = true
+orkestr-security.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+futures.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+chrono.workspace = true
+rand.workspace = true
+hex.workspace = true
+parking_lot.workspace = true
+# Not in [workspace.dependencies] yet (listed in the report):
+sha2 = "0.10"
+flate2 = "1"
+tar = { version = "0.4", default-features = false }
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

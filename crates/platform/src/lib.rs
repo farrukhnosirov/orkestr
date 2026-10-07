@@ -39,6 +39,7 @@
 #![warn(missing_docs)]
 
 pub mod autostart;
+pub mod browser;
 pub mod credentials;
 pub mod error;
 pub mod fs;
@@ -57,6 +58,7 @@ pub mod webview;
 
 use std::sync::Arc;
 
+pub use browser::{open_url, validate_web_url};
 pub use autostart::{Autostart, AutostartEntry, MemoryAutostart, NativeAutostart};
 pub use credentials::{CredentialStore, KeyringCredentialStore, MemoryCredentialStore};
 pub use error::{PlatformError, PlatformResult};

@@ -94,6 +94,22 @@ pub fn restrict_to_current_user(path: &Path) -> PlatformResult<()> {
     }
 }
 
+/// Applies Unix permission bits (e.g. the executable bit of a binary unpacked
+/// from an archive). No-op on Windows, where executability is by extension.
+pub fn set_unix_mode(path: &Path, mode: u32) -> PlatformResult<()> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(mode & 0o7777))?;
+        Ok(())
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = (path, mode);
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
