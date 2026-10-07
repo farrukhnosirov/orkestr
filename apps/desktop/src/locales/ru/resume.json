@@ -292,6 +292,22 @@
     "EmergencyFlagsChanged_one": "{{count}} изменение экстренных ограничений",
     "EmergencyFlagsChanged_few": "{{count}} изменения экстренных ограничений",
     "EmergencyFlagsChanged_many": "{{count}} изменений экстренных ограничений",
-    "EmergencyFlagsChanged_other": "{{count}} изменения экстренных ограничений"
+    "EmergencyFlagsChanged_other": "{{count}} изменения экстренных ограничений",
+    "ExtensionsChanged_one": "{{count}} изменение расширений",
+    "ExtensionsChanged_few": "{{count}} изменения расширений",
+    "ExtensionsChanged_many": "{{count}} изменений расширений",
+    "ExtensionsChanged_other": "{{count}} изменения расширений",
+    "ExtensionInstallProgress_one": "{{count}} шаг установки расширения",
+    "ExtensionInstallProgress_few": "{{count}} шага установки расширений",
+    "ExtensionInstallProgress_many": "{{count}} шагов установки расширений",
+    "ExtensionInstallProgress_other": "{{count}} шага установки расширений",
+    "LspMessage_one": "{{count}} сообщение языкового сервера",
+    "LspMessage_few": "{{count}} сообщения языкового сервера",
+    "LspMessage_many": "{{count}} сообщений языкового сервера",
+    "LspMessage_other": "{{count}} сообщения языкового сервера",
+    "LspStatus_one": "{{count}} смена состояния языкового сервера",
+    "LspStatus_few": "{{count}} смены состояния языкового сервера",
+    "LspStatus_many": "{{count}} смен состояния языкового сервера",
+    "LspStatus_other": "{{count}} смены состояния языкового сервера"
   }
 }

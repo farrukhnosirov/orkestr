@@ -156,7 +156,7 @@ impl ExtensionService {
     /// Installed extensions, sorted by display name.
     pub async fn list(&self) -> ExtResult<Vec<InstalledExtension>> {
         let mut v: Vec<_> = self.store.list().await?.into_iter().map(|r| r.ext).collect();
-        v.sort_by(|a, b| a.display_name.to_lowercase().cmp(&b.display_name.to_lowercase()));
+        v.sort_by_key(|a| a.display_name.to_lowercase());
         Ok(v)
     }
 

@@ -24,7 +24,18 @@ pub fn parse(text: &str) -> ExtResult<Vec<Snippet>> {
     let v = crate::jsonc::parse(text)?;
     let obj = v.as_object().ok_or_else(|| ExtError::Invalid("a snippets file must be a JSON object".into()))?;
     let mut out = Vec::new();
+    // Older snippet files group snippets under a scope selector
+    // (`".source.go": { "name": { … } }`); flatten one such level.
+    let mut entries: Vec<(&String, &Value)> = Vec::new();
     for (name, s) in obj {
+        match s.as_object() {
+            Some(o) if !o.contains_key("body") && o.values().any(|v| v.get("body").is_some()) => {
+                entries.extend(o.iter())
+            }
+            _ => entries.push((name, s)),
+        }
+    }
+    for (name, s) in entries {
         if out.len() >= MAX_SNIPPETS {
             break;
         }
@@ -69,6 +80,16 @@ mod tests {
         assert_eq!(f.description.as_deref(), Some("loop"));
         let m = s.iter().find(|x| x.name == "Main").unwrap();
         assert_eq!(m.description, None);
+    }
+
+    #[test]
+    fn flattens_scope_groups() {
+        let s =
+            parse(r#"{ ".source.go": { "single import": { "prefix": "im", "body": "import \"${1:package}\"" } } }"#)
+                .unwrap();
+        assert_eq!(s.len(), 1);
+        assert_eq!(s[0].name, "single import");
+        assert_eq!(s[0].prefixes, vec!["im"]);
     }
 
     #[test]
