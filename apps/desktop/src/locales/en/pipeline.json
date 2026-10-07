@@ -76,6 +76,61 @@
     "lines": "lines {{from}}–{{to}}"
   },
   "runStages": "Pipeline of “{{task}}”",
+  "settings": {
+    "title": "Quality pipeline",
+    "enabled": "Run the quality pipeline",
+    "enabledDesc": "Every task of a Manager run goes through review, build, tests, security and merge, with self-healing of failures. Off: a task is accepted when its agent reports done.",
+    "stageToggle": "{{stage}} stage",
+    "stageDesc": {
+      "Review": "Automatic code review of the agent's change.",
+      "Build": "Build and type check of the project.",
+      "Test": "The project's tests.",
+      "Security": "Adversarial security and QA review."
+    },
+    "merge": "Merge stage",
+    "mergeMode": {
+      "Off": "Off",
+      "Propose": "Propose only",
+      "PerPolicy": "Per merge policy"
+    },
+    "mergeDesc": {
+      "Off": "The pipeline does not merge; merge the branch yourself.",
+      "Propose": "The pipeline prepares a Merge Manager proposal; you merge it.",
+      "PerPolicy": "The pipeline proposes and merges right away when the merge policy allows it; otherwise the proposal waits for your approval."
+    },
+    "healingGroup": "Self-healing limits",
+    "maxAttempts": "Fix attempts",
+    "maxAttemptsDesc": "Attempts before asking you (0 = no self-healing, at most {{max}}).",
+    "maxWallMins": "Time limit, min",
+    "maxWallMinsDesc": "Wall time of the whole pipeline (1 to {{max}} minutes).",
+    "maxBudget": "Spend limit, $",
+    "maxBudgetDesc": "No new fix attempt starts once the task has spent this much. Empty: only the task budget applies.",
+    "noLimit": "No limit",
+    "stopOnRepeat": "Stop when a fix repeats the failure",
+    "stopOnRepeatDesc": "Escalate instead of retrying when a fix produces the same failure again.",
+    "escalateModel": "Try a stronger model",
+    "escalateModelDesc": "From the second attempt on, use a different (stronger) model.",
+    "saveHealing": "Save limits",
+    "discard": "Discard changes",
+    "overridesGroup": "Stages per task kind",
+    "overridesHint": "A task kind is an agent role (Backend, QA, Docs…) or a task tag. The first matching kind decides the stages; other tasks use the stages above.",
+    "overrideStage": "{{kind}}: {{stage}} stage",
+    "removeOverride": "Remove the stages of {{kind}}",
+    "kindLabel": "Task kind",
+    "kindPlaceholder": "e.g. Docs",
+    "addOverride": "Add task kind",
+    "customized": "Customized",
+    "reset": "Reset pipeline settings",
+    "errors": {
+      "attempts": "Enter a whole number of attempts from 0 to {{maxAttempts}}",
+      "wallMins": "Enter a time limit from 1 to {{maxMins}} minutes",
+      "budget": "Enter an amount such as 2.50, or leave the field empty",
+      "kindRequired": "Enter a task kind",
+      "kindTooLong": "A task kind has at most 60 characters",
+      "duplicate": "This task kind already has its own stages",
+      "tooMany": "At most 32 task kinds"
+    }
+  },
   "text": {
     "checksPassed_one": "{{count}} check passed",
     "checksPassed_other": "{{count}} checks passed",

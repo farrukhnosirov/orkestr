@@ -246,3 +246,14 @@
     animation: none;
   }
 }
+
+/* Settings → Quality gates → Quality pipeline */
+.pl-settings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-3);
+}
+
+.pl-settings__num {
+  width: 110px;
+}
