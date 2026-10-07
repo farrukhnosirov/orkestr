@@ -16,7 +16,8 @@ type Ws = tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<t
 
 async fn recv(ws: &mut Ws) -> Value {
     loop {
-        let msg = tokio::time::timeout(Duration::from_secs(180), ws.next()).await.expect("timeout").expect("closed").unwrap();
+        let msg =
+            tokio::time::timeout(Duration::from_secs(180), ws.next()).await.expect("timeout").expect("closed").unwrap();
         if let Message::Text(t) = msg {
             return serde_json::from_str(t.as_str()).unwrap();
         }
@@ -68,15 +69,26 @@ async fn real_claude_write_permission_round_trip() {
     ws.send(Message::Text(json!({"type": "auth", "token": core.token}).to_string().into())).await.unwrap();
     recv(&mut ws).await;
     let mut ev = Vec::new();
-    let p = call(&mut ws, &mut ev, "1", "projects.create", json!({"name": "Real", "rootPath": root.path().to_string_lossy()})).await;
+    let p = call(
+        &mut ws,
+        &mut ev,
+        "1",
+        "projects.create",
+        json!({"name": "Real", "rootPath": root.path().to_string_lossy()}),
+    )
+    .await;
     let pid = p["project"]["id"].as_str().unwrap().to_owned();
     let st = call(&mut ws, &mut ev, "2", "claudeCode.setBinaryPath", json!({"path": bin})).await;
     println!("status: {st}");
     let s = call(&mut ws, &mut ev, "3", "claudeCode.start", json!({"projectId": pid, "model": "haiku"})).await;
     let sid = s["session"]["sessionId"].as_str().unwrap().to_owned();
-    ws.send(Message::Text(json!({"type": "sub", "id": "s", "topics": [format!("claude:{sid}"), format!("project:{pid}")]}).to_string().into()))
-        .await
-        .unwrap();
+    ws.send(Message::Text(
+        json!({"type": "sub", "id": "s", "topics": [format!("claude:{sid}"), format!("project:{pid}")]})
+            .to_string()
+            .into(),
+    ))
+    .await
+    .unwrap();
     let caps = wait_item(&mut ws, &mut ev, "capabilities").await;
     println!("account: {}", caps["account"]);
     call(
