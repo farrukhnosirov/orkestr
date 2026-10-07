@@ -166,6 +166,10 @@
     "LspMessage_one": "{{count}} language server message",
     "LspMessage_other": "{{count}} language server messages",
     "LspStatus_one": "{{count}} language server status change",
-    "LspStatus_other": "{{count}} language server status changes"
+    "LspStatus_other": "{{count}} language server status changes",
+    "ClaudeCodeEvent_one": "{{count}} Claude Code chat item",
+    "ClaudeCodeEvent_other": "{{count}} Claude Code chat items",
+    "ClaudeCodeStatus_one": "{{count}} Claude Code session change",
+    "ClaudeCodeStatus_other": "{{count}} Claude Code session changes"
   }
 }
