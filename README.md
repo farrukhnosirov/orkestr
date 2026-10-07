@@ -6,13 +6,28 @@ specialised agents, models, tools and compute nodes. The product spec is in
 [`docs/spec/MASTER_SPEC.md`](docs/spec/MASTER_SPEC.md). The rules every
 contributor follows are in [`docs/ENGINEERING_CONTRACT.md`](docs/ENGINEERING_CONTRACT.md).
 
-> Status: **Phase 1 — Windows desktop core MVP** (acceptance passed
-> 2026-10-02). You can open a project, ask the AI Manager to build something,
-> approve its plan and watch agents work in parallel in their own git
-> worktrees, with approvals for dangerous actions, snapshots and task
-> rollback, an emergency stop and crash recovery. What is done and what is
-> still open is tracked in [`docs/roadmap/mvp-milestones.md`](docs/roadmap/mvp-milestones.md).
-> Screenshots: [`docs/screenshots/phase1/`](docs/screenshots/phase1/).
+> Status: **Phase 3 — Visual OS** (Windows only). Phases 1–3 have passed
+> acceptance: Phase 1, the desktop core MVP, on 2026-10-02; Phase 2,
+> Multi-Agent Quality, on 2026-10-06 with mock providers; Phase 3, Visual OS,
+> on 2026-10-05.
+> - **Phase 1:** you can open a project, ask the AI Manager to build something,
+>   approve its plan and watch agents work in parallel in their own git
+>   worktrees. Dangerous actions need approval, and you also get snapshots,
+>   task rollback, an emergency stop and crash recovery.
+> - **Phase 2:** adds teams and hierarchy, the Author → Review → Build → Test
+>   pipeline with Self-Healing, the AI Merge Manager, consensus and adversarial
+>   review, the Architecture map, the Decision Log, Replay and benchmarks.
+> - **Phase 3:** adds Mission Control, themes, the layout editor, floating
+>   robots, the HUD, voice and detachable panels.
+>
+> Still not built: the MCP Hub, the Environment Manager, the Monaco LSP bridge,
+> hand-off to `orkestrd`, the Browser agent, and macOS / Linux packages. The
+> delivered level of every feature is in
+> [`docs/roadmap/feature-traceability.md`](docs/roadmap/feature-traceability.md),
+> and open items per phase are in
+> [`docs/roadmap/mvp-milestones.md`](docs/roadmap/mvp-milestones.md).
+> Screenshots: [`phase1`](docs/screenshots/phase1/),
+> [`phase2`](docs/screenshots/phase2/), [`phase3`](docs/screenshots/phase3/).
 
 ## Architecture in one picture
 
@@ -113,6 +128,29 @@ the UI through the WebView2 DevTools protocol and saves the main views to
 `npm run dev -w @orkestr/desktop` first; `--window` captures the native window
 with PowerShell `CopyFromScreen` instead (that also captures anything on top
 of the window, such as notifications from other apps).
+
+## Phase 2 and Phase 3 acceptance
+
+`scripts/smoke/phase2-acceptance.mjs` runs Phase 2 scenarios A-lite, B and J
+with the Mock provider and a local fake OpenAI-compatible server. A-lite
+covers the parallel agents, the quality pipeline, Self-Healing and the Merge
+Manager; B covers the provider fallback; J covers Rollback Task. The script
+also checks consensus, the architecture map, Replay, benchmarks, teams and the
+AI Product Manager.
+
+`scripts/smoke/phase3-acceptance.mjs` (Windows) runs the Visual OS checks:
+scenario H (floating robots), scenario G (voice through a finished
+transcript), and every theme, layout preset and performance mode. It also
+checks the HUD, AI-editable UI and detaching panels into their own windows.
+
+```bash
+cargo build -p orkestr-desktop
+node scripts/smoke/phase2-acceptance.mjs              # desktop app
+node scripts/smoke/phase2-acceptance.mjs --headless   # against orkestrd
+
+npm run build && cargo build -p orkestr-desktop --features custom-protocol
+node scripts/smoke/phase3-acceptance.mjs              # add --no-shots to skip screenshots
+```
 
 ## Layout
 
