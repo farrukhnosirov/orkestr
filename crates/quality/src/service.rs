@@ -447,6 +447,12 @@ impl QualityService {
         }
     }
 
+    /// Number of active runs of a project (deleting a project refuses while > 0).
+    #[must_use]
+    pub fn active_in_project(&self, project_id: ProjectId) -> usize {
+        self.inner.active.lock().values().filter(|a| a.state.lock().project_id == project_id).count()
+    }
+
     /// Cancels every active run of a project (emergency stop).
     pub fn cancel_project(&self, project_id: ProjectId) -> usize {
         let active = self.inner.active.lock();

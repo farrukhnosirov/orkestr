@@ -32,7 +32,7 @@ pub struct ListProjectsResult {
     pub projects: Vec<Project>,
 }
 
-/// Params of `projects.get`, `projects.delete`, `projects.open`.
+/// Params of `projects.get`, `projects.open`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export)]
@@ -150,6 +150,22 @@ pub struct UpdateProjectParams {
     pub patch: ProjectPatch,
 }
 
+/// Params of `projects.delete`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct DeleteProjectParams {
+    /// Target project.
+    pub project_id: ProjectId,
+    /// Stop the project's running work first (agents, Manager runs, merges,
+    /// quality runs — an emergency stop scoped to the project, plus aborting
+    /// open merges) and wait for it to end. Without it a project with running
+    /// work is refused with `conflict` (`data.reason = "project_busy"`).
+    #[serde(default)]
+    #[ts(optional)]
+    pub stop_work: Option<bool>,
+}
+
 /// Result of `projects.delete`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
@@ -223,8 +239,9 @@ method!(
     Update, "projects.update", UpdateProjectParams, ProjectResult
 );
 method!(
-    /// `projects.delete` — emits `ProjectDeleted`.
-    Delete, "projects.delete", ProjectIdParams, DeleteProjectResult
+    /// `projects.delete` — refuses (`conflict`) while the project has running
+    /// work unless `stopWork`; emits `ProjectDeleted`.
+    Delete, "projects.delete", DeleteProjectParams, DeleteProjectResult
 );
 method!(
     /// `projects.open` — marks the project as opened (sets `lastOpenedAt`), emits `ProjectUpdated`.

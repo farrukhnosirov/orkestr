@@ -8,7 +8,8 @@ use std::path::Path;
 use orkestr_domain::{now, slugify, Project};
 use orkestr_protocol::event::{EventKind, ProjectDeletedPayload, ProjectPayload};
 use orkestr_protocol::methods::projects::{
-    self as m, validate_color, validate_description, validate_name, CreateProjectParams, DeleteProjectResult,
+    self as m, validate_color, validate_description, validate_name, CreateProjectParams, DeleteProjectParams,
+    DeleteProjectResult,
     ListProjectsResult, ProjectIdParams, ProjectPatch, ProjectResult, UpdateProjectParams,
 };
 use orkestr_protocol::{NewEvent, RpcError};
@@ -175,7 +176,115 @@ async fn update(ctx: RpcContext, p: UpdateProjectParams) -> Result<ProjectResult
     Ok(ProjectResult { project })
 }
 
-async fn delete(ctx: RpcContext, p: ProjectIdParams) -> Result<DeleteProjectResult, RpcError> {
+/// In-process work of one project that must end before its rows go away
+/// (deleting cascades to agents, tasks, merge proposals and runs; running work
+/// would otherwise keep editing files with no handle left to stop it).
+#[derive(Debug, Default, PartialEq, Eq)]
+pub(crate) struct ActiveWork {
+    pub agents: usize,
+    pub manager_runs: usize,
+    pub manager_chat: bool,
+    pub merges: usize,
+    pub quality_runs: usize,
+}
+
+impl ActiveWork {
+    fn is_idle(&self) -> bool {
+        *self == Self::default()
+    }
+}
+
+pub(crate) async fn active_work(ctx: &RpcContext, project: orkestr_domain::ProjectId) -> Result<ActiveWork, RpcError> {
+    use orkestr_protocol::methods::manager::ManagerStatusParams;
+    use orkestr_protocol::methods::merge::{MergeListParams, MergeProposalStatus};
+    let s = &ctx.services;
+    let status = s
+        .manager
+        .status(ManagerStatusParams { project_id: Some(project), ..Default::default() })
+        .await
+        .map_err(|e| RpcError::internal(e.to_string()))?;
+    let manager_runs = status.runs.iter().filter(|r| status.live_run_ids.contains(&r.id)).count();
+    let merges = s
+        .merge
+        .list(MergeListParams { project_id: project, run_id: None, limit: Some(500) })
+        .await
+        .map_err(|e| RpcError::internal(e.to_string()))?
+        .iter()
+        .filter(|m| {
+            matches!(
+                m.status,
+                MergeProposalStatus::AwaitingApproval
+                    | MergeProposalStatus::Merging
+                    | MergeProposalStatus::Testing
+                    | MergeProposalStatus::Conflicted
+            )
+        })
+        .count();
+    Ok(ActiveWork {
+        agents: s.security.emergency.active_agents_in(project),
+        manager_runs,
+        manager_chat: s.manager.is_busy(project),
+        merges,
+        quality_runs: s.quality.active_in_project(project),
+    })
+}
+
+/// Stops a project's running work (project-scoped emergency stop, quality
+/// runs, agent terminals, open merges aborted and rolled back).
+async fn stop_project_work(ctx: &RpcContext, project: orkestr_domain::ProjectId) {
+    use orkestr_protocol::methods::merge::{MergeAbortParams, MergeListParams};
+    let s = &ctx.services;
+    if let Err(e) = s.security.stop_project(project, s.security.user()).await {
+        tracing::warn!(%project, error = %e, "stop project before delete");
+    }
+    s.terminals.stop_project_agents(project).await;
+    s.quality.cancel_project(project);
+    if let Ok(list) = s.merge.list(MergeListParams { project_id: project, run_id: None, limit: Some(500) }).await {
+        for m in list.into_iter().filter(|m| !m.status.is_final()) {
+            let params = MergeAbortParams { proposal_id: m.id, reason: Some("project deleted".into()) };
+            if let Err(e) = s.merge.abort(params).await {
+                tracing::debug!(proposal = %m.id, error = %e, "abort merge before delete");
+            }
+        }
+    }
+}
+
+/// How long `projects.delete {stopWork}` waits for stopped work to end.
+const STOP_WORK_WAIT: std::time::Duration = std::time::Duration::from_secs(20);
+
+async fn delete(ctx: RpcContext, p: DeleteProjectParams) -> Result<DeleteProjectResult, RpcError> {
+    load(&ctx, &ProjectIdParams { project_id: p.project_id }).await?;
+    let mut work = active_work(&ctx, p.project_id).await?;
+    if !work.is_idle() && p.stop_work.unwrap_or(false) {
+        stop_project_work(&ctx, p.project_id).await;
+        let deadline = tokio::time::Instant::now() + STOP_WORK_WAIT;
+        loop {
+            work = active_work(&ctx, p.project_id).await?;
+            if work.is_idle() || tokio::time::Instant::now() >= deadline {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        }
+    }
+    if !work.is_idle() {
+        return Err(RpcError::conflict(format!(
+            "the project still has running work ({} agent(s), {} Manager run(s){}, {} merge(s), {} quality run(s)); \
+             stop it first (emergency.stopProject, merge.abort) and delete again",
+            work.agents,
+            work.manager_runs,
+            if work.manager_chat { ", a Manager reply" } else { "" },
+            work.merges,
+            work.quality_runs,
+        ))
+        .with_data(serde_json::json!({
+            "reason": "project_busy",
+            "agents": work.agents,
+            "managerRuns": work.manager_runs,
+            "managerChat": work.manager_chat,
+            "merges": work.merges,
+            "qualityRuns": work.quality_runs,
+        })));
+    }
     let existed = ctx.services.projects.delete(p.project_id).await.map_err(storage_to_rpc)?;
     if !existed {
         return Err(RpcError::not_found(format!("project {} not found", p.project_id)));

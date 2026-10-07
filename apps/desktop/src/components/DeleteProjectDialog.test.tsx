@@ -5,16 +5,22 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const calls: { method: string; params: unknown }[] = [];
+/** Overrides the next responses (e.g. a `project_busy` conflict). */
+const failures: unknown[] = [];
 vi.mock("../core/client", () => ({
   getClient: () => ({
     call: (method: string, params: unknown) => {
       calls.push({ method, params });
+      const failure = failures.shift();
+      if (failure) return Promise.reject(failure);
       return Promise.resolve({ projectId: (params as { projectId: string }).projectId });
     },
   }),
   openProject: () => Promise.resolve(),
   maybeClient: () => null,
 }));
+
+import { OrkestrError } from "@orkestr/client";
 
 import { commands } from "../features/commands/registry";
 import { i18n } from "../i18n";
@@ -38,6 +44,7 @@ const project = (id: string, name: string, rootPath: string | null = null): Proj
 beforeEach(async () => {
   await i18n.changeLanguage("en");
   calls.length = 0;
+  failures.length = 0;
   useAppStore.setState({
     projects: [project("1", "alpha", "C:/code/alpha"), project("2", "beta")],
     projectsLoaded: true,
@@ -86,5 +93,24 @@ describe("delete project", () => {
     act(() => useAppStore.getState().setDeleteProjectId("2"));
     expect(screen.getByText("Удалить проект «beta»?")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Удалить проект" })).toBeTruthy();
+  });
+
+  it("a project with running work offers to stop it first (audit r2)", async () => {
+    failures.push(new OrkestrError("conflict", "busy", { reason: "project_busy", agents: 1 }));
+    render(<ProjectRail />);
+    act(() => useAppStore.getState().setDeleteProjectId("1"));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Delete project" }));
+    });
+    expect(screen.getByText(/still has running work/)).toBeTruthy();
+    expect(useAppStore.getState().projects.map((p) => p.id)).toEqual(["1", "2"]);
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Stop work and delete" }));
+    });
+    expect(calls).toEqual([
+      { method: "projects.delete", params: { projectId: "1" } },
+      { method: "projects.delete", params: { projectId: "1", stopWork: true } },
+    ]);
+    expect(useAppStore.getState().projects.map((p) => p.id)).toEqual(["2"]);
   });
 });

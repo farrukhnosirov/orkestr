@@ -2,7 +2,12 @@
  * Confirmation for `projects.delete` (rail context menu, `project.delete`
  * command). The core removes the project's metadata only; files on disk are
  * never touched. The `ProjectDeleted` event updates the stores.
+ *
+ * While the project still has running work (agents, Manager runs, merges,
+ * quality runs) the core refuses with `conflict` / `project_busy`; the dialog
+ * then offers to stop that work first (`stopWork: true`).
  */
+import { OrkestrError } from "@orkestr/client";
 import { FolderX, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -13,6 +18,12 @@ import { describeError } from "../i18n/errors";
 import { useAppStore } from "../store/app";
 import { unsavedTabCount, useEditorStore } from "../store/editor";
 
+function isProjectBusy(e: unknown): boolean {
+  if (!(e instanceof OrkestrError) || e.code !== "conflict") return false;
+  const data = e.data as { reason?: unknown } | null;
+  return typeof data === "object" && data !== null && data.reason === "project_busy";
+}
+
 export function DeleteProjectDialog() {
   const { t } = useT("shell");
   const projectId = useAppStore((s) => s.deleteProjectId);
@@ -21,10 +32,12 @@ export function DeleteProjectDialog() {
   const unsaved = useEditorStore((s) => (projectId ? unsavedTabCount(s, projectId) : 0));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasRunningWork, setHasRunningWork] = useState(false);
 
   useEffect(() => {
     setBusy(false);
     setError(null);
+    setHasRunningWork(false);
   }, [projectId]);
 
   if (!projectId || !project) return null;
@@ -37,14 +50,19 @@ export function DeleteProjectDialog() {
     setBusy(true);
     setError(null);
     try {
-      await getClient().call("projects.delete", { projectId });
+      const params = hasRunningWork ? { projectId, stopWork: true } : { projectId };
+      await getClient().call("projects.delete", params);
       // The ProjectDeleted event removes it from the stores; drop it locally too
       // in case the event arrives late.
       useAppStore.getState().removeProject(projectId);
       useEditorStore.getState().forgetProject(projectId);
       close(null);
     } catch (e) {
-      setError(`${t("deleteProject.failed")} ${describeError(e)}`);
+      if (isProjectBusy(e) && !hasRunningWork) {
+        setHasRunningWork(true);
+      } else {
+        setError(`${t("deleteProject.failed")} ${describeError(e)}`);
+      }
     } finally {
       setBusy(false);
     }
@@ -62,7 +80,7 @@ export function DeleteProjectDialog() {
         { id: "cancel", label: t("deleteProject.cancel"), variant: "ghost", autoFocus: true, disabled: busy, onSelect: cancel },
         {
           id: "delete",
-          label: t("deleteProject.confirm"),
+          label: hasRunningWork ? t("deleteProject.stopAndDelete") : t("deleteProject.confirm"),
           variant: "danger",
           icon: <Trash2 size={14} />,
           busy,
@@ -72,6 +90,7 @@ export function DeleteProjectDialog() {
     >
       <p>{project.rootPath ? t("deleteProject.filesKept", { path: project.rootPath }) : t("deleteProject.noFolder")}</p>
       {unsaved > 0 && <p role="alert">{t("deleteProject.unsaved", { count: unsaved })}</p>}
+      {hasRunningWork && <p role="alert">{t("deleteProject.busy")}</p>}
     </ActionDialog>
   );
 }

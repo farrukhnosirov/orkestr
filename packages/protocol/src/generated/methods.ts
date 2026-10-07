@@ -74,6 +74,7 @@ import type { DeleteBudgetResult } from "./DeleteBudgetResult";
 import type { DeleteFileParams } from "./DeleteFileParams";
 import type { DeleteFileResult } from "./DeleteFileResult";
 import type { DeleteMemoryResult } from "./DeleteMemoryResult";
+import type { DeleteProjectParams } from "./DeleteProjectParams";
 import type { DeleteProjectResult } from "./DeleteProjectResult";
 import type { DeleteProviderResult } from "./DeleteProviderResult";
 import type { DeleteRuleParams } from "./DeleteRuleParams";
@@ -307,6 +308,8 @@ import type { SetSchedulerLimitsParams } from "./SetSchedulerLimitsParams";
 import type { SetSchedulerLimitsResult } from "./SetSchedulerLimitsResult";
 import type { SetSecretParams } from "./SetSecretParams";
 import type { SetUiConfigParams } from "./SetUiConfigParams";
+import type { SetUiLanguageParams } from "./SetUiLanguageParams";
+import type { SetUiLanguageResult } from "./SetUiLanguageResult";
 import type { SetVoiceConfigParams } from "./SetVoiceConfigParams";
 import type { SetVoiceConsentParams } from "./SetVoiceConsentParams";
 import type { SettingsResult } from "./SettingsResult";
@@ -377,7 +380,7 @@ export type Methods = {
   "projects.get": [ProjectIdParams, ProjectResult];
   "projects.create": [CreateProjectParams, ProjectResult];
   "projects.update": [UpdateProjectParams, ProjectResult];
-  "projects.delete": [ProjectIdParams, DeleteProjectResult];
+  "projects.delete": [DeleteProjectParams, DeleteProjectResult];
   "projects.open": [ProjectIdParams, ProjectResult];
   "events.replay": [ReplayParams, ReplayResult];
   "permissions.list": [ListRulesParams, ListRulesResult];
@@ -511,6 +514,7 @@ export type Methods = {
   "system.resumeSummary": [ResumeSummaryParams, ResumeSummary];
   "settings.get": [Empty, SettingsResult];
   "settings.update": [UpdateSettingsParams, SettingsResult];
+  "settings.setUiLanguage": [SetUiLanguageParams, SetUiLanguageResult];
   "nodes.list": [Empty, ListNodesResult];
   "nodes.info": [NodeInfoParams, NodeInfo];
   "nodes.resources": [Empty, NodeResourcesResult];
@@ -769,6 +773,7 @@ export const METHOD_NAMES = [
   "system.resumeSummary",
   "settings.get",
   "settings.update",
+  "settings.setUiLanguage",
   "nodes.list",
   "nodes.info",
   "nodes.resources",
