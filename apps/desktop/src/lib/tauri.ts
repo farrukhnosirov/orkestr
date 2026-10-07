@@ -92,6 +92,11 @@ export const windowControls = {
   async isMaximized(): Promise<boolean> {
     return isTauri() ? getCurrentWindow().isMaximized() : false;
   },
+  /** Brings this window to the front (e.g. it received work from another window). */
+  async focus(): Promise<void> {
+    if (isTauri()) await getCurrentWindow().setFocus();
+    else if (typeof window !== "undefined") window.focus();
+  },
   /** Subscribes to resize events (maximize state changes). */
   async onResized(handler: () => void): Promise<() => void> {
     if (!isTauri()) return () => {};

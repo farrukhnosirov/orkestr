@@ -1,16 +1,18 @@
 /**
- * Cross-panel actions: open a file in the Code panel, and the inline AI
- * placeholder "Ask Manager about selection" (the Manager panel listens for
- * the `orkestr:ask-manager` window event in wave B).
+ * Cross-panel actions: open a file in the Code panel, and "Ask Manager about
+ * selection" (the Manager panel listens for the `orkestr:ask-manager` window
+ * event).
+ *
+ * A panel lives in exactly one window: docked in the main window, or popped
+ * out into its own window (§28, ADR-0013). Each window is a separate webview
+ * with its own stores, so an action aimed at a panel that lives in another
+ * window is forwarded there as a *panel intent* over a same-origin
+ * `BroadcastChannel` (plain data only), and only the window that hosts the
+ * panel applies it. Windows declare what they host with `hostPanelIntents`.
  */
 import { workspaceActions } from "../../components/workspaceActions";
+import { windowControls } from "../../lib/tauri";
 import { type RevealTarget, useEditorStore } from "../../store/editor";
-
-/** Opens `path` in the Code panel (focusing the panel). */
-export function openInEditor(path: string, at?: RevealTarget): void {
-  useEditorStore.getState().openFile(path, at);
-  workspaceActions.openPanel("code");
-}
 
 /** Detail of the `orkestr:ask-manager` event. */
 export interface AskManagerDetail {
@@ -25,8 +27,94 @@ export interface AskManagerDetail {
 /** Event name consumed by the Manager panel. */
 export const ASK_MANAGER_EVENT = "orkestr:ask-manager";
 
-/** Dispatches the ask-manager request. */
+/** Work for a panel that may live in another window. */
+export type PanelIntent = { type: "openFile"; path: string; at?: RevealTarget } | { type: "askManager"; detail: AskManagerDetail };
+
+const INTENT_CHANNEL = "orkestr.panel-intents";
+
+/** The panel each intent is for. */
+export function intentPanel(intent: PanelIntent): string {
+  return intent.type === "openFile" ? "code" : "manager";
+}
+
+/** Whether this window hosts `panelId` (`null` = not declared: everything is local). */
+let hosts: ((panelId: string) => boolean) | null = null;
+let channel: BroadcastChannel | null = null;
+
+function applyLocally(intent: PanelIntent): void {
+  if (intent.type === "openFile") {
+    useEditorStore.getState().openFile(intent.path, intent.at);
+    workspaceActions.openPanel("code");
+  } else {
+    window.dispatchEvent(new CustomEvent<AskManagerDetail>(ASK_MANAGER_EVENT, { detail: intent.detail }));
+    workspaceActions.openPanel("manager");
+  }
+}
+
+function isIntent(v: unknown): v is PanelIntent {
+  if (!v || typeof v !== "object") return false;
+  const o = v as { type?: unknown; path?: unknown; detail?: unknown };
+  if (o.type === "openFile") return typeof o.path === "string";
+  if (o.type === "askManager") return !!o.detail && typeof (o.detail as { text?: unknown }).text === "string";
+  return false;
+}
+
+/** Applies the intent here when this window hosts its panel, else forwards it to the window that does. */
+export function dispatchPanelIntent(intent: PanelIntent): void {
+  const panelId = intentPanel(intent);
+  if (!hosts || !channel || hosts(panelId)) {
+    applyLocally(intent);
+    return;
+  }
+  try {
+    channel.postMessage(intent);
+  } catch {
+    applyLocally(intent);
+    return;
+  }
+  // Main window: focuses the detached window that hosts the panel.
+  workspaceActions.openPanel(panelId);
+}
+
+/**
+ * Declares which panels this window hosts and applies intents forwarded from
+ * other windows for them. Returns a disposer.
+ */
+export function hostPanelIntents(hostsPanel: (panelId: string) => boolean): () => void {
+  let ch: BroadcastChannel | null = null;
+  try {
+    ch = typeof BroadcastChannel === "function" ? new BroadcastChannel(INTENT_CHANNEL) : null;
+  } catch {
+    ch = null;
+  }
+  hosts = hostsPanel;
+  channel = ch;
+  if (ch) {
+    ch.onmessage = (e: MessageEvent<unknown>) => {
+      const intent = e.data;
+      if (!isIntent(intent) || !hostsPanel(intentPanel(intent))) return;
+      applyLocally(intent);
+      void windowControls.focus().catch(() => undefined);
+    };
+  }
+  return () => {
+    if (hosts === hostsPanel) {
+      hosts = null;
+      channel = null;
+    }
+    if (ch) {
+      ch.onmessage = null;
+      ch.close();
+    }
+  };
+}
+
+/** Opens `path` in the Code panel (focusing the panel), in whichever window hosts it. */
+export function openInEditor(path: string, at?: RevealTarget): void {
+  dispatchPanelIntent(at ? { type: "openFile", path, at } : { type: "openFile", path });
+}
+
+/** Sends the ask-manager request to the Manager panel, in whichever window hosts it. */
 export function askManager(detail: AskManagerDetail): void {
-  window.dispatchEvent(new CustomEvent<AskManagerDetail>(ASK_MANAGER_EVENT, { detail }));
-  workspaceActions.openPanel("manager");
+  dispatchPanelIntent({ type: "askManager", detail });
 }

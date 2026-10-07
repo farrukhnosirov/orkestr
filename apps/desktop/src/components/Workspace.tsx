@@ -13,6 +13,7 @@ import {
 import { X } from "lucide-react";
 import { type FunctionComponent, useEffect, useRef } from "react";
 
+import { hostPanelIntents } from "../features/files/actions";
 import * as layout from "../features/layout/controller";
 import { GroupActions } from "../features/layout/GroupActions";
 import { LayoutEditorCanvas } from "../features/layout/LayoutEditor";
@@ -151,7 +152,10 @@ export function Workspace() {
       resetLayout: () => void layout.resetActive(),
       toggleMaximize: () => layout.toggleMaximize(),
     });
+    // The main window hosts every panel that is not popped out into its own window.
+    const offIntents = hostPanelIntents((panelId) => !useLayoutStore.getState().popouts.some((w) => w.panelId === panelId));
     return () => {
+      offIntents();
       registerWorkspace(null);
       layout.detachDock();
     };
