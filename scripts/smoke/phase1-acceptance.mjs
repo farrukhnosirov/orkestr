@@ -376,7 +376,8 @@ try {
   );
   check(
     "agent commits on agent/* branches",
-    git(backendWt, "log", "-1", "--format=%s").includes("Implement the hello module") &&
+    // The plan follows the UI language (English or Russian titles): match the Mock commit shape.
+    /hello[\s\S]*\(Mock offline demo\)$/.test(git(backendWt, "log", "-1", "--format=%s").trim()) &&
       keyed.t2.branch.startsWith("agent/"),
     git(backendWt, "log", "-1", "--format=%s"),
   );

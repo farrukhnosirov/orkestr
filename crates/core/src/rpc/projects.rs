@@ -9,8 +9,7 @@ use orkestr_domain::{now, slugify, Project};
 use orkestr_protocol::event::{EventKind, ProjectDeletedPayload, ProjectPayload};
 use orkestr_protocol::methods::projects::{
     self as m, validate_color, validate_description, validate_name, CreateProjectParams, DeleteProjectParams,
-    DeleteProjectResult,
-    ListProjectsResult, ProjectIdParams, ProjectPatch, ProjectResult, UpdateProjectParams,
+    DeleteProjectResult, ListProjectsResult, ProjectIdParams, ProjectPatch, ProjectResult, UpdateProjectParams,
 };
 use orkestr_protocol::{NewEvent, RpcError};
 

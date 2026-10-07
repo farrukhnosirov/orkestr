@@ -345,9 +345,15 @@ pub fn subject_of(text: &str) -> String {
             }
         }
     }
+    let candidate =
+        |w: &&String| w.len() >= 3 && !STOP_WORDS.contains(&w.as_str()) && w.chars().any(|c| c.is_ascii_alphabetic());
+    // A kind word ("api", "module") is the subject only when nothing else is:
+    // "Спроектировать API модуля hello" is about `hello`, not `api`.
     words
         .iter()
-        .find(|w| w.len() >= 3 && !STOP_WORDS.contains(&w.as_str()) && w.chars().any(|c| c.is_ascii_alphabetic()))
+        .filter(candidate)
+        .find(|w| !KIND_WORDS.contains(&w.as_str()))
+        .or_else(|| words.iter().find(candidate))
         .map(|w| clean(w))
         .filter(|w| !w.is_empty())
         .unwrap_or_else(|| "demo".into())
@@ -1215,6 +1221,10 @@ mod tests {
         assert_eq!(subject_of("Build the payroll service"), "payroll");
         assert_eq!(subject_of("Add caching"), "caching");
         assert_eq!(subject_of("!!!"), "demo");
+        // Russian titles keep only the ASCII words; the kind word is not the subject.
+        assert_eq!(subject_of("Спроектировать API модуля hello"), "hello");
+        assert_eq!(subject_of("Задокументировать модуль hello"), "hello");
+        assert_eq!(subject_of("Design the API"), "api");
         assert_eq!(ident_of("hello-world"), "helloWorld");
         assert_eq!(ident_of("2fa"), "m2fa");
     }

@@ -104,8 +104,7 @@ pub async fn rpc_call_once(
 async fn rpc_call_inner(url: &str, token: &str, method: &str, params: Value) -> Result<Value, String> {
     const AUTH_ID: &str = "shell-auth";
     const REQ_ID: &str = "shell-req";
-    let (mut ws, _) =
-        tokio_tungstenite::connect_async(url).await.map_err(|e| format!("cannot reach the core: {e}"))?;
+    let (mut ws, _) = tokio_tungstenite::connect_async(url).await.map_err(|e| format!("cannot reach the core: {e}"))?;
     let frames = [
         json!({"type": "auth", "id": AUTH_ID, "token": token}),
         json!({"type": "req", "id": REQ_ID, "method": method, "params": params}),

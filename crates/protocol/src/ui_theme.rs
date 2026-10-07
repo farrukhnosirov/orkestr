@@ -897,10 +897,8 @@ mod tests {
     #[test]
     fn accent_gradient_rule_reports_worst_stop() {
         let mut t = builtin_themes().into_iter().find(|t| t.id == "solar-light").unwrap();
-        t.tokens.insert(
-            "gradient-accent".into(),
-            "linear-gradient(135deg, #d97706 0%, #ea580c 50%, #db2777 100%)".into(),
-        );
+        t.tokens
+            .insert("gradient-accent".into(), "linear-gradient(135deg, #d97706 0%, #ea580c 50%, #db2777 100%)".into());
         t.tokens.insert("color-text-subtle".into(), "#8a7c66".into());
         let report = contrast_report(&t);
         let get = |id: &str| report.iter().find(|c| c.id == id).unwrap_or_else(|| panic!("no {id}"));

@@ -4,7 +4,7 @@
       "area": "H",
       "name": "Manager produced a plan",
       "ok": true,
-      "detail": "I studied the project and drafted a plan: Plan 01a10cda-c26e-766a-9234-113d2a833"
+      "detail": "I studied the project and drafted a plan with 4 tasks (up to 2 in parallel).\n\nRe"
     },
     {
       "area": "H",
@@ -52,7 +52,7 @@
       "area": "H",
       "name": "robot window background is transparent (no box around the robot)",
       "ok": true,
-      "detail": "{\"w\":348,\"h\":387,\"corners\":[0,0,0,0],\"coverage\":0.36556624788381004}"
+      "detail": "{\"w\":348,\"h\":387,\"corners\":[0,0,0,0],\"coverage\":0.3660711633847159}"
     },
     {
       "area": "H",
@@ -64,7 +64,7 @@
       "area": "H",
       "name": "click on the robot opens the agent result in the main window",
       "ok": true,
-      "detail": "ARSoftware Architect #1CompletedArchitect·Design the report-card module APIModelmock-smartWorktree agent/architect-d2e76"
+      "detail": "ARSoftware Architect #1CompletedArchitect·Design the report-card module APIRoll back task…Modelmock-smartWorktree agent/"
     },
     {
       "area": "Visual",
@@ -196,7 +196,7 @@
       "area": "Layout",
       "name": "Ctrl+3 → Monitoring",
       "ok": true,
-      "detail": "Monitoring, Logs, Terminal, Deployments, Costs, Agents (active monitoring)"
+      "detail": "Monitoring, Logs, Terminal, Costs, Agents (active monitoring)"
     },
     {
       "area": "Layout",
@@ -334,7 +334,7 @@
       "area": "Layout",
       "name": "panel detached into its own window",
       "ok": true,
-      "detail": "/panel/files?projectId=01a10cda-aa90-77f8-a5d6-336d34184569"
+      "detail": "/panel/files?projectId=01a1163b-8855-7029-8d91-383e434f2f41"
     },
     {
       "area": "Layout",
@@ -376,7 +376,7 @@
       "area": "Visual",
       "name": "s-02-onboarding: one shell, page not scrolled",
       "ok": true,
-      "detail": "{\"shells\":1,\"scrollY\":0,\"docH\":900,\"winH\":900,\"bodyChildren\":\"DIV.root DIV.context-view DIV.monaco-aria-container\"}"
+      "detail": "{\"shells\":1,\"scrollY\":0,\"docH\":900,\"winH\":900,\"bodyChildren\":\"DIV.root DIV.context-view DIV.monaco-aria-container DIV.overlay onb-overlay\"}"
     },
     {
       "area": "Shell",
@@ -385,121 +385,5 @@
       "detail": ""
     }
   ],
-  "shots": [
-    {
-      "name": "h-01-qa-robot-completed-raw.png",
-      "note": "QA robot window as rendered (transparent window, captured with the webview default background)",
-      "consoleErrors": []
-    },
-    {
-      "name": "h-03-robot-click-opens-agent.png",
-      "note": "Scenario H: clicking the QA robot opens its result in the Agents panel",
-      "consoleErrors": []
-    },
-    {
-      "name": "h-02-floating-robots-over-desktop.png",
-      "note": "Floating robot windows (Completed + bubble, Waiting (approval), Reviewing, Completed, QA · Coding, QA · Completed; + context menu) composited over a synthetic desktop",
-      "consoleErrors": []
-    },
-    {
-      "name": "g-01-voice-hud-status.png",
-      "note": "Scenario G: «Jarvis, что происходит со Schoolify?» → project status summary (spoken)",
-      "consoleErrors": []
-    },
-    {
-      "name": "t-01-theme-nebula-mission-control.png",
-      "note": "Mission Control in the Nebula theme",
-      "consoleErrors": []
-    },
-    {
-      "name": "t-02-theme-midnight-pro-mission-control.png",
-      "note": "Mission Control in the Midnight Pro theme",
-      "consoleErrors": []
-    },
-    {
-      "name": "t-03-theme-aurora-mission-control.png",
-      "note": "Mission Control in the Aurora theme",
-      "consoleErrors": []
-    },
-    {
-      "name": "t-04-theme-carbon-mission-control.png",
-      "note": "Mission Control in the Carbon theme",
-      "consoleErrors": []
-    },
-    {
-      "name": "t-05-theme-solar-light-mission-control.png",
-      "note": "Mission Control in the Solar Light theme",
-      "consoleErrors": []
-    },
-    {
-      "name": "t-06-theme-high-contrast-mission-control.png",
-      "note": "Mission Control in the High Contrast theme",
-      "consoleErrors": []
-    },
-    {
-      "name": "l-02-focus-layout.png",
-      "note": "Focus preset: editor + AI Manager only",
-      "consoleErrors": []
-    },
-    {
-      "name": "l-01-coding-code-terminal-manager.png",
-      "note": "Coding preset with Code (grades.mjs), Terminal and the AI Manager",
-      "consoleErrors": []
-    },
-    {
-      "name": "p-01-battery-saver.png",
-      "note": "Battery Saver: static background, no blur/glow/motion",
-      "consoleErrors": []
-    },
-    {
-      "name": "u-01-hud.png",
-      "note": "HUD window: run status, agents, approvals, voice indicator, mini Manager",
-      "consoleErrors": []
-    },
-    {
-      "name": "v-01-voice-hud.png",
-      "note": "Voice HUD: typed command «show build errors for Schoolify» → quality-runner answer",
-      "consoleErrors": []
-    },
-    {
-      "name": "a-01-aiui-preview.png",
-      "note": "AI-editable UI: Manager proposal (validated patch, diff summary) with live preview",
-      "consoleErrors": []
-    },
-    {
-      "name": "a-02-aiui-applied.png",
-      "note": "After Keep: stored as a new UI-config version, with Undo",
-      "consoleErrors": []
-    },
-    {
-      "name": "l-04-detached-panel.png",
-      "note": "Detached panel window (/panel/files?projectId=01a10cda-aa90-77f8-a5d6-336d34184569) with its own title bar and re-dock",
-      "consoleErrors": []
-    },
-    {
-      "name": "l-03-layout-editor.png",
-      "note": "Layout Editor: grid, presets, panel picker, monitor map, lock",
-      "consoleErrors": []
-    },
-    {
-      "name": "e-01-theme-editor.png",
-      "note": "Theme Editor with live preview and WCAG contrast checks",
-      "consoleErrors": []
-    },
-    {
-      "name": "e-02-robot-designer.png",
-      "note": "Settings → Robots: Robot Designer with live preview",
-      "consoleErrors": []
-    },
-    {
-      "name": "s-01-settings-interface.png",
-      "note": "Settings → Interface: performance modes, density, HUD",
-      "consoleErrors": []
-    },
-    {
-      "name": "s-02-onboarding.png",
-      "note": "Onboarding wizard",
-      "consoleErrors": []
-    }
-  ]
+  "shots": []
 }

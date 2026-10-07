@@ -758,13 +758,10 @@ pub(crate) fn check_write_path(ctx: &Ctx<'_>, path: &str, is_delete: bool) -> Da
         // Variable-rooted targets (`$env:APPDATA\…`, `${HOME}/…`, `%TEMP%\…`,
         // `$(…)/…`) may expand to anywhere: treat them as absolute, except
         // the working-directory variables (the cwd is confined to the root).
-        let absolute = n.starts_with('/')
-            || n.starts_with('~')
-            || is_variable_rooted(&n)
-            || {
-                let b = n.as_bytes();
-                b.len() >= 2 && b[0].is_ascii_alphabetic() && b[1] == b':'
-            };
+        let absolute = n.starts_with('/') || n.starts_with('~') || is_variable_rooted(&n) || {
+            let b = n.as_bytes();
+            b.len() >= 2 && b[0].is_ascii_alphabetic() && b[1] == b':'
+        };
         let root = root.trim_end_matches('/');
         if absolute && !(n == root || n.starts_with(&format!("{root}/"))) {
             acc = acc.max(d(C::OutsideWorktree, format!("{verb} outside the worktree (`{}`)", path.trim())));
