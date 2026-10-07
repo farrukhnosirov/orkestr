@@ -336,8 +336,8 @@ impl ChatCompletionsDecoder {
 
     fn flush_calls(&mut self) -> Vec<ChatEvent> {
         std::mem::take(&mut self.calls)
-            .into_iter()
-            .map(|(i, c)| {
+            .into_values()
+            .map(|c| {
                 self.output_chars += c.args.len();
                 ChatEvent::ToolCall {
                     // Id-less calls get a process-unique id: per-response
