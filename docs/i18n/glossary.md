@@ -144,6 +144,12 @@ consistently and add it to this table in the same change.
 | Grammar (TextMate) | грамматика подсветки синтаксиса | — | |
 | Snippet | сниппет | — | |
 | Verified publisher | подтверждённый издатель | — | Badge «Подтверждён». |
+| Claude Code (panel / CLI) | Claude Code | Claude Code: открыть чат | Product name, never translated. «Чат с Claude Code», «беседа» for a resumable conversation, «сеанс» for the running process. |
+| Permission mode: Default / Accept edits / Plan / Bypass permissions | «По умолчанию» / «Принимать правки» / «План» / «Без подтверждений» | — | Bypass always behind a danger confirmation: «Отключить подтверждения». |
+| Allow once / Allow for this session / Deny | — | Разрешить один раз / Разрешить до конца сеанса / Запретить | Inline permission cards of the Claude Code chat. |
+| Sign in (Claude) | вход | Войти в Claude | «Вход не выполнен» / «Вход выполнен: …». |
+| Interrupt (a turn) | — | Прервать | Esc in the Claude Code composer. |
+| Queued message | сообщение в очереди | В очередь | |
 
 Task statuses: Запланирована, Готова к работе, Выполняется, Ожидает,
 Заблокирована, На ревью, Тестируется, Выполнена, Сбой, Отменена, Прервана,

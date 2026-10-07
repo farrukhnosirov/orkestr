@@ -1,0 +1,69 @@
+{
+  "results": [
+    {
+      "name": "binary discovered in the VS Code extensions folder",
+      "ok": true,
+      "detail": "C:\\Users\\user\\AppData\\Local\\Temp\\orkestr-cc-login-9YA8yz\\home\\vscode-server\\extensions\\anthropic.claude-code-2.1.292-win32-x64\\resources\\native-binary\\claude.exe v2.1.292"
+    },
+    {
+      "name": "binary version",
+      "ok": true,
+      "detail": "2.1.292"
+    },
+    {
+      "name": "not signed in (empty CLAUDE_CONFIG_DIR)",
+      "ok": true,
+      "detail": "{\"authMethod\":null,\"email\":null,\"loggedIn\":false,\"subscriptionType\":null}"
+    },
+    {
+      "name": "panel opens with Ctrl+Alt+C",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "login screen shown",
+      "ok": true,
+      "detail": "Sign in to ClaudeClaude Code is installed but not signed in. Sign in once in a terminal; Orkestr never reads your creden"
+    },
+    {
+      "name": "«Sign in» opens a terminal running `claude auth login`",
+      "ok": true,
+      "detail": "Claude Code: /login pid 79128"
+    },
+    {
+      "name": "no console errors (login phase)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "signed in with the user's own CLI login",
+      "ok": true,
+      "detail": "max"
+    },
+    {
+      "name": "permission card for Write",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "file written after «Allow once»",
+      "ok": true,
+      "detail": "hello from Orkestr"
+    },
+    {
+      "name": "result footer (tokens, changed files)",
+      "ok": true,
+      "detail": "Done9.4 sec59,777 in · 277 out tokens≈ $0.031 file changed:notes.md"
+    },
+    {
+      "name": "conversation listed in history",
+      "ok": true,
+      "detail": "Create a file named notes.md containing the line 'hello from Orkestr' using the Write tool, then summarize in one sentence."
+    },
+    {
+      "name": "no console errors (chat phase)",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}

@@ -171,6 +171,8 @@ define_id!(/// Merge Manager proposal id (§16).
     MergeProposalId, "mergeProposal");
 define_id!(/// Language server session id (one supervised language server process per editor client).
     LspSessionId, "lsp");
+define_id!(/// Claude Code chat session id (one official `claude` CLI process per chat tab of the Claude Code panel).
+    ClaudeSessionId, "claude");
 
 #[cfg(test)]
 mod tests {

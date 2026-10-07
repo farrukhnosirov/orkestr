@@ -21,6 +21,17 @@ function logEvent(projectId: string | null): Event {
 }
 
 describe("topics", () => {
+  it("routes Claude Code chat items only to their session topic", () => {
+    const S = "0190f0b0-0000-7000-8000-0000000000cc";
+    const ev = {
+      ...logEvent(P),
+      kind: "ClaudeCodeEvent",
+      payload: { sessionId: S, projectId: P, event: { type: "thinking" } },
+    } as unknown as Event;
+    expect(eventTopics(ev)).toEqual([topic.claude(S)]);
+    expect(isValidTopic(topic.claude(S))).toBe(true);
+    expect(isValidTopic("claude:nope")).toBe(false);
+  });
   it("routes global events to global only", () => {
     expect(eventTopics(logEvent(null))).toEqual(["global"]);
     expect(eventMatches(["global"], logEvent(null))).toBe(true);

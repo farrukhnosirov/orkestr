@@ -24,7 +24,8 @@ import { type KeyboardEvent, useCallback, useEffect, useMemo, useReducer, useRef
 
 import { getClient } from "../../core/client";
 import { shortcutKey } from "../../features/commands/keys";
-import { askManager } from "../../features/files/actions";
+import { askClaude, askManager } from "../../features/files/actions";
+import { selectionPrompt } from "../../features/claudeCode/model";
 import { ActionDialog } from "../../features/files/Dialog";
 import { useIconThemeSync } from "../../features/extensions/appearance";
 import { FileTypeIcon } from "../../features/extensions/FileTypeIcon";
@@ -241,6 +242,9 @@ export default function Workbench({ projectId }: { projectId: string }) {
     onSearch: () => useEditorStore.getState().setSearchOpen(true),
     onAskManager: (text, startLine, endLine) =>
       askManager({ text, projectId, path: active?.path, startLine, endLine, language: active?.language }),
+    onAskClaude: (text, startLine, endLine) => {
+      if (active?.path) askClaude(selectionPrompt({ path: active.path, startLine, endLine, text, language: active.language }));
+    },
     onCursor: (line, column, selected) => setCursor({ line, column, selected }),
   };
 

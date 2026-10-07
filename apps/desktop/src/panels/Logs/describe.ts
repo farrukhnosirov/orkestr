@@ -364,6 +364,10 @@ export function describeEvent(event: Event): string {
       return t("events:lspMessage", { session: short(event.payload.sessionId) });
     case "LspStatus":
       return t("events:lspStatus", { server: event.payload.session.serverId, state: event.payload.session.state });
+    case "ClaudeCodeEvent":
+      return t("events:claudeCodeEvent", { session: short(event.payload.sessionId), type: event.payload.event.type });
+    case "ClaudeCodeStatus":
+      return t("events:claudeCodeStatus", { session: short(event.payload.session.sessionId), state: event.payload.session.state });
   }
 }
 

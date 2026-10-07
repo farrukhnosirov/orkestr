@@ -40,6 +40,8 @@ describe("panel registry", () => {
       "VS Code",
       // VS Code extensions for the native editor (ADR-0025)
       "Extensions",
+      // Claude Code chat (official CLI)
+      "Claude Code",
     ];
     expect(PANELS.map((p) => p.title).sort()).toEqual([...expected].sort());
     expect(new Set(PANELS.map((p) => p.id)).size).toBe(PANELS.length);

@@ -926,6 +926,8 @@ macro_rules! event_kinds {
                         | EventKind::ExtensionInstallProgress(_)
                         | EventKind::LspMessage(_)
                         | EventKind::LspStatus(_)
+                        | EventKind::ClaudeCodeEvent(_)
+                        | EventKind::ClaudeCodeStatus(_)
                 )
             }
 
@@ -1081,6 +1083,10 @@ event_kinds! {
     LspMessage(crate::methods::lsp::LspMessagePayload),
     /// Language server session state (ephemeral). Appended.
     LspStatus(crate::methods::lsp::LspStatusPayload),
+    /// One item of a Claude Code chat session (ephemeral, topic `claude:<sessionId>` only). Appended.
+    ClaudeCodeEvent(crate::methods::claude_code::ClaudeCodeEventPayload),
+    /// A Claude Code chat session changed state (ephemeral; `claude:<sessionId>` + `project:<id>`). Appended.
+    ClaudeCodeStatus(crate::methods::claude_code::ClaudeCodeStatusPayload),
 }
 
 // ---------------------------------------------------------------------------
@@ -1257,6 +1263,8 @@ impl NewEvent {
                 self.agent_id = n.notification.agent_id;
             }
             EventKind::LspStatus(l) => self.project_id = Some(l.session.project_id),
+            EventKind::ClaudeCodeEvent(c) => self.project_id = Some(c.project_id),
+            EventKind::ClaudeCodeStatus(c) => self.project_id = Some(c.session.project_id),
             EventKind::EmergencyStop(e) => match e.scope {
                 EmergencyScope::Project { project_id } => self.project_id = Some(project_id),
                 EmergencyScope::Agent { agent_id } => self.agent_id = Some(agent_id),

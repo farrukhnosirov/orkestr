@@ -92,6 +92,8 @@ pub struct Services {
     pub extensions: Arc<orkestr_extensions::ExtensionService>,
     /// Language-server sessions (ADR-0025).
     pub lsp: orkestr_extensions::lsp::LspManager,
+    /// Claude Code panel: chat sessions over the official `claude` CLI.
+    pub claude: crate::claude_code::ClaudeCodeService,
 }
 
 impl std::fmt::Debug for Services {

@@ -1,0 +1,94 @@
+{
+  "composer": {
+    "label": "Message to Claude",
+    "placeholder": "Ask Claude… (@ — file, / — command)",
+    "placeholderBusy": "Claude is working — your message will be queued",
+    "send": "Send",
+    "queue": "Queue",
+    "interrupt": "Stop",
+    "attachSelection": "Attach selection",
+    "attachedSelection": "Selection: {{path}}:{{range}}",
+    "removeSelection": "Remove the attached selection",
+    "queued": "Queued",
+    "removeQueued": "Remove from the queue",
+    "queueFull": "A message is already queued — wait for Claude to finish or remove it.",
+    "files": "Project files",
+    "filesEmpty": "No matching files",
+    "commands": "Commands",
+    "tooLong": "The message is too long (up to {{count}} characters)",
+    "hint": "Enter — send · Shift+Enter — new line · @ — file · / — command",
+    "hintBusy": "Enter — queue · Esc — stop",
+    "disabled": {
+      "notSignedIn": "Sign in to Claude Code to start a chat.",
+      "noBinary": "Claude Code CLI was not found. Install it or set its path in settings.",
+      "ended": "The session has ended. Start a new one to continue.",
+      "generic": "The composer is unavailable."
+    },
+    "builtin": {
+      "compact": "Compact the conversation to free up context",
+      "clear": "Clear the conversation history",
+      "init": "Create CLAUDE.md with notes about the project",
+      "cost": "Show the cost and duration of the session",
+      "review": "Review the code changes",
+      "model": "Switch the model"
+    }
+  },
+  "permission": {
+    "title": "Claude wants to use {{tool}}",
+    "wantsRun": "Run a command",
+    "wantsEdit": "Edit a file",
+    "wantsWrite": "Write a file",
+    "wantsRead": "Read a file",
+    "wantsOther": "Use a tool",
+    "outsideProject": "outside the project",
+    "diffMore_one": "…and {{count}} more line",
+    "diffMore_other": "…and {{count}} more lines",
+    "riskLevel": {
+      "dangerous": "Dangerous",
+      "forbidden": "Forbidden"
+    },
+    "allowOnce": "Allow once",
+    "allowSession": "Allow for this session",
+    "allowSessionHint": "Don't ask again for this tool until the session ends",
+    "deny": "Deny",
+    "denyWithReason": "Deny with a reason…",
+    "reason": "Reason for Claude",
+    "reasonPlaceholder": "Optional: what Claude should do instead…",
+    "cancel": "Cancel",
+    "keys": "Enter — allow once · Esc — deny",
+    "blockedPath": "Path outside the allowed folders: {{path}}",
+    "outcome": {
+      "allowOnce": "Allowed once",
+      "allowSession": "Allowed for this session",
+      "deny": "Denied",
+      "policy": "Denied by Orkestr policy"
+    }
+  },
+  "mode": {
+    "label": "Permission mode",
+    "default": "Default",
+    "defaultHint": "Ask before edits and commands",
+    "acceptEdits": "Accept edits",
+    "acceptEditsHint": "Apply file edits without asking; still ask before commands",
+    "plan": "Plan",
+    "planHint": "Read-only: Claude explores the project and proposes a plan",
+    "bypassPermissions": "No confirmations",
+    "bypassPermissionsHint": "Claude acts without asking — dangerous",
+    "confirmTitle": "Turn off confirmations?",
+    "confirmBody": "Claude will edit files and run any command without asking — Orkestr's checks of dangerous and forbidden commands no longer apply in this chat. Applies to this chat only and is never remembered; the chat restarts in the new mode. Use this only in an isolated worktree.",
+    "confirm": "Turn off confirmations",
+    "cancel": "Cancel"
+  },
+  "model": {
+    "label": "Model",
+    "default": "Default",
+    "sonnet": "Sonnet",
+    "opus": "Opus",
+    "haiku": "Haiku",
+    "custom": "Other model…",
+    "customLabel": "Model ID",
+    "customPlaceholder": "e.g. claude-sonnet-4-5",
+    "apply": "Apply",
+    "cancel": "Cancel"
+  }
+}

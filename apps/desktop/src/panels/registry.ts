@@ -21,12 +21,14 @@ import {
   Rocket,
   ScrollText,
   Sparkles,
+  Sparkle,
   SquareTerminal,
 } from "lucide-react";
 
 import AgentsPanel from "./Agents";
 import ArchitecturePanel from "./Architecture";
 import BrowserPanel from "./Browser";
+import ClaudeCodePanel from "./ClaudeCode";
 import CodePanel from "./Code";
 import CostsPanel from "./Costs";
 import DatabasePanel from "./Database";
@@ -87,6 +89,8 @@ export const PANELS: readonly PanelDefinition[] = [
   panel("vscode", Code2, 0, VsCodePanel),
   // VS Code extensions for the native editor (ADR-0025)
   panel("extensions", Puzzle, 0, ExtensionsPanel),
+  // Claude Code chat (official `claude` CLI, stream-json)
+  panel("claudeCode", Sparkle, 0, ClaudeCodePanel),
 ];
 
 const BY_ID = new Map(PANELS.map((p) => [p.id, p]));

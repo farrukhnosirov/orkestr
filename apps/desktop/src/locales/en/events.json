@@ -92,5 +92,7 @@
   "extensionsChanged": "Extensions changed ({{reason}}): {{id}}",
   "extensionInstallProgress": "Extension {{key}}: {{phase}}",
   "lspMessage": "Language server message (session {{session}})",
-  "lspStatus": "Language server {{server}}: {{state}}"
+  "lspStatus": "Language server {{server}}: {{state}}",
+  "claudeCodeEvent": "Claude Code {{session}}: {{type}}",
+  "claudeCodeStatus": "Claude Code {{session}}: {{state}}"
 }

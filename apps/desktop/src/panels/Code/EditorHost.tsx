@@ -8,6 +8,7 @@ import { useEffect, useRef } from "react";
 import { toRanges } from "../../features/files/lineDiff";
 import { t, useLanguage } from "../../i18n";
 import { useEditorStore } from "../../store/editor";
+import { notifySelectionChanged, setSelectionSource } from "../../features/claudeCode/bridge";
 import type { Doc } from "./documents";
 import { editorThemeName } from "./ext/editorExtensions";
 import { tokenHex } from "./theme";
@@ -18,6 +19,8 @@ export interface EditorCallbacks {
   onQuickOpen: () => void;
   onSearch: () => void;
   onAskManager: (text: string, startLine: number, endLine: number) => void;
+  /** "Ask Claude about selection" (Claude Code panel). */
+  onAskClaude: (text: string, startLine: number, endLine: number) => void;
   onCursor: (line: number, column: number, selected: number) => void;
 }
 
@@ -67,6 +70,19 @@ function registerCommands(monaco: MonacoApi, editor: Monaco.editor.IStandaloneCo
       cb.current.onAskManager(model.getValueInRange(sel), sel.startLineNumber, sel.endLineNumber);
     },
   });
+  editor.addAction({
+    id: "orkestr.askClaude",
+    label: t("code:editor.askClaude"),
+    contextMenuGroupId: "navigation",
+    contextMenuOrder: 0.5,
+    precondition: "editorHasSelection",
+    run: (ed) => {
+      const model = ed.getModel();
+      const sel = ed.getSelection();
+      if (!model || !sel || sel.isEmpty()) return;
+      cb.current.onAskClaude(model.getValueInRange(sel), sel.startLineNumber, sel.endLineNumber);
+    },
+  });
 }
 
 /** Code editor bound to the active document. */
@@ -100,6 +116,7 @@ export function CodeEditor({
       const model = editor.getModel();
       const selected = model ? model.getValueLengthInRange(e.selection) : 0;
       cb.current.onCursor(e.selection.positionLineNumber, e.selection.positionColumn, selected);
+      notifySelectionChanged();
     });
     return () => {
       if (shownDoc.current) shownDoc.current.viewState = editor.saveViewState();
@@ -123,6 +140,25 @@ export function CodeEditor({
     const pos = editor.getPosition();
     if (pos) cb.current.onCursor(pos.lineNumber, pos.column, 0);
   }, [doc]);
+
+  // The current selection for «Claude Code: спросить о выделенном».
+  useEffect(
+    () =>
+      setSelectionSource(() => {
+        const editor = editorRef.current;
+        const model = editor?.getModel();
+        const sel = editor?.getSelection();
+        if (!editor || !model || !sel || sel.isEmpty() || model !== doc.model) return null;
+        return {
+          path: doc.path,
+          startLine: sel.startLineNumber,
+          endLine: sel.endLineNumber,
+          text: model.getValueInRange(sel),
+          language: model.getLanguageId(),
+        };
+      }),
+    [doc],
+  );
 
   // Reveal requests (search hits, quick open with position).
   useEffect(() => {

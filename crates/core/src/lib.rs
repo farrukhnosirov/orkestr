@@ -17,6 +17,7 @@
 pub mod auth;
 pub mod benchmarks;
 pub mod checks;
+pub mod claude_code;
 pub mod config;
 pub mod discovery;
 pub mod error;
@@ -109,6 +110,8 @@ impl CoreHandle {
         self.services.vscode.shutdown().await;
         // Language servers (ADR-0025).
         self.services.lsp.shutdown(std::time::Duration::from_secs(5)).await;
+        // Claude Code chat sessions (kill their process trees).
+        self.services.claude.manager.shutdown(std::time::Duration::from_secs(5)).await;
         if let Some(server) = self.server.take() {
             if tokio::time::timeout(std::time::Duration::from_secs(5), server).await.is_err() {
                 tracing::warn!("RPC server did not stop within 5s");
@@ -395,6 +398,18 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
         Arc::new(orkestr_platform::NativeProcessControl),
     );
 
+    // Claude Code panel: one official `claude` process per chat session.
+    let (claude_tx, claude_rx) = tokio::sync::mpsc::channel(4096);
+    let claude = claude_code::ClaudeCodeService::new(
+        orkestr_providers::claude_code_session::ClaudeSessionManager::new(
+            claude_tx,
+            Arc::new(claude_code::GuardPolicy::new(Arc::clone(&security))),
+            Arc::new(orkestr_platform::NativeProcessControl),
+        ),
+        &paths.data_dir,
+        vscode.layout().extensions_dir(),
+    );
+
     let services = Arc::new(Services {
         version: VERSION.to_owned(),
         started_at: chrono::Utc::now(),
@@ -432,6 +447,7 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
         vscode,
         extensions,
         lsp,
+        claude,
     });
     logging::attach_event_bus(services.events.clone());
 
@@ -468,6 +484,7 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
     }
     services.providers.spawn_health_loop(shutdown.clone());
     rpc::lsp::spawn_bridge(services.lsp.clone(), lsp_rx, services.events.clone(), shutdown.clone());
+    claude_code::spawn_bridge(Arc::clone(&services), claude_rx);
     // Architecture Map: debounced incremental refresh after file changes (§21).
     orkestr_insight::arch::spawn_auto_refresh(
         services.architecture.clone(),

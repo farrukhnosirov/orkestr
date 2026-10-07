@@ -21,6 +21,7 @@ pub fn register(router: &mut RpcRouter) {
             let out = sec.stop_project(p.project_id, sec.user()).await.map_err(security_to_rpc)?;
             let terminals = ctx.services.terminals.stop_project_agents(p.project_id).await;
             let terminals = terminals + ctx.services.quality.cancel_project(p.project_id);
+            let terminals = terminals + ctx.services.claude.manager.stop_project(p.project_id);
             Ok(stop_result(&ctx, out, terminals))
         })
         .method::<m::StopAgent, _, _>(|ctx: RpcContext, p: StopAgentParams| async move {
@@ -55,6 +56,8 @@ pub async fn stop_all(services: &Services) -> Result<EmergencyStopResult, RpcErr
     let out = sec.stop_all(sec.user()).await.map_err(security_to_rpc)?;
     let terminals = services.terminals.stop_all_agents().await;
     let terminals = terminals + services.quality.cancel_all();
+    // Claude Code chat sessions (their tokens are children of the emergency root too).
+    let terminals = terminals + services.claude.manager.stop_all();
     // The VS Code server runs (untrusted) extension code: Stop All stops it too.
     let vscode = usize::from(services.vscode.status().running.is_some());
     if let Err(e) = services.vscode.stop().await {

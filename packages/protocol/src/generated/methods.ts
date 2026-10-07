@@ -36,6 +36,23 @@ import type { CheckBudgetParams } from "./CheckBudgetParams";
 import type { CheckBudgetResult } from "./CheckBudgetResult";
 import type { CheckParams } from "./CheckParams";
 import type { CheckoutParams } from "./CheckoutParams";
+import type { ClaudeCodeStatus } from "./ClaudeCodeStatus";
+import type { ClaudeLoginParams } from "./ClaudeLoginParams";
+import type { ClaudeLoginResult } from "./ClaudeLoginResult";
+import type { ClaudeRespondPermissionParams } from "./ClaudeRespondPermissionParams";
+import type { ClaudeSendParams } from "./ClaudeSendParams";
+import type { ClaudeSessionInfo } from "./ClaudeSessionInfo";
+import type { ClaudeSessionParams } from "./ClaudeSessionParams";
+import type { ClaudeSessionsParams } from "./ClaudeSessionsParams";
+import type { ClaudeSessionsResult } from "./ClaudeSessionsResult";
+import type { ClaudeSetBinaryPathParams } from "./ClaudeSetBinaryPathParams";
+import type { ClaudeSetModeParams } from "./ClaudeSetModeParams";
+import type { ClaudeSetModelParams } from "./ClaudeSetModelParams";
+import type { ClaudeStartParams } from "./ClaudeStartParams";
+import type { ClaudeStartResult } from "./ClaudeStartResult";
+import type { ClaudeStatusParams } from "./ClaudeStatusParams";
+import type { ClaudeTranscriptParams } from "./ClaudeTranscriptParams";
+import type { ClaudeTranscriptResult } from "./ClaudeTranscriptResult";
 import type { CloneParams } from "./CloneParams";
 import type { CloneResult } from "./CloneResult";
 import type { CommitParams } from "./CommitParams";
@@ -704,6 +721,18 @@ export type Methods = {
   "lsp.send": [LspSendParams, Empty];
   "lsp.stop": [LspSessionParams, Empty];
   "lsp.revoke": [LspRevokeParams, Empty];
+  "claudeCode.status": [ClaudeStatusParams, ClaudeCodeStatus];
+  "claudeCode.sessions": [ClaudeSessionsParams, ClaudeSessionsResult];
+  "claudeCode.start": [ClaudeStartParams, ClaudeStartResult];
+  "claudeCode.send": [ClaudeSendParams, ClaudeSessionInfo];
+  "claudeCode.interrupt": [ClaudeSessionParams, ClaudeSessionInfo];
+  "claudeCode.setMode": [ClaudeSetModeParams, ClaudeSessionInfo];
+  "claudeCode.setModel": [ClaudeSetModelParams, ClaudeSessionInfo];
+  "claudeCode.respondPermission": [ClaudeRespondPermissionParams, ClaudeSessionInfo];
+  "claudeCode.stop": [ClaudeSessionParams, ClaudeSessionInfo];
+  "claudeCode.loginInTerminal": [ClaudeLoginParams, ClaudeLoginResult];
+  "claudeCode.setBinaryPath": [ClaudeSetBinaryPathParams, ClaudeCodeStatus];
+  "claudeCode.transcript": [ClaudeTranscriptParams, ClaudeTranscriptResult];
 };
 
 /** All implemented method names. */
@@ -997,6 +1026,18 @@ export const METHOD_NAMES = [
   "lsp.send",
   "lsp.stop",
   "lsp.revoke",
+  "claudeCode.status",
+  "claudeCode.sessions",
+  "claudeCode.start",
+  "claudeCode.send",
+  "claudeCode.interrupt",
+  "claudeCode.setMode",
+  "claudeCode.setModel",
+  "claudeCode.respondPermission",
+  "claudeCode.stop",
+  "claudeCode.loginInTerminal",
+  "claudeCode.setBinaryPath",
+  "claudeCode.transcript",
 ] as const;
 
 /** Wire protocol version (see orkestr-protocol PROTOCOL_VERSION). */
@@ -1074,6 +1115,8 @@ export const EVENT_KINDS = [
   "ExtensionInstallProgress",
   "LspMessage",
   "LspStatus",
+  "ClaudeCodeEvent",
+  "ClaudeCodeStatus",
 ] as const;
 
 /** UI config schema version (see orkestr-protocol ui_config). */

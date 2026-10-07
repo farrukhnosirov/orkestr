@@ -183,7 +183,7 @@ fn shell_kind(k: ShellKind) -> TerminalShellKind {
     }
 }
 
-fn session_dto(info: TerminalInfo) -> TerminalSession {
+pub(crate) fn session_dto(info: TerminalInfo) -> TerminalSession {
     let (status, exit_code) = match info.status {
         TerminalStatus::Running => (TerminalSessionStatus::Running, None),
         TerminalStatus::Exited { exit_code } => (TerminalSessionStatus::Exited, exit_code),

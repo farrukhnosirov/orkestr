@@ -1,0 +1,231 @@
+/* Claude Code permission card + mode switcher (premium dark glass). */
+
+.ccx-perm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-2);
+  padding: var(--ok-space-3);
+  border: 1px solid var(--ok-color-border);
+  border-radius: var(--ok-radius-lg);
+  background: var(--ok-color-surface);
+  outline: none;
+}
+
+.ccx-perm--pending {
+  border-color: var(--ok-color-border-accent);
+  background: linear-gradient(180deg, var(--ok-color-accent-soft), var(--ok-color-surface));
+  box-shadow: var(--ok-glow-accent);
+}
+
+.ccx-perm--pending:focus-visible {
+  box-shadow: var(--ok-focus-ring);
+}
+
+.ccx-perm--dangerous,
+.ccx-perm--forbidden {
+  border-color: var(--ok-color-danger);
+  background: linear-gradient(180deg, var(--ok-color-danger-soft), var(--ok-color-surface));
+  box-shadow: none;
+}
+
+.ccx-perm--allowOnce,
+.ccx-perm--allowSession,
+.ccx-perm--deny {
+  opacity: 0.85;
+}
+
+.ccx-perm__head {
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-2);
+}
+
+.ccx-perm__icon {
+  display: inline-flex;
+  color: var(--ok-color-accent);
+}
+
+.ccx-perm--dangerous .ccx-perm__icon,
+.ccx-perm--forbidden .ccx-perm__icon,
+.ccx-perm--deny .ccx-perm__icon {
+  color: var(--ok-color-danger);
+}
+
+.ccx-perm--allowOnce .ccx-perm__icon,
+.ccx-perm--allowSession .ccx-perm__icon {
+  color: var(--ok-color-success);
+}
+
+.ccx-perm__title {
+  flex: 1;
+  font-weight: var(--ok-font-weight-semibold);
+  color: var(--ok-color-text);
+}
+
+.ccx-perm__what {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--ok-space-2);
+  font-size: var(--ok-font-size-sm);
+  color: var(--ok-color-text-muted);
+}
+
+.ccx-perm__path {
+  font-family: var(--ok-font-mono);
+  color: var(--ok-color-text);
+  word-break: break-all;
+}
+
+.ccx-perm__outside {
+  color: var(--ok-color-warning);
+}
+
+.ccx-perm__command {
+  margin: 0;
+  padding: var(--ok-space-2) var(--ok-space-3);
+  border-radius: var(--ok-radius-md);
+  background: var(--ok-color-surface-sunken);
+  color: var(--ok-color-text);
+  font-family: var(--ok-font-mono);
+  font-size: var(--ok-font-size-sm);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.ccx-perm__desc,
+.ccx-perm__keys {
+  font-size: var(--ok-font-size-xs);
+  color: var(--ok-color-text-subtle);
+}
+
+.ccx-perm__reason {
+  font-size: var(--ok-font-size-sm);
+  color: var(--ok-color-danger);
+}
+
+.ccx-perm__diff {
+  max-height: 220px;
+  overflow: auto;
+  border-radius: var(--ok-radius-md);
+  background: var(--ok-color-surface-sunken);
+  font-family: var(--ok-font-mono);
+  font-size: var(--ok-font-size-xs);
+}
+
+.ccx-perm__line {
+  display: flex;
+  gap: var(--ok-space-2);
+  padding: 0 var(--ok-space-2);
+  white-space: pre;
+}
+
+.ccx-perm__line--add {
+  background: var(--ok-color-success-soft);
+  color: var(--ok-color-success);
+}
+
+.ccx-perm__line--del {
+  background: var(--ok-color-danger-soft);
+  color: var(--ok-color-danger);
+}
+
+.ccx-perm__sign {
+  user-select: none;
+  opacity: 0.7;
+}
+
+.ccx-perm__more {
+  padding: var(--ok-space-1) var(--ok-space-2);
+  color: var(--ok-color-text-subtle);
+}
+
+.ccx-perm__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ok-space-2);
+}
+
+.ccx-perm__deny {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-2);
+}
+
+.ccx-perm__reasonInput {
+  width: 100%;
+  padding: var(--ok-space-2);
+  resize: vertical;
+  border: 1px solid var(--ok-color-border-strong);
+  border-radius: var(--ok-radius-md);
+  background: var(--ok-color-surface-sunken);
+  color: var(--ok-color-text);
+  font: inherit;
+  font-size: var(--ok-font-size-sm);
+}
+
+.ccx-perm__reasonInput:focus {
+  outline: none;
+  border-color: var(--ok-color-border-accent);
+}
+
+.ccx-perm__outcome {
+  font-size: var(--ok-font-size-sm);
+  color: var(--ok-color-text-muted);
+}
+
+/* Mode switcher (segmented). */
+.ccx-mode {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--ok-color-border);
+  border-radius: var(--ok-radius-pill);
+  background: var(--ok-color-surface-sunken);
+}
+
+.ccx-mode__opt {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ok-space-1);
+  height: 22px;
+  padding: 0 var(--ok-space-2);
+  border: 0;
+  border-radius: var(--ok-radius-pill);
+  background: transparent;
+  color: var(--ok-color-text-muted);
+  font: inherit;
+  font-size: var(--ok-font-size-xs);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--ok-duration-fast) var(--ok-ease);
+}
+
+.ccx-mode__opt:hover:not(:disabled) {
+  background: var(--ok-color-surface-hover);
+  color: var(--ok-color-text);
+}
+
+.ccx-mode__opt:focus-visible {
+  outline: none;
+  box-shadow: var(--ok-focus-ring);
+}
+
+.ccx-mode__opt--active {
+  background: var(--ok-color-accent-soft);
+  color: var(--ok-color-text);
+}
+
+.ccx-mode__opt--danger {
+  color: var(--ok-color-danger);
+}
+
+.ccx-mode__opt--danger.ccx-mode__opt--active {
+  background: var(--ok-color-danger-soft);
+  color: var(--ok-color-danger);
+}
+
+.ccx-mode__opt:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

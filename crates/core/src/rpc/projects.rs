@@ -238,6 +238,7 @@ async fn stop_project_work(ctx: &RpcContext, project: orkestr_domain::ProjectId)
     }
     s.terminals.stop_project_agents(project).await;
     s.quality.cancel_project(project);
+    s.claude.manager.stop_project(project);
     if let Ok(list) = s.merge.list(MergeListParams { project_id: project, run_id: None, limit: Some(500) }).await {
         for m in list.into_iter().filter(|m| !m.status.is_final()) {
             let params = MergeAbortParams { proposal_id: m.id, reason: Some("project deleted".into()) };
