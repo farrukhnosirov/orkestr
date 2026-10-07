@@ -1,0 +1,185 @@
+{
+  "commands": {
+    "group": "Claude Code",
+    "open": "Claude Code: открыть чат",
+    "newChat": "Claude Code: новый чат",
+    "askSelection": "Claude Code: спросить о выделенном",
+    "interrupt": "Claude Code: прервать"
+  },
+  "actions": {
+    "checkAgain": "Проверить снова",
+    "newChat": "Новый чат",
+    "resume": "Продолжить беседу"
+  },
+  "noProject": {
+    "title": "Откройте проект",
+    "description": "Claude Code работает в папке проекта. Сначала откройте или создайте проект."
+  },
+  "noFolder": {
+    "title": "У проекта нет папки",
+    "description": "Привяжите к проекту папку, чтобы Claude Code мог работать с его файлами."
+  },
+  "notFound": {
+    "title": "Claude Code не найден",
+    "description": "Установите расширение Claude Code («Расширения» → anthropic.claude-code) или CLI claude либо укажите путь к исполняемому файлу claude.",
+    "pathLabel": "Путь к исполняемому файлу claude",
+    "pathPlaceholder": "например, C:\\Tools\\claude.exe",
+    "usePath": "Использовать этот путь"
+  },
+  "login": {
+    "title": "Войдите в Claude",
+    "description": "Claude Code установлен, но вход не выполнен. Войдите один раз в терминале — Orkestr никогда не читает ваши учётные данные.",
+    "openedHint": "Открыт терминал с командой «claude auth login». Завершите вход там и нажмите «Проверить снова».",
+    "signIn": "Войти в Claude",
+    "continue": "Всё равно продолжить"
+  },
+  "welcome": {
+    "title": "Claude Code",
+    "description": "Обсуждайте проект с Claude Code: он читает и правит файлы и выполняет команды — с вашего разрешения."
+  },
+  "history": {
+    "title": "Недавние беседы",
+    "loading": "Загрузка бесед…",
+    "empty": "В этой папке ещё не было бесед.",
+    "resume": "Продолжить эту беседу",
+    "messages_one": "{{count}} сообщение",
+    "messages_few": "{{count}} сообщения",
+    "messages_many": "{{count}} сообщений",
+    "messages_other": "{{count}} сообщения"
+  },
+  "tabs": {
+    "label": "Чаты",
+    "newChat": "Новый чат",
+    "close": "Закрыть чат «{{title}}»"
+  },
+  "status": {
+    "checking": "Ищем Claude Code…",
+    "binary": "Claude Code {{version}}",
+    "source": {
+      "override": "ваш путь",
+      "vscodeExtension": "расширение VS Code",
+      "nativeExtension": "расширение",
+      "path": "PATH"
+    },
+    "signedIn": "Вход выполнен: {{account}}",
+    "signedOut": "Вход не выполнен",
+    "limit": "Использовано лимита: {{used}}"
+  },
+  "state": {
+    "starting": "Запуск",
+    "idle": "Готов",
+    "running": "Работает",
+    "waitingPermission": "Ждёт разрешения",
+    "exited": "Завершён",
+    "failed": "Сбой"
+  },
+  "mode": {
+    "label": "Режим разрешений",
+    "default": "По умолчанию",
+    "acceptEdits": "Принимать правки",
+    "plan": "План",
+    "bypassPermissions": "Без подтверждений",
+    "hint": {
+      "default": "Claude спрашивает перед правкой файлов и запуском команд",
+      "acceptEdits": "Правки файлов принимаются автоматически, команды — с подтверждением",
+      "plan": "Claude только планирует: без правок и команд",
+      "bypassPermissions": "Никаких запросов разрешений — только для одноразового окружения"
+    }
+  },
+  "model": {
+    "label": "Модель",
+    "default": "По умолчанию"
+  },
+  "bypass": {
+    "title": "Отключить все подтверждения?",
+    "body": "В этом режиме Claude Code правит файлы и выполняет любые команды без вопросов, а проверки опасных команд Orkestr больше не действуют.",
+    "note": "Режим действует только в этом чате и не запоминается. Беседа перезапустится в новом режиме.",
+    "confirm": "Отключить подтверждения"
+  },
+  "chat": {
+    "label": "Беседа с Claude Code",
+    "thinking": "Думает…",
+    "working": "Работает…",
+    "empty": "Спросите что угодно о проекте. @ — упомянуть файл, / — команды.",
+    "ended": "Этот чат завершён."
+  },
+  "composer": {
+    "label": "Сообщение для Claude Code",
+    "placeholder": "Сообщение для Claude Code… (@ файл, / команда)",
+    "placeholderBusy": "Claude работает — сообщение встанет в очередь",
+    "hint": "Enter — отправить · Shift+Enter — новая строка",
+    "hintBusy": "Enter — в очередь · Esc — прервать",
+    "send": "Отправить",
+    "queue": "В очередь",
+    "interrupt": "Прервать (Esc)",
+    "attachSelection": "Приложить выделенное в редакторе",
+    "queued": "Сообщения в очереди",
+    "queuedItem": "В очереди: {{text}}",
+    "removeQueued": "Убрать из очереди",
+    "commands": "Команды",
+    "files": "Файлы"
+  },
+  "tool": {
+    "running": "Выполняется",
+    "done": "Готово",
+    "failed": "Ошибка",
+    "expand": "Показать подробности",
+    "collapse": "Скрыть подробности",
+    "openFile": "Открыть в редакторе",
+    "noOutput": "Нет вывода",
+    "showAllLines_one": "Показать всю {{count}} строку",
+    "showAllLines_few": "Показать все {{count}} строки",
+    "showAllLines_many": "Показать все {{count}} строк",
+    "showAllLines_other": "Показать все {{count}} строки",
+    "diff": "Изменения",
+    "textDiff": "Простой вид",
+    "editorDiff": "Открыть в редакторе сравнения",
+    "todos": "Список дел"
+  },
+  "permission": {
+    "title": "Claude хочет использовать {{tool}}",
+    "risk": {
+      "dangerous": "Опасно",
+      "forbidden": "Запрещено"
+    },
+    "blockedPath": "Вне разрешённых папок: {{path}}",
+    "allowOnce": "Разрешить один раз",
+    "allowSession": "Разрешить до конца сеанса",
+    "allowSessionHint": "Больше не спрашивать о таких действиях, пока чат открыт",
+    "denyWithNote": "Запретить…",
+    "deny": "Запретить",
+    "denyNote": "Комментарий для Claude",
+    "denyNotePlaceholder": "Необязательно: что сделать вместо этого",
+    "outcome": {
+      "pending": "Ждёт вашего решения",
+      "allowOnce": "Разрешено один раз",
+      "allowSession": "Разрешено до конца сеанса",
+      "deny": "Запрещено",
+      "policy": "Заблокировано политикой безопасности Orkestr"
+    }
+  },
+  "result": {
+    "done": "Готово",
+    "failed": "Ошибка",
+    "interrupted": "Прервано",
+    "tokens": "токенов: {{input}} на входе · {{output}} на выходе",
+    "cacheHint": "Кэш: прочитано {{read}}, записано {{write}}",
+    "cost": "≈ {{cost}}",
+    "costHint": "Стоимость по ценам API, которую сообщает Claude Code (подписка не тарифицируется за запрос)",
+    "files_one": "Изменён {{count}} файл:",
+    "files_few": "Изменено {{count}} файла:",
+    "files_many": "Изменено {{count}} файлов:",
+    "files_other": "Изменено {{count}} файла:"
+  },
+  "notice": {
+    "interrupted": "Прервано",
+    "modeChanged": "Режим разрешений: {{mode}}",
+    "modelChanged": "Модель: {{model}}",
+    "exited": "Claude Code остановлен",
+    "exitedCode": "Claude Code остановлен (код {{code}})"
+  },
+  "errors": {
+    "status": "Не удалось проверить Claude Code",
+    "authRequired": "Вход в Claude Code не выполнен."
+  }
+}

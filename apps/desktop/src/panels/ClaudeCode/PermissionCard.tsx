@@ -4,25 +4,18 @@
  * «Запретить» with an optional note. Commands flagged by Orkestr's guard show
  * their risk category; forbidden ones arrive already denied.
  */
-import type { ClaudePermissionDecision } from "@orkestr/protocol";
 import { Badge, Button } from "@orkestr/ui";
 import clsx from "clsx";
 import { ShieldAlert, ShieldCheck, ShieldQuestion, ShieldX } from "lucide-react";
 import { useState } from "react";
 
 import { useT } from "../../i18n";
-import { field, relativeTo, toolSubject, type PermissionItem } from "../../features/claudeCode/model";
+import { field, relativeTo, toolSubject } from "../../features/claudeCode/model";
 import { TextDiff } from "./InlineDiff";
+import type { PermissionCardProps } from "./types";
 
-export interface PermissionCardProps {
-  item: PermissionItem;
-  root: string | null;
-  cwd: string | null;
-  onRespond: (decision: ClaudePermissionDecision, message?: string) => void;
-}
-
-export function PermissionCard({ item, root, cwd, onRespond }: PermissionCardProps) {
-  const { t } = useT("claudeCode");
+export function PermissionCard({ request: item, root, cwd, onRespond }: PermissionCardProps) {
+  const { t } = useT(["claudeCode", "common", "security"]);
   const [note, setNote] = useState("");
   const [denying, setDenying] = useState(false);
   const subject = toolSubject(item.toolName, item.input);
