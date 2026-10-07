@@ -38,6 +38,7 @@ import { useAppStore } from "../../store/app";
 import { type Doc, pruneParkedDocuments, registryFor, SaveConflictError } from "./documents";
 import { CodeEditor, DiffEditor, type EditorCallbacks } from "./EditorHost";
 import { applyEditorExtensions } from "./ext/editorExtensions";
+import { lspCoordinator } from "./lsp/bridge";
 import { LspBanner } from "./lsp/LspBanner";
 import { applyTokensTheme, getMonaco } from "./monaco";
 import { useThemeRevision } from "../../features/theme/useThemeRevision";
@@ -96,6 +97,8 @@ export default function Workbench({ projectId }: { projectId: string }) {
   const editorPrefs = useExtensionsStore((s) => s.prefs);
   useEffect(() => {
     applyEditorExtensions(monaco, installedExtensions, editorPrefs).catch((e: unknown) => console.warn("editor extensions", e));
+    // Newly installed / enabled extensions may bring a language server.
+    void lspCoordinator.refreshServers();
   }, [monaco, installedExtensions, editorPrefs]);
 
   // File events are watched only while a project is shown: catch up on return.

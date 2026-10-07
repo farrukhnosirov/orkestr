@@ -97,9 +97,16 @@ function EventsView({ projectId }: PanelProps) {
         if (!cancelled) setLoading(false);
       });
     const off = client.subscribe([TOPIC_ALL], (ev) => {
-      // High-volume ephemeral streams (2 s node heartbeats, terminal bytes)
-      // have their own views (System settings, Terminal panel).
-      if (ev.kind === "NodeStatus" || ev.kind === "TerminalOutput") return;
+      // High-volume ephemeral streams (2 s node heartbeats, terminal bytes,
+      // language-server JSON-RPC traffic and install progress) have their own
+      // views (System settings, Terminal panel, Code panel, Extensions panel).
+      if (
+        ev.kind === "NodeStatus" ||
+        ev.kind === "TerminalOutput" ||
+        ev.kind === "LspMessage" ||
+        ev.kind === "ExtensionInstallProgress"
+      )
+        return;
       if (pausedRef.current) {
         queueRef.current.push(ev);
         setQueued(queueRef.current.count);

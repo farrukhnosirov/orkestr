@@ -389,7 +389,13 @@ function Details({ selection, onClose }: { selection: Selection; onClose: () => 
         {details && (
           <>
             <dt>{t("facts.platform")}</dt>
-            <dd>{details.installable ? details.installTarget : t("facts.noBuild", { target: details.installTarget })}</dd>
+            <dd>
+              {!details.installable
+                ? t("facts.noBuild", { target: details.installTarget })
+                : details.targetPlatforms.includes(details.installTarget)
+                  ? details.installTarget
+                  : t("facts.universal")}
+            </dd>
           </>
         )}
         {details?.repository && (

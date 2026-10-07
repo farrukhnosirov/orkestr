@@ -151,7 +151,9 @@ impl OpenVsxClient {
         let built = reqwest::Client::builder()
             .user_agent(concat!("Orkestr/", env!("CARGO_PKG_VERSION"), " (+open-vsx client)"))
             .connect_timeout(Duration::from_secs(15))
-            .timeout(Duration::from_secs(600))
+            // A stalled transfer fails after 60 s without data; large .vsix files may take long overall.
+            .read_timeout(Duration::from_secs(60))
+            .timeout(Duration::from_secs(30 * 60))
             .build()
             .map_err(|e| ExtError::Network(e.to_string()))?;
         Ok(self.http.get_or_init(|| built))

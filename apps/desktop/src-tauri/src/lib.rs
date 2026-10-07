@@ -390,12 +390,20 @@ pub fn run() {
     let (ready_tx, ready_rx) = watch::channel::<Ready>(None);
     let handle_slot: Arc<Mutex<Option<CoreHandle>>> = Arc::new(Mutex::new(None));
 
-    let builder = tauri::Builder::default()
+    // Debug builds only: `ORKESTR_ALLOW_SECOND_INSTANCE=1` runs an isolated
+    // instance (own ORKESTR_HOME) next to a running app — used by smoke tests.
+    let second_instance_ok = cfg!(debug_assertions) && std::env::var_os("ORKESTR_ALLOW_SECOND_INSTANCE").is_some();
+    let builder = tauri::Builder::default();
+    let builder = if second_instance_ok {
+        builder
+    } else {
         // Must be the first plugin: a second launch focuses this instance and exits.
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+        builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             tracing::info!("second launch detected; focusing the existing window");
             show_main(app);
         }))
+    };
+    let builder = builder
         .manage(CoreState { ready: ready_rx, handle: Arc::clone(&handle_slot) })
         .manage(ShellState {
             close_to_tray: AtomicBool::new(true),

@@ -99,7 +99,8 @@
     "noBuild": "No build for {{target}}",
     "repository": "Repository",
     "source": "Source",
-    "sha256": "SHA-256"
+    "sha256": "SHA-256",
+    "universal": "Universal (any platform)"
   },
   "vsix": {
     "button": "Install from .vsix…",
