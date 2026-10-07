@@ -87,15 +87,21 @@
 
 .cc-header {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--ok-space-1);
   padding: var(--ok-space-1) var(--ok-space-2);
   border-bottom: 1px solid var(--ok-color-border);
 }
 
+/* Chat tabs take their own row; the controls wrap below in a narrow dock. */
+.cc-tabs:empty {
+  display: none;
+}
+
 .cc-tabs {
   display: flex;
-  flex: 1;
+  flex: 1 1 100%;
   min-width: 0;
   gap: 2px;
   overflow-x: auto;
