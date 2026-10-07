@@ -61,7 +61,12 @@
     "stoppedTaskCancelled": "Stopped by the user (task cancelled)",
     "emergencyStop": "Emergency stop",
     "coreShutdown": "The core is shutting down",
-    "runningCli": "Running the {{cli}} CLI"
+    "runningCli": "Running the {{cli}} CLI",
+    "decomposing": "Decomposing the task",
+    "coordinating": "Coordinating executors",
+    "waitingReviewer": "Waiting for the reviewer",
+    "delegatedDone": "Delegated task done",
+    "cancelled": "Cancelled"
   },
   "snapshot": {
     "manual": "Manual snapshot",
@@ -194,6 +199,28 @@
       "budget_exceeded": "Budget exceeded: {{detail}}",
       "max_turns": "Turn limit reached: {{detail}}",
       "time_limit": "Time limit reached: {{detail}}"
-    }
+    },
+    "reviewChangesHealing": "The code review requested changes — self-healing fixes them",
+    "awaitingAcceptance": "Waiting for your acceptance",
+    "healingAwaitsDecision": "Self-healing waits for your decision",
+    "pipelineEnded": "The quality pipeline ended: {{detail}}"
+  },
+  "leadReason": {
+    "emergencyStop": "Emergency stop",
+    "runCancelled": "The AI Manager run was cancelled",
+    "shutdown": "Orkestr is shutting down",
+    "interrupted": "Orkestr stopped while the team lead was working — resume the run to retry",
+    "budget": "Budget exhausted: {{spent}} spent of {{limit}}",
+    "timeLimit": "The team's time limit of {{mins}} min was reached",
+    "decompose": "The lead could not decompose the task: {{detail}}"
+  },
+  "mergeDetail": {
+    "approval": "{{status}}",
+    "approvalNote": "{{status}}: {{note}}",
+    "stopped": "Orkestr stopped while the merge was running",
+    "checksFailed": "The quality checks failed on the integration branch",
+    "aborted": "Aborted",
+    "approvalFailed": "The approval could not be requested: {{detail}}",
+    "checksError": "The quality checks could not run: {{detail}}"
   }
 }

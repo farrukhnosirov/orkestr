@@ -333,6 +333,10 @@ async fn approved_review_moves_the_task_to_testing_and_ticks_criteria() {
     assert_eq!(t.status, TaskStatus::Testing);
     assert_eq!(t.review_state, ReviewState::Approved);
     assert!(t.acceptance_criteria.iter().all(|c| c.met));
+    // The reviewer's spend is the task's spend (run / healing budgets read it).
+    assert!(r.usage.input_tokens > 0, "{:?}", r.usage);
+    assert_eq!(t.usage.input_tokens - task.usage.input_tokens, r.usage.input_tokens, "{:?}", t.usage);
+    assert_eq!(t.usage.output_tokens - task.usage.output_tokens, r.usage.output_tokens);
     let kinds = drain(&mut sub).await;
     assert!(kinds.iter().any(|k| matches!(k, EventKind::ReviewUpdated(_))));
     assert!(kinds.iter().any(|k| matches!(k, EventKind::ReviewFinished(p) if p.verdict == ReviewState::Approved)));

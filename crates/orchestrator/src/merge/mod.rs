@@ -367,6 +367,13 @@ impl MergeManager {
                     continue;
                 }
             }
+            {
+                let lock = self.project_lock(p.project_id);
+                let _guard = lock.lock().await;
+                if self.finish_interrupted(&p).await {
+                    continue;
+                }
+            }
             let this = self.clone();
             this.rollback(p, MergeProposalStatus::Failed, Some("Orkestr stopped while the merge was running".into()))
                 .await;
@@ -1205,17 +1212,61 @@ impl MergeManager {
             .map_err(|e| fail(format!("could not update `{}`: {e}", p.target)))?;
         exec.final_commit = Some(head.clone());
         tracing::info!(proposal = %p.id, target = %p.target, commit = %head, "merge completed");
+        // Checkpoint: the target holds the merge now. A stop during the
+        // cleanup below is finished on the next start (`init`), never rolled
+        // back as a failed merge.
+        p.execution = Some(exec);
+        self.save(&mut p).await;
 
         // 6. Cleanup.
-        self.remove_integration(&project, &root, &integration, exec.integration_worktree.as_deref()).await;
-        exec.cleaned = self.cleanup_branches(&project, &root, &p, &head).await;
+        self.finish_completed(&project, &root, p).await;
+        Ok(())
+    }
+
+    /// Cleanup + `Completed` + completion hooks of a proposal whose target
+    /// was fast-forwarded to `execution.final_commit`. Under the project lock.
+    async fn finish_completed(&self, project: &Project, root: &Path, mut p: MergeManagerProposal) {
+        let Some(mut exec) = p.execution.take() else { return };
+        let head = exec.final_commit.clone().unwrap_or_default();
+        let integration = exec.integration_branch.clone().unwrap_or_default();
+        self.remove_integration(project, root, &integration, exec.integration_worktree.as_deref()).await;
+        exec.cleaned = self.cleanup_branches(project, root, &p, &head).await;
         exec.finished_at = Some(now());
         p.execution = Some(exec);
         p.status = MergeProposalStatus::Completed;
         p.status_detail = None;
         self.save(&mut p).await;
         self.after_completed(&p).await;
-        Ok(())
+    }
+
+    /// A merge interrupted after its fast-forward: the target already
+    /// contains `execution.final_commit` → finish it (cleanup, `Completed`,
+    /// hooks). `false` when the target does not hold the merge.
+    async fn finish_interrupted(&self, p: &MergeManagerProposal) -> bool {
+        let Some(head) = p.execution.as_ref().and_then(|e| e.final_commit.clone()) else { return false };
+        let Ok(project) = self.project(p.project_id).await else { return false };
+        let Ok(root) = root_of(&project) else { return false };
+        let git = Arc::clone(self.git());
+        let target = format!("refs/heads/{}", p.target);
+        let landed = match git.rev_parse(&root, &target).await {
+            Ok(Some(t)) if t == head => true,
+            Ok(Some(_)) => git
+                .runner()
+                .run_ok(
+                    &root,
+                    ["merge-base", "--is-ancestor", head.as_str(), target.as_str()],
+                    orkestr_vcs::RunOptions::read(),
+                )
+                .await
+                .is_ok(),
+            _ => false,
+        };
+        if !landed {
+            return false;
+        }
+        tracing::info!(proposal = %p.id, target = %p.target, "finishing a merge interrupted after its fast-forward");
+        self.finish_completed(&project, &root, p.clone()).await;
+        true
     }
 
     async fn remove_integration(&self, project: &Project, root: &Path, branch: &str, path: Option<&str>) {
@@ -1395,6 +1446,13 @@ impl MergeManager {
     /// Resolves one conflicted file (staged in the integration worktree) or
     /// asks the model for a suggestion (stored, not applied).
     pub async fn resolve_conflict(&self, params: MergeResolveConflictParams) -> OrchResult<MergeManagerProposal> {
+        let project_id = self.inner.store.get(params.proposal_id).await?.project_id;
+        // Staging a resolution and recording it happen under the project
+        // lock, on a proposal loaded under it: concurrent resolutions of
+        // different files must not overwrite each other's `resolved` flag.
+        // (The AI suggestion runs unlocked and takes the lock to record.)
+        let lock = self.project_lock(project_id);
+        let guard = if matches!(params.resolution, MergeResolution::Ai) { None } else { Some(lock.lock().await) };
         let mut p = self.inner.store.get(params.proposal_id).await?;
         if p.status != MergeProposalStatus::Conflicted {
             return Err(OrchestratorError::Conflict(format!(
@@ -1419,6 +1477,7 @@ impl MergeManager {
                 p.branches.iter().filter(|b| b.state == MergeBranchState::Merged).map(|b| b.branch.clone()).collect();
             let theirs = exec.conflict_branch.clone().unwrap_or_default();
             let (content, note) = self.suggest(&project, &conflict, &merged.join(", "), &theirs).await?;
+            let _guard = lock.lock().await;
             let mut p2 = self.inner.store.get(p.id).await?;
             if p2.status != MergeProposalStatus::Conflicted {
                 return Err(OrchestratorError::Conflict("the merge changed while the AI was working".into()));
@@ -1431,18 +1490,37 @@ impl MergeManager {
             self.save(&mut p2).await;
             return Ok(p2);
         }
-        let lock = self.project_lock(p.project_id);
-        let _guard = lock.lock().await;
+        let _guard = guard;
         let git = Arc::clone(self.git());
         match params.resolution {
             MergeResolution::Ours | MergeResolution::Theirs => {
-                let (flag, side) = if params.resolution == MergeResolution::Ours {
-                    ("--ours", &conflict.ours)
-                } else {
-                    ("--theirs", &conflict.theirs)
-                };
+                let flag = if params.resolution == MergeResolution::Ours { "--ours" } else { "--theirs" };
                 let stage = if flag == "--ours" { 2 } else { 3 };
-                let exists = !matches!(git.stage_text(&wt, stage, &conflict.path, 1).await, Ok(BlobText::Missing));
+                // An already resolved path has only stage 0 in the index:
+                // restore its conflicted stages (git's resolve-undo record)
+                // first, or every side would look deleted.
+                if conflict.resolved {
+                    git.runner()
+                        .run_ok(
+                            &wt,
+                            ["update-index", "--unresolve", "--", conflict.path.as_str()],
+                            orkestr_vcs::RunOptions::write(),
+                        )
+                        .await
+                        .map_err(vcs_err)?;
+                }
+                let missing = |r: &Result<BlobText, _>| matches!(r, Ok(BlobText::Missing));
+                let ours = git.stage_text(&wt, 2, &conflict.path, 1).await;
+                let theirs = git.stage_text(&wt, 3, &conflict.path, 1).await;
+                if missing(&ours) && missing(&theirs) {
+                    // Not an unmerged path any more (and nothing to restore):
+                    // never read that as "this side deleted the file".
+                    return Err(OrchestratorError::Conflict(format!(
+                        "{} is no longer conflicted in the integration worktree; save its content instead",
+                        conflict.path
+                    )));
+                }
+                let exists = !missing(if stage == 2 { &ours } else { &theirs });
                 if exists {
                     git.runner()
                         .run_ok(&wt, ["checkout", flag, "--", conflict.path.as_str()], orkestr_vcs::RunOptions::write())
@@ -1453,7 +1531,6 @@ impl MergeManager {
                         .await
                         .map_err(vcs_err)?;
                 } else {
-                    let _ = side;
                     git.stage_resolution(&wt, &conflict.path, None).await.map_err(vcs_err)?;
                 }
             }
@@ -1544,7 +1621,14 @@ impl MergeManager {
         req.system = Some(resolve::system_prompt());
         req.response_format = ResponseFormat::JsonObject;
         req.max_output_tokens = Some(self.inner.deps.config.max_output_tokens);
-        let cancel = CancellationToken::new();
+        // Stop All AI / Stop project cancel the suggestion.
+        let cancel = self
+            .inner
+            .deps
+            .security
+            .emergency
+            .register_project(project.id)
+            .map_err(|e| OrchestratorError::Forbidden(e.to_string()))?;
         let started = std::time::Instant::now();
         let mut stream = models.chat(chain, req, None, cancel.clone());
         let mut text = String::new();
@@ -1570,6 +1654,7 @@ impl MergeManager {
         cancel.cancel();
         let ok = matches!(res, Ok(Ok(())));
         if let (Some(cost), Some(u)) = (&self.inner.deps.cost, usage) {
+            let priced = orkestr_agent_runtime::call_cost(models.as_ref(), &model, &u);
             let rec = UsageRecord {
                 id: UsageRecordId::new(),
                 ts: now(),
@@ -1583,7 +1668,8 @@ impl MergeManager {
                 output_tokens: u.output_tokens,
                 cached_input_tokens: u.cached_input_tokens,
                 reasoning_tokens: u.reasoning_tokens,
-                cost_usd: orkestr_providers::estimate_cost(&model.model, &u).unwrap_or(0.0),
+                cost_usd: priced.spend_usd,
+                api_equivalent_usd: priced.api_equivalent_usd,
                 estimated: u.estimated || u.reported_cost_usd.is_none(),
                 latency_ms: Some(u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX)),
                 success: ok,

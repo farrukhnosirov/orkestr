@@ -245,6 +245,7 @@ pub(crate) async fn run(
     let attack = structured_call(
         inner,
         project.id,
+        Some(task.id),
         chain,
         adversary_system(&language, review.same_model_fallback),
         format!("{brief}\nTry to refute this change now."),
@@ -295,6 +296,7 @@ pub(crate) async fn run(
         match structured_call(
             inner,
             project.id,
+            Some(task.id),
             verifier,
             verify_system(&language),
             user,

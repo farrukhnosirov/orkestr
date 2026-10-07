@@ -155,6 +155,7 @@ pub(crate) mod testutil {
             cached_input_tokens: 0,
             reasoning_tokens: 0,
             cost_usd: cost,
+            api_equivalent_usd: None,
             estimated: false,
             latency_ms: Some(400),
             success: true,

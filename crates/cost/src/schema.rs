@@ -114,8 +114,17 @@ pub const BENCHMARKS: Migration = Migration {
            DROP TABLE IF EXISTS benchmark_executions;",
 };
 
+/// API-equivalent value of calls that are not metered in $ (subscription /
+/// local instances): kept for benchmarks, never summed as spend.
+pub const API_EQUIVALENT: Migration = Migration {
+    id: "cost_0004_usage_api_equivalent",
+    owner: "cost",
+    up: "ALTER TABLE usage_records ADD COLUMN api_equivalent_micros INTEGER;",
+    down: "ALTER TABLE usage_records DROP COLUMN api_equivalent_micros;",
+};
+
 /// All cost migrations in order.
 #[must_use]
 pub fn cost_migrations() -> Vec<orkestr_storage::Migration> {
-    vec![USAGE, BUDGETS, BENCHMARKS]
+    vec![USAGE, BUDGETS, BENCHMARKS, API_EQUIVALENT]
 }

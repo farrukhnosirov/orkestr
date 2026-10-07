@@ -228,6 +228,46 @@ pub(crate) async fn run_cli(run: &mut Run) -> Outcome {
                             .agent(run.agent.id),
                     )
                     .await;
+                // A file tool outside the worktree / on a secret / in .git:
+                // stopped at once and audited (the CLI's scoped allow and
+                // deny rules should have refused it).
+                if let Some(why) = cli_path_violation(&root, &tool, &summary) {
+                    run.control.cancel.cancel();
+                    let msg = format!("the CLI agent's {why}; the run was stopped for review");
+                    let msg = orkestr_security::redact::redact(&msg);
+                    call.status = ToolCallStatus::Denied;
+                    call.output_summary = Some(one_line(&msg, 200));
+                    call.finished_at = Some(now());
+                    let _ = run.store.save_tool_call(&call, Some(&msg), Some(0)).await;
+                    run.deps
+                        .publish(
+                            NewEvent::new(EventKind::ToolCallFinished(ToolCallFinishedPayload {
+                                tool_call_id: call.id,
+                                status: call.status,
+                                output_summary: call.output_summary.clone(),
+                                duration_ms: 0,
+                            }))
+                            .agent(run.agent.id),
+                        )
+                        .await;
+                    run.deps
+                        .security
+                        .audit
+                        .record(
+                            orkestr_security::NewAudit::new(
+                                orkestr_domain::Actor::Agent(run.agent.id),
+                                "agent.cliPathViolation",
+                                one_line(&msg, 300),
+                                orkestr_domain::AuditOutcome::Denied,
+                            )
+                            .capability(cap)
+                            .project(Some(run.agent.project_id))
+                            .details(serde_json::json!({ "taskId": run.task.id, "tool": tool })),
+                        )
+                        .await;
+                    outcome = Some(Outcome::Failed(msg));
+                    break;
+                }
                 // Post-hoc classification (ADR-0012): the CLI already runs the
                 // command, but a Dangerous / Forbidden one stops the run at
                 // once (process tree killed) and is audited as a finding —
@@ -447,13 +487,77 @@ pub(crate) async fn run_cli(run: &mut Run) -> Outcome {
 /// CLI's shell would bypass the permission engine and the dangerous-action
 /// guard entirely, and there is no `--permission-prompt-tool` bridge to
 /// Orkestr's approvals yet (ADR-0012 §3). Web tools are always disallowed.
+/// File tools are pre-approved only inside the CLI's working directory (the
+/// agent's worktree, `./**`): a bare tool name would approve every path,
+/// `~/.ssh` and Orkestr's own data directory included. Secret-bearing files
+/// and `.git` are denied even there (deny rules win).
 fn cli_tool_policy(writes: bool) -> CliToolPolicy {
-    let mut allowed = vec!["Read".to_owned(), "Glob".into(), "Grep".into(), "LS".into()];
+    let mut allowed = vec!["Read(./**)".to_owned(), "Glob".into(), "Grep".into(), "LS".into()];
     if writes {
-        allowed.extend(["Edit".to_owned(), "Write".into(), "MultiEdit".into()]);
+        allowed.extend(["Edit(./**)".to_owned(), "Write(./**)".into(), "MultiEdit(./**)".into()]);
     }
-    let disallowed = vec!["WebFetch".to_owned(), "WebSearch".into(), "Bash".into()];
+    let mut disallowed = vec!["WebFetch".to_owned(), "WebSearch".into(), "Bash".into()];
+    for secret in SECRET_GLOBS {
+        disallowed.push(format!("Read({secret})"));
+    }
+    for tool in ["Edit", "Write", "MultiEdit"] {
+        disallowed.push(format!("{tool}(./.git/**)"));
+        for secret in SECRET_GLOBS {
+            disallowed.push(format!("{tool}({secret})"));
+        }
+    }
     CliToolPolicy { allowed_tools: allowed, disallowed_tools: disallowed, allow_writes: writes }
+}
+
+/// Secret-bearing files (the permission engine's `Secrets` names), as CLI
+/// permission globs.
+const SECRET_GLOBS: [&str; 8] = [
+    "**/.env",
+    "**/.env.*",
+    "**/*.pem",
+    "**/*.key",
+    "**/id_rsa*",
+    "**/id_ed25519*",
+    "**/.git-credentials",
+    "**/.netrc",
+];
+
+/// A file tool call of a CLI agent that left its worktree or touched a
+/// secret-bearing file / `.git` (checked when the tool starts: the CLI's own
+/// rules are the first line, this one stops a run that got past them).
+fn cli_path_violation(root: &std::path::Path, tool: &str, target: &str) -> Option<String> {
+    let t = tool.to_ascii_lowercase();
+    let target = target.trim();
+    if target.is_empty() {
+        return None;
+    }
+    let path_tool = matches!(t.as_str(), "read" | "edit" | "write" | "multiedit" | "notebookedit" | "ls");
+    // Glob / Grep summaries are a path only when one was given (else the
+    // pattern): only an explicit absolute / parent path is checked.
+    let search_tool = matches!(t.as_str(), "glob" | "grep");
+    let absolute = std::path::Path::new(target).is_absolute()
+        || target.starts_with('~')
+        || target.starts_with("\\\\")
+        || target.starts_with('/')
+        || target.contains("..");
+    if !(path_tool || (search_tool && absolute)) {
+        return None;
+    }
+    if target.starts_with('~') {
+        // The CLI expands `~` to the home directory.
+        return Some(format!("{tool} outside the agent's worktree ({target})"));
+    }
+    let rel = match orkestr_security::confine_relative(root, target) {
+        Ok(rel) => rel,
+        Err(_) => return Some(format!("{tool} outside the agent's worktree ({target})")),
+    };
+    if orkestr_security::guard::DangerousActionGuard::is_secret_file(&rel) {
+        return Some(format!("{tool} of a secret-bearing file ({rel})"));
+    }
+    if t != "read" && t != "ls" && crate::tools::touches_git_dir(&rel) {
+        return Some(format!("{tool} inside .git ({rel})"));
+    }
+    None
 }
 
 fn cli_call(run: &Run, tool: &str, capability: Capability) -> ToolCall {
@@ -496,8 +600,36 @@ mod tests {
             assert!(p.disallowed_tools.iter().any(|t| t == "Bash"));
             assert!(p.disallowed_tools.iter().any(|t| t == "WebFetch"));
             assert_eq!(p.allow_writes, writes);
-            assert_eq!(p.allowed_tools.iter().any(|t| t == "Edit"), writes);
+            assert_eq!(p.allowed_tools.iter().any(|t| t == "Edit(./**)"), writes);
+            // No bare file-tool rule: it would approve every path on disk.
+            assert!(!p.allowed_tools.iter().any(|t| t == "Read" || t == "Edit" || t == "Write"), "{p:?}");
+            assert!(p.allowed_tools.iter().any(|t| t == "Read(./**)"));
+            assert!(p.disallowed_tools.iter().any(|t| t == "Read(**/.env)"), "{p:?}");
+            assert!(p.disallowed_tools.iter().any(|t| t == "Write(./.git/**)"), "{p:?}");
         }
+    }
+
+    #[test]
+    fn cli_file_tools_outside_the_worktree_or_on_secrets_stop_the_run() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("wt");
+        std::fs::create_dir_all(root.join("src")).unwrap();
+        let inside = root.join("src/main.rs").to_string_lossy().into_owned();
+        assert_eq!(cli_path_violation(&root, "Read", &inside), None);
+        assert_eq!(cli_path_violation(&root, "Edit", "src/main.rs"), None);
+        assert_eq!(cli_path_violation(&root, "Grep", "fn main"), None, "a pattern is not a path");
+        assert_eq!(cli_path_violation(&root, "Glob", "**/*.rs"), None);
+        assert_eq!(cli_path_violation(&root, "Read", ".env.example"), None);
+        let outside = dir.path().join("other/secret.txt").to_string_lossy().into_owned();
+        assert!(cli_path_violation(&root, "Read", &outside).is_some());
+        assert!(cli_path_violation(&root, "Grep", &outside).is_some(), "an explicit search path is checked");
+        assert!(cli_path_violation(&root, "Read", "~/.ssh/id_rsa").is_some());
+        assert!(cli_path_violation(&root, "Read", "~/notes.txt").is_some());
+        assert!(cli_path_violation(&root, "Read", "../other/x").is_some());
+        assert!(cli_path_violation(&root, "Read", ".env").is_some());
+        assert!(cli_path_violation(&root, "Read", "config/server.pem").is_some());
+        assert!(cli_path_violation(&root, "Write", ".git/hooks/pre-commit").is_some());
+        assert!(cli_path_violation(&root, "Bash", "cat ~/.ssh/id_rsa").is_none(), "shell commands go to the guard");
     }
 
     #[test]

@@ -402,6 +402,17 @@ pub struct TaskPipeline {
     /// Extra attempts granted by the user after an escalation.
     #[serde(default)]
     pub granted_attempts: u32,
+    /// Extra self-healing spend granted by the user after a healing-budget
+    /// escalation (USD).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub granted_budget_usd: Option<f64>,
+    /// Start of the current self-healing time window (the pipeline start, or
+    /// when the user granted more time). Time the pipeline was not running
+    /// (Orkestr closed) is not counted: a resumed pipeline shifts it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub heal_since: Option<Timestamp>,
     /// The agent that implemented the task.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]

@@ -208,7 +208,7 @@ impl Inner {
             let usage = out.usage.unwrap_or_else(|| {
                 orkestr_providers::Usage::estimate(messages.iter().map(|m| m.content.len()).sum(), out.text.len())
             });
-            usage_total.add(&record_usage(&self.deps, project.id, &model, usage, out.first_ms, true).await);
+            usage_total.add(&record_usage(&self.deps, project.id, None, &model, usage, out.first_ms, true).await);
             let parsed = extract_json(&out.text)
                 .ok_or_else(|| OrchestratorError::Planning("the answer contained no plan JSON object".into()))
                 .and_then(|doc| normalize(&doc, goal));
@@ -321,7 +321,10 @@ impl Manager {
                 MessageExtras::default(),
             )
             .await?;
-        let cancel = CancellationToken::new();
+        // Stop All AI / Stop project cancel planning; while Stop All is
+        // active planning refuses with a notice (below).
+        let cancel =
+            crate::util::emergency_token(&self.inner.deps, project.id).unwrap_or_else(|_| CancellationToken::new());
         match self.inner.plan_and_maybe_run(&project, &p.goal, p.options.unwrap_or_default(), Some(conv), &cancel).await
         {
             Ok((plan, usage)) => {

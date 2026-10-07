@@ -493,7 +493,7 @@ impl LeadDriver {
         let text = if self.ru() {
             format!(
                 "Лид команды «{}» разбил задачу «{}» на {n} {}.",
-                self.req.team.name,
+                team_name_ru(&self.req.team.name),
                 self.lead.title,
                 ru_plural(n, "подзадачу", "подзадачи", "подзадач")
             )
@@ -1171,9 +1171,11 @@ impl LeadDriver {
             (TeamLeadStatus::Completed, false) => {
                 format!("The {} lead finished \"{}\" — it waits for acceptance.", self.req.team.name, self.lead.title)
             }
-            (TeamLeadStatus::Completed, true) => {
-                format!("Лид команды «{}» завершил «{}» — задача ждёт приёмки.", self.req.team.name, self.lead.title)
-            }
+            (TeamLeadStatus::Completed, true) => format!(
+                "Лид команды «{}» завершил «{}» — задача ждёт приёмки.",
+                team_name_ru(&self.req.team.name),
+                self.lead.title
+            ),
             (_, false) => format!(
                 "The {} lead stopped \"{}\": {}",
                 self.req.team.name,
@@ -1182,9 +1184,9 @@ impl LeadDriver {
             ),
             (_, true) => format!(
                 "Лид команды «{}» остановил «{}»: {}",
-                self.req.team.name,
+                team_name_ru(&self.req.team.name),
                 self.lead.title,
-                reason.unwrap_or_default()
+                lead_reason_ru(&reason.unwrap_or_default())
             ),
         };
         self.inner
@@ -1262,5 +1264,66 @@ mod tests {
         assert!(!has_cycle(&g));
         g.insert("a".to_owned(), vec!["b".to_owned()]);
         assert!(has_cycle(&g));
+    }
+}
+
+/// Russian name of a built-in team (seeded with English names; the Teams tab
+/// shows the same translation). Other names stay as typed.
+pub(crate) fn team_name_ru(name: &str) -> String {
+    match name {
+        "ERP Team" => "ERP-команда".into(),
+        "Web Team" => "Веб-команда".into(),
+        "Mobile Team" => "Мобильная команда".into(),
+        "Security Team" => "Команда безопасности".into(),
+        "Rapid Prototype Team" => "Команда быстрых прототипов".into(),
+        other => other.to_owned(),
+    }
+}
+
+/// Russian text of a lead's stop reason for the chat notice (the stored
+/// reason stays English data; the UI localizes it the same way).
+pub(crate) fn lead_reason_ru(reason: &str) -> String {
+    match reason {
+        "emergency stop" => return "экстренная остановка".into(),
+        "the Manager run was cancelled" => return "запуск AI-менеджера отменён".into(),
+        "Orkestr is shutting down" => return "Orkestr завершает работу".into(),
+        _ => {}
+    }
+    if let Some(rest) = reason.strip_prefix("budget exhausted: $") {
+        if let Some((spent, limit)) = rest.split_once(" spent of $") {
+            let money =
+                |v: &str| v.parse::<f64>().map_or_else(|_| format!("{v}\u{a0}$"), |x| crate::util::ru_money(x, 2));
+            return format!("бюджет исчерпан: потрачено {} из {}", money(spent), money(limit));
+        }
+    }
+    if let Some(mins) =
+        reason.strip_prefix("the team's time limit of ").and_then(|r| r.strip_suffix(" min was reached"))
+    {
+        return format!("достигнут лимит времени команды ({mins}\u{a0}мин)");
+    }
+    if let Some(detail) = reason.strip_prefix("the lead could not decompose the task: ") {
+        return format!("лид не смог разбить задачу: {detail}");
+    }
+    reason.to_owned()
+}
+
+#[cfg(test)]
+mod ru_tests {
+    use super::*;
+
+    #[test]
+    fn russian_lead_notices_translate_builtin_teams_and_fixed_reasons() {
+        assert_eq!(team_name_ru("Web Team"), "Веб-команда");
+        assert_eq!(team_name_ru("My crew"), "My crew");
+        assert_eq!(lead_reason_ru("emergency stop"), "экстренная остановка");
+        assert_eq!(
+            lead_reason_ru("budget exhausted: $1.2500 spent of $1.00"),
+            "бюджет исчерпан: потрачено 1,25\u{a0}$ из 1,00\u{a0}$"
+        );
+        assert_eq!(
+            lead_reason_ru("the team's time limit of 60 min was reached"),
+            "достигнут лимит времени команды (60\u{a0}мин)"
+        );
+        assert_eq!(lead_reason_ru("something else"), "something else");
     }
 }

@@ -35,8 +35,15 @@ pub struct UsageRecord {
     pub cached_input_tokens: u64,
     /// Reasoning tokens (if reported).
     pub reasoning_tokens: u64,
-    /// Cost in USD.
+    /// Cost in USD (spend: budgets and totals). 0 on a subscription or local
+    /// instance (see `apiEquivalentUsd`).
     pub cost_usd: f64,
+    /// What a call on a subscription / local instance would cost at API
+    /// prices (e.g. Claude Code's reported `total_cost_usd` on a Pro/Max
+    /// login), kept for benchmarks; never counted as spend.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub api_equivalent_usd: Option<f64>,
     /// True when cost is estimated from list prices (subscription/CLI usage).
     pub estimated: bool,
     /// Latency to first token in ms.

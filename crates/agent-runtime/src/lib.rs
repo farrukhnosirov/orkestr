@@ -47,7 +47,7 @@ pub mod tools;
 
 pub use deps::{RuntimeConfig, RuntimeDeps};
 pub use error::{AgentError, AgentResult};
-pub use gateway::{ModelGateway, ProviderInfo, RegistryGateway};
+pub use gateway::{call_cost, metered_pricing, ModelGateway, ProviderInfo, RegistryGateway};
 pub use language::{reply_language_instruction, UiLanguage};
 pub use runtime::{AgentRuntime, SpawnExtras};
 pub use schema::agent_migrations;

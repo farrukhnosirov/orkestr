@@ -1,7 +1,7 @@
 import type { Event, EventKindName } from "@orkestr/protocol";
 
 import { formatCurrency, formatDuration, t } from "../../i18n";
-import { agentActivity, agentName, fallbackReason, snapshotLabel } from "../../lib/coreText";
+import { agentActivity, agentName, builtinTeamName, fallbackReason, snapshotLabel } from "../../lib/coreText";
 import { useAppStore } from "../../store/app";
 import { budgetScopeText } from "../Costs/format";
 
@@ -298,7 +298,7 @@ export function describeEvent(event: Event): string {
     }
     // Phase 2: Agent Teams and the AI Product Manager.
     case "TeamUpdated":
-      return t("events:teamUpdated", { name: event.payload.team.team.name });
+      return t("events:teamUpdated", { name: builtinTeamName(event.payload.team.team.name) });
     case "TeamDeleted":
       return t("events:teamDeleted", { id: short(event.payload.teamId) });
     case "TeamLeadRunUpdated":

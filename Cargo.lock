@@ -2948,6 +2948,7 @@ dependencies = [
  "orkestr-cost",
  "orkestr-domain",
  "orkestr-events",
+ "orkestr-files",
  "orkestr-memory",
  "orkestr-platform",
  "orkestr-protocol",

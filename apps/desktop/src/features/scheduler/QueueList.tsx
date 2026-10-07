@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 
 import { useFormat, useT } from "../../i18n";
 import { describeError } from "../../i18n/errors";
+import { builtinTeamName } from "../../lib/coreText";
 import { schedulerActions } from "./data";
 import { entryWaitText, modelName, providerName, reasonText } from "./model";
 
@@ -107,7 +108,7 @@ export function QueueRow({
       <div className="sched-row__meta">
         {entry.providerId && <span>{providerName(status, entry.providerId)}</span>}
         {entry.model && <span className="sched-mono">{modelName(entry.model)}</span>}
-        {entry.team && <span>{entry.team}</span>}
+        {entry.team && <span>{builtinTeamName(entry.team)}</span>}
         <span>{t("queue.since", { time: fmt.relative(entry.since) })}</span>
       </div>
       {wait && <p className="sched-row__reason">{wait}</p>}

@@ -266,6 +266,9 @@ pub struct Run {
     /// Usage not yet written to the task (a failed per-call write).
     pending_usage: UsageSummary,
     checkpoint_taken: bool,
+    /// The task's `Before` checkpoint of this run (shared-workspace change
+    /// attribution of commands).
+    before_checkpoint: Option<orkestr_domain::SnapshotId>,
     budget_warned: bool,
     /// The "model has no known price" warning was emitted for this run.
     unpriced_warned: bool,
@@ -325,6 +328,7 @@ impl Run {
             spawn_cost_cap: None,
             pending_usage: UsageSummary::default(),
             checkpoint_taken: false,
+            before_checkpoint: None,
             budget_warned: false,
             unpriced_warned: false,
             budget_note: None,
@@ -574,13 +578,16 @@ impl Run {
         if let Some(m) = &model {
             self.warn_if_unpriced(m).await;
         }
-        let estimate = model.as_ref().and_then(|m| orkestr_providers::pricing_for(&m.model)).map_or(0.0, |p| {
-            orkestr_providers::pricing::preflight_estimate(
-                &p,
-                est_input_tokens,
-                u64::from(self.deps.config.max_output_tokens),
-            )
-        });
+        let estimate = model
+            .as_ref()
+            .and_then(|m| crate::gateway::metered_pricing(self.deps.models.as_ref(), m))
+            .map_or(0.0, |p| {
+                orkestr_providers::pricing::preflight_estimate(
+                    &p,
+                    est_input_tokens,
+                    u64::from(self.deps.config.max_output_tokens),
+                )
+            });
         if let Some(b) = self.agent.budget.clone() {
             if let Some(max) = b.max_tokens {
                 if usage.total_tokens() >= max {
@@ -682,7 +689,10 @@ impl Run {
 
     /// Records one call's usage: cost engine + agent + run totals.
     pub async fn record_usage(&mut self, model: &ModelRef, usage: Usage, latency_ms: Option<u64>, success: bool) {
-        let cost = orkestr_providers::estimate_cost(&model.model, &usage).unwrap_or(0.0);
+        // Spend only: a subscription CLI's reported cost is API-equivalent
+        // and never counts against budgets, caps or the run's spend.
+        let priced = crate::gateway::call_cost(self.deps.models.as_ref(), model, &usage);
+        let cost = priced.spend_usd;
         let rec = UsageRecord {
             id: UsageRecordId::new(),
             ts: now(),
@@ -697,6 +707,7 @@ impl Run {
             cached_input_tokens: usage.cached_input_tokens,
             reasoning_tokens: usage.reasoning_tokens,
             cost_usd: cost,
+            api_equivalent_usd: priced.api_equivalent_usd,
             estimated: usage.estimated || usage.reported_cost_usd.is_none(),
             latency_ms,
             success,
@@ -770,6 +781,21 @@ impl Run {
                     code: "max_turns",
                     message: format!("turn limit of {} reached without submit_result", self.agent.max_turns),
                 };
+            }
+            // Keep the conversation inside the model's context window: older
+            // tool results / long replies are compacted (the system prompt,
+            // the task message and the recent turns stay), so the provider
+            // neither drops the task silently nor refuses the request.
+            if let Some(window) = self.head_model().and_then(|m| self.deps.models.context_window(&m)) {
+                let reserve = u64::from(self.deps.config.max_output_tokens)
+                    + u64::try_from((system.len() + serde_json::to_string(&specs).map_or(0, |s| s.len())) / 4)
+                        .unwrap_or(u64::MAX);
+                let budget_tokens = u64::from(window).saturating_sub(reserve);
+                let budget_chars = usize::try_from(budget_tokens.saturating_mul(4) * 9 / 10).unwrap_or(usize::MAX);
+                let n = compact_history(&mut messages, budget_chars, KEEP_RECENT_MESSAGES);
+                if n > 0 {
+                    tracing::info!(agent_id = %self.agent.id, compacted = n, window, "agent history compacted to the context window");
+                }
             }
             let mut req = ChatRequest::new(self.head_model().map(|m| m.model).unwrap_or_default(), messages.clone());
             req.system = Some(match &self.budget_note {
@@ -1029,14 +1055,13 @@ impl Run {
     }
 
     /// Takes the task's automatic `Before` checkpoint (once per run). `Err`
-    /// carries the reason when the snapshot could not be taken; a run without
-    /// a workspace (nothing to snapshot) or with the checkpoint already taken
-    /// returns `Ok`.
+    /// carries the reason when the snapshot could not be taken (it is tried
+    /// again before the next change); a run without a workspace (nothing to
+    /// snapshot) or with the checkpoint already taken returns `Ok`.
     pub(crate) async fn checkpoint(&mut self) -> Result<(), String> {
         if self.checkpoint_taken || self.env.root.is_none() {
             return Ok(());
         }
-        self.checkpoint_taken = true;
         match tools::memory::snapshot(
             &self.env,
             format!("Before {} changes", self.agent.name),
@@ -1047,13 +1072,34 @@ impl Run {
         .await
         {
             Ok(s) => {
+                self.checkpoint_taken = true;
+                self.before_checkpoint = Some(s.id);
                 self.progress.lock().snapshot_id = Some(s.id);
                 self.note(&format!("Checkpoint {} taken before the first change.", s.id)).await;
                 Ok(())
             }
             Err(e) => {
                 tracing::warn!(agent_id = %self.agent.id, error = %e.message, "automatic checkpoint failed");
+                self.note(&format!("Could not take the checkpoint before a change: {}", e.message)).await;
                 Err(e.message)
+            }
+        }
+    }
+
+    /// In a workspace shared with other writers (no own branch): every path
+    /// that differs from the task's `Before` checkpoint, with its current
+    /// content hash (`None` = deleted). `None` in a dedicated worktree or
+    /// before the checkpoint.
+    async fn shared_workspace_state(&self) -> Option<std::collections::BTreeMap<String, Option<String>>> {
+        if self.env.own_branch.is_some() {
+            return None;
+        }
+        let id = self.before_checkpoint?;
+        match self.deps.snapshots.diff(id, None).await {
+            Ok(d) => Some(d.changes.into_iter().map(|c| (c.path, c.current_hash)).collect()),
+            Err(e) => {
+                tracing::warn!(agent_id = %self.agent.id, error = %e, "could not scan the shared workspace");
+                None
             }
         }
     }
@@ -1182,7 +1228,13 @@ impl Run {
         }
 
         if desc.class == ToolClass::Mutate {
-            let _ = self.checkpoint().await;
+            // No checkpoint, no change (ADR-0021, §25; the CLI path refuses
+            // to start the same way): the task must stay undoable.
+            if let Err(e) = self.checkpoint().await {
+                let msg = no_checkpoint_message(&e);
+                self.finish_call(&mut call, ToolCallStatus::Failed, &msg, Some(&msg), started).await;
+                return ToolExec::Result { content: msg, is_error: true };
+            }
         }
         let activity = format!("{name} {}", one_line(&resource_hint(args), 80)).trim().to_owned();
         self.class_state(desc.class, &activity).await;
@@ -1311,9 +1363,17 @@ impl Run {
         let mut approved_once = false;
         loop {
             if class == ToolClass::Mutate {
-                let _ = self.checkpoint().await;
+                if let Err(e) = self.checkpoint().await {
+                    let msg = no_checkpoint_message(&e);
+                    self.finish_call(&mut call, ToolCallStatus::Failed, &msg, Some(&msg), started).await;
+                    return ToolExec::Result { content: msg, is_error: true };
+                }
             }
             self.class_state(class, &format!("$ {}", one_line(&command, 80))).await;
+            // A changing command in a shared workspace reports no files: the
+            // paths it changed are the difference across it, so the task's
+            // rollback restores exactly those (and never other writers' work).
+            let before = if class == ToolClass::Mutate { self.shared_workspace_state().await } else { None };
             let req = RunRequest {
                 project_id: Some(self.agent.project_id),
                 task_id: Some(self.task.id),
@@ -1329,6 +1389,16 @@ impl Run {
             };
             match self.deps.terminals.run(req, self.control.cancel.child_token()).await {
                 Ok(out) => {
+                    if let Some(before) = before {
+                        if let Some(after) = self.shared_workspace_state().await {
+                            let mut p = self.progress.lock();
+                            for path in before.keys().chain(after.keys()) {
+                                if before.get(path) != after.get(path) {
+                                    p.file(path);
+                                }
+                            }
+                        }
+                    }
                     if self.control.cancel.is_cancelled() {
                         self.finish_call(&mut call, ToolCallStatus::Cancelled, "cancelled", None, started).await;
                         return ToolExec::Cancelled;
@@ -1446,6 +1516,11 @@ impl Run {
         // without a reported file change (Mutate-class `run_command`s such as
         // `sed -i` / `npm install`, CLI agents): their Before checkpoint needs
         // its After pair or `rollbackTask` cannot restore the task.
+        // The task's own file set is always recorded: in a workspace shared
+        // with other writers (no own branch) a difference the task did not
+        // report is then a conflict for rollback, never silently reverted
+        // (another agent's or the user's work). A dedicated worktree ignores
+        // it (every difference there is the task's).
         let own_files = self.progress.lock().files_changed.clone();
         if self.checkpoint_taken || !own_files.is_empty() {
             let label = if matches!(outcome, Outcome::Submitted(_)) { "finished" } else { "stopped" };
@@ -1454,8 +1529,7 @@ impl Run {
                 format!("{} {label}", self.agent.name),
                 SnapshotReason::TaskCheckpoint,
                 Some(TaskSnapshotPhase::After),
-                // Unknown file set (changes made only by commands) → whole-workspace pair.
-                (!own_files.is_empty()).then_some(own_files.as_slice()),
+                Some(own_files.as_slice()),
             )
             .await
             {
@@ -1750,7 +1824,7 @@ impl FallbackHook {
     /// model. `Some(reason)` = the switch must not happen.
     async fn budget_blocks(&self, to: &ModelRef, request: &ChatRequest) -> Option<String> {
         let est_input = u64::try_from(request.prompt_chars() / 4).unwrap_or(u64::MAX);
-        let estimate = orkestr_providers::pricing_for(&to.model).map_or(0.0, |p| {
+        let estimate = crate::gateway::metered_pricing(self.deps.models.as_ref(), to).map_or(0.0, |p| {
             orkestr_providers::pricing::preflight_estimate(&p, est_input, u64::from(self.deps.config.max_output_tokens))
         });
         if let Some(max) = self.agent.budget.as_ref().and_then(|b| b.max_cost_usd) {
@@ -1819,3 +1893,102 @@ pub fn submit_json(status: &str, summary: &str) -> Value {
 
 /// Pending CLI tool calls keyed by CLI call id.
 pub type CliCalls = HashMap<String, (ToolCall, Instant)>;
+
+/// Tool result of a change refused because the task's checkpoint could not
+/// be taken.
+fn no_checkpoint_message(error: &str) -> String {
+    format!(
+        "could not take the task's checkpoint before this change ({error}); the change was not made so the task stays undoable. Report the problem with submit_result (status blocked) if it persists."
+    )
+}
+
+/// Messages at the end of an agent's history that are never compacted.
+const KEEP_RECENT_MESSAGES: usize = 6;
+/// Older tool results / replies shorter than this stay as they are.
+const COMPACT_MIN_CHARS: usize = 400;
+
+fn message_chars(m: &ChatMessage) -> usize {
+    m.content.len() + m.tool_calls.iter().map(|c| c.name.len() + c.arguments.to_string().len()).sum::<usize>()
+}
+
+/// Shrinks the history to `budget_chars` (≈ 4 chars per token): the oldest
+/// long tool results and assistant texts after the task message (index 0)
+/// become short stubs, oldest first, keeping the last `keep_recent`
+/// messages (then, if still too large, all but the last two). Messages are
+/// never removed, so every tool call keeps its result. Returns how many
+/// messages were compacted.
+fn compact_history(messages: &mut [ChatMessage], budget_chars: usize, keep_recent: usize) -> usize {
+    let mut total: usize = messages.iter().map(message_chars).sum();
+    if total <= budget_chars {
+        return 0;
+    }
+    let mut compacted = 0;
+    for keep in [keep_recent, 2] {
+        let end = messages.len().saturating_sub(keep);
+        for m in messages.iter_mut().take(end).skip(1) {
+            if total <= budget_chars {
+                return compacted;
+            }
+            let len = m.content.chars().count();
+            if len < COMPACT_MIN_CHARS
+                || !matches!(m.role, orkestr_providers::Role::Tool | orkestr_providers::Role::Assistant)
+            {
+                continue;
+            }
+            let head: String = m.content.chars().take(160).collect();
+            let stub = format!(
+                "{head}\n[… {} more characters omitted to fit the model's context window — repeat the tool call if you need the full result]",
+                len - 160
+            );
+            total = total - m.content.len() + stub.len();
+            m.content = stub;
+            compacted += 1;
+        }
+    }
+    compacted
+}
+
+#[cfg(test)]
+mod compact_tests {
+    use super::*;
+
+    fn tool_result(n: usize) -> ChatMessage {
+        let mut m = ChatMessage::user("x".repeat(n));
+        m.role = orkestr_providers::Role::Tool;
+        m.tool_call_id = Some("c".into());
+        m
+    }
+
+    #[test]
+    fn old_tool_results_are_compacted_and_the_task_and_recent_turns_stay() {
+        let task = ChatMessage::user(
+            "# Task: build it
+"
+            .repeat(50),
+        );
+        let mut msgs = vec![task.clone()];
+        for _ in 0..10 {
+            msgs.push(ChatMessage::assistant("reading"));
+            msgs.push(tool_result(16_000));
+        }
+        let before = msgs.len();
+        assert_eq!(compact_history(&mut msgs, usize::MAX, 6), 0, "within budget: untouched");
+        let n = compact_history(&mut msgs, 60_000, 6);
+        assert!(n > 0);
+        assert_eq!(msgs.len(), before, "no message removed: every tool call keeps its result");
+        assert_eq!(msgs[0], task, "the task message is kept");
+        let total: usize = msgs.iter().map(message_chars).sum();
+        assert!(total <= 60_000, "{total}");
+        assert!(msgs[2].content.contains("omitted to fit the model's context window"));
+        assert_eq!(msgs[before - 1].content.len(), 16_000, "the latest result is intact");
+        assert_eq!(msgs[2].tool_call_id.as_deref(), Some("c"));
+    }
+
+    #[test]
+    fn a_tight_budget_also_compacts_the_recent_turns_but_the_last_two() {
+        let mut msgs = vec![ChatMessage::user("task"), tool_result(10_000), tool_result(10_000), tool_result(10_000)];
+        compact_history(&mut msgs, 11_000, 6);
+        assert!(msgs[1].content.len() < 1_000);
+        assert_eq!(msgs[3].content.len(), 10_000);
+    }
+}

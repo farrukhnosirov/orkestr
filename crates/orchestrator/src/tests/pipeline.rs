@@ -350,6 +350,100 @@ async fn attempt_limit_escalates_and_an_approval_grants_more_attempts() {
     assert!(!reset.customized && reset.healing.max_attempts == 3);
 }
 
+async fn only_stages(h: &H, stages: Vec<PipelineStageKind>) {
+    h.mgr
+        .set_pipeline_config(SetPipelineConfigParams {
+            project_id: h.project,
+            enabled: None,
+            stages: Some(stages),
+            overrides: None,
+            healing: None,
+            merge: None,
+            reset: None,
+        })
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
+async fn a_review_that_requests_changes_is_healed_by_a_fix_agent() {
+    let h = harness(true, ApprovalMode::SemiAuto).await;
+    if !h.git {
+        eprintln!("git is not installed — the pipeline scenario needs worktrees");
+        return;
+    }
+    h.mock("mock-smart");
+    wire(&h);
+    only_stages(&h, vec![PipelineStageKind::Review, PipelineStageKind::Test]).await;
+    let run = one_task_run(&h, "Implement the greeter module [mock:review-once]").await;
+    let done = h.mgr.wait_run(run.id, Duration::from_secs(120), |r| final_status(r.status)).await.unwrap();
+    let task_id = done.tasks[0].task_id;
+    let p = latest(&h, task_id).await;
+    assert_eq!(done.status, ManagerRunStatus::Completed, "{:?} {p:#?}", done.status_reason);
+    assert_eq!(p.status, PipelineStatus::Passed, "{p:#?}");
+    assert_eq!(p.healing.len(), 1, "{p:#?}");
+    assert_eq!(p.healing[0].analysis.stage, PipelineStageKind::Review);
+    assert_eq!(p.healing[0].outcome, HealingOutcome::Fixed);
+    assert!(p.healing[0].agent_id.is_some(), "the fix agent was admitted and started");
+    assert_eq!(stage(&p, PipelineStageKind::Review).runs, 2, "{p:#?}");
+    assert_eq!(p.review_verdict, Some(orkestr_protocol::methods::reviews::ReviewVerdict::Approve));
+    assert_eq!(h.tasks.get(task_id).await.unwrap().status, TaskStatus::Completed);
+}
+
+#[tokio::test]
+async fn work_awaiting_acceptance_waits_in_review_so_recovery_keeps_it() {
+    let h = harness(true, ApprovalMode::Ask).await;
+    h.mock("mock-smart");
+    wire(&h);
+    only_stages(&h, vec![PipelineStageKind::Test]).await;
+    let run = one_task_run(&h, "Implement the greeter module").await;
+    // Ask policy: approve the agent's writes until the pipeline waits for the user.
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(120);
+    let p = loop {
+        let r = h.mgr.get_run(run.id).await.unwrap();
+        assert!(!final_status(r.status), "{:?}", r.status_reason);
+        if let Some(p) = h.mgr.pipeline(r.tasks[0].task_id).await.unwrap().pipeline {
+            if p.status == PipelineStatus::AwaitingUser {
+                break p;
+            }
+        }
+        let pending = h
+            .sec
+            .approvals
+            .list(&orkestr_security::ApprovalFilter {
+                status: Some(ApprovalStatus::Pending),
+                project_id: Some(h.project),
+                limit: None,
+            })
+            .await
+            .unwrap();
+        for a in pending {
+            let _ =
+                h.sec.approvals.resolve(a.id, orkestr_security::ApprovalDecision::Approve, None, h.sec.user()).await;
+        }
+        assert!(tokio::time::Instant::now() < deadline, "the pipeline never waited for the user");
+        tokio::time::sleep(Duration::from_millis(30)).await;
+    };
+    let mut task = h.tasks.get(p.task_id).await.unwrap();
+    // The status move happens right after the pipeline status is saved.
+    for _ in 0..100 {
+        if task.status == TaskStatus::Review {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        task = h.tasks.get(p.task_id).await.unwrap();
+    }
+    assert_eq!(task.status, TaskStatus::Review, "{p:#?}");
+    assert!(!task.status.is_interruptible_on_crash(), "a pending acceptance survives a restart");
+    // The user accepts it.
+    h.tasks
+        .transition(task.id, TaskStatus::Completed, orkestr_domain::TaskActor::User, Some("looks good".into()), None)
+        .await
+        .unwrap();
+    let done = h.mgr.wait_run(run.id, Duration::from_secs(60), |r| final_status(r.status)).await.unwrap();
+    assert_eq!(done.status, ManagerRunStatus::Completed, "{:?}", done.status_reason);
+}
+
 #[tokio::test]
 async fn a_disabled_pipeline_keeps_the_phase1_acceptance() {
     let h = harness(true, ApprovalMode::SemiAuto).await;

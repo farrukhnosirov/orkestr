@@ -6,7 +6,7 @@
  * data, shared with other clients); only their display is localized.
  * Unknown text (user-entered names, labels, free text) is returned as is.
  */
-import { t } from "../i18n";
+import { formatCurrency, t } from "../i18n";
 
 /** English built-in template name → key under `coreText:templates`. */
 const BUILTIN = {
@@ -39,8 +39,32 @@ export function templateDescription(name: string, description: string): string {
   return description.trim() === t(`coreText:templates.${key}.description`, { lng: "en" }) ? t(`coreText:templates.${key}.description`) : description;
 }
 
-/** Agent instance name: "QA Engineer #1" → «Тестировщик #1». */
+/** English names of the seeded built-in teams → key under `teams:builtin`. */
+const BUILTIN_TEAMS = {
+  "ERP Team": "erp",
+  "Web Team": "web",
+  "Mobile Team": "mobile",
+  "Security Team": "security",
+  "Rapid Prototype Team": "rapid",
+} as const;
+
+/**
+ * A team name the core wrote into text (notices, task reasons, lead agent
+ * names, scheduler rows, events): the seeded built-in names are translated,
+ * user names stay as typed.
+ */
+export function builtinTeamName(name: string): string {
+  const key = BUILTIN_TEAMS[name as keyof typeof BUILTIN_TEAMS];
+  return key ? t(`teams:builtin.${key}.name`) : name;
+}
+
+/**
+ * Agent instance name: "QA Engineer #1" → «Тестировщик #1»; a team lead
+ * "Web Team — Software Architect" → «Веб-команда — Архитектор ПО».
+ */
 export function agentName(name: string): string {
+  const lead = name.match(/^(.+?) — (.+)$/);
+  if (lead) return `${builtinTeamName(lead[1] ?? "")} — ${agentName(lead[2] ?? "")}`;
   const m = name.match(/^(.+?)( #\d+)$/);
   if (m && builtinKey(m[1] ?? "")) return `${templateName(m[1] ?? "")}${m[2] ?? ""}`;
   return templateName(name);
@@ -63,6 +87,12 @@ const ACTIVITY = {
   "stopped by the user (task cancelled)": "stoppedTaskCancelled",
   "emergency stop": "emergencyStop",
   "the core is shutting down": "coreShutdown",
+  // Team leads (crates/orchestrator/src/team_lead.rs)
+  "Decomposing the task": "decomposing",
+  "Coordinating executors": "coordinating",
+  "Waiting for the reviewer": "waitingReviewer",
+  "Delegated task done": "delegatedDone",
+  Cancelled: "cancelled",
 } as const;
 
 /** Display names of the CLI provider kinds in "Running {kind:?} CLI" (crates/agent-runtime/src/cli.rs). */
@@ -94,6 +124,51 @@ const STOP_DETAIL = {
 export function agentStopDetail(detail: string): string {
   const key = STOP_DETAIL[detail as keyof typeof STOP_DETAIL];
   return key ? t(`coreText:stopDetail.${key}`) : detail;
+}
+
+const LEAD_REASON = {
+  "emergency stop": "emergencyStop",
+  "the Manager run was cancelled": "runCancelled",
+  "Orkestr is shutting down": "shutdown",
+  "Orkestr stopped while the team lead was working — resume the run to retry": "interrupted",
+} as const;
+
+/** Why a team lead run stopped (crates/orchestrator team_lead.rs / teams.rs); other texts stay as is. */
+export function leadReason(reason: string): string {
+  const key = LEAD_REASON[reason as keyof typeof LEAD_REASON];
+  if (key) return t(`coreText:leadReason.${key}`);
+  let m: RegExpMatchArray | null;
+  if ((m = reason.match(/^budget exhausted: \$([\d.]+) spent of \$([\d.]+)$/))) {
+    return t("coreText:leadReason.budget", { spent: formatCurrency(Number(m[1])), limit: formatCurrency(Number(m[2])) });
+  }
+  if ((m = reason.match(/^the team's time limit of (\d+) min was reached$/))) return t("coreText:leadReason.timeLimit", { mins: Number(m[1]) });
+  if ((m = reason.match(/^the lead could not decompose the task: ([\s\S]+)$/))) return t("coreText:leadReason.decompose", { detail: m[1] });
+  return reason;
+}
+
+const MERGE_DETAIL = {
+  "Orkestr stopped while the merge was running": "stopped",
+  "the quality checks failed on the integration branch": "checksFailed",
+  aborted: "aborted",
+} as const;
+const APPROVAL_DETAIL_RE = /^(Rejected|Expired|Cancelled|Approved|Pending)(?:: ([\s\S]+))?$/;
+
+/**
+ * Detail of a merge proposal's status (crates/orchestrator merge/mod.rs):
+ * the approval outcome ("Rejected: <note>") and the fixed failure sentences
+ * are translated; git / error texts stay as is.
+ */
+export function mergeDetail(detail: string): string {
+  const key = MERGE_DETAIL[detail as keyof typeof MERGE_DETAIL];
+  if (key) return t(`coreText:mergeDetail.${key}`);
+  let m: RegExpMatchArray | null;
+  if ((m = detail.match(APPROVAL_DETAIL_RE))) {
+    const status = t(`common:status.approval.${m[1] as (typeof APPROVAL_STATUSES)[number]}`);
+    return m[2] ? t("coreText:mergeDetail.approvalNote", { status, note: m[2] }) : t("coreText:mergeDetail.approval", { status });
+  }
+  if ((m = detail.match(/^approval failed: ([\s\S]+)$/))) return t("coreText:mergeDetail.approvalFailed", { detail: m[1] });
+  if ((m = detail.match(/^the quality checks could not run: ([\s\S]+)$/))) return t("coreText:mergeDetail.checksError", { detail: m[1] });
+  return detail;
 }
 
 /** Why a provider fell back (`ProviderError::class()` code: rate_limited, network, ...). */
@@ -280,6 +355,9 @@ const TASK_REASON = {
   "quality pipeline passed (review, build, tests, security)": "pipelinePassed",
   "quality pipeline: code review": "pipelineReview",
   "quality pipeline: build and tests": "pipelineBuildTests",
+  "code review requested changes — self-healing fixes them": "reviewChangesHealing",
+  "waiting for the user's acceptance": "awaitingAcceptance",
+  "self-healing waits for the user's decision": "healingAwaitsDecision",
   "accepted by the team lead": "teamLeadAccepted",
   "the executor reported a partial result": "executorPartial",
   "all child tasks completed": "childrenCompleted",
@@ -315,7 +393,8 @@ export function taskReason(reason: string | null | undefined): string | null {
     return t("coreText:taskReason.healingEscalationFailed", { detail: m[1], error: m[2] });
   }
   if ((m = r.match(/^could not start an agent: ([\s\S]+)$/))) return t("coreText:taskReason.agentStartFailed", { detail: m[1] });
-  if ((m = r.match(/^delegated to the lead of ([\s\S]+)$/))) return t("coreText:taskReason.delegated", { team: m[1] });
+  if ((m = r.match(/^delegated to the lead of ([\s\S]+)$/))) return t("coreText:taskReason.delegated", { team: builtinTeamName(m[1] ?? "") });
+  if ((m = r.match(/^quality pipeline ended: ([\s\S]+)$/))) return t("coreText:taskReason.pipelineEnded", { detail: m[1] });
   if ((m = r.match(/^([a-z][a-z0-9_]*): ([\s\S]+)$/)) && LIMIT_CODES.has(m[1] ?? "")) {
     return t(`coreText:taskReason.limit.${m[1] as "budget_exceeded"}`, { detail: m[2] });
   }

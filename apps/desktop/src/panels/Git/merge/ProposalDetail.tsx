@@ -11,6 +11,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { getClient } from "../../../core/client";
 import { useFormat, useT } from "../../../i18n";
+import { mergeDetail } from "../../../lib/coreText";
 import { ConfirmDialog, Notice } from "../components";
 import { shortId } from "../model";
 import { errorMessage } from "../state";
@@ -96,7 +97,7 @@ export function ProposalDetail({ proposal: p, onUpdated }: Props) {
   };
 
   const statusNotice = (() => {
-    const detail = p.statusDetail ? ` ${t("notice.detail", { detail: p.statusDetail })}` : "";
+    const detail = p.statusDetail ? ` ${t("notice.detail", { detail: mergeDetail(p.statusDetail) })}` : "";
     switch (p.status) {
       case "AwaitingApproval":
         return (

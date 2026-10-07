@@ -9,6 +9,36 @@ use orkestr_domain::{ModelRef, ProviderId, ProviderKind};
 use orkestr_providers::{ChatRequest, ChatStream, HandoffHook, ProviderAdapter, ProviderRegistry, RouteRequest};
 use tokio_util::sync::CancellationToken;
 
+/// Cost of one call on `model`, split by its provider's cost model: a
+/// subscription / local instance spends $0 (its reported or list-price cost
+/// is only an API-equivalent value, provider-adapter-spec §8).
+#[must_use]
+pub fn call_cost(
+    models: &dyn ModelGateway,
+    model: &ModelRef,
+    usage: &orkestr_providers::Usage,
+) -> orkestr_providers::CallCost {
+    let kind = models.adapter(model.provider_id).map(|a| a.descriptor().cost_model);
+    orkestr_providers::call_cost(kind.as_ref(), &model.model, usage)
+}
+
+/// List prices of `model` for pre-flight spend estimates: `None` when the
+/// model has no known price or its instance is not metered in $
+/// (subscription / local — the call spends nothing).
+#[must_use]
+pub fn metered_pricing(models: &dyn ModelGateway, model: &ModelRef) -> Option<orkestr_domain::ModelPricing> {
+    let unmetered = models.adapter(model.provider_id).is_some_and(|a| {
+        matches!(
+            a.descriptor().cost_model,
+            orkestr_providers::CostModelKind::Subscription | orkestr_providers::CostModelKind::Local
+        )
+    });
+    if unmetered {
+        return None;
+    }
+    orkestr_providers::pricing_for(&model.model)
+}
+
 /// What the runtime needs to know about a provider instance.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ProviderInfo {
