@@ -145,7 +145,9 @@ class Cdp {
     const code = key.length === 1 ? `Key${key.toUpperCase()}` : key;
     const vk = key.length === 1 ? key.toUpperCase().charCodeAt(0) : { Enter: 13, Escape: 27 }[key];
     for (const type of ["rawKeyDown", "keyUp"]) {
-      await this.send("Input.dispatchKeyEvent", { type, modifiers: ctrl ? 2 : 0, key, code, windowsVirtualKeyCode: vk });
+      // Enter carries its text so forms see a real submit keystroke (implicit submission).
+      const extra = key === "Enter" && type === "rawKeyDown" ? { type: "keyDown", text: "\r", unmodifiedText: "\r" } : {};
+      await this.send("Input.dispatchKeyEvent", { type, modifiers: ctrl ? 2 : 0, key, code, windowsVirtualKeyCode: vk, ...extra });
     }
   }
   close() {

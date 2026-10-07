@@ -1,0 +1,59 @@
+[
+  {
+    "name": "01-hud-ready",
+    "note": "Voice HUD (typed mode: speech recognition off by default) with the title-bar mic button",
+    "errors": [
+      "warning: IPC custom protocol failed, Tauri will now use the postMessage interface instead TypeError: Failed to fetch",
+      "warning: IPC custom protocol failed, Tauri will now use the postMessage interface instead TypeError: Failed to fetch",
+      "warning: IPC custom protocol failed, Tauri will now use the postMessage interface instead TypeError: Failed to fetch",
+      "warning: [TAURI] Couldn't find callback id 3993434722. This might happen when the app is reloaded while Rust is running an asynchronous operation.",
+      "warning: [TAURI] Couldn't find callback id 3804383762. This might happen when the app is reloaded while Rust is running an asynchronous operation.",
+      "warning: [TAURI] Couldn't find callback id 1396600086. This might happen when the app is reloaded while Rust is running an asynchronous operation."
+    ]
+  },
+  {
+    "name": "02-hud-status",
+    "note": "G: status question → state lookup → concise summary",
+    "errors": []
+  },
+  {
+    "name": "03-hud-confirm",
+    "note": "Destructive intent: confirmation before emergency.stopProject",
+    "errors": []
+  },
+  {
+    "name": "04-settings-voice",
+    "note": "Settings → Voice: commands, microphone, speech recognition engines",
+    "errors": []
+  },
+  {
+    "name": "05-settings-consent",
+    "note": "Explicit consent before audio may leave the device",
+    "errors": []
+  },
+  {
+    "name": "06-settings-wake",
+    "note": "Wake word: local enrollment, level meter, sensitivity, CPU budget",
+    "errors": []
+  },
+  {
+    "name": "07-settings-agent-voices",
+    "note": "Voice per agent",
+    "errors": []
+  },
+  {
+    "name": "08-settings-sound",
+    "note": "Sounds and spoken notifications",
+    "errors": []
+  },
+  {
+    "name": "09-hud-ru",
+    "note": "HUD in Russian",
+    "errors": []
+  },
+  {
+    "name": "10-settings-voice-ru",
+    "note": "Settings → Voice in Russian",
+    "errors": []
+  }
+]

@@ -6,10 +6,13 @@
 // screen) and verifies the layouts were persisted per device in the core.
 //
 // Usage (repo root, Windows):
-//   npx vite --port 1437 --strictPort --host 127.0.0.1      (in apps/desktop)
-//   TAURI_CONFIG='{"build":{"devUrl":"http://127.0.0.1:1437"}}' cargo build -p orkestr-desktop
+//   npm run dev -w @orkestr/desktop          # Vite on 127.0.0.1:1420
+//   cargo build -p orkestr-desktop
+// The core only accepts WebSocket upgrades from the allow-listed origins
+// (`crates/core/src/server/mod.rs` ALLOWED_ORIGINS: the bundled app and the
+// :1420 dev server), so the dev server must be the standard one on :1420.
 //   node scripts/smoke/phase3-layout-screenshots.mjs [--out docs/screenshots/phase3-layout]
-// Env: ORKESTR_SMOKE_EXE, ORKESTR_SMOKE_DEV_PORT (default 1437), ORKESTR_SMOKE_CDP_PORT (default 9347).
+// Env: ORKESTR_SMOKE_EXE, ORKESTR_SMOKE_DEV_PORT (default 1420), ORKESTR_SMOKE_CDP_PORT (default 9347).
 
 import { execFileSync, spawn } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
@@ -22,7 +25,7 @@ const repo = resolve(here, "..", "..");
 const outArg = process.argv.indexOf("--out");
 const outDir = resolve(repo, outArg > 0 ? process.argv[outArg + 1] : join("docs", "screenshots", "phase3-layout"));
 const exe = process.env.ORKESTR_SMOKE_EXE ?? join(repo, "target", "debug", "orkestr-desktop.exe");
-const devPort = Number(process.env.ORKESTR_SMOKE_DEV_PORT ?? 1437);
+const devPort = Number(process.env.ORKESTR_SMOKE_DEV_PORT ?? 1420);
 const cdpPort = Number(process.env.ORKESTR_SMOKE_CDP_PORT ?? 9347);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 mkdirSync(outDir, { recursive: true });
@@ -140,7 +143,9 @@ class Cdp {
     const code = key.length === 1 ? (isDigit ? `Digit${key}` : `Key${key.toUpperCase()}`) : key;
     const vk = key.length === 1 ? key.toUpperCase().charCodeAt(0) : { Enter: 13, Escape: 27 }[key];
     for (const type of ["rawKeyDown", "keyUp"]) {
-      await this.send("Input.dispatchKeyEvent", { type, modifiers: ctrl ? 2 : 0, key, code, windowsVirtualKeyCode: vk });
+      // Enter carries its text so forms see a real submit keystroke (implicit submission).
+      const extra = key === "Enter" && type === "rawKeyDown" ? { type: "keyDown", text: "\r", unmodifiedText: "\r" } : {};
+      await this.send("Input.dispatchKeyEvent", { type, modifiers: ctrl ? 2 : 0, key, code, windowsVirtualKeyCode: vk, ...extra });
     }
   }
   async type(text) {

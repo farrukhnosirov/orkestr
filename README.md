@@ -6,28 +6,83 @@ specialised agents, models, tools and compute nodes. The product spec is in
 [`docs/spec/MASTER_SPEC.md`](docs/spec/MASTER_SPEC.md). The rules every
 contributor follows are in [`docs/ENGINEERING_CONTRACT.md`](docs/ENGINEERING_CONTRACT.md).
 
-> Status: **Phase 3 — Visual OS** (Windows only). Phases 1–3 have passed
-> acceptance: Phase 1, the desktop core MVP, on 2026-10-02; Phase 2,
-> Multi-Agent Quality, on 2026-10-06 with mock providers; Phase 3, Visual OS,
-> on 2026-10-05.
-> - **Phase 1:** you can open a project, ask the AI Manager to build something,
->   approve its plan and watch agents work in parallel in their own git
->   worktrees. Dangerous actions need approval, and you also get snapshots,
->   task rollback, an emergency stop and crash recovery.
-> - **Phase 2:** adds teams and hierarchy, the Author → Review → Build → Test
->   pipeline with Self-Healing, the AI Merge Manager, consensus and adversarial
->   review, the Architecture map, the Decision Log, Replay and benchmarks.
-> - **Phase 3:** adds Mission Control, themes, the layout editor, floating
->   robots, the HUD, voice and detachable panels.
->
-> Still not built: the MCP Hub, the Environment Manager, the Monaco LSP bridge,
-> hand-off to `orkestrd`, the Browser agent, and macOS / Linux packages. The
-> delivered level of every feature is in
+> Status: **Phases 0–3 complete on Windows, audited (2026-10-07).** Phases 1–3
+> passed acceptance against the real desktop app with the offline Mock
+> provider: Phase 1 45/45 checks, Phase 2 47/47 and Phase 3 64/64. Two audit
+> rounds then confirmed and fixed 157 findings; see
+> [`docs/audit/phase0-3-audit.md`](docs/audit/phase0-3-audit.md). Of the 82
+> features tracked in
 > [`docs/roadmap/feature-traceability.md`](docs/roadmap/feature-traceability.md),
-> and open items per phase are in
+> 41 are fully delivered, 22 are partial and 16 are architecture-only.
+> Open items per phase are in
 > [`docs/roadmap/mvp-milestones.md`](docs/roadmap/mvp-milestones.md).
-> Screenshots: [`phase1`](docs/screenshots/phase1/),
-> [`phase2`](docs/screenshots/phase2/), [`phase3`](docs/screenshots/phase3/).
+
+## Features
+
+**Phase 1: desktop core**
+- Frameless desktop shell with a dockable workspace, command palette, tray mode, onboarding and the full UI in **English and Russian**, switchable live.
+- Projects with per-project approval modes: Ask, SemiAuto or FullAuto.
+- An **AI Manager** that plans the work as tasks with dependencies, waits for your approval and supervises the run.
+- Agents work in parallel, each in its **own git worktree**, from 11 official templates or custom ones.
+- Provider hub:
+  - OpenAI and OpenAI-compatible, Anthropic, Gemini, DeepSeek and Ollama;
+  - the official Claude Code and Codex CLIs, with your own login;
+  - an offline Mock provider;
+  - routing and fallback with a structured handoff.
+- Code (Monaco), Files, Terminal (PTY), Git, Tasks (list, board and graph), Memory, Costs and Logs panels.
+- Security:
+  - a permission engine with path confinement;
+  - a **dangerous-action guard** whose commands always wait for your approval;
+  - a secret vault and an audit log;
+  - an **emergency stop**: Stop All, Stop Project, disable network tools, lock the vault.
+- Snapshots and task rollback that keep unrelated edits, plus crash recovery with a resume summary.
+
+**Phase 2: multi-agent quality**
+- Teams and team leads.
+- A resource-aware scheduler.
+- The Author → Review → Build → Test → Security **quality pipeline** with **Self-Healing**.
+- Adversarial review and consensus mode.
+- The **AI Merge Manager**, with merges behind approval.
+- An AI Product Manager (idea → stories → tasks).
+- The Architecture map, the Decision Log and Execution **Replay**.
+- Model and agent benchmarks.
+- A Knowledge Base for Markdown and text.
+- Global search and project privacy policies.
+
+**Phase 3: Visual OS**
+- **Mission Control**.
+- Six themes and a Theme Editor with a WCAG report.
+- Layout presets (Ctrl+1…5), a Layout Editor and panels you can detach into their own windows.
+- **Floating robots**, one transparent click-through window per agent, and a Robot Designer.
+- A **HUD**.
+- Voice:
+  - push-to-talk and typed voice commands;
+  - a local wake word, opt-in;
+  - spoken notifications and a voice per agent.
+- A sound engine.
+- Four performance modes, from Ultra Visual to Battery Saver.
+- **AI-editable UI**: the Manager proposes a theme or layout patch, and you preview it, keep it or undo it.
+
+**Not built yet:**
+- the MCP Hub, the Environment Manager, the Monaco LSP bridge and the hand-off to `orkestrd` (M2.7);
+- the Browser agent (Phase 4);
+- local Whisper speech-to-text;
+- memory and permission-rule versions;
+- macOS and Linux packages.
+
+Acceptance used the Mock provider, so real providers and a real microphone have not been exercised end to end.
+
+## Screenshots
+
+All screenshots are captures of the app window only, taken on the final build.
+
+| Set | What |
+|---|---|
+| [`phase1`](docs/screenshots/phase1/) | Manager plan card, agents, task graph, code, terminal, Git, providers, onboarding |
+| [`phase2`](docs/screenshots/phase2/) | Quality pipeline, reviews, AI PM, Merge Manager, architecture map, Replay, teams, benchmarks (English and Russian) |
+| [`phase3`](docs/screenshots/phase3/) | Acceptance run: robots, voice, every theme, layout preset and performance mode, HUD, AI-UI, detached panels |
+| [`phase3-mission-control`](docs/screenshots/phase3-mission-control/) · [`phase3-theme`](docs/screenshots/phase3-theme/) · [`phase3-layout`](docs/screenshots/phase3-layout/) · [`phase3-robots`](docs/screenshots/phase3-robots/) · [`phase3-hud`](docs/screenshots/phase3-hud/) · [`phase3-voice`](docs/screenshots/phase3-voice/) | Per-area Visual OS reviews |
+| [`i18n-ru`](docs/screenshots/i18n-ru/) | Every panel, settings section, onboarding step and dialog in Russian at 960×600, then a live switch to English |
 
 ## Architecture in one picture
 
@@ -152,6 +207,31 @@ npm run build && cargo build -p orkestr-desktop --features custom-protocol
 node scripts/smoke/phase3-acceptance.mjs              # add --no-shots to skip screenshots
 ```
 
+### Screenshot scripts
+
+Each script launches the app with a throw-away `ORKESTR_HOME`, seeds it over
+RPC and captures only the webview through the WebView2 DevTools protocol. Pass
+`--out <dir>` to write somewhere other than `docs/screenshots/<set>`.
+
+| Script | Needs |
+|---|---|
+| `phase3-{theme,voice,robots,hud}-screenshots.mjs` | `npm run build && cargo build -p orkestr-desktop --features custom-protocol` |
+| `phase3-mission-control-screenshots.mjs` | `npm run build` and `cargo build -p orkestr-core --bin orkestrd` (headless Edge) |
+| `phase1-screenshots.mjs`, `i18n-ru-screenshots.mjs`, `phase3-layout-screenshots.mjs` | `npm run dev -w @orkestr/desktop` (Vite on `127.0.0.1:1420`) and `cargo build -p orkestr-desktop` |
+
+The core accepts WebSocket connections only from the bundled app and the
+`:1420` dev server, so the dev server must run on port 1420.
+
+### Full verification
+
+```bash
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace
+npm run gen:protocol && git diff --exit-code   # generated TS types up to date
+npm run typecheck && npm test && npm run build
+```
+
 ## Layout
 
 | Path | What |
@@ -170,9 +250,14 @@ node scripts/smoke/phase3-acceptance.mjs              # add --no-shots to skip s
 | `crates/files` | Confined file service, search/find, trash, debounced watcher. |
 | `crates/{memory,context,cost}` | Memory/decisions/knowledge (FTS5), context optimizer, usage + budgets. |
 | `crates/node` | Node inventory and live resource sampling. |
-| `crates/{agent-runtime,orchestrator,sync}` | Engine crates whose implementations arrive in later waves/phases. |
+| `crates/agent-runtime` | Agent tool loop, templates, CLI agents, checkpoints, budgets. |
+| `crates/orchestrator` | AI Manager, planner, run supervisor, quality pipeline, Self-Healing, reviews, consensus, Merge Manager, teams, AI PM. |
+| `crates/quality` | Quality runner: build/test/lint detection, execution and output parsers. |
+| `crates/insight` | Architecture map and Execution Replay. |
+| `crates/sync` | `SyncBackend` seam; Local-only until Phase 4. |
 | `packages/protocol` | `@orkestr/protocol`: generated TS types and helpers. |
 | `packages/client` | `@orkestr/client`: typed WebSocket client with reconnect and replay. |
 | `packages/ui` | `@orkestr/ui`: `--ok-*` tokens, theme engine, primitives. |
-| `apps/desktop` | Tauri 2 shell and React UI: title bar, project rail, docking workspace. |
-| `docs/` | Spec, contract, ADRs, spike reports. |
+| `apps/desktop` | Tauri 2 shell (windows, tray, robots, HUD) and the React UI (panels, features, i18n en/ru). |
+| `scripts/smoke` | End-to-end smoke, acceptance and screenshot scripts. |
+| `docs/` | Spec, contract, ADRs, architecture, roadmap, audit report, screenshots. |

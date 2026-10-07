@@ -2,6 +2,26 @@
 
 Every §68 item, the 50 numbered ones plus the additional list, is mapped to its target phase, owning crate(s), UI panel(s) and delivery level in Phases 1–3. A level marked here as **Full** or **Partial** is a commitment checked at the milestone exit (see `mvp-milestones.md`).
 
+**Final state after the Phase 0–3 audit (2026-10-07).** The P1, P2 and P3
+columns below are the delivered levels, checked against the code in two audit
+rounds (157 confirmed findings, all fixed; see
+[`../audit/phase0-3-audit.md`](../audit/phase0-3-audit.md)). At the end of
+Phase 3, of the 82 items in sections A and B, **41 are Full, 22 Partial and
+16 architecture-only, and 3 not addressed** (Section D). The largest
+gaps against the plan:
+- M2.7 was not built at all: MCP Hub (#41) and Environment Manager (#43) are
+  Arch, and the Monaco LSP bridge (#20) and the `orkestrd` hand-off (#26,
+  Headless AI Node) are missing.
+- The Visual Browser Agent (#17) is deferred to Phase 4.
+- Rollback Everything (#34) has no memory or permission-rule versions.
+- Voice (#28, #29) has no local Whisper, and a real microphone was never
+  exercised.
+- Only Windows is supported; there are no macOS or Linux packages.
+- Several performance exit criteria were never measured.
+
+All acceptance and smoke scripts pass on the final build: Phase 1 45/45,
+Phase 2 47/47 and Phase 3 64/64.
+
 **Delivery levels**
 - **Full**: the user-visible capability is complete for the scope the spec describes in that phase.
 - **Partial**: real, working subset; the remaining scope is named in Notes.
@@ -153,7 +173,7 @@ Section D counts are computed from these delivered columns.
 | Layout Editor | §29 | 3 | ui, apps/desktop (dockview) | LayoutEditor | Partial | Partial | Full | P1: drag, resize, hide and presets (Coding, Focus). P3: editor plus Mission Control and Monitoring presets |
 | Docking | §28 | 1 | apps/desktop (dockview) | all panels | Full | Full | Partial | **Planned P3 Full; delivered Partial:** restoring detached panels on a second monitor after a restart was not verified. In-window docking in P1. Detach to OS windows in P3 (ADR-0013) |
 | HUD / Ambient | §34 | 3 | apps/desktop, ui | HUD | — | — | Full | Mini Manager, status, voice indicator, approvals |
-| Multi-monitor | §34 | 3 | apps/desktop, platform | Detached panels | — | — | Full | Per-device layouts, monitor-aware restore |
+| Multi-monitor | §34 | 3 | apps/desktop, platform | Detached panels | — | — | Partial | **Planned P3 Full; delivered Partial** (final audit, 2026-10-07): per-device layouts and popouts are persisted with monitor ids (verified by `phase3-layout-screenshots.mjs`), but restore on a second monitor after a restart was never verified (single-monitor host), the same gap as the Docking row |
 | AI-editable UI | §29 | 3 | protocol (ui_config), core (ui.*), orchestrator | ThemeEditor, Manager | Arch | Arch | Partial | **Planned P3 Full; delivered Partial:** contrast-lowering patches are not rejected, no `--safe-ui` recovery, device overrides not patchable. P1: schema, `ui.applyPatch` with validation and versions (user-driven). P3: Manager-proposed patches with preview (ADR-0015) |
 | Sound Engine | §33 | 3 | ui, core::voice | Settings | — | — | Full | Wake, start, completion, error, approval, deploy and alert sounds |
 | Voice per agent | §33 | 3 | domain (VoiceProfile), core::voice | Agents, RobotDesigner | Arch | Arch | Full | Field exists from P1 (RR-C1) |
@@ -224,11 +244,12 @@ not built or not verified. Details are in `mvp-milestones.md` → Phase 2 Status
 
 | Level | P1 | P2 | P3 |
 |---|---|---|---|
-| Full | 8 | 32 | 42 |
-| Partial | 31 | 20 | 21 |
+| Full | 8 | 32 | 41 |
+| Partial | 31 | 20 | 22 |
 | Arch | 27 | 18 | 16 |
 | — | 16 | 12 | 3 |
 
 Counts cover sections A and B (82 items) and use the delivered levels
-(reconciled 2026-10-07). Before that reconciliation, the counts were taken from
+(reconciled 2026-10-07; Multi-monitor moved from Full to Partial in the final
+audit pass). Before that reconciliation, the counts were taken from
 the planned levels (P1/P2/P3 Full 10/36/57) and overstated what had shipped.

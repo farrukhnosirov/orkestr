@@ -270,7 +270,10 @@ try {
   // Attach to the webview.
   const target = await waitFor(async () => {
     const list = await (await fetch(`http://127.0.0.1:${cdpPort}/json/list`)).json();
-    return list.find((t) => t.type === "page" && t.url.includes("127.0.0.1:1420"));
+    // The main window only: Phase 3 opens floating robot / HUD / detached-panel windows too.
+    return list.find(
+      (t) => t.type === "page" && t.url.includes("127.0.0.1:1420") && !t.url.includes("robot.html") && !t.url.includes("#/") && !/hud/i.test(t.url),
+    );
   }, 60_000, "webview DevTools target (is Vite running on :1420?)");
   const cdp = new Cdp(target.webSocketDebuggerUrl);
   await cdp.open();

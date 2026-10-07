@@ -1,0 +1,47 @@
+[
+  {
+    "name": "01-qa-robot-completed.png",
+    "note": "Scenario H: QA robot completed — celebration + result bubble",
+    "consoleErrors": []
+  },
+  {
+    "name": "02-backend-robot-waiting.png",
+    "note": "Backend robot waiting for an approval (hourglass + bubble)",
+    "consoleErrors": []
+  },
+  {
+    "name": "03-robot-context-menu.png",
+    "note": "Robot context menu (Open, Assign…, Voice, Hide, Stop agent)",
+    "consoleErrors": []
+  },
+  {
+    "name": "04-main-agent-opened.png",
+    "note": "Click on the QA robot opened its result in the Agents panel",
+    "consoleErrors": []
+  },
+  {
+    "name": "05-settings-robot-designer.png",
+    "note": "Settings → Robots with the Robot Designer (live preview)",
+    "consoleErrors": []
+  },
+  {
+    "name": "06-designer-qa-template.png",
+    "note": "Robot Designer on the QA template's own design (Ultra Visual)",
+    "consoleErrors": []
+  },
+  {
+    "name": "07-designer-ru.png",
+    "note": "Дизайнер роботов (русский интерфейс, режим «Баланс»)",
+    "consoleErrors": []
+  },
+  {
+    "name": "08-qa-robot-ru.png",
+    "note": "QA-робот на русском",
+    "consoleErrors": []
+  },
+  {
+    "name": "09-cluster.png",
+    "note": "Overflow cluster (+N robots)",
+    "consoleErrors": []
+  }
+]

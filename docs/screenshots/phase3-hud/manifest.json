@@ -2,7 +2,10 @@
   {
     "name": "01-main-balanced",
     "note": "Main window, Balanced mode: chrome, status bar performance chip, HUD button",
-    "errors": []
+    "errors": [
+      "warning: IPC custom protocol failed, Tauri will now use the postMessage interface instead TypeError: Failed to fetch",
+      "warning: [TAURI] Couldn't find callback id 498119779. This might happen when the app is reloaded while Rust is running an asynchronous operation."
+    ]
   },
   {
     "name": "02-settings-interface",

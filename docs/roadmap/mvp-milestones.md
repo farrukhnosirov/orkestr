@@ -15,6 +15,29 @@
 - Docs are updated: the ADR if a decision changed, the traceability row, and the API method list.
 - No secrets in logs. This is checked by the redaction test fixture.
 
+## Final state of Phases 0–3 (2026-10-07, after the audit)
+
+Phases 0–3 are closed on Windows. Two audit rounds confirmed 157 findings and
+all of them were fixed (3 critical, 30 high, 79 medium, 45 low;
+[`../audit/phase0-3-audit.md`](../audit/phase0-3-audit.md)). Final
+verification on `main`:
+- `cargo fmt --check` and clippy `--workspace --all-targets -D warnings` are clean.
+- `cargo test --workspace`: 1907 passed, 2 ignored.
+- `npm run gen:protocol` (no diff), `npm run typecheck`, `npm test` (947 tests) and `npm run build` pass.
+- Smoke and acceptance scripts: Phase 1 smoke 38/38, Phase 1 acceptance 45/45, Phase 2 acceptance 47/47, Phase 3 acceptance 64/64.
+- All eight screenshot scripts pass, and the screenshots in `docs/screenshots/` were captured on this build.
+
+| Phase | State | Fully delivered | Partial / not measured | Not built (architecture-only or deferred) |
+|---|---|---|---|---|
+| 0 Architecture & spikes | **Partly met** | All §65 deliverables, the ADRs, the traceability map and the foundation skeleton (the M0.3 gaps were closed in Phase 1: Mock provider, `tasks.*` RPC with `invalid_transition`) | CA-1…CA-14 not formally accepted or rejected | Most spike reports (SP-02…SP-11, SP-15…SP-18) were never written; the M0.4 gate was formally not met, and the later phases answered the functional questions in code and tests |
+| 1 Desktop core MVP | **Complete** (45/45) | Shell, projects, Manager, provider hub, manual and dynamic agents, files, Git and worktrees, tasks, memory, approvals, guard, snapshots, emergency stop, crash recovery, onboarding, palette, tray | Terminal (no take-control or scrollback snapshots), Monaco (no LSP), snapshot GC and benchmarks, budgets for CLI agents checked after the run | Signed installer, auto-update, CI matrix |
+| 2 Multi-agent quality | **Acceptance passed with Mock providers** (47/47) | Teams and hierarchy, scheduler, quality pipeline + Self-Healing, reviews, consensus, adversarial review, Merge Manager, AI PM, architecture map, Decision Log, Replay, benchmarks, global search, project privacy | Merge Manager (no revert proposals), Knowledge Base (no PDF or URL ingestion); the M2.1, M2.5 and M2.6 numeric evals were not run; real providers not exercised | **M2.7**: MCP Hub, Environment Manager, LSP bridge, `orkestrd` hand-off; Browser agent (deferred to Phase 4) |
+| 3 Visual OS | **Delivered for Windows** (64/64; G and H pass) | Themes + editor, layouts + editor, Robot Designer, HUD, voice notifications, voice per agent, performance modes, sound engine | Mission Control and task graph (performance not measured), robots (CPU/RAM budget, Wayland), voice (no local Whisper, no real microphone), wake word (SP-15 budgets), AI-UI (no contrast rejection or `--safe-ui`), docking / multi-monitor (restore on a second monitor not verified), autostart after a reboot | macOS and Linux packages |
+
+The delivered level of every §68 item is in `feature-traceability.md`. As
+of the final audit, 41 items are Full, 22 Partial, 16 architecture-only and
+3 not addressed.
+
 ```mermaid
 flowchart LR
   subgraph P0["Phase 0 — Architecture & Risk Spikes"]
@@ -96,6 +119,7 @@ flowchart LR
   - every `Fail` has a superseding ADR or a re-phasing decision recorded here;
   - **Phase 1 cannot start until** SP-01, SP-03, SP-10, SP-12, SP-13, SP-14 and SP-17 are `Pass` or `Pass with caveats`.
 - **Status (2026-10-02):** SP-01, SP-13 and SP-14 are `Foundation part done`, SP-12 `In progress`, all others `Not started` (`../spikes/README.md`). The gate is **not** met.
+- **Final (2026-10-07):** unchanged as a formal gate. The spike reports were not written, and Phase 1 started on the strength of the foundation evidence. The functional questions of SP-03, SP-04, SP-05…SP-11, SP-16, SP-17 and SP-18 were answered by the shipped implementation and its tests and acceptance scripts. Their **measured** criteria (throughput, latency, CPU/RAM budgets, cross-OS) remain open.
 
 ---
 
@@ -517,11 +541,13 @@ showed a phantom horizontal scrollbar.
 - **The AI-UI change list showed raw token ids** («color-bg»).
 - **A flaky Git merge-tab test** had too short a `findBy` timeout under load.
 
-**Open issue (not changed, needs a decision)**
-- On this Windows host, agent and quality commands that call `npm` fail inside PowerShell, because the default execution policy blocks `npm.ps1`.
-- As a result, the seed project for the acceptance run has no `npm test` script.
-- A process-scoped `-ExecutionPolicy RemoteSigned` for agent commands was prepared but **not applied**: it relaxes a security setting and needs an explicit owner decision.
-- Possible alternatives: resolve `npm.cmd`, or run Node tooling through `cmd`.
+**Resolved after acceptance: `npm.ps1` and the execution policy**
+- On this Windows host, agent and quality commands that called `npm` failed inside PowerShell, because the default execution policy blocks `npm.ps1`.
+- Fixed in `8cb59f6` **without relaxing the execution policy**:
+  - the quality runner launches through `cmd.exe`, so `npm` resolves to `npm.cmd`;
+  - agent PowerShell commands alias `npm`/`npx` to their `.cmd` shims.
+- No `-ExecutionPolicy` argument is passed, and a test checks that.
+- The Phase 2 acceptance really runs `npm run build` and `npm run test`.
 
 **Not re-run on the Phase 3 build:** scenarios A, B and J.
 

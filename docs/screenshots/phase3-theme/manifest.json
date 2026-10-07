@@ -3,7 +3,12 @@
     "name": "01-nebula-ultra.png",
     "note": "Nebula (default) in Ultra Visual: WebGL nebula background",
     "capture": "devtools",
-    "consoleErrors": []
+    "consoleErrors": [
+      "warning: IPC custom protocol failed, Tauri will now use the postMessage interface instead TypeError: Failed to fetch\n    at Object.sendIpcMessage (<anonymous>:83:7)\n    at Object.<anonymous> (<anonymous>:177:38)\n    at action (<anonymous>:336:38)\n    at <anonymous>:345:11\n    at new Promise (<anonymous>)\n    at Object.value (<anonymous>:325:14)\n    at L (http://tauri.localhost/assets/ThemeRuntime-D7_ExeaX.js:11:39294)\n    at Object.listPanels (http://tauri.localhost/assets/main-Di-qvX0L.js:23:43150)\n    at pX (http://tauri.localhost/assets/main-Di-qvX0L.js:23:49270)\n    at oX (http://tauri.localhost/assets/main-Di-qvX0L.js:23:47228)",
+      "warning: IPC custom protocol failed, Tauri will now use the postMessage interface instead TypeError: Failed to fetch",
+      "warning: [TAURI] Couldn't find callback id 28480268. This might happen when the app is reloaded while Rust is running an asynchronous operation.",
+      "warning: [TAURI] Couldn't find callback id 236601476. This might happen when the app is reloaded while Rust is running an asynchronous operation."
+    ]
   },
   {
     "name": "02-appearance-gallery.png",

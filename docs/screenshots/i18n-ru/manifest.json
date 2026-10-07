@@ -4,28 +4,35 @@
     "note": "Менеджер: сводка сеанса, завершённый запуск и карточка плана",
     "consoleErrors": [],
     "clipped": [
-      "Изменена задача «Протестировать модуль hello»",
-      "Запуск Менеджера (выполняется): выполнено задач — 3 из 4",
-      "Агент …078651: Думает → Завершил работу (Работа завершена)",
-      "Агент …078651 остановлен (работа завершена)",
-      "Задача …67e674: Тестируется → Выполнена",
-      "Запуск Менеджера (завершён): выполнено задач — 4 из 4",
-      "План Менеджера «Создай модуль hello с юнит-тестом»: выполнен (4 задачи)",
-      "План Менеджера «Создай модуль greeter с тестами»: предложен (4 задачи)",
-      "Обновлена запись памяти «Только ES-модули»",
-      "Решение: SQLite для метаданных",
-      "Создан снимок «Перед рефакторингом»",
-      "Открыта панель «Git»"
-    ],
-    "latin": [
-      "task transition",
+      "Поиск или команда…",
+      "merge proposal created",
+      "quality pipeline finished",
       "manager run finished",
-      "node inventory detected",
       "manager plan proposed",
       "memory item created",
       "decision recorded",
       "budget saved",
-      "snapshot created"
+      "snapshot created",
+      "file watcher started",
+      "file watcher stopping",
+      "Завершил работу",
+      "Протестировать модуль hello",
+      "Продакт-менеджер #1",
+      "Задокументировать модуль hello",
+      "Открыта панель «Git»",
+      "Ревью (принято): Состязательное ревью: найдено слабых мест — 1. — Mock (офлайн-д"
+    ],
+    "latin": [
+      "merge proposal created",
+      "quality pipeline finished",
+      "manager run finished",
+      "manager plan proposed",
+      "memory item created",
+      "decision recorded",
+      "budget saved",
+      "snapshot created",
+      "file watcher started",
+      "file watcher stopping"
     ],
     "hscroll": false
   },
@@ -34,14 +41,10 @@
     "note": "Менеджер (развёрнут)",
     "consoleErrors": [],
     "clipped": [
+      "Поиск или команда…",
       "Панель «Менеджер» развёрнута"
     ],
-    "latin": [
-      "memory item created",
-      "decision recorded",
-      "budget saved",
-      "snapshot created"
-    ],
+    "latin": [],
     "hscroll": false
   },
   {
@@ -49,6 +52,7 @@
     "note": "Агенты (развёрнуто)",
     "consoleErrors": [],
     "clipped": [
+      "Поиск или команда…",
       "Панель «Агенты» развёрнута"
     ],
     "latin": [],
@@ -59,6 +63,7 @@
     "note": "Шаблоны агентов",
     "consoleErrors": [],
     "clipped": [
+      "Поиск или команда…",
       "Панель «Агенты» развёрнута"
     ],
     "latin": [],
@@ -69,6 +74,7 @@
     "note": "Редактор шаблона",
     "consoleErrors": [],
     "clipped": [
+      "Поиск или команда…",
       "Панель «Агенты» развёрнута"
     ],
     "latin": [],
@@ -79,6 +85,7 @@
     "note": "Диалог запуска агента",
     "consoleErrors": [],
     "clipped": [
+      "Поиск или команда…",
       "Протестировать модуль hello: записаны файлы tests/hello.test.mjs. Mock (офлайн-д",
       "Панель «Агенты» развёрнута"
     ],
@@ -90,6 +97,7 @@
     "note": "Задачи: список",
     "consoleErrors": [],
     "clipped": [
+      "Поиск или команда…",
       "Панель «Задачи» развёрнута"
     ],
     "latin": [],
@@ -100,6 +108,7 @@
     "note": "Задачи: доска",
     "consoleErrors": [],
     "clipped": [
+      "Поиск или команда…",
       "Панель «Задачи» развёрнута"
     ],
     "latin": [],
@@ -110,6 +119,7 @@
     "note": "Задачи: граф зависимостей",
     "consoleErrors": [],
     "clipped": [
+      "Поиск или команда…",
       "Высокий",
       "Обычный",
       "Панель «Задачи» развёрнута"
@@ -124,6 +134,7 @@
     "note": "Сведения о задаче",
     "consoleErrors": [],
     "clipped": [
+      "Поиск или команда…",
       "Панель «Задачи» развёрнута"
     ],
     "latin": [],
@@ -134,6 +145,7 @@
     "note": "Диалог создания задачи",
     "consoleErrors": [],
     "clipped": [
+      "Поиск или команда…",
       "Панель «Задачи» развёрнута"
     ],
     "latin": [],
@@ -144,26 +156,30 @@
     "note": "Переход к файлу",
     "consoleErrors": [],
     "clipped": [
-      "Изменена задача «Протестировать модуль hello»",
-      "Запуск Менеджера (выполняется): выполнено задач — 3 из 4",
-      "Агент …078651: Думает → Завершил работу (Работа завершена)",
-      "Агент …078651 остановлен (работа завершена)",
-      "Задача …67e674: Тестируется → Выполнена",
-      "Запуск Менеджера (завершён): выполнено задач — 4 из 4",
-      "План Менеджера «Создай модуль hello с юнит-тестом»: выполнен (4 задачи)",
-      "План Менеджера «Создай модуль greeter с тестами»: предложен (4 задачи)",
-      "Обновлена запись памяти «Только ES-модули»",
-      "Панель «Задачи» восстановлена"
-    ],
-    "latin": [
-      "task transition",
+      "Поиск или команда…",
+      "merge proposal created",
+      "quality pipeline finished",
       "manager run finished",
-      "node inventory detected",
       "manager plan proposed",
       "memory item created",
       "decision recorded",
       "budget saved",
-      "snapshot created"
+      "snapshot created",
+      "file watcher started",
+      "file watcher stopping",
+      "Панель «Задачи» восстановлена"
+    ],
+    "latin": [
+      "merge proposal created",
+      "quality pipeline finished",
+      "manager run finished",
+      "manager plan proposed",
+      "memory item created",
+      "decision recorded",
+      "budget saved",
+      "snapshot created",
+      "file watcher started",
+      "file watcher stopping"
     ],
     "hscroll": false
   },
@@ -172,26 +188,30 @@
     "note": "Редактор кода",
     "consoleErrors": [],
     "clipped": [
-      "Изменена задача «Протестировать модуль hello»",
-      "Запуск Менеджера (выполняется): выполнено задач — 3 из 4",
-      "Агент …078651: Думает → Завершил работу (Работа завершена)",
-      "Агент …078651 остановлен (работа завершена)",
-      "Задача …67e674: Тестируется → Выполнена",
-      "Запуск Менеджера (завершён): выполнено задач — 4 из 4",
-      "План Менеджера «Создай модуль hello с юнит-тестом»: выполнен (4 задачи)",
-      "План Менеджера «Создай модуль greeter с тестами»: предложен (4 задачи)",
-      "Обновлена запись памяти «Только ES-модули»",
-      "Панель «Задачи» восстановлена"
-    ],
-    "latin": [
-      "task transition",
+      "Поиск или команда…",
+      "merge proposal created",
+      "quality pipeline finished",
       "manager run finished",
-      "node inventory detected",
       "manager plan proposed",
       "memory item created",
       "decision recorded",
       "budget saved",
-      "snapshot created"
+      "snapshot created",
+      "file watcher started",
+      "file watcher stopping",
+      "Панель «Задачи» восстановлена"
+    ],
+    "latin": [
+      "merge proposal created",
+      "quality pipeline finished",
+      "manager run finished",
+      "manager plan proposed",
+      "memory item created",
+      "decision recorded",
+      "budget saved",
+      "snapshot created",
+      "file watcher started",
+      "file watcher stopping"
     ],
     "hscroll": false
   },
@@ -200,26 +220,30 @@
     "note": "Поиск по проекту",
     "consoleErrors": [],
     "clipped": [
-      "Изменена задача «Протестировать модуль hello»",
-      "Запуск Менеджера (выполняется): выполнено задач — 3 из 4",
-      "Агент …078651: Думает → Завершил работу (Работа завершена)",
-      "Агент …078651 остановлен (работа завершена)",
-      "Задача …67e674: Тестируется → Выполнена",
-      "Запуск Менеджера (завершён): выполнено задач — 4 из 4",
-      "План Менеджера «Создай модуль hello с юнит-тестом»: выполнен (4 задачи)",
-      "План Менеджера «Создай модуль greeter с тестами»: предложен (4 задачи)",
-      "Обновлена запись памяти «Только ES-модули»",
-      "Панель «Задачи» восстановлена"
-    ],
-    "latin": [
-      "task transition",
+      "Поиск или команда…",
+      "merge proposal created",
+      "quality pipeline finished",
       "manager run finished",
-      "node inventory detected",
       "manager plan proposed",
       "memory item created",
       "decision recorded",
       "budget saved",
-      "snapshot created"
+      "snapshot created",
+      "file watcher started",
+      "file watcher stopping",
+      "Панель «Задачи» восстановлена"
+    ],
+    "latin": [
+      "merge proposal created",
+      "quality pipeline finished",
+      "manager run finished",
+      "manager plan proposed",
+      "memory item created",
+      "decision recorded",
+      "budget saved",
+      "snapshot created",
+      "file watcher started",
+      "file watcher stopping"
     ],
     "hscroll": false
   },
@@ -228,26 +252,30 @@
     "note": "Файлы проекта",
     "consoleErrors": [],
     "clipped": [
-      "Изменена задача «Протестировать модуль hello»",
-      "Запуск Менеджера (выполняется): выполнено задач — 3 из 4",
-      "Агент …078651: Думает → Завершил работу (Работа завершена)",
-      "Агент …078651 остановлен (работа завершена)",
-      "Задача …67e674: Тестируется → Выполнена",
-      "Запуск Менеджера (завершён): выполнено задач — 4 из 4",
-      "План Менеджера «Создай модуль hello с юнит-тестом»: выполнен (4 задачи)",
-      "План Менеджера «Создай модуль greeter с тестами»: предложен (4 задачи)",
-      "Обновлена запись памяти «Только ES-модули»",
-      "Панель «Задачи» восстановлена"
-    ],
-    "latin": [
-      "task transition",
+      "Поиск или команда…",
+      "merge proposal created",
+      "quality pipeline finished",
       "manager run finished",
-      "node inventory detected",
       "manager plan proposed",
       "memory item created",
       "decision recorded",
       "budget saved",
-      "snapshot created"
+      "snapshot created",
+      "file watcher started",
+      "file watcher stopping",
+      "Панель «Задачи» восстановлена"
+    ],
+    "latin": [
+      "merge proposal created",
+      "quality pipeline finished",
+      "manager run finished",
+      "manager plan proposed",
+      "memory item created",
+      "decision recorded",
+      "budget saved",
+      "snapshot created",
+      "file watcher started",
+      "file watcher stopping"
     ],
     "hscroll": false
   },
@@ -256,6 +284,7 @@
     "note": "Терминал (развёрнут)",
     "consoleErrors": [],
     "clipped": [
+      "Поиск или команда…",
       "Панель «Терминал» развёрнута"
     ],
     "latin": [],
@@ -266,6 +295,7 @@
     "note": "Git: Изменения",
     "consoleErrors": [],
     "clipped": [
+      "Поиск или команда…",
       "Панель «Git» развёрнута"
     ],
     "latin": [],
@@ -276,6 +306,7 @@
     "note": "Git: История",
     "consoleErrors": [],
     "clipped": [
+      "Поиск или команда…",
       "Панель «Git» развёрнута"
     ],
     "latin": [
@@ -288,6 +319,7 @@
     "note": "Git: Ветки",
     "consoleErrors": [],
     "clipped": [
+      "Поиск или команда…",
       "Панель «Git» развёрнута"
     ],
     "latin": [],
@@ -298,6 +330,7 @@
     "note": "Git: Рабочие копии",
     "consoleErrors": [],
     "clipped": [
+      "Поиск или команда…",
       "Панель «Git» развёрнута"
     ],
     "latin": [],
@@ -308,9 +341,10 @@
     "note": "Git: Снимки",
     "consoleErrors": [],
     "clipped": [
+      "Поиск или команда…",
       "1 минуту назад · 4 файла · 308 Б · main @",
-      "1 минуту назад · 6 файлов · 1,3 КБ · agent/qa-7a078651 @",
-      "1 минуту назад · 5 файлов · 931 Б · agent/qa-7a078651 @",
+      "1 минуту назад · 6 файлов · 1,3 КБ · agent/qa-84385d4e @",
+      "1 минуту назад · 5 файлов · 943 Б · agent/qa-84385d4e @",
       "Панель «Git» развёрнута"
     ],
     "latin": [],
@@ -321,9 +355,10 @@
     "note": "Откат рабочей области",
     "consoleErrors": [],
     "clipped": [
+      "Поиск или команда…",
       "1 минуту назад · 4 файла · 308 Б · main @",
-      "1 минуту назад · 6 файлов · 1,3 КБ · agent/qa-7a078651 @",
-      "1 минуту назад · 5 файлов · 931 Б · agent/qa-7a078651 @",
+      "1 минуту назад · 6 файлов · 1,3 КБ · agent/qa-84385d4e @",
+      "1 минуту назад · 5 файлов · 943 Б · agent/qa-84385d4e @",
       "Панель «Git» развёрнута"
     ],
     "latin": [],
@@ -334,6 +369,7 @@
     "note": "Память проекта",
     "consoleErrors": [],
     "clipped": [
+      "Поиск или команда…",
       "Панель «Память» развёрнута"
     ],
     "latin": [],
@@ -344,6 +380,7 @@
     "note": "Новая запись памяти",
     "consoleErrors": [],
     "clipped": [
+      "Поиск или команда…",
       "Панель «Память» развёрнута"
     ],
     "latin": [],
@@ -354,6 +391,7 @@
     "note": "Журнал решений",
     "consoleErrors": [],
     "clipped": [
+      "Поиск или команда…",
       "Панель «Память» развёрнута"
     ],
     "latin": [],
@@ -364,6 +402,7 @@
     "note": "База знаний",
     "consoleErrors": [],
     "clipped": [
+      "Поиск или команда…",
       "Панель «Память» развёрнута"
     ],
     "latin": [],
@@ -374,6 +413,7 @@
     "note": "Расходы",
     "consoleErrors": [],
     "clipped": [
+      "Поиск или команда…",
       "Панель «Расходы» развёрнута"
     ],
     "latin": [],
@@ -384,6 +424,7 @@
     "note": "Новый бюджет",
     "consoleErrors": [],
     "clipped": [
+      "Поиск или команда…",
       "Панель «Расходы» развёрнута"
     ],
     "latin": [],
@@ -394,17 +435,13 @@
     "note": "Журнал событий",
     "consoleErrors": [],
     "clipped": [
+      "Поиск или команда…",
+      "Ревью (принято): Изменения в порядке: файлов — 2, замечаний — 0. — Mock (офлайн-",
       "Панель «Журнал» развёрнута"
     ],
     "latin": [
-      "file watcher started",
-      "file watcher stopping",
-      "manager plan approved",
-      "manager run started",
-      "task transition",
-      "worktree created",
-      "agent spawned",
-      "run agent spawned"
+      "code review finished",
+      "task transition"
     ],
     "hscroll": false
   },
@@ -413,6 +450,7 @@
     "note": "Мониторинг (появится на этапе N)",
     "consoleErrors": [],
     "clipped": [
+      "Поиск или команда…",
       "Открыта панель «Мониторинг»"
     ],
     "latin": [],
@@ -423,6 +461,7 @@
     "note": "Палитра команд",
     "consoleErrors": [],
     "clipped": [
+      "Поиск или команда…",
       "Открыта панель «Мониторинг»"
     ],
     "latin": [],
@@ -433,6 +472,7 @@
     "note": "Палитра: поиск проектов",
     "consoleErrors": [],
     "clipped": [
+      "Поиск или команда…",
       "Открыта панель «Мониторинг»"
     ],
     "latin": [],
@@ -443,6 +483,7 @@
     "note": "Новый проект",
     "consoleErrors": [],
     "clipped": [
+      "Поиск или команда…",
       "Открыта панель «Мониторинг»"
     ],
     "latin": [],
@@ -453,6 +494,7 @@
     "note": "Центр уведомлений",
     "consoleErrors": [],
     "clipped": [
+      "Поиск или команда…",
       "Открыта панель «Мониторинг»"
     ],
     "latin": [],
@@ -463,6 +505,7 @@
     "note": "Запросы на подтверждение",
     "consoleErrors": [],
     "clipped": [
+      "Поиск или команда…",
       "Открыта панель «Мониторинг»"
     ],
     "latin": [],
@@ -473,6 +516,7 @@
     "note": "Экстренная остановка (диалог)",
     "consoleErrors": [],
     "clipped": [
+      "Поиск или команда…",
       "Открыта панель «Мониторинг»"
     ],
     "latin": [],
@@ -483,6 +527,7 @@
     "note": "Настройки → Общие",
     "consoleErrors": [],
     "clipped": [
+      "Поиск или команда…",
       "Открыта панель «Мониторинг»"
     ],
     "latin": [],
@@ -493,6 +538,7 @@
     "note": "Настройки → Система",
     "consoleErrors": [],
     "clipped": [
+      "Поиск или команда…",
       "Открыта панель «Мониторинг»",
       "Самые активные процессы"
     ],
@@ -504,6 +550,7 @@
     "note": "Настройки → AI-провайдеры",
     "consoleErrors": [],
     "clipped": [
+      "Поиск или команда…",
       "Открыта панель «Мониторинг»"
     ],
     "latin": [],
@@ -514,6 +561,7 @@
     "note": "Настройки → AI-менеджер",
     "consoleErrors": [],
     "clipped": [
+      "Поиск или команда…",
       "Открыта панель «Мониторинг»"
     ],
     "latin": [],
@@ -524,6 +572,7 @@
     "note": "Настройки → Безопасность и разрешения",
     "consoleErrors": [],
     "clipped": [
+      "Поиск или команда…",
       "Открыта панель «Мониторинг»"
     ],
     "latin": [],
@@ -534,6 +583,7 @@
     "note": "Настройки → Хранилище секретов",
     "consoleErrors": [],
     "clipped": [
+      "Поиск или команда…",
       "Открыта панель «Мониторинг»"
     ],
     "latin": [],
@@ -544,6 +594,7 @@
     "note": "Настройки → О программе",
     "consoleErrors": [],
     "clipped": [
+      "Поиск или команда…",
       "Открыта панель «Мониторинг»"
     ],
     "latin": [
@@ -556,6 +607,7 @@
     "note": "Мастер настройки, шаг 1",
     "consoleErrors": [],
     "clipped": [
+      "Поиск или команда…",
       "Открыта панель «Мониторинг»"
     ],
     "latin": [],
@@ -566,6 +618,7 @@
     "note": "Мастер настройки, шаг 2",
     "consoleErrors": [],
     "clipped": [
+      "Поиск или команда…",
       "Открыта панель «Мониторинг»"
     ],
     "latin": [
@@ -578,6 +631,7 @@
     "note": "Мастер настройки, шаг 3",
     "consoleErrors": [],
     "clipped": [
+      "Поиск или команда…",
       "Открыта панель «Мониторинг»"
     ],
     "latin": [
@@ -591,6 +645,7 @@
     "note": "Мастер настройки, шаг 4",
     "consoleErrors": [],
     "clipped": [
+      "Поиск или команда…",
       "Открыта панель «Мониторинг»"
     ],
     "latin": [],
@@ -601,6 +656,7 @@
     "note": "Мастер настройки, шаг 5",
     "consoleErrors": [],
     "clipped": [
+      "Поиск или команда…",
       "Открыта панель «Мониторинг»"
     ],
     "latin": [],
@@ -611,6 +667,7 @@
     "note": "Мастер настройки, шаг 6",
     "consoleErrors": [],
     "clipped": [
+      "Поиск или команда…",
       "Открыта панель «Мониторинг»"
     ],
     "latin": [],
@@ -621,6 +678,7 @@
     "note": "Мастер настройки, шаг 7",
     "consoleErrors": [],
     "clipped": [
+      "Поиск или команда…",
       "Открыта панель «Мониторинг»"
     ],
     "latin": [
@@ -633,6 +691,7 @@
     "note": "Мастер настройки, шаг 8",
     "consoleErrors": [],
     "clipped": [
+      "Поиск или команда…",
       "Открыта панель «Мониторинг»"
     ],
     "latin": [],
@@ -643,21 +702,15 @@
     "note": "Live switch to English (lang=en, page reloaded: false)",
     "consoleErrors": [],
     "clipped": [
+      "Search or run a command…",
       "Открыта панель «Мониторинг»"
     ],
     "latin": [
       "Do not disturb",
       "All caught up",
       "Approvals, failures, budget alerts and agent notices appear here.",
-      "New project",
-      "Command palette (Ctrl+K)",
-      "New file",
-      "New folder",
-      "Collapse all",
-      "Show ignored files",
-      "Open folder in external IDE",
+      "sampled every 2,000 ms",
       "mock-smart · Mock (offline demo)",
-      "New conversation (the current one is summarized)",
       "Last session: 4 of 4 tasks completed (100%).",
       "Acceptance criteria and files",
       "Product Manager",
@@ -665,12 +718,21 @@
       "What's the status of the project?",
       "Create a hello module with tests",
       "Show pending approvals",
-      "new line ·",
       "New task",
-      "Show filters",
-      "Reload tasks",
+      "Scheduler idle",
       "Core connected",
-      "Embedded core"
+      "Embedded core",
+      "Spawn agent",
+      "The agent runs in isolation with its own worktree, budget and stop button.",
+      "Designs system structure, module boundaries and contracts; writes ADRs and design notes, never ships",
+      "Existing task",
+      "Model override (optional) — provider",
+      "Model override (optional) — model",
+      "Max turns",
+      "New budget",
+      "Alerts fire at 50%, your warning threshold and 100%. Unrestricted budgets exempt matching usage from",
+      "Unrestricted (e.g. local Ollama, security agent)",
+      "Create budget"
     ],
     "hscroll": false
   },
@@ -679,6 +741,7 @@
     "note": "Back to Russian (lang=ru)",
     "consoleErrors": [],
     "clipped": [
+      "Поиск или команда…",
       "Открыта панель «Мониторинг»"
     ],
     "latin": [],
