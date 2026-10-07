@@ -44,6 +44,11 @@ pub const DRAG_END_QUIET: Duration = Duration::from_millis(400);
 pub const SNAP_THRESHOLD: f64 = 16.0;
 /// Cursor polling period (30 Hz).
 const POLL: Duration = Duration::from_millis(33);
+/// How long `robot_close` / `robot_open` wait for a closing window to be destroyed.
+const CLOSE_WAIT: Duration = Duration::from_secs(3);
+/// Re-check period while waiting for a window to go away (the manager drops
+/// it around the `Destroyed` event; the notify alone could race that).
+const CLOSE_RECHECK: Duration = Duration::from_millis(25);
 
 /// Event names (robot window ← shell).
 pub const EV_HOVER: &str = "orkestr://robot/hover";
@@ -258,6 +263,11 @@ impl PendingOpens {
         }
     }
 
+    /// Whether an open is being built for the label.
+    fn in_flight(&self, label: &str) -> bool {
+        self.0.contains_key(label)
+    }
+
     /// Cancels an in-flight open (no-op when none).
     fn cancel(&mut self, label: &str) {
         if let Some(cancelled) = self.0.get_mut(label) {
@@ -286,11 +296,42 @@ struct Registry {
     poller: bool,
 }
 
+/// What `robot_open` does for a label, given the registry and whether a
+/// window with that label still exists in the window manager.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum OpenStep {
+    /// The robot is open (or an open for it is in flight): nothing to build.
+    AlreadyOpen,
+    /// A window exists that no open owns any more: `robot_close` closed it and
+    /// it is still being destroyed. Wait until it is gone, then decide again —
+    /// returning early here would leave the robot closed for good.
+    WaitForClose,
+    /// No window: build one (the pending open is registered).
+    Build,
+}
+
+impl Registry {
+    fn open_step(&mut self, label: &str, window_exists: bool) -> OpenStep {
+        if self.pending.in_flight(label) {
+            // Revive a cancelled in-flight build instead of building twice.
+            self.pending.begin(label);
+            return OpenStep::AlreadyOpen;
+        }
+        if window_exists {
+            return if self.robots.contains_key(label) { OpenStep::AlreadyOpen } else { OpenStep::WaitForClose };
+        }
+        self.pending.begin(label);
+        OpenStep::Build
+    }
+}
+
 /// Shared state of the robot windows (managed by Tauri).
 #[derive(Debug, Default)]
 pub struct RobotsState {
     inner: std::sync::Mutex<Registry>,
     wake: Arc<Notify>,
+    /// Notified (all waiters) whenever a robot window is destroyed.
+    destroyed: Notify,
 }
 
 fn lock(state: &RobotsState) -> Result<std::sync::MutexGuard<'_, Registry>, String> {
@@ -347,10 +388,19 @@ pub async fn robot_open(
     args: RobotOpenArgs,
 ) -> Result<String, String> {
     let label = label_for(args.agent_id.as_deref())?;
-    {
-        let mut reg = lock(&state)?;
-        if app.get_webview_window(&label).is_some() || !reg.pending.begin(&label) {
-            return Ok(label);
+    loop {
+        let step = {
+            let exists = app.get_webview_window(&label).is_some();
+            lock(&state)?.open_step(&label, exists)
+        };
+        match step {
+            OpenStep::AlreadyOpen => return Ok(label),
+            OpenStep::WaitForClose => {
+                if !wait_window_gone(&app, &state, &label).await {
+                    return Err("the previous robot window is still closing".to_owned());
+                }
+            }
+            OpenStep::Build => break,
         }
     }
     let result = build_robot(&app, &state, &label, &args);
@@ -467,8 +517,33 @@ pub async fn robot_close(
     }
     if let Some(w) = app.get_webview_window(&label) {
         w.close().map_err(|e| e.to_string())?;
+        // `close()` only queues the close: resolve once the window is really
+        // gone, so a `robot_open` right after this one builds a fresh window.
+        if !wait_window_gone(&app, &state, &label).await {
+            tracing::warn!(%label, "robot window still closing after {CLOSE_WAIT:?}");
+        }
     }
     Ok(())
+}
+
+/// Waits (up to [`CLOSE_WAIT`]) until no window with `label` exists.
+async fn wait_window_gone(app: &AppHandle, state: &RobotsState, label: &str) -> bool {
+    let deadline = tokio::time::Instant::now() + CLOSE_WAIT;
+    loop {
+        let destroyed = state.destroyed.notified();
+        tokio::pin!(destroyed);
+        // Register before checking so a `Destroyed` in between is not missed.
+        destroyed.as_mut().enable();
+        if app.get_webview_window(label).is_none() {
+            return true;
+        }
+        let now = tokio::time::Instant::now();
+        if now >= deadline {
+            return false;
+        }
+        let step = CLOSE_RECHECK.min(deadline - now);
+        let _ = tokio::time::timeout(step, destroyed).await;
+    }
 }
 
 /// Closes every robot window (robots switched off).
@@ -479,9 +554,14 @@ pub async fn robot_close_all(app: AppHandle, state: tauri::State<'_, RobotsState
         reg.pending.cancel_all();
         reg.robots.drain().map(|(k, _)| k).collect()
     };
-    for label in labels {
-        if let Some(w) = app.get_webview_window(&label) {
+    for label in &labels {
+        if let Some(w) = app.get_webview_window(label) {
             let _ = w.close();
+        }
+    }
+    for label in &labels {
+        if !wait_window_gone(&app, &state, label).await {
+            tracing::warn!(%label, "robot window still closing after {CLOSE_WAIT:?}");
         }
     }
     Ok(())
@@ -583,6 +663,8 @@ pub fn on_window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
         }
         tauri::WindowEvent::Destroyed => {
             reg.robots.remove(label);
+            drop(reg);
+            state.destroyed.notify_waiters();
         }
         _ => {}
     }
@@ -822,6 +904,45 @@ mod tests {
 
         p.cancel("robot-x");
         assert!(p.begin("robot-x"), "cancelling nothing leaves no marker behind");
+    }
+
+    #[test]
+    fn reopen_right_after_close_waits_for_the_old_window_instead_of_vanishing() {
+        let mut reg = Registry::default();
+        // Fresh open.
+        assert_eq!(reg.open_step("robot-a", false), OpenStep::Build);
+        assert_eq!(reg.open_step("robot-a", true), OpenStep::AlreadyOpen, "build in flight");
+        assert!(reg.pending.finish("robot-a"));
+        reg.robots.insert("robot-a".into(), test_win());
+        assert_eq!(reg.open_step("robot-a", true), OpenStep::AlreadyOpen, "open robot stays");
+
+        // robot_close: registry entry gone, window still being destroyed.
+        reg.robots.remove("robot-a");
+        reg.pending.cancel("robot-a");
+        assert_eq!(
+            reg.open_step("robot-a", true),
+            OpenStep::WaitForClose,
+            "a closing window must not count as open (the robot would vanish)"
+        );
+        // Once destroyed, the re-open builds a new window.
+        assert_eq!(reg.open_step("robot-a", false), OpenStep::Build);
+    }
+
+    fn test_win() -> RobotWin {
+        RobotWin {
+            shape: HitShape::default(),
+            pass_through: true,
+            snap: true,
+            agent_id: None,
+            pos: (0.0, 0.0),
+            size: (1.0, 1.0),
+            scale: 1.0,
+            inside: false,
+            hover_since: None,
+            last_user_move: None,
+            drag_start: None,
+            expected_pos: None,
+        }
     }
 
     #[test]
