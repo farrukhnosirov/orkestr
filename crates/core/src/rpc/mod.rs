@@ -9,6 +9,7 @@ pub mod approvals;
 pub mod architecture;
 pub mod audit;
 pub mod benchmarks;
+pub mod claude_code;
 pub mod consensus;
 pub mod context;
 pub mod cost;
@@ -195,6 +196,8 @@ pub fn build_router() -> RpcRouter {
     router.register(vscode::register);
     // VS Code extensions in the native editor + language servers (ADR-0025)
     router.register(extensions::register).register(lsp::register);
+    // Claude Code panel (official `claude` CLI, stream-json)
+    router.register(claude_code::register);
     router
 }
 

@@ -3322,6 +3322,7 @@ dependencies = [
  "futures",
  "orkestr-domain",
  "orkestr-platform",
+ "orkestr-protocol",
  "orkestr-storage",
  "parking_lot",
  "reqwest 0.12.28",

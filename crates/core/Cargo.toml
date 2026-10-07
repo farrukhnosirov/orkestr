@@ -11,6 +11,13 @@ publish.workspace = true
 name = "orkestrd"
 path = "src/bin/orkestrd.rs"
 
+# Test double of the official `claude` CLI (Claude Code panel E2E tests only; never shipped).
+[[bin]]
+name = "orkestr-fake-claude"
+path = "src/bin/fake_claude.rs"
+test = false
+doc = false
+
 [dependencies]
 orkestr-domain.workspace = true
 orkestr-protocol.workspace = true
