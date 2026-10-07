@@ -22,6 +22,12 @@ export interface AppState {
   projects: Project[];
   projectsLoaded: boolean;
   activeProjectId: string | null;
+  /**
+   * The user closed the project (File → Close project): no project is open
+   * and none is picked automatically until the user opens one; the main area
+   * shows the Welcome page.
+   */
+  projectClosed: boolean;
   lastSeq: number;
   paletteOpen: boolean;
   createProjectOpen: boolean;
@@ -34,6 +40,8 @@ export interface AppState {
   upsertProject: (project: Project) => void;
   removeProject: (projectId: string) => void;
   setActiveProject: (projectId: string | null) => void;
+  /** Closes the active project (shows the Welcome page). */
+  closeProject: () => void;
   noteSeq: (seq: number) => void;
   setPaletteOpen: (open: boolean) => void;
   setCreateProjectOpen: (open: boolean) => void;
@@ -43,6 +51,8 @@ export interface AppState {
 }
 
 export const ACTIVE_PROJECT_KEY = "orkestr.activeProject";
+/** Set while the user has closed the project (survives restarts, like an empty VS Code window). */
+export const PROJECT_CLOSED_KEY = "orkestr.projectClosed";
 const THEME_KEY = "orkestr.theme";
 
 function readLocal(key: string): string | null {
@@ -81,6 +91,10 @@ function persistActive(projectId: string | null): void {
   if (ownsActiveProject) writeLocal(ACTIVE_PROJECT_KEY, projectId);
 }
 
+function persistClosed(closed: boolean): void {
+  if (ownsActiveProject) writeLocal(PROJECT_CLOSED_KEY, closed ? "1" : null);
+}
+
 /**
  * Secondary windows: track the active project the main window persists
  * (same-origin `storage` events). Returns the unsubscribe function.
@@ -112,7 +126,8 @@ export const useAppStore = create<AppState>()((set, get) => ({
   connection: { state: "idle", error: null, mode: null, url: null, serverVersion: null, startupMs: null },
   projects: [],
   projectsLoaded: false,
-  activeProjectId: readLocal(ACTIVE_PROJECT_KEY),
+  activeProjectId: readLocal(PROJECT_CLOSED_KEY) === "1" ? null : readLocal(ACTIVE_PROJECT_KEY),
+  projectClosed: readLocal(PROJECT_CLOSED_KEY) === "1",
   lastSeq: 0,
   paletteOpen: false,
   createProjectOpen: false,
@@ -125,7 +140,8 @@ export const useAppStore = create<AppState>()((set, get) => ({
     const sorted = sortProjects(projects.filter((p) => !p.archived));
     const active = get().activeProjectId;
     const stillThere = active !== null && sorted.some((p) => p.id === active);
-    const nextActive = stillThere ? active : (mostRecentlyOpened(sorted)?.id ?? sorted[0]?.id ?? null);
+    const fallback = get().projectClosed ? null : (mostRecentlyOpened(sorted)?.id ?? sorted[0]?.id ?? null);
+    const nextActive = stillThere ? active : fallback;
     persistActive(nextActive);
     set({ projects: sorted, projectsLoaded: true, activeProjectId: nextActive });
   },
@@ -140,8 +156,9 @@ export const useAppStore = create<AppState>()((set, get) => ({
       }
       const exists = s.projects.some((p) => p.id === project.id);
       const projects = exists ? s.projects.map((p) => (p.id === project.id ? project : p)) : [...s.projects, project];
-      // With no project open yet, the first one that appears becomes active.
-      if (s.activeProjectId === null) {
+      // With no project open yet, the first one that appears becomes active
+      // (unless the user closed the project on purpose).
+      if (s.activeProjectId === null && !s.projectClosed) {
         persistActive(project.id);
         return { projects: sortProjects(projects), activeProjectId: project.id };
       }
@@ -158,7 +175,14 @@ export const useAppStore = create<AppState>()((set, get) => ({
 
   setActiveProject: (projectId) => {
     persistActive(projectId);
-    set({ activeProjectId: projectId });
+    if (projectId !== null) persistClosed(false);
+    set(projectId !== null ? { activeProjectId: projectId, projectClosed: false } : { activeProjectId: null });
+  },
+
+  closeProject: () => {
+    persistActive(null);
+    persistClosed(true);
+    set({ activeProjectId: null, projectClosed: true });
   },
 
   noteSeq: (seq) => set((s) => (seq > s.lastSeq ? { lastSeq: seq } : s)),

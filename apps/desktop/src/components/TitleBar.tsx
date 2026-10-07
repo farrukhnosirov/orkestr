@@ -8,6 +8,7 @@ import { NotificationBell } from "../features/notifications/NotificationCenter";
 import { ApprovalsBadge } from "../features/security/ApprovalsInbox";
 import { EmergencyStopButton } from "../features/security/EmergencyStop";
 import { useSettingsStore } from "../features/settings/settingsStore";
+import { FileMenu } from "../features/workbench/FileMenu";
 import { MicIndicator } from "../features/voice";
 import { useT } from "../i18n";
 import { isTauri, windowControls } from "../lib/tauri";
@@ -58,6 +59,9 @@ export function TitleBar() {
           </>
         )}
       </div>
+
+      {/* VS Code-style File menu (project & file management). */}
+      <FileMenu />
 
       <button type="button" className="titlebar__search" onClick={() => setPaletteOpen(true)}>
         <Search size={14} />

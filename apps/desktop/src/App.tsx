@@ -1,3 +1,4 @@
+import { clsx } from "clsx";
 import { useCallback, useEffect, useState } from "react";
 
 import { CommandPalette } from "./components/CommandPalette";
@@ -15,7 +16,7 @@ import { AiUiLayer } from "./features/aiui/AiUiLayer";
 import { VisualLayer } from "./features/performance/VisualLayer";
 import { registerSecurityFeature } from "./features/security/register";
 import { SecurityLayer } from "./features/security/SecurityLayer";
-import { shortcutCommand } from "./features/commands/dispatch";
+import { CHORD_TIMEOUT_MS, chordCommand, isModifierKey, shortcutCommand } from "./features/commands/dispatch";
 import { commands, matchesShortcut } from "./features/commands/registry";
 import { Toasts } from "./features/notifications/NotificationCenter";
 import { OnboardingWizard } from "./features/onboarding/OnboardingWizard";
@@ -28,6 +29,8 @@ import { ThemeEditor } from "./features/theme/ThemeEditor";
 import { ThemeBackdrop, useThemeEngine } from "./features/theme/ThemeRuntime";
 import { MissionControlOverlay } from "./panels/MissionControl";
 import { useVoiceBootstrap, VoiceHud } from "./features/voice";
+import { WelcomePage } from "./features/workbench/WelcomePage";
+import { WorkbenchDialogs } from "./features/workbench/WorkbenchDialogs";
 import { useAppStore } from "./store/app";
 
 registerSecurityFeature();
@@ -39,18 +42,36 @@ registerRobotsFeature();
 function useGlobalShortcuts() {
   const setPaletteOpen = useAppStore((s) => s.setPaletteOpen);
   useEffect(() => {
+    // Ctrl+K opens the palette and also arms VS Code-style chords
+    // (`Ctrl+K Ctrl+O`): a matching second key within CHORD_TIMEOUT_MS runs
+    // the chord command instead (and closes the palette again).
+    let chordAt = 0;
     const onKey = (e: KeyboardEvent) => {
+      if (isModifierKey(e.key)) return;
+      const ctx = { projectId: useAppStore.getState().activeProjectId };
+      if (chordAt !== 0) {
+        const armed = Date.now() - chordAt <= CHORD_TIMEOUT_MS;
+        chordAt = 0;
+        const chord = armed ? chordCommand("Ctrl+K", e, commands, ctx) : null;
+        if (chord) {
+          e.preventDefault();
+          e.stopPropagation();
+          setPaletteOpen(false);
+          void chord.run(ctx);
+          return;
+        }
+      }
       if (matchesShortcut(e, "Ctrl+K")) {
         e.preventDefault();
         // Keep Ctrl+K away from Monaco: there it starts a chord (Ctrl+K Ctrl+C …)
         // and the editor would swallow the next key — the palette's Enter.
         e.stopPropagation();
         setPaletteOpen(!useAppStore.getState().paletteOpen);
+        chordAt = Date.now();
         return;
       }
       // Registry commands with shortcuts (§54).
       // In a terminal only `inTerminal` commands fire; other keys reach the shell.
-      const ctx = { projectId: useAppStore.getState().activeProjectId };
       const cmd = shortcutCommand(e, commands, ctx);
       if (!cmd) return;
       e.preventDefault();
@@ -64,6 +85,9 @@ function useGlobalShortcuts() {
 
 export function App() {
   const [ready, setReady] = useState(false);
+  // No project open (closed, or none yet): the Welcome page takes the main area.
+  // The workspace stays mounted underneath so the layout is kept.
+  const showWelcome = useAppStore((s) => s.projectsLoaded && s.activeProjectId === null);
   useThemeEngine(ready);
   useGlobalShortcuts();
   useShellBootstrap(ready);
@@ -89,7 +113,10 @@ export function App() {
         <div className="app__body">
           <ProjectRail />
           <main className="app__main">
-            <Workspace />
+            <div className={clsx("app__workspace", showWelcome && "app__workspace--hidden")} aria-hidden={showWelcome || undefined}>
+              <Workspace />
+            </div>
+            {showWelcome && <WelcomePage />}
           </main>
         </div>
       ) : (
@@ -107,6 +134,7 @@ export function App() {
           <ThemeEditor />
           <LayoutEditorPanel />
           <LayoutDialogs />
+          <WorkbenchDialogs />
           <MissionControlOverlay />
           <RobotHost />
           <VoiceHud />

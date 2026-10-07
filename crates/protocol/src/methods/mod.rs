@@ -205,6 +205,7 @@ pub fn registry() -> Vec<MethodDescriptor> {
         MethodDescriptor::of::<vcs::Merge>(),
         MethodDescriptor::of::<vcs::AbortMerge>(),
         MethodDescriptor::of::<vcs::Init>(),
+        MethodDescriptor::of::<vcs::CloneRepo>(),
         // snapshots (Phase 1)
         MethodDescriptor::of::<snapshots::List>(),
         MethodDescriptor::of::<snapshots::Get>(),

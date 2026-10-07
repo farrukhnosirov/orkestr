@@ -36,6 +36,8 @@ import type { CheckBudgetParams } from "./CheckBudgetParams";
 import type { CheckBudgetResult } from "./CheckBudgetResult";
 import type { CheckParams } from "./CheckParams";
 import type { CheckoutParams } from "./CheckoutParams";
+import type { CloneParams } from "./CloneParams";
+import type { CloneResult } from "./CloneResult";
 import type { CommitParams } from "./CommitParams";
 import type { CommitResult } from "./CommitResult";
 import type { ConsensusResult } from "./ConsensusResult";
@@ -452,6 +454,7 @@ export type Methods = {
   "vcs.merge": [MergeParams, MergeResult];
   "vcs.abortMerge": [RepoParams, RepoStatus];
   "vcs.init": [InitParams, RepoStatus];
+  "vcs.clone": [CloneParams, CloneResult];
   "snapshots.list": [ListSnapshotsParams, ListSnapshotsResult];
   "snapshots.get": [SnapshotIdParams, SnapshotDetail];
   "snapshots.create": [CreateSnapshotParams, SnapshotResult];
@@ -711,6 +714,7 @@ export const METHOD_NAMES = [
   "vcs.merge",
   "vcs.abortMerge",
   "vcs.init",
+  "vcs.clone",
   "snapshots.list",
   "snapshots.get",
   "snapshots.create",

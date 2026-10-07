@@ -4,10 +4,11 @@ import "./shared.css";
  * Shown when the active project has no root folder yet: lets the user set
  * one (`projects.update { rootPath }`). The core validates the path.
  */
-import { Button, EmptyState, Input } from "@orkestr/ui";
+import { Button, EmptyState } from "@orkestr/ui";
 import { FolderOpen } from "lucide-react";
 import { type FormEvent, useState } from "react";
 
+import { PathInput } from "../../components/PathInput";
 import { getClient } from "../../core/client";
 import { useT } from "../../i18n";
 import { useAppStore } from "../../store/app";
@@ -45,11 +46,11 @@ export function RootFolderForm({ projectId, title }: { projectId: string; title:
       description={t("rootFolder.description")}
       action={
         <form className="fx-root-form" onSubmit={(e) => void submit(e)}>
-          <Input
+          <PathInput
             aria-label={t("rootFolder.label")}
             placeholder={t("rootFolder.placeholder")}
             value={path}
-            onChange={(e) => setPath(e.target.value)}
+            onPathChange={setPath}
             error={error ?? undefined}
           />
           <Button type="submit" variant="primary" size="sm" loading={busy}>

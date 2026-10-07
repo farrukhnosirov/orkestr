@@ -16,9 +16,14 @@
 
 .palette__shortcut {
   display: inline-flex;
-  gap: 2px;
+  gap: 6px;
   margin-left: var(--ok-space-2);
   opacity: 0.8;
+}
+
+.palette__chord {
+  display: inline-flex;
+  gap: 2px;
 }
 
 .palette__mode {

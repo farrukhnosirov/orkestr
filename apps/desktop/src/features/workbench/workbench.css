@@ -1,0 +1,457 @@
+/* File menu, Welcome page and File dialogs — Orkestr tokens only. */
+
+/* ── Title-bar menu bar ───────────────────────────────── */
+.wb-menubar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.wb-menubar__btn {
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: var(--ok-radius-sm);
+  background: transparent;
+  color: var(--ok-color-text-muted);
+  font: inherit;
+  font-size: var(--ok-font-size-sm);
+  cursor: pointer;
+  transition:
+    background var(--ok-duration-fast) var(--ok-ease),
+    color var(--ok-duration-fast) var(--ok-ease);
+}
+
+.wb-menubar__btn:hover,
+.wb-menubar__btn--open {
+  background: var(--ok-color-surface-hover);
+  color: var(--ok-color-text);
+}
+
+.wb-menubar__btn--open {
+  border-color: var(--ok-color-border-accent);
+  box-shadow: var(--ok-glow-accent);
+}
+
+.wb-menubar__btn:focus-visible {
+  outline: none;
+  box-shadow: var(--ok-focus-ring);
+}
+
+.wb-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: var(--ok-z-overlay);
+  display: flex;
+  flex-direction: column;
+  min-width: 280px;
+  max-height: min(620px, calc(100vh - 80px));
+  overflow-y: auto;
+  padding: 6px;
+  border: 1px solid var(--ok-color-border-strong);
+  border-radius: var(--ok-radius-lg);
+  /* opaque base: panels behind the menu must not ghost through */
+  background: var(--ok-gradient-panel), linear-gradient(var(--ok-color-bg-elevated), var(--ok-color-bg-elevated)), var(--ok-color-bg);
+  backdrop-filter: blur(var(--ok-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--ok-blur)) saturate(150%);
+  box-shadow: var(--ok-shadow-panel), var(--ok-glow-violet);
+  animation: wb-menu-in var(--ok-duration-fast) var(--ok-ease);
+}
+
+.wb-menu--sub {
+  top: -7px;
+  left: calc(100% + 4px);
+  min-width: 300px;
+  max-width: 460px;
+  overflow-y: auto;
+}
+
+@keyframes wb-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wb-menu {
+    animation: none;
+  }
+}
+
+.wb-menu__sub-host {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.wb-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 30px;
+  padding: 4px 10px;
+  border: 0;
+  border-radius: var(--ok-radius-sm);
+  background: transparent;
+  color: var(--ok-color-text);
+  font: inherit;
+  font-size: var(--ok-font-size-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.wb-menu__item:hover:not(:disabled),
+.wb-menu__item:focus-visible,
+.wb-menu__item--active {
+  outline: none;
+  background: var(--ok-color-surface-hover);
+}
+
+.wb-menu__item:focus-visible {
+  box-shadow: inset 0 0 0 1px var(--ok-color-border-accent);
+}
+
+.wb-menu__item:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.wb-menu__icon {
+  flex-shrink: 0;
+  color: var(--ok-color-text-subtle);
+}
+
+.wb-menu__item:hover:not(:disabled) .wb-menu__icon,
+.wb-menu__item:focus-visible .wb-menu__icon {
+  color: var(--ok-color-accent);
+}
+
+.wb-menu__text {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.wb-menu__meta {
+  max-width: 200px;
+  overflow: hidden;
+  color: var(--ok-color-text-subtle);
+  font-family: var(--ok-font-mono);
+  font-size: var(--ok-font-size-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wb-menu__kbd {
+  flex-shrink: 0;
+  padding: 1px 5px;
+  border: 1px solid var(--ok-color-border);
+  border-radius: var(--ok-radius-xs);
+  background: var(--ok-color-surface-sunken);
+  color: var(--ok-color-text-subtle);
+  font-family: var(--ok-font-mono);
+  font-size: 10px;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.wb-menu__chevron {
+  flex-shrink: 0;
+  color: var(--ok-color-text-subtle);
+}
+
+.wb-menu__dot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ok-color-accent);
+}
+
+.wb-menu__sep {
+  height: 1px;
+  margin: 5px 6px;
+  background: var(--ok-color-border);
+}
+
+/* ── Browse button inside a path field ────────────────── */
+.ok-input .path-input__actions {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 2px;
+  margin-right: calc(-1 * var(--ok-space-2));
+}
+
+.ok-input .path-input__browse {
+  flex-shrink: 0;
+}
+
+/* ── Welcome page ─────────────────────────────────────── */
+.wb-welcome {
+  position: absolute;
+  inset: 0 var(--ok-space-2) var(--ok-space-2) 0;
+  overflow: auto;
+  border: 1px solid var(--ok-color-border);
+  border-radius: var(--ok-radius-lg);
+  background: color-mix(in srgb, var(--ok-color-bg-elevated) 55%, transparent);
+  box-shadow: var(--ok-shadow-panel);
+}
+
+.wb-welcome__inner {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: clamp(24px, 6vh, 64px) clamp(16px, 4vw, 48px) var(--ok-space-8);
+}
+
+.wb-welcome__header {
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-4);
+  margin-bottom: var(--ok-space-8);
+}
+
+.wb-welcome__title {
+  margin: 0;
+  font-family: var(--ok-font-display);
+  font-size: var(--ok-font-size-2xl);
+  font-weight: var(--ok-font-weight-semibold);
+  color: var(--ok-color-text);
+}
+
+.wb-welcome__subtitle {
+  margin: 4px 0 0;
+  max-width: 60ch;
+  color: var(--ok-color-text-muted);
+  font-size: var(--ok-font-size-md);
+}
+
+.wb-welcome__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--ok-space-8);
+}
+
+.wb-welcome__col {
+  min-width: 0;
+}
+
+.wb-welcome__heading {
+  margin: 0 0 var(--ok-space-3);
+  color: var(--ok-color-text-subtle);
+  font-size: var(--ok-font-size-xs);
+  font-weight: var(--ok-font-weight-semibold);
+  letter-spacing: var(--ok-letter-spacing-caps);
+  text-transform: uppercase;
+}
+
+.wb-welcome__col > .wb-welcome__heading:not(:first-child) {
+  margin-top: var(--ok-space-8);
+}
+
+.wb-welcome__actions,
+.wb-welcome__recent,
+.wb-welcome__tips {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wb-welcome__action {
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-3);
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--ok-radius-md);
+  background: transparent;
+  color: var(--ok-color-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background var(--ok-duration-fast) var(--ok-ease),
+    border-color var(--ok-duration-fast) var(--ok-ease);
+}
+
+.wb-welcome__action:hover,
+.wb-welcome__action:focus-visible {
+  outline: none;
+  border-color: var(--ok-color-border-accent);
+  background: var(--ok-color-surface-hover);
+}
+
+.wb-welcome__action:focus-visible {
+  box-shadow: var(--ok-focus-ring);
+}
+
+.wb-welcome__action-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--ok-radius-md);
+  background: var(--ok-gradient-accent-soft);
+  color: var(--ok-color-accent);
+}
+
+.wb-welcome__action-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.wb-welcome__action-label {
+  color: var(--ok-color-accent);
+  font-size: var(--ok-font-size-md);
+}
+
+.wb-welcome__action-hint {
+  color: var(--ok-color-text-subtle);
+  font-size: var(--ok-font-size-sm);
+}
+
+.wb-keys {
+  display: inline-flex;
+  flex-shrink: 0;
+  gap: 6px;
+}
+
+.wb-keys__chord {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.wb-welcome__tips li {
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-3);
+  padding: 4px 10px;
+  color: var(--ok-color-text-muted);
+  font-size: var(--ok-font-size-sm);
+}
+
+.wb-welcome__tips .wb-keys {
+  min-width: 150px;
+}
+
+.wb-welcome__empty {
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-2);
+  margin: 0;
+  padding: 8px 10px;
+  color: var(--ok-color-text-subtle);
+  font-size: var(--ok-font-size-sm);
+}
+
+.wb-recent {
+  display: flex;
+  align-items: center;
+  border-radius: var(--ok-radius-md);
+}
+
+.wb-recent:hover,
+.wb-recent:focus-within {
+  background: var(--ok-color-surface-hover);
+}
+
+.wb-recent__open {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  align-items: center;
+  gap: var(--ok-space-2);
+  flex: 1;
+  min-width: 0;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: var(--ok-radius-md);
+  background: transparent;
+  color: var(--ok-color-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.wb-recent__open:focus-visible,
+.wb-recent__remove:focus-visible {
+  outline: none;
+  box-shadow: var(--ok-focus-ring);
+}
+
+.wb-recent__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ok-color-accent);
+}
+
+.wb-recent__name {
+  color: var(--ok-color-accent);
+  font-size: var(--ok-font-size-md);
+  white-space: nowrap;
+}
+
+.wb-recent__path {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ok-color-text-subtle);
+  font-family: var(--ok-font-mono);
+  font-size: var(--ok-font-size-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wb-recent__remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  margin-right: 4px;
+  border: 0;
+  border-radius: var(--ok-radius-sm);
+  background: transparent;
+  color: var(--ok-color-text-subtle);
+  cursor: pointer;
+  opacity: 0;
+}
+
+.wb-recent:hover .wb-recent__remove,
+.wb-recent:focus-within .wb-recent__remove {
+  opacity: 1;
+}
+
+.wb-recent__remove:hover {
+  background: var(--ok-color-surface-active);
+  color: var(--ok-color-text);
+}
+
+/* ── Dialog forms ─────────────────────────────────────── */
+.wb-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-3);
+}
+
+.wb-form__note {
+  margin: 0;
+  color: var(--ok-color-text-muted);
+  font-size: var(--ok-font-size-sm);
+}
+
+.wb-path {
+  font-family: var(--ok-font-mono);
+  word-break: break-all;
+}

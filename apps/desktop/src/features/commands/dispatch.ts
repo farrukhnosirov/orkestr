@@ -2,7 +2,7 @@
  * Global shortcut dispatch of registry commands (§54). Pure: the window
  * listener in App.tsx feeds it the event and the current context.
  */
-import { matchesShortcut } from "./keys";
+import { chordSteps, matchesShortcut } from "./keys";
 import type { AppCommand, CommandContext } from "./registry";
 
 type ShortcutEvent = Pick<KeyboardEvent, "key" | "code" | "ctrlKey" | "metaKey" | "shiftKey" | "altKey" | "target">;
@@ -22,6 +22,39 @@ export function shortcutCommand(e: ShortcutEvent, list: readonly AppCommand[], c
   const inTerminal = isTerminalTarget(e.target);
   for (const cmd of list) {
     if (!cmd.shortcut || !matchesShortcut(e, cmd.shortcut)) continue;
+    if (inTerminal && !cmd.inTerminal) continue;
+    if (cmd.enabled && !cmd.enabled(ctx)) continue;
+    return cmd;
+  }
+  return null;
+}
+
+/** How long the second key of a chord (`Ctrl+K Ctrl+O`) is awaited after the first. */
+export const CHORD_TIMEOUT_MS = 1500;
+
+/** Keys that only change modifiers (they never end a pending chord). */
+export function isModifierKey(key: string): boolean {
+  return key === "Control" || key === "Shift" || key === "Alt" || key === "Meta" || key === "AltGraph" || key === "OS";
+}
+
+/**
+ * The registry command whose chord is `prefix` followed by this event
+ * (`Ctrl+K` then `Ctrl+O` → the `Ctrl+K Ctrl+O` command), or null. Same
+ * terminal and `enabled` rules as `shortcutCommand`.
+ */
+export function chordCommand(
+  prefix: string,
+  e: ShortcutEvent,
+  list: readonly AppCommand[],
+  ctx: CommandContext,
+): AppCommand | null {
+  const inTerminal = isTerminalTarget(e.target);
+  for (const cmd of list) {
+    if (!cmd.shortcut) continue;
+    const steps = chordSteps(cmd.shortcut);
+    const [first, second] = steps;
+    if (steps.length !== 2 || !first || !second) continue;
+    if (first.toLowerCase() !== prefix.toLowerCase() || !matchesShortcut(e, second)) continue;
     if (inTerminal && !cmd.inTerminal) continue;
     if (cmd.enabled && !cmd.enabled(ctx)) continue;
     return cmd;

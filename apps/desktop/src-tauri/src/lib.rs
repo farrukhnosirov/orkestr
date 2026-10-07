@@ -396,6 +396,9 @@ pub fn run() {
             tracing::info!("second launch detected; focusing the existing window");
             show_main(app);
         }))
+        // Native folder/file pickers ("Browse…", File → Open). Only `dialog:allow-open`
+        // is granted, and only to the main and detached panel windows (capabilities).
+        .plugin(tauri_plugin_dialog::init())
         .manage(CoreState { ready: ready_rx, handle: Arc::clone(&handle_slot) })
         .manage(ShellState {
             close_to_tray: AtomicBool::new(true),
@@ -610,5 +613,27 @@ mod tests {
             .filter(|s| !s.is_empty())
             .collect();
         assert_eq!(handlers, app_commands::APP_COMMANDS);
+    }
+
+    /// The native dialog plugin is reachable only for opening (Browse…,
+    /// File → Open) and only from the main and detached panel windows.
+    #[test]
+    fn dialog_plugin_grants_open_only_to_main_and_panels() {
+        fn dialog(capability: &str) -> Vec<String> {
+            let v: serde_json::Value = serde_json::from_str(capability).unwrap();
+            v["permissions"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter_map(|p| p.as_str())
+                .filter(|p| p.starts_with("dialog:"))
+                .map(str::to_owned)
+                .collect()
+        }
+        let open = vec!["dialog:allow-open".to_owned()];
+        assert_eq!(dialog(include_str!("../capabilities/default.json")), open);
+        assert_eq!(dialog(include_str!("../capabilities/panels.json")), open);
+        assert!(dialog(include_str!("../capabilities/robots.json")).is_empty());
+        assert!(dialog(include_str!("../capabilities/hud.json")).is_empty());
     }
 }

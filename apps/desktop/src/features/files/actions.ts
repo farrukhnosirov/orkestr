@@ -13,6 +13,7 @@
 import { workspaceActions } from "../../components/workspaceActions";
 import { windowControls } from "../../lib/tauri";
 import { type RevealTarget, useEditorStore } from "../../store/editor";
+import { requestSave } from "../workbench/saveBus";
 
 /** Detail of the `orkestr:ask-manager` event. */
 export interface AskManagerDetail {
@@ -28,13 +29,17 @@ export interface AskManagerDetail {
 export const ASK_MANAGER_EVENT = "orkestr:ask-manager";
 
 /** Work for a panel that may live in another window. */
-export type PanelIntent = { type: "openFile"; path: string; at?: RevealTarget } | { type: "askManager"; detail: AskManagerDetail };
+export type PanelIntent =
+  | { type: "openFile"; path: string; at?: RevealTarget }
+  | { type: "askManager"; detail: AskManagerDetail }
+  /** File → Save / Save all for the Code panel. */
+  | { type: "saveFiles"; all: boolean };
 
 const INTENT_CHANNEL = "orkestr.panel-intents";
 
 /** The panel each intent is for. */
 export function intentPanel(intent: PanelIntent): string {
-  return intent.type === "openFile" ? "code" : "manager";
+  return intent.type === "askManager" ? "manager" : "code";
 }
 
 /** Whether this window hosts `panelId` (`null` = not declared: everything is local). */
@@ -45,6 +50,9 @@ function applyLocally(intent: PanelIntent): void {
   if (intent.type === "openFile") {
     useEditorStore.getState().openFile(intent.path, intent.at);
     workspaceActions.openPanel("code");
+  } else if (intent.type === "saveFiles") {
+    // Unsaved tabs but no mounted editor: show the Code panel; the save runs when it mounts.
+    if (requestSave(intent.all) === "queued") workspaceActions.openPanel("code");
   } else {
     window.dispatchEvent(new CustomEvent<AskManagerDetail>(ASK_MANAGER_EVENT, { detail: intent.detail }));
     workspaceActions.openPanel("manager");
@@ -56,6 +64,7 @@ function isIntent(v: unknown): v is PanelIntent {
   const o = v as { type?: unknown; path?: unknown; detail?: unknown };
   if (o.type === "openFile") return typeof o.path === "string";
   if (o.type === "askManager") return !!o.detail && typeof (o.detail as { text?: unknown }).text === "string";
+  if (o.type === "saveFiles") return typeof (o as { all?: unknown }).all === "boolean";
   return false;
 }
 
@@ -72,8 +81,9 @@ export function dispatchPanelIntent(intent: PanelIntent): void {
     applyLocally(intent);
     return;
   }
-  // Main window: focuses the detached window that hosts the panel.
-  workspaceActions.openPanel(panelId);
+  // Main window: focuses the detached window that hosts the panel (a save
+  // request leaves the focus where it is).
+  if (intent.type !== "saveFiles") workspaceActions.openPanel(panelId);
 }
 
 /**
@@ -94,7 +104,7 @@ export function hostPanelIntents(hostsPanel: (panelId: string) => boolean): () =
       const intent = e.data;
       if (!isIntent(intent) || !hostsPanel(intentPanel(intent))) return;
       applyLocally(intent);
-      void windowControls.focus().catch(() => undefined);
+      if (intent.type !== "saveFiles") void windowControls.focus().catch(() => undefined);
     };
   }
   return () => {
@@ -112,6 +122,11 @@ export function hostPanelIntents(hostsPanel: (panelId: string) => boolean): () =
 /** Opens `path` in the Code panel (focusing the panel), in whichever window hosts it. */
 export function openInEditor(path: string, at?: RevealTarget): void {
   dispatchPanelIntent(at ? { type: "openFile", path, at } : { type: "openFile", path });
+}
+
+/** Saves the active Code tab (or all unsaved tabs), in whichever window hosts the Code panel. */
+export function saveEditor(all: boolean): void {
+  dispatchPanelIntent({ type: "saveFiles", all });
 }
 
 /** Sends the ask-manager request to the Manager panel, in whichever window hosts it. */

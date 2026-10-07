@@ -60,10 +60,21 @@ body {
 }
 
 .app__main {
+  position: relative;
   flex: 1;
   min-width: 0;
   min-height: 0;
   padding: 0 var(--ok-space-2) var(--ok-space-2) 0;
+}
+
+.app__workspace {
+  height: 100%;
+}
+
+/* No project open: the Welcome page covers the (still mounted) workspace. */
+.app__workspace--hidden {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 /* ── Title bar ─────────────────────────────────────────── */

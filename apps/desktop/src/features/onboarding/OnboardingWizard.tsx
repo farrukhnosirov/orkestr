@@ -25,6 +25,7 @@ import { Trans } from "react-i18next";
 
 import { LanguageSelect } from "../../components/LanguageSelect";
 import { Logo } from "../../components/Logo";
+import { PathInput } from "../../components/PathInput";
 import { t, useT } from "../../i18n";
 import { describeError } from "../../i18n/errors";
 import { getClient, openProject } from "../../core/client";
@@ -34,6 +35,7 @@ import { SystemChecksList } from "../settings/sections/SystemChecksList";
 import { useSettingsStore } from "../settings/settingsStore";
 import { useSystemStore } from "../settings/systemStore";
 import { VoiceQuickSetup } from "../voice/settings/VoiceQuickSetup";
+import { hostBasename } from "../workbench/hostPaths";
 import "../settings/settings.css";
 import "./onboarding.css";
 import { useOnboardingStore } from "./onboardingStore";
@@ -362,12 +364,17 @@ export function OnboardingWizard() {
             label={t("onboarding:project.nameLabel")}
             placeholder={t("onboarding:project.namePlaceholder")}
             value={projectName} onChange={(e) => setProjectName(e.target.value)} />
-          <Input
+          <PathInput
             label={t("onboarding:project.folderLabel")}
             placeholder={t("onboarding:project.folderPlaceholder")}
             value={projectPath}
             hint={t("onboarding:project.folderHint")}
-            onChange={(e) => setProjectPath(e.target.value)}
+            onPathChange={setProjectPath}
+            mapPicked={(folder) => {
+              // Like "Open folder": a picked folder names a still unnamed project.
+              if (!projectName.trim()) setProjectName(hostBasename(folder));
+              return folder;
+            }}
             error={projectError ?? undefined}
           />
           <div>

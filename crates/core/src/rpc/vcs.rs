@@ -10,9 +10,9 @@ use std::path::{Path, PathBuf};
 use orkestr_domain::{Actor, ProjectId, SnapshotId, SnapshotReason};
 use orkestr_protocol::event::{EventKind, FileChangeKind, FileChangedPayload, SnapshotCreatedPayload};
 use orkestr_protocol::methods::vcs::{
-    self as m, AddWorktreeParams, BranchResult, CheckoutParams, CommitParams, CommitResult, CreateBranchParams,
-    DeleteBranchParams, DeleteBranchResult, DiffParams, DiffResult, DiscardParams, DiscardResult, InitParams,
-    LogParams, LogResult, MergeParams, MergePreview, MergePreviewParams, MergeResult, PathsParams,
+    self as m, AddWorktreeParams, BranchResult, CheckoutParams, CloneParams, CloneResult, CommitParams, CommitResult,
+    CreateBranchParams, DeleteBranchParams, DeleteBranchResult, DiffParams, DiffResult, DiscardParams, DiscardResult,
+    InitParams, LogParams, LogResult, MergeParams, MergePreview, MergePreviewParams, MergeResult, PathsParams,
     RemoveWorktreeParams, RemoveWorktreeResult, RepoParams, RepoStatus, ShowParams, ShowResult, WorktreeResult,
     WorktreesResult, DEFAULT_LOG_LIMIT, DEFAULT_MAX_PATCH_BYTES,
 };
@@ -50,7 +50,8 @@ pub fn register(router: &mut RpcRouter) {
         .method::<m::MergePreviewMethod, _, _>(merge_preview)
         .method::<m::Merge, _, _>(merge)
         .method::<m::AbortMerge, _, _>(abort_merge)
-        .method::<m::Init, _, _>(init);
+        .method::<m::Init, _, _>(init)
+        .method::<m::CloneRepo, _, _>(clone_repo);
 }
 
 /// Maps VCS errors to RPC errors.
@@ -331,4 +332,38 @@ async fn init(ctx: RpcContext, p: InitParams) -> Result<RepoStatus, RpcError> {
     git.init(&root, p.initial_branch.as_deref()).await.map_err(vcs_to_rpc)?;
     tracing::info!(project_id = %p.project_id, "git repository initialised");
     git.status(&root).await.map_err(vcs_to_rpc)
+}
+
+/// Permission gate of `vcs.clone`: a user action using the Network
+/// capability (emergency "network tools disabled" and dangerous-URL
+/// classification apply). `Ask` → `approval_required`, `Deny` → `forbidden`.
+fn clone_gate(ctx: &RpcContext, url: &str) -> Result<(), RpcError> {
+    use orkestr_domain::{ApprovalMode, Capability};
+    use orkestr_security::{CheckContext, Decision, PermissionEngine, Resource};
+    let sec = &ctx.services.security;
+    let check_ctx = CheckContext {
+        project_id: None,
+        agent_id: None,
+        task_id: None,
+        approval_mode: sec.engine.effective_mode(ApprovalMode::default()),
+        worktree_root: None,
+        protected_environment: false,
+    };
+    let resource = Resource::Url { url: url.to_owned() };
+    match sec.engine.check(&sec.user(), Capability::Network, &resource, &check_ctx) {
+        Decision::Allow => Ok(()),
+        Decision::Ask(r) => Err(RpcError::new(orkestr_protocol::RpcErrorCode::ApprovalRequired, r.message)
+            .with_data(serde_json::json!({ "code": r.code, "risk": r.risk, "danger": r.danger }))),
+        Decision::Deny(r) => Err(RpcError::forbidden(r.message).with_data(serde_json::json!({ "code": r.code }))),
+    }
+}
+
+async fn clone_repo(ctx: RpcContext, p: CloneParams) -> Result<CloneResult, RpcError> {
+    let url = orkestr_vcs::clone::validate_clone_url(&p.url).map_err(vcs_to_rpc)?;
+    clone_gate(&ctx, &url)?;
+    let parent = PathBuf::from(p.parent_dir.trim());
+    let (path, name) =
+        ctx.services.vcs.git().clone_repo(&url, &parent, p.folder_name.as_deref()).await.map_err(vcs_to_rpc)?;
+    tracing::info!(path = %path.display(), "repository cloned");
+    Ok(CloneResult { path: path.to_string_lossy().into_owned(), name })
 }

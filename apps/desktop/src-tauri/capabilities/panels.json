@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "panel-windows",
-  "description": "Detached panel windows (Phase 3, ADR-0013): custom title bar window controls only, plus core_connection and window_redock_panel (re-dock itself). They load the same frontend and talk to the core over the RPC protocol; layout and geometry are driven by the main window.",
+  "description": "Detached panel windows (Phase 3, ADR-0013): custom title bar window controls only, plus core_connection, window_redock_panel (re-dock itself) and the native open dialog (`dialog:allow-open`, for Browse… in panels). They load the same frontend and talk to the core over the RPC protocol; layout and geometry are driven by the main window.",
   "windows": [
     "panel-*"
   ],
@@ -16,6 +16,7 @@
     "core:window:allow-close",
     "core:window:allow-start-dragging",
     "core:window:allow-set-focus",
+    "dialog:allow-open",
     "allow-core-connection",
     "allow-window-redock-panel"
   ]

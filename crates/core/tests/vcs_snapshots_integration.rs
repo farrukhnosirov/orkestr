@@ -298,3 +298,49 @@ async fn vcs_and_snapshots_over_websocket() {
 
     core.shutdown().await;
 }
+
+/// `vcs.clone` validates the URL and the destination before spawning git:
+/// option-like / local / remote-helper URLs and occupied targets are refused.
+#[tokio::test]
+async fn vcs_clone_rejects_unsafe_input_over_websocket() {
+    let data = tempfile::tempdir().unwrap();
+    let dest = tempfile::tempdir().unwrap();
+    let parent = dest.path().to_string_lossy().into_owned();
+    let core = orkestr_core::start(CoreConfig::with_data_dir(data.path())).await.unwrap();
+    let mut c = Client::connect(&core).await;
+
+    for url in ["--upload-pack=touch x", "ext::sh -c id", "file:///etc", r"C:\Code\repo", "/home/me/repo", ""] {
+        assert_eq!(
+            c.error_code("vcs.clone", json!({"url": url, "parentDir": parent})).await,
+            "bad_request",
+            "{url:?} must be refused"
+        );
+    }
+    // Relative or missing destination folders.
+    assert_eq!(
+        c.error_code("vcs.clone", json!({"url": "https://example.invalid/o/r.git", "parentDir": "relative"})).await,
+        "bad_request"
+    );
+    let missing = dest.path().join("missing").to_string_lossy().into_owned();
+    assert_eq!(
+        c.error_code("vcs.clone", json!({"url": "https://example.invalid/o/r.git", "parentDir": missing})).await,
+        "not_found"
+    );
+    // A non-empty folder of that name already exists.
+    write(dest.path(), "r/keep.txt", "x");
+    assert_eq!(
+        c.error_code("vcs.clone", json!({"url": "https://example.invalid/o/r.git", "parentDir": parent})).await,
+        "conflict"
+    );
+    // A bad explicit folder name.
+    assert_eq!(
+        c.error_code(
+            "vcs.clone",
+            json!({"url": "https://example.invalid/o/r.git", "parentDir": parent, "folderName": "../x"})
+        )
+        .await,
+        "bad_request"
+    );
+    assert_eq!(read(dest.path(), "r/keep.txt").as_deref(), Some("x"));
+    core.shutdown().await;
+}

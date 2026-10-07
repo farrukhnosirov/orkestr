@@ -9,7 +9,7 @@
 //!   log, for-each-ref, worktree list, merge-tree);
 //! * [`cli::GitCli`] — status, diff, log, show, branches, stage/unstage/discard,
 //!   commit, worktrees, merge preview (`merge-tree --write-tree`), `--no-ff`
-//!   merge, abort, init — with a per-repository async mutex for mutations;
+//!   merge, abort, init, clone ([`clone`]) — with a per-repository async mutex for mutations;
 //! * [`service::Vcs`] — project-level service: worktree resolution and
 //!   Orkestr-managed agent worktrees (`agent/<role>-<shortid>` under
 //!   `<data_dir>/worktrees/<project short>/<agent short>`);
@@ -22,6 +22,7 @@
 #![warn(missing_docs)]
 
 pub mod cli;
+pub mod clone;
 pub mod error;
 pub mod integration;
 pub mod naming;

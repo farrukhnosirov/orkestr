@@ -47,10 +47,21 @@ export function shortcutKey(e: KeyEventLike): string {
 }
 
 /**
+ * Chord steps of a shortcut: `Ctrl+K Ctrl+O` → [`Ctrl+K`, `Ctrl+O`] (VS Code
+ * style: press the first, release, press the second). Single-step shortcuts
+ * give one element.
+ */
+export function chordSteps(shortcut: string): string[] {
+  return shortcut.trim().split(/\s+/).filter(Boolean);
+}
+
+/**
  * Whether a keyboard event matches a shortcut string like `Ctrl+Shift+T` or
  * `Ctrl+\``. `Ctrl` also matches ⌘ on macOS. Modifiers must match exactly.
+ * A chord (`Ctrl+K Ctrl+O`) never matches a single event — see `chordSteps`.
  */
 export function matchesShortcut(e: ShortcutEventLike, shortcut: string): boolean {
+  if (chordSteps(shortcut).length !== 1) return false;
   const parts = shortcut.split("+").map((p) => p.trim().toLowerCase());
   const key = parts.pop();
   if (!key) return false;

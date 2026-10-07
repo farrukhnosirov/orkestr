@@ -116,6 +116,8 @@ export * from "./CheckStatus";
 export * from "./CheckoutParams";
 export * from "./ClientFrame";
 export * from "./ClientInfo";
+export * from "./CloneParams";
+export * from "./CloneResult";
 export * from "./CodeExcerpt";
 export * from "./CommandShell";
 export * from "./CommitInfo";

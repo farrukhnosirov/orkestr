@@ -3,6 +3,7 @@ import { Badge, Button, EmptyState, IconButton, Input, Spinner } from "@orkestr/
 import { BookOpen, FolderPlus, RefreshCw, Search, Trash2 } from "lucide-react";
 import { type FormEvent, useEffect, useState } from "react";
 
+import { PathInput } from "../../components/PathInput";
 import { useFormat, useT } from "../../i18n";
 import { errorMessage, requireClient, useRpcQuery } from "../../lib/rpcQuery";
 import { useMemoryFocus } from "./focus";
@@ -84,11 +85,12 @@ export function KnowledgeBase({ projectId }: { projectId: string | null }) {
   return (
     <div className="mem-view">
       <form className="mem-toolbar" onSubmit={(e) => void add(e)}>
-        <Input
+        <PathInput
           className="mem-search mem-search--wide"
           placeholder={t("knowledge.pathPlaceholder")}
           value={location}
-          onChange={(e) => setLocation(e.target.value)}
+          onPathChange={setLocation}
+          kind="both"
           leftIcon={<FolderPlus size={14} />}
           aria-label={t("knowledge.pathLabel")}
         />

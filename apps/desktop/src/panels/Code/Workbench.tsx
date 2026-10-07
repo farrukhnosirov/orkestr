@@ -20,7 +20,7 @@ import {
   Upload,
   X,
 } from "lucide-react";
-import { type KeyboardEvent, useCallback, useEffect, useMemo, useReducer, useState } from "react";
+import { type KeyboardEvent, useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 
 import { getClient } from "../../core/client";
 import { shortcutKey } from "../../features/commands/keys";
@@ -37,6 +37,7 @@ import { type Doc, pruneParkedDocuments, registryFor, SaveConflictError } from "
 import { CodeEditor, DiffEditor, type EditorCallbacks } from "./EditorHost";
 import { applyTokensTheme, getMonaco } from "./monaco";
 import { useThemeRevision } from "../../features/theme/useThemeRevision";
+import { registerSaveHandler } from "../../features/workbench/saveBus";
 
 const ENCODINGS: Record<string, string> = {
   utf8: "UTF-8",
@@ -187,6 +188,20 @@ export default function Workbench({ projectId }: { projectId: string }) {
     },
     [registry, compare, t],
   );
+
+  // File → Save / Save all (Ctrl+S / Ctrl+Shift+S), dispatched from the global shortcut layer.
+  const saveRequest = useRef<(all: boolean) => void>(() => undefined);
+  saveRequest.current = (all: boolean) => {
+    void (async () => {
+      const store = useEditorStore.getState();
+      const targets = all ? store.tabs.filter((tab) => tab.dirty).map((tab) => tab.path) : store.activePath ? [store.activePath] : [];
+      for (const path of targets) {
+        const d = registry.get(path);
+        if (d && registry.isDirty(d)) await save(path);
+      }
+    })();
+  };
+  useEffect(() => registerSaveHandler((all) => saveRequest.current(all)), []);
 
   const doClose = useCallback(
     (path: string) => {

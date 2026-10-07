@@ -10,10 +10,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useT } from "../../i18n";
 import { describeError } from "../../i18n/errors";
+import { PathInput } from "../../components/PathInput";
 import { useAppStore } from "../../store/app";
 import { PipelineSettings } from "../pipeline/PipelineSettings";
 import { SettingGroup, SettingRow, Switch } from "../settings/controls";
 import type { SettingsSectionProps } from "../settings/sections";
+import { relativeTo } from "../workbench/hostPaths";
 import { blankCheck, CHECK_KINDS, validateProfile } from "./logic";
 import { qualityApi } from "./store";
 import "./quality.css";
@@ -88,6 +90,7 @@ function GatesEditor({ projectId, config, onChange }: { projectId: string; confi
 function ChecksEditor({ projectId, profile, onChange }: { projectId: string; profile: QualityProfile; onChange: (p: QualityProfile) => void }) {
   const { t } = useT("quality");
   const [draft, setDraft] = useState<CheckDef[]>(profile.checks);
+  const rootPath = useAppStore((s) => s.projects.find((p) => p.id === projectId)?.rootPath ?? null);
   const [busy, setBusy] = useState<"save" | "reset" | null>(null);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -164,12 +167,14 @@ function ChecksEditor({ projectId, profile, onChange }: { projectId: string; pro
                   error={problem && problem.key !== "cwdOutside" && problem.key !== "timeout" ? t(`settings.errors.${problem.key}`) : undefined}
                   onChange={(e) => patch(i, { command: e.target.value })}
                 />
-                <Input
+                <PathInput
                   label={t("settings.cwdLabel")}
                   value={c.cwd}
-                  spellCheck={false}
                   error={problem?.key === "cwdOutside" ? t("settings.errors.cwdOutside") : undefined}
-                  onChange={(e) => patch(i, { cwd: e.target.value })}
+                  defaultPath={rootPath ?? undefined}
+                  // The folder is stored relative to the project; a pick outside it stays absolute and is flagged.
+                  mapPicked={(folder) => (rootPath ? (relativeTo(rootPath, folder) ?? folder) || "." : folder)}
+                  onPathChange={(cwd) => patch(i, { cwd })}
                 />
                 <Input
                   label={t("settings.timeoutLabel")}

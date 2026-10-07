@@ -58,6 +58,12 @@ consistently and add it to this table in the same change.
 | Deployment | развёртывание | Развернуть | |
 | Environment | окружение | — | |
 | Workspace (docking area) | рабочая область | — | |
+| File (menu) | меню «Файл» | — | Title-bar menu, VS Code style. Items: «Новый проект…», «Открыть папку…», «Открыть файл…», «Новый файл», «Новая папка», «Сохранить», «Сохранить всё», «Закрыть проект», «Выход». |
+| Browse… (path picker) | — | Обзор… | Button next to every path field; opens the system dialog. |
+| Clone (repository) | клонирование | Клонировать репозиторий… | |
+| Recent (projects) | недавние проекты | — | Welcome page heading «Недавние». |
+| Welcome page / Get started | «Начало работы» | — | Shown while no project is open. |
+| Reveal in file manager | — | Показать в проводнике | The OS file manager on every platform. |
 | Layout | раскладка | Сбросить раскладку | Preset «Разработка» (Coding). |
 | Panel | панель | Открыть панель | |
 | Command palette | палитра команд | — | |

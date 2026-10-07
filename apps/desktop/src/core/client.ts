@@ -102,10 +102,11 @@ export function bootstrapCore(): Promise<OrkestrClient> {
 }
 
 /** Creates a project and makes it active. */
-export async function createProject(input: { name: string; description?: string; color?: string }): Promise<Project> {
-  const params: { name: string; description?: string; color?: string } = { name: input.name };
+export async function createProject(input: { name: string; description?: string; color?: string; rootPath?: string }): Promise<Project> {
+  const params: { name: string; description?: string; color?: string; rootPath?: string } = { name: input.name };
   if (input.description) params.description = input.description;
   if (input.color) params.color = input.color;
+  if (input.rootPath) params.rootPath = input.rootPath;
   const { project } = await getClient().call("projects.create", params);
   const store = useAppStore.getState();
   store.upsertProject(project);

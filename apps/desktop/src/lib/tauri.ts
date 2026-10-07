@@ -1,9 +1,10 @@
 /**
- * Thin wrapper around the Tauri APIs the shell needs: window controls and the
- * `core_connection` command. Business data never goes through Tauri (§67) —
- * everything else uses @orkestr/client.
+ * Thin wrapper around the Tauri APIs the shell needs: window controls, the
+ * `core_connection` command and the native open dialogs. Business data never
+ * goes through Tauri (§67) — everything else uses @orkestr/client.
  */
 import { invoke, isTauri as tauriDetected } from "@tauri-apps/api/core";
+import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
@@ -132,3 +133,48 @@ export const windowControls = {
     return getCurrentWindow().onResized(handler);
   },
 };
+
+/** Options of the native pickers. */
+export interface PickOptions {
+  /** Dialog title (localized by the caller). */
+  title?: string;
+  /** Folder (or file) the dialog starts in. */
+  defaultPath?: string;
+}
+
+/**
+ * Whether native folder/file pickers are available: only inside the desktop
+ * shell (the main window and detached panels are granted `dialog:allow-open`).
+ * In a plain browser the "Browse…" buttons are hidden and paths are typed.
+ */
+export function canPickPaths(): boolean {
+  return isTauri();
+}
+
+/** First path of a dialog result (`null` when cancelled). */
+function firstPath(result: unknown): string | null {
+  if (typeof result === "string") return result || null;
+  if (Array.isArray(result)) {
+    const first: unknown = result[0];
+    return typeof first === "string" && first ? first : null;
+  }
+  return null;
+}
+
+async function pick(directory: boolean, opts: PickOptions): Promise<string | null> {
+  if (!canPickPaths()) return null;
+  const options: { directory: boolean; multiple: false; title?: string; defaultPath?: string } = { directory, multiple: false };
+  if (opts.title) options.title = opts.title;
+  if (opts.defaultPath) options.defaultPath = opts.defaultPath;
+  return firstPath(await openDialog(options));
+}
+
+/** Shows the native "choose folder" dialog; resolves to the absolute path, or `null` (cancelled / not in the shell). */
+export function pickFolder(opts: PickOptions = {}): Promise<string | null> {
+  return pick(true, opts);
+}
+
+/** Shows the native "open file" dialog; resolves to the absolute path, or `null` (cancelled / not in the shell). */
+export function pickFile(opts: PickOptions = {}): Promise<string | null> {
+  return pick(false, opts);
+}

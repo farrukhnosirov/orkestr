@@ -876,6 +876,33 @@ pub struct InitParams {
     pub initial_branch: Option<String>,
 }
 
+/// Params of `vcs.clone` — clones a remote repository into a new folder
+/// (a user action from File → Clone repository…; Network capability).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct CloneParams {
+    /// Repository URL: `https://`, `http://`, `ssh://`, `git://` or scp-like `user@host:path`.
+    pub url: String,
+    /// Absolute path of an existing folder the repository is cloned into (as a new sub-folder).
+    pub parent_dir: String,
+    /// Name of the new sub-folder (default: derived from the URL, e.g. `repo` for `…/repo.git`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub folder_name: Option<String>,
+}
+
+/// Result of `vcs.clone`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct CloneResult {
+    /// Absolute path of the cloned working tree.
+    pub path: String,
+    /// Folder name (a natural project name).
+    pub name: String,
+}
+
 // ---------------------------------------------------------------------------
 // Methods
 // ---------------------------------------------------------------------------
@@ -955,6 +982,10 @@ method!(
 method!(
     /// `vcs.init` — `git init` in the project root.
     Init, "vcs.init", InitParams, RepoStatus
+);
+method!(
+    /// `vcs.clone` — `git clone` of a remote into a new folder (user action, Network).
+    CloneRepo, "vcs.clone", CloneParams, CloneResult
 );
 
 #[cfg(test)]

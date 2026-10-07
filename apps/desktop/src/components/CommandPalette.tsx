@@ -13,6 +13,7 @@ import {
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
 import { openProject } from "../core/client";
+import { chordSteps } from "../features/commands/keys";
 import { type AppCommand, commands as registryCommands } from "../features/commands/registry";
 import { fuzzyMatch, highlightSegments } from "../features/search/fuzzy";
 import { t, useLanguage, useT } from "../i18n";
@@ -149,10 +150,15 @@ function Highlight({ text, indices }: { text: string; indices: number[] }) {
 }
 
 function Shortcut({ keys }: { keys: string }) {
+  // Chords (`Ctrl+K Ctrl+O`) show each step as its own key group.
   return (
     <span className="palette__shortcut">
-      {keys.split("+").map((k) => (
-        <Kbd key={k}>{k}</Kbd>
+      {chordSteps(keys).map((step, i) => (
+        <span key={i} className="palette__chord">
+          {step.split("+").map((k, j) => (
+            <Kbd key={j}>{k}</Kbd>
+          ))}
+        </span>
       ))}
     </span>
   );
