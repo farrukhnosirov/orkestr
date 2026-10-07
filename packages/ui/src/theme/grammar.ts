@@ -168,7 +168,8 @@ export function splitTopLevel(s: string): string[] {
   return out;
 }
 
-const GRADIENT_FNS = [
+/** Gradient functions of the `Gradient` grammar. */
+export const GRADIENT_FNS = [
   "linear-gradient(",
   "radial-gradient(",
   "conic-gradient(",

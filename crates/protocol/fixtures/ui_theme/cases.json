@@ -66,7 +66,40 @@
     ["Easing", "bounce", false]
   ],
   "themes": [
-    { "name": "nebula as is", "patch": {}, "issues": [], "contrast": { "text-bg": 17.31 } },
+    {
+      "name": "nebula as is",
+      "patch": {},
+      "issues": [],
+      "contrast": { "text-bg": 17.31, "subtle-bg": 4.94, "accent-gradient-fg": 6.53 }
+    },
+    {
+      "name": "white on a light accent gradient warns at its worst stop",
+      "patch": {
+        "tokens": {
+          "color-text-inverse": "#ffffff",
+          "gradient-accent": "linear-gradient(135deg, #d97706 0%, rgba(234, 88, 12, 1) 50%, #db2777 100%)"
+        }
+      },
+      "issues": [],
+      "contrast": { "accent-gradient-fg": 3.19 }
+    },
+    {
+      "name": "radial gradient stops skip shape and position",
+      "patch": {
+        "tokens": {
+          "color-text-inverse": "#ffffff",
+          "gradient-accent": "radial-gradient(circle at 10% 20%, hsl(0, 0%, 0%) 0%, #be185d 100%)"
+        }
+      },
+      "issues": [],
+      "contrast": { "accent-gradient-fg": 6.04 }
+    },
+    {
+      "name": "dim subtle text warns",
+      "patch": { "tokens": { "color-text-subtle": "#646d96" } },
+      "issues": [],
+      "contrast": { "subtle-bg": 4.04 }
+    },
     {
       "name": "white on black",
       "patch": { "tokens": { "color-text": "#ffffff", "color-bg": "#000000" } },

@@ -26,7 +26,7 @@
   /* ── text ─────────────────────────────────────────────── */
   --ok-color-text: #e8ecff;
   --ok-color-text-muted: #9aa3c8;
-  --ok-color-text-subtle: #646d96;
+  --ok-color-text-subtle: #727ba6;
   --ok-color-text-inverse: #040611;
 
   /* ── accents ──────────────────────────────────────────── */
@@ -139,7 +139,7 @@
   --ok-color-border-strong: rgba(40, 60, 140, 0.22);
   --ok-color-text: #121633;
   --ok-color-text-muted: #4b5378;
-  --ok-color-text-subtle: #7d84a6;
+  --ok-color-text-subtle: #636b90;
   --ok-color-text-inverse: #ffffff;
   /* Contrast-safe status/accent bases (= BASE_LIGHT in orkestr_protocol::ui_theme). */
   --ok-color-accent: #0e7490;
