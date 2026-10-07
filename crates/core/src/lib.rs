@@ -105,6 +105,8 @@ impl CoreHandle {
         self.services.quality.shutdown().await;
         // Kill terminal process trees before the server goes away.
         self.services.terminals.shutdown().await;
+        // The VS Code server runs extension code: never outlive the core.
+        self.services.vscode.shutdown().await;
         if let Some(server) = self.server.take() {
             if tokio::time::timeout(std::time::Duration::from_secs(5), server).await.is_err() {
                 tracing::warn!("RPC server did not stop within 5s");
@@ -361,6 +363,20 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
     manager.set_pipeline_checks(Arc::new(integration::PipelineQuality::new(quality.clone(), Arc::clone(&snapshots))));
     manager.set_merge_manager(merge.clone());
 
+    // Embedded VS Code (VSCodium REH web): nothing is downloaded or started
+    // until the user asks for it (`vscode.install` / `vscode.start`).
+    let vscode = orkestr_vscode_host::VsCodeHost::new(
+        orkestr_vscode_host::HostOptions::new(
+            paths.data_dir.join("vscode-server"),
+            platform.info().os,
+            platform.info().arch,
+            Arc::new(orkestr_platform::NativeProcessControl),
+        )
+        .with_events(events.clone()),
+    )
+    .map_err(|e| CoreError::Config(format!("VS Code host: {e}")))?;
+    vscode.spawn_background();
+
     let services = Arc::new(Services {
         version: VERSION.to_owned(),
         started_at: chrono::Utc::now(),
@@ -395,6 +411,7 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
         quality,
         architecture,
         benchmarks: Arc::new(benchmarks::BenchmarkStats::new()),
+        vscode,
     });
     logging::attach_event_bus(services.events.clone());
 

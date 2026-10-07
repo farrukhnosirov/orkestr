@@ -25,7 +25,8 @@
     "recentEmpty": "No recent projects",
     "reveal": "Show in file manager",
     "closeProject": "Close project",
-    "exit": "Exit"
+    "exit": "Exit",
+    "openInVsCode": "Open in VS Code"
   },
   "commands": {
     "group": "File",

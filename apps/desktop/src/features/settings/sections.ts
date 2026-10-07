@@ -10,6 +10,7 @@ import { visualSettingsSection } from "../performance/section";
 import { managerSettingsSection, providersSettingsSection } from "../providers";
 import { qualitySettingsSection } from "../quality";
 import { soundSettingsSection, voiceSettingsSection } from "../voice";
+import { vscodeSettingsSection } from "../vscode";
 import { AboutSection } from "./sections/AboutSection";
 import { GeneralSection } from "./sections/GeneralSection";
 import { SystemSection } from "./sections/SystemSection";
@@ -65,6 +66,8 @@ settingsSections.push(qualitySettingsSection);
 settingsSections.push(visualSettingsSection);
 // voice-sound (Phase 3)
 settingsSections.push(voiceSettingsSection, soundSettingsSection);
+// Embedded VS Code
+settingsSections.push(vscodeSettingsSection);
 
 /** Sections in display order (stable for equal `order`). */
 export function orderedSections(list: readonly SettingsSection[] = settingsSections): SettingsSection[] {

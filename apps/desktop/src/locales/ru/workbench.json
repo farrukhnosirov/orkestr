@@ -25,7 +25,8 @@
     "recentEmpty": "Недавних проектов нет",
     "reveal": "Показать в проводнике",
     "closeProject": "Закрыть проект",
-    "exit": "Выход"
+    "exit": "Выход",
+    "openInVsCode": "Открыть в VS Code"
   },
   "commands": {
     "group": "Файл",

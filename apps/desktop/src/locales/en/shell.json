@@ -42,7 +42,9 @@
     "open": "Open",
     "stopProject": "Stop project AI…",
     "delete": "Delete project…",
-    "unsaved": "Unsaved changes in {{name}}"
+    "unsaved": "Unsaved changes in {{name}}",
+    "vscode": "VS Code",
+    "extensions": "Extensions (Ctrl+Shift+X)"
   },
   "createProject": {
     "title": "New project",
@@ -173,6 +175,10 @@
     "monitoring": {
       "title": "Monitoring",
       "description": "Node resources, processes and core health"
+    },
+    "vscode": {
+      "title": "VS Code",
+      "description": "Full VS Code (VSCodium) with Open VSX extensions on the project folder"
     }
   },
   "phasePlaceholder": {

@@ -28,6 +28,7 @@ type MenuLabelKey =
   | "save"
   | "saveAll"
   | "reveal"
+  | "openInVsCode"
   | "closeProject"
   | "exit";
 
@@ -49,6 +50,7 @@ export const FILE_MENU: readonly Entry[] = [
   { kind: "recent" },
   { kind: "sep" },
   { kind: "cmd", command: "file.reveal", label: "reveal" },
+  { kind: "cmd", command: "vscode.openProject", label: "openInVsCode" },
   { kind: "cmd", command: "file.closeProject", label: "closeProject" },
   { kind: "sep" },
   { kind: "cmd", command: "app.exit", label: "exit" },

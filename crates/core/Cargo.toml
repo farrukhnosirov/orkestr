@@ -33,6 +33,7 @@ orkestr-agent-runtime.workspace = true
 orkestr-orchestrator.workspace = true
 orkestr-quality.workspace = true
 orkestr-insight.workspace = true
+orkestr-vscode-host.workspace = true
 tokio.workspace = true
 tokio-util.workspace = true
 futures.workspace = true

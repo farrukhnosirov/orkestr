@@ -42,7 +42,9 @@
     "open": "Открыть",
     "stopProject": "Остановить работу AI в проекте…",
     "delete": "Удалить проект…",
-    "unsaved": "Несохранённые изменения в проекте «{{name}}»"
+    "unsaved": "Несохранённые изменения в проекте «{{name}}»",
+    "vscode": "VS Code",
+    "extensions": "Расширения (Ctrl+Shift+X)"
   },
   "createProject": {
     "title": "Новый проект",
@@ -177,6 +179,10 @@
     "monitoring": {
       "title": "Мониторинг",
       "description": "Ресурсы узла, процессы и состояние ядра"
+    },
+    "vscode": {
+      "title": "VS Code",
+      "description": "Полноценный VS Code (VSCodium) с расширениями Open VSX на папке проекта"
     }
   },
   "phasePlaceholder": {

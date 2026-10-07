@@ -1,11 +1,12 @@
 import type { Project } from "@orkestr/protocol";
 import { IconButton, Tooltip } from "@orkestr/ui";
 import { clsx } from "clsx";
-import { Command, FolderOpen, FolderX, Plus, Trash2 } from "lucide-react";
+import { Blocks, Code2, Command, FolderOpen, FolderX, Plus, Trash2 } from "lucide-react";
 import { useCallback, useState } from "react";
 
 import { openProject } from "../core/client";
 import { useSecurityStore } from "../features/security/store";
+import { openExtensions, openVsCodePanel } from "../features/vscode/quickAccess";
 import { useT } from "../i18n";
 import { ContextMenu } from "../panels/Files/ContextMenu";
 import { useAppStore } from "../store/app";
@@ -108,6 +109,8 @@ export function ProjectRail() {
             <Plus size={18} />
           </button>
         </Tooltip>
+        <IconButton label={t("rail.vscode")} icon={<Code2 size={16} />} onClick={openVsCodePanel} tooltip="right" />
+        <IconButton label={t("rail.extensions")} icon={<Blocks size={16} />} onClick={openExtensions} tooltip="right" />
         <IconButton label={t("rail.palette")} icon={<Command size={16} />} onClick={() => setPaletteOpen(true)} tooltip="right" />
       </div>
       {menu && (

@@ -86,6 +86,8 @@ pub struct Services {
     pub seq_high_water: Arc<crate::housekeeping::SeqHighWater>,
     /// Historical model statistics for router auto-scoring (Phase 2, §22).
     pub benchmarks: Arc<crate::benchmarks::BenchmarkStats>,
+    /// Embedded VS Code server (VSCodium REH web, `vscode.*`).
+    pub vscode: orkestr_vscode_host::VsCodeHost,
 }
 
 impl std::fmt::Debug for Services {

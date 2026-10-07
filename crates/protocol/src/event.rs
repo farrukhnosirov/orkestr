@@ -578,6 +578,26 @@ pub struct EmergencyFlagsChangedPayload {
     pub flags: crate::methods::emergency::EmergencyFlagsView,
 }
 
+/// `VsCodeStatusChanged` — the embedded VS Code server changed state
+/// (installed, started, stopped, crashed, …). Never carries the connection token.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct VsCodeStatusPayload {
+    /// The status now in effect.
+    pub status: crate::methods::vscode::VsCodeStatus,
+}
+
+/// `VsCodeProgress` — download / verify / extract progress of the VS Code
+/// server package (ephemeral: not persisted in the event log).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct VsCodeProgressPayload {
+    /// Progress.
+    pub progress: crate::methods::vscode::VsCodeProgress,
+}
+
 /// `Notification`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
@@ -902,6 +922,7 @@ macro_rules! event_kinds {
                         | EventKind::AgentUpdated(_)
                         | EventKind::ManagerMessageAdded(_)
                         | EventKind::SchedulerUpdated(_)
+                        | EventKind::VsCodeProgress(_)
                 )
             }
 
@@ -1045,6 +1066,10 @@ event_kinds! {
     VoiceCommand(VoiceCommandPayload),
     /// The emergency flags changed (re-arm, stop, FullAuto / network / vault switches). Appended.
     EmergencyFlagsChanged(EmergencyFlagsChangedPayload),
+    /// The embedded VS Code server changed state. Appended.
+    VsCodeStatusChanged(VsCodeStatusPayload),
+    /// VS Code server install progress (ephemeral). Appended.
+    VsCodeProgress(VsCodeProgressPayload),
 }
 
 // ---------------------------------------------------------------------------

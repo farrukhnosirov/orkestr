@@ -16,6 +16,7 @@ import { qualityCommands } from "../quality";
 import { hudCommands } from "../hud/commands";
 import { voiceCommands } from "../voice";
 import { WORKBENCH_COMMANDS } from "../workbench/commands";
+import { vscodeCommands } from "../vscode";
 
 export interface CommandContext {
   projectId: string | null;
@@ -72,3 +73,5 @@ commands.push(...hudCommands);
 commands.push(...voiceCommands);
 // File menu / Welcome page (VS Code-like project & file management)
 commands.push(...WORKBENCH_COMMANDS);
+// Embedded VS Code
+commands.push(...vscodeCommands);

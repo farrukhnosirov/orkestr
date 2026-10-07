@@ -229,6 +229,21 @@ fn sys() -> &'static Mutex<sysinfo::System> {
     SYS.get_or_init(|| Mutex::new(sysinfo::System::new()))
 }
 
+/// Executable path of a running process (`None` when it is gone or not
+/// accessible). Lets callers verify a recorded pid still belongs to the
+/// program they started before killing it (pids are reused).
+#[must_use]
+pub fn process_exe(pid: u32) -> Option<PathBuf> {
+    let spid = sysinfo::Pid::from_u32(pid);
+    let mut s = sys().lock();
+    s.refresh_processes_specifics(
+        sysinfo::ProcessesToUpdate::Some(&[spid]),
+        true,
+        sysinfo::ProcessRefreshKind::nothing().with_exe(sysinfo::UpdateKind::Always),
+    );
+    s.process(spid).and_then(|p| p.exe().map(Path::to_path_buf))
+}
+
 /// Searches `PATH` for `name`.
 #[must_use]
 pub fn which(name: &str) -> Option<PathBuf> {
@@ -317,6 +332,13 @@ impl ProcessControl for NativeProcessControl {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn process_exe_of_self() {
+        let exe = process_exe(std::process::id()).expect("own exe");
+        assert_eq!(exe.file_name(), std::env::current_exe().unwrap().file_name());
+        assert!(process_exe(u32::MAX - 7).is_none());
+    }
 
     #[test]
     fn current_process_is_alive() {

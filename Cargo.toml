@@ -41,6 +41,7 @@ orkestr-core = { path = "crates/core" }
 orkestr-files = { path = "crates/files" }
 orkestr-quality = { path = "crates/quality" }
 orkestr-insight = { path = "crates/insight" }
+orkestr-vscode-host = { path = "crates/vscode-host" }
 
 # --- async ---------------------------------------------------------------------
 tokio = { version = "1.47", features = ["full"] }

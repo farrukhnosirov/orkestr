@@ -292,6 +292,14 @@
     "EmergencyFlagsChanged_one": "{{count}} изменение экстренных ограничений",
     "EmergencyFlagsChanged_few": "{{count}} изменения экстренных ограничений",
     "EmergencyFlagsChanged_many": "{{count}} изменений экстренных ограничений",
-    "EmergencyFlagsChanged_other": "{{count}} изменения экстренных ограничений"
+    "EmergencyFlagsChanged_other": "{{count}} изменения экстренных ограничений",
+    "VsCodeStatusChanged_one": "{{count}} изменение состояния сервера VS Code",
+    "VsCodeStatusChanged_few": "{{count}} изменения состояния сервера VS Code",
+    "VsCodeStatusChanged_many": "{{count}} изменений состояния сервера VS Code",
+    "VsCodeStatusChanged_other": "{{count}} изменения состояния сервера VS Code",
+    "VsCodeProgress_one": "{{count}} обновление хода установки VS Code",
+    "VsCodeProgress_few": "{{count}} обновления хода установки VS Code",
+    "VsCodeProgress_many": "{{count}} обновлений хода установки VS Code",
+    "VsCodeProgress_other": "{{count}} обновления хода установки VS Code"
   }
 }

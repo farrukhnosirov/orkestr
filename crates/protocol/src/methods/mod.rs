@@ -53,6 +53,7 @@ pub mod terminal;
 pub mod ui;
 pub mod vcs;
 pub mod voice;
+pub mod vscode;
 
 /// A typed RPC method.
 pub trait Method: 'static {
@@ -404,6 +405,19 @@ pub fn registry() -> Vec<MethodDescriptor> {
         MethodDescriptor::of::<voice::Transcribe>(),
         MethodDescriptor::of::<voice::Synthesize>(),
         MethodDescriptor::of::<voice::RecordCommand>(),
+        // embedded VS Code (VSCodium REH web server)
+        MethodDescriptor::of::<vscode::Status>(),
+        MethodDescriptor::of::<vscode::CheckUpdate>(),
+        MethodDescriptor::of::<vscode::Install>(),
+        MethodDescriptor::of::<vscode::CancelInstall>(),
+        MethodDescriptor::of::<vscode::Uninstall>(),
+        MethodDescriptor::of::<vscode::Start>(),
+        MethodDescriptor::of::<vscode::Stop>(),
+        MethodDescriptor::of::<vscode::KeepAlive>(),
+        MethodDescriptor::of::<vscode::SetConfig>(),
+        MethodDescriptor::of::<vscode::Logs>(),
+        MethodDescriptor::of::<vscode::ListExtensions>(),
+        MethodDescriptor::of::<vscode::InstallExtension>(),
     ]
 }
 
