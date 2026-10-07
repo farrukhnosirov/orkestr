@@ -326,6 +326,17 @@ impl ChatEvent {
     }
 }
 
+/// Process-unique id for a tool call the provider returned without one.
+/// Ids must never repeat across turns: the history is handed to fallback
+/// providers (Anthropic rejects duplicate `tool_use` ids) and Gemini keys
+/// thought signatures by them.
+#[must_use]
+pub fn unique_call_id(prefix: &str) -> String {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static NEXT: AtomicU64 = AtomicU64::new(0);
+    format!("{prefix}_{:x}_{}", chrono::Utc::now().timestamp_millis(), NEXT.fetch_add(1, Ordering::Relaxed))
+}
+
 /// Parses tool arguments, wrapping invalid JSON (§3.4 rule 1).
 #[must_use]
 pub fn parse_tool_arguments(raw: &str) -> serde_json::Value {

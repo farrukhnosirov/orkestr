@@ -7,7 +7,6 @@
 //! turn whose earlier `functionCall` lost its signature.
 
 use std::collections::{HashMap, VecDeque};
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -279,8 +278,7 @@ pub fn build_body_with(req: &ChatRequest, signature: &dyn Fn(&str) -> Option<Str
 /// Unique id for a function call Gemini returned without one (ids must not
 /// repeat across turns: thought signatures are keyed by them).
 fn generated_call_id() -> String {
-    static NEXT: AtomicU64 = AtomicU64::new(0);
-    format!("gemini_call_{:x}_{}", chrono::Utc::now().timestamp_millis(), NEXT.fetch_add(1, Ordering::Relaxed))
+    crate::types::unique_call_id("gemini_call")
 }
 
 /// Incremental decoder for `streamGenerateContent` SSE chunks.

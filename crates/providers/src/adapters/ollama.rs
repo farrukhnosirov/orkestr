@@ -224,7 +224,8 @@ impl OllamaDecoder {
                     id: c
                         .get("id")
                         .and_then(Value::as_str)
-                        .map_or_else(|| format!("ollama_call_{}", self.calls), str::to_owned),
+                        .filter(|id| !id.is_empty())
+                        .map_or_else(|| crate::types::unique_call_id("ollama_call"), str::to_owned),
                     name: c.pointer("/function/name").and_then(Value::as_str).unwrap_or_default().to_owned(),
                     arguments: args,
                 });
@@ -506,5 +507,25 @@ mod tests {
         assert!(matches!(&out[1], ChatEvent::ToolCall { arguments, .. } if arguments["a"] == 1));
         assert!(matches!(out[2], ChatEvent::Usage(Usage { input_tokens: 9, output_tokens: 4, .. })));
         assert_eq!(out[3], ChatEvent::Done { stop_reason: StopReason::ToolUse });
+    }
+
+    /// Id-less calls must get ids that never repeat across responses, or a
+    /// fallback provider (Anthropic) rejects the duplicated `tool_use` ids.
+    #[test]
+    fn id_less_calls_get_unique_ids_across_responses() {
+        let line = r#"{"message":{"role":"assistant","content":"","tool_calls":[{"function":{"name":"f","arguments":{}}}]},"done":false}"#;
+        let ids: Vec<String> = (0..3)
+            .map(|_| {
+                let mut d = OllamaDecoder::default();
+                match d.line(line).unwrap().remove(0) {
+                    ChatEvent::ToolCall { id, .. } => id,
+                    other => panic!("unexpected {other:?}"),
+                }
+            })
+            .collect();
+        assert!(ids.iter().all(|id| id.starts_with("ollama_call_")));
+        assert_ne!(ids[0], ids[1]);
+        assert_ne!(ids[1], ids[2]);
+        assert_ne!(ids[0], ids[2]);
     }
 }
