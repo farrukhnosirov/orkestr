@@ -25,6 +25,23 @@ export function isTauri(): boolean {
   }
 }
 
+/** Label of the main window (src-tauri `MAIN_WINDOW`). */
+export const MAIN_WINDOW_LABEL = "main";
+
+/**
+ * True in the main shell window. Shell-wide commands (prefs, tray language,
+ * quit…) are granted to the main window only (src-tauri capabilities); detached
+ * panels and the HUD leave them to it — it gets every change as an event.
+ */
+export function isMainWindow(): boolean {
+  if (!isTauri()) return false;
+  try {
+    return getCurrentWindow().label === MAIN_WINDOW_LABEL;
+  } catch {
+    return false;
+  }
+}
+
 /** Asks the shell for the core's `{url, token}` (waits until the core is ready). */
 export async function getCoreConnection(): Promise<CoreConnection> {
   if (isTauri()) {
@@ -40,8 +57,20 @@ export async function getCoreConnection(): Promise<CoreConnection> {
   return { url, token, mode: "browser", startupMs: 0 };
 }
 
-/** Event emitted by the tray's "Stop All AI" item (see src-tauri `TRAY_STOP_ALL_EVENT`). */
+/** Event with the outcome of the tray's "Stop All AI" (see src-tauri `TRAY_STOP_ALL_EVENT`). */
 export const TRAY_STOP_ALL_EVENT = "orkestr://tray/stop-all";
+
+/**
+ * Outcome of the tray's "Stop All AI" (src-tauri `stop_all::StopAllOutcome`).
+ * The shell executes the stop itself — even when this page is hidden, hung or
+ * disconnected — and only reports the result here for feedback.
+ */
+export interface TrayStopAllOutcome {
+  ok: boolean;
+  agentsStopped: number;
+  approvalsCancelled: number;
+  error: string | null;
+}
 
 /**
  * Shell behaviour (tray, close-to-tray, quit, fullscreen). These are window
@@ -50,7 +79,7 @@ export const TRAY_STOP_ALL_EVENT = "orkestr://tray/stop-all";
 export const shellControls = {
   /** Mirrors window-behaviour settings into the native shell. */
   async applyPrefs(prefs: { closeToTray: boolean }): Promise<void> {
-    if (isTauri()) await invoke("shell_set_prefs", { prefs });
+    if (isMainWindow()) await invoke("shell_set_prefs", { prefs });
   },
   /** Quits the app (stops an embedded core) even when close-to-tray is on. */
   async quit(): Promise<void> {
@@ -70,12 +99,12 @@ export const shellControls = {
   },
   /** Localizes the native tray menu (and other shell-owned texts). */
   async setUiLanguage(language: string): Promise<void> {
-    if (isTauri()) await invoke("set_ui_language", { language });
+    if (isMainWindow()) await invoke("set_ui_language", { language });
   },
-  /** Subscribes to the tray's "Stop All AI" item. */
-  async onTrayStopAll(handler: () => void): Promise<() => void> {
+  /** Subscribes to the outcome of the tray's "Stop All AI" (already executed by the shell). */
+  async onTrayStopAll(handler: (outcome: TrayStopAllOutcome) => void): Promise<() => void> {
     if (!isTauri()) return () => {};
-    return listen(TRAY_STOP_ALL_EVENT, () => handler());
+    return listen<TrayStopAllOutcome>(TRAY_STOP_ALL_EVENT, (e) => handler(e.payload));
   },
 };
 

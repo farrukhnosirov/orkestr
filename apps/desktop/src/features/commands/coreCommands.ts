@@ -22,37 +22,52 @@ import { useMissionControlStore } from "../../panels/MissionControl/store";
 import { t } from "../../i18n";
 import { describeError } from "../../i18n/errors";
 import { nextLanguage, switchLanguage } from "../../lib/language";
-import { shellControls } from "../../lib/tauri";
+import { shellControls, type TrayStopAllOutcome } from "../../lib/tauri";
 import { useAppStore } from "../../store/app";
 import { useNotificationsStore } from "../notifications/notificationsStore";
 import { useOnboardingStore } from "../onboarding/onboardingStore";
 import { SEARCH_PREFIX, usePaletteStore } from "../search/paletteStore";
-import { stopAllAi as stopAllAiNow, useSecurityStore } from "../security/store";
+import { refreshAfterStop, stopAllAi as stopAllAiNow, useSecurityStore } from "../security/store";
 import { useSettingsStore } from "../settings/settingsStore";
 import type { AppCommand } from "./registry";
 
+function notifyStopped(r: { agentsStopped: number; approvalsCancelled: number }): void {
+  useNotificationsStore.getState().notify(
+    "Critical",
+    t("shell:stopAll.doneTitle"),
+    t("shell:stopAll.doneBody", {
+      agents: t("shell:stopAll.agents", { count: r.agentsStopped }),
+      approvals: t("shell:stopAll.approvals", { count: r.approvalsCancelled }),
+    }),
+  );
+}
+
 /**
  * Emergency stop of all AI activity (§52): `emergency.stopAll`, handled
- * locally in the core. Used by the tray, which acts without a confirmation
- * dialog (the user explicitly picked "Stop All AI"). Returns whether the
- * stop was executed.
+ * locally in the core, without a confirmation dialog (the user explicitly
+ * picked "Stop All AI"). Returns whether the stop was executed.
  */
 export async function stopAllAi(): Promise<boolean> {
-  const notify = useNotificationsStore.getState().notify;
   try {
-    const r = await stopAllAiNow();
-    notify(
-      "Critical",
-      t("shell:stopAll.doneTitle"),
-      t("shell:stopAll.doneBody", {
-        agents: t("shell:stopAll.agents", { count: r.agentsStopped }),
-        approvals: t("shell:stopAll.approvals", { count: r.approvalsCancelled }),
-      }),
-    );
+    notifyStopped(await stopAllAiNow());
     return true;
   } catch (e) {
-    notify("Error", t("shell:stopAll.failedTitle"), describeError(e));
+    useNotificationsStore.getState().notify("Error", t("shell:stopAll.failedTitle"), describeError(e));
     return false;
+  }
+}
+
+/**
+ * Feedback for the tray's "Stop All AI". The shell already executed the stop
+ * natively (it must work without this page); here we only show the outcome
+ * and refresh the emergency state.
+ */
+export function reportTrayStopAll(outcome: TrayStopAllOutcome): void {
+  if (outcome.ok) {
+    notifyStopped(outcome);
+    void refreshAfterStop();
+  } else {
+    useNotificationsStore.getState().notify("Error", t("shell:stopAll.failedTitle"), outcome.error ?? "");
   }
 }
 
