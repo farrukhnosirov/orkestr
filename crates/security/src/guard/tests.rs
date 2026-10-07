@@ -1019,3 +1019,93 @@ fn audit_r1_secret_and_outside_read_facets() {
     assert!(!facets_of("cat /c/work/proj/a.txt", ShellKind::Bash, Some("C:/work/proj")).outside_read);
     assert!(facets_of("cat /c/other/a.txt", ShellKind::Bash, Some("C:/work/proj")).outside_read);
 }
+
+/// Audit r2: writes to variable-rooted destinations (`$env:…`, `${HOME}`,
+/// `%APPDATA%`, `$(…)`) may land anywhere and are outside-worktree writes.
+#[test]
+fn audit_r2_variable_rooted_writes_are_outside_worktree() {
+    let g = guard();
+    let root = PathBuf::from("C:/Users/u/proj");
+    let ps = [
+        "'x' | Out-File $env:USERPROFILE\\.gitconfig",
+        "'x' > $env:USERPROFILE\\.gitconfig",
+        "'x' >> $env:APPDATA\\x.txt",
+        "Set-Content -Path $env:USERPROFILE\\.gitconfig -Value x",
+        "Add-Content $env:USERPROFILE\\.gitconfig x",
+        "'x' | Tee-Object $env:USERPROFILE\\.gitconfig",
+        "New-Item $env:USERPROFILE\\x.txt -Value x",
+        "New-Item $env:APPDATA\\x.txt -Value x",
+        "Copy-Item x.ps1 \"$env:APPDATA\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\x.ps1\"",
+        "Move-Item x $env:USERPROFILE\\.gitconfig",
+        "'x' > ${env:LOCALAPPDATA}\\x.txt",
+    ];
+    for c in ps {
+        let got = g.classify_in(c, ShellKind::PowerShell, Some(&root));
+        assert!(!got.is_safe(), "[ps] `{c}`: {got:?}");
+    }
+    for c in ["copy x.bat %APPDATA%\\x.bat", "echo x > %TEMP%\\x.txt", "echo x >> %LOCALAPPDATA%\\x.txt"] {
+        let got = g.classify_in(c, ShellKind::Cmd, Some(&root));
+        assert_eq!(got.category(), Some(C::OutsideWorktree), "[cmd] `{c}`: {got:?}");
+    }
+    for c in ["cp x ${HOME}/.gitconfig", "echo x > ${HOME}/.gitconfig", "tee $XDG_CONFIG_HOME/x"] {
+        let got = g.classify_in(c, ShellKind::Bash, Some(&root));
+        assert!(!got.is_safe(), "[bash] `{c}`: {got:?}");
+    }
+    // Working-directory variables and plain relative writes stay inside.
+    for (c, sh) in [
+        ("'x' > $pwd\\out.txt", ShellKind::PowerShell),
+        ("Set-Content out.txt x", ShellKind::PowerShell),
+        ("'x' > $null", ShellKind::PowerShell),
+        ("echo x > %CD%\\out.txt", ShellKind::Cmd),
+        ("echo x > out.txt", ShellKind::Bash),
+    ] {
+        let got = g.classify_in(c, sh, Some(&root));
+        assert!(got.is_safe(), "[{sh:?}] `{c}`: {got:?}");
+    }
+}
+
+/// Audit r2: 8.3 short-name aliases (`GIT~1`, `ENV~1`) in shell commands are
+/// resolved against the worktree, so `.git` / secret checks still apply.
+#[test]
+fn audit_r2_short_name_aliases_in_shell() {
+    use crate::test_support::short_name;
+    let g = guard();
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().to_path_buf();
+    std::fs::create_dir_all(root.join(".git/hooks")).unwrap();
+    std::fs::write(root.join(".env"), "K=v").unwrap();
+    std::fs::write(root.join("README.md"), "r").unwrap();
+    let root_s = root.to_string_lossy().to_string();
+
+    // No root to resolve against: an alias is unresolvable, never Safe for writes.
+    let got = g.classify("cp x GIT~1/hooks/pre-commit", ShellKind::Bash);
+    assert!(!got.is_safe(), "{got:?}");
+    // A non-existing alias-looking name inside the root is just a literal name.
+    let got = g.classify_in("echo x > notes~1.txt", ShellKind::Bash, Some(&root));
+    assert!(got.is_safe(), "{got:?}");
+
+    if let Some(git) = short_name(&root.join(".git")) {
+        for (c, sh) in [
+            (format!("Set-Content {git}\\hooks\\pre-commit x"), ShellKind::PowerShell),
+            (format!("cp x {git}/hooks/pre-commit"), ShellKind::Bash),
+            (format!("echo x > {git}\\hooks\\pre-commit"), ShellKind::Cmd),
+        ] {
+            let got = g.classify_in(&c, sh, Some(&root));
+            assert_eq!(got.category(), Some(C::GitInternals), "[{sh:?}] `{c}`: {got:?}");
+        }
+    }
+    if let Some(env) = short_name(&root.join(".env")) {
+        for (c, sh) in [
+            (format!("type {env}"), ShellKind::Cmd),
+            (format!("Get-Content {env}"), ShellKind::PowerShell),
+            (format!("cat {env}"), ShellKind::Bash),
+        ] {
+            assert!(facets_of(&c, sh, Some(&root_s)).secret_read, "[{sh:?}] `{c}`");
+        }
+        let got = g.classify_in(&format!("Set-Content {env} x"), ShellKind::PowerShell, Some(&root));
+        assert_eq!(got.category(), Some(C::SecretChange), "{got:?}");
+    }
+    if let Some(readme) = short_name(&root.join("README.md")) {
+        assert!(!facets_of(&format!("cat {readme}"), ShellKind::Bash, Some(&root_s)).secret_read);
+    }
+}

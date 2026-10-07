@@ -104,7 +104,11 @@ pub async fn commit(args: &Value, env: &ToolEnv) -> Result<ToolOutput, ToolError
         if touches_git_dir(p) {
             return Err(ToolError::new("paths inside `.git` cannot be committed"));
         }
-        orkestr_security::confine(root, p).map_err(|e| ToolError::new(e.to_string()))?;
+        // The canonical relative path resolves 8.3 aliases (`GIT~1`) and in-root links.
+        let rel = orkestr_security::confine_relative(root, p).map_err(|e| ToolError::new(e.to_string()))?;
+        if touches_git_dir(&rel) {
+            return Err(ToolError::new("paths inside `.git` cannot be committed"));
+        }
     }
     git.stage(root, &paths, paths.is_empty()).await.map_err(vcs_err)?;
     let trailers = [

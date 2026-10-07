@@ -25,7 +25,7 @@ use orkestr_domain::DangerCategory as C;
 use regex::Regex;
 
 use super::lexer::{Family, Word};
-use super::rules::{is_secret_file, norm_path, Ctx};
+use super::rules::{has_short_name_alias, is_secret_file, norm_path, resolve_short_alias, AliasResolution, Ctx};
 use super::DangerClass;
 
 /// What a command touches beyond running a process.
@@ -610,6 +610,17 @@ pub(crate) fn record(ctx: &Ctx<'_>, prog: &str, args: &[Word], family: Family) {
                 }
                 if is_secret_ref(&n) {
                     secret = true;
+                }
+                // `type ENV~1` reads `.env` through its 8.3 short name.
+                match resolve_short_alias(ctx, &cand) {
+                    AliasResolution::NoAlias => {}
+                    AliasResolution::Resolved(rel) => secret |= is_secret_ref(&rel),
+                    AliasResolution::Unresolved => {
+                        // Cannot tell what an aliased file name names: assume
+                        // it may be a secret (`ENV~1`). Aliased directories
+                        // (`PROGRA~1/…`) leave the name check above in charge.
+                        secret |= has_short_name_alias(n.rsplit('/').next().unwrap_or(&n));
+                    }
                 }
                 if is_outside_ref(ctx, &n) || (w.dynamic && !is_absolute_like(&n)) {
                     outside = true;

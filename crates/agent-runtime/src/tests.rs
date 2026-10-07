@@ -579,6 +579,49 @@ async fn path_escapes_and_git_dir_are_denied() {
     assert!(denied[0].result.as_deref().unwrap().contains("escapes"));
 }
 
+/// Audit r2: an in-root link (junction / symlink) to `.git` — like an 8.3
+/// alias such as `GIT~1` — must not let `write_file` into git internals: the
+/// engine asks (canonical key `.git/...`), and even after approval the tool
+/// refuses because it checks the resolved path.
+#[tokio::test]
+async fn write_through_link_to_git_dir_is_refused() {
+    let h = harness(ApprovalMode::FullAuto).await;
+    std::fs::create_dir_all(h.root.join(".git/hooks")).unwrap();
+    let linked = {
+        #[cfg(windows)]
+        {
+            std::process::Command::new("cmd")
+                .args(["/C", "mklink", "/J"])
+                .arg(h.root.join("gl"))
+                .arg(h.root.join(".git"))
+                .output()
+                .is_ok_and(|o| o.status.success())
+        }
+        #[cfg(not(windows))]
+        {
+            std::os::unix::fs::symlink(h.root.join(".git"), h.root.join("gl")).is_ok()
+        }
+    };
+    if !linked {
+        return;
+    }
+    let tpl = h.template(&["write_file", "submit_result"], WorktreePolicy::SharedWorktree, None).await;
+    h.provider(vec![
+        tool("write_file", json!({"path": "gl/hooks/pre-commit", "content": "#!/bin/sh\necho pwned\n"})),
+        submit("done", "tried"),
+    ]);
+    let a = h.spawn(tpl, None).await;
+    let ap = h.pending_approval(a.id).await;
+    assert_eq!(ap.danger, Some(orkestr_domain::DangerCategory::GitInternals), "{ap:?}");
+    h.sec.approvals.resolve(ap.id, ApprovalDecision::Approve, None, h.sec.user()).await.unwrap();
+    let a = h.wait_done(a.id).await;
+    assert_eq!(a.state, AgentState::Completed, "{:?}", a.last_error);
+    assert!(!h.root.join(".git/hooks/pre-commit").exists());
+    let tr = h.rt.transcript(a.id, None).await.unwrap();
+    let call = tr.tool_calls.iter().find(|c| c.tool_call.tool.contains("write")).unwrap();
+    assert!(call.result.as_deref().unwrap_or_default().contains("inside `.git`"), "{call:?}");
+}
+
 #[tokio::test]
 async fn dangerous_command_waits_for_approval_then_runs() {
     let h = harness(ApprovalMode::SemiAuto).await;

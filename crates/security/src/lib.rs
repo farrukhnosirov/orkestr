@@ -34,6 +34,54 @@ pub mod permissions;
 pub mod redact;
 pub mod secrets;
 
+#[cfg(test)]
+pub(crate) mod test_support {
+    //! Helpers for alias / link regression tests.
+    use std::path::Path;
+
+    /// The NTFS 8.3 short name of an existing file or directory (Windows),
+    /// or `None` when the volume does not generate short names.
+    #[cfg(windows)]
+    pub(crate) fn short_name(p: &Path) -> Option<String> {
+        let kind = if p.is_dir() { "GetFolder" } else { "GetFile" };
+        let script = format!(
+            "(New-Object -ComObject Scripting.FileSystemObject).{kind}('{}').ShortName",
+            p.to_string_lossy().replace('\'', "''")
+        );
+        let out = std::process::Command::new("powershell")
+            .args(["-NoProfile", "-NonInteractive", "-Command", &script])
+            .output()
+            .ok()?;
+        let name = String::from_utf8_lossy(&out.stdout).trim().to_owned();
+        let long = p.file_name()?.to_string_lossy().to_string();
+        (!name.is_empty() && name.contains('~') && !name.eq_ignore_ascii_case(&long)).then_some(name)
+    }
+
+    /// Short names do not exist off Windows.
+    #[cfg(not(windows))]
+    pub(crate) fn short_name(_p: &Path) -> Option<String> {
+        None
+    }
+
+    /// Creates a directory link `link` → `target` (junction on Windows,
+    /// symlink elsewhere). `false` if the platform refused.
+    pub(crate) fn dir_link(target: &Path, link: &Path) -> bool {
+        #[cfg(windows)]
+        {
+            std::process::Command::new("cmd")
+                .args(["/C", "mklink", "/J"])
+                .arg(link)
+                .arg(target)
+                .output()
+                .is_ok_and(|o| o.status.success())
+        }
+        #[cfg(not(windows))]
+        {
+            std::os::unix::fs::symlink(target, link).is_ok()
+        }
+    }
+}
+
 use std::path::PathBuf;
 use std::sync::Arc;
 
