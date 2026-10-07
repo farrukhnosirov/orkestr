@@ -589,3 +589,43 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Settings → Project privacy (§56) */
+.sec-privacy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-3);
+}
+
+.sec-privacy__intro,
+.sec-privacy__muted {
+  color: var(--ok-color-text-muted);
+  font-size: var(--ok-font-size-sm);
+}
+
+.sec-privacy__providers {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-2);
+}
+
+.sec-privacy__provider {
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-2);
+  font-size: var(--ok-font-size-sm);
+}
+
+.sec-privacy__effective {
+  padding: var(--ok-space-2) var(--ok-space-3);
+  border-left: 3px solid var(--ok-color-warning);
+  border-radius: var(--ok-radius-sm);
+  background: var(--ok-color-surface-sunken);
+  color: var(--ok-color-text);
+  font-size: var(--ok-font-size-sm);
+}
+
+.sec-privacy__error {
+  color: var(--ok-color-danger);
+  font-size: var(--ok-font-size-sm);
+}

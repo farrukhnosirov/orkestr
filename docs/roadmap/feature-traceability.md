@@ -176,7 +176,7 @@ tested.
 | Emergency controls (stop agent/project/all, disable network tools, lock vault, disable full auto) | §52 | Full | Full | Full | security, core, TitleBar (RR-C3) |
 | Audit log | §23, §24, §52 | Full | Full | Full | security (`audit_events`) |
 | Observability (structured logs, correlation ids, redaction) | §50 | Full (logs) | Full | Full | events, tracing, Logs panel; OTLP in P4 |
-| Privacy policies and classification | §56 | Partial | Full | Full | security, providers router (RR-G5) |
+| Privacy policies and classification | §56 | Partial | Full | Full | security, providers router (RR-G5); `Project::effective_privacy` (classification tightens the AI/sync policy), Settings → Project Privacy |
 | Session resume and handoff | §57 | Partial | Full | Full | core recovery, orchestrator (ADR-0022) |
 | Quality gates and DoD | §58 | Arch | Full | Full | orchestrator |
 | Command palette | §54 | Partial | Full | Full | apps/desktop (RR-G6) |

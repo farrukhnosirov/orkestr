@@ -1,13 +1,15 @@
 {
   "sections": {
     "permissions": "Security & Permissions",
-    "secrets": "Secrets Vault"
+    "secrets": "Secrets Vault",
+    "privacy": "Project Privacy"
   },
   "commands": {
     "openApprovals": "Open Approvals",
     "openSettings": "Security & Permissions…",
     "openSecrets": "Secrets Vault…",
-    "lockVault": "Lock Vault"
+    "lockVault": "Lock Vault",
+    "openPrivacy": "Project Privacy…"
   },
   "inbox": {
     "badgeEmpty": "Approvals inbox (empty)",
@@ -219,5 +221,40 @@
       "nameTooLong": "Use at most {{max}} characters.",
       "nameInvalid": "Use Latin letters, digits and _ . -, and start with a letter or _."
     }
+  },
+  "privacy": {
+    "noProject": "Open a project to set its AI privacy.",
+    "intro": "Choose which AI providers may see the code of “{{name}}”. Orkestr applies this to agents, the Manager, reviews, merges and summaries.",
+    "aiGroup": "AI providers",
+    "aiTitle": "Who may see the code",
+    "aiMode": {
+      "CloudAllowed": "Cloud allowed",
+      "SelectedProvidersOnly": "Selected providers only",
+      "LocalModelsOnly": "Local models only"
+    },
+    "aiModeHint": {
+      "CloudAllowed": "Any configured cloud or local provider may receive the project’s code.",
+      "SelectedProvidersOnly": "Only the providers you select below may receive the project’s code.",
+      "LocalModelsOnly": "Only models running on this computer (for example Ollama). Nothing leaves the machine."
+    },
+    "providersTitle": "Allowed providers",
+    "providersNone": "No provider is selected yet, so no model can work on this project.",
+    "providersEmpty": "No providers are connected.",
+    "local": "Local",
+    "classificationGroup": "Data classification",
+    "classificationTitle": "Classification",
+    "classification": {
+      "Public": "Public",
+      "Internal": "Internal",
+      "Confidential": "Confidential",
+      "Secret": "Secret"
+    },
+    "classificationHint": {
+      "Public": "Open-source or public code. The provider policy above applies as set.",
+      "Internal": "Internal company code. The provider policy above applies as set.",
+      "Confidential": "Confidential data: general cloud access is not allowed. Use selected providers or local models; sync only to a self-hosted server.",
+      "Secret": "Secret data: local models only and no remote sync, whatever the provider policy says."
+    },
+    "effective": "Because the project is classified as “{{classification}}”, Orkestr uses “{{mode}}”."
   }
 }

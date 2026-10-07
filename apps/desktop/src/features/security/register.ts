@@ -8,7 +8,9 @@ import { maybeClient } from "../../core/client";
 import { t } from "../../i18n";
 import { commands } from "../commands/registry";
 import { settingsSections } from "../settings/sections";
+import { useSettingsStore } from "../settings/settingsStore";
 import { PermissionsSettings } from "./PermissionsSettings";
+import { PrivacySettings } from "./PrivacySettings";
 import { SecretsSettings } from "./SecretsSettings";
 import { refreshFlags, useSecurityStore } from "./store";
 
@@ -36,6 +38,15 @@ export function registerSecurityFeature(): void {
       order: 41,
       component: SecretsSettings,
     },
+    {
+      id: "privacy",
+      get title() {
+        return t("security:sections.privacy");
+      },
+      icon: Lock,
+      order: 42,
+      component: PrivacySettings,
+    },
   );
   commands.push(
     {
@@ -61,6 +72,18 @@ export function registerSecurityFeature(): void {
       icon: ShieldCheck,
       keywords: ["approval mode", "rules", "full auto", "semi auto", "безопасность", "разрешения", "правила", "режим подтверждений", "полный автомат", "полуавтомат"],
       run: () => useSecurityStore.getState().openCenter("permissions"),
+    },
+    {
+      id: "security.openPrivacy",
+      get title() {
+        return t("security:commands.openPrivacy");
+      },
+      get group() {
+        return t("shell:commandGroups.safety");
+      },
+      icon: Lock,
+      keywords: ["privacy", "local models", "cloud", "classification", "confidential", "конфиденциальность", "локальные модели", "облако", "классификация", "секретные"],
+      run: () => useSettingsStore.getState().openSettings("privacy"),
     },
     {
       id: "security.openSecrets",
