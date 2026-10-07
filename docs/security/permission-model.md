@@ -25,6 +25,11 @@ Built in `crates/security` and wired into the core:
   resolution. ~350 table cases in `guard/tests.rs`. Unparseable ⇒ Dangerous (fail closed).
 - `paths::confine` — traversal, absolute-outside, UNC/`\\?\`/`\\.\`, drive-relative, reserved device
   names, trailing dot/space, ADS, symlink/junction escapes (canonicalised longest existing ancestor).
+  The `.git` / secret-file checks run on both the raw path and this canonical key, so NTFS 8.3
+  short names (`GIT~1`, `ENV~1`) and in-root links cannot bypass them (audit r2). The shell guard
+  resolves 8.3 aliases in path words against the root (unresolvable aliases ⇒ Dangerous for writes,
+  a possible secret for reads) and treats variable-rooted write targets (`$env:APPDATA\…`,
+  `${HOME}/…`, `%TEMP%\…`, `$(…)/…`; not `$PWD`/`%CD%`) as outside the worktree.
 - `permissions::RuleEngine` — §4 algorithm (emergency → confinement → guard → users/system →
   rules (narrowest scope, Deny > Ask > Allow) → mode defaults). Defaults follow §5 tightened by the
   Phase 1 assignment: Network/Deploy/Secrets/Ssh/Docker/DbWrite always Ask without an explicit rule,
