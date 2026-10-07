@@ -1,0 +1,131 @@
+{
+  "status": {
+    "running": "Running",
+    "ok": "Done",
+    "error": "Failed"
+  },
+  "verb": {
+    "read": "Read",
+    "write": "Write",
+    "edit": "Edit",
+    "multiEdit": "Edits",
+    "notebookEdit": "Notebook edit",
+    "bash": "Run",
+    "bashOutput": "Command output",
+    "killShell": "Stop command",
+    "glob": "Find files",
+    "grep": "Search",
+    "ls": "List files",
+    "todo": "Todos",
+    "webFetch": "Fetch page",
+    "webSearch": "Web search",
+    "task": "Subagent",
+    "plan": "Plan",
+    "mcp": "MCP",
+    "unknown": "Tool"
+  },
+  "card": {
+    "expand": "Show details: {{tool}}",
+    "collapse": "Hide details: {{tool}}",
+    "errorTitle": "The tool returned an error"
+  },
+  "file": {
+    "open": "Open file",
+    "openAt": "Open {{path}}",
+    "openAtLine": "Open {{path}} at line {{line}}",
+    "outside": "Outside the project",
+    "newFile": "New file"
+  },
+  "diff": {
+    "label": "Changes in {{path}}",
+    "editorView": "Editor view",
+    "textView": "Text view",
+    "editN": "Change {{n}} of {{total}}",
+    "edits_one": "{{count}} change",
+    "edits_other": "{{count}} changes",
+    "replaceAll": "All occurrences",
+    "empty": "No changes",
+    "added": "{{count}} lines added",
+    "removed": "{{count}} lines removed"
+  },
+  "read": {
+    "lines": "Lines {{from}}–{{to}}",
+    "fromLine": "From line {{from}}",
+    "wholeFile": "Whole file",
+    "preview": "File preview",
+    "moreLines_one": "{{count}} more line",
+    "moreLines_other": "{{count}} more lines"
+  },
+  "output": {
+    "label": "Output",
+    "none": "No output",
+    "showAll_one": "Show all {{count}} line",
+    "showAll_other": "Show all {{count}} lines",
+    "showLess": "Show less"
+  },
+  "bash": {
+    "background": "In background",
+    "shell": "Command {{id}}",
+    "filter": "Filter: {{filter}}"
+  },
+  "risk": {
+    "forbidden": "Forbidden: {{category}}",
+    "dangerous": "Dangerous: {{category}}",
+    "heuristic": "Possibly risky",
+    "heuristicHint": "A rough estimate made by the interface, not the Orkestr guard's classification"
+  },
+  "results": {
+    "count_one": "{{count}} result",
+    "count_other": "{{count}} results",
+    "matches_one": "{{count}} match",
+    "matches_other": "{{count}} matches",
+    "none": "Nothing found",
+    "in": "in {{path}}",
+    "filter": "Filter: {{filter}}",
+    "showAll_one": "Show all ({{count}})",
+    "showAll_other": "Show all ({{count}})",
+    "list": "Results"
+  },
+  "todo": {
+    "label": "Todo list",
+    "progress": "{{done}} of {{total}} done",
+    "empty": "The list is empty",
+    "state": {
+      "pending": "Pending",
+      "in_progress": "In progress",
+      "completed": "Completed"
+    }
+  },
+  "web": {
+    "prompt": "Question",
+    "allowed": "Only: {{list}}",
+    "blocked": "Except: {{list}}",
+    "sources": "Sources",
+    "summary": "Summary"
+  },
+  "task": {
+    "agent": "Agent: {{type}}",
+    "prompt": "Assignment",
+    "showPrompt": "Show the full assignment",
+    "result": "Result",
+    "steps": "Subagent steps"
+  },
+  "plan": {
+    "label": "Proposed plan",
+    "empty": "The plan is empty"
+  },
+  "notebook": {
+    "insert": "Insert cell",
+    "replace": "Replace cell",
+    "delete": "Delete cell",
+    "cell": "Cell {{id}}"
+  },
+  "mcp": {
+    "server": "MCP · {{server}}",
+    "arguments": "Arguments"
+  },
+  "generic": {
+    "input": "Input",
+    "result": "Result"
+  }
+}

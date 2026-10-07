@@ -1,0 +1,143 @@
+{
+  "status": {
+    "running": "Выполняется",
+    "ok": "Готово",
+    "error": "Ошибка"
+  },
+  "verb": {
+    "read": "Чтение",
+    "write": "Запись",
+    "edit": "Правка",
+    "multiEdit": "Правки",
+    "notebookEdit": "Правка блокнота",
+    "bash": "Команда",
+    "bashOutput": "Вывод команды",
+    "killShell": "Остановка команды",
+    "glob": "Поиск файлов",
+    "grep": "Поиск",
+    "ls": "Список файлов",
+    "todo": "Задачи",
+    "webFetch": "Загрузка страницы",
+    "webSearch": "Поиск в интернете",
+    "task": "Субагент",
+    "plan": "План",
+    "mcp": "MCP",
+    "unknown": "Инструмент"
+  },
+  "card": {
+    "expand": "Показать подробности: {{tool}}",
+    "collapse": "Скрыть подробности: {{tool}}",
+    "errorTitle": "Инструмент вернул ошибку"
+  },
+  "file": {
+    "open": "Открыть файл",
+    "openAt": "Открыть {{path}}",
+    "openAtLine": "Открыть {{path}} на строке {{line}}",
+    "outside": "Вне проекта",
+    "newFile": "Новый файл"
+  },
+  "diff": {
+    "label": "Изменения в {{path}}",
+    "editorView": "В редакторе",
+    "textView": "Текстом",
+    "editN": "Правка {{n}} из {{total}}",
+    "edits_one": "{{count}} правка",
+    "edits_few": "{{count}} правки",
+    "edits_many": "{{count}} правок",
+    "edits_other": "{{count}} правки",
+    "replaceAll": "Все вхождения",
+    "empty": "Изменений нет",
+    "added": "Добавлено строк: {{count}}",
+    "removed": "Удалено строк: {{count}}"
+  },
+  "read": {
+    "lines": "Строки {{from}}–{{to}}",
+    "fromLine": "Со строки {{from}}",
+    "wholeFile": "Весь файл",
+    "preview": "Фрагмент файла",
+    "moreLines_one": "Ещё {{count}} строка",
+    "moreLines_few": "Ещё {{count}} строки",
+    "moreLines_many": "Ещё {{count}} строк",
+    "moreLines_other": "Ещё {{count}} строки"
+  },
+  "output": {
+    "label": "Вывод",
+    "none": "Нет вывода",
+    "showAll_one": "Показать всю {{count}} строку",
+    "showAll_few": "Показать все {{count}} строки",
+    "showAll_many": "Показать все {{count}} строк",
+    "showAll_other": "Показать все {{count}} строки",
+    "showLess": "Свернуть"
+  },
+  "bash": {
+    "background": "В фоне",
+    "shell": "Команда {{id}}",
+    "filter": "Фильтр: {{filter}}"
+  },
+  "risk": {
+    "forbidden": "Запрещено: {{category}}",
+    "dangerous": "Опасно: {{category}}",
+    "heuristic": "Возможно, опасно",
+    "heuristicHint": "Приблизительная оценка интерфейса, а не классификация защиты Orkestr"
+  },
+  "results": {
+    "count_one": "{{count}} результат",
+    "count_few": "{{count}} результата",
+    "count_many": "{{count}} результатов",
+    "count_other": "{{count}} результата",
+    "matches_one": "{{count}} совпадение",
+    "matches_few": "{{count}} совпадения",
+    "matches_many": "{{count}} совпадений",
+    "matches_other": "{{count}} совпадения",
+    "none": "Ничего не найдено",
+    "in": "в {{path}}",
+    "filter": "Фильтр: {{filter}}",
+    "showAll_one": "Показать все ({{count}})",
+    "showAll_few": "Показать все ({{count}})",
+    "showAll_many": "Показать все ({{count}})",
+    "showAll_other": "Показать все ({{count}})",
+    "list": "Результаты"
+  },
+  "todo": {
+    "label": "Список задач",
+    "progress": "Выполнено {{done}} из {{total}}",
+    "empty": "Список пуст",
+    "state": {
+      "pending": "Ожидает",
+      "in_progress": "В работе",
+      "completed": "Выполнено"
+    }
+  },
+  "web": {
+    "prompt": "Вопрос",
+    "allowed": "Только: {{list}}",
+    "blocked": "Кроме: {{list}}",
+    "sources": "Источники",
+    "summary": "Итог"
+  },
+  "task": {
+    "agent": "Агент: {{type}}",
+    "prompt": "Задание",
+    "showPrompt": "Показать задание полностью",
+    "result": "Результат",
+    "steps": "Шаги субагента"
+  },
+  "plan": {
+    "label": "Предложенный план",
+    "empty": "План пуст"
+  },
+  "notebook": {
+    "insert": "Вставка ячейки",
+    "replace": "Замена ячейки",
+    "delete": "Удаление ячейки",
+    "cell": "Ячейка {{id}}"
+  },
+  "mcp": {
+    "server": "MCP · {{server}}",
+    "arguments": "Аргументы"
+  },
+  "generic": {
+    "input": "Входные данные",
+    "result": "Результат"
+  }
+}
