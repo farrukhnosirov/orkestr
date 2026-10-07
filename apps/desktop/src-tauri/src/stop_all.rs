@@ -119,11 +119,10 @@ async fn rpc_call_inner(url: &str, token: &str, method: &str, params: Value) -> 
             Some(Err(e)) => break Err(format!("connection to the core failed: {e}")),
             None => break Err("the core closed the connection".to_owned()),
         };
-        let Message::Text(text) = msg else {
-            if matches!(msg, Message::Close(_)) {
-                break Err("the core closed the connection".to_owned());
-            }
-            continue;
+        let text = match msg {
+            Message::Text(text) => text,
+            Message::Close(_) => break Err("the core closed the connection".to_owned()),
+            _ => continue,
         };
         let Ok(frame) = serde_json::from_str::<Value>(text.as_str()) else { continue };
         if frame["type"] != "res" {

@@ -24,6 +24,8 @@
 //! tooltip are rebuilt in that language (see [`tray_texts`]).
 #![forbid(unsafe_code)]
 
+// Read by build.rs (`include!`); the crate itself only checks it in tests.
+#[cfg(test)]
 mod app_commands;
 mod hud;
 pub mod stop_all;
@@ -577,7 +579,9 @@ mod tests {
                 .map(str::to_owned)
                 .collect()
         }
-        let allow = |c: &str| format!("allow-{}", c.replace('_', "-"));
+        fn allow(command: &str) -> String {
+            format!("allow-{}", command.replace('_', "-"))
+        }
         let main = granted(include_str!("../capabilities/default.json"));
         for c in app_commands::APP_COMMANDS {
             assert!(main.contains(&allow(c)), "main window must be granted {c}");
