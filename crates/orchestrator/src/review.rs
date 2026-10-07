@@ -104,7 +104,7 @@ pub(crate) async fn role_chain(
         let info = deps.models.provider(m.provider_id).ok_or_else(|| {
             OrchestratorError::Invalid(format!("provider {} of model `{}` is not configured", m.provider_id, m.model))
         })?;
-        if !project.privacy.allows_provider(m.provider_id, info.is_local) {
+        if !project.effective_privacy().allows_provider(m.provider_id, info.is_local) {
             return Err(OrchestratorError::Forbidden(format!(
                 "model `{}` is not allowed by the project's AI privacy policy",
                 m.model
@@ -126,7 +126,7 @@ pub(crate) async fn role_chain(
             required: RequiredCapabilities::default(),
             preferred: explicit.cloned(),
             fallback_chain: Vec::new(),
-            policy: project.privacy.ai.clone(),
+            policy: project.effective_privacy().ai,
             max_cost_usd: None,
             est_input_tokens: 16_000,
             max_output_tokens: u64::from(MAX_OUTPUT_TOKENS),
@@ -147,7 +147,7 @@ pub(crate) async fn role_chain(
         let allowed = deps
             .models
             .provider(m.provider_id)
-            .is_some_and(|i| project.privacy.allows_provider(m.provider_id, i.is_local));
+            .is_some_and(|i| project.effective_privacy().allows_provider(m.provider_id, i.is_local));
         if allowed && !chain.contains(m) {
             chain.push(m.clone());
         }

@@ -153,6 +153,41 @@ impl Project {
             last_opened_at: None,
         }
     }
+
+    /// The privacy policy in force: the stored [`PrivacyPolicy`] tightened by
+    /// the data classification (§56). Every engine that picks a provider or
+    /// syncs data must use this, not `privacy` directly.
+    #[must_use]
+    pub fn effective_privacy(&self) -> PrivacyPolicy {
+        self.classification.tighten(&self.privacy)
+    }
+}
+
+impl DataClassification {
+    /// Applies this classification's floor to a privacy policy (§56):
+    ///
+    /// * `Public` / `Internal` — the policy as configured.
+    /// * `Confidential` — no general cloud access: `CloudAllowed` becomes
+    ///   `LocalModelsOnly` (an explicit `SelectedProvidersOnly` list is kept);
+    ///   remote sync at most to a self-hosted server.
+    /// * `Secret` — local models only and no remote sync, whatever is configured.
+    #[must_use]
+    pub fn tighten(self, policy: &PrivacyPolicy) -> PrivacyPolicy {
+        match self {
+            Self::Public | Self::Internal => policy.clone(),
+            Self::Confidential => PrivacyPolicy {
+                ai: match &policy.ai {
+                    AiPolicy::CloudAllowed => AiPolicy::LocalModelsOnly,
+                    other => other.clone(),
+                },
+                sync: match policy.sync {
+                    SyncPolicy::Allowed => SyncPolicy::SelfHostedOnly,
+                    other => other,
+                },
+            },
+            Self::Secret => PrivacyPolicy { ai: AiPolicy::LocalModelsOnly, sync: SyncPolicy::NoRemoteSync },
+        }
+    }
 }
 
 /// Produces a lowercase ASCII slug (`"Payroll Module!"` → `"payroll-module"`).
@@ -371,5 +406,30 @@ mod tests {
     #[test]
     fn classification_is_ordered() {
         assert!(DataClassification::Public < DataClassification::Secret);
+    }
+
+    /// Audit r2: the classification feeds the effective policy (§56).
+    #[test]
+    fn classification_tightens_the_effective_privacy() {
+        let cloud = ProviderId::new();
+        let picked = ProviderId::new();
+        let mut p = Project::new("x", crate::now());
+        // Internal (default) / Public: as configured.
+        assert!(p.effective_privacy().allows_provider(cloud, false));
+        p.classification = DataClassification::Public;
+        assert_eq!(p.effective_privacy(), p.privacy);
+        // Confidential: no general cloud; an explicit provider list is kept.
+        p.classification = DataClassification::Confidential;
+        assert!(!p.effective_privacy().allows_provider(cloud, false));
+        assert!(p.effective_privacy().allows_provider(cloud, true));
+        assert_eq!(p.effective_privacy().sync, SyncPolicy::SelfHostedOnly);
+        p.privacy.ai = AiPolicy::SelectedProvidersOnly { providers: vec![picked] };
+        assert!(p.effective_privacy().allows_provider(picked, false));
+        assert!(!p.effective_privacy().allows_provider(cloud, false));
+        // Secret: local models only, no remote sync — even with a provider list.
+        p.classification = DataClassification::Secret;
+        assert!(!p.effective_privacy().allows_provider(picked, false));
+        assert!(p.effective_privacy().allows_provider(picked, true));
+        assert!(!p.effective_privacy().allows_remote_sync(true));
     }
 }

@@ -156,7 +156,7 @@ fn query_text(task: &Task) -> String {
 /// project's AI privacy policy allows it.
 fn summarizer_allowed(project: &Project, model: &ModelRef, info: Option<&crate::gateway::ProviderInfo>) -> bool {
     info.is_some_and(|i| {
-        i.enabled && !i.is_cli_agent() && project.privacy.allows_provider(model.provider_id, i.is_local)
+        i.enabled && !i.is_cli_agent() && project.effective_privacy().allows_provider(model.provider_id, i.is_local)
     })
 }
 
@@ -493,6 +493,13 @@ mod tests {
         assert!(!summarizer_allowed(&project, &cloud, Some(&info(ProviderKind::OpenAi, false, true))));
         project.privacy.ai = AiPolicy::CloudAllowed;
         assert!(summarizer_allowed(&project, &cloud, Some(&info(ProviderKind::OpenAi, false, true))));
+        // Audit r2: a Secret / Confidential classification overrides `CloudAllowed`.
+        for c in [orkestr_domain::DataClassification::Secret, orkestr_domain::DataClassification::Confidential] {
+            project.classification = c;
+            assert!(!summarizer_allowed(&project, &cloud, Some(&info(ProviderKind::OpenAi, false, true))), "{c:?}");
+            assert!(summarizer_allowed(&project, &cloud, Some(&info(ProviderKind::Ollama, true, true))), "{c:?}");
+        }
+        project.classification = orkestr_domain::DataClassification::Internal;
         // Disabled, unknown and CLI providers are never used for summaries.
         assert!(!summarizer_allowed(&project, &cloud, Some(&info(ProviderKind::OpenAi, false, false))));
         assert!(!summarizer_allowed(&project, &cloud, Some(&info(ProviderKind::ClaudeCode, true, true))));

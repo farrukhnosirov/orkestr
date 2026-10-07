@@ -102,7 +102,7 @@ pub async fn manager_chain(
         let info = deps.models.provider(m.provider_id).ok_or_else(|| {
             OrchestratorError::Invalid(format!("provider {} of model `{}` is not configured", m.provider_id, m.model))
         })?;
-        if !project.privacy.allows_provider(m.provider_id, info.is_local) {
+        if !project.effective_privacy().allows_provider(m.provider_id, info.is_local) {
             if explicit == Some(m) {
                 return Err(OrchestratorError::Forbidden(format!(
                     "model `{}` is not allowed by the project's AI privacy policy",
@@ -122,7 +122,7 @@ pub async fn manager_chain(
             required: RequiredCapabilities { tools: !structured, structured_output: false, ..Default::default() },
             preferred: chain.first().cloned(),
             fallback_chain: chain.iter().skip(1).cloned().collect(),
-            policy: project.privacy.ai.clone(),
+            policy: project.effective_privacy().ai,
             max_cost_usd: None,
             est_input_tokens: 6_000,
             max_output_tokens: u64::from(deps.config.max_output_tokens),

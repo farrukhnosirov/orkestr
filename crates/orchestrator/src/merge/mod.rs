@@ -1494,7 +1494,7 @@ impl MergeManager {
         };
         let usable = |m: &ModelRef| {
             models.provider(m.provider_id).is_some_and(|i| {
-                i.enabled && !i.is_cli_agent() && project.privacy.allows_provider(m.provider_id, i.is_local)
+                i.enabled && !i.is_cli_agent() && project.effective_privacy().allows_provider(m.provider_id, i.is_local)
             })
         };
         let mut chain: Vec<ModelRef> = Vec::new();
@@ -1510,7 +1510,7 @@ impl MergeManager {
                     required: RequiredCapabilities::default(),
                     preferred: None,
                     fallback_chain: Vec::new(),
-                    policy: project.privacy.ai.clone(),
+                    policy: project.effective_privacy().ai,
                     max_cost_usd: None,
                     est_input_tokens: 8_000,
                     max_output_tokens: u64::from(self.inner.deps.config.max_output_tokens),

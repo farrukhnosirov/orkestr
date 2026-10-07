@@ -753,7 +753,7 @@ impl ParallelScheduler {
             .route(&RouteRequest {
                 purpose: Some(key.1.clone()),
                 required: orkestr_providers::RequiredCapabilities { tools: true, ..Default::default() },
-                policy: project.privacy.ai.clone(),
+                policy: project.effective_privacy().ai,
                 est_input_tokens: 4_000,
                 max_output_tokens: 8_192,
                 ..RouteRequest::default()
