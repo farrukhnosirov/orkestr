@@ -14,9 +14,16 @@ import "./composer.css";
  */
 import { IconButton } from "@orkestr/ui";
 import clsx from "clsx";
-import { FileCode2, Lock, SendHorizontal, Slash, Square, TextSelect, X } from "lucide-react";
-import { type KeyboardEvent, useEffect, useId, useRef, useState } from "react";
+import { FileCode2, ImagePlus, Lock, SendHorizontal, Slash, Square, TextSelect, X } from "lucide-react";
+import { type ClipboardEvent, type KeyboardEvent, type ReactNode, useEffect, useId, useRef, useState } from "react";
 
+import {
+  IMAGE_TYPES,
+  MAX_IMAGE_BYTES,
+  MAX_IMAGES,
+  parseDataUrl,
+  type ImageAttachment,
+} from "../../../features/claudeCode/chatTools";
 import { getClient } from "../../../core/client";
 import { currentSelection, type EditorSelection } from "../../../features/claudeCode/bridge";
 import { composerKey, composerPopup, insertMention } from "../../../features/claudeCode/model";
@@ -51,6 +58,27 @@ export interface ComposerViewProps extends Omit<ComposerProps, "onSend"> {
   maxQueued?: number;
   /** Resolves true when sent or queued (the composer then clears). */
   onSend: (payload: ComposerSendPayloadWithAttachments) => Promise<boolean>;
+  /** The inserted text replaces the draft (edit & resend) instead of being appended. */
+  insertReplace?: boolean;
+  /** Chips under the input (mode, model, …). */
+  toolbar?: ReactNode;
+  /** Images can be pasted / attached (default true). */
+  allowImages?: boolean;
+}
+
+let imageSeq = 0;
+
+function readImage(file: File): Promise<ImageAttachment | null> {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const parsed = typeof reader.result === "string" ? parseDataUrl(reader.result) : null;
+      imageSeq += 1;
+      resolve(parsed ? { id: `img-${imageSeq}`, name: file.name || `image-${imageSeq}`, ...parsed } : null);
+    };
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(file);
+  });
 }
 
 function focusTextarea(el: HTMLTextAreaElement | null, pos: number): void {
@@ -82,6 +110,9 @@ export function Composer({
   onSend,
   onInterrupt,
   onDequeue,
+  insertReplace = false,
+  toolbar,
+  allowImages = true,
 }: ComposerViewProps) {
   const { t } = useT("claudeCodeComposer");
   const listId = useId();
@@ -94,7 +125,40 @@ export function Composer({
   const [picked, setPicked] = useState<string[]>([]);
   const [attached, setAttached] = useState<EditorSelection | null>(null);
   const [sending, setSending] = useState(false);
+  const [images, setImages] = useState<ImageAttachment[]>([]);
+  const [imageError, setImageError] = useState<string | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
   const findSeq = useRef(0);
+
+  const addImages = async (files: readonly File[]) => {
+    setImageError(null);
+    const accepted: File[] = [];
+    for (const f of files) {
+      if (!(IMAGE_TYPES as readonly string[]).includes(f.type)) {
+        setImageError(t("composer.imageType"));
+        continue;
+      }
+      if (f.size > MAX_IMAGE_BYTES) {
+        setImageError(t("composer.imageTooLarge"));
+        continue;
+      }
+      accepted.push(f);
+    }
+    const read = (await Promise.all(accepted.map(readImage))).filter((i): i is ImageAttachment => i !== null);
+    setImages((prev) => {
+      const next = [...prev, ...read];
+      if (next.length > MAX_IMAGES) setImageError(t("composer.tooManyImages", { count: MAX_IMAGES }));
+      return next.slice(0, MAX_IMAGES);
+    });
+  };
+
+  const onPaste = (e: ClipboardEvent<HTMLTextAreaElement>) => {
+    if (!allowImages) return;
+    const files = Array.from(e.clipboardData?.files ?? []).filter((f) => f.type.startsWith("image/"));
+    if (files.length === 0) return;
+    e.preventDefault();
+    void addImages(files);
+  };
 
   // Auto-grow up to MAX_INPUT_PX, then scroll.
   useEffect(() => {
@@ -112,12 +176,12 @@ export function Composer({
   useEffect(() => {
     if (insert === null) return;
     const prev = textRef.current;
-    const next = prev.trim() ? `${prev}\n${insert}` : insert;
+    const next = insertReplace || !prev.trim() ? insert : `${prev}\n${insert}`;
     setText(next);
     setCaret(next.length);
     focusTextarea(area.current, next.length);
     onInsertConsumed();
-  }, [insert, onInsertConsumed]);
+  }, [insert, insertReplace, onInsertConsumed]);
 
   const popup = dismissed || disabled ? null : composerPopup(text, caret);
   const mentionQuery = popup?.kind === "mention" ? popup.query : null;
@@ -184,6 +248,7 @@ export function Composer({
   const send = async () => {
     if (!canSend) return;
     const payload = buildPayload(text.trim(), picked, attached);
+    if (images.length > 0) payload.images = images;
     setSending(true);
     try {
       const ok = await onSend(payload);
@@ -192,6 +257,8 @@ export function Composer({
         setCaret(0);
         setPicked([]);
         setAttached(null);
+        setImages([]);
+        setImageError(null);
         setDismissed(false);
       }
     } finally {
@@ -291,6 +358,24 @@ export function Composer({
         </ul>
       )}
 
+      {images.length > 0 && (
+        <ul className="ccx-images" aria-label={t("composer.images")}>
+          {images.map((img) => (
+            <li key={img.id} className="ccx-image">
+              <img src={`data:${img.mediaType};base64,${img.data}`} alt={img.name} />
+              <button
+                type="button"
+                className="ccx-image__x"
+                aria-label={t("composer.removeImage", { name: img.name })}
+                onClick={() => setImages((prev) => prev.filter((i) => i.id !== img.id))}
+              >
+                <X size={11} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
       {(attached || (liveSelection && !disabled)) && (
         <div className="ccx-attachments">
           {attached ? (
@@ -339,8 +424,32 @@ export function Composer({
           }}
           onSelect={(e) => setCaret(e.currentTarget.selectionStart)}
           onKeyDown={onKeyDown}
+          onPaste={onPaste}
         />
         <div className="ccx-composer__buttons">
+          {allowImages && (
+            <>
+              <input
+                ref={fileInput}
+                type="file"
+                accept={IMAGE_TYPES.join(",")}
+                multiple
+                hidden
+                onChange={(e) => {
+                  const files = Array.from(e.target.files ?? []);
+                  e.target.value = "";
+                  void addImages(files);
+                }}
+              />
+              <IconButton
+                label={t("composer.attachImage")}
+                icon={<ImagePlus size={15} />}
+                onClick={() => fileInput.current?.click()}
+                disabled={disabled || running}
+                tooltip="top"
+              />
+            </>
+          )}
           {running && (
             <IconButton
               label={t("composer.interrupt")}
@@ -360,6 +469,14 @@ export function Composer({
           />
         </div>
       </div>
+
+      {toolbar && <div className="ccx-composer__toolbar">{toolbar}</div>}
+
+      {imageError && (
+        <div className="ccx-composer__hint ccx-composer__hint--warn" role="alert">
+          {imageError}
+        </div>
+      )}
 
       <div className={clsx("ccx-composer__hint", (disabled || tooLong || queueFull) && "ccx-composer__hint--warn")} role="status">
         {disabled ? (

@@ -303,6 +303,8 @@ export function applyEvent(state: ChatState, ev: ClaudeCodeEvent): ChatState {
       };
       return { ...s, seq, thinking: false, running: false, turnFiles: [], items: append(s.items, item, null) };
     }
+    case "commandsChanged":
+      return ev.commands.length > 0 ? { ...s, commands: ev.commands } : s;
     case "rateLimit":
       return { ...s, rateLimit: { status: ev.status, resetsAt: ev.resetsAt, window: ev.window, utilization: ev.utilization } };
     case "error": {

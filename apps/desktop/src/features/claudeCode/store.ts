@@ -5,9 +5,14 @@
  * selection"). All data comes from the core (`claudeCode.*`).
  */
 import type {
+  ClaudeChatMeta,
   ClaudeCodeEvent,
   ClaudeCodeStatus,
+  ClaudeContextUsage,
   ClaudeHistoryEntry,
+  ClaudeImage,
+  ClaudeMcpServer,
+  ClaudePlanUsage,
   ClaudePermissionDecision,
   ClaudePermissionMode,
   ClaudeSessionInfo,
@@ -17,6 +22,7 @@ import { topic } from "@orkestr/protocol";
 import { create } from "zustand";
 
 import { getClient, maybeClient } from "../../core/client";
+import { t } from "../../i18n";
 import { errorMessage } from "../../lib/rpcQuery";
 import { applyAll, applyEvent, emptyChat, type ChatState } from "./model";
 
@@ -26,15 +32,25 @@ export interface SessionView {
   /** Messages typed while Claude was busy, sent one by one after each turn. */
   queue: string[];
   error: string | null;
+  /** Last activity (ISO), for the chat list. */
+  updatedAt: string | null;
+  /** Extra folders the session was started with (`--add-dir`). */
+  addDirs: string[];
+  /** Extended thinking switched in this session (null = the CLI's default). */
+  thinking: boolean | null;
 }
 
 export interface ClaudePrefs {
   model: string;
   mode: ClaudePermissionMode;
+  /** Fallback model ("" = none). */
+  fallbackModel: string;
+  /** The chat list sidebar is open. */
+  sidebar: boolean;
 }
 
 const PREFS_KEY = "orkestr.claudeCode.prefs";
-const DEFAULT_PREFS: ClaudePrefs = { model: "default", mode: "default" };
+const DEFAULT_PREFS: ClaudePrefs = { model: "default", mode: "default", fallbackModel: "", sidebar: true };
 
 function readPrefs(): ClaudePrefs {
   try {
@@ -42,7 +58,12 @@ function readPrefs(): ClaudePrefs {
     if (!raw) return DEFAULT_PREFS;
     const p = JSON.parse(raw) as Partial<ClaudePrefs>;
     const mode: ClaudePermissionMode = p.mode === "acceptEdits" || p.mode === "plan" ? p.mode : "default";
-    return { model: typeof p.model === "string" && p.model ? p.model : "default", mode };
+    return {
+      model: typeof p.model === "string" && p.model ? p.model : "default",
+      mode,
+      fallbackModel: typeof p.fallbackModel === "string" ? p.fallbackModel : "",
+      sidebar: typeof p.sidebar === "boolean" ? p.sidebar : true,
+    };
   } catch {
     return DEFAULT_PREFS;
   }
@@ -69,16 +90,40 @@ export interface ClaudeState {
   history: Record<string, ClaudeHistoryEntry[]>;
   historyLoading: boolean;
   prefs: ClaudePrefs;
-  /** Text to insert into the composer (selection), consumed by the panel. */
-  insert: { text: string; nonce: number } | null;
+  /** Text to insert into the composer (selection, edit & resend), consumed by the panel. */
+  insert: { text: string; nonce: number; replace: boolean } | null;
   busy: boolean;
   error: string | null;
+  /** Orkestr's chat labels by CLI conversation id. */
+  meta: Record<string, ClaudeChatMeta>;
+  /** Plan limits (session / weekly). */
+  usage: ClaudePlanUsage | null;
+  usageLoading: boolean;
+  usageError: string | null;
+  /** Context window usage per session. */
+  context: Record<string, ClaudeContextUsage>;
+  /** MCP servers per session. */
+  mcp: Record<string, ClaudeMcpServer[]>;
 
   loadStatus: (refresh?: boolean) => Promise<void>;
   setBinaryPath: (path: string | null) => Promise<boolean>;
   loadHistory: (projectId: string) => Promise<void>;
-  start: (projectId: string, opts?: { resume?: string; confirmBypass?: boolean; mode?: ClaudePermissionMode }) => Promise<string | null>;
-  send: (sessionId: string, text: string) => Promise<boolean>;
+  start: (
+    projectId: string,
+    opts?: { resume?: string; confirmBypass?: boolean; mode?: ClaudePermissionMode; addDirs?: string[]; cwd?: string },
+  ) => Promise<string | null>;
+  send: (sessionId: string, text: string, images?: ClaudeImage[]) => Promise<boolean>;
+  /** Opens a chat of the list: activates its tab or resumes the conversation. */
+  openChat: (projectId: string, entry: { sessionId: string | null; claudeSessionId: string | null }) => Promise<void>;
+  setChatMeta: (claudeSessionId: string, patch: { title?: string; pinned?: boolean; hidden?: boolean }) => Promise<boolean>;
+  loadUsage: (sessionId?: string | null, refresh?: boolean) => Promise<void>;
+  loadContext: (sessionId: string) => Promise<ClaudeContextUsage | null>;
+  loadMcp: (sessionId: string) => Promise<ClaudeMcpServer[] | null>;
+  setThinking: (sessionId: string, enabled: boolean) => Promise<boolean>;
+  /** Runs the interactive `claude` (resuming the chat) in an Orkestr terminal; returns the terminal id. */
+  openInTerminal: (projectId: string, claudeSessionId: string | null, cwd?: string) => Promise<string | null>;
+  /** Restarts a chat with extra folders (resuming the conversation). */
+  restartWithDirs: (projectId: string, sessionId: string, addDirs: string[]) => Promise<string | null>;
   dequeue: (sessionId: string, index: number) => void;
   interrupt: (sessionId: string) => Promise<void>;
   setMode: (sessionId: string, mode: ClaudePermissionMode, confirmBypass?: boolean) => Promise<boolean>;
@@ -88,13 +133,23 @@ export interface ClaudeState {
   activate: (projectId: string, sessionId: string) => void;
   setPrefs: (patch: Partial<ClaudePrefs>) => void;
   login: (projectId: string | null) => Promise<string | null>;
-  requestInsert: (text: string) => void;
+  requestInsert: (text: string, replace?: boolean) => void;
   consumeInsert: () => string | null;
   /** Applies a core event (exported for tests). */
   onEvent: (ev: Event) => void;
 }
 
 const unsubs = new Map<string, () => void>();
+
+let usageTimer: ReturnType<typeof setTimeout> | null = null;
+/** Refreshes the plan usage shortly after a turn ends (coalesced). */
+function scheduleUsage(sessionId: string): void {
+  if (usageTimer) clearTimeout(usageTimer);
+  usageTimer = setTimeout(() => {
+    usageTimer = null;
+    void useClaudeStore.getState().loadUsage(sessionId, true);
+  }, 1500);
+}
 
 function subscribe(sessionId: string): void {
   if (unsubs.has(sessionId)) return;
@@ -125,12 +180,13 @@ export const useClaudeStore = create<ClaudeState>()((set, get) => {
     if (next) void get().send(id, next);
   };
 
-  const addSession = (info: ClaudeSessionInfo, history: ClaudeCodeEvent[] = []) => {
+  const addSession = (info: ClaudeSessionInfo, history: ClaudeCodeEvent[] = [], addDirs: string[] = []) => {
     const chat = history.length > 0 ? applyAll(emptyChat(), history) : emptyChat();
     set((st) => {
       const tabs = st.tabs[info.projectId] ?? [];
+      const view: SessionView = { info, chat, queue: [], error: null, updatedAt: info.startedAt, addDirs, thinking: null };
       return {
-        sessions: { ...st.sessions, [info.sessionId]: { info, chat, queue: [], error: null } },
+        sessions: { ...st.sessions, [info.sessionId]: view },
         tabs: { ...st.tabs, [info.projectId]: tabs.includes(info.sessionId) ? tabs : [...tabs, info.sessionId] },
         active: { ...st.active, [info.projectId]: info.sessionId },
       };
@@ -151,6 +207,12 @@ export const useClaudeStore = create<ClaudeState>()((set, get) => {
     insert: null,
     busy: false,
     error: null,
+    meta: {},
+    usage: null,
+    usageLoading: false,
+    usageError: null,
+    context: {},
+    mcp: {},
 
     loadStatus: async (refresh = false) => {
       set({ statusLoading: true, statusError: null });
@@ -181,7 +243,9 @@ export const useClaudeStore = create<ClaudeState>()((set, get) => {
       set({ historyLoading: true });
       try {
         const res = await getClient().call("claudeCode.sessions", { projectId });
-        set((st) => ({ history: { ...st.history, [projectId]: res.history }, historyLoading: false }));
+        const meta: Record<string, ClaudeChatMeta> = {};
+        for (const m of res.meta ?? []) meta[m.claudeSessionId] = m;
+        set((st) => ({ history: { ...st.history, [projectId]: res.history }, historyLoading: false, meta }));
       } catch (e) {
         set({ historyLoading: false, error: errorMessage(e) });
       }
@@ -198,8 +262,11 @@ export const useClaudeStore = create<ClaudeState>()((set, get) => {
           permissionMode: mode,
           ...(mode === "bypassPermissions" ? { confirmBypass: opts.confirmBypass === true } : {}),
           ...(opts.resume ? { resume: opts.resume } : {}),
+          ...(opts.cwd ? { cwd: opts.cwd } : {}),
+          ...(opts.addDirs && opts.addDirs.length > 0 ? { addDirs: opts.addDirs } : {}),
+          ...(prefs.fallbackModel ? { fallbackModel: prefs.fallbackModel } : {}),
         });
-        addSession(res.session, res.history);
+        addSession(res.session, res.history, opts.addDirs ?? []);
         set({ busy: false });
         return res.session.sessionId;
       } catch (e) {
@@ -208,10 +275,14 @@ export const useClaudeStore = create<ClaudeState>()((set, get) => {
       }
     },
 
-    send: async (sessionId, text) => {
+    send: async (sessionId, text, images = []) => {
       const s = get().sessions[sessionId];
       const body = text.trim();
       if (!s || !body) return false;
+      if (s.chat.running && images.length > 0) {
+        patchSession(sessionId, (v) => ({ ...v, error: t("claudeCodePanel:errors.imagesWhileBusy") }));
+        return false;
+      }
       if (s.chat.running) {
         patchSession(sessionId, (v) => ({ ...v, queue: [...v.queue, body] }));
         return true;
@@ -219,8 +290,12 @@ export const useClaudeStore = create<ClaudeState>()((set, get) => {
       // Busy from now on, so a second queued message waits for this turn.
       patchSession(sessionId, (v) => ({ ...v, chat: { ...v.chat, running: true } }));
       try {
-        const info = await getClient().call("claudeCode.send", { sessionId, text: body });
-        patchSession(sessionId, (v) => ({ ...v, info, error: null }));
+        const info = await getClient().call("claudeCode.send", {
+          sessionId,
+          text: body,
+          ...(images.length > 0 ? { images } : {}),
+        });
+        patchSession(sessionId, (v) => ({ ...v, info, error: null, updatedAt: new Date().toISOString() }));
         return true;
       } catch (e) {
         patchSession(sessionId, (v) => ({ ...v, chat: { ...v.chat, running: false }, error: errorMessage(e) }));
@@ -318,7 +393,113 @@ export const useClaudeStore = create<ClaudeState>()((set, get) => {
       }
     },
 
-    requestInsert: (text) => set((st) => ({ insert: { text, nonce: (st.insert?.nonce ?? 0) + 1 } })),
+    requestInsert: (text, replace = false) => set((st) => ({ insert: { text, nonce: (st.insert?.nonce ?? 0) + 1, replace } })),
+
+    openChat: async (projectId, entry) => {
+      if (entry.sessionId && get().sessions[entry.sessionId]) {
+        const s = get().sessions[entry.sessionId];
+        const ended = s?.info.state === "exited" || s?.info.state === "failed";
+        if (!ended || !entry.claudeSessionId) {
+          get().activate(projectId, entry.sessionId);
+          return;
+        }
+      }
+      if (!entry.claudeSessionId) return;
+      // Already open in another tab?
+      const open = Object.values(get().sessions).find(
+        (v) =>
+          v.info.projectId === projectId &&
+          (v.chat.claudeSessionId ?? v.info.claudeSessionId) === entry.claudeSessionId &&
+          v.info.state !== "exited" &&
+          v.info.state !== "failed",
+      );
+      if (open) {
+        get().activate(projectId, open.info.sessionId);
+        return;
+      }
+      await get().start(projectId, { resume: entry.claudeSessionId });
+    },
+
+    setChatMeta: async (claudeSessionId, patch) => {
+      try {
+        const m = await getClient().call("claudeCode.setChatMeta", { claudeSessionId, ...patch });
+        set((st) => ({ meta: { ...st.meta, [claudeSessionId]: m } }));
+        return true;
+      } catch (e) {
+        set({ error: errorMessage(e) });
+        return false;
+      }
+    },
+
+    loadUsage: async (sessionId, refresh = false) => {
+      if (get().usageLoading) return;
+      set({ usageLoading: true });
+      try {
+        const usage = await getClient().call("claudeCode.usage", {
+          ...(sessionId ? { sessionId } : {}),
+          ...(refresh ? { refresh: true } : {}),
+        });
+        set({ usage, usageLoading: false, usageError: null });
+      } catch (e) {
+        set({ usageLoading: false, usageError: errorMessage(e) });
+      }
+    },
+
+    loadContext: async (sessionId) => {
+      try {
+        const c = await getClient().call("claudeCode.contextUsage", { sessionId });
+        set((st) => ({ context: { ...st.context, [sessionId]: c } }));
+        return c;
+      } catch (e) {
+        patchSession(sessionId, (v) => ({ ...v, error: errorMessage(e) }));
+        return null;
+      }
+    },
+
+    loadMcp: async (sessionId) => {
+      try {
+        const r = await getClient().call("claudeCode.mcpStatus", { sessionId });
+        set((st) => ({ mcp: { ...st.mcp, [sessionId]: r.servers } }));
+        return r.servers;
+      } catch (e) {
+        patchSession(sessionId, (v) => ({ ...v, error: errorMessage(e) }));
+        return null;
+      }
+    },
+
+    setThinking: async (sessionId, enabled) => {
+      try {
+        const info = await getClient().call("claudeCode.setThinking", { sessionId, enabled });
+        patchSession(sessionId, (v) => ({ ...v, info, thinking: enabled, error: null }));
+        return true;
+      } catch (e) {
+        patchSession(sessionId, (v) => ({ ...v, error: errorMessage(e) }));
+        return false;
+      }
+    },
+
+    openInTerminal: async (projectId, claudeSessionId, cwd) => {
+      try {
+        const res = await getClient().call("claudeCode.openInTerminal", {
+          projectId,
+          ...(claudeSessionId ? { claudeSessionId } : {}),
+          ...(cwd ? { cwd } : {}),
+        });
+        return res.terminal.terminalId;
+      } catch (e) {
+        set({ error: errorMessage(e) });
+        return null;
+      }
+    },
+
+    restartWithDirs: async (projectId, sessionId, addDirs) => {
+      const s = get().sessions[sessionId];
+      if (!s) return null;
+      const resume = s.chat.claudeSessionId ?? s.info.claudeSessionId ?? undefined;
+      const cwd = s.info.cwd;
+      await get().close(projectId, sessionId);
+      return get().start(projectId, { ...(resume ? { resume } : {}), cwd, addDirs });
+    },
     consumeInsert: () => {
       const ins = get().insert;
       if (!ins) return null;
@@ -330,8 +511,15 @@ export const useClaudeStore = create<ClaudeState>()((set, get) => {
       if (ev.kind === "ClaudeCodeEvent") {
         const { sessionId, event } = ev.payload;
         if (!get().sessions[sessionId]) return;
-        patchSession(sessionId, (v) => ({ ...v, chat: applyEvent(v.chat, event) }));
-        if (event.type === "result") flushQueue(sessionId);
+        patchSession(sessionId, (v) => ({
+          ...v,
+          chat: applyEvent(v.chat, event),
+          updatedAt: event.type === "result" || event.type === "userMessage" ? new Date().toISOString() : v.updatedAt,
+        }));
+        if (event.type === "result") {
+          flushQueue(sessionId);
+          scheduleUsage(sessionId);
+        }
         if (event.type === "capabilities" && event.account) {
           // A session knows the login state better than a stale status probe.
           const account = event.account;

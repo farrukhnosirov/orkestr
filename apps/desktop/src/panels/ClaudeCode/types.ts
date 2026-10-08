@@ -9,6 +9,7 @@
  * `ChatView.tsx`) wires them to the store.
  *
  */
+import type { ImageAttachment } from "../../features/claudeCode/chatTools";
 import type {
   ClaudeModelOption,
   ClaudePermissionDecision,
@@ -64,6 +65,8 @@ export interface PermissionCardProps {
 export interface ComposerSendPayload {
   /** Message text (slash commands pass through as typed; `@path` mentions inline). */
   text: string;
+  /** Pasted / attached images. */
+  images?: ImageAttachment[];
 }
 
 export interface ComposerProps {
