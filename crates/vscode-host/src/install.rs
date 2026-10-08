@@ -83,6 +83,12 @@ impl Layout {
     pub fn token_file(&self) -> PathBuf {
         self.root.join("connection-token")
     }
+    /// Port + one-time token of the Orkestr bridge (private file; the
+    /// bridge extension finds it two levels above its own folder).
+    #[must_use]
+    pub fn bridge_file(&self) -> PathBuf {
+        self.root.join("bridge.json")
+    }
 }
 
 /// Streams `url` into `dest`, computing the sha256 on the fly. `progress`

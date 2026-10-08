@@ -1087,6 +1087,8 @@ event_kinds! {
     ClaudeCodeEvent(crate::methods::claude_code::ClaudeCodeEventPayload),
     /// A Claude Code chat session changed state (ephemeral; `claude:<sessionId>` + `project:<id>`). Appended.
     ClaudeCodeStatus(crate::methods::claude_code::ClaudeCodeStatusPayload),
+    /// A VS Code extension command ran through the Orkestr bridge (result or error). Appended.
+    VsCodeCommandExecuted(crate::methods::vscode::VsCodeCommandExecutedPayload),
 }
 
 // ---------------------------------------------------------------------------

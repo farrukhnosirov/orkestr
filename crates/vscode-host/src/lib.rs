@@ -26,6 +26,8 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod bridge;
+pub mod catalog;
 pub mod error;
 pub mod extensions;
 mod host;

@@ -19,6 +19,10 @@
 //! * `vscode.listExtensions` / `vscode.installExtension {id}` — extensions
 //!   in Orkestr's own VS Code extensions directory (Open VSX, via the
 //!   installed server's CLI).
+//! * `vscode.commands` / `vscode.execute` / `vscode.openView` /
+//!   `vscode.openFile` / `vscode.tasks` / `vscode.runTask` — run extension
+//!   commands through the Orkestr bridge extension (auto-installed, loopback,
+//!   one-time token; every execution audited, dangerous ones confirmed).
 
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
@@ -126,11 +130,13 @@ pub struct VsCodeConfig {
     pub idle_stop_secs: u32,
     /// Restart the server automatically after a crash (with back-off).
     pub auto_restart: bool,
+    /// Extension commands pinned to the left rail / Mission Control quick actions.
+    pub pinned_commands: Vec<String>,
 }
 
 impl Default for VsCodeConfig {
     fn default() -> Self {
-        Self { auto_stop: true, idle_stop_secs: 120, auto_restart: true }
+        Self { auto_stop: true, idle_stop_secs: 120, auto_restart: true, pinned_commands: Vec::new() }
     }
 }
 
@@ -148,6 +154,9 @@ pub struct VsCodeConfigPatch {
     /// See [`VsCodeConfig::auto_restart`].
     #[ts(optional)]
     pub auto_restart: Option<bool>,
+    /// See [`VsCodeConfig::pinned_commands`] (replaces the list; ≤ 24 ids).
+    #[ts(optional)]
+    pub pinned_commands: Option<Vec<String>>,
 }
 
 /// Status of the VS Code integration.
@@ -174,6 +183,9 @@ pub struct VsCodeStatus {
     pub data_dir: String,
     /// Configuration.
     pub config: VsCodeConfig,
+    /// A VS Code window is connected through the Orkestr bridge extension
+    /// (extension commands can run).
+    pub bridge_connected: bool,
 }
 
 /// A downloadable server release.
@@ -333,6 +345,265 @@ pub struct VsCodeUninstallParams {
     #[ts(optional)]
     pub purge: Option<bool>,
 }
+
+/// A command of a VS Code extension.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct VsCodeCommandInfo {
+    /// Command id (`rainbow-csv.Align`).
+    pub id: String,
+    /// Title (localized from the extension's `package.nls*.json` when available).
+    pub title: String,
+    /// Category shown before the title in VS Code's palette.
+    pub category: Option<String>,
+    /// Hidden from VS Code's command palette (`when: false`) or registered
+    /// only at runtime — the extension's "hidden" functions.
+    pub hidden: bool,
+    /// Not declared in the manifest; found through the bridge at runtime.
+    pub runtime_only: bool,
+    /// Looks destructive: `vscode.execute` requires `confirmed: true`.
+    pub dangerous: bool,
+    /// Default keybinding declared by the extension.
+    pub keybinding: Option<String>,
+}
+
+/// A view container (activity bar / panel) of an extension.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct VsCodeViewContainer {
+    /// Container id.
+    pub id: String,
+    /// Title.
+    pub title: String,
+    /// `activitybar`, `panel`, …
+    pub location: String,
+    /// Command that focuses it (`workbench.view.extension.<id>`).
+    pub command: String,
+}
+
+/// An installed extension with its commands (from its manifest on disk).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct VsCodeExtensionCommands {
+    /// `publisher.name` (lowercase).
+    pub id: String,
+    /// Display name.
+    pub display_name: String,
+    /// Description.
+    pub description: Option<String>,
+    /// Installed version.
+    pub version: Option<String>,
+    /// Publisher.
+    pub publisher: String,
+    /// Icon as a `data:` URL (≤ 256 KiB raster images only).
+    pub icon: Option<String>,
+    /// Marketplace categories.
+    pub categories: Vec<String>,
+    /// Commands (declared ones first, then runtime-only ones).
+    pub commands: Vec<VsCodeCommandInfo>,
+    /// View containers (open with `vscode.openView`).
+    pub view_containers: Vec<VsCodeViewContainer>,
+    /// The extension contributes settings.
+    pub has_settings: bool,
+    /// Install directory.
+    pub dir: String,
+}
+
+/// Params of `vscode.commands`.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase", default)]
+#[ts(export)]
+pub struct VsCodeCommandsParams {
+    /// Only this extension.
+    #[ts(optional)]
+    pub extension_id: Option<String>,
+    /// UI locale for titles (`ru`, `en`).
+    #[ts(optional)]
+    pub locale: Option<String>,
+}
+
+/// Result of `vscode.commands`.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct VsCodeCommandsResult {
+    /// Installed extensions with their commands (the Orkestr bridge is left out).
+    pub extensions: Vec<VsCodeExtensionCommands>,
+    /// A VS Code window is connected (commands can run right away).
+    pub bridge_connected: bool,
+}
+
+/// Params of `vscode.execute`.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct VsCodeExecuteParams {
+    /// Command id.
+    pub command_id: String,
+    /// Arguments (JSON; `{"$uri": "/abs/path"}` becomes a `vscode.Uri`).
+    #[serde(default)]
+    #[ts(optional, type = "Array<unknown>")]
+    pub args: Option<Vec<serde_json::Value>>,
+    /// The user confirmed a dangerous command.
+    #[serde(default)]
+    #[ts(optional)]
+    pub confirmed: Option<bool>,
+    /// Wait this long (ms, ≤ 120000) for a VS Code window to connect.
+    #[serde(default)]
+    #[ts(optional)]
+    pub wait_ms: Option<u32>,
+}
+
+/// Result of `vscode.execute` / `vscode.openView` / `vscode.openFile` / `vscode.runTask`.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct VsCodeExecuteResult {
+    /// What the command returned (JSON, truncated at 64 KiB).
+    #[ts(type = "unknown")]
+    pub result: serde_json::Value,
+    /// Duration in ms.
+    pub duration_ms: u64,
+}
+
+/// Params of `vscode.openView`.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct VsCodeOpenViewParams {
+    /// Extension whose view container to focus.
+    pub extension_id: String,
+    /// Container id; the extension's first one when omitted.
+    #[serde(default)]
+    #[ts(optional)]
+    pub container_id: Option<String>,
+    /// Open the extension's settings instead of its view.
+    #[serde(default)]
+    #[ts(optional)]
+    pub settings: Option<bool>,
+    /// See [`VsCodeExecuteParams::wait_ms`].
+    #[serde(default)]
+    #[ts(optional)]
+    pub wait_ms: Option<u32>,
+}
+
+/// Params of `vscode.openFile`.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct VsCodeOpenFileParams {
+    /// Absolute path.
+    pub path: String,
+    /// 1-based line.
+    #[serde(default)]
+    #[ts(optional)]
+    pub line: Option<u32>,
+    /// 1-based column.
+    #[serde(default)]
+    #[ts(optional)]
+    pub column: Option<u32>,
+    /// See [`VsCodeExecuteParams::wait_ms`].
+    #[serde(default)]
+    #[ts(optional)]
+    pub wait_ms: Option<u32>,
+}
+
+/// A VS Code task.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct VsCodeTaskInfo {
+    /// Task name.
+    pub name: String,
+    /// Source (`npm`, `Workspace`, …).
+    pub source: String,
+    /// Detail line.
+    #[serde(default)]
+    pub detail: Option<String>,
+}
+
+/// Result of `vscode.tasks`.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct VsCodeTasksResult {
+    /// Tasks of the open workspace.
+    pub tasks: Vec<VsCodeTaskInfo>,
+}
+
+/// Params of `vscode.runTask`.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct VsCodeRunTaskParams {
+    /// Task name.
+    pub name: String,
+    /// Task source, to disambiguate.
+    #[serde(default)]
+    #[ts(optional)]
+    pub source: Option<String>,
+    /// Running a task executes a shell command: the user must confirm.
+    #[serde(default)]
+    #[ts(optional)]
+    pub confirmed: Option<bool>,
+    /// See [`VsCodeExecuteParams::wait_ms`].
+    #[serde(default)]
+    #[ts(optional)]
+    pub wait_ms: Option<u32>,
+}
+
+/// Params of `vscode.tasks`.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase", default)]
+#[ts(export)]
+pub struct VsCodeTasksParams {
+    /// See [`VsCodeExecuteParams::wait_ms`].
+    #[ts(optional)]
+    pub wait_ms: Option<u32>,
+}
+
+/// `VsCodeCommandExecuted` payload: an extension command ran through the bridge.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct VsCodeCommandExecutedPayload {
+    /// Command id (or `openFile` / `runTask:<name>`).
+    pub command_id: String,
+    /// Whether it succeeded.
+    pub ok: bool,
+    /// Error message (redacted).
+    pub error: Option<String>,
+    /// Duration in ms.
+    pub duration_ms: u64,
+}
+
+method!(
+    /// `vscode.commands` — installed extensions with their commands, view containers and settings.
+    Commands, "vscode.commands", VsCodeCommandsParams, VsCodeCommandsResult
+);
+method!(
+    /// `vscode.execute` — runs a command in the VS Code window (audited; dangerous ones need `confirmed`).
+    Execute, "vscode.execute", VsCodeExecuteParams, VsCodeExecuteResult
+);
+method!(
+    /// `vscode.openView` — focuses an extension's view container (or its settings).
+    OpenView, "vscode.openView", VsCodeOpenViewParams, VsCodeExecuteResult
+);
+method!(
+    /// `vscode.openFile` — opens a file at a line in the VS Code window.
+    OpenFile, "vscode.openFile", VsCodeOpenFileParams, VsCodeExecuteResult
+);
+method!(
+    /// `vscode.tasks` — tasks of the workspace open in VS Code.
+    Tasks, "vscode.tasks", VsCodeTasksParams, VsCodeTasksResult
+);
+method!(
+    /// `vscode.runTask` — runs a VS Code task (needs `confirmed`).
+    RunTask, "vscode.runTask", VsCodeRunTaskParams, VsCodeExecuteResult
+);
 
 method!(
     /// `vscode.listExtensions` — extensions installed in Orkestr's VS Code.
