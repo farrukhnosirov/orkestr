@@ -10,18 +10,20 @@ import "./extensions.css";
 import type { ContributionSummary, InstalledExtension, MarketplaceDetails, MarketplaceExtension } from "@orkestr/protocol";
 import { Badge, Button, EmptyState, IconButton, Input, Spinner, Tabs } from "@orkestr/ui";
 import { clsx } from "clsx";
-import { BadgeCheck, CircleAlert, Code2, Download, FileArchive, Package, Puzzle, RefreshCw, Search, Star, X } from "lucide-react";
+import { ArrowUpCircle, BadgeCheck, CircleAlert, Code2, Download, FileArchive, Info, Package, Puzzle, RefreshCw, Search, Star, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { PathInput } from "../../components/PathInput";
 import { getClient, maybeClient } from "../../core/client";
 import { SafeMarkdown } from "../../features/extensions/markdown";
-import { supportedItems, supportLevel, unsupportedKinds } from "../../features/extensions/model";
+import { isNewerVersion, supportedItems, supportLevel, unsupportedKinds } from "../../features/extensions/model";
 import { ensureExtensionsLoaded, useExtensionsStore } from "../../features/extensions/store";
+import { useNotificationsStore } from "../../features/notifications/notificationsStore";
 import { ExtensionLauncher } from "../../features/vscode/ExtensionLauncher";
+import { useLauncherStore } from "../../features/vscode/launcher";
 import { openProjectInVsCode, openVsCodePanel } from "../../features/vscode/quickAccess";
 import { useVsCodeStore } from "../../features/vscode/store";
-import { useFormat, useT } from "../../i18n";
+import { t, useFormat, useT } from "../../i18n";
 import { describeError } from "../../i18n/errors";
 import { useAppStore } from "../../store/app";
 import type { PanelProps } from "../types";
@@ -33,6 +35,84 @@ type Selection = { kind: "market"; namespace: string; name: string } | { kind: "
 
 const INSTALL_TIMEOUT = 10 * 60_000;
 const iconCache = new Map<string, Promise<string | null>>();
+/** Latest Open VSX version per extension id (session cache; `null` = unknown). */
+const latestCache = new Map<string, Promise<string | null>>();
+
+function splitId(id: string): { namespace: string; name: string } | null {
+  const dot = id.indexOf(".");
+  return dot > 0 && dot < id.length - 1 ? { namespace: id.slice(0, dot), name: id.slice(dot + 1) } : null;
+}
+
+/**
+ * Latest catalogue version of an installed extension. `known` (a search
+ * result's version) short-circuits the lookup; otherwise Open VSX is asked
+ * once per session.
+ */
+function useLatestVersion(id: string, known: string | null, enabled: boolean): string | null {
+  const [latest, setLatest] = useState<string | null>(known);
+  useEffect(() => {
+    if (known !== null || !enabled) {
+      setLatest(known);
+      return;
+    }
+    const ref = splitId(id);
+    const client = maybeClient();
+    if (!ref || !client) return;
+    let alive = true;
+    const key = id.toLowerCase();
+    let p = latestCache.get(key);
+    if (!p) {
+      p = client
+        .call("extensions.details", ref, { timeoutMs: 60_000 })
+        .then((d) => d.extension.version)
+        .catch(() => null);
+      latestCache.set(key, p);
+    }
+    void p.then((v) => alive && setLatest(v));
+    return () => {
+      alive = false;
+    };
+  }, [id, known, enabled]);
+  return latest;
+}
+
+/** Installed version of an extension in Orkestr's VS Code (`null` = not there). */
+function useHostVersion(id: string): string | null {
+  const key = id.toLowerCase();
+  return useVsCodeStore((s) => s.extensions?.find((x) => x.id === key)?.version ?? null);
+}
+
+/** Loads the VS Code status and its extension list once (no-op without VS Code). */
+function useHostExtensions(): void {
+  const vsInstalled = useVsCodeStore((s) => s.status?.installed != null);
+  useEffect(() => {
+    if (!useVsCodeStore.getState().status) void useVsCodeStore.getState().load();
+  }, []);
+  useEffect(() => {
+    if (vsInstalled && useVsCodeStore.getState().extensions === null) void useVsCodeStore.getState().loadExtensions();
+  }, [vsInstalled]);
+}
+
+/** Installs / updates in Orkestr's VS Code (latest Open VSX build) and reports with a toast. */
+async function installInHost(id: string, displayName: string, target: string | null, update: boolean): Promise<void> {
+  const notify = useNotificationsStore.getState().notify;
+  const ok = await useVsCodeStore.getState().installExtension(id);
+  if (ok) {
+    const version = useVsCodeStore.getState().extensions?.find((x) => x.id === id.toLowerCase())?.version ?? target;
+    notify(
+      "Success",
+      update && version
+        ? t("extensions:toast.updated", { name: displayName, version })
+        : t("extensions:toast.installed", { name: displayName }),
+    );
+  } else {
+    notify(
+      "Error",
+      update ? t("extensions:toast.updateFailed", { name: displayName }) : t("extensions:toast.installFailed", { name: displayName }),
+      useVsCodeStore.getState().extensionsError ?? "",
+    );
+  }
+}
 
 function loadIcon(key: string, load: () => Promise<string | null>): Promise<string | null> {
   let p = iconCache.get(key);
@@ -153,6 +233,7 @@ function InstallInVsCode({ extensionId }: { extensionId: string }) {
   }, [vsInstalled]);
 
   const present = vsExtensions?.some((x) => x.id === id) ?? false;
+  const hostVersion = vsExtensions?.find((x) => x.id === id)?.version ?? null;
   const busy = installing !== null && installing.toLowerCase() === id;
 
   if (!status) return null;
@@ -168,7 +249,8 @@ function InstallInVsCode({ extensionId }: { extensionId: string }) {
       ) : present ? (
         <>
           <p className="ext-muted">
-            <BadgeCheck size={14} className="ext-ok" aria-hidden="true" /> {t("vscode.installed")}
+            <BadgeCheck size={14} className="ext-ok" aria-hidden="true" />{" "}
+            {hostVersion ? t("vscode.installedVersion", { version: hostVersion }) : t("vscode.installed")}
           </p>
           <Button
             size="sm"
@@ -267,42 +349,109 @@ function InstalledActions({ ext, onError }: { ext: InstalledExtension; onError: 
   );
 }
 
-function InstallButton({ namespace, name, installedVersion, latest }: { namespace: string; name: string; installedVersion: string | null; latest: string }) {
-  const { t } = useT("extensions");
-  const key = `${namespace}.${name}`.toLowerCase();
+/**
+ * Install / update control of one extension, for both places it can live:
+ * Orkestr's own editor (`extensions.install`, native) and Orkestr's VS Code
+ * (`vscode.installExtension`, installs the latest Open VSX build). Shows
+ * «Update to X» whenever the catalogue has a newer version than either
+ * install, and «Installed · vX» otherwise.
+ */
+function InstallButton({
+  namespace,
+  name,
+  displayName,
+  installedVersion,
+  latest,
+  allowInstall = true,
+}: {
+  namespace: string;
+  name: string;
+  displayName: string;
+  installedVersion: string | null;
+  latest: string | null;
+  /** Offer «Install» when it is installed nowhere (catalogue rows and details). */
+  allowInstall?: boolean;
+}) {
+  const { t: tx } = useT("extensions");
+  const id = `${namespace}.${name}`;
+  const key = id.toLowerCase();
   const progress = useExtensionsStore((s) => s.progress[key]);
+  const hostVersion = useHostVersion(id);
+  const hostBusy = useVsCodeStore((s) => s.installingExtension !== null && s.installingExtension.toLowerCase() === key);
+  const hostAnyBusy = useVsCodeStore((s) => s.installingExtension !== null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const install = async () => {
+  const installNative = async (update: boolean) => {
     setBusy(true);
     setError(null);
+    const notify = useNotificationsStore.getState().notify;
     try {
-      await getClient().call("extensions.install", { namespace, name }, { timeoutMs: INSTALL_TIMEOUT });
+      const res = await getClient().call("extensions.install", { namespace, name }, { timeoutMs: INSTALL_TIMEOUT });
       await useExtensionsStore.getState().load();
+      notify(
+        "Success",
+        update
+          ? t("extensions:toast.updated", { name: displayName, version: res.extension.version })
+          : t("extensions:toast.installed", { name: displayName }),
+      );
     } catch (e) {
-      setError(describeError(e));
+      const message = describeError(e);
+      setError(message);
+      notify(
+        "Error",
+        update ? t("extensions:toast.updateFailed", { name: displayName }) : t("extensions:toast.installFailed", { name: displayName }),
+        message,
+      );
     } finally {
       setBusy(false);
     }
   };
-  const update = installedVersion !== null && installedVersion !== latest;
+  const nativeUpdate = isNewerVersion(latest, installedVersion);
+  const hostUpdate = isNewerVersion(latest, hostVersion);
+  const nativeBusy = busy || (progress !== undefined && progress.phase !== "failed");
+  const nowhere = installedVersion === null && hostVersion === null;
   return (
     <span className="ext-install">
-      {installedVersion !== null && !update ? (
-        <Badge tone="success">{t("installed.badge")}</Badge>
-      ) : (
+      {nowhere && allowInstall && (
+        <Button size="sm" variant="primary" leftIcon={<Download size={13} />} loading={nativeBusy} onClick={(e) => {
+            e.stopPropagation();
+            void installNative(false);
+          }}>
+          {tx("actions.install")}
+        </Button>
+      )}
+      {nativeUpdate && latest && (
+        <Button size="sm" variant="primary" leftIcon={<ArrowUpCircle size={13} />} loading={nativeBusy} onClick={(e) => {
+            e.stopPropagation();
+            void installNative(true);
+          }}>
+          {nativeBusy ? tx("actions.updating") : tx("actions.update", { version: latest })}
+        </Button>
+      )}
+      {hostUpdate && latest && !nativeUpdate && (
         <Button
           size="sm"
           variant="primary"
-          leftIcon={<Download size={13} />}
-          loading={busy || (progress !== undefined && progress.phase !== "failed")}
+          leftIcon={<ArrowUpCircle size={13} />}
+          loading={hostBusy}
+          disabled={hostAnyBusy}
           onClick={(e) => {
             e.stopPropagation();
-            void install();
+            void installInHost(id, displayName, latest, true);
           }}
         >
-          {update ? t("actions.update", { version: latest }) : t("actions.install")}
+          {hostBusy ? tx("actions.updating") : tx("actions.update", { version: latest })}
         </Button>
+      )}
+      {installedVersion !== null && (
+        <span className="ext-installed-label">
+          <BadgeCheck size={13} aria-hidden="true" /> {tx("installed.version", { version: installedVersion })}
+        </span>
+      )}
+      {hostVersion !== null && (
+        <span className="ext-installed-label">
+          <Code2 size={13} aria-hidden="true" /> {tx("installed.versionVsCode", { version: hostVersion })}
+        </span>
       )}
       <ProgressLine keyName={key} />
       {error && <span className="ext-error">{error}</span>}
@@ -344,13 +493,21 @@ function MarketItem({ ext, selected, onSelect }: { ext: MarketplaceExtension; se
           {ext.license && <span title={t("meta.license")}>{ext.license}</span>}
         </div>
       </div>
-      <InstallButton namespace={ext.namespace} name={ext.name} installedVersion={ext.installedVersion} latest={ext.version} />
+      <InstallButton
+        namespace={ext.namespace}
+        name={ext.name}
+        displayName={ext.displayName}
+        installedVersion={ext.installedVersion}
+        latest={ext.version}
+      />
     </li>
   );
 }
 
 function InstalledItem({ ext, selected, onSelect }: { ext: InstalledExtension; selected: boolean; onSelect: () => void }) {
   const { t } = useT("extensions");
+  const ref = splitId(ext.id);
+  const latest = useLatestVersion(ext.id, null, ext.source === "openVsx");
   return (
     <li
       className={clsx("ext-item", selected && "ext-item--selected", !ext.enabled && "ext-item--disabled")}
@@ -366,7 +523,6 @@ function InstalledItem({ ext, selected, onSelect }: { ext: InstalledExtension; s
           <span className="ext-item__name" title={ext.id}>
             {ext.displayName}
           </span>
-          <span className="ext-muted">{ext.version}</span>
           {!ext.enabled && <Badge tone="neutral">{t("installed.disabled")}</Badge>}
         </div>
         <Publisher name={ext.publisher} verified={ext.verified} />
@@ -377,6 +533,60 @@ function InstalledItem({ ext, selected, onSelect }: { ext: InstalledExtension; s
           {ext.license && <span title={t("meta.license")}>{ext.license}</span>}
         </div>
       </div>
+      {ref && (
+        <InstallButton
+          namespace={ref.namespace}
+          name={ref.name}
+          displayName={ext.displayName}
+          installedVersion={ext.version}
+          latest={latest}
+          allowInstall={false}
+        />
+      )}
+    </li>
+  );
+}
+
+/** An extension installed only in Orkestr's VS Code (metadata from the launcher when loaded). */
+function HostItem({ id, version, selected, onSelect }: { id: string; version: string | null; selected: boolean; onSelect: () => void }) {
+  const meta = useLauncherStore((s) => s.extensions?.find((e) => e.id === id) ?? null);
+  const ref = splitId(id);
+  const latest = useLatestVersion(id, null, true);
+  return (
+    <li
+      className={clsx("ext-item", selected && "ext-item--selected")}
+      aria-selected={selected}
+      role="option"
+      tabIndex={0}
+      onClick={onSelect}
+      onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onSelect()}
+    >
+      {meta?.icon ? (
+        <img className="ext-icon" src={meta.icon} alt="" aria-hidden="true" draggable={false} />
+      ) : (
+        <span className="ext-icon ext-icon--placeholder" aria-hidden="true">
+          <Code2 size={20} />
+        </span>
+      )}
+      <div className="ext-item__body">
+        <div className="ext-item__title">
+          <span className="ext-item__name" title={id}>
+            {meta?.displayName ?? id}
+          </span>
+        </div>
+        <span className="ext-publisher">{meta?.publisher ?? ref?.namespace ?? id}</span>
+        {meta?.description && <p className="ext-item__desc">{meta.description}</p>}
+      </div>
+      {ref && version !== null && (
+        <InstallButton
+          namespace={ref.namespace}
+          name={ref.name}
+          displayName={meta?.displayName ?? id}
+          installedVersion={null}
+          latest={latest}
+          allowInstall={false}
+        />
+      )}
     </li>
   );
 }
@@ -416,6 +626,9 @@ function Details({ selection, onClose }: { selection: Selection; onClose: () => 
 
   const installed = selection.kind === "installed" ? installedMap.get(selection.id) : details ? installedMap.get(details.extension.id) : undefined;
   const header = details?.extension;
+  const selectedId = selection.kind === "installed" ? selection.id : `${selection.namespace}.${selection.name}`;
+  const ref = splitId(header?.id ?? selectedId);
+  const latest = useLatestVersion(selectedId, header?.version ?? null, selection.kind === "installed" && installed?.source === "openVsx");
   const contributions = installed?.contributions ?? details?.contributions ?? null;
 
   return (
@@ -496,8 +709,27 @@ function Details({ selection, onClose }: { selection: Selection; onClose: () => 
       </dl>
       <div className="ext-details__actions">
         {installed && <InstalledActions ext={installed} onError={setActionError} />}
-        {header && details?.installable && (
-          <InstallButton namespace={header.namespace} name={header.name} installedVersion={installed?.version ?? null} latest={header.version} />
+        {header && details?.installable ? (
+          <InstallButton
+            namespace={header.namespace}
+            name={header.name}
+            displayName={header.displayName}
+            installedVersion={installed?.version ?? null}
+            latest={header.version}
+          />
+        ) : (
+          installed &&
+          ref &&
+          latest && (
+            <InstallButton
+              namespace={ref.namespace}
+              name={ref.name}
+              displayName={installed.displayName}
+              installedVersion={installed.version}
+              latest={latest}
+              allowInstall={false}
+            />
+          )
         )}
         {actionError && <span className="ext-error">{actionError}</span>}
       </div>
@@ -583,6 +815,12 @@ export default function ExtensionsPanel(_props: PanelProps) {
   useEffect(() => {
     if (connected) ensureExtensionsLoaded();
   }, [connected]);
+  useHostExtensions();
+  const hostExtensions = useVsCodeStore((s) => s.extensions);
+  const hostOnly = useMemo(() => {
+    const native = new Set(installed.map((e) => e.id.toLowerCase()));
+    return (hostExtensions ?? []).filter((e) => !native.has(e.id));
+  }, [installed, hostExtensions]);
 
   const search = useCallback(
     async (q: string, offset: number) => {
@@ -619,7 +857,7 @@ export default function ExtensionsPanel(_props: PanelProps) {
 
   const tabs = [
     { id: "marketplace" as const, label: t("tabs.marketplace") },
-    { id: "installed" as const, label: t("tabs.installed", { n: installed.length }) },
+    { id: "installed" as const, label: t("tabs.installed", { n: installed.length + hostOnly.length }) },
     { id: "vscode" as const, label: t("tabs.vscode") },
   ];
 
@@ -652,7 +890,10 @@ export default function ExtensionsPanel(_props: PanelProps) {
                 />
                 <IconButton label={t("search.refresh")} icon={<RefreshCw size={13} />} size="sm" onClick={() => void search(query, 0)} />
               </div>
-              <p className="ext-source-note">{t("search.source")}</p>
+              <p className="ext-source-note" aria-label={t("search.sourceLabel")}>
+                <Info size={12} aria-hidden="true" />
+                <span>{t("search.source")}</span>
+              </p>
               {error && <div className="ext-error">{error}</div>}
               {!error && !loading && shown.length === 0 ? (
                 <EmptyState icon={<Package size={24} />} title={t("search.empty")} description={t("search.emptyHint")} />
@@ -677,19 +918,53 @@ export default function ExtensionsPanel(_props: PanelProps) {
                 )}
               </div>
             </>
-          ) : installed.length === 0 ? (
+          ) : installed.length === 0 && hostOnly.length === 0 ? (
             <EmptyState icon={<Puzzle size={24} />} title={t("installed.empty")} description={t("installed.emptyHint")} />
           ) : (
-            <ul className="ext-list" role="listbox" aria-label={t("installed.label")}>
-              {installed.map((ext) => (
-                <InstalledItem
-                  key={ext.id}
-                  ext={ext}
-                  selected={selection?.kind === "installed" && selection.id === ext.id}
-                  onSelect={() => setSelection({ kind: "installed", id: ext.id })}
-                />
-              ))}
-            </ul>
+            <>
+              {installed.length > 0 && (
+                <>
+                  {hostOnly.length > 0 && <h3 className="ext-section">{t("installed.nativeSection", { n: installed.length })}</h3>}
+                  <ul className="ext-list" role="listbox" aria-label={t("installed.label")}>
+                    {installed.map((ext) => (
+                      <InstalledItem
+                        key={ext.id}
+                        ext={ext}
+                        selected={selection?.kind === "installed" && selection.id === ext.id}
+                        onSelect={() => setSelection({ kind: "installed", id: ext.id })}
+                      />
+                    ))}
+                  </ul>
+                </>
+              )}
+              {hostOnly.length > 0 && (
+                <>
+                  <h3 className="ext-section">{t("installed.vscodeSection", { n: hostOnly.length })}</h3>
+                  <p className="ext-source-note">
+                    <Info size={12} aria-hidden="true" />
+                    <span>{t("installed.vscodeHint")}</span>
+                  </p>
+                  <ul className="ext-list" role="listbox" aria-label={t("installed.vscodeSection", { n: hostOnly.length })}>
+                    {hostOnly.map((ext) => {
+                      const ref = splitId(ext.id);
+                      return (
+                        <HostItem
+                          key={ext.id}
+                          id={ext.id}
+                          version={ext.version}
+                          selected={
+                            selection?.kind === "market" &&
+                            ref !== null &&
+                            `${selection.namespace}.${selection.name}`.toLowerCase() === ext.id
+                          }
+                          onSelect={() => ref && setSelection({ kind: "market", ...ref })}
+                        />
+                      );
+                    })}
+                  </ul>
+                </>
+              )}
+            </>
           )}
         </div>
         {selection && <Details selection={selection} onClose={() => setSelection(null)} />}

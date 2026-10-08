@@ -14,7 +14,8 @@
     "emptyHint": "Попробуйте другие слова или установите скачанный файл .vsix.",
     "results": "Результаты поиска",
     "loading": "Идёт поиск…",
-    "more": "Показать ещё ({{shown}} из {{total}})"
+    "more": "Показать ещё ({{shown}} из {{total}})",
+    "sourceLabel": "О каталоге"
   },
   "support": {
     "full": "Работает в Orkestr",
@@ -77,14 +78,20 @@
     "update": "Обновить до {{version}}",
     "uninstall": "Удалить",
     "enable": "Включить",
-    "disable": "Отключить"
+    "disable": "Отключить",
+    "updating": "Обновление…"
   },
   "installed": {
     "badge": "Установлено",
     "disabled": "Отключено",
     "label": "Установленные расширения",
     "empty": "Расширений пока нет",
-    "emptyHint": "Найдите расширение на вкладке Open VSX или установите файл .vsix."
+    "emptyHint": "Найдите расширение на вкладке Open VSX или установите файл .vsix.",
+    "version": "Установлено · v{{version}}",
+    "versionVsCode": "В VS Code · v{{version}}",
+    "nativeSection": "Редактор Orkestr ({{n}})",
+    "vscodeSection": "VS Code ({{n}})",
+    "vscodeHint": "Установлены в VS Code (VSCodium) внутри Orkestr. Выберите расширение, чтобы увидеть сведения и обновления."
   },
   "meta": {
     "downloads": "Загрузки",
@@ -170,6 +177,13 @@
     "installed": "Установлено в VS Code",
     "open": "Открыть в VS Code",
     "missing": "Чтобы пользоваться этим расширением полностью, сначала установите VS Code (VSCodium) в панели VS Code.",
-    "openPanel": "Открыть панель VS Code"
+    "openPanel": "Открыть панель VS Code",
+    "installedVersion": "Установлено в VS Code · v{{version}}"
+  },
+  "toast": {
+    "installed": "Расширение «{{name}}» установлено",
+    "updated": "Расширение «{{name}}» обновлено до версии {{version}}",
+    "installFailed": "Не удалось установить «{{name}}»",
+    "updateFailed": "Не удалось обновить «{{name}}»"
   }
 }

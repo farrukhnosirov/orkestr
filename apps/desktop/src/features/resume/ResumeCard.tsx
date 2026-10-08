@@ -1,7 +1,7 @@
-import { Badge, Button, IconButton, Spinner } from "@orkestr/ui";
+import { Button, IconButton, Spinner } from "@orkestr/ui";
 import { clsx } from "clsx";
-import { History, ScrollText, X } from "lucide-react";
-import { useEffect } from "react";
+import { AlertTriangle, History, ScrollText, X } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import { workspaceActions } from "../../components/workspaceActions";
 import { useT } from "../../i18n";
@@ -11,8 +11,8 @@ import { headline, summaryLines } from "./resume";
 import "./resume.css";
 import { useResumeStore } from "./resumeStore";
 
-/** Auto-hide delay when nothing happened. */
-const QUIET_TTL_MS = 8000;
+/** Auto-hide delay once the summary is shown (paused while hovered or focused). */
+export const RESUME_TTL_MS = 12_000;
 
 /** Session Resume card (§57), shown when a project is opened. */
 export function ResumeCard() {
@@ -21,17 +21,28 @@ export function ResumeCard() {
   const activeProjectId = useAppStore((s) => s.activeProjectId);
   const { t } = useT("resume");
 
-  const quiet = summary !== null && summary.totalEvents === 0 && !summary.recoveredFromCrash;
+  // Non-blocking: the card always goes away on its own unless the user is reading it.
+  const [held, setHeld] = useState(false);
   useEffect(() => {
-    if (!visible || !(quiet || error)) return;
-    const timer = setTimeout(dismiss, QUIET_TTL_MS);
+    if (!visible || loading || held) return;
+    const timer = setTimeout(dismiss, RESUME_TTL_MS);
     return () => clearTimeout(timer);
-  }, [visible, quiet, error, dismiss]);
+  }, [visible, loading, held, dismiss]);
 
   if (!visible || projectId === null || projectId !== activeProjectId) return null;
 
   return (
-    <section className="resume-card" aria-label={t("card.label")} aria-live="polite">
+    <section
+      className="resume-card"
+      aria-label={t("card.label")}
+      aria-live="polite"
+      onMouseEnter={() => setHeld(true)}
+      onMouseLeave={() => setHeld(false)}
+      onFocus={() => setHeld(true)}
+      onBlur={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setHeld(false);
+      }}
+    >
       <header className="resume-card__head">
         <span className="resume-card__icon">
           <History size={16} />
@@ -52,20 +63,25 @@ export function ResumeCard() {
       {summary && !loading && (
         <div className="resume-card__body">
           {summary.recoveredFromCrash && (
-            <Badge tone="warning">{t("card.crashRecovered")}</Badge>
+            <p className="resume-card__notice" role="status">
+              <AlertTriangle size={14} aria-hidden="true" />
+              <span>{t("card.crashRecoveredBody")}</span>
+            </p>
           )}
           {summary.totalEvents > 0 ? (
             <ul className="resume-card__lines">
-              {summaryLines(summary).map((l) => (
+              {summaryLines(summary, 4).map((l) => (
                 <li key={l}>{l}</li>
               ))}
             </ul>
           ) : (
-            <p className="resume-card__muted">{t("card.nothingChanged")}</p>
+            <p className="resume-card__muted">
+              {summary.recoveredFromCrash ? t("card.nothingElse") : t("card.nothingChanged")}
+            </p>
           )}
           {summary.highlights.length > 0 && (
             <ul className="resume-card__highlights">
-              {summary.highlights.slice(-4).map((ev) => (
+              {summary.highlights.slice(-3).map((ev) => (
                 <li key={ev.id} className={clsx("resume-card__hl", `resume-card__hl--${severityOf(ev)}`)}>
                   {describeEvent(ev)}
                 </li>

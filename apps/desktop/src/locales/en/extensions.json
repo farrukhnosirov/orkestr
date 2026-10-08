@@ -14,7 +14,8 @@
     "emptyHint": "Try other words, or install a .vsix file you downloaded.",
     "results": "Search results",
     "loading": "Searching…",
-    "more": "Show more ({{shown}} of {{total}})"
+    "more": "Show more ({{shown}} of {{total}})",
+    "sourceLabel": "About the catalogue"
   },
   "support": {
     "full": "Works in Orkestr",
@@ -65,14 +66,20 @@
     "update": "Update to {{version}}",
     "uninstall": "Uninstall",
     "enable": "Enable",
-    "disable": "Disable"
+    "disable": "Disable",
+    "updating": "Updating…"
   },
   "installed": {
     "badge": "Installed",
     "disabled": "Disabled",
     "label": "Installed extensions",
     "empty": "No extensions installed",
-    "emptyHint": "Find one on the Open VSX tab or install a .vsix file."
+    "emptyHint": "Find one on the Open VSX tab or install a .vsix file.",
+    "version": "Installed · v{{version}}",
+    "versionVsCode": "In VS Code · v{{version}}",
+    "nativeSection": "Orkestr editor ({{n}})",
+    "vscodeSection": "VS Code ({{n}})",
+    "vscodeHint": "Installed in Orkestr's VS Code (VSCodium). Select one to see its details and updates."
   },
   "meta": {
     "downloads": "Downloads",
@@ -158,6 +165,13 @@
     "installed": "Installed in VS Code",
     "open": "Open in VS Code",
     "missing": "To use this extension fully, install VS Code (VSCodium) in the VS Code panel first.",
-    "openPanel": "Open the VS Code panel"
+    "openPanel": "Open the VS Code panel",
+    "installedVersion": "Installed in VS Code · v{{version}}"
+  },
+  "toast": {
+    "installed": "Extension {{name}} installed",
+    "updated": "Extension {{name}} updated to {{version}}",
+    "installFailed": "Couldn't install {{name}}",
+    "updateFailed": "Couldn't update {{name}}"
   }
 }

@@ -4,6 +4,7 @@ import { Cpu, HardDrive, MemoryStick, MonitorCog, Server, Zap } from "lucide-rea
 import type { ReactNode } from "react";
 
 import { workspaceActions } from "../../../components/workspaceActions";
+import { instanceName } from "../../../features/providers/logic";
 import { useFormat, useT } from "../../../i18n";
 import { useRpcQuery } from "../../../lib/rpcQuery";
 import { type ChartTone, Sparkline, loadTone } from "../../Monitoring/charts";
@@ -140,7 +141,7 @@ function ProviderRow({ p, now }: { p: ProviderHealthRow; now: number }) {
   return (
     <li className="mc-provider">
       <StatusDot status={p.enabled ? HEALTH_DOT[p.health] : "offline"} pulse={p.health === "RateLimited"} label={t(`common:status.health.${p.health}`)} />
-      <span className="mc-provider__name">{p.name}</span>
+      <span className="mc-provider__name">{instanceName(p)}</span>
       <span className="mc-provider__health">{p.enabled ? t(`common:status.health.${p.health}`) : t("providers.disabled")}</span>
       <span className="mc-provider__latency" title={t("providers.latencyTitle")}>
         {p.avgLatencyMs ?? p.latencyMs ? t("providers.latency", { ms: fmt.integer(p.avgLatencyMs ?? p.latencyMs ?? 0) }) : "—"}

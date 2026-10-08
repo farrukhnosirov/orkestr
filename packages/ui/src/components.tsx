@@ -174,7 +174,7 @@ export function Badge({ tone = "neutral", icon, className, children, ...rest }: 
   return (
     <span className={clsx("ok-badge", tone !== "neutral" && `ok-badge--${tone}`, className)} {...rest}>
       {icon}
-      {children}
+      {children != null && children !== false && <span className="ok-badge__label">{children}</span>}
     </span>
   );
 }

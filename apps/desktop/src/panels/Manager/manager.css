@@ -232,6 +232,20 @@
   min-height: 32px;
 }
 
+/* Short panel: headline + stats only — no half-cut list rows peeking out. */
+.mgr-panel--short .mgr-resume__lines {
+  display: none;
+}
+
+/* …and a headline that fits: one line with an ellipsis (full text on hover). */
+.mgr-panel--short .mgr-resume__body > strong {
+  max-width: 100%;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .mgr-panel--short .mgr-body {
   min-height: 72px;
 }
@@ -833,14 +847,22 @@
   border-top: 1px solid var(--ok-color-border);
 }
 
+/* Narrow panels: the send button wraps under the input instead of squeezing
+   it into a one-letter-wide column. */
 .mgr-composer__row {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-end;
   gap: var(--ok-space-2);
 }
 
+.mgr-composer__row > .ok-btn:last-child {
+  margin-left: auto;
+}
+
 .mgr-composer__input {
-  flex: 1;
+  flex: 1 1 160px;
+  min-width: 0;
   min-height: 36px;
   max-height: 220px;
   resize: none;

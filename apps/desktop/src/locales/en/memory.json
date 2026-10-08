@@ -53,7 +53,8 @@
     "pinned": "Pinned",
     "ruleKey": "Rule key",
     "keyValue": "key: {{key}}",
-    "confirmDelete": "Delete “{{title}}”? This cannot be undone."
+    "confirmDelete": "Delete “{{title}}”? This cannot be undone.",
+    "sourceUser": "you"
   },
   "editor": {
     "titleEdit": "Edit memory",

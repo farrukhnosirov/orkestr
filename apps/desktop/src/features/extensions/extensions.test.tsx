@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { glyphOf, languageOfName, mergeAssociations, resolveIconId } from "./iconTheme";
 import { parseMarkdown, SafeMarkdown, stripHtml } from "./markdown";
-import { supportedItems, supportLevel, unsupportedKinds } from "./model";
+import { isNewerVersion, supportedItems, supportLevel, unsupportedKinds } from "./model";
 
 const assoc = (over: Partial<IconAssociations> = {}): IconAssociations => ({
   file: "file",
@@ -93,5 +93,16 @@ describe("compatibility summary", () => {
     expect(supportLevel(mixed)).toBe("partial");
     expect(unsupportedKinds(mixed)).toEqual(["commands"]);
     expect(supportLevel({ ...empty, hasCode: true })).toBe("none");
+  });
+});
+
+describe("isNewerVersion", () => {
+  it("compares numerically, segment by segment", () => {
+    expect(isNewerVersion("2.1.294", "2.1.292")).toBe(true);
+    expect(isNewerVersion("2.1.10", "2.1.9")).toBe(true);
+    expect(isNewerVersion("2.1.292", "2.1.292")).toBe(false);
+    expect(isNewerVersion("2.1.290", "2.1.292")).toBe(false);
+    expect(isNewerVersion(null, "1.0.0")).toBe(false);
+    expect(isNewerVersion("1.0.0", null)).toBe(false);
   });
 });

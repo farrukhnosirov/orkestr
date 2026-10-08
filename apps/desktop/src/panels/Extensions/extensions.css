@@ -71,10 +71,33 @@
   flex: 1;
 }
 
+/* Informational note (not an error): muted, small, with an info glyph. */
 .ext-source-note {
-  margin: var(--ok-space-1) var(--ok-space-3);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ok-space-2);
+  margin: var(--ok-space-2) var(--ok-space-3);
+  padding: var(--ok-space-2) var(--ok-space-3);
+  border-radius: var(--ok-radius-md);
+  background: var(--ok-color-surface-sunken);
+  color: var(--ok-color-text-muted);
+  font-size: var(--ok-font-size-xs, 11px);
+  line-height: 1.45;
+}
+
+.ext-source-note svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--ok-color-info);
+}
+
+.ext-section {
+  margin: var(--ok-space-3) var(--ok-space-3) var(--ok-space-1);
   color: var(--ok-color-text-subtle);
   font-size: var(--ok-font-size-xs, 11px);
+  font-weight: var(--ok-font-weight-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .ext-list {
@@ -87,7 +110,7 @@
   display: flex;
   align-items: flex-start;
   gap: var(--ok-space-3);
-  padding: var(--ok-space-2) var(--ok-space-3);
+  padding: var(--ok-space-3);
   border-bottom: 1px solid var(--ok-color-border);
   cursor: pointer;
 }
@@ -114,14 +137,19 @@
   min-width: 0;
 }
 
+/* Same height as a small button, so the row's action lines up with the title. */
 .ext-item__title {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
+  align-items: center;
   gap: var(--ok-space-2);
+  min-height: 26px;
+  min-width: 0;
 }
 
 .ext-item__name {
+  min-width: 0;
+  max-width: 100%;
   overflow: hidden;
   font-weight: 600;
   text-overflow: ellipsis;
@@ -130,7 +158,9 @@
 
 .ext-item__desc {
   display: -webkit-box;
-  margin: 0;
+  margin: 2px 0 0;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
   overflow: hidden;
   color: var(--ok-color-text-muted);
   font-size: var(--ok-font-size-sm);
@@ -139,6 +169,7 @@
 }
 
 .ext-item__meta {
+  margin-top: 2px;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -190,10 +221,37 @@
 
 .ext-install {
   display: flex;
+  flex-shrink: 0;
   flex-direction: column;
   align-items: flex-end;
   gap: var(--ok-space-1);
-  max-width: 240px;
+  max-width: 200px;
+  text-align: right;
+}
+
+.ext-install:empty {
+  display: none;
+}
+
+.ext-installed-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 26px;
+  color: var(--ok-color-text-muted);
+  font-size: var(--ok-font-size-xs, 11px);
+  white-space: nowrap;
+}
+
+/* a version label right under an update button is secondary: no button-height slot */
+.ok-btn + .ext-installed-label,
+.ext-installed-label + .ext-installed-label {
+  min-height: 0;
+}
+
+.ext-installed-label svg {
+  flex-shrink: 0;
+  color: var(--ok-color-success);
 }
 
 .ext-progress {

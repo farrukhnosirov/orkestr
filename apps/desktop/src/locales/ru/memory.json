@@ -53,7 +53,8 @@
     "pinned": "Закреплена",
     "ruleKey": "Ключ правила",
     "keyValue": "ключ: {{key}}",
-    "confirmDelete": "Удалить «{{title}}»? Это действие нельзя отменить."
+    "confirmDelete": "Удалить «{{title}}»? Это действие нельзя отменить.",
+    "sourceUser": "вы"
   },
   "editor": {
     "titleEdit": "Редактирование записи",

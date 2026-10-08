@@ -171,7 +171,7 @@ export function ResumeBanner({ summary, onResumeRun }: { summary: ManagerResumeS
     <section className="mgr-resume" aria-label={t("resume.label")}>
       <History size={16} aria-hidden="true" className="mgr-resume__icon" />
       <div className="mgr-resume__body">
-        <strong>{resumeHeadline(summary)}</strong>
+        <strong title={resumeHeadline(summary)}>{resumeHeadline(summary)}</strong>
         <div className="mgr-resume__stats">
           {summary.tasksTotal > 0 && (
             <div className="mgr-progress mgr-progress--thin" role="progressbar" aria-label={t("resume.tasksCompleted")} aria-valuemin={0} aria-valuemax={100} aria-valuenow={summary.percentComplete}>

@@ -3,6 +3,8 @@
  */
 import type { ContributionSummary } from "@orkestr/protocol";
 
+import { compareVersions } from "../vscode/logic";
+
 /** One "works in Orkestr" line: a translation key + count + detail. */
 export interface SupportedItem {
   key: "themes" | "iconThemes" | "grammars" | "languages" | "snippets" | "languageServers";
@@ -40,3 +42,8 @@ export function supportLevel(c: ContributionSummary): Support {
   return "none";
 }
 
+
+/** Whether `latest` is a newer release than `installed` (numeric, segment-wise). */
+export function isNewerVersion(latest: string | null | undefined, installed: string | null | undefined): boolean {
+  return Boolean(latest && installed && compareVersions(latest, installed) > 0);
+}

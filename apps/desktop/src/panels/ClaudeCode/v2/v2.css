@@ -578,6 +578,11 @@
   font: inherit;
   font-size: var(--ok-font-size-xs);
   cursor: pointer;
+  /* a narrow panel wraps the top bar; the meter must never run past its edge */
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
 }
 
 .cc2-meter:hover {

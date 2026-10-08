@@ -4,7 +4,7 @@ import { EVENT_KINDS } from "@orkestr/protocol";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { applyLanguagePreference, i18n } from "../../i18n";
-import { describeCount } from "./resume";
+import { describeCount, headline } from "./resume";
 
 const nb = (s: string) => s.replace(/ /g, " ");
 
@@ -33,5 +33,17 @@ describe("resume kinds", () => {
     expect(nb(describeCount({ kind: "PipelineStageChanged", count: 48 }))).toBe("48 смен этапов конвейера");
     expect(nb(describeCount({ kind: "ReviewUpdated", count: 32 }))).toBe("32 обновления ревью");
     expect(nb(describeCount({ kind: "ConsensusUpdated", count: 1 }))).toBe("1 обновление консенсуса");
+  });
+});
+
+describe("resume headline", () => {
+  const base = { since: "2026-10-01T00:00:00Z", previousSessionStartedAt: null, counts: [], totalEvents: 0, highlights: [] };
+
+  it("a crash recovery is never reported as «nothing happened»", async () => {
+    await applyLanguagePreference("ru");
+    const text = headline({ ...base, recoveredFromCrash: true }, "shop");
+    expect(text).toContain("восстановлен");
+    expect(text).not.toContain("ничего не произошло");
+    expect(headline({ ...base, recoveredFromCrash: false }, "shop")).toContain("ничего не произошло");
   });
 });

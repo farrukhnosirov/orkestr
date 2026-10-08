@@ -201,7 +201,7 @@ export function MemoryList({ scope, kinds }: MemoryListProps) {
                       </span>
                     ))}
                     <span className="mem-card__time" title={fmt.date(item.updatedAt)}>
-                      {item.source ? `${item.source} · ` : ""}
+                      {item.source ? `${item.source === "user" ? t("memory:list.sourceUser") : item.source} · ` : ""}
                       {fmt.relative(item.updatedAt)}
                     </span>
                   </div>

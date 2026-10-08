@@ -63,7 +63,13 @@ export function TitleBar() {
       {/* VS Code-style File menu (project & file management). */}
       <FileMenu />
 
-      <button type="button" className="titlebar__search" onClick={() => setPaletteOpen(true)}>
+      <button
+        type="button"
+        className="titlebar__search"
+        aria-label={t("titleBar.search")}
+        title={t("titleBar.search")}
+        onClick={() => setPaletteOpen(true)}
+      >
         <Search size={14} />
         <span>{t("titleBar.search")}</span>
         <span className="titlebar__search-keys">

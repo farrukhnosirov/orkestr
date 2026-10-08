@@ -4,10 +4,11 @@
     "catchingUp": "Catching up…",
     "summarizing": "Summarizing what happened…",
     "unavailable": "The summary is unavailable right now ({{error}}).",
-    "crashRecovered": "The previous session ended unexpectedly — interrupted work was recovered",
     "nothingChanged": "Nothing changed while you were away.",
     "dismiss": "Dismiss",
-    "openLogs": "Open logs"
+    "openLogs": "Open logs",
+    "crashRecoveredBody": "The previous session ended unexpectedly. Interrupted work was recovered.",
+    "nothingElse": "Nothing else changed since your last session."
   },
   "headline": {
     "quiet": "All quiet since your last session",
@@ -21,7 +22,9 @@
     "sinceStart_one": "{{count}} event since the beginning",
     "sinceStart_other": "{{count}} events since the beginning",
     "sinceStartIn_one": "{{count}} event in {{project}} since the beginning",
-    "sinceStartIn_other": "{{count}} events in {{project}} since the beginning"
+    "sinceStartIn_other": "{{count}} events in {{project}} since the beginning",
+    "recovered": "Recovered after an unexpected shutdown",
+    "recoveredIn": "{{project}} recovered after an unexpected shutdown"
   },
   "more_one": "+{{count}} more event",
   "more_other": "+{{count}} more events",

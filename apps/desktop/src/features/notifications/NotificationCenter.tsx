@@ -62,9 +62,19 @@ export function NotificationBell() {
     const onDown = (e: MouseEvent) => {
       if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
     };
+    // Escape closes it wherever focus is (after a click it sits on the bell button).
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      markAllRead();
+      setOpen(false);
+    };
     window.addEventListener("mousedown", onDown);
-    return () => window.removeEventListener("mousedown", onDown);
-  }, [open, setOpen]);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("mousedown", onDown);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open, setOpen, markAllRead]);
 
   const toggle = () => {
     if (open) markAllRead();
@@ -89,12 +99,6 @@ export function NotificationBell() {
           className="ntf-popover"
           role="dialog"
           aria-label={t("center.title")}
-          onKeyDown={(e) => {
-            if (e.key === "Escape") {
-              markAllRead();
-              setOpen(false);
-            }
-          }}
         >
           <header className="ntf-popover__head">
             <span className="ntf-popover__title">{t("center.title")}</span>

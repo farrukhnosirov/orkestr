@@ -71,6 +71,39 @@ body {
   height: 100%;
 }
 
+/* Bottom-right corner stack above the status bar: the session-resume card,
+   launcher results and notification toasts share one column so they never
+   overlap each other, and stay clear of the rail and the left of the panels. */
+.app__corner {
+  position: fixed;
+  right: var(--ok-space-4);
+  bottom: calc(var(--ok-statusbar-height) + var(--ok-space-3));
+  z-index: var(--ok-z-tooltip);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--ok-space-2);
+  width: min(360px, calc(100vw - var(--ok-rail-width) - 2 * var(--ok-space-4)));
+  max-height: calc(100vh - var(--ok-titlebar-height) - var(--ok-statusbar-height) - 2 * var(--ok-space-4));
+  /* the empty column must not swallow clicks on the panels underneath */
+  pointer-events: none;
+}
+
+.app__corner:empty {
+  display: none;
+}
+
+.app__corner > * {
+  pointer-events: auto;
+}
+
+.app__corner .ntf-toasts,
+.app__corner .vxl-toast {
+  position: static;
+  width: auto;
+  max-width: none;
+}
+
 /* No project open: the Welcome page covers the (still mounted) workspace. */
 .app__workspace--hidden {
   visibility: hidden;
@@ -212,6 +245,18 @@ body {
     width: auto;
     min-width: 120px;
     max-width: 440px;
+  }
+}
+
+/* Too narrow for a readable placeholder: icon + shortcut only (no "П…" stub). */
+@media (max-width: 1100px) {
+  .titlebar__search {
+    flex: 0 0 auto;
+    min-width: 0;
+  }
+
+  .titlebar__search > span:first-of-type {
+    display: none;
   }
 }
 

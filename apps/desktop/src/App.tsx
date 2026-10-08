@@ -2,7 +2,7 @@ import { clsx } from "clsx";
 import { useCallback, useEffect, useState } from "react";
 
 import { CommandPalette } from "./components/CommandPalette";
-import { LauncherHost } from "./features/vscode/ExtensionLauncher";
+import { LauncherConfirmDialog, LauncherToast } from "./features/vscode/ExtensionLauncher";
 import { ConnectionScreen } from "./components/ConnectionScreen";
 import { CreateProjectDialog } from "./components/CreateProjectDialog";
 import { ProjectRail } from "./components/ProjectRail";
@@ -125,14 +125,13 @@ export function App() {
       )}
       <StatusBar />
       <CommandPalette />
-      {ready && <LauncherHost />}
+      {ready && <LauncherConfirmDialog />}
       <CreateProjectDialog />
       <SecurityLayer connected={ready} />
       {ready && (
         <>
           <SettingsView />
           <OnboardingWizard />
-          <ResumeCard />
           <ThemeEditor />
           <LayoutEditorPanel />
           <LayoutDialogs />
@@ -143,7 +142,11 @@ export function App() {
         </>
       )}
       {ready && <AiUiLayer connected={ready} />}
-      <Toasts />
+      <div className="app__corner">
+        {ready && <ResumeCard />}
+        {ready && <LauncherToast />}
+        <Toasts />
+      </div>
     </div>
   );
 }

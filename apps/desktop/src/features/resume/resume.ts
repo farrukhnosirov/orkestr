@@ -36,6 +36,10 @@ export function summaryLines(summary: ResumeSummary, max = 6): string[] {
 /** Headline for the card. */
 export function headline(summary: ResumeSummary, projectName: string | null): string {
   const project = projectName ?? undefined;
+  // A crash recovery is the news: "nothing happened" would contradict it.
+  if (summary.recoveredFromCrash) {
+    return project ? t("resume:headline.recoveredIn", { project }) : t("resume:headline.recovered");
+  }
   if (summary.totalEvents === 0) {
     if (summary.since) return project ? t("resume:headline.quietIn", { project }) : t("resume:headline.quiet");
     return project ? t("resume:headline.welcomeIn", { project }) : t("resume:headline.welcome");
