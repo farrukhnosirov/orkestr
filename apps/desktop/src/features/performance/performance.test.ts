@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { motionOffset, scaledTransition } from "./motion";
 import { usePerfStore } from "./perfStore";
+import { isEndlessDecoration } from "./usePerformanceRuntime";
 import { FrameBudgetMonitor, PERF_MODES, canDegrade, effectiveMode, resolvePolicy, rootAttributes, applyPolicyToRoot } from "./policy";
 
 const ENV = { reducedMotion: false, hidden: false };
@@ -43,7 +44,8 @@ describe("performance policy", () => {
 
   it("an unfocused but visible window pauses decoration, keeps data and robots", () => {
     const p = resolvePolicy("UltraVisual", { reducedMotion: false, hidden: false, inactive: true });
-    expect(p).toMatchObject({ paused: true, backgroundAnimation: false, gpuEffects: false });
+    // Idle, not paused: a global CSS pause would freeze entrance animations at opacity 0.
+    expect(p).toMatchObject({ idle: true, paused: false, backgroundAnimation: false, gpuEffects: false });
     // Robots are separate windows; charts keep their normal refresh.
     expect(p.robotFps).toBe(60);
     expect(p.chartRefreshMs).toBe(resolvePolicy("UltraVisual", ENV).chartRefreshMs);
@@ -148,6 +150,19 @@ describe("performance store", () => {
     expect(usePerfStore.getState().degrade()).toBe(false);
   });
 
+  it("only endless non-spinner animations count as idle decoration", () => {
+    const anim = (iterations: number, cls: string) => {
+      const el = document.createElement("div");
+      el.className = cls;
+      const effect = { target: el, getComputedTiming: () => ({ iterations }) };
+      return { effect } as unknown as Animation;
+    };
+    expect(isEndlessDecoration(anim(Infinity, "ok-empty__icon"))).toBe(true);
+    // One-shot entrance animation: must never be paused (it would stay at opacity 0).
+    expect(isEndlessDecoration(anim(1, "overlay"))).toBe(false);
+    expect(isEndlessDecoration(anim(Infinity, "ok-spinner"))).toBe(false);
+  });
+
   it("an unchanged power reading keeps the same policy object", () => {
     const s = usePerfStore.getState();
     const reading = { supported: true, hasBattery: false, onAcPower: true, batteryPercent: null };
@@ -162,9 +177,9 @@ describe("performance store", () => {
     const s = usePerfStore.getState();
     s.setChosen("UltraVisual");
     s.setInactive(true);
-    expect(usePerfStore.getState().policy).toMatchObject({ paused: true, backgroundAnimation: false, gpuEffects: false });
+    expect(usePerfStore.getState().policy).toMatchObject({ idle: true, paused: false, backgroundAnimation: false, gpuEffects: false });
     s.setInactive(false);
-    expect(usePerfStore.getState().policy).toMatchObject({ paused: false, backgroundAnimation: true });
+    expect(usePerfStore.getState().policy).toMatchObject({ idle: false, paused: false, backgroundAnimation: true });
   });
 });
 

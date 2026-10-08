@@ -44,8 +44,10 @@
   animation-iteration-count: infinite !important;
 }
 
-/* Hidden / minimized or unfocused window: decorative CSS animation pauses
-   (§31, §70). Spinners keep turning: they tell the user work is in progress. */
+/* Hidden / minimized window: every CSS animation pauses (§31, §70); they
+   resume on visibilitychange. Spinners keep turning (progress). An unfocused
+   but visible window is handled in JS (endless loops only, see
+   usePerformanceRuntime) so entrance animations never freeze at opacity 0. */
 :root[data-ok-paused="on"] *:not(.ok-spinner),
 :root[data-ok-paused="on"] *::before,
 :root[data-ok-paused="on"] *::after {

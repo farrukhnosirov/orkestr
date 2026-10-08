@@ -33,7 +33,7 @@ export function visualBudget(mode: PerformanceMode, reducedMotion: boolean): Vis
 export function useVisualBudget(): VisualBudget {
   const mode = usePerfStore((s) => s.mode);
   const reduced = usePerfStore((s) => s.reducedMotion);
-  const paused = usePerfStore((s) => s.policy.paused);
+  const paused = usePerfStore((s) => s.policy.paused || s.policy.idle);
   const budget = visualBudget(mode, reduced);
   return paused ? { ...budget, fps: 0 } : budget;
 }

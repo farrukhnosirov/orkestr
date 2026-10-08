@@ -46,11 +46,17 @@ export interface PerfPolicy {
   chartRefreshMs: number;
   /** GPU-heavy effects (WebGL backgrounds, particles) allowed. */
   gpuEffects: boolean;
-  /** Decorative motion paused (window hidden / minimized, or not focused). */
+  /** Everything paused (window hidden / minimized): CSS animations freeze globally. */
   paused: boolean;
+  /**
+   * Visible but not focused: endless decorative loops and the animated
+   * background stop. One-shot (entrance) animations are never frozen here —
+   * pausing them at their first frame would leave the UI invisible.
+   */
+  idle: boolean;
 }
 
-type ModeTable = Omit<PerfPolicy, "mode" | "paused">;
+type ModeTable = Omit<PerfPolicy, "mode" | "paused" | "idle">;
 
 const TABLE: Readonly<Record<PerformanceMode, ModeTable>> = {
   UltraVisual: {
@@ -125,7 +131,7 @@ const MOTION_RANK: Record<MotionLevel, number> = { full: 2, reduced: 1, off: 0 }
 /** The policy for a mode in an environment. */
 export function resolvePolicy(mode: PerformanceMode, env: PolicyEnv): PerfPolicy {
   const base = TABLE[mode];
-  const policy: PerfPolicy = { ...base, mode, paused: false };
+  const policy: PerfPolicy = { ...base, mode, paused: false, idle: false };
   if (env.reducedMotion && MOTION_RANK[policy.motion] > MOTION_RANK.reduced) {
     policy.motion = "reduced";
     policy.durationScale = Math.min(policy.durationScale, 0.5);
@@ -140,7 +146,7 @@ export function resolvePolicy(mode: PerformanceMode, env: PolicyEnv): PerfPolicy
   } else if (env.inactive) {
     // Still visible (e.g. on another monitor): data keeps refreshing, decoration stops.
     // Robots are separate windows with their own visibility, so robotFps is untouched.
-    policy.paused = true;
+    policy.idle = true;
     policy.backgroundAnimation = false;
     policy.gpuEffects = false;
   }
@@ -292,6 +298,7 @@ export function rootAttributes(p: PerfPolicy): { data: Record<string, string>; v
       okBgAnim: p.backgroundAnimation ? "on" : "off",
       okGpu: p.gpuEffects ? "on" : "off",
       okPaused: p.paused ? "on" : "off",
+      okIdle: p.idle ? "on" : "off",
     },
     vars: {
       "--ok-motion-scale": String(p.durationScale),

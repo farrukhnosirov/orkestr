@@ -62,7 +62,7 @@ export function usePrefersReducedMotion(): boolean {
 
 export function useVisualBudget(): VisualBudget {
   const mode = usePerfStore((s) => s.mode);
-  const paused = usePerfStore((s) => s.policy.paused);
+  const paused = usePerfStore((s) => s.policy.paused || s.policy.idle);
   const reduced = usePrefersReducedMotion();
   const budget = visualBudget(mode, reduced);
   return paused ? { ...budget, animate: false } : budget;

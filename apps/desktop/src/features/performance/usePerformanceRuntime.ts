@@ -24,6 +24,14 @@ const POWER_POLL_MS = 60_000;
 const SAMPLE_EVERY_MS = 30_000;
 const SAMPLE_FOR_MS = 4_000;
 
+/** An infinite animation that is not a progress spinner. */
+export function isEndlessDecoration(a: Animation): boolean {
+  const timing = a.effect?.getComputedTiming();
+  if (!timing || timing.iterations !== Infinity) return false;
+  const target = (a.effect as { target?: unknown } | null)?.target;
+  return !(target instanceof Element && target.closest(".ok-spinner"));
+}
+
 async function pollPower(): Promise<void> {
   const c = maybeClient();
   if (!c || c.state !== "open") return;
@@ -122,6 +130,36 @@ export function usePerformanceRuntime(connected: boolean, options: PerformanceRu
       window.removeEventListener("blur", onBlur);
       window.removeEventListener("focus", onFocus);
       usePerfStore.getState().setInactive(false);
+    };
+  }, [pauseWhenInactive]);
+
+  // Idle (visible but unfocused): pause only endless loops via the Web
+  // Animations API. One-shot entrance animations (opacity 0 → 1) must keep
+  // running, or a window opened without focus would stay invisible.
+  useEffect(() => {
+    if (!pauseWhenInactive || typeof document.getAnimations !== "function") return undefined;
+    const pausedByUs = new Set<Animation>();
+    const apply = (idle: boolean) => {
+      if (idle) {
+        for (const a of document.getAnimations()) {
+          if (a.playState !== "running" || !isEndlessDecoration(a)) continue;
+          a.pause();
+          pausedByUs.add(a);
+        }
+      } else {
+        for (const a of pausedByUs) {
+          if (a.playState === "paused") a.play();
+        }
+        pausedByUs.clear();
+      }
+    };
+    apply(usePerfStore.getState().policy.idle);
+    const off = usePerfStore.subscribe((s, prev) => {
+      if (s.policy.idle !== prev.policy.idle) apply(s.policy.idle);
+    });
+    return () => {
+      off();
+      apply(false);
     };
   }, [pauseWhenInactive]);
 

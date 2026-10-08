@@ -133,7 +133,7 @@ export function BackgroundCanvas({ visuals, className }: { visuals: EffectiveVis
 export function ThemeBackdrop() {
   const applied = useVisualsStore((s) => s.visuals);
   // Hidden / minimized window: freeze the scene (one static frame).
-  const paused = usePerfStore((s) => s.policy.paused);
+  const paused = usePerfStore((s) => s.policy.paused || s.policy.idle);
   const visuals = applied && paused ? { ...applied, background: { ...applied.background, animated: false } } : applied;
   return (
     <div
