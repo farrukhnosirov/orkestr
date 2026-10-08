@@ -185,6 +185,8 @@ pub struct VsCodeStatus {
     pub config: VsCodeConfig,
     /// A VS Code window is connected through the Orkestr bridge extension
     /// (extension commands can run).
+    /// Defaults to `false` so events stored before the bridge existed still replay.
+    #[serde(default)]
     pub bridge_connected: bool,
 }
 
@@ -628,6 +630,14 @@ mod tests {
         assert!(c.auto_stop, "extensions run only while VS Code is used by default");
         assert!(c.auto_restart);
         assert_eq!(c.idle_stop_secs, 120);
+    }
+
+    #[test]
+    fn status_without_bridge_field_still_parses() {
+        let json = r#"{"state":"notInstalled","target":null,"unsupportedReason":null,"installed":null,
+            "running":null,"progress":null,"error":null,"dataDir":"x","config":{}}"#;
+        let s: VsCodeStatus = serde_json::from_str(json).unwrap();
+        assert!(!s.bridge_connected, "events stored before the bridge must still replay");
     }
 
     #[test]

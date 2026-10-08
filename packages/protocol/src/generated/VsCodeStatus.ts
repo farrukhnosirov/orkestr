@@ -49,5 +49,6 @@ config: VsCodeConfig,
 /**
  * A VS Code window is connected through the Orkestr bridge extension
  * (extension commands can run).
+ * Defaults to `false` so events stored before the bridge existed still replay.
  */
 bridgeConnected: boolean, };
