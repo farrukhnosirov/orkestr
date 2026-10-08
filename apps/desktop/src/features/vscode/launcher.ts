@@ -77,6 +77,14 @@ export function commandMatches(ext: VsCodeExtensionCommands, cmd: VsCodeCommandI
   return q.split(/\s+/).every((part) => hay.includes(part));
 }
 
+/** Whether a (non-empty) query names the extension itself. */
+export function extensionMatches(ext: VsCodeExtensionCommands, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return false;
+  const hay = `${ext.displayName} ${ext.id} ${ext.publisher}`.toLowerCase();
+  return q.split(/\s+/).every((part) => hay.includes(part));
+}
+
 /** Title shown on a command button (`Category: Title`, like VS Code's palette). */
 export function commandLabel(cmd: VsCodeCommandInfo): string {
   return cmd.category ? `${cmd.category}: ${cmd.title}` : cmd.title;
@@ -92,6 +100,16 @@ export function findCommand(
     if (cmd) return { ext, cmd };
   }
   return null;
+}
+
+/** Palette prefixes listing VS Code extension commands (case-insensitive). */
+export const VSCODE_PALETTE_PREFIXES = ["vs code:", "vscode:"] as const;
+
+/** The rest of the query when it starts with a VS Code prefix, else `null`. */
+export function vscodePaletteQuery(query: string): string | null {
+  const lower = query.toLowerCase();
+  const prefix = VSCODE_PALETTE_PREFIXES.find((p) => lower.startsWith(p));
+  return prefix ? query.slice(prefix.length) : null;
 }
 
 /** Opens the VS Code window on the active project when no window is connected. */

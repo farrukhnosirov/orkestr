@@ -89,6 +89,8 @@
   "vscodeStatus": "VS Code server: {{state}}",
   "vscodeStatusError": "VS Code server: {{state}} — {{error}}",
   "vscodeProgress": "VS Code install: {{phase}}",
+  "vscodeCommandOk": "VS Code command ran: {{id}}",
+  "vscodeCommandFailed": "VS Code command failed: {{id}} — {{error}}",
   "extensionsChanged": "Extensions changed ({{reason}}): {{id}}",
   "extensionInstallProgress": "Extension {{key}}: {{phase}}",
   "lspMessage": "Language server message (session {{session}})",

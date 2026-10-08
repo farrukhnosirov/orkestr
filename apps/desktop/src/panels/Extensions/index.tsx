@@ -18,6 +18,7 @@ import { getClient, maybeClient } from "../../core/client";
 import { SafeMarkdown } from "../../features/extensions/markdown";
 import { supportedItems, supportLevel, unsupportedKinds } from "../../features/extensions/model";
 import { ensureExtensionsLoaded, useExtensionsStore } from "../../features/extensions/store";
+import { ExtensionLauncher } from "../../features/vscode/ExtensionLauncher";
 import { openProjectInVsCode, openVsCodePanel } from "../../features/vscode/quickAccess";
 import { useVsCodeStore } from "../../features/vscode/store";
 import { useFormat, useT } from "../../i18n";
@@ -25,7 +26,7 @@ import { describeError } from "../../i18n/errors";
 import { useAppStore } from "../../store/app";
 import type { PanelProps } from "../types";
 
-type View = "marketplace" | "installed";
+type View = "marketplace" | "installed" | "vscode";
 
 /** What the details pane shows. */
 type Selection = { kind: "market"; namespace: string; name: string } | { kind: "installed"; id: string };
@@ -177,6 +178,7 @@ function InstallInVsCode({ extensionId }: { extensionId: string }) {
           >
             {t("vscode.open")}
           </Button>
+          <ExtensionLauncher only={id} showHeader={false} />
         </>
       ) : (
         <>
@@ -618,6 +620,7 @@ export default function ExtensionsPanel(_props: PanelProps) {
   const tabs = [
     { id: "marketplace" as const, label: t("tabs.marketplace") },
     { id: "installed" as const, label: t("tabs.installed", { n: installed.length }) },
+    { id: "vscode" as const, label: t("tabs.vscode") },
   ];
 
   return (
@@ -630,6 +633,11 @@ export default function ExtensionsPanel(_props: PanelProps) {
         </Button>
       </div>
       {vsixOpen && <VsixForm onDone={() => setVsixOpen(false)} />}
+      {view === "vscode" ? (
+        <div className="ext-launcher">
+          <ExtensionLauncher />
+        </div>
+      ) : (
       <div className="ext-body">
         <div className="ext-listpane">
           {view === "marketplace" ? (
@@ -686,6 +694,7 @@ export default function ExtensionsPanel(_props: PanelProps) {
         </div>
         {selection && <Details selection={selection} onClose={() => setSelection(null)} />}
       </div>
+      )}
     </div>
   );
 }

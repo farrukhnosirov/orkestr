@@ -393,3 +393,9 @@
   flex: 1 1 100%;
   margin: 0;
 }
+.ext-launcher {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--ok-space-3);
+}

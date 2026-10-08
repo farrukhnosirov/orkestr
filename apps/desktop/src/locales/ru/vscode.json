@@ -121,6 +121,7 @@
     "group": "VS Code",
     "openProject": "VS Code: открыть проект в VS Code",
     "installExtension": "VS Code: установить расширение…",
+    "extensionCommands": "VS Code: выполнить команду расширения…",
     "extensions": "Расширения"
   },
   "phase": {

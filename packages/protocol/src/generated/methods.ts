@@ -412,15 +412,24 @@ import type { UpdateTeamParams } from "./UpdateTeamParams";
 import type { UpdateTemplateParams } from "./UpdateTemplateParams";
 import type { VaultStatusResult } from "./VaultStatusResult";
 import type { VoiceConfigResult } from "./VoiceConfigResult";
+import type { VsCodeCommandsParams } from "./VsCodeCommandsParams";
+import type { VsCodeCommandsResult } from "./VsCodeCommandsResult";
 import type { VsCodeConfigPatch } from "./VsCodeConfigPatch";
+import type { VsCodeExecuteParams } from "./VsCodeExecuteParams";
+import type { VsCodeExecuteResult } from "./VsCodeExecuteResult";
 import type { VsCodeExtensionsResult } from "./VsCodeExtensionsResult";
 import type { VsCodeInstallExtensionParams } from "./VsCodeInstallExtensionParams";
 import type { VsCodeInstallParams } from "./VsCodeInstallParams";
 import type { VsCodeLogsResult } from "./VsCodeLogsResult";
+import type { VsCodeOpenFileParams } from "./VsCodeOpenFileParams";
+import type { VsCodeOpenViewParams } from "./VsCodeOpenViewParams";
 import type { VsCodeRelease } from "./VsCodeRelease";
+import type { VsCodeRunTaskParams } from "./VsCodeRunTaskParams";
 import type { VsCodeStartParams } from "./VsCodeStartParams";
 import type { VsCodeStartResult } from "./VsCodeStartResult";
 import type { VsCodeStatus } from "./VsCodeStatus";
+import type { VsCodeTasksParams } from "./VsCodeTasksParams";
+import type { VsCodeTasksResult } from "./VsCodeTasksResult";
 import type { VsCodeUninstallParams } from "./VsCodeUninstallParams";
 import type { WatchFilesParams } from "./WatchFilesParams";
 import type { WatchFilesResult } from "./WatchFilesResult";
@@ -700,6 +709,12 @@ export type Methods = {
   "vscode.logs": [Empty, VsCodeLogsResult];
   "vscode.listExtensions": [Empty, VsCodeExtensionsResult];
   "vscode.installExtension": [VsCodeInstallExtensionParams, VsCodeExtensionsResult];
+  "vscode.commands": [VsCodeCommandsParams, VsCodeCommandsResult];
+  "vscode.execute": [VsCodeExecuteParams, VsCodeExecuteResult];
+  "vscode.openView": [VsCodeOpenViewParams, VsCodeExecuteResult];
+  "vscode.openFile": [VsCodeOpenFileParams, VsCodeExecuteResult];
+  "vscode.tasks": [VsCodeTasksParams, VsCodeTasksResult];
+  "vscode.runTask": [VsCodeRunTaskParams, VsCodeExecuteResult];
   "extensions.search": [SearchExtensionsParams, SearchExtensionsResult];
   "extensions.details": [MarketplaceRef, MarketplaceDetails];
   "extensions.icon": [ExtensionIconParams, ExtensionIconResult];
@@ -1005,6 +1020,12 @@ export const METHOD_NAMES = [
   "vscode.logs",
   "vscode.listExtensions",
   "vscode.installExtension",
+  "vscode.commands",
+  "vscode.execute",
+  "vscode.openView",
+  "vscode.openFile",
+  "vscode.tasks",
+  "vscode.runTask",
   "extensions.search",
   "extensions.details",
   "extensions.icon",
@@ -1117,6 +1138,7 @@ export const EVENT_KINDS = [
   "LspStatus",
   "ClaudeCodeEvent",
   "ClaudeCodeStatus",
+  "VsCodeCommandExecuted",
 ] as const;
 
 /** UI config schema version (see orkestr-protocol ui_config). */

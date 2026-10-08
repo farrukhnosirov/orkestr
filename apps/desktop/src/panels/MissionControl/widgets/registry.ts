@@ -23,6 +23,7 @@ import {
   ShieldCheck,
   ShieldEllipsis,
   TestTube2,
+  Zap,
 } from "lucide-react";
 import type { ComponentType } from "react";
 
@@ -36,6 +37,7 @@ import { BudgetsWidget } from "./money";
 import { AlertsWidget, ApprovalsWidget, DeploymentsWidget, QualityWidget } from "./ops";
 import { OverviewWidget, ProjectsWidget } from "./overview";
 import { ReviewsWidget } from "./reviews";
+import { VsCodeActionsWidget } from "./vscode";
 
 /** What a widget reads (declared, so a Dashboard Builder can reason about it). */
 export interface WidgetDataBinding {
@@ -53,7 +55,7 @@ export interface WidgetManifest extends PlacementDefaults {
   component: ComponentType<WidgetProps>;
 }
 
-type WidgetKey = "overview" | "projects" | "agents" | "taskGraph" | "nodes" | "providers" | "budgets" | "approvals" | "quality" | "reviews" | "deployments" | "alerts";
+type WidgetKey = "overview" | "projects" | "agents" | "taskGraph" | "nodes" | "providers" | "budgets" | "approvals" | "quality" | "reviews" | "deployments" | "alerts" | "vscodeActions";
 
 function widget(
   id: WidgetKey,
@@ -94,6 +96,7 @@ const BUILTIN: WidgetManifest[] = [
   widget("quality", TestTube2, "m", ["m", "l"], { methods: ["events.replay", "quality.runs", "quality.getRun"], events: ["BuildStarted", "BuildFailed", "BuildSucceeded", "TestRunFinished"] }, QualityWidget),
   widget("reviews", ShieldEllipsis, "m", ["m", "l"], { methods: ["reviews.list", "merge.list"], events: ["ReviewUpdated", "MergeProposalUpdated"] }, ReviewsWidget),
   widget("deployments", Rocket, "m", ["s", "m"], { methods: [], events: ["DeploymentFinished"] }, DeploymentsWidget),
+  widget("vscodeActions", Zap, "full", ["m", "l", "xl", "full"], { methods: ["vscode.status", "vscode.commands", "vscode.execute"], events: ["VsCodeStatusChanged"] }, VsCodeActionsWidget),
 ];
 
 const registry: WidgetManifest[] = [...BUILTIN];

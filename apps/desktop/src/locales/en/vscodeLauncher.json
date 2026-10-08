@@ -1,0 +1,65 @@
+{
+  "title": "Extension commands",
+  "subtitle": "Every command of the extensions installed in Orkestr's VS Code, as buttons. If the VS Code window is closed, it opens on the active project first.",
+  "searchLabel": "Search extension commands",
+  "searchPlaceholder": "Search commands, e.g. «align» or «claude»",
+  "refresh": "Refresh",
+  "loading": "Reading extensions…",
+  "empty": "No extensions installed in VS Code yet.",
+  "emptyHint": "Install extensions in the Extensions panel (Ctrl+Shift+X) with «Install in VS Code».",
+  "noMatches": "No commands match «{{query}}».",
+  "notInstalled": "Install VS Code first to run extension commands.",
+  "bridge": {
+    "connected": "VS Code connected",
+    "disconnected": "VS Code window closed — it opens on the first command",
+    "opening": "Opening VS Code and waiting for it to connect…"
+  },
+  "card": {
+    "openView": "Open extension panel",
+    "openViewNamed": "Open «{{name}}»",
+    "openPage": "Show extension page",
+    "settings": "Extension settings",
+    "commands_one": "{{count}} command",
+    "commands_few": "{{count}} commands",
+    "commands_many": "{{count}} commands",
+    "commands_other": "{{count}} commands",
+    "showAll": "Show all ({{count}})",
+    "showLess": "Show less",
+    "noCommands": "This extension has no commands.",
+    "hidden": "Hidden",
+    "hiddenHint": "Not shown in VS Code's command palette — a hidden function of the extension.",
+    "dangerous": "Needs confirmation",
+    "pin": "Pin to the left rail and Mission Control",
+    "unpin": "Unpin",
+    "run": "Run «{{title}}»"
+  },
+  "confirm": {
+    "title": "Run «{{title}}»?",
+    "subtitle": "This command looks destructive",
+    "body": "Orkestr asks before running commands that may delete, reset, push or run something. The command runs inside VS Code with your user's permissions.",
+    "id": "Command: {{id}}",
+    "run": "Run",
+    "cancel": "Cancel"
+  },
+  "result": {
+    "ok": "«{{title}}» ran in VS Code",
+    "failed": "«{{title}}» failed: {{message}}",
+    "dismiss": "Dismiss"
+  },
+  "errors": {
+    "noWindow": "VS Code did not connect. Open VS Code and try again.",
+    "notInstalled": "VS Code is not installed yet: install it in the VS Code panel."
+  },
+  "palette": {
+    "group": "VS Code: {{name}}",
+    "hint": "Type «VS Code:» to run extension commands",
+    "prefixHint": "VS Code extension commands"
+  },
+  "pinned": {
+    "label": "Pinned VS Code commands",
+    "title": "VS Code quick actions",
+    "empty": "Pin extension commands in the VS Code panel to see them here.",
+    "run": "Run {{title}}"
+  },
+  "tab": "In VS Code"
+}

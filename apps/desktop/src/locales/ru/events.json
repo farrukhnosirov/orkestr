@@ -105,6 +105,8 @@
   "vscodeStatus": "Сервер VS Code: {{state}}",
   "vscodeStatusError": "Сервер VS Code: {{state}} — {{error}}",
   "vscodeProgress": "Установка VS Code: {{phase}}",
+  "vscodeCommandOk": "Команда VS Code выполнена: {{id}}",
+  "vscodeCommandFailed": "Команда VS Code не выполнена: {{id}} — {{error}}",
   "extensionsChanged": "Расширения изменены ({{reason}}): {{id}}",
   "extensionInstallProgress": "Расширение {{key}}: {{phase}}",
   "lspMessage": "Сообщение языкового сервера (сеанс {{session}})",

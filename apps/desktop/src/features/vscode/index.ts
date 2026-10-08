@@ -2,9 +2,10 @@
  * Embedded VS Code (VSCodium REH web via the core's `vscode.*` area):
  * settings section and palette commands. The panel lives in `panels/VsCode`.
  */
-import { Blocks, Code2, PackagePlus, SquareArrowOutUpRight, Square } from "lucide-react";
+import { Blocks, Code2, PackagePlus, SquareArrowOutUpRight, Square, TerminalSquare } from "lucide-react";
 
 import { t } from "../../i18n";
+import { usePaletteStore } from "../search/paletteStore";
 import type { AppCommand } from "../commands/registry";
 import type { SettingsSection } from "../settings/sections";
 import { isServerActive } from "./logic";
@@ -47,6 +48,18 @@ export const vscodeCommands: AppCommand[] = [
     keywords: ["vscode", "vs code", "open in vs code", "window", "folder", "открыть в vs code", "окно", "папка"],
     enabled: (ctx) => ctx.projectId !== null,
     run: (ctx) => openProjectInVsCode(ctx.projectId),
+  },
+  {
+    id: "vscode.extensionCommands",
+    get title() {
+      return t("vscode:commands.extensionCommands");
+    },
+    get group() {
+      return t("vscode:commands.group");
+    },
+    icon: TerminalSquare,
+    keywords: ["vscode", "vs code", "extension", "command", "run", "launcher", "расширение", "команда", "выполнить", "запустить"],
+    run: () => usePaletteStore.getState().openPalette("VS Code: "),
   },
   {
     id: "vscode.installExtension",

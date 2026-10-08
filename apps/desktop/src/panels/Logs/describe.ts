@@ -82,6 +82,8 @@ export function severityOf(event: Event): EventSeverity {
       return event.payload.failed > 0 ? "error" : "success";
     case "VsCodeStatusChanged":
       return event.payload.status.state === "error" ? "error" : event.payload.status.state === "restarting" ? "warning" : "info";
+    case "VsCodeCommandExecuted":
+      return event.payload.ok ? "success" : "error";
     case "ProjectCreated":
       return "success";
     case "ProjectDeleted":
@@ -356,6 +358,10 @@ export function describeEvent(event: Event): string {
     }
     case "VsCodeProgress":
       return t("events:vscodeProgress", { phase: t(`vscode:phase.${event.payload.progress.phase}`) });
+    case "VsCodeCommandExecuted":
+      return event.payload.ok
+        ? t("events:vscodeCommandOk", { id: event.payload.commandId })
+        : t("events:vscodeCommandFailed", { id: event.payload.commandId, error: event.payload.error ?? "—" });
     case "ExtensionsChanged":
       return t("events:extensionsChanged", { id: event.payload.extensionId ?? "—", reason: event.payload.reason });
     case "ExtensionInstallProgress":

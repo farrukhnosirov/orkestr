@@ -16,4 +16,8 @@ idleStopSecs: number,
 /**
  * Restart the server automatically after a crash (with back-off).
  */
-autoRestart: boolean, };
+autoRestart: boolean, 
+/**
+ * Extension commands pinned to the left rail / Mission Control quick actions.
+ */
+pinnedCommands: Array<string>, };

@@ -1,4 +1,4 @@
-import type { ThemeConfig } from "@orkestr/protocol";
+import type { ThemeConfig, VsCodeExtensionCommands } from "@orkestr/protocol";
 import { BUILTIN_THEME_ORDER, BUILTIN_THEMES, Kbd, Spinner } from "@orkestr/ui";
 import { clsx } from "clsx";
 import {
@@ -8,6 +8,8 @@ import {
   Palette,
   PanelsTopLeft,
   Search,
+  ShieldAlert,
+  TerminalSquare,
   type LucideIcon,
 } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
@@ -22,6 +24,7 @@ import "../features/search/palette.css";
 import { projectsProvider, searchAll, type SearchGroup, type SearchResult } from "../features/search/providers";
 import { PANELS } from "../panels/registry";
 import { useThemeStore } from "../features/theme/themeStore";
+import { commandLabel, flattenCommands, useLauncherStore, vscodePaletteQuery } from "../features/vscode/launcher";
 import { useAppStore } from "../store/app";
 import { workspaceActions } from "./workspaceActions";
 import { Overlay } from "./Overlay";
@@ -201,6 +204,19 @@ export function CommandPalette() {
 
   const searchMode = query.startsWith(SEARCH_PREFIX);
   const searchQuery = searchMode ? query.slice(SEARCH_PREFIX.length) : "";
+  // `VS Code:` lists the commands of the extensions installed in VS Code.
+  const vscodeQuery = searchMode ? null : vscodePaletteQuery(query);
+  const vscodeMode = vscodeQuery !== null;
+  const vscodeExtensions = useLauncherStore((s) => s.extensions);
+  const vscodeLoading = useLauncherStore((s) => s.loading);
+  useEffect(() => {
+    if (open && vscodeMode) void useLauncherStore.getState().load();
+  }, [open, vscodeMode]);
+  const vscodeItems = useMemo<PaletteItem[]>(
+    () => (vscodeMode ? vscodeCommandItems(vscodeExtensions ?? []) : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [vscodeMode, vscodeExtensions, language],
+  );
 
   // Global search mode: run providers (debounced, abortable).
   useEffect(() => {
@@ -258,6 +274,7 @@ export function CommandPalette() {
         }),
       );
     }
+    if (vscodeQuery !== null) return rankItems(vscodeItems, vscodeQuery);
     if (!query.trim()) {
       const byId = new Map(allItems.map((i) => [i.id, i]));
       const recentItems = recent
@@ -268,7 +285,7 @@ export function CommandPalette() {
       return [...recentItems, ...allItems.filter((i) => !recentIds.has(i.id))];
     }
     return rankItems(allItems, query);
-  }, [searchMode, searchGroups, query, allItems, recent, recentGroup]);
+  }, [searchMode, searchGroups, query, allItems, recent, recentGroup, vscodeQuery, vscodeItems]);
 
   // Rows are displayed grouped; keyboard selection and Enter must address
   // the same (display) order, not the ranking order.
@@ -287,7 +304,7 @@ export function CommandPalette() {
   const run = (item: PaletteItem | undefined) => {
     if (!item || item.disabled) return;
     setOpen(false);
-    if (!searchMode) noteRecent(item.id);
+    if (!searchMode && !vscodeMode) noteRecent(item.id);
     Promise.resolve(item.run()).catch((e: unknown) => console.error(`command ${item.id} failed`, e));
   };
 
@@ -332,6 +349,10 @@ export function CommandPalette() {
         <PanelsTopLeft size={18} /> {ts("shell:palette.noProjects")}
       </>
     )
+  ) : vscodeMode && vscodeLoading ? (
+    <>
+      <Spinner size={14} /> {t("vscodeLauncher:loading")}
+    </>
   ) : (
     <>
       <PanelsTopLeft size={18} /> {ts("shell:palette.noCommands")}
@@ -417,6 +438,24 @@ export function CommandPalette() {
       </div>
     </Overlay>
   );
+}
+
+/** Palette rows for every VS Code extension command (`VS Code:` prefix). */
+export function vscodeCommandItems(extensions: readonly VsCodeExtensionCommands[]): PaletteItem[] {
+  return flattenCommands(extensions).map(({ ext, cmd }) => {
+    const item: PaletteItem = {
+      id: `vscode-cmd:${cmd.id}`,
+      title: commandLabel(cmd),
+      group: t("vscodeLauncher:palette.group", { name: ext.displayName }),
+      icon: cmd.dangerous ? ShieldAlert : TerminalSquare,
+      subtitle: cmd.id,
+      keywords: `${ext.displayName} ${ext.id} ${cmd.id}`,
+      indices: [],
+      run: () => void useLauncherStore.getState().launch({ kind: "command", commandId: cmd.id, title: cmd.title }),
+    };
+    if (cmd.keybinding) item.hint = cmd.keybinding;
+    return item;
+  });
 }
 
 /** `/` with an empty query: every project, most recently opened first. */
