@@ -249,6 +249,9 @@ pub struct ClaudeSessionsResult {
     pub live: Vec<ClaudeSessionInfo>,
     /// Past conversations, newest first.
     pub history: Vec<ClaudeHistoryEntry>,
+    /// Orkestr's own labels of conversations (rename / pin / hide), any folder.
+    #[serde(default)]
+    pub meta: Vec<ClaudeChatMeta>,
 }
 
 /// `claudeCode.start` params.
@@ -278,6 +281,14 @@ pub struct ClaudeStartParams {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub resume: Option<String>,
+    /// Extra folders Claude may read and edit (`--add-dir`; inside the project or its worktrees).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub add_dirs: Option<Vec<String>>,
+    /// Model used when the main one is overloaded (`--fallback-model`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub fallback_model: Option<String>,
 }
 
 /// `claudeCode.start` result.
@@ -300,6 +311,21 @@ pub struct ClaudeSendParams {
     pub session_id: ClaudeSessionId,
     /// The user's message (slash commands such as `/compact` pass through).
     pub text: String,
+    /// Images sent with the message (pasted / attached).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub images: Option<Vec<ClaudeImage>>,
+}
+
+/// An image attached to a message (base64, at most 5 MB decoded).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct ClaudeImage {
+    /// `image/png`, `image/jpeg`, `image/gif` or `image/webp`.
+    pub media_type: String,
+    /// Base64 data (no `data:` prefix).
+    pub data: String,
 }
 
 /// Params addressing one session.
@@ -438,6 +464,10 @@ pub struct ClaudeModelOption {
     pub display_name: String,
     /// Description.
     pub description: Option<String>,
+    /// Effort levels the model supports (`low` … `max`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub effort_levels: Option<Vec<String>>,
 }
 
 /// A slash command the CLI offers.
@@ -451,6 +481,10 @@ pub struct ClaudeSlashCommand {
     pub description: String,
     /// Argument hint.
     pub argument_hint: Option<String>,
+    /// Built into Claude Code (`false` = custom command, skill, plugin or MCP prompt).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub builtin: Option<bool>,
 }
 
 /// Severity of a command flagged by the guard.
@@ -656,6 +690,11 @@ pub enum ClaudeCodeEvent {
         /// Exit code.
         code: Option<i32>,
     },
+    /// The CLI's command list changed (plugins / skills loaded).
+    CommandsChanged {
+        /// Slash commands.
+        commands: Vec<ClaudeSlashCommand>,
+    },
 }
 
 /// `ClaudeCodeEvent` event payload (ephemeral; topic `claude:<sessionId>`).
@@ -678,6 +717,181 @@ pub struct ClaudeCodeEventPayload {
 pub struct ClaudeCodeStatusPayload {
     /// Session.
     pub session: ClaudeSessionInfo,
+}
+
+// ---------------------------------------------------------------------------
+// Plan usage, context, MCP, chat labels
+// ---------------------------------------------------------------------------
+
+/// One plan limit window (from the CLI's `get_usage` control request).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct ClaudeLimitWindow {
+    /// Used share in percent (0‥100).
+    pub percent: f64,
+    /// When the window resets.
+    pub resets_at: Option<Timestamp>,
+    /// Model / scope label (`Opus`, `Fable`, …) of a per-model weekly limit.
+    pub label: Option<String>,
+    /// `normal`, `warning`, `critical`, … as reported.
+    pub severity: Option<String>,
+}
+
+/// `claudeCode.usage` params.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct ClaudeUsageParams {
+    /// Ask this live session's process (cheaper than a probe process).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub session_id: Option<ClaudeSessionId>,
+    /// Ignore the cache (about a minute).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub refresh: Option<bool>,
+}
+
+/// `claudeCode.usage` result: the subscription's limits (the CLI's `/usage`).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct ClaudePlanUsage {
+    /// Whether the CLI reported plan limits (false for API keys / errors).
+    pub available: bool,
+    /// Subscription (`max`, `pro`, …).
+    pub subscription_type: Option<String>,
+    /// Current session (5-hour) window.
+    pub session: Option<ClaudeLimitWindow>,
+    /// Weekly window (all models).
+    pub weekly: Option<ClaudeLimitWindow>,
+    /// Weekly windows of single models (Opus, Sonnet, …).
+    pub weekly_models: Vec<ClaudeLimitWindow>,
+    /// Extra usage (credits) enabled.
+    pub extra_usage_enabled: Option<bool>,
+    /// When this was fetched.
+    pub fetched_at: Timestamp,
+    /// Why no data is available.
+    pub error: Option<String>,
+}
+
+/// One category of the context window.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct ClaudeContextCategory {
+    /// Name as reported (`System prompt`, `Messages`, `Free space`, …).
+    pub name: String,
+    /// Tokens.
+    pub tokens: u64,
+    /// `used`, `deferred` or `free`.
+    pub kind: String,
+}
+
+/// `claudeCode.contextUsage` result (the CLI's `/context`).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct ClaudeContextUsage {
+    /// Tokens in use.
+    pub total_tokens: u64,
+    /// Context window size.
+    pub max_tokens: u64,
+    /// Used share in percent.
+    pub percentage: f64,
+    /// Breakdown.
+    pub categories: Vec<ClaudeContextCategory>,
+}
+
+/// An MCP server of the session.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct ClaudeMcpServer {
+    /// Name.
+    pub name: String,
+    /// `connected`, `needs-auth`, `failed`, `pending`, `disabled`.
+    pub status: String,
+    /// Error text.
+    pub error: Option<String>,
+    /// `user`, `project`, `local`, `claudeai`, `dynamic`, …
+    pub scope: Option<String>,
+    /// Number of tools.
+    pub tools: u32,
+}
+
+/// `claudeCode.mcpStatus` result.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct ClaudeMcpStatusResult {
+    /// Servers.
+    pub servers: Vec<ClaudeMcpServer>,
+}
+
+/// `claudeCode.setThinking` params.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct ClaudeSetThinkingParams {
+    /// Session.
+    pub session_id: ClaudeSessionId,
+    /// Extended thinking on / off.
+    pub enabled: bool,
+}
+
+/// Orkestr's label of a conversation (never written to Claude's files).
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct ClaudeChatMeta {
+    /// The CLI's conversation id.
+    pub claude_session_id: String,
+    /// Custom title.
+    pub title: Option<String>,
+    /// Pinned to the top of the list.
+    pub pinned: bool,
+    /// Removed from the list (the transcript stays on disk).
+    pub hidden: bool,
+}
+
+/// `claudeCode.setChatMeta` params (fields left out stay unchanged).
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct ClaudeSetChatMetaParams {
+    /// The CLI's conversation id.
+    pub claude_session_id: String,
+    /// New title (empty = back to the automatic one).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub title: Option<String>,
+    /// Pin / unpin.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub pinned: Option<bool>,
+    /// Hide / show.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub hidden: Option<bool>,
+}
+
+/// `claudeCode.openInTerminal` params.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct ClaudeOpenInTerminalParams {
+    /// Project.
+    pub project_id: ProjectId,
+    /// Conversation to continue (`claude --resume <id>`); none = a new interactive session.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub claude_session_id: Option<String>,
+    /// Folder (default: the project root).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub cwd: Option<String>,
 }
 
 method!(
@@ -727,6 +941,31 @@ method!(
 method!(
     /// `claudeCode.transcript` — messages of a past conversation.
     Transcript, "claudeCode.transcript", ClaudeTranscriptParams, ClaudeTranscriptResult
+);
+
+method!(
+    /// `claudeCode.usage` — plan limits: session (5 h) and weekly windows.
+    Usage, "claudeCode.usage", ClaudeUsageParams, ClaudePlanUsage
+);
+method!(
+    /// `claudeCode.contextUsage` — context window usage of a session.
+    ContextUsage, "claudeCode.contextUsage", ClaudeSessionParams, ClaudeContextUsage
+);
+method!(
+    /// `claudeCode.mcpStatus` — MCP servers of a session.
+    McpStatus, "claudeCode.mcpStatus", ClaudeSessionParams, ClaudeMcpStatusResult
+);
+method!(
+    /// `claudeCode.setThinking` — extended thinking on / off.
+    SetThinking, "claudeCode.setThinking", ClaudeSetThinkingParams, ClaudeSessionInfo
+);
+method!(
+    /// `claudeCode.setChatMeta` — renames / pins / hides a conversation in Orkestr's list.
+    SetChatMeta, "claudeCode.setChatMeta", ClaudeSetChatMetaParams, ClaudeChatMeta
+);
+method!(
+    /// `claudeCode.openInTerminal` — the interactive `claude` (optionally `--resume <id>`) in an Orkestr terminal.
+    OpenInTerminal, "claudeCode.openInTerminal", ClaudeOpenInTerminalParams, ClaudeLoginResult
 );
 
 #[cfg(test)]

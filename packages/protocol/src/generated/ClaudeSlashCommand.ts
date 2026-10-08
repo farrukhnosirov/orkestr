@@ -15,4 +15,8 @@ description: string,
 /**
  * Argument hint.
  */
-argumentHint: string | null, };
+argumentHint: string | null, 
+/**
+ * Built into Claude Code (`false` = custom command, skill, plugin or MCP prompt).
+ */
+builtin?: boolean, };

@@ -162,11 +162,19 @@ pub fn capabilities(response: &Value) -> ClaudeCodeEvent {
                 value: s(m, "value")?,
                 display_name: s(m, "displayName").or_else(|| s(m, "value"))?,
                 description: s(m, "description"),
+                effort_levels: m.get("supportedEffortLevels").and_then(Value::as_array).map(|l| {
+                    l.iter().filter_map(Value::as_str).map(str::to_owned).collect()
+                }),
             })
         })
         .collect();
-    let commands = response
-        .get("commands")
+    ClaudeCodeEvent::Capabilities { models, commands: slash_commands(response), account: account(response) }
+}
+
+/// Slash commands of an `initialize` answer or a `system/commands_changed` line.
+#[must_use]
+pub fn slash_commands(v: &Value) -> Vec<ClaudeSlashCommand> {
+    v.get("commands")
         .and_then(Value::as_array)
         .into_iter()
         .flatten()
@@ -175,10 +183,10 @@ pub fn capabilities(response: &Value) -> ClaudeCodeEvent {
                 name: s(c, "name")?,
                 description: s(c, "description").unwrap_or_default(),
                 argument_hint: s(c, "argumentHint").filter(|h| !h.is_empty()),
+                builtin: Some(c.get("builtin").and_then(Value::as_bool).unwrap_or(false)),
             })
         })
-        .collect();
-    ClaudeCodeEvent::Capabilities { models, commands, account: account(response) }
+        .collect()
 }
 
 /// Parses `claude auth status` JSON output.
@@ -275,7 +283,10 @@ impl StreamParser {
                         ev(&mut out, ClaudeCodeEvent::ModeChanged { mode });
                     }
                 }
-                _ => {} // hooks, thinking token estimates, commands_changed, compact boundaries
+                Some("commands_changed") if v.get("commands").is_some_and(Value::is_array) => {
+                    ev(&mut out, ClaudeCodeEvent::CommandsChanged { commands: slash_commands(v) });
+                }
+                _ => {} // hooks, thinking token estimates, compact boundaries
             },
             "stream_event" => {
                 let e = v.get("event").cloned().unwrap_or(Value::Null);
@@ -501,6 +512,8 @@ mod tests {
         };
         assert_eq!(request_id, "init_1");
         let ClaudeCodeEvent::Capabilities { models, commands, account } = capabilities(resp) else { unreachable!() };
+        assert!(commands.iter().any(|c| c.name == "compact" && c.builtin == Some(true)));
+        assert!(models.iter().any(|m| m.effort_levels.as_ref().is_some_and(|l| l.iter().any(|x| x == "max"))));
         assert!(models.iter().any(|m| m.value == "default"));
         assert!(models.iter().any(|m| m.value == "sonnet"));
         assert!(models.iter().any(|m| m.value == "haiku"));

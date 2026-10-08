@@ -25,7 +25,14 @@
 //!   {mode}` (answer `{mode}` + a `system/status` line with `permissionMode`;
 //!   `bypassPermissions` fails with `error_code:"bypass_not_launched"` unless
 //!   the process was started with `--allow-dangerously-skip-permissions`),
-//!   `set_model {model}` (empty answer + a `<local-command-stdout>` user line).
+//!   `set_model {model}` (empty answer + a `<local-command-stdout>` user line),
+//!   `set_max_thinking_tokens {max_thinking_tokens}` (empty answer; `0` = off),
+//!   and the read-only queries `get_usage` (plan limits: `rate_limits.five_hour
+//!   / seven_day {utilization (percent), resets_at}` + `limits[]`; no model
+//!   tokens), `get_context_usage` (`totalTokens`, `maxTokens`, `percentage`,
+//!   `categories[]`) and `mcp_status` (`mcpServers[] {name, status, scope,
+//!   tools}`) — see [`usage`]. User turns may carry Messages-API `image`
+//!   content blocks (base64) before the text.
 //!   Unknown subtypes are answered `{"subtype":"error","error":"Unsupported …"}`.
 //! * CLI → Orkestr `{"type":"control_request","request_id":R,"request":{"subtype":
 //!   "can_use_tool","tool_name","display_name","input","description",
@@ -44,6 +51,7 @@ pub mod discovery;
 pub mod history;
 pub mod manager;
 pub mod parse;
+pub mod usage;
 
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
@@ -51,7 +59,7 @@ use std::time::Duration;
 
 pub use manager::{
     ClaudeSessionManager, LaunchSpec, NoPolicy, PermissionOutcome, PermissionPolicy, PolicyContext, PolicyVerdict,
-    SessionError, SessionEvent,
+    Query, SessionError, SessionEvent,
 };
 use orkestr_protocol::methods::claude_code::ClaudeAuthInfo;
 

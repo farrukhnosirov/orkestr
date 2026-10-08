@@ -14,13 +14,14 @@ use std::path::{Path, PathBuf};
 
 use orkestr_domain::{AuditOutcome, Capability, ProjectId};
 use orkestr_protocol::methods::claude_code::{
-    self as m, ClaudeLoginParams, ClaudeLoginResult, ClaudePermissionMode, ClaudeRespondPermissionParams,
-    ClaudeSendParams, ClaudeSessionParams, ClaudeSessionsParams, ClaudeSessionsResult, ClaudeSetBinaryPathParams,
-    ClaudeSetModeParams, ClaudeSetModelParams, ClaudeStartParams, ClaudeStartResult, ClaudeStatusParams,
-    ClaudeTranscriptParams, ClaudeTranscriptResult,
+    self as m, ClaudeLoginParams, ClaudeLoginResult, ClaudeMcpStatusResult, ClaudeOpenInTerminalParams,
+    ClaudePermissionMode, ClaudeRespondPermissionParams, ClaudeSendParams, ClaudeSessionParams, ClaudeSessionsParams,
+    ClaudeSessionsResult, ClaudeSetBinaryPathParams, ClaudeSetChatMetaParams, ClaudeSetModeParams,
+    ClaudeSetModelParams, ClaudeSetThinkingParams, ClaudeStartParams, ClaudeStartResult, ClaudeStatusParams,
+    ClaudeTranscriptParams, ClaudeTranscriptResult, ClaudeUsageParams,
 };
 use orkestr_protocol::{RpcError, RpcErrorCode};
-use orkestr_providers::claude_code_session::{history, LaunchSpec, SessionError};
+use orkestr_providers::claude_code_session::{history, usage, LaunchSpec, Query, SessionError};
 use orkestr_security::NewAudit;
 use orkestr_terminal::{OpenRequest, ShellSpec, TerminalOwner};
 
@@ -37,8 +38,30 @@ pub fn register(router: &mut RpcRouter) {
         .method::<m::Sessions, _, _>(sessions)
         .method::<m::Start, _, _>(start)
         .method::<m::Send, _, _>(|ctx: RpcContext, p: ClaudeSendParams| async move {
-            ctx.services.claude.manager.send(p.session_id, &p.text).await.map_err(to_rpc)
+            let images: Vec<(String, String)> =
+                p.images.unwrap_or_default().into_iter().map(|i| (i.media_type, i.data)).collect();
+            ctx.services.claude.manager.send_with_images(p.session_id, &p.text, &images).await.map_err(to_rpc)
         })
+        .method::<m::Usage, _, _>(|ctx: RpcContext, p: ClaudeUsageParams| async move {
+            let exts = native_extensions(&ctx).await;
+            let program = ctx.services.claude.binary(exts).await;
+            Ok::<_, RpcError>(ctx.services.claude.usage(p.session_id, program, p.refresh.unwrap_or(false)).await)
+        })
+        .method::<m::ContextUsage, _, _>(|ctx: RpcContext, p: ClaudeSessionParams| async move {
+            let v = ctx.services.claude.manager.query(p.session_id, Query::Context).await.map_err(to_rpc)?;
+            Ok::<_, RpcError>(usage::context_usage(&v))
+        })
+        .method::<m::McpStatus, _, _>(|ctx: RpcContext, p: ClaudeSessionParams| async move {
+            let v = ctx.services.claude.manager.query(p.session_id, Query::Mcp).await.map_err(to_rpc)?;
+            Ok::<_, RpcError>(ClaudeMcpStatusResult { servers: usage::mcp_servers(&v) })
+        })
+        .method::<m::SetThinking, _, _>(|ctx: RpcContext, p: ClaudeSetThinkingParams| async move {
+            ctx.services.claude.manager.set_thinking(p.session_id, p.enabled).await.map_err(to_rpc)
+        })
+        .method::<m::SetChatMeta, _, _>(|ctx: RpcContext, p: ClaudeSetChatMetaParams| async move {
+            ctx.services.claude.set_chat_meta(&p).map_err(RpcError::bad_request)
+        })
+        .method::<m::OpenInTerminal, _, _>(open_in_terminal)
         .method::<m::Interrupt, _, _>(|ctx: RpcContext, p: ClaudeSessionParams| async move {
             ctx.services.claude.manager.interrupt(p.session_id).await.map_err(to_rpc)
         })
@@ -203,7 +226,7 @@ async fn sessions(ctx: RpcContext, p: ClaudeSessionsParams) -> Result<ClaudeSess
             .unwrap_or_default(),
         None => Vec::new(),
     };
-    Ok(ClaudeSessionsResult { live, history })
+    Ok(ClaudeSessionsResult { live, history, meta: ctx.services.claude.chat_meta() })
 }
 
 async fn start(ctx: RpcContext, p: ClaudeStartParams) -> Result<ClaudeStartResult, RpcError> {
@@ -228,6 +251,7 @@ async fn start(ctx: RpcContext, p: ClaudeStartParams) -> Result<ClaudeStartResul
         Some(id) => load_transcript(&ctx, &cwd, id).await.map(|(events, _)| events).unwrap_or_default(),
         None => Vec::new(),
     };
+    let add_dirs = extra_dirs(&ctx, p.add_dirs.as_deref().unwrap_or_default())?;
     let spec = LaunchSpec {
         project_id: p.project_id,
         cwd: cwd.clone(),
@@ -236,6 +260,8 @@ async fn start(ctx: RpcContext, p: ClaudeStartParams) -> Result<ClaudeStartResul
         mode,
         allow_bypass: bypass,
         resume: p.resume.clone(),
+        add_dirs: add_dirs.clone(),
+        fallback_model: p.fallback_model.clone().map(|m| m.trim().to_owned()).filter(|m| !m.is_empty()),
         stop: Some(stop),
     };
     let session = ctx.services.claude.manager.start(spec).map_err(to_rpc)?;
@@ -250,10 +276,79 @@ async fn start(ctx: RpcContext, p: ClaudeStartParams) -> Result<ClaudeStartResul
             "mode": mode.as_cli(),
             "model": p.model,
             "resume": p.resume,
+            "addDirs": add_dirs.iter().map(|d| d.display().to_string()).collect::<Vec<_>>(),
+            "fallbackModel": p.fallback_model,
         }),
     )
     .await;
     Ok(ClaudeStartResult { session, history })
+}
+
+/// Most extra folders per session.
+const MAX_ADD_DIRS: usize = 8;
+
+/// Extra folders (`--add-dir`) the user picked: existing absolute folders,
+/// never a drive / filesystem root or Orkestr's own data directory.
+fn extra_dirs(ctx: &RpcContext, raw: &[String]) -> Result<Vec<PathBuf>, RpcError> {
+    if raw.len() > MAX_ADD_DIRS {
+        return Err(RpcError::bad_request(format!("at most {MAX_ADD_DIRS} extra folders")));
+    }
+    let data = canonical(ctx.services.claude.data_dir());
+    let mut out: Vec<PathBuf> = Vec::new();
+    for r in raw.iter().map(|r| r.trim()).filter(|r| !r.is_empty()) {
+        let p = PathBuf::from(r);
+        if !p.is_absolute() || !p.is_dir() {
+            return Err(RpcError::bad_request(format!("{r} is not an existing absolute folder")));
+        }
+        let c = canonical(&p);
+        if c.parent().is_none() {
+            return Err(RpcError::forbidden("a drive or filesystem root cannot be added"));
+        }
+        if c.starts_with(&data) || data.starts_with(&c) {
+            return Err(RpcError::forbidden("Orkestr's data folder cannot be added"));
+        }
+        if !out.contains(&c) {
+            out.push(c);
+        }
+    }
+    Ok(out)
+}
+
+async fn open_in_terminal(ctx: RpcContext, p: ClaudeOpenInTerminalParams) -> Result<ClaudeLoginResult, RpcError> {
+    let cwd = resolve_cwd(&ctx, p.project_id, p.cwd.as_deref()).await?;
+    let exts = native_extensions(&ctx).await;
+    let program = ctx.services.claude.binary(exts).await.ok_or_else(|| {
+        RpcError::not_found("Claude Code was not found").with_data(serde_json::json!({ "reason": "binaryNotFound" }))
+    })?;
+    let mut args = Vec::new();
+    if let Some(id) = p.claude_session_id.as_deref() {
+        if !history::is_session_id(id) {
+            return Err(RpcError::bad_request("invalid conversation id"));
+        }
+        args.push("--resume".to_owned());
+        args.push(id.to_owned());
+    }
+    let req = OpenRequest {
+        project_id: Some(p.project_id),
+        root: Some(cwd.clone()),
+        cwd: None,
+        owner: TerminalOwner::User,
+        shell: ShellSpec::Custom { program, args: args.clone() },
+        env: Vec::new(),
+        cols: 120,
+        rows: 30,
+        title: Some("Claude Code".into()),
+    };
+    let info = ctx.services.terminals.open(req).await.map_err(super::terminal::to_rpc)?;
+    audit(
+        &ctx,
+        "claudeCode.openInTerminal",
+        cwd.display().to_string(),
+        Some(p.project_id),
+        serde_json::json!({ "resume": p.claude_session_id }),
+    )
+    .await;
+    Ok(ClaudeLoginResult { terminal: super::terminal::session_dto(info) })
 }
 
 async fn login_in_terminal(ctx: RpcContext, p: ClaudeLoginParams) -> Result<ClaudeLoginResult, RpcError> {

@@ -1,19 +1,22 @@
 //! Claude Code panel wiring (`claudeCode.*`): binary discovery + login state
-//! cache, the user's pinned binary path (`<data_dir>/claude-code.json`), the
+//! cache, the user's pinned binary path and Orkestr's own chat labels
+//! (rename / pin / hide; `<data_dir>/claude-code.json`), the plan usage cache, the
 //! permission policy (DangerousActionGuard + audit log) and the bridge that
 //! publishes session events. Everything specific to the CLI lives in
 //! `orkestr_providers::claude_code_session`.
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
 use orkestr_domain::{now, AuditOutcome, Capability, ProviderKind, UsageRecord, UsageRecordId};
 use orkestr_events::EventBus;
 use orkestr_protocol::event::{EventKind, FileChangeActor, FileChangeKind, FileChangedPayload};
 use orkestr_protocol::methods::claude_code::{
-    ClaudeAuthInfo, ClaudeBinaryInfo, ClaudeCodeEvent, ClaudeCodeEventPayload, ClaudeCodeStatus,
-    ClaudeCodeStatusPayload, ClaudeRisk, ClaudeRiskLevel,
+    ClaudeAuthInfo, ClaudeBinaryInfo, ClaudeChatMeta, ClaudeCodeEvent, ClaudeCodeEventPayload, ClaudeCodeStatus,
+    ClaudeCodeStatusPayload, ClaudePlanUsage, ClaudeRisk, ClaudeRiskLevel, ClaudeSetChatMetaParams,
 };
 use orkestr_protocol::NewEvent;
 use orkestr_providers::claude_code_session::{
@@ -36,7 +39,28 @@ const CONFIG_FILE: &str = "claude-code.json";
 struct ConfigFile {
     #[serde(default)]
     binary_path: Option<String>,
+    /// Chat labels by the CLI's conversation id.
+    #[serde(default)]
+    chats: BTreeMap<String, ChatLabel>,
 }
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ChatLabel {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    title: Option<String>,
+    #[serde(default)]
+    pinned: bool,
+    #[serde(default)]
+    hidden: bool,
+}
+
+/// How long a plan usage answer is reused.
+pub const USAGE_TTL: Duration = Duration::from_secs(60);
+/// Longest custom chat title.
+pub const MAX_CHAT_TITLE: usize = 200;
+/// Most labelled chats kept.
+pub const MAX_CHAT_LABELS: usize = 5000;
 
 #[derive(Debug, Clone, Default)]
 struct Cache {
@@ -56,6 +80,10 @@ pub struct ClaudeCodeService {
     vscode_extensions: PathBuf,
     cache: Mutex<Cache>,
     refresh: tokio::sync::Mutex<()>,
+    data_dir: PathBuf,
+    config_lock: Mutex<()>,
+    usage: Mutex<Option<(Instant, ClaudePlanUsage)>>,
+    usage_probe: tokio::sync::Mutex<()>,
 }
 
 impl std::fmt::Debug for ClaudeCodeService {
@@ -74,7 +102,109 @@ impl ClaudeCodeService {
             vscode_extensions,
             cache: Mutex::default(),
             refresh: tokio::sync::Mutex::new(()),
+            data_dir: data_dir.to_path_buf(),
+            config_lock: Mutex::new(()),
+            usage: Mutex::new(None),
+            usage_probe: tokio::sync::Mutex::new(()),
         }
+    }
+
+    fn save_config(&self, cfg: &ConfigFile) -> Result<(), String> {
+        let text = serde_json::to_string_pretty(cfg).map_err(|e| e.to_string())?;
+        let tmp = self.config_file.with_extension("json.tmp");
+        std::fs::write(&tmp, text).map_err(|e| format!("cannot save the Claude Code settings: {e}"))?;
+        std::fs::rename(&tmp, &self.config_file).map_err(|e| format!("cannot save the Claude Code settings: {e}"))
+    }
+
+    /// Orkestr's data directory.
+    #[must_use]
+    pub fn data_dir(&self) -> &Path {
+        &self.data_dir
+    }
+
+    /// Orkestr's chat labels (rename / pin / hide).
+    #[must_use]
+    pub fn chat_meta(&self) -> Vec<ClaudeChatMeta> {
+        self.config()
+            .chats
+            .into_iter()
+            .map(|(id, l)| ClaudeChatMeta { claude_session_id: id, title: l.title, pinned: l.pinned, hidden: l.hidden })
+            .collect()
+    }
+
+    /// Updates one chat label (stored in Orkestr's data dir, never in Claude's files).
+    pub fn set_chat_meta(&self, p: &ClaudeSetChatMetaParams) -> Result<ClaudeChatMeta, String> {
+        if !history::is_session_id(&p.claude_session_id) {
+            return Err("invalid conversation id".into());
+        }
+        let _guard = self.config_lock.lock();
+        let mut cfg = self.config();
+        let mut label = cfg.chats.get(&p.claude_session_id).cloned().unwrap_or_default();
+        if let Some(t) = &p.title {
+            let t = t.split_whitespace().collect::<Vec<_>>().join(" ");
+            label.title = (!t.is_empty()).then(|| t.chars().take(MAX_CHAT_TITLE).collect());
+        }
+        if let Some(pinned) = p.pinned {
+            label.pinned = pinned;
+        }
+        if let Some(hidden) = p.hidden {
+            label.hidden = hidden;
+        }
+        let meta = ClaudeChatMeta {
+            claude_session_id: p.claude_session_id.clone(),
+            title: label.title.clone(),
+            pinned: label.pinned,
+            hidden: label.hidden,
+        };
+        if label.title.is_none() && !label.pinned && !label.hidden {
+            cfg.chats.remove(&p.claude_session_id);
+        } else {
+            if !cfg.chats.contains_key(&p.claude_session_id) && cfg.chats.len() >= MAX_CHAT_LABELS {
+                return Err(format!("too many labelled chats (limit {MAX_CHAT_LABELS})"));
+            }
+            cfg.chats.insert(p.claude_session_id.clone(), label);
+        }
+        self.save_config(&cfg)?;
+        Ok(meta)
+    }
+
+    /// Plan limits: from a live session when given, else a short probe
+    /// process; cached for [`USAGE_TTL`] unless `refresh`.
+    pub async fn usage(
+        &self,
+        session: Option<orkestr_domain::ClaudeSessionId>,
+        program: Option<PathBuf>,
+        refresh: bool,
+    ) -> ClaudePlanUsage {
+        if !refresh {
+            if let Some((at, u)) = self.usage.lock().clone() {
+                if at.elapsed() < USAGE_TTL {
+                    return u;
+                }
+            }
+        }
+        let live = match session {
+            Some(id) => self.manager.query(id, ccs::Query::Usage).await.ok().map(|v| ccs::usage::plan_usage(&v)),
+            None => None,
+        };
+        let usage = match live {
+            Some(u) => u,
+            None => {
+                let _guard = self.usage_probe.lock().await;
+                // Another caller may have refreshed it while we waited.
+                if let Some((at, u)) = self.usage.lock().clone() {
+                    if at.elapsed() < Duration::from_secs(5) {
+                        return u;
+                    }
+                }
+                match program {
+                    Some(p) => ccs::usage::probe_usage(&p, &self.data_dir).await.unwrap_or_else(ccs::usage::unavailable),
+                    None => ccs::usage::unavailable("Claude Code was not found"),
+                }
+            }
+        };
+        *self.usage.lock() = Some((Instant::now(), usage.clone()));
+        usage
     }
 
     fn config(&self) -> ConfigFile {
@@ -87,12 +217,12 @@ impl ClaudeCodeService {
         if let Some(p) = &path {
             discovery::check_override(p)?;
         }
-        let mut cfg = self.config();
-        cfg.binary_path = path;
-        let text = serde_json::to_string_pretty(&cfg).map_err(|e| e.to_string())?;
-        let tmp = self.config_file.with_extension("json.tmp");
-        std::fs::write(&tmp, text).map_err(|e| format!("cannot save the Claude Code settings: {e}"))?;
-        std::fs::rename(&tmp, &self.config_file).map_err(|e| format!("cannot save the Claude Code settings: {e}"))?;
+        {
+            let _guard = self.config_lock.lock();
+            let mut cfg = self.config();
+            cfg.binary_path = path;
+            self.save_config(&cfg)?;
+        }
         self.cache.lock().checked = false;
         Ok(())
     }
@@ -379,6 +509,36 @@ async fn side_effects(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn chat_labels_round_trip_and_clear() {
+        let dir = tempfile::tempdir().unwrap();
+        let (tx, _rx) = mpsc::channel(4);
+        let manager = ClaudeSessionManager::new(
+            tx,
+            Arc::new(ccs::NoPolicy),
+            Arc::new(orkestr_platform::NativeProcessControl),
+        );
+        let svc = ClaudeCodeService::new(manager, dir.path(), dir.path().join("ext"));
+        let id = "06a417de-ea3e-4314-9648-2072200e551d".to_owned();
+        let p = |title: Option<&str>, pinned: Option<bool>| ClaudeSetChatMetaParams {
+            claude_session_id: id.clone(),
+            title: title.map(str::to_owned),
+            pinned,
+            hidden: None,
+        };
+        let m = svc.set_chat_meta(&p(Some("  My   chat "), Some(true))).unwrap();
+        assert_eq!(m.title.as_deref(), Some("My chat"));
+        assert!(m.pinned);
+        assert_eq!(svc.chat_meta(), vec![m]);
+        svc.set_override(None).unwrap();
+        assert_eq!(svc.chat_meta().len(), 1, "binary path changes keep the labels");
+        svc.set_chat_meta(&p(Some(""), Some(false))).unwrap();
+        assert!(svc.chat_meta().is_empty(), "an empty label is dropped");
+        assert!(svc
+            .set_chat_meta(&ClaudeSetChatMetaParams { claude_session_id: "../x".into(), ..ClaudeSetChatMetaParams::default() })
+            .is_err());
+    }
 
     #[test]
     fn capabilities_per_tool() {

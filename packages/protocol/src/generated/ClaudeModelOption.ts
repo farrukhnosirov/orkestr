@@ -15,4 +15,8 @@ displayName: string,
 /**
  * Description.
  */
-description: string | null, };
+description: string | null, 
+/**
+ * Effort levels the model supports (`low` … `max`).
+ */
+effortLevels?: Array<string>, };
