@@ -42,6 +42,10 @@ pub fn register(router: &mut RpcRouter) {
                 p.images.unwrap_or_default().into_iter().map(|i| (i.media_type, i.data)).collect();
             ctx.services.claude.manager.send_with_images(p.session_id, &p.text, &images).await.map_err(to_rpc)
         })
+        .method::<m::Capabilities, _, _>(|ctx: RpcContext, p: ClaudeSessionParams| async move {
+            let event = ctx.services.claude.manager.capabilities(p.session_id).map_err(to_rpc)?;
+            Ok::<_, RpcError>(m::ClaudeCapabilitiesResult { event })
+        })
         .method::<m::Usage, _, _>(|ctx: RpcContext, p: ClaudeUsageParams| async move {
             let exts = native_extensions(&ctx).await;
             let program = ctx.services.claude.binary(exts).await;

@@ -36,6 +36,7 @@ import type { CheckBudgetParams } from "./CheckBudgetParams";
 import type { CheckBudgetResult } from "./CheckBudgetResult";
 import type { CheckParams } from "./CheckParams";
 import type { CheckoutParams } from "./CheckoutParams";
+import type { ClaudeCapabilitiesResult } from "./ClaudeCapabilitiesResult";
 import type { ClaudeChatMeta } from "./ClaudeChatMeta";
 import type { ClaudeCodeStatus } from "./ClaudeCodeStatus";
 import type { ClaudeContextUsage } from "./ClaudeContextUsage";
@@ -741,6 +742,7 @@ export type Methods = {
   "claudeCode.loginInTerminal": [ClaudeLoginParams, ClaudeLoginResult];
   "claudeCode.setBinaryPath": [ClaudeSetBinaryPathParams, ClaudeCodeStatus];
   "claudeCode.transcript": [ClaudeTranscriptParams, ClaudeTranscriptResult];
+  "claudeCode.capabilities": [ClaudeSessionParams, ClaudeCapabilitiesResult];
   "claudeCode.usage": [ClaudeUsageParams, ClaudePlanUsage];
   "claudeCode.contextUsage": [ClaudeSessionParams, ClaudeContextUsage];
   "claudeCode.mcpStatus": [ClaudeSessionParams, ClaudeMcpStatusResult];
@@ -1052,6 +1054,7 @@ export const METHOD_NAMES = [
   "claudeCode.loginInTerminal",
   "claudeCode.setBinaryPath",
   "claudeCode.transcript",
+  "claudeCode.capabilities",
   "claudeCode.usage",
   "claudeCode.contextUsage",
   "claudeCode.mcpStatus",

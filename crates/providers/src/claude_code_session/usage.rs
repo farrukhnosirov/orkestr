@@ -65,12 +65,8 @@ fn severity_of(limits: &[Value], kind: &str) -> Option<String> {
 #[must_use]
 pub fn plan_usage(resp: &Value) -> ClaudePlanUsage {
     let rl = resp.get("rate_limits").cloned().unwrap_or(Value::Null);
-    let limits: Vec<Value> = rl
-        .get("limits")
-        .or_else(|| resp.get("limits"))
-        .and_then(Value::as_array)
-        .cloned()
-        .unwrap_or_default();
+    let limits: Vec<Value> =
+        rl.get("limits").or_else(|| resp.get("limits")).and_then(Value::as_array).cloned().unwrap_or_default();
     let session = rl.get("five_hour").and_then(|w| window(w, None, severity_of(&limits, "session")));
     let weekly = rl.get("seven_day").and_then(|w| window(w, None, severity_of(&limits, "weekly_all")));
     let mut weekly_models: Vec<ClaudeLimitWindow> = Vec::new();
@@ -144,10 +140,13 @@ pub fn context_usage(resp: &Value) -> ClaudeContextUsage {
         .collect();
     let (total, max) = (u("totalTokens"), u("maxTokens"));
     #[allow(clippy::cast_precision_loss)]
-    let percentage = resp
-        .get("percentage")
-        .and_then(num)
-        .unwrap_or_else(|| if max > 0 { total as f64 * 100.0 / max as f64 } else { 0.0 });
+    let percentage = resp.get("percentage").and_then(num).unwrap_or_else(|| {
+        if max > 0 {
+            total as f64 * 100.0 / max as f64
+        } else {
+            0.0
+        }
+    });
     ClaudeContextUsage { total_tokens: total, max_tokens: max, percentage, categories }
 }
 
@@ -217,7 +216,8 @@ pub async fn probe_usage(program: &Path, cwd: &Path) -> Result<ClaudePlanUsage, 
         }
         Err("Claude Code exited without answering".to_owned())
     };
-    let out = tokio::time::timeout(PROBE_TIMEOUT, run).await.unwrap_or_else(|_| Err("Claude Code did not answer".into()));
+    let out =
+        tokio::time::timeout(PROBE_TIMEOUT, run).await.unwrap_or_else(|_| Err("Claude Code did not answer".into()));
     let _ = child.start_kill();
     let _ = tokio::time::timeout(Duration::from_secs(5), child.wait()).await;
     out

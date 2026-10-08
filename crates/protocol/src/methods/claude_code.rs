@@ -877,6 +877,15 @@ pub struct ClaudeSetChatMetaParams {
     pub hidden: Option<bool>,
 }
 
+/// `claudeCode.capabilities` result.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct ClaudeCapabilitiesResult {
+    /// The session's last `capabilities` event (models, commands, account), once the CLI answered.
+    pub event: Option<ClaudeCodeEvent>,
+}
+
 /// `claudeCode.openInTerminal` params.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
@@ -943,6 +952,10 @@ method!(
     Transcript, "claudeCode.transcript", ClaudeTranscriptParams, ClaudeTranscriptResult
 );
 
+method!(
+    /// `claudeCode.capabilities` — models / commands / account of a live session (UI re-attach).
+    Capabilities, "claudeCode.capabilities", ClaudeSessionParams, ClaudeCapabilitiesResult
+);
 method!(
     /// `claudeCode.usage` — plan limits: session (5 h) and weekly windows.
     Usage, "claudeCode.usage", ClaudeUsageParams, ClaudePlanUsage

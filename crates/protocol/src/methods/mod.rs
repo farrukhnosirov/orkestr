@@ -456,6 +456,7 @@ pub fn registry() -> Vec<MethodDescriptor> {
         MethodDescriptor::of::<claude_code::LoginInTerminal>(),
         MethodDescriptor::of::<claude_code::SetBinaryPath>(),
         MethodDescriptor::of::<claude_code::Transcript>(),
+        MethodDescriptor::of::<claude_code::Capabilities>(),
         MethodDescriptor::of::<claude_code::Usage>(),
         MethodDescriptor::of::<claude_code::ContextUsage>(),
         MethodDescriptor::of::<claude_code::McpStatus>(),

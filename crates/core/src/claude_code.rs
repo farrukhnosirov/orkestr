@@ -198,7 +198,9 @@ impl ClaudeCodeService {
                     }
                 }
                 match program {
-                    Some(p) => ccs::usage::probe_usage(&p, &self.data_dir).await.unwrap_or_else(ccs::usage::unavailable),
+                    Some(p) => {
+                        ccs::usage::probe_usage(&p, &self.data_dir).await.unwrap_or_else(ccs::usage::unavailable)
+                    }
                     None => ccs::usage::unavailable("Claude Code was not found"),
                 }
             }
@@ -514,11 +516,8 @@ mod tests {
     fn chat_labels_round_trip_and_clear() {
         let dir = tempfile::tempdir().unwrap();
         let (tx, _rx) = mpsc::channel(4);
-        let manager = ClaudeSessionManager::new(
-            tx,
-            Arc::new(ccs::NoPolicy),
-            Arc::new(orkestr_platform::NativeProcessControl),
-        );
+        let manager =
+            ClaudeSessionManager::new(tx, Arc::new(ccs::NoPolicy), Arc::new(orkestr_platform::NativeProcessControl));
         let svc = ClaudeCodeService::new(manager, dir.path(), dir.path().join("ext"));
         let id = "06a417de-ea3e-4314-9648-2072200e551d".to_owned();
         let p = |title: Option<&str>, pinned: Option<bool>| ClaudeSetChatMetaParams {
@@ -536,7 +535,10 @@ mod tests {
         svc.set_chat_meta(&p(Some(""), Some(false))).unwrap();
         assert!(svc.chat_meta().is_empty(), "an empty label is dropped");
         assert!(svc
-            .set_chat_meta(&ClaudeSetChatMetaParams { claude_session_id: "../x".into(), ..ClaudeSetChatMetaParams::default() })
+            .set_chat_meta(&ClaudeSetChatMetaParams {
+                claude_session_id: "../x".into(),
+                ..ClaudeSetChatMetaParams::default()
+            })
             .is_err());
     }
 

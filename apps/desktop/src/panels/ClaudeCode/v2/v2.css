@@ -1,23 +1,71 @@
 /* Claude Code panel v2 layout — only --ok-* tokens (contract §8). */
 
 .cc2 {
-  display: grid;
-  grid-template-columns: minmax(220px, 268px) minmax(0, 1fr);
+  position: relative;
+  display: flex;
   height: 100%;
   min-height: 0;
   font-size: var(--ok-font-size-sm);
   color: var(--ok-color-text);
 }
 
-.cc2--nosidebar {
-  grid-template-columns: minmax(0, 1fr);
+/* Narrow docks: the chat list slides over the chat. */
+.cc2--narrow .cc2-side {
+  position: absolute;
+  inset: 0 auto 0 0;
+  z-index: var(--ok-z-overlay);
+  width: min(300px, 88%);
+  box-shadow: var(--ok-shadow-panel);
+  animation: cc2-slide-in var(--ok-duration-base) var(--ok-ease);
+}
+
+@keyframes cc2-slide-in {
+  from {
+    transform: translateX(-16px);
+    opacity: 0;
+  }
+}
+
+
+.cc2--narrow .cc2-meter__label {
+  letter-spacing: 0;
+}
+
+.cc2-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: var(--ok-z-overlay);
+  border: 0;
+  background: var(--ok-color-overlay);
+  cursor: default;
+}
+
+.cc2-chats-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px var(--ok-space-2);
+  border: 1px solid var(--ok-color-border-accent);
+  border-radius: var(--ok-radius-pill);
+  background: var(--ok-color-accent-soft);
+  color: var(--ok-color-text);
+  font: inherit;
+  font-size: var(--ok-font-size-xs);
+  font-weight: var(--ok-font-weight-semibold);
+  cursor: pointer;
+}
+
+.cc2-chats-btn:hover {
+  box-shadow: var(--ok-glow-accent);
 }
 
 /* ── sidebar ─────────────────────────────────────────────────────────── */
 
 .cc2-side {
   display: flex;
+  flex: none;
   flex-direction: column;
+  width: 268px;
   min-height: 0;
   border-right: 1px solid var(--ok-color-border);
   background: var(--ok-color-surface-sunken);
@@ -466,6 +514,7 @@
 .cc2-main {
   position: relative;
   display: flex;
+  flex: 1;
   flex-direction: column;
   min-width: 0;
   min-height: 0;
@@ -601,7 +650,9 @@
 
 .cc2-feats {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: thin;
   align-items: center;
   gap: var(--ok-space-1);
   padding: var(--ok-space-2) var(--ok-space-3);
@@ -618,6 +669,7 @@
 
 .cc2-feat {
   display: inline-flex;
+  flex: none;
   align-items: center;
   gap: 5px;
   padding: 3px var(--ok-space-2);
@@ -658,7 +710,7 @@
 }
 
 .cc2-feat--select select {
-  max-width: 120px;
+  width: 2.6em;
   border: 0;
   background: transparent;
   color: var(--ok-color-text);
@@ -844,6 +896,11 @@
   justify-content: center;
   min-height: 0;
   overflow: auto;
+}
+
+.cc2-welcome .cc2-empty {
+  margin: 0 auto;
+  padding-bottom: var(--ok-space-4);
 }
 
 .cc2-welcome__actions {
@@ -1064,12 +1121,16 @@
 }
 
 .cc2-cmd__name {
+  min-width: 0;
+  overflow: hidden;
   font-family: var(--ok-font-mono);
   font-weight: var(--ok-font-weight-semibold);
-  overflow-wrap: anywhere;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .cc2-cmd__tag {
+  flex: none;
   margin-left: auto;
   padding: 0 6px;
   border-radius: var(--ok-radius-pill);
@@ -1106,17 +1167,4 @@
 
 .cc2-cmd__arg {
   font-size: var(--ok-font-size-xs);
-}
-
-/* ── narrow docks ────────────────────────────────────────────────────── */
-
-
-@media (max-width: 1000px) {
-  .cc2 {
-    grid-template-columns: minmax(200px, 230px) minmax(0, 1fr);
-  }
-
-  .cc2-meter__label {
-    letter-spacing: 0;
-  }
 }

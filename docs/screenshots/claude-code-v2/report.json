@@ -1,0 +1,64 @@
+{
+  "results": [
+    {
+      "name": "signed in with the user's own CLI",
+      "ok": true,
+      "detail": "max"
+    },
+    {
+      "name": "claudeCode.usage (probe, no model tokens): session + weekly",
+      "ok": true,
+      "detail": "session 29% resets 2026-10-08T10:39:59.923822Z · weekly 24% resets 2026-10-13T16:59:59.923841Z · 1615 ms"
+    },
+    {
+      "name": "usage meter shows SESSION | WEEKLY",
+      "ok": true,
+      "detail": "Session29%Weekly24%"
+    },
+    {
+      "name": "live session after the turn",
+      "ok": true,
+      "detail": "01a11a74-ffa6-716b-a5e6-b402e3c0eb94"
+    },
+    {
+      "name": "claudeCode.usage via the live session",
+      "ok": true,
+      "detail": "session 29% · weekly 24%"
+    },
+    {
+      "name": "claudeCode.contextUsage",
+      "ok": true,
+      "detail": "32346/200000 (16%)"
+    },
+    {
+      "name": "claudeCode.mcpStatus",
+      "ok": true,
+      "detail": "15 servers"
+    },
+    {
+      "name": "claudeCode.setThinking",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "claudeCode.setChatMeta (rename + pin, stored in Orkestr)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "renamed + pinned chat in the sidebar",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "commands drawer lists the CLI's commands as buttons",
+      "ok": true,
+      "detail": "82 cards"
+    },
+    {
+      "name": "no console errors",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}

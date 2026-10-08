@@ -13,8 +13,8 @@
  */
 import { Badge, Button, IconButton } from "@orkestr/ui";
 import clsx from "clsx";
-import { Command, FolderOpen, Keyboard, MessageSquarePlus, PanelLeftOpen, Sparkle } from "lucide-react";
-import { type ComponentProps, type KeyboardEvent, useCallback, useEffect, useState } from "react";
+import { Command, FolderOpen, Keyboard, MessageSquarePlus, MessagesSquare, Sparkle } from "lucide-react";
+import { type ComponentProps, type KeyboardEvent, useCallback, useEffect, useRef, useState } from "react";
 
 import { workspaceActions } from "../../../components/workspaceActions";
 import { useEditorSelection } from "../../../features/claudeCode/bridge";
@@ -90,6 +90,23 @@ function FallbackPicker({ value, models, onChange }: { value: string; models: { 
   );
 }
 
+/** Below this width the chat list slides over the chat instead of sitting beside it. */
+export const NARROW_PX = 900;
+
+function useNarrow(ref: React.RefObject<HTMLDivElement | null>): boolean {
+  const [narrow, setNarrow] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(([entry]) => {
+      if (entry) setNarrow(entry.contentRect.width > 0 && entry.contentRect.width < NARROW_PX);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [ref]);
+  return narrow;
+}
+
 export function ChatWorkspace({ projectId, root }: { projectId: string; root: string }) {
   const { t } = useT("claudeCode");
   const { t: tp } = useT("claudeCodePanel");
@@ -103,7 +120,11 @@ export function ChatWorkspace({ projectId, root }: { projectId: string; root: st
   const { start, send, interrupt, respond, setMode, setModel, setPrefs, dequeue, consumeInsert, login, loadHistory, requestInsert } =
     useClaudeStore.getState();
   const [drawer, setDrawer] = useState(false);
-  const sidebar = prefs.sidebar;
+  const rootRef = useRef<HTMLDivElement>(null);
+  const narrow = useNarrow(rootRef);
+  const [overlay, setOverlay] = useState(false);
+  const sidebar = narrow ? overlay : prefs.sidebar;
+  const toggleSidebar = (open: boolean) => (narrow ? setOverlay(open) : setPrefs({ sidebar: open }));
   const tabCount = tabs?.length ?? 0;
 
   useUsagePolling(activeId);
@@ -112,8 +133,14 @@ export function ChatWorkspace({ projectId, root }: { projectId: string; root: st
   }, [projectId, loadHistory]);
 
   const onNew = useCallback(() => {
+    setOverlay(false);
     void start(projectId);
   }, [projectId, start]);
+
+  // In a narrow dock, picking a chat closes the overlay.
+  useEffect(() => {
+    setOverlay(false);
+  }, [activeId]);
 
   const onLogin = async () => {
     const id = await login(projectId);
@@ -177,14 +204,16 @@ export function ChatWorkspace({ projectId, root }: { projectId: string; root: st
   };
 
   return (
-    <div className={clsx("cc2", !sidebar && "cc2--nosidebar")} onKeyDown={onKeyDown}>
-      {sidebar && (
-        <ChatSidebar projectId={projectId} activeSessionId={activeId} onNew={onNew} onCollapse={() => setPrefs({ sidebar: false })} />
-      )}
+    <div ref={rootRef} className={clsx("cc2", narrow && "cc2--narrow")} onKeyDown={onKeyDown}>
+      {sidebar && narrow && <button type="button" className="cc2-scrim" aria-label={tp("sidebar.toggle")} tabIndex={-1} onClick={() => setOverlay(false)} />}
+      {sidebar && <ChatSidebar projectId={projectId} activeSessionId={activeId} onNew={onNew} onCollapse={() => toggleSidebar(false)} />}
       <section className="cc2-main" aria-label={t("chat.label")}>
         <header className="cc2-top">
           {!sidebar && (
-            <IconButton label={tp("sidebar.toggle")} icon={<PanelLeftOpen size={15} />} onClick={() => setPrefs({ sidebar: true })} tooltip="bottom" />
+            <button type="button" className="cc2-chats-btn" title={tp("sidebar.toggle")} onClick={() => toggleSidebar(true)}>
+              <MessagesSquare size={14} aria-hidden />
+              {tp("sidebar.title")}
+            </button>
           )}
           {!sidebar && (
             <IconButton label={tp("sidebar.newChat")} icon={<MessageSquarePlus size={15} />} onClick={onNew} tooltip="bottom" />

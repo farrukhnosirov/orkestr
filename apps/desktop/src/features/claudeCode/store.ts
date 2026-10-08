@@ -219,9 +219,25 @@ export const useClaudeStore = create<ClaudeState>()((set, get) => {
       try {
         const status = await getClient().call("claudeCode.status", refresh ? { refresh: true } : {});
         set({ status, statusLoading: false });
-        // Re-attach live sessions after a reload of the UI.
+        // Re-attach live sessions after a reload of the UI (with their models / commands).
         for (const info of status.sessions) {
-          if (!get().sessions[info.sessionId] && info.state !== "exited" && info.state !== "failed") addSession(info);
+          if (!get().sessions[info.sessionId] && info.state !== "exited" && info.state !== "failed") {
+            addSession(info);
+            const client = getClient();
+            const cid = info.claudeSessionId;
+            void Promise.all([
+              client.call("claudeCode.capabilities", { sessionId: info.sessionId }).catch(() => null),
+              cid
+                ? client.call("claudeCode.transcript", { projectId: info.projectId, claudeSessionId: cid, cwd: info.cwd }).catch(() => null)
+                : Promise.resolve(null),
+            ]).then(([caps, transcript]) => {
+              patchSession(info.sessionId, (v) => {
+                let chat = transcript && transcript.events.length > 0 && v.chat.items.length === 0 ? applyAll(v.chat, transcript.events) : v.chat;
+                if (caps?.event) chat = applyEvent(chat, caps.event);
+                return { ...v, chat };
+              });
+            });
+          }
         }
       } catch (e) {
         set({ statusLoading: false, statusError: errorMessage(e) });

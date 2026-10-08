@@ -312,6 +312,8 @@ struct Session {
     ctrl: Mutex<HashMap<String, oneshot::Sender<Result<Value, String>>>>,
     next_req: AtomicU64,
     stop: CancellationToken,
+    /// Last capabilities (models / commands / account), for UIs that re-attach.
+    caps: Mutex<Option<ClaudeCodeEvent>>,
 }
 
 impl Session {
@@ -463,6 +465,7 @@ impl ClaudeSessionManager {
             ctrl: Mutex::default(),
             next_req: AtomicU64::new(0),
             stop,
+            caps: Mutex::new(None),
         });
         spawn_proc(&self.inner, &session, 1)?;
         self.inner.sessions.lock().insert(id, Arc::clone(&session));
@@ -535,6 +538,11 @@ impl ClaudeSessionManager {
             return Err(SessionError::Conflict("this Claude Code session has ended".into()));
         }
         self.control(&s, query.subtype(), control::query(query.subtype())).await
+    }
+
+    /// The session's last capabilities event (models, commands, account), if known.
+    pub fn capabilities(&self, id: ClaudeSessionId) -> SessionResult<Option<ClaudeCodeEvent>> {
+        Ok(self.session(id)?.caps.lock().clone())
     }
 
     /// Turns extended thinking on (the CLI's default budget) or off.
@@ -862,7 +870,9 @@ fn spawn_proc(inner: &Arc<Inner>, s: &Arc<Session>, generation: u64) -> SessionR
         let (inner, s) = (Arc::clone(inner), Arc::clone(s));
         tokio::spawn(async move {
             if let Ok(Ok(Ok(resp))) = tokio::time::timeout(Duration::from_secs(60), irx).await {
-                emit_item(&inner, &s, capabilities(&resp)).await;
+                let caps = capabilities(&resp);
+                *s.caps.lock() = Some(caps.clone());
+                emit_item(&inner, &s, caps).await;
                 {
                     let mut info = s.info.lock();
                     if info.state == ClaudeSessionState::Starting {
@@ -942,6 +952,11 @@ fn spawn_proc(inner: &Arc<Inner>, s: &Arc<Session>, generation: u64) -> SessionR
 async fn handle(inner: &Arc<Inner>, s: &Arc<Session>, item: Inbound) {
     match item {
         Inbound::Event(event) => {
+            if let ClaudeCodeEvent::CommandsChanged { commands } = &event {
+                if let Some(ClaudeCodeEvent::Capabilities { commands: cached, .. }) = s.caps.lock().as_mut() {
+                    cached.clone_from(commands);
+                }
+            }
             let mut status_changed = false;
             {
                 let mut info = s.info.lock();

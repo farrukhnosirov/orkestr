@@ -162,9 +162,10 @@ pub fn capabilities(response: &Value) -> ClaudeCodeEvent {
                 value: s(m, "value")?,
                 display_name: s(m, "displayName").or_else(|| s(m, "value"))?,
                 description: s(m, "description"),
-                effort_levels: m.get("supportedEffortLevels").and_then(Value::as_array).map(|l| {
-                    l.iter().filter_map(Value::as_str).map(str::to_owned).collect()
-                }),
+                effort_levels: m
+                    .get("supportedEffortLevels")
+                    .and_then(Value::as_array)
+                    .map(|l| l.iter().filter_map(Value::as_str).map(str::to_owned).collect()),
             })
         })
         .collect();

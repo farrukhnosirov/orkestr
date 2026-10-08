@@ -117,6 +117,7 @@ export * from "./CheckoutParams";
 export * from "./ClaudeAuthInfo";
 export * from "./ClaudeBinaryInfo";
 export * from "./ClaudeBinarySource";
+export * from "./ClaudeCapabilitiesResult";
 export * from "./ClaudeChatMeta";
 export * from "./ClaudeCodeEvent";
 export * from "./ClaudeCodeEventPayload";
