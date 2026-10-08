@@ -1,0 +1,290 @@
+/* Claude Code engine card + Claude Code agents section (tokens only). */
+
+.ce-card {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-3);
+  padding: var(--ok-space-4);
+  margin-bottom: var(--ok-space-4);
+  border: 1px solid var(--ok-color-border-strong);
+  border-radius: var(--ok-radius-lg);
+  background: var(--ok-gradient-panel), var(--ok-color-surface);
+  backdrop-filter: blur(var(--ok-blur));
+  box-shadow: var(--ok-shadow-panel);
+}
+
+.ce-card__glow {
+  position: absolute;
+  inset: -40% -20% auto auto;
+  width: 60%;
+  height: 160%;
+  background: var(--ok-gradient-accent-soft);
+  filter: blur(40px);
+  opacity: calc(0.8 * var(--ok-glow-intensity));
+  pointer-events: none;
+}
+
+.ce-card__head {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ok-space-3);
+}
+
+.ce-card__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border-radius: var(--ok-radius-md);
+  color: var(--ok-color-text-inverse);
+  background: var(--ok-gradient-accent);
+  box-shadow: var(--ok-glow-violet);
+}
+
+.ce-card__titles {
+  flex: 1;
+  min-width: 0;
+}
+
+.ce-card__title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ok-color-text);
+}
+
+.ce-card__subtitle,
+.ce-card__hint {
+  margin: 2px 0 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--ok-color-text-muted);
+}
+
+.ce-card__hint {
+  position: relative;
+  color: var(--ok-color-text-subtle);
+}
+
+.ce-card__chips {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ok-space-2);
+}
+
+.ce-card__actions {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--ok-space-3);
+}
+
+.ce-card__model {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-1);
+  font-size: 12px;
+  color: var(--ok-color-text-muted);
+}
+
+.ce-card__msg {
+  position: relative;
+  margin: 0;
+  font-size: 12.5px;
+}
+
+.ce-card__msg--ok {
+  color: var(--ok-color-success);
+}
+
+.ce-card__msg--err {
+  color: var(--ok-color-danger);
+}
+
+.ce-spin {
+  animation: ce-spin 0.9s linear infinite;
+}
+
+@keyframes ce-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── Claude Code agents (Agents panel) ─────────────────── */
+
+.cca {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-4);
+  padding: var(--ok-space-4);
+  overflow: auto;
+  height: 100%;
+}
+
+.cca__bar {
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-2);
+}
+
+.cca__bar-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.cca__bar-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ok-color-text);
+}
+
+.cca__bar-sub {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--ok-color-text-muted);
+}
+
+.cca__group-title {
+  margin: 0 0 var(--ok-space-2);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ok-color-text-subtle);
+}
+
+.cca__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--ok-space-3);
+}
+
+.cca-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-2);
+  padding: var(--ok-space-3);
+  border: 1px solid var(--ok-color-border);
+  border-radius: var(--ok-radius-md);
+  background: var(--ok-gradient-panel), var(--ok-color-surface);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.cca-card:hover {
+  border-color: var(--ok-color-border-accent);
+  box-shadow: var(--ok-glow-accent);
+}
+
+.cca-card__head {
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-2);
+}
+
+.cca-card__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--ok-font-mono, monospace);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ok-color-text);
+}
+
+.cca-card__desc {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--ok-color-text-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.cca-card__tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ok-space-1);
+}
+
+.cca-card__tool {
+  padding: 1px 6px;
+  border-radius: var(--ok-radius-xs);
+  font-size: 11px;
+  color: var(--ok-color-text-muted);
+  background: var(--ok-color-surface-sunken);
+}
+
+.cca-card__actions {
+  display: flex;
+  gap: var(--ok-space-2);
+  margin-top: auto;
+}
+
+.cca-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-3);
+  width: min(640px, calc(100vw - 48px));
+  max-height: calc(100vh - 64px);
+  overflow: auto;
+  padding: var(--ok-space-5);
+  border: 1px solid var(--ok-color-border-strong);
+  border-radius: var(--ok-radius-lg);
+  background: var(--ok-color-surface-strong);
+  box-shadow: var(--ok-shadow-panel);
+}
+
+.cca-editor__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ok-color-text);
+}
+
+.cca-editor__row {
+  display: flex;
+  gap: var(--ok-space-3);
+}
+
+.cca-editor__row > * {
+  flex: 1;
+}
+
+.cca-editor__confirm {
+  padding: var(--ok-space-3);
+  border: 1px solid var(--ok-color-warning);
+  border-radius: var(--ok-radius-md);
+  background: var(--ok-color-warning-soft);
+  font-size: 12.5px;
+  color: var(--ok-color-text);
+}
+
+.cca-editor__path {
+  font-family: var(--ok-font-mono, monospace);
+  word-break: break-all;
+}
+
+.cca-editor__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--ok-space-2);
+}
+
+.cca-editor__error {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--ok-color-danger);
+}

@@ -263,5 +263,33 @@
     "addRule": "Добавить правило маршрутизации",
     "unsaved": "Есть несохранённые изменения",
     "revert": "Отменить изменения"
+  },
+  "claudeEngine": {
+    "title": "Claude Code (подписка)",
+    "subtitle": "Менеджер, агенты, ревью и консенсус работают на вашей подписке Claude Code через официальный CLI. Orkestr не читает её учётные данные.",
+    "refresh": "Проверить Claude Code ещё раз",
+    "checking": "Проверка…",
+    "notInstalled": "Claude Code не найден",
+    "notSignedIn": "Вход в Claude Code не выполнен",
+    "ready": "Claude Code подключён",
+    "plan": "Тариф: {{plan}}",
+    "providerReady": "Провайдер подключён",
+    "managerOn": "Менеджер работает на Claude Code",
+    "rolesOn_one": "{{count}} роль на Claude Code",
+    "rolesOn_few": "{{count}} роли на Claude Code",
+    "rolesOn_many": "{{count}} ролей на Claude Code",
+    "rolesOn_other": "{{count}} роли на Claude Code",
+    "model": "Модель",
+    "models": {
+      "sonnet": "Sonnet — сбалансированная",
+      "opus": "Opus — самая сильная",
+      "haiku": "Haiku — самая быстрая"
+    },
+    "useForEverything": "Использовать Claude Code для всего",
+    "hint": "Менеджер, все роли агентов, ревью, консенсус и продакт-менеджер переключаются на Claude Code. Текущие модели остаются запасными.",
+    "applied_one": "Готово: Менеджер и {{count}} роль теперь используют Claude Code.",
+    "applied_few": "Готово: Менеджер и {{count}} роли теперь используют Claude Code.",
+    "applied_many": "Готово: Менеджер и {{count}} ролей теперь используют Claude Code.",
+    "applied_other": "Готово: Менеджер и {{count}} роли теперь используют Claude Code."
   }
 }

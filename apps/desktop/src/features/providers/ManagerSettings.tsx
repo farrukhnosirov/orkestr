@@ -16,6 +16,7 @@ import { Button, EmptyState, IconButton, Input, Spinner } from "@orkestr/ui";
 import { ArrowDown, ArrowUp, Plus, RefreshCw, Route, Save, Sparkles, Undo2, Workflow, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { ClaudeEngineCard } from "../claudeEngine/ClaudeEngineCard";
 import { useT } from "../../i18n";
 import { useAppStore } from "../../store/app";
 import { Select, Switch, TextArea } from "./controls";
@@ -139,6 +140,7 @@ export function ManagerSettings() {
   return (
     <div className="pv">
       <p className="pv__intro">{t("manager.intro")}</p>
+      <ClaudeEngineCard onApplied={() => void load()} />
       {noProviders && <p className="pv-note pv-note--warn">{t("manager.noProviders")}</p>}
 
       <section className="pv-section" aria-labelledby="pv-mgr-model">

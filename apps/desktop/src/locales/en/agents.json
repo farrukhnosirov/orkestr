@@ -5,7 +5,8 @@
     "queue": "Queue",
 
     "templates": "Templates",
-    "teams": "Teams"
+    "teams": "Teams",
+    "claude": "Claude Code agents"
   },
   "noProject": {
     "title": "No project open",
@@ -128,7 +129,8 @@
     "Official": "Official",
     "Community": "Community",
     "Private": "Private",
-    "Custom": "Custom"
+    "Custom": "Custom",
+    "ClaudeCode": "Claude Code"
   },
   "spawnDialog": {
     "subtitle": "The agent runs in isolation with its own worktree, budget and stop button.",
@@ -235,5 +237,52 @@
     "group": "Agents",
     "spawn": "Spawn Agent",
     "stop": "Stop Agent"
+  },
+  "claude": {
+    "title": "Claude Code agents",
+    "subtitle": "Claude Code's own agents as Orkestr agents: spawn them on a task — they run through your Claude Code subscription, every action goes through Orkestr's approvals.",
+    "create": "New agent",
+    "refresh": "Reload agents",
+    "loading": "Loading Claude Code agents…",
+    "loadFailed": "Could not load Claude Code agents",
+    "empty": {
+      "title": "No Claude Code agents yet",
+      "description": "Create one, or add .md files to .claude/agents in the project or in your home folder."
+    },
+    "scope": {
+      "project": "This project",
+      "user": "Your agents",
+      "builtIn": "Built into Claude Code"
+    },
+    "tools": "Tools",
+    "allTools": "All tools",
+    "spawn": "Spawn on a task",
+    "edit": "Edit agent",
+    "delete": "Delete agent",
+    "deleteTitle": "Delete the Claude Code agent?",
+    "deleteConfirm": "This deletes the file",
+    "saved": "Agent {{name}} saved",
+    "deleted": "Agent {{name}} deleted",
+    "noTemplate": "This agent could not be turned into a template — check its name.",
+    "builtinUnavailable": "Built-in Claude Code agents are unavailable: Claude Code did not answer.",
+    "editor": {
+      "createTitle": "New Claude Code agent",
+      "editTitle": "Edit Claude Code agent",
+      "scope": "Where to save",
+      "model": "Model",
+      "inherit": "Same as the session",
+      "name": "Name",
+      "nameHint": "Lowercase letters, digits, - and _ (becomes the file name).",
+      "description": "When to use it",
+      "descriptionHint": "Claude reads this to decide when to delegate to the agent.",
+      "tools": "Allowed tools",
+      "toolsHint": "Comma separated, e.g. Read, Grep, Edit, Bash. Empty = all tools.",
+      "prompt": "System prompt",
+      "save": "Save",
+      "confirmSave": "Confirm and write the file",
+      "confirm": "The agent will be written to",
+      "invalidName": "Use 1–64 lowercase letters, digits, - or _.",
+      "required": "Fill in the description and the system prompt."
+    }
   }
 }

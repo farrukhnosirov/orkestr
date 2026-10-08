@@ -263,5 +263,29 @@
     "addRule": "Add routing rule",
     "unsaved": "Unsaved changes",
     "revert": "Revert"
+  },
+  "claudeEngine": {
+    "title": "Claude Code (subscription)",
+    "subtitle": "Run the AI Manager, agents, reviews and consensus on your Claude Code subscription through the official CLI. Orkestr never reads its credentials.",
+    "refresh": "Check Claude Code again",
+    "checking": "Checking…",
+    "notInstalled": "Claude Code not found",
+    "notSignedIn": "Not signed in to Claude Code",
+    "ready": "Claude Code is connected",
+    "plan": "Plan: {{plan}}",
+    "providerReady": "Provider registered",
+    "managerOn": "Manager runs on Claude Code",
+    "rolesOn_one": "{{count}} role on Claude Code",
+    "rolesOn_other": "{{count}} roles on Claude Code",
+    "model": "Model",
+    "models": {
+      "sonnet": "Sonnet — balanced",
+      "opus": "Opus — the strongest",
+      "haiku": "Haiku — the fastest"
+    },
+    "useForEverything": "Use Claude Code for everything",
+    "hint": "Sets the Manager, every agent role, review, consensus and PM to Claude Code. Your current models stay as fallbacks.",
+    "applied_one": "Done: the Manager and {{count}} role now use Claude Code.",
+    "applied_other": "Done: the Manager and {{count}} roles now use Claude Code."
   }
 }
