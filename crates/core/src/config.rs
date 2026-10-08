@@ -93,7 +93,7 @@ impl CoreConfig {
     /// Config rooted at a specific data dir (tests, portable installs).
     #[must_use]
     pub fn with_data_dir(dir: impl Into<PathBuf>) -> Self {
-        Self { data_dir: Some(dir.into()), ..Self::default() }
+        Self { data_dir: Some(dir.into()), claude_auto_register: false, ..Self::default() }
     }
 
     /// Config for integration tests: rooted at `dir`, with an in-memory

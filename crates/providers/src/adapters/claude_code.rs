@@ -806,4 +806,48 @@ mod tests {
         assert!(args.iter().all(|a| !a.contains('\n')), "multi-line text goes through stdin");
         assert!(prompt.starts_with("Additional instructions:\nline1\nline2") && prompt.ends_with("do it"));
     }
+
+    #[test]
+    fn bridged_args_route_permissions_through_stdio() {
+        let (bridge, _tx) = crate::types::PermissionBridge::new();
+        let req = CodingAgentRequest {
+            prompt: "p".into(),
+            system_append: None,
+            cwd: "/tmp".into(),
+            model: Some("haiku".into()),
+            max_turns: Some(5),
+            resume_session: Some("not-a-uuid".into()),
+            tool_policy: CliToolPolicy {
+                allowed_tools: vec!["Read(./**)".into()],
+                disallowed_tools: vec!["Read(**/.env)".into()],
+                allow_writes: true,
+            },
+            subagent: Some(crate::types::CliSubagent { name: "code-reviewer".into(), definition: None }),
+            permission_bridge: Some(bridge),
+        };
+        let a = ClaudeCodeAdapter::bridged_args(&req, Some("/tmp/agents.json")).join(" ");
+        assert!(a.starts_with("--print --input-format stream-json --output-format stream-json --verbose --permission-prompt-tool stdio --permission-mode default"), "{a}");
+        assert!(!a.contains("acceptEdits") && !a.contains("dangerously"), "edits are asked too: {a}");
+        assert!(a.contains("--model haiku --max-turns 5"));
+        assert!(!a.contains("--resume"), "invalid session ids are dropped");
+        assert!(a.ends_with("--agents /tmp/agents.json --agent code-reviewer"), "{a}");
+        let mut bad = req.clone();
+        bad.subagent = Some(crate::types::CliSubagent { name: "--evil".into(), definition: None });
+        assert!(!ClaudeCodeAdapter::bridged_args(&bad, None).join(" ").contains("--agent"));
+    }
+
+    #[test]
+    fn emulated_tool_calls_are_parsed_strictly() {
+        let known = vec!["list_tasks".to_owned(), "create_task".to_owned()];
+        let calls = parse_emulated_tool_calls(
+            "```json\n{\"tool_calls\": [{\"name\": \"create_task\", \"arguments\": {\"title\": \"x\"}}, {\"name\": \"rm_rf\", \"arguments\": {}}]}\n```",
+            &known,
+        )
+        .unwrap();
+        assert_eq!(calls, vec![("create_task".to_owned(), serde_json::json!({"title": "x"}))]);
+        let s = parse_emulated_tool_calls("Sure: {\"tool_calls\": [{\"name\": \"list_tasks\", \"arguments\": \"{}\"}]}", &known);
+        assert_eq!(s.unwrap()[0].1, serde_json::json!({}));
+        assert!(parse_emulated_tool_calls("Here is the plan: no tools needed.", &known).is_none());
+        assert!(parse_emulated_tool_calls("{\"tool_calls\": [{\"name\": \"unknown\"}]}", &known).is_none());
+    }
 }

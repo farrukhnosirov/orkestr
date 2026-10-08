@@ -223,6 +223,23 @@ fn main() {
         }
         return;
     }
+    let streaming = args.windows(2).any(|w| w[0] == "--input-format" && w[1] == "stream-json");
+    if !streaming {
+        // `claude -p` with the prompt on stdin (chat / plan calls): one answer.
+        // A prompt offering Orkestr's emulated tools gets a tool call the
+        // first time and a plain answer once a tool result is in it.
+        let mut prompt = String::new();
+        let _ = std::io::Read::read_to_string(&mut std::io::stdin(), &mut prompt);
+        out(&json!({"type": "system", "subtype": "init", "session_id": SESSION, "model": "claude-fake-1", "tools": []}));
+        let answer = if prompt.contains("\"tool_calls\"") && !prompt.contains("Tool result for call") {
+            r#"{"tool_calls": [{"name": "list_tasks", "arguments": {}}]}"#.to_owned()
+        } else {
+            format!("pong: {}", prompt.chars().filter(|c| !c.is_control()).take(40).collect::<String>())
+        };
+        Fake::assistant(json!({"type": "text", "text": answer}));
+        Fake::result(false, "success", &answer);
+        return;
+    }
     let (tx, rx) = mpsc::channel();
     std::thread::spawn(move || {
         for line in std::io::stdin().lock().lines() {
