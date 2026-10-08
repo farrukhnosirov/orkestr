@@ -8,7 +8,7 @@
 import "./agents.css";
 
 import { Badge, Button, EmptyState, IconButton, Spinner, Tabs } from "@orkestr/ui";
-import { Bot, FolderOpen, LayoutTemplate, ListOrdered, Plus, RefreshCw, TriangleAlert, Users } from "lucide-react";
+import { Bot, FolderOpen, LayoutTemplate, ListOrdered, Plus, RefreshCw, Sparkles, TriangleAlert, Users } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { QueueView } from "../../features/scheduler/QueueView";
@@ -16,6 +16,7 @@ import { useT } from "../../i18n";
 import { useProjectTasks } from "../Tasks/data";
 import type { PanelProps } from "../types";
 import { AgentDetail } from "./AgentDetail";
+import { ClaudeAgentsTab } from "./ClaudeAgentsTab";
 import { AgentList } from "./AgentList";
 import { useProjectAgents, useTemplates } from "./data";
 import { isActive } from "./model";
@@ -30,8 +31,9 @@ const TAB_ICONS: Record<AgentsTab, JSX.Element> = {
   queue: <ListOrdered size={14} />,
   templates: <LayoutTemplate size={14} />,
   teams: <Users size={14} />,
+  claude: <Sparkles size={14} />,
 };
-const TAB_IDS: readonly AgentsTab[] = ["agents", "queue", "templates", "teams"];
+const TAB_IDS: readonly AgentsTab[] = ["agents", "queue", "templates", "teams", "claude"];
 
 function useNow(active: boolean): number {
   const [now, setNow] = useState(() => Date.now());
@@ -79,7 +81,9 @@ export default function AgentsPanel({ projectId }: PanelProps) {
   const tabs = TAB_IDS.map((id) => ({ id, label: t(`tabs.${id}`), icon: TAB_ICONS[id] }));
 
   let content: JSX.Element;
-  if (tab === "queue") {
+  if (tab === "claude") {
+    content = <ClaudeAgentsTab projectId={projectId} onTemplatesChanged={templates.reload} />;
+  } else if (tab === "queue") {
     content = <QueueView projectId={projectId} />;
   } else if (tab === "teams") {
     content = <TeamsTab projectId={projectId} templates={templates.templates} />;

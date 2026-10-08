@@ -10,6 +10,7 @@ pub mod architecture;
 pub mod audit;
 pub mod benchmarks;
 pub mod claude_code;
+pub mod claude_engine;
 pub mod consensus;
 pub mod context;
 pub mod cost;
@@ -198,6 +199,7 @@ pub fn build_router() -> RpcRouter {
     router.register(extensions::register).register(lsp::register);
     // Claude Code panel (official `claude` CLI, stream-json)
     router.register(claude_code::register);
+    router.register(claude_engine::register);
     router
 }
 

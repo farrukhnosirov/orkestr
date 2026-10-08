@@ -1317,10 +1317,12 @@ async fn cli_agent_takes_a_checkpoint_and_its_task_rolls_back() {
     );
     let a = h.wait_done(h.spawn(tpl, None).await.id).await;
     assert_eq!(a.state, AgentState::Completed, "{:?}", a.last_error);
-    // Full Auto + run_command still never pre-approves the CLI's own shell.
+    // Full Auto + run_command never pre-approves the CLI's own shell: Claude
+    // Code asks Orkestr for every shell command over the permission bridge.
     let req = cli.requests.lock()[0].clone();
     assert!(!req.tool_policy.allowed_tools.iter().any(|t| t == "Bash"), "{:?}", req.tool_policy);
-    assert!(req.tool_policy.disallowed_tools.iter().any(|t| t == "Bash"));
+    assert!(req.permission_bridge.is_some(), "Claude Code runs with the permission bridge");
+    assert!(!req.tool_policy.allow_writes, "edits are asked over the bridge, never auto-accepted");
     let task_id = a.task_id.unwrap();
     let snaps = h.snapshots.list(h.project, Some(task_id), None, 10).await.unwrap();
     let phases: Vec<_> = snaps.iter().filter_map(|s| s.task_phase).collect();
@@ -1329,6 +1331,73 @@ async fn cli_agent_takes_a_checkpoint_and_its_task_rolls_back() {
     let rb = h.snapshots.rollback_task(h.project, task_id, None, None, false).await.unwrap();
     assert!(rb.conflicts.is_empty(), "{rb:?}");
     assert!(!h.root.join("src/cli.txt").exists(), "the CLI agent's change was rolled back");
+}
+
+#[tokio::test]
+async fn claude_bridge_denies_forbidden_commands_and_files_outside_the_worktree() {
+    let h = harness(ApprovalMode::FullAuto).await;
+    let tpl = h.template(&["write_file", "run_command", "submit_result"], WorktreePolicy::SharedWorktree, None).await;
+    let perm = |rid: &str, call: &str, tool: &str, input: serde_json::Value| {
+        orkestr_providers::CodingAgentEvent::PermissionRequest {
+            request_id: rid.into(),
+            tool: tool.into(),
+            tool_use_id: Some(call.into()),
+            input,
+            description: None,
+            blocked_path: None,
+        }
+    };
+    let started = |call: &str, tool: &str, summary: &str| orkestr_providers::CodingAgentEvent::ToolStarted {
+        call_id: call.into(),
+        tool: tool.into(),
+        summary: summary.into(),
+    };
+    let finished = |call: &str| orkestr_providers::CodingAgentEvent::ToolFinished {
+        call_id: call.into(),
+        ok: false,
+        summary: "denied".into(),
+    };
+    let outside = h.root.parent().unwrap().join("elsewhere.txt").to_string_lossy().into_owned();
+    let cli = h.cli(
+        ProviderKind::ClaudeCode,
+        Vec::new(),
+        vec![
+            started("c1", "Bash", "rm -rf /"),
+            perm("r1", "c1", "Bash", json!({"command": "rm -rf /"})),
+            finished("c1"),
+            started("c2", "Write", &outside),
+            perm("r2", "c2", "Write", json!({"file_path": outside, "content": "x"})),
+            finished("c2"),
+            started("c3", "Bash", "cargo test"),
+            perm("r3", "c3", "Bash", json!({"command": "cargo test"})),
+            orkestr_providers::CodingAgentEvent::ToolFinished { call_id: "c3".into(), ok: true, summary: "ok".into() },
+            cli_text(
+                "Done.
+```json
+{\"status\": \"done\", \"summary\": \"ok\"}
+```
+",
+            ),
+            cli_done(),
+        ],
+    );
+    let a = h.wait_done(h.spawn(tpl, None).await.id).await;
+    assert_eq!(a.state, AgentState::Completed, "{:?}", a.last_error);
+    let req = cli.requests.lock()[0].clone();
+    let mut rx = req.permission_bridge.unwrap().take().expect("the scripted CLI left the receiver");
+    let r1 = rx.try_recv().unwrap();
+    assert_eq!(r1.request_id, "r1");
+    assert!(!r1.allow, "a forbidden command is denied");
+    let r2 = rx.try_recv().unwrap();
+    assert!(!r2.allow && r2.message.unwrap_or_default().contains("worktree"), "outside the worktree is denied");
+    let r3 = rx.try_recv().unwrap();
+    assert!(r3.allow, "a safe command is allowed in Full Auto");
+    let tr = h.rt.transcript(a.id, None).await.unwrap();
+    let status = |tool: &str| {
+        tr.tool_calls.iter().filter(|c| c.tool_call.tool == tool).map(|c| c.tool_call.status).collect::<Vec<_>>()
+    };
+    assert_eq!(status("Bash"), vec![ToolCallStatus::Denied, ToolCallStatus::Succeeded]);
+    assert_eq!(status("Write"), vec![ToolCallStatus::Denied]);
 }
 
 #[tokio::test]

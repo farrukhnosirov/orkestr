@@ -36,7 +36,12 @@ import type { CheckBudgetParams } from "./CheckBudgetParams";
 import type { CheckBudgetResult } from "./CheckBudgetResult";
 import type { CheckParams } from "./CheckParams";
 import type { CheckoutParams } from "./CheckoutParams";
+import type { ClaudeAgentFileResult } from "./ClaudeAgentFileResult";
+import type { ClaudeAgentsParams } from "./ClaudeAgentsParams";
+import type { ClaudeAgentsResult } from "./ClaudeAgentsResult";
 import type { ClaudeCodeStatus } from "./ClaudeCodeStatus";
+import type { ClaudeEngineStatus } from "./ClaudeEngineStatus";
+import type { ClaudeEngineStatusParams } from "./ClaudeEngineStatusParams";
 import type { ClaudeLoginParams } from "./ClaudeLoginParams";
 import type { ClaudeLoginResult } from "./ClaudeLoginResult";
 import type { ClaudeRespondPermissionParams } from "./ClaudeRespondPermissionParams";
@@ -90,6 +95,7 @@ import type { DecisionView } from "./DecisionView";
 import type { DeleteBranchParams } from "./DeleteBranchParams";
 import type { DeleteBranchResult } from "./DeleteBranchResult";
 import type { DeleteBudgetResult } from "./DeleteBudgetResult";
+import type { DeleteClaudeAgentParams } from "./DeleteClaudeAgentParams";
 import type { DeleteFileParams } from "./DeleteFileParams";
 import type { DeleteFileResult } from "./DeleteFileResult";
 import type { DeleteMemoryResult } from "./DeleteMemoryResult";
@@ -325,6 +331,7 @@ import type { RunCommandParams } from "./RunCommandParams";
 import type { RunCommandResult } from "./RunCommandResult";
 import type { RunConsensusParams } from "./RunConsensusParams";
 import type { RunIdParams } from "./RunIdParams";
+import type { SaveClaudeAgentParams } from "./SaveClaudeAgentParams";
 import type { SaveLayoutParams } from "./SaveLayoutParams";
 import type { SaveThemeParams } from "./SaveThemeParams";
 import type { SaveThemeResult } from "./SaveThemeResult";
@@ -410,6 +417,8 @@ import type { UpdateSettingsParams } from "./UpdateSettingsParams";
 import type { UpdateTaskParams } from "./UpdateTaskParams";
 import type { UpdateTeamParams } from "./UpdateTeamParams";
 import type { UpdateTemplateParams } from "./UpdateTemplateParams";
+import type { UseClaudeForEverythingParams } from "./UseClaudeForEverythingParams";
+import type { UseClaudeForEverythingResult } from "./UseClaudeForEverythingResult";
 import type { VaultStatusResult } from "./VaultStatusResult";
 import type { VoiceConfigResult } from "./VoiceConfigResult";
 import type { VsCodeConfigPatch } from "./VsCodeConfigPatch";
@@ -733,6 +742,11 @@ export type Methods = {
   "claudeCode.loginInTerminal": [ClaudeLoginParams, ClaudeLoginResult];
   "claudeCode.setBinaryPath": [ClaudeSetBinaryPathParams, ClaudeCodeStatus];
   "claudeCode.transcript": [ClaudeTranscriptParams, ClaudeTranscriptResult];
+  "claudeEngine.status": [ClaudeEngineStatusParams, ClaudeEngineStatus];
+  "claudeEngine.useForEverything": [UseClaudeForEverythingParams, UseClaudeForEverythingResult];
+  "claudeEngine.agents": [ClaudeAgentsParams, ClaudeAgentsResult];
+  "claudeEngine.saveAgent": [SaveClaudeAgentParams, ClaudeAgentFileResult];
+  "claudeEngine.deleteAgent": [DeleteClaudeAgentParams, ClaudeAgentFileResult];
 };
 
 /** All implemented method names. */
@@ -1038,6 +1052,11 @@ export const METHOD_NAMES = [
   "claudeCode.loginInTerminal",
   "claudeCode.setBinaryPath",
   "claudeCode.transcript",
+  "claudeEngine.status",
+  "claudeEngine.useForEverything",
+  "claudeEngine.agents",
+  "claudeEngine.saveAgent",
+  "claudeEngine.deleteAgent",
 ] as const;
 
 /** Wire protocol version (see orkestr-protocol PROTOCOL_VERSION). */

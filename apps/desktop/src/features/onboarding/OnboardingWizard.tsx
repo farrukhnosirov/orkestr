@@ -30,6 +30,7 @@ import { t, useT } from "../../i18n";
 import { describeError } from "../../i18n/errors";
 import { getClient, openProject } from "../../core/client";
 import { useAppStore } from "../../store/app";
+import { ClaudeEngineCard } from "../claudeEngine/ClaudeEngineCard";
 import { ManagerSettings, ProviderSetup } from "../providers";
 import { SystemChecksList } from "../settings/sections/SystemChecksList";
 import { useSettingsStore } from "../settings/settingsStore";
@@ -314,6 +315,7 @@ export function OnboardingWizard() {
           <p className="onb-hint">
             <KeyRound size={14} /> {t("onboarding:providers.hint")}
           </p>
+          <ClaudeEngineCard />
           <ProviderSetup compact />
         </div>
       );

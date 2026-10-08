@@ -605,6 +605,72 @@ pub struct CodingAgentRequest {
     /// Static tool policy.
     #[serde(default)]
     pub tool_policy: CliToolPolicy,
+    /// Claude Code sub-agent to run the session as (`--agent`, plus its
+    /// definition through `--agents` when given).
+    #[serde(default)]
+    pub subagent: Option<CliSubagent>,
+    /// Per-tool permission bridge: when set, the CLI asks Orkestr before every
+    /// tool call it would otherwise prompt for (Claude Code
+    /// `--permission-prompt-tool stdio`), as [`CodingAgentEvent::PermissionRequest`]
+    /// events answered through the bridge's sender.
+    #[serde(skip)]
+    pub permission_bridge: Option<PermissionBridge>,
+}
+
+/// A Claude Code sub-agent definition (`.claude/agents/*.md` or built in).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CliSubagent {
+    /// Agent name (`--agent <name>`).
+    pub name: String,
+    /// Definition for `--agents` (`{description, prompt, tools?, model?}`);
+    /// `None` for agents the CLI already knows (built in).
+    #[serde(default)]
+    pub definition: Option<serde_json::Value>,
+}
+
+/// Answer to a [`CodingAgentEvent::PermissionRequest`].
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CliPermissionReply {
+    /// Request being answered.
+    pub request_id: String,
+    /// Allowed.
+    pub allow: bool,
+    /// Why it was denied (shown to the model as the tool result).
+    #[serde(default)]
+    pub message: Option<String>,
+}
+
+/// Receiving end of the permission answers (held by the adapter for one run).
+#[derive(Clone, Default)]
+pub struct PermissionBridge {
+    rx: std::sync::Arc<parking_lot::Mutex<Option<tokio::sync::mpsc::UnboundedReceiver<CliPermissionReply>>>>,
+}
+
+impl PermissionBridge {
+    /// A bridge and the sender the caller answers with.
+    #[must_use]
+    pub fn new() -> (Self, tokio::sync::mpsc::UnboundedSender<CliPermissionReply>) {
+        let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+        (Self { rx: std::sync::Arc::new(parking_lot::Mutex::new(Some(rx))) }, tx)
+    }
+
+    /// Takes the receiver (once).
+    #[must_use]
+    pub fn take(&self) -> Option<tokio::sync::mpsc::UnboundedReceiver<CliPermissionReply>> {
+        self.rx.lock().take()
+    }
+}
+
+impl std::fmt::Debug for PermissionBridge {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("PermissionBridge")
+    }
+}
+
+impl PartialEq for PermissionBridge {
+    fn eq(&self, other: &Self) -> bool {
+        std::sync::Arc::ptr_eq(&self.rx, &other.rx)
+    }
 }
 
 /// Kind of file change reported by a CLI agent.
@@ -652,6 +718,22 @@ pub enum CodingAgentEvent {
     Session {
         /// Session id.
         session_id: String,
+    },
+    /// The CLI asks whether it may run a tool (only with a
+    /// [`PermissionBridge`]); the run waits until it is answered.
+    PermissionRequest {
+        /// Request id (echo it in the reply).
+        request_id: String,
+        /// Tool name (`Bash`, `Write`, …).
+        tool: String,
+        /// The tool call this permission is for (matches `ToolStarted.call_id`).
+        tool_use_id: Option<String>,
+        /// Tool input.
+        input: serde_json::Value,
+        /// The CLI's description of the action.
+        description: Option<String>,
+        /// Path outside the allowed directories, when that is the reason.
+        blocked_path: Option<String>,
     },
 }
 

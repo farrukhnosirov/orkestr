@@ -21,6 +21,7 @@ pub mod architecture;
 pub mod audit;
 pub mod benchmarks;
 pub mod claude_code;
+pub mod claude_engine;
 pub mod consensus;
 pub mod context;
 pub mod cost;
@@ -456,6 +457,12 @@ pub fn registry() -> Vec<MethodDescriptor> {
         MethodDescriptor::of::<claude_code::LoginInTerminal>(),
         MethodDescriptor::of::<claude_code::SetBinaryPath>(),
         MethodDescriptor::of::<claude_code::Transcript>(),
+        // Claude Code as Orkestr's engine (provider, routing, sub-agents)
+        MethodDescriptor::of::<claude_engine::Status>(),
+        MethodDescriptor::of::<claude_engine::UseForEverything>(),
+        MethodDescriptor::of::<claude_engine::Agents>(),
+        MethodDescriptor::of::<claude_engine::SaveAgent>(),
+        MethodDescriptor::of::<claude_engine::DeleteAgent>(),
     ]
 }
 

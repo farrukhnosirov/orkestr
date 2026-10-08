@@ -346,7 +346,7 @@ export function validateDraft(d: TemplateDraft): string | null {
 }
 
 export function isBuiltin(tpl: AgentTemplate): boolean {
-  return tpl.source === "Builtin" || tpl.source === "Official";
+  return tpl.source === "Builtin" || tpl.source === "Official" || tpl.source === "ClaudeCode";
 }
 
 /**

@@ -229,7 +229,7 @@ impl Inner {
                 m.model
             )));
         }
-        if !info.enabled || info.is_cli_agent() {
+        if !info.enabled || !info.chat_capable() {
             return Err(OrchestratorError::Invalid(format!("model `{}` is disabled or not a chat model", m.model)));
         }
         Ok(())

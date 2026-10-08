@@ -94,7 +94,7 @@ pub(crate) async fn prepare(
     };
     let usable_author = author
         .as_ref()
-        .filter(|a| inner.deps.models.provider(a.provider_id).is_some_and(|i| i.enabled && !i.is_cli_agent()));
+        .filter(|a| inner.deps.models.provider(a.provider_id).is_some_and(|i| i.enabled && i.chat_capable()));
     // Last resort when every other model fails (limit, quota, outage): the
     // author's model with the adversarial prompt, flagged on the review.
     let chain = with_author_last(chain, explicit.is_none().then_some(usable_author).flatten());

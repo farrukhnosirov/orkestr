@@ -142,7 +142,7 @@ pub async fn manager_chain(
             chain.push(m);
         }
     }
-    chain.retain(|m| deps.models.provider(m.provider_id).is_some_and(|i| i.enabled && !i.is_cli_agent()));
+    chain.retain(|m| deps.models.provider(m.provider_id).is_some_and(|i| i.enabled && i.chat_capable()));
     if chain.is_empty() {
         return Err(OrchestratorError::NoModel(
             "no chat model is available for the AI Manager — choose one in Settings → AI Manager or connect a provider (the offline Mock provider also works)"

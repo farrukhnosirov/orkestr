@@ -39,6 +39,7 @@
 //!   turn yields a synthetic assistant message "Not logged in · Please run
 //!   /login" (`error: "authentication_failed"`).
 
+pub mod agents;
 pub mod control;
 pub mod discovery;
 pub mod history;
