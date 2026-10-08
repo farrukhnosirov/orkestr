@@ -64,6 +64,9 @@ pub struct CoreConfig {
     /// this long after start so Settings/onboarding open instantly.
     /// `None` → detect lazily on the first `nodes.info`.
     pub node_info_prefetch_after: Option<Duration>,
+    /// Register the user's Claude Code subscription as a provider in the
+    /// background once the official CLI is found and signed in.
+    pub claude_auto_register: bool,
 }
 
 impl Default for CoreConfig {
@@ -81,6 +84,7 @@ impl Default for CoreConfig {
             autostart: AutostartConfig::default(),
             node_sample_interval: Duration::from_secs(2),
             node_info_prefetch_after: Some(Duration::from_secs(5)),
+            claude_auto_register: true,
         }
     }
 }
@@ -96,7 +100,11 @@ impl CoreConfig {
     /// secret backend so tests never write to the real OS keyring.
     #[must_use]
     pub fn for_tests(dir: impl Into<PathBuf>) -> Self {
-        Self { secret_backend: orkestr_security::SecretBackendChoice::Memory, ..Self::with_data_dir(dir) }
+        Self {
+            secret_backend: orkestr_security::SecretBackendChoice::Memory,
+            claude_auto_register: false,
+            ..Self::with_data_dir(dir)
+        }
     }
 
     /// Validates security-relevant settings.

@@ -245,7 +245,7 @@ fn slug(name: &str) -> String {
 /// Built-in templates are read-only.
 #[must_use]
 pub fn is_read_only(t: &AgentTemplate) -> bool {
-    matches!(t.source, TemplateSource::Builtin | TemplateSource::Official)
+    matches!(t.source, TemplateSource::Builtin | TemplateSource::Official | TemplateSource::ClaudeCode)
 }
 
 /// Template persistence and operations (cheap to clone).
@@ -370,6 +370,36 @@ impl TemplateService {
         self.put(&t).await?;
         tracing::info!(template_id = %t.id, name = %t.name, "agent template created");
         Ok(t)
+    }
+
+    /// Creates or refreshes a template mirrored from a definition that lives
+    /// outside Orkestr (Claude Code sub-agents, `source` = `ClaudeCode`),
+    /// matched by source + name. Unchanged mirrors are not rewritten.
+    pub async fn upsert_mirrored(&self, draft: TemplateDraft, source: TemplateSource) -> AgentResult<AgentTemplate> {
+        let draft = validate_draft(draft)?;
+        let existing = self.list(None, Some(source)).await?.into_iter().find(|t| t.name == draft.name);
+        let t = match existing {
+            Some(e) if draft_of(&e) == draft => return Ok(e),
+            Some(e) => template_from(e.id, draft, source, e.created_at),
+            None => template_from(AgentTemplateId::new(), draft, source, now()),
+        };
+        self.put(&t).await?;
+        Ok(t)
+    }
+
+    /// Removes a mirrored template (its definition file was deleted).
+    pub async fn remove_mirrored(&self, id: AgentTemplateId) -> AgentResult<()> {
+        let existing = self.get(id).await?;
+        if existing.source != TemplateSource::ClaudeCode {
+            return Err(AgentError::Forbidden("only mirrored templates can be removed this way".into()));
+        }
+        self.db
+            .call(move |c| {
+                c.execute("DELETE FROM agent_templates WHERE id = ?1", [id.to_string()])?;
+                Ok(())
+            })
+            .await?;
+        Ok(())
     }
 
     /// Replaces a non-built-in template's fields.

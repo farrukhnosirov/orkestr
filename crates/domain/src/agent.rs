@@ -168,6 +168,9 @@ pub enum TemplateSource {
     Private,
     /// Created locally by the user.
     Custom,
+    /// A Claude Code sub-agent (built in or `.claude/agents/*.md`), run by
+    /// the official CLI with `--agent`.
+    ClaudeCode,
 }
 
 /// Agent template (§6) — all fields from the spec.

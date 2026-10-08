@@ -1571,7 +1571,7 @@ impl MergeManager {
         };
         let usable = |m: &ModelRef| {
             models.provider(m.provider_id).is_some_and(|i| {
-                i.enabled && !i.is_cli_agent() && project.effective_privacy().allows_provider(m.provider_id, i.is_local)
+                i.enabled && i.chat_capable() && project.effective_privacy().allows_provider(m.provider_id, i.is_local)
             })
         };
         let mut chain: Vec<ModelRef> = Vec::new();

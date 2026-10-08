@@ -24,6 +24,7 @@ tracing.workspace = true
 reqwest.workspace = true
 chrono.workspace = true
 parking_lot.workspace = true
+uuid.workspace = true
 
 [dev-dependencies]
 axum.workspace = true

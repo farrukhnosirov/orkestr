@@ -19,13 +19,14 @@ use crate::adapter::ProviderAdapter;
 use crate::catalog::default_models;
 use crate::types::{
     AuthStatus, ChatEvent, ChatRequest, ChatStream, CodingAgentEvent, CodingAgentRequest, CodingAgentStream,
-    CostModelKind, FileChangeKind, HealthReport, Locality, ProviderDescriptor, ProviderError, StopReason, Usage,
+    CostModelKind, FileChangeKind, HealthReport, Locality, ProviderDescriptor, ProviderError, StopReason, ToolChoice,
+    Usage,
 };
 
 /// Auth label shown for an installed CLI.
 pub const SESSION_LABEL: &str = "cli session (managed by Claude Code)";
 /// Tools disabled for chat-style runs (pure text answers).
-const CHAT_DISALLOWED: &str = "Bash,Edit,Write,MultiEdit,NotebookEdit,WebFetch,WebSearch,Read,Glob,Grep,Task,TodoWrite";
+const CHAT_DISALLOWED: &str = "Bash,PowerShell,Edit,Write,MultiEdit,NotebookEdit,WebFetch,WebSearch,Read,Glob,Grep,Task,Agent,TodoWrite,Skill,SlashCommand,ToolSearch,BashOutput,KillShell,ExitPlanMode";
 
 /// Parser for `stream-json` lines (pure; tested with recorded fixtures).
 #[derive(Default)]
@@ -246,6 +247,101 @@ impl ClaudeCodeAdapter {
         (args, prompt)
     }
 
+    /// Argument vector of a coding-agent run with the per-tool permission
+    /// bridge (pure; tested): stream-json in both directions and
+    /// `--permission-prompt-tool stdio`, so every tool call the CLI would
+    /// prompt for in a terminal becomes a `can_use_tool` control request.
+    /// The mode is `default` (never `acceptEdits`): edits are asked too.
+    #[must_use]
+    pub fn bridged_args(req: &CodingAgentRequest, agents_file: Option<&str>) -> Vec<String> {
+        let mut args: Vec<String> = [
+            "--print",
+            "--input-format",
+            "stream-json",
+            "--output-format",
+            "stream-json",
+            "--verbose",
+            "--permission-prompt-tool",
+            "stdio",
+            "--permission-mode",
+            "default",
+        ]
+        .iter()
+        .map(|s| (*s).to_owned())
+        .collect();
+        if let Some(m) = req.model.as_deref().filter(|m| *m != "default" && crate::claude_code_session::manager::is_valid_model(m)) {
+            args.push("--model".into());
+            args.push(m.to_owned());
+        }
+        if let Some(n) = req.max_turns {
+            args.push("--max-turns".into());
+            args.push(n.to_string());
+        }
+        if let Some(s) = req.resume_session.as_deref().filter(|s| crate::claude_code_session::history::is_session_id(s)) {
+            args.push("--resume".into());
+            args.push(s.to_owned());
+        }
+        if !req.tool_policy.allowed_tools.is_empty() {
+            args.push("--allowedTools".into());
+            args.push(req.tool_policy.allowed_tools.join(","));
+        }
+        if !req.tool_policy.disallowed_tools.is_empty() {
+            args.push("--disallowedTools".into());
+            args.push(req.tool_policy.disallowed_tools.join(","));
+        }
+        if let Some(sub) = req.subagent.as_ref().filter(|s| is_valid_agent_name(&s.name)) {
+            if let Some(file) = agents_file {
+                args.push("--agents".into());
+                args.push(file.to_owned());
+            }
+            args.push("--agent".into());
+            args.push(sub.name.clone());
+        }
+        args
+    }
+
+    fn spawn_bridged(
+        &self,
+        req: CodingAgentRequest,
+        cwd: PathBuf,
+        cancel: CancellationToken,
+    ) -> Result<CodingAgentStream, ProviderError> {
+        use futures::StreamExt;
+        let bin =
+            self.binary().ok_or_else(|| ProviderError::Auth("Claude Code CLI (`claude`) is not installed".into()))?;
+        let bridge = req.permission_bridge.clone().ok_or_else(|| ProviderError::BadRequest("no permission bridge".into()))?;
+        let replies = bridge.take().ok_or_else(|| ProviderError::BadRequest("the permission bridge was already used".into()))?;
+        // `--agents` takes a file with `--print`: the definition is written
+        // to a private temp file that lives as long as the run.
+        let agents_file = match req.subagent.as_ref().and_then(|s| s.definition.as_ref().map(|d| (s, d))) {
+            Some((sub, def)) if is_valid_agent_name(&sub.name) => {
+                let dir = std::env::temp_dir().join("orkestr-claude-agents");
+                std::fs::create_dir_all(&dir)
+                    .map_err(|e| ProviderError::Server(format!("creating the agents file: {e}")))?;
+                let path = dir.join(format!("{}.json", uuid::Uuid::now_v7()));
+                let body = serde_json::json!({ sub.name.clone(): def }).to_string();
+                std::fs::write(&path, body).map_err(|e| ProviderError::Server(format!("writing the agents file: {e}")))?;
+                Some(path)
+            }
+            _ => None,
+        };
+        let args = Self::bridged_args(&req, agents_file.as_ref().and_then(|p| p.to_str()));
+        let (_, prompt) = Self::agent_args(&req);
+        let stream = run_bridged(bin, args, cwd, prompt, replies, agents_file, cancel);
+        let verified = Arc::clone(&self.verified);
+        let last_err = Arc::clone(&self.last_auth_error);
+        Ok(stream
+            .inspect(move |ev| match ev {
+                CodingAgentEvent::Chat(ChatEvent::Error(ProviderError::Auth(m))) => *last_err.lock() = Some(m.clone()),
+                CodingAgentEvent::Chat(ChatEvent::Done { .. }) => {
+                    *verified.lock() = true;
+                    *last_err.lock() = None;
+                }
+                _ => {}
+            })
+            .boxed())
+    }
+
     fn spawn(
         &self,
         args: Vec<String>,
@@ -342,11 +438,10 @@ impl ProviderAdapter for ClaudeCodeAdapter {
     }
 
     async fn chat(&self, request: ChatRequest, cancel: CancellationToken) -> Result<ChatStream, ProviderError> {
-        if !request.tools.is_empty() {
-            return Err(ProviderError::Unsupported(
-                "Claude Code runs its own tools; use run_coding_agent for tool loops".into(),
-            ));
-        }
+        // Orkestr's own tools (AI Manager, reviews) are emulated: the CLI
+        // runs with all of its tools disabled, the tool catalogue goes into
+        // the prompt and a `{"tool_calls": […]}` answer becomes tool calls.
+        let tools = !request.tools.is_empty() && request.tool_choice != ToolChoice::None;
         let mut args = Self::base_args(Some(request.model.as_str()));
         args.extend([
             "--max-turns".to_owned(),
@@ -354,9 +449,16 @@ impl ProviderAdapter for ClaudeCodeAdapter {
             "--disallowedTools".to_owned(),
             CHAT_DISALLOWED.to_owned(),
         ]);
-        let prompt = cli::render_prompt(&request);
-        let stream = self.spawn(args, cli::chat_scratch_dir()?, prompt, cancel)?;
-        Ok(cli::chat_only(stream))
+        let mut prompt = cli::render_prompt(&request);
+        if tools {
+            prompt.push_str(&tool_protocol(&request));
+        }
+        let stream = self.spawn(args, cli::chat_scratch_dir()?, prompt, cancel.clone())?;
+        if !tools {
+            return Ok(cli::chat_only(stream));
+        }
+        let names: Vec<String> = request.tools.iter().map(|t| t.name.clone()).collect();
+        Ok(emulate_tool_calls(stream, names, cancel))
     }
 
     async fn run_coding_agent(
@@ -365,9 +467,243 @@ impl ProviderAdapter for ClaudeCodeAdapter {
         cancel: CancellationToken,
     ) -> Result<CodingAgentStream, ProviderError> {
         let cwd = cli::validate_cwd(&request.cwd)?;
+        if request.permission_bridge.is_some() {
+            return self.spawn_bridged(request, cwd, cancel);
+        }
         let (args, prompt) = Self::agent_args(&request);
         self.spawn(args, cwd, prompt, cancel)
     }
+}
+
+/// Whether a Claude agent name is a plain token (`code-reviewer`, `Explore`).
+#[must_use]
+pub fn is_valid_agent_name(name: &str) -> bool {
+    !name.is_empty()
+        && name.len() <= 64
+        && !name.starts_with('-')
+        && name.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.' | ':'))
+}
+
+/// Tool-call instructions appended to a chat prompt (emulated tools).
+fn tool_protocol(req: &ChatRequest) -> String {
+    let mut s = String::from(
+        "\n\n## Tools\nYou cannot run tools yourself. To call one or more of the tools below, answer with ONLY this JSON \
+         object (no prose, no code fences): {\"tool_calls\": [{\"name\": \"<tool>\", \"arguments\": {…}}]}. \
+         The results come back in the next message. When you need no tool, answer normally in plain text.\n",
+    );
+    if let ToolChoice::Required = req.tool_choice {
+        s.push_str("You must call at least one tool now.\n");
+    }
+    if let ToolChoice::Specific(name) = &req.tool_choice {
+        s.push_str(&format!("You must call the tool `{name}` now.\n"));
+    }
+    for t in &req.tools {
+        s.push_str(&format!("- `{}`: {} — arguments schema: {}\n", t.name, t.description.trim(), t.parameters));
+    }
+    s
+}
+
+/// Extracts `{"tool_calls": [{name, arguments}]}` from an answer (pure; tested).
+#[must_use]
+pub fn parse_emulated_tool_calls(text: &str, known: &[String]) -> Option<Vec<(String, Value)>> {
+    let t = text.trim();
+    let t = t.strip_prefix("```json").or_else(|| t.strip_prefix("```")).map_or(t, |r| r.trim_end().trim_end_matches("```"));
+    let candidates = [t.trim().to_owned(), {
+        let (a, b) = (t.find('{'), t.rfind('}'));
+        match (a, b) {
+            (Some(a), Some(b)) if b > a => t[a..=b].to_owned(),
+            _ => String::new(),
+        }
+    }];
+    for c in candidates.iter().filter(|c| !c.is_empty()) {
+        let Ok(v) = serde_json::from_str::<Value>(c) else { continue };
+        let Some(calls) = v.get("tool_calls").and_then(Value::as_array) else { continue };
+        let out: Vec<(String, Value)> = calls
+            .iter()
+            .filter_map(|c| {
+                let name = c.get("name").and_then(Value::as_str)?.to_owned();
+                known.iter().any(|k| *k == name).then_some(())?;
+                let args = match c.get("arguments") {
+                    Some(Value::String(s)) => serde_json::from_str(s).unwrap_or_else(|_| serde_json::json!({"__invalid_json": s})),
+                    Some(v) => v.clone(),
+                    None => serde_json::json!({}),
+                };
+                Some((name, args))
+            })
+            .collect();
+        if !out.is_empty() {
+            return Some(out);
+        }
+    }
+    None
+}
+
+fn emulate_tool_calls(inner: CodingAgentStream, known: Vec<String>, cancel: CancellationToken) -> ChatStream {
+    use futures::StreamExt;
+    crate::http::drive(cancel, move |em: crate::http::Emitter<ChatEvent>| async move {
+        let mut inner = inner;
+        let mut text = String::new();
+        while let Some(ev) = inner.next().await {
+            match ev {
+                CodingAgentEvent::Chat(ChatEvent::TextDelta(t)) => text.push_str(&t),
+                CodingAgentEvent::Chat(ChatEvent::Done { stop_reason }) => {
+                    if let Some(calls) = parse_emulated_tool_calls(&text, &known) {
+                        for (name, arguments) in calls {
+                            let id = format!("cc_{}", uuid::Uuid::now_v7().simple());
+                            em.emit(ChatEvent::ToolCall { id, name, arguments }).await?;
+                        }
+                        em.emit(ChatEvent::Done { stop_reason: StopReason::ToolUse }).await?;
+                    } else {
+                        if !text.is_empty() {
+                            em.emit(ChatEvent::TextDelta(std::mem::take(&mut text))).await?;
+                        }
+                        em.emit(ChatEvent::Done { stop_reason }).await?;
+                    }
+                    return Ok(());
+                }
+                CodingAgentEvent::Chat(other) => em.emit(other).await?,
+                _ => {}
+            }
+        }
+        Ok(())
+    })
+}
+
+async fn write_line(stdin: &mut Option<tokio::process::ChildStdin>, line: &str) {
+    use tokio::io::AsyncWriteExt;
+    let Some(si) = stdin.as_mut() else { return };
+    let ok = si.write_all(line.as_bytes()).await.is_ok() && si.write_all(b"\n").await.is_ok() && si.flush().await.is_ok();
+    if !ok {
+        *stdin = None;
+    }
+}
+
+/// Removes the temporary `--agents` file when the run ends.
+struct TempFile(Option<PathBuf>);
+
+impl Drop for TempFile {
+    fn drop(&mut self) {
+        if let Some(p) = self.0.take() {
+            let _ = std::fs::remove_file(p);
+        }
+    }
+}
+
+/// Runs the CLI with the stdio permission bridge: the prompt goes in as a
+/// stream-json user message, every `can_use_tool` request is surfaced as
+/// [`CodingAgentEvent::PermissionRequest`] and answered with the caller's
+/// reply; stdin is closed after the `result` so the CLI exits.
+fn run_bridged(
+    program: PathBuf,
+    args: Vec<String>,
+    cwd: PathBuf,
+    prompt: String,
+    mut replies: tokio::sync::mpsc::UnboundedReceiver<crate::types::CliPermissionReply>,
+    agents_file: Option<PathBuf>,
+    cancel: CancellationToken,
+) -> CodingAgentStream {
+    use crate::claude_code_session::control;
+    use tokio::io::{AsyncBufReadExt, AsyncReadExt, BufReader};
+    crate::http::drive(cancel, move |em: crate::http::Emitter<CodingAgentEvent>| async move {
+        let _cleanup = TempFile(agents_file);
+        let mut cmd = crate::claude_code_session::manager::sanitized_command(&program, &args);
+        cmd.current_dir(&cwd);
+        let mut child = cmd.spawn().map_err(|e| {
+            if e.kind() == std::io::ErrorKind::NotFound {
+                ProviderError::Auth(format!("`{}` not found — install the official CLI", program.display()))
+            } else {
+                ProviderError::Server(format!("failed to start `{}`: {e}", program.display()))
+            }
+        })?;
+        let mut guard = cli::TreeGuard(child.id());
+        tracing::info!(program = %program.display(), cwd = %cwd.display(), "Claude Code agent started (permission bridge)");
+        let mut stdin = child.stdin.take();
+        write_line(&mut stdin, &control::control_request("orkestr-init-1", control::initialize())).await;
+        write_line(&mut stdin, &control::user_message(&prompt)).await;
+        let stderr_task = child.stderr.take().map(|mut se| {
+            tokio::spawn(async move {
+                let mut buf = Vec::new();
+                let mut chunk = [0u8; 2048];
+                while let Ok(n) = se.read(&mut chunk).await {
+                    if n == 0 {
+                        break;
+                    }
+                    buf.extend_from_slice(&chunk[..n]);
+                    if buf.len() > 8192 {
+                        buf.drain(..buf.len() - 4096);
+                    }
+                }
+                let start = buf.len().saturating_sub(4096);
+                String::from_utf8_lossy(&buf[start..]).into_owned()
+            })
+        });
+        let stdout = child.stdout.take().ok_or_else(|| ProviderError::Server("CLI stdout unavailable".into()))?;
+        let mut lines = BufReader::new(stdout).lines();
+        let mut parser = ClaudeStreamParser::default();
+        loop {
+            let next = tokio::time::timeout(cli::CLI_IDLE_TIMEOUT, lines.next_line())
+                .await
+                .map_err(|_| {
+                    ProviderError::Server(format!("CLI produced no output for {}s", cli::CLI_IDLE_TIMEOUT.as_secs()))
+                })?
+                .map_err(|e| ProviderError::Server(format!("reading CLI output: {e}")))?;
+            let Some(line) = next else { break };
+            let v: Value = serde_json::from_str(&line).unwrap_or(Value::Null);
+            match v.get("type").and_then(Value::as_str) {
+                Some("control_request") => {
+                    let rid = v.get("request_id").and_then(Value::as_str).unwrap_or_default().to_owned();
+                    let req = v.get("request").cloned().unwrap_or(Value::Null);
+                    if req.get("subtype").and_then(Value::as_str) != Some("can_use_tool") {
+                        write_line(&mut stdin, &control::error_response(&rid, "not supported by Orkestr")).await;
+                        continue;
+                    }
+                    let str_of = |k: &str| req.get(k).and_then(Value::as_str).map(str::to_owned);
+                    let input = req.get("input").cloned().unwrap_or(Value::Null);
+                    em.emit(CodingAgentEvent::PermissionRequest {
+                        request_id: rid.clone(),
+                        tool: str_of("tool_name").unwrap_or_default(),
+                        tool_use_id: str_of("tool_use_id"),
+                        input: input.clone(),
+                        description: str_of("description"),
+                        blocked_path: str_of("blocked_path"),
+                    })
+                    .await?;
+                    let reply = loop {
+                        match replies.recv().await {
+                            Some(r) if r.request_id == rid => break Some(r),
+                            Some(_) => {}
+                            None => break None,
+                        }
+                    };
+                    let answer = match reply {
+                        Some(r) if r.allow => control::allow(&rid, &input, None),
+                        Some(r) => control::deny(&rid, r.message.as_deref().unwrap_or("Orkestr denied this action.")),
+                        None => control::deny(&rid, "Orkestr stopped this run."),
+                    };
+                    write_line(&mut stdin, &answer).await;
+                }
+                Some("control_response" | "control_cancel_request" | "stream_event") => {}
+                _ => {
+                    for ev in parser.line(&line) {
+                        em.emit(ev).await?;
+                    }
+                    if parser.terminal {
+                        stdin = None; // EOF: the CLI exits after the turn
+                    }
+                }
+            }
+        }
+        drop(stdin);
+        let status = child.wait().await.map_err(|e| ProviderError::Server(format!("waiting for CLI: {e}")))?;
+        guard.0 = None;
+        let stderr_tail = match stderr_task {
+            Some(t) => t.await.unwrap_or_default(),
+            None => String::new(),
+        };
+        let terminal = parser.finish(status.code(), &stderr_tail);
+        em.emit(terminal).await?;
+        Ok(())
+    })
 }
 
 #[cfg(test)]
@@ -460,6 +796,8 @@ mod tests {
                 disallowed_tools: vec!["Bash".into()],
                 allow_writes: true,
             },
+            subagent: None,
+            permission_bridge: None,
         };
         let (args, prompt) = ClaudeCodeAdapter::agent_args(&req);
         let joined = args.join(" ");

@@ -110,7 +110,7 @@ pub(crate) async fn role_chain(
                 m.model
             )));
         }
-        if info.is_cli_agent() {
+        if !info.chat_capable() {
             return Err(OrchestratorError::Invalid(format!(
                 "model `{}` is a CLI coding agent; reviews need a chat model",
                 m.model
@@ -153,7 +153,7 @@ pub(crate) async fn role_chain(
         }
     }
     chain.retain(|m| {
-        !exclude.contains(m) && deps.models.provider(m.provider_id).is_some_and(|i| i.enabled && !i.is_cli_agent())
+        !exclude.contains(m) && deps.models.provider(m.provider_id).is_some_and(|i| i.enabled && i.chat_capable())
     });
     if chain.is_empty() {
         return Err(OrchestratorError::NoModel(format!(

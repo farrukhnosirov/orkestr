@@ -167,7 +167,7 @@ enum ToolExec {
     Cancelled,
 }
 
-enum ApprovalOutcome {
+pub(crate) enum ApprovalOutcome {
     Approved(Option<String>),
     Rejected(Option<String>),
     Expired,
@@ -455,7 +455,7 @@ impl Run {
         .await;
     }
 
-    fn check_ctx(&self) -> CheckContext {
+    pub(crate) fn check_ctx(&self) -> CheckContext {
         CheckContext {
             project_id: Some(self.agent.project_id),
             agent_id: Some(self.agent.id),
@@ -1010,7 +1010,7 @@ impl Run {
     }
 
     /// Asks the user and waits; the agent (and its task) are `Waiting` meanwhile.
-    async fn await_approval(&mut self, id: ApprovalId, call: &mut ToolCall, activity: String) -> ApprovalOutcome {
+    pub(crate) async fn await_approval(&mut self, id: ApprovalId, call: &mut ToolCall, activity: String) -> ApprovalOutcome {
         call.status = ToolCallStatus::AwaitingApproval;
         call.approval_id = Some(id);
         if let Err(e) = self.store.save_tool_call(call, None, None).await {
@@ -1896,7 +1896,7 @@ pub type CliCalls = HashMap<String, (ToolCall, Instant)>;
 
 /// Tool result of a change refused because the task's checkpoint could not
 /// be taken.
-fn no_checkpoint_message(error: &str) -> String {
+pub(crate) fn no_checkpoint_message(error: &str) -> String {
     format!(
         "could not take the task's checkpoint before this change ({error}); the change was not made so the task stays undoable. Report the problem with submit_result (status blocked) if it persists."
     )

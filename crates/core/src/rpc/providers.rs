@@ -98,7 +98,7 @@ pub fn provider_error_to_rpc(e: &ProviderError) -> RpcError {
     }
 }
 
-fn to_rpc(e: RegistryError) -> RpcError {
+pub(crate) fn to_rpc(e: RegistryError) -> RpcError {
     match e {
         RegistryError::NotFound(m) => RpcError::not_found(m),
         RegistryError::Invalid(m) => RpcError::bad_request(m),

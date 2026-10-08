@@ -56,6 +56,14 @@ impl ProviderInfo {
     pub fn is_cli_agent(&self) -> bool {
         matches!(self.kind, ProviderKind::ClaudeCode | ProviderKind::Codex)
     }
+
+    /// Usable for plain chat calls (AI Manager, plans, reviews, consensus):
+    /// every provider except Codex. Claude Code answers in print mode with
+    /// its own tools disabled; Orkestr's tools are emulated in the prompt.
+    #[must_use]
+    pub fn chat_capable(&self) -> bool {
+        self.kind != ProviderKind::Codex
+    }
 }
 
 /// Model routing + streaming chat with fallback.

@@ -95,6 +95,20 @@ impl Paths {
     }
 }
 
+/// The user's home directory (OS conventions), if known.
+#[must_use]
+pub fn user_home() -> Option<PathBuf> {
+    directories::BaseDirs::new().map(|b| b.home_dir().to_path_buf())
+}
+
+/// Claude Code's user configuration directory: `CLAUDE_CONFIG_DIR` (the
+/// CLI's documented override) or `<home>/.claude`. Orkestr only reads and
+/// writes sub-agent definitions there (`agents/*.md`), never credentials.
+#[must_use]
+pub fn claude_user_dir() -> Option<PathBuf> {
+    std::env::var_os("CLAUDE_CONFIG_DIR").filter(|v| !v.is_empty()).map(PathBuf::from).or_else(|| user_home().map(|h| h.join(".claude")))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

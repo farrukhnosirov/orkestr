@@ -18,6 +18,7 @@ pub mod auth;
 pub mod benchmarks;
 pub mod checks;
 pub mod claude_code;
+pub mod claude_engine;
 pub mod config;
 pub mod discovery;
 pub mod error;
@@ -485,6 +486,9 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
     services.providers.spawn_health_loop(shutdown.clone());
     rpc::lsp::spawn_bridge(services.lsp.clone(), lsp_rx, services.events.clone(), shutdown.clone());
     claude_code::spawn_bridge(Arc::clone(&services), claude_rx);
+    if config.claude_auto_register {
+        claude_engine::spawn_auto_register(Arc::clone(&services));
+    }
     // Architecture Map: debounced incremental refresh after file changes (§21).
     orkestr_insight::arch::spawn_auto_refresh(
         services.architecture.clone(),

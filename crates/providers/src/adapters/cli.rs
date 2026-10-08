@@ -138,7 +138,7 @@ pub trait CliStreamParser: Send + 'static {
 }
 
 /// Kills the process tree when dropped (cancellation / consumer gone).
-struct TreeGuard(Option<u32>);
+pub(crate) struct TreeGuard(pub(crate) Option<u32>);
 
 impl Drop for TreeGuard {
     fn drop(&mut self) {
@@ -257,7 +257,16 @@ pub fn render_prompt(req: &ChatRequest) -> String {
                 Role::Tool => "Tool result",
                 Role::System => "System",
             };
-            out.push_str(&format!("\n{who}: {}\n", m.content));
+            match (&m.role, m.tool_call_id.as_deref()) {
+                (Role::Tool, Some(id)) => {
+                    let err = if m.is_error { " (error)" } else { "" };
+                    out.push_str(&format!("\nTool result for call {id}{err}: {}\n", m.content));
+                }
+                _ => out.push_str(&format!("\n{who}: {}\n", m.content)),
+            }
+            for c in &m.tool_calls {
+                out.push_str(&format!("[Assistant called tool `{}` (call {}) with {}]\n", c.name, c.id, c.arguments));
+            }
         }
         out.push_str("\nReply as the Assistant to the last User message.");
     }
