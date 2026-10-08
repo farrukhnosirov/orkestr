@@ -66,8 +66,7 @@ async fn run_bridge(
     let mut entry = NewAudit::new(sec.user(), "vscode.execute", label.to_owned(), outcome);
     entry.details = json!({ "bridgeMethod": method, "durationMs": duration_ms, "error": error, "params": details });
     sec.audit.record(entry).await;
-    let payload =
-        VsCodeCommandExecutedPayload { command_id: label.to_owned(), ok: result.is_ok(), error, duration_ms };
+    let payload = VsCodeCommandExecutedPayload { command_id: label.to_owned(), ok: result.is_ok(), error, duration_ms };
     if let Err(e) = ctx.services.events.publish(NewEvent::new(EventKind::VsCodeCommandExecuted(payload))).await {
         tracing::debug!(error = %e, "failed to publish VsCodeCommandExecuted");
     }
@@ -77,7 +76,7 @@ async fn run_bridge(
 
 /// Title of `command_id` from the installed manifests (for the danger check).
 async fn command_title(ctx: &RpcContext, command_id: &str) -> String {
-    let list = ctx.services.vscode.catalog(None, None).await;
+    let list = ctx.services.vscode.catalog_with(None, None, false).await;
     list.iter()
         .flat_map(|e| e.commands.iter())
         .find(|c| c.id == command_id)
@@ -93,7 +92,9 @@ pub fn host_to_rpc(e: HostError) -> RpcError {
             BridgeError::NotConnected => {
                 RpcError::conflict(b.to_string()).with_data(json!({ "reason": "bridgeNotConnected" }))
             }
-            BridgeError::Remote(_) => RpcError::bad_request(b.to_string()).with_data(json!({ "reason": "commandFailed" })),
+            BridgeError::Remote(_) => {
+                RpcError::bad_request(b.to_string()).with_data(json!({ "reason": "commandFailed" }))
+            }
             BridgeError::Timeout | BridgeError::Disconnected => {
                 RpcError::internal(b.to_string()).with_data(json!({ "reason": "bridgeUnavailable" }))
             }
@@ -239,7 +240,7 @@ pub fn register(router: &mut RpcRouter) {
             let ext = ctx
                 .services
                 .vscode
-                .catalog(None, Some(&ext_id))
+                .catalog_with(None, Some(&ext_id), false)
                 .await
                 .into_iter()
                 .next()
@@ -258,8 +259,15 @@ pub fn register(router: &mut RpcRouter) {
                 }
             };
             let details = json!({ "extensionId": ext.id });
-            run_bridge(&ctx, &command, "execute", json!({ "command": command, "args": args }), wait_of(p.wait_ms), details)
-                .await
+            run_bridge(
+                &ctx,
+                &command,
+                "execute",
+                json!({ "command": command, "args": args }),
+                wait_of(p.wait_ms),
+                details,
+            )
+            .await
         })
         .method::<m::OpenFile, _, _>(|ctx: RpcContext, p: VsCodeOpenFileParams| async move {
             let path = std::path::Path::new(&p.path);
@@ -267,8 +275,15 @@ pub fn register(router: &mut RpcRouter) {
                 return Err(RpcError::bad_request("the file does not exist (absolute path required)"));
             }
             let params = json!({ "path": p.path, "line": p.line, "column": p.column });
-            run_bridge(&ctx, "openFile", "openFile", params, wait_of(p.wait_ms), json!({ "path": p.path, "line": p.line }))
-                .await
+            run_bridge(
+                &ctx,
+                "openFile",
+                "openFile",
+                params,
+                wait_of(p.wait_ms),
+                json!({ "path": p.path, "line": p.line }),
+            )
+            .await
         })
         .method::<m::Tasks, _, _>(|ctx: RpcContext, p: VsCodeTasksParams| async move {
             let value = ctx

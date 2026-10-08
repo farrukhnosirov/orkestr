@@ -21,9 +21,33 @@ const MAX_COMMANDS: usize = 600;
 
 /// Words that make a command "dangerous" (needs a confirmation in Orkestr).
 const DANGEROUS_WORDS: &[&str] = &[
-    "delete", "remove", "uninstall", "reset", "clear", "discard", "kill", "terminate", "revert", "force", "push",
-    "purge", "wipe", "drop", "destroy", "logout", "log out", "signout", "sign out", "erase", "overwrite", "sendsequence",
-    "runselectedtext", "runactivefile", "unsafe", "dangerously", "bypass",
+    "delete",
+    "remove",
+    "uninstall",
+    "reset",
+    "clear",
+    "discard",
+    "kill",
+    "terminate",
+    "revert",
+    "force",
+    "push",
+    "purge",
+    "wipe",
+    "drop",
+    "destroy",
+    "logout",
+    "log out",
+    "signout",
+    "sign out",
+    "erase",
+    "overwrite",
+    "sendsequence",
+    "runselectedtext",
+    "runactivefile",
+    "unsafe",
+    "dangerously",
+    "bypass",
 ];
 
 /// Whether running `id` (titled `title`) looks destructive.
@@ -205,7 +229,9 @@ pub fn parse_extension(dir: &Path, locale: Option<&str>) -> Option<VsCodeExtensi
         }
     }
     let has_settings = match contributes.get("configuration") {
-        Some(Value::Array(a)) => a.iter().any(|c| c.get("properties").is_some_and(|p| p.as_object().is_some_and(|o| !o.is_empty()))),
+        Some(Value::Array(a)) => {
+            a.iter().any(|c| c.get("properties").is_some_and(|p| p.as_object().is_some_and(|o| !o.is_empty())))
+        }
         Some(c @ Value::Object(_)) => c.get("properties").is_some_and(|p| p.as_object().is_some_and(|o| !o.is_empty())),
         _ => false,
     };
@@ -358,7 +384,11 @@ mod tests {
             "package.json",
             r#"{"publisher":"mechatroner","name":"rainbow-csv","version":"3.0.0"}"#,
         );
-        write(&tmp.path().join("old.gone-1.0.0"), "package.json", r#"{"publisher":"old","name":"gone","version":"1.0.0"}"#);
+        write(
+            &tmp.path().join("old.gone-1.0.0"),
+            "package.json",
+            r#"{"publisher":"old","name":"gone","version":"1.0.0"}"#,
+        );
         write(tmp.path(), ".obsolete", r#"{"old.gone-1.0.0": true}"#);
         // The bridge is hidden.
         write(

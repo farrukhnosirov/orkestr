@@ -934,11 +934,11 @@ impl VsCodeHost {
     /// Whether the bundled bridge version is in the extensions directory.
     #[must_use]
     pub fn bridge_installed(&self) -> bool {
-        let dir = self
-            .inner
-            .layout
-            .extensions_dir()
-            .join(format!("{}-{}", bridge::BRIDGE_EXTENSION_ID, bridge::BRIDGE_VERSION));
+        let dir = self.inner.layout.extensions_dir().join(format!(
+            "{}-{}",
+            bridge::BRIDGE_EXTENSION_ID,
+            bridge::BRIDGE_VERSION
+        ));
         dir.join("package.json").is_file() && dir.join("extension.js").is_file()
     }
 
@@ -971,7 +971,13 @@ impl VsCodeHost {
     ///
     /// # Errors
     /// Not connected (after the wait), timeout, or the extension's error.
-    pub async fn bridge_call(&self, method: &str, params: Value, wait: Duration, timeout: Duration) -> HostResult<Value> {
+    pub async fn bridge_call(
+        &self,
+        method: &str,
+        params: Value,
+        wait: Duration,
+        timeout: Duration,
+    ) -> HostResult<Value> {
         let bridge = &self.inner.bridge;
         if !bridge.is_connected() && !(wait > Duration::ZERO && bridge.wait_connected(wait).await) {
             return Err(BridgeError::NotConnected.into());
@@ -983,12 +989,23 @@ impl VsCodeHost {
     /// Installed extensions with their commands (manifests on disk; plus
     /// runtime-only commands when a window is connected).
     pub async fn catalog(&self, locale: Option<&str>, only: Option<&str>) -> Vec<VsCodeExtensionCommands> {
+        self.catalog_with(locale, only, true).await
+    }
+
+    /// Like [`VsCodeHost::catalog`]; `runtime: false` reads the manifests only
+    /// (no bridge round trip).
+    pub async fn catalog_with(
+        &self,
+        locale: Option<&str>,
+        only: Option<&str>,
+        runtime: bool,
+    ) -> Vec<VsCodeExtensionCommands> {
         let dir = self.inner.layout.extensions_dir();
         let locale = locale.map(str::to_owned);
         let mut list = tokio::task::spawn_blocking(move || crate::catalog::scan(&dir, locale.as_deref()))
             .await
             .unwrap_or_default();
-        if self.inner.bridge.is_connected() {
+        if runtime && self.inner.bridge.is_connected() {
             if let Ok(Value::Array(ids)) =
                 self.inner.bridge.call("listCommands", Value::Null, Duration::from_secs(5)).await
             {

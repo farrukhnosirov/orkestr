@@ -506,7 +506,10 @@ mod tests {
         // The packaged version matches the constant.
         let pkg: Value = serde_json::from_str(PACKAGE_JSON).unwrap();
         assert_eq!(pkg["version"], BRIDGE_VERSION);
-        assert_eq!(format!("{}.{}", pkg["publisher"].as_str().unwrap(), pkg["name"].as_str().unwrap()), BRIDGE_EXTENSION_ID);
+        assert_eq!(
+            format!("{}.{}", pkg["publisher"].as_str().unwrap(), pkg["name"].as_str().unwrap()),
+            BRIDGE_EXTENSION_ID
+        );
     }
 
     #[test]
