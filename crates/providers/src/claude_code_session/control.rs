@@ -13,13 +13,40 @@ use serde_json::{json, Value};
 /// A user turn.
 #[must_use]
 pub fn user_message(text: &str) -> String {
+    user_message_with_images(text, &[])
+}
+
+/// A user turn with images (`(media_type, base64)`) before the text — the
+/// Messages API content-block format the CLI accepts on stdin (verified with
+/// 2.1.292: the model sees the image).
+#[must_use]
+pub fn user_message_with_images(text: &str, images: &[(String, String)]) -> String {
+    let mut content: Vec<Value> = images
+        .iter()
+        .map(|(media_type, data)| {
+            json!({"type": "image", "source": {"type": "base64", "media_type": media_type, "data": data}})
+        })
+        .collect();
+    content.push(json!({"type": "text", "text": text}));
     json!({
         "type": "user",
-        "message": {"role": "user", "content": [{"type": "text", "text": text}]},
+        "message": {"role": "user", "content": content},
         "parent_tool_use_id": null,
         "session_id": "",
     })
     .to_string()
+}
+
+/// `set_max_thinking_tokens` (`0` = extended thinking off).
+#[must_use]
+pub fn set_max_thinking_tokens(tokens: u32) -> Value {
+    json!({"subtype": "set_max_thinking_tokens", "max_thinking_tokens": tokens})
+}
+
+/// A read-only query: `get_usage`, `get_context_usage` or `mcp_status`.
+#[must_use]
+pub fn query(subtype: &str) -> Value {
+    json!({"subtype": subtype})
 }
 
 /// A control request from Orkestr.

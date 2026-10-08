@@ -233,10 +233,10 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: var(--ok-space-3);
+  padding: var(--ok-space-4) clamp(var(--ok-space-3), 4%, var(--ok-space-10));
   display: flex;
   flex-direction: column;
-  gap: var(--ok-space-2);
+  gap: var(--ok-space-3);
 }
 
 .cc-empty-chat {
@@ -245,29 +245,101 @@
 }
 
 .cc-msg {
+  position: relative;
   line-height: var(--ok-line-height);
   overflow-wrap: anywhere;
 }
 
 .cc-msg--user {
   display: flex;
-  gap: var(--ok-space-2);
+  flex-direction: column;
+  align-items: flex-end;
   align-self: flex-end;
-  max-width: 92%;
+  max-width: min(78%, 760px);
+}
+
+.cc-msg__bubble {
   padding: var(--ok-space-2) var(--ok-space-3);
-  border-radius: var(--ok-radius-md);
-  background: var(--ok-color-accent-soft);
   border: 1px solid var(--ok-color-border-accent);
+  border-radius: var(--ok-radius-lg) var(--ok-radius-lg) var(--ok-radius-xs) var(--ok-radius-lg);
+  background: var(--ok-color-accent-soft);
+  box-shadow: var(--ok-shadow-sm);
+}
+
+.cc-msg__who {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 2px;
+  color: var(--ok-color-text-subtle);
+  font-size: var(--ok-font-size-xs);
+  font-weight: var(--ok-font-weight-semibold);
 }
 
 .cc-msg__icon {
   flex: none;
-  margin-top: 3px;
   color: var(--ok-color-text-subtle);
 }
 
 .cc-msg__text {
   white-space: pre-wrap;
+}
+
+.cc-msg--assistant {
+  display: flex;
+  gap: var(--ok-space-2);
+  max-width: min(100%, 920px);
+}
+
+.cc-msg__avatar {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin-top: 2px;
+  border-radius: 50%;
+  background: var(--ok-gradient-accent-soft);
+  color: var(--ok-color-accent);
+  box-shadow: var(--ok-glow-accent);
+}
+
+.cc-msg__body {
+  min-width: 0;
+  flex: 1;
+}
+
+.cc-msg__actions {
+  display: flex;
+  gap: 2px;
+  margin-top: 2px;
+  opacity: 0;
+  transition: opacity var(--ok-duration-fast) var(--ok-ease);
+}
+
+.cc-msg:hover .cc-msg__actions,
+.cc-msg:focus-within .cc-msg__actions {
+  opacity: 1;
+}
+
+.cc-msg__action {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--ok-radius-sm);
+  background: none;
+  color: var(--ok-color-text-subtle);
+  cursor: pointer;
+}
+
+.cc-msg__action:hover,
+.cc-msg__action:focus-visible {
+  outline: none;
+  background: var(--ok-color-surface-hover);
+  color: var(--ok-color-text);
 }
 
 .cc-msg--assistant .ext-md > :first-child {

@@ -463,6 +463,13 @@ pub fn registry() -> Vec<MethodDescriptor> {
         MethodDescriptor::of::<claude_engine::Agents>(),
         MethodDescriptor::of::<claude_engine::SaveAgent>(),
         MethodDescriptor::of::<claude_engine::DeleteAgent>(),
+        MethodDescriptor::of::<claude_code::Capabilities>(),
+        MethodDescriptor::of::<claude_code::Usage>(),
+        MethodDescriptor::of::<claude_code::ContextUsage>(),
+        MethodDescriptor::of::<claude_code::McpStatus>(),
+        MethodDescriptor::of::<claude_code::SetThinking>(),
+        MethodDescriptor::of::<claude_code::SetChatMeta>(),
+        MethodDescriptor::of::<claude_code::OpenInTerminal>(),
     ]
 }
 

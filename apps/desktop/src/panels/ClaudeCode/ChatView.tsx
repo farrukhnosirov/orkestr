@@ -8,8 +8,8 @@
 import type { ClaudePermissionDecision, ClaudeRisk } from "@orkestr/protocol";
 import { Button, Spinner } from "@orkestr/ui";
 import clsx from "clsx";
-import { AlertTriangle, CircleStop, FileDiff, LogIn, Terminal as TerminalIcon, User } from "lucide-react";
-import { type ReactNode, useEffect, useLayoutEffect, useRef } from "react";
+import { AlertTriangle, Check, CircleStop, Copy, FileDiff, LogIn, Pencil, Sparkle, Terminal as TerminalIcon, User } from "lucide-react";
+import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { useFormat, useT } from "../../i18n";
 import { SafeMarkdown } from "../../features/extensions/markdown";
@@ -25,6 +25,34 @@ export interface ChatViewProps {
   onRespond: (requestId: string, decision: ClaudePermissionDecision, message?: string) => void;
   onLogin: () => void;
   empty?: ReactNode;
+  /** Puts a sent message back into the composer (edit & resend). */
+  onEdit?: (text: string) => void;
+}
+
+function MessageActions({ text, onEdit }: { text: string; onEdit?: (text: string) => void }) {
+  const { t } = useT("claudeCodePanel");
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      setCopied(false);
+    }
+  };
+  return (
+    <div className="cc-msg__actions">
+      <button type="button" className="cc-msg__action" aria-label={copied ? t("message.copied") : t("message.copy")} title={t("message.copy")} onClick={() => void copy()}>
+        {copied ? <Check size={12} /> : <Copy size={12} />}
+      </button>
+      {onEdit && (
+        <button type="button" className="cc-msg__action" aria-label={t("message.edit")} title={t("message.edit")} onClick={() => onEdit(text)}>
+          <Pencil size={12} />
+        </button>
+      )}
+    </div>
+  );
 }
 
 function ResultFooter({ item, root, cwd }: { item: ResultItem; root: string | null; cwd: string | null }) {
@@ -71,8 +99,9 @@ function ResultFooter({ item, root, cwd }: { item: ResultItem; root: string | nu
   );
 }
 
-export function ChatView({ chat, root, cwd, onRespond, onLogin, empty }: ChatViewProps) {
+export function ChatView({ chat, root, cwd, onRespond, onLogin, empty, onEdit }: ChatViewProps) {
   const { t } = useT("claudeCode");
+  const { t: tp } = useT("claudeCodePanel");
   const modeLabel = (mode: string): string => {
     switch (mode) {
       case "default":
@@ -114,15 +143,27 @@ export function ChatView({ chat, root, cwd, onRespond, onLogin, empty }: ChatVie
         case "user":
           return (
             <div key={it.id} className="cc-msg cc-msg--user">
-              <User size={14} className="cc-msg__icon" aria-hidden="true" />
-              <div className="cc-msg__text">{it.text}</div>
+              <div className="cc-msg__bubble">
+                <div className="cc-msg__who">
+                  <User size={12} className="cc-msg__icon" aria-hidden="true" />
+                  {tp("message.you")}
+                </div>
+                <div className="cc-msg__text">{it.text}</div>
+              </div>
+              <MessageActions text={it.text} onEdit={onEdit} />
             </div>
           );
         case "assistant":
           return (
             <div key={it.id} className={clsx("cc-msg cc-msg--assistant", it.synthetic && "cc-msg--synthetic")}>
-              <SafeMarkdown source={it.text} />
-              {it.streaming && <span className="cc-caret" aria-hidden="true" />}
+              <div className="cc-msg__avatar" aria-hidden="true">
+                <Sparkle size={13} />
+              </div>
+              <div className="cc-msg__body">
+                <SafeMarkdown source={it.text} />
+                {it.streaming && <span className="cc-caret" aria-hidden="true" />}
+                {!it.streaming && !it.synthetic && it.text.trim() && <MessageActions text={it.text} />}
+              </div>
             </div>
           );
         case "tool":

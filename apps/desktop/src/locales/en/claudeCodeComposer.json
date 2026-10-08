@@ -31,7 +31,13 @@
       "cost": "Show the cost and duration of the session",
       "review": "Review the code changes",
       "model": "Switch the model"
-    }
+    },
+    "attachImage": "Attach an image (or paste one)",
+    "removeImage": "Remove image {{name}}",
+    "images": "Attached images",
+    "imageType": "Only PNG, JPEG, GIF and WebP images can be attached.",
+    "imageTooLarge": "The image is larger than 5 MB.",
+    "tooManyImages": "At most {{count}} images per message."
   },
   "permission": {
     "title": "Claude wants to use {{tool}}",

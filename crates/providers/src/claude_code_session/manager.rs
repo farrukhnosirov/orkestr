@@ -43,6 +43,56 @@ pub const MAX_MESSAGE_CHARS: usize = 200_000;
 pub const CONTROL_TIMEOUT: Duration = Duration::from_secs(20);
 const STDERR_TAIL: usize = 4096;
 
+/// Thinking budget used when extended thinking is turned on.
+pub const THINKING_BUDGET: u32 = 31_999;
+/// Most images per message.
+pub const MAX_IMAGES: usize = 10;
+/// Largest image (base64 characters, about 5 MB decoded).
+pub const MAX_IMAGE_B64: usize = 7_000_000;
+const IMAGE_TYPES: &[&str] = &["image/png", "image/jpeg", "image/gif", "image/webp"];
+
+/// Read-only control queries the panel may send.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Query {
+    /// `get_usage` — plan limits.
+    Usage,
+    /// `get_context_usage` — context window breakdown.
+    Context,
+    /// `mcp_status` — MCP servers.
+    Mcp,
+}
+
+impl Query {
+    /// The control request subtype.
+    #[must_use]
+    pub fn subtype(self) -> &'static str {
+        match self {
+            Self::Usage => "get_usage",
+            Self::Context => "get_context_usage",
+            Self::Mcp => "mcp_status",
+        }
+    }
+}
+
+/// Validates message images (count, type, size, base64 alphabet).
+pub fn check_images(images: &[(String, String)]) -> Result<(), SessionError> {
+    if images.len() > MAX_IMAGES {
+        return Err(SessionError::BadRequest(format!("at most {MAX_IMAGES} images per message")));
+    }
+    for (media_type, data) in images {
+        if !IMAGE_TYPES.contains(&media_type.as_str()) {
+            return Err(SessionError::BadRequest(format!("unsupported image type `{media_type}`")));
+        }
+        if data.is_empty() || data.len() > MAX_IMAGE_B64 {
+            return Err(SessionError::BadRequest("the image is empty or larger than 5 MB".into()));
+        }
+        if !data.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'+' | b'/' | b'=')) {
+            return Err(SessionError::BadRequest("the image data is not base64".into()));
+        }
+    }
+    Ok(())
+}
+
 /// Environment variables passed to the CLI (everything else is withheld).
 const EXTRA_ENV: &[&str] = &["CLAUDE_CODE_GIT_BASH_PATH", "NO_COLOR", "FORCE_COLOR"];
 
@@ -143,6 +193,10 @@ pub struct LaunchSpec {
     pub allow_bypass: bool,
     /// Conversation to resume.
     pub resume: Option<String>,
+    /// Extra folders (`--add-dir`), already confined by the caller.
+    pub add_dirs: Vec<PathBuf>,
+    /// Fallback model (`--fallback-model`).
+    pub fallback_model: Option<String>,
     /// Emergency-stop token of the project.
     pub stop: Option<CancellationToken>,
 }
@@ -186,9 +240,21 @@ impl LaunchSpec {
         if self.allow_bypass {
             a.push("--allow-dangerously-skip-permissions".into());
         }
+        for d in &self.add_dirs {
+            a.push("--add-dir".into());
+            a.push(d.display().to_string());
+        }
         if let Some(m) = self.model.as_deref().filter(|m| *m != "default" && is_valid_model(m)) {
             a.push("--model".into());
             a.push(m.to_owned());
+        }
+        if let Some(f) = self
+            .fallback_model
+            .as_deref()
+            .filter(|f| *f != "default" && is_valid_model(f) && Some(*f) != self.model.as_deref())
+        {
+            a.push("--fallback-model".into());
+            a.push(f.to_owned());
         }
         if let Some(r) = self.resume.as_deref().filter(|r| super::history::is_session_id(r)) {
             a.push("--resume".into());
@@ -246,6 +312,8 @@ struct Session {
     ctrl: Mutex<HashMap<String, oneshot::Sender<Result<Value, String>>>>,
     next_req: AtomicU64,
     stop: CancellationToken,
+    /// Last capabilities (models / commands / account), for UIs that re-attach.
+    caps: Mutex<Option<ClaudeCodeEvent>>,
 }
 
 impl Session {
@@ -397,6 +465,7 @@ impl ClaudeSessionManager {
             ctrl: Mutex::default(),
             next_req: AtomicU64::new(0),
             stop,
+            caps: Mutex::new(None),
         });
         spawn_proc(&self.inner, &session, 1)?;
         self.inner.sessions.lock().insert(id, Arc::clone(&session));
@@ -406,7 +475,18 @@ impl ClaudeSessionManager {
 
     /// Sends a user message.
     pub async fn send(&self, id: ClaudeSessionId, text: &str) -> SessionResult<ClaudeSessionInfo> {
+        self.send_with_images(id, text, &[]).await
+    }
+
+    /// Sends a user message with images (`(media_type, base64)`).
+    pub async fn send_with_images(
+        &self,
+        id: ClaudeSessionId,
+        text: &str,
+        images: &[(String, String)],
+    ) -> SessionResult<ClaudeSessionInfo> {
         let s = self.session(id)?;
+        check_images(images)?;
         if text.trim().is_empty() {
             return Err(SessionError::BadRequest("the message is empty".into()));
         }
@@ -416,7 +496,7 @@ impl ClaudeSessionManager {
         if s.info.lock().state.is_final() {
             return Err(SessionError::Conflict("this Claude Code session has ended; start a new one".into()));
         }
-        s.write(control::user_message(text))?;
+        s.write(control::user_message_with_images(text, images))?;
         let info = {
             let mut info = s.info.lock();
             if info.title.is_none() {
@@ -449,6 +529,29 @@ impl ClaudeSessionManager {
                 Err(SessionError::Timeout(kind.to_owned()))
             }
         }
+    }
+
+    /// A read-only query answered by the session's process (no model tokens).
+    pub async fn query(&self, id: ClaudeSessionId, query: Query) -> SessionResult<Value> {
+        let s = self.session(id)?;
+        if s.info.lock().state.is_final() {
+            return Err(SessionError::Conflict("this Claude Code session has ended".into()));
+        }
+        self.control(&s, query.subtype(), control::query(query.subtype())).await
+    }
+
+    /// The session's last capabilities event (models, commands, account), if known.
+    pub fn capabilities(&self, id: ClaudeSessionId) -> SessionResult<Option<ClaudeCodeEvent>> {
+        Ok(self.session(id)?.caps.lock().clone())
+    }
+
+    /// Turns extended thinking on (the CLI's default budget) or off.
+    pub async fn set_thinking(&self, id: ClaudeSessionId, enabled: bool) -> SessionResult<ClaudeSessionInfo> {
+        let s = self.session(id)?;
+        let tokens = if enabled { THINKING_BUDGET } else { 0 };
+        self.control(&s, "thinking", control::set_max_thinking_tokens(tokens)).await?;
+        let info = s.info.lock().clone();
+        Ok(info)
     }
 
     /// Interrupts the current turn (pending permission requests are denied first).
@@ -767,7 +870,9 @@ fn spawn_proc(inner: &Arc<Inner>, s: &Arc<Session>, generation: u64) -> SessionR
         let (inner, s) = (Arc::clone(inner), Arc::clone(s));
         tokio::spawn(async move {
             if let Ok(Ok(Ok(resp))) = tokio::time::timeout(Duration::from_secs(60), irx).await {
-                emit_item(&inner, &s, capabilities(&resp)).await;
+                let caps = capabilities(&resp);
+                *s.caps.lock() = Some(caps.clone());
+                emit_item(&inner, &s, caps).await;
                 {
                     let mut info = s.info.lock();
                     if info.state == ClaudeSessionState::Starting {
@@ -847,6 +952,11 @@ fn spawn_proc(inner: &Arc<Inner>, s: &Arc<Session>, generation: u64) -> SessionR
 async fn handle(inner: &Arc<Inner>, s: &Arc<Session>, item: Inbound) {
     match item {
         Inbound::Event(event) => {
+            if let ClaudeCodeEvent::CommandsChanged { commands } = &event {
+                if let Some(ClaudeCodeEvent::Capabilities { commands: cached, .. }) = s.caps.lock().as_mut() {
+                    cached.clone_from(commands);
+                }
+            }
             let mut status_changed = false;
             {
                 let mut info = s.info.lock();
@@ -986,8 +1096,36 @@ mod tests {
             mode: ClaudePermissionMode::AcceptEdits,
             allow_bypass: false,
             resume: Some("06a417de-ea3e-4314-9648-2072200e551d".into()),
+            add_dirs: Vec::new(),
+            fallback_model: None,
             stop: None,
         }
+    }
+
+    #[test]
+    fn add_dirs_and_fallback_model() {
+        let mut s = spec();
+        s.add_dirs = vec![PathBuf::from("/work/lib")];
+        s.fallback_model = Some("sonnet".into());
+        let a = s.args().join(" ");
+        assert!(a.contains("--add-dir /work/lib"));
+        assert!(a.contains("--fallback-model sonnet"));
+        s.fallback_model = Some("opus".into()); // same as the main model: dropped
+        assert!(!s.args().join(" ").contains("--fallback-model"));
+    }
+
+    #[test]
+    fn images_are_validated() {
+        let ok = vec![("image/png".to_owned(), "iVBORw0KGgo=".to_owned())];
+        assert!(check_images(&ok).is_ok());
+        assert!(check_images(&[("text/html".into(), "AAAA".into())]).is_err());
+        assert!(check_images(&[("image/png".into(), "not base64!".into())]).is_err());
+        assert!(check_images(&vec![ok[0].clone(); MAX_IMAGES + 1]).is_err());
+        let line = control::user_message_with_images("what is it?", &ok);
+        let v: Value = serde_json::from_str(&line).unwrap();
+        assert_eq!(v["message"]["content"][0]["type"], "image");
+        assert_eq!(v["message"]["content"][0]["source"]["media_type"], "image/png");
+        assert_eq!(v["message"]["content"][1]["text"], "what is it?");
     }
 
     #[test]

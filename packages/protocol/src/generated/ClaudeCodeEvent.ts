@@ -218,4 +218,8 @@ authRequired: boolean, } | { "type": "interrupted" } | { "type": "exited",
 /**
  * Exit code.
  */
-code: number | null, };
+code: number | null, } | { "type": "commandsChanged", 
+/**
+ * Slash commands.
+ */
+commands: Array<ClaudeSlashCommand>, };

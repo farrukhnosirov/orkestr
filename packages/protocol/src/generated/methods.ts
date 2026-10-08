@@ -42,8 +42,15 @@ import type { ClaudeAgentsResult } from "./ClaudeAgentsResult";
 import type { ClaudeCodeStatus } from "./ClaudeCodeStatus";
 import type { ClaudeEngineStatus } from "./ClaudeEngineStatus";
 import type { ClaudeEngineStatusParams } from "./ClaudeEngineStatusParams";
+import type { ClaudeCapabilitiesResult } from "./ClaudeCapabilitiesResult";
+import type { ClaudeChatMeta } from "./ClaudeChatMeta";
+import type { ClaudeCodeStatus } from "./ClaudeCodeStatus";
+import type { ClaudeContextUsage } from "./ClaudeContextUsage";
 import type { ClaudeLoginParams } from "./ClaudeLoginParams";
 import type { ClaudeLoginResult } from "./ClaudeLoginResult";
+import type { ClaudeMcpStatusResult } from "./ClaudeMcpStatusResult";
+import type { ClaudeOpenInTerminalParams } from "./ClaudeOpenInTerminalParams";
+import type { ClaudePlanUsage } from "./ClaudePlanUsage";
 import type { ClaudeRespondPermissionParams } from "./ClaudeRespondPermissionParams";
 import type { ClaudeSendParams } from "./ClaudeSendParams";
 import type { ClaudeSessionInfo } from "./ClaudeSessionInfo";
@@ -51,13 +58,16 @@ import type { ClaudeSessionParams } from "./ClaudeSessionParams";
 import type { ClaudeSessionsParams } from "./ClaudeSessionsParams";
 import type { ClaudeSessionsResult } from "./ClaudeSessionsResult";
 import type { ClaudeSetBinaryPathParams } from "./ClaudeSetBinaryPathParams";
+import type { ClaudeSetChatMetaParams } from "./ClaudeSetChatMetaParams";
 import type { ClaudeSetModeParams } from "./ClaudeSetModeParams";
 import type { ClaudeSetModelParams } from "./ClaudeSetModelParams";
+import type { ClaudeSetThinkingParams } from "./ClaudeSetThinkingParams";
 import type { ClaudeStartParams } from "./ClaudeStartParams";
 import type { ClaudeStartResult } from "./ClaudeStartResult";
 import type { ClaudeStatusParams } from "./ClaudeStatusParams";
 import type { ClaudeTranscriptParams } from "./ClaudeTranscriptParams";
 import type { ClaudeTranscriptResult } from "./ClaudeTranscriptResult";
+import type { ClaudeUsageParams } from "./ClaudeUsageParams";
 import type { CloneParams } from "./CloneParams";
 import type { CloneResult } from "./CloneResult";
 import type { CommitParams } from "./CommitParams";
@@ -747,6 +757,13 @@ export type Methods = {
   "claudeEngine.agents": [ClaudeAgentsParams, ClaudeAgentsResult];
   "claudeEngine.saveAgent": [SaveClaudeAgentParams, ClaudeAgentFileResult];
   "claudeEngine.deleteAgent": [DeleteClaudeAgentParams, ClaudeAgentFileResult];
+  "claudeCode.capabilities": [ClaudeSessionParams, ClaudeCapabilitiesResult];
+  "claudeCode.usage": [ClaudeUsageParams, ClaudePlanUsage];
+  "claudeCode.contextUsage": [ClaudeSessionParams, ClaudeContextUsage];
+  "claudeCode.mcpStatus": [ClaudeSessionParams, ClaudeMcpStatusResult];
+  "claudeCode.setThinking": [ClaudeSetThinkingParams, ClaudeSessionInfo];
+  "claudeCode.setChatMeta": [ClaudeSetChatMetaParams, ClaudeChatMeta];
+  "claudeCode.openInTerminal": [ClaudeOpenInTerminalParams, ClaudeLoginResult];
 };
 
 /** All implemented method names. */
@@ -1057,6 +1074,13 @@ export const METHOD_NAMES = [
   "claudeEngine.agents",
   "claudeEngine.saveAgent",
   "claudeEngine.deleteAgent",
+  "claudeCode.capabilities",
+  "claudeCode.usage",
+  "claudeCode.contextUsage",
+  "claudeCode.mcpStatus",
+  "claudeCode.setThinking",
+  "claudeCode.setChatMeta",
+  "claudeCode.openInTerminal",
 ] as const;
 
 /** Wire protocol version (see orkestr-protocol PROTOCOL_VERSION). */

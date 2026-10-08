@@ -29,4 +29,12 @@ confirmBypass?: boolean,
 /**
  * Conversation to resume (`claudeSessionId` from `claudeCode.sessions`).
  */
-resume?: string, };
+resume?: string, 
+/**
+ * Extra folders Claude may read and edit (`--add-dir`; inside the project or its worktrees).
+ */
+addDirs?: Array<string>, 
+/**
+ * Model used when the main one is overloaded (`--fallback-model`).
+ */
+fallbackModel?: string, };
