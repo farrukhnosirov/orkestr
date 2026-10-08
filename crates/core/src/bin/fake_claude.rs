@@ -230,7 +230,9 @@ fn main() {
         // first time and a plain answer once a tool result is in it.
         let mut prompt = String::new();
         let _ = std::io::Read::read_to_string(&mut std::io::stdin(), &mut prompt);
-        out(&json!({"type": "system", "subtype": "init", "session_id": SESSION, "model": "claude-fake-1", "tools": []}));
+        out(
+            &json!({"type": "system", "subtype": "init", "session_id": SESSION, "model": "claude-fake-1", "tools": []}),
+        );
         let answer = if prompt.contains("\"tool_calls\"") && !prompt.contains("Tool result for call") {
             r#"{"tool_calls": [{"name": "list_tasks", "arguments": {}}]}"#.to_owned()
         } else {

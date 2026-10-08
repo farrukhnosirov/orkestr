@@ -269,7 +269,9 @@ impl ClaudeCodeAdapter {
         .iter()
         .map(|s| (*s).to_owned())
         .collect();
-        if let Some(m) = req.model.as_deref().filter(|m| *m != "default" && crate::claude_code_session::manager::is_valid_model(m)) {
+        if let Some(m) =
+            req.model.as_deref().filter(|m| *m != "default" && crate::claude_code_session::manager::is_valid_model(m))
+        {
             args.push("--model".into());
             args.push(m.to_owned());
         }
@@ -277,7 +279,8 @@ impl ClaudeCodeAdapter {
             args.push("--max-turns".into());
             args.push(n.to_string());
         }
-        if let Some(s) = req.resume_session.as_deref().filter(|s| crate::claude_code_session::history::is_session_id(s)) {
+        if let Some(s) = req.resume_session.as_deref().filter(|s| crate::claude_code_session::history::is_session_id(s))
+        {
             args.push("--resume".into());
             args.push(s.to_owned());
         }
@@ -309,8 +312,10 @@ impl ClaudeCodeAdapter {
         use futures::StreamExt;
         let bin =
             self.binary().ok_or_else(|| ProviderError::Auth("Claude Code CLI (`claude`) is not installed".into()))?;
-        let bridge = req.permission_bridge.clone().ok_or_else(|| ProviderError::BadRequest("no permission bridge".into()))?;
-        let replies = bridge.take().ok_or_else(|| ProviderError::BadRequest("the permission bridge was already used".into()))?;
+        let bridge =
+            req.permission_bridge.clone().ok_or_else(|| ProviderError::BadRequest("no permission bridge".into()))?;
+        let replies =
+            bridge.take().ok_or_else(|| ProviderError::BadRequest("the permission bridge was already used".into()))?;
         // `--agents` takes a file with `--print`: the definition is written
         // to a private temp file that lives as long as the run.
         let agents_file = match req.subagent.as_ref().and_then(|s| s.definition.as_ref().map(|d| (s, d))) {
@@ -320,7 +325,8 @@ impl ClaudeCodeAdapter {
                     .map_err(|e| ProviderError::Server(format!("creating the agents file: {e}")))?;
                 let path = dir.join(format!("{}.json", uuid::Uuid::now_v7()));
                 let body = serde_json::json!({ sub.name.clone(): def }).to_string();
-                std::fs::write(&path, body).map_err(|e| ProviderError::Server(format!("writing the agents file: {e}")))?;
+                std::fs::write(&path, body)
+                    .map_err(|e| ProviderError::Server(format!("writing the agents file: {e}")))?;
                 Some(path)
             }
             _ => None,
@@ -507,7 +513,8 @@ fn tool_protocol(req: &ChatRequest) -> String {
 #[must_use]
 pub fn parse_emulated_tool_calls(text: &str, known: &[String]) -> Option<Vec<(String, Value)>> {
     let t = text.trim();
-    let t = t.strip_prefix("```json").or_else(|| t.strip_prefix("```")).map_or(t, |r| r.trim_end().trim_end_matches("```"));
+    let t =
+        t.strip_prefix("```json").or_else(|| t.strip_prefix("```")).map_or(t, |r| r.trim_end().trim_end_matches("```"));
     let candidates = [t.trim().to_owned(), {
         let (a, b) = (t.find('{'), t.rfind('}'));
         match (a, b) {
@@ -522,9 +529,11 @@ pub fn parse_emulated_tool_calls(text: &str, known: &[String]) -> Option<Vec<(St
             .iter()
             .filter_map(|c| {
                 let name = c.get("name").and_then(Value::as_str)?.to_owned();
-                known.iter().any(|k| *k == name).then_some(())?;
+                known.contains(&name).then_some(())?;
                 let args = match c.get("arguments") {
-                    Some(Value::String(s)) => serde_json::from_str(s).unwrap_or_else(|_| serde_json::json!({"__invalid_json": s})),
+                    Some(Value::String(s)) => {
+                        serde_json::from_str(s).unwrap_or_else(|_| serde_json::json!({"__invalid_json": s}))
+                    }
                     Some(v) => v.clone(),
                     None => serde_json::json!({}),
                 };
@@ -572,7 +581,8 @@ fn emulate_tool_calls(inner: CodingAgentStream, known: Vec<String>, cancel: Canc
 async fn write_line(stdin: &mut Option<tokio::process::ChildStdin>, line: &str) {
     use tokio::io::AsyncWriteExt;
     let Some(si) = stdin.as_mut() else { return };
-    let ok = si.write_all(line.as_bytes()).await.is_ok() && si.write_all(b"\n").await.is_ok() && si.flush().await.is_ok();
+    let ok =
+        si.write_all(line.as_bytes()).await.is_ok() && si.write_all(b"\n").await.is_ok() && si.flush().await.is_ok();
     if !ok {
         *stdin = None;
     }
@@ -845,7 +855,10 @@ mod tests {
         )
         .unwrap();
         assert_eq!(calls, vec![("create_task".to_owned(), serde_json::json!({"title": "x"}))]);
-        let s = parse_emulated_tool_calls("Sure: {\"tool_calls\": [{\"name\": \"list_tasks\", \"arguments\": \"{}\"}]}", &known);
+        let s = parse_emulated_tool_calls(
+            "Sure: {\"tool_calls\": [{\"name\": \"list_tasks\", \"arguments\": \"{}\"}]}",
+            &known,
+        );
         assert_eq!(s.unwrap()[0].1, serde_json::json!({}));
         assert!(parse_emulated_tool_calls("Here is the plan: no tools needed.", &known).is_none());
         assert!(parse_emulated_tool_calls("{\"tool_calls\": [{\"name\": \"unknown\"}]}", &known).is_none());

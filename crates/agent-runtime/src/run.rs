@@ -1010,7 +1010,12 @@ impl Run {
     }
 
     /// Asks the user and waits; the agent (and its task) are `Waiting` meanwhile.
-    pub(crate) async fn await_approval(&mut self, id: ApprovalId, call: &mut ToolCall, activity: String) -> ApprovalOutcome {
+    pub(crate) async fn await_approval(
+        &mut self,
+        id: ApprovalId,
+        call: &mut ToolCall,
+        activity: String,
+    ) -> ApprovalOutcome {
         call.status = ToolCallStatus::AwaitingApproval;
         call.approval_id = Some(id);
         if let Err(e) = self.store.save_tool_call(call, None, None).await {

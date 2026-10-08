@@ -177,7 +177,10 @@ pub fn promote(current: &mut ModelRef, fallback: &mut Vec<ModelRef>, model: &Mod
 }
 
 /// `claudeEngine.useForEverything`.
-pub async fn use_for_everything(services: &Services, model: Option<String>) -> Result<UseClaudeForEverythingResult, RpcError> {
+pub async fn use_for_everything(
+    services: &Services,
+    model: Option<String>,
+) -> Result<UseClaudeForEverythingResult, RpcError> {
     let id = ensure_provider(services, true).await.map_err(RpcError::bad_request)?;
     let model = model.map(|m| m.trim().to_owned()).filter(|m| !m.is_empty()).unwrap_or_else(|| DEFAULT_MODEL.into());
     if !valid_model(&model) {
@@ -234,7 +237,11 @@ fn user_agents_dir() -> Option<PathBuf> {
     orkestr_platform::paths::claude_user_dir().map(|d| d.join("agents"))
 }
 
-async fn scope_dir(services: &Services, scope: ClaudeAgentScope, project: Option<ProjectId>) -> Result<PathBuf, RpcError> {
+async fn scope_dir(
+    services: &Services,
+    scope: ClaudeAgentScope,
+    project: Option<ProjectId>,
+) -> Result<PathBuf, RpcError> {
     match scope {
         ClaudeAgentScope::User => {
             user_agents_dir().ok_or_else(|| RpcError::bad_request("the user's home folder is unknown"))
@@ -253,7 +260,11 @@ async fn scope_dir(services: &Services, scope: ClaudeAgentScope, project: Option
 #[must_use]
 pub fn orkestr_tools(claude_tools: &[String]) -> Vec<String> {
     let all = claude_tools.is_empty() || claude_tools.iter().any(|t| t == "*");
-    let has = |names: &[&str]| all || claude_tools.iter().any(|t| names.iter().any(|n| t.eq_ignore_ascii_case(n) || t.starts_with(&format!("{n}("))));
+    let has = |names: &[&str]| {
+        all || claude_tools
+            .iter()
+            .any(|t| names.iter().any(|n| t.eq_ignore_ascii_case(n) || t.starts_with(&format!("{n}("))))
+    };
     let mut out: Vec<&str> = vec!["read_file", "list_dir", "search_files", "git_status", "git_diff"];
     if has(&["Edit", "Write", "MultiEdit", "NotebookEdit"]) {
         out.extend(["write_file", "edit_file", "create_snapshot"]);
@@ -277,7 +288,10 @@ fn model_alias(m: Option<&str>) -> String {
 pub fn draft_for(def: &ClaudeAgentDef, provider: Option<ProviderId>) -> TemplateDraft {
     let description: String = def.description.chars().take(480).collect();
     let system_prompt = if def.prompt.trim().is_empty() {
-        format!("{CLAUDE_BUILTIN_MARKER}\n{}", if description.is_empty() { def.name.clone() } else { description.clone() })
+        format!(
+            "{CLAUDE_BUILTIN_MARKER}\n{}",
+            if description.is_empty() { def.name.clone() } else { description.clone() }
+        )
     } else {
         def.prompt.chars().take(32_000).collect()
     };
@@ -304,7 +318,11 @@ pub fn draft_for(def: &ClaudeAgentDef, provider: Option<ProviderId>) -> Template
 
 /// `claudeEngine.agents`: project + user files and the CLI's built-ins,
 /// each mirrored as a template.
-pub async fn agents(services: &Services, project: Option<ProjectId>, refresh: bool) -> Result<ClaudeAgentsResult, RpcError> {
+pub async fn agents(
+    services: &Services,
+    project: Option<ProjectId>,
+    refresh: bool,
+) -> Result<ClaudeAgentsResult, RpcError> {
     let root = match project {
         Some(p) => Some(project_root(services, p).await?),
         None => None,

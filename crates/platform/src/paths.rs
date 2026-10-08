@@ -106,7 +106,10 @@ pub fn user_home() -> Option<PathBuf> {
 /// writes sub-agent definitions there (`agents/*.md`), never credentials.
 #[must_use]
 pub fn claude_user_dir() -> Option<PathBuf> {
-    std::env::var_os("CLAUDE_CONFIG_DIR").filter(|v| !v.is_empty()).map(PathBuf::from).or_else(|| user_home().map(|h| h.join(".claude")))
+    std::env::var_os("CLAUDE_CONFIG_DIR")
+        .filter(|v| !v.is_empty())
+        .map(PathBuf::from)
+        .or_else(|| user_home().map(|h| h.join(".claude")))
 }
 
 #[cfg(test)]

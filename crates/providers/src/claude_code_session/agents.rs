@@ -91,9 +91,9 @@ pub fn parse_agent_file(text: &str, scope: ClaudeAgentScope, path: Option<&Path>
         }
     }
     let field = |k: &str| fields.iter().find(|(key, _)| key == k).map(|(_, v)| unquote(v));
-    let name = field("name").filter(|n| !n.trim().is_empty()).or_else(|| {
-        path.and_then(|p| p.file_stem()).map(|s| s.to_string_lossy().into_owned())
-    })?;
+    let name = field("name")
+        .filter(|n| !n.trim().is_empty())
+        .or_else(|| path.and_then(|p| p.file_stem()).map(|s| s.to_string_lossy().into_owned()))?;
     let tools = lists
         .iter()
         .find(|(k, _)| k == "tools")
@@ -154,7 +154,7 @@ pub fn read_dir(dir: &Path, scope: ClaudeAgentScope) -> Vec<ClaudeAgentDef> {
             parse_agent_file(&text, scope, Some(&e.path()))
         })
         .collect();
-    out.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    out.sort_by_key(|a| a.name.to_lowercase());
     out
 }
 
@@ -208,11 +208,10 @@ pub fn cli_definition(def: &ClaudeAgentDef) -> Option<Value> {
 /// Asks the CLI for its `initialize` answer (commands, models, agents) in
 /// `cwd` and stops it. No user turn is sent: nothing is spent.
 pub async fn probe_initialize(program: &Path, cwd: &Path) -> Result<Value, String> {
-    let args: Vec<String> =
-        ["--print", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose"]
-            .iter()
-            .map(|s| (*s).to_owned())
-            .collect();
+    let args: Vec<String> = ["--print", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose"]
+        .iter()
+        .map(|s| (*s).to_owned())
+        .collect();
     let mut cmd = super::manager::sanitized_command(program, &args);
     cmd.current_dir(cwd).stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null());
     let mut child = cmd.spawn().map_err(|e| format!("could not run `{}`: {e}", program.display()))?;
@@ -275,7 +274,13 @@ mod tests {
     #[test]
     fn render_round_trips() {
         let tools = vec!["Read".to_owned(), "Edit".to_owned()];
-        let text = render_agent_file("doc-writer", "Writes \"docs\"\nfor APIs", &tools, Some("haiku"), "Write docs.\n\nKeep it short.");
+        let text = render_agent_file(
+            "doc-writer",
+            "Writes \"docs\"\nfor APIs",
+            &tools,
+            Some("haiku"),
+            "Write docs.\n\nKeep it short.",
+        );
         let a = parse_agent_file(&text, ClaudeAgentScope::Project, None).unwrap();
         assert_eq!(a.name, "doc-writer");
         assert_eq!(a.description, "Writes \"docs\" for APIs");

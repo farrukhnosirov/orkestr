@@ -1,31 +1,36 @@
 //! Supervision of official CLI coding agents (Claude Code, Codex) —
 //! agent-runtime-spec §4.1, provider-adapter-spec §6.3.
 //!
-//! The CLI owns its inner tool loop, so Orkestr cannot route each of its tool
-//! calls through the permission engine. What the runtime **does** enforce:
+//! **Claude Code** runs with the stdio permission bridge
+//! (`--permission-prompt-tool stdio`, permission mode `default`): every tool
+//! call the CLI would prompt for (edits, shell, web, MCP) arrives as a
+//! `PermissionRequest` and is decided exactly like a native tool call —
+//! template tools → worktree confinement → `PermissionEngine` (with the
+//! `DangerousActionGuard`) → `ApprovalService` when asked → Before
+//! checkpoint before the first change. Reads inside the worktree are
+//! pre-approved; a call the CLI ran without asking (its own allow rules) is
+//! classified when it finishes and a violation stops the run. A template
+//! mirroring a Claude Code sub-agent runs it with `--agent` (+ `--agents`).
+//!
+//! **Codex** (sandbox-only gating) keeps the static model:
 //!
 //! * the CLI runs with `cwd` = the agent's worktree and a static tool policy
-//!   derived from the template (writes only when the template has write tools
-//!   and the worktree is writable; Claude Code's shell (`Bash`) is never
-//!   pre-approved — without a permission-prompt bridge it would bypass the
-//!   permission engine and the guard; web tools always disallowed);
-//! * Codex (sandbox-only gating) needs a one-time explicit user approval per
-//!   run unless the project is in Full Auto;
+//!   derived from the template; it needs a one-time explicit user approval
+//!   per run unless the project is in Full Auto;
 //! * the task's automatic Before checkpoint is taken before the CLI starts
 //!   (ADR-0012 §4 / ADR-0021) — no checkpoint, no start;
 //! * every command the CLI reports is classified after the fact by the
 //!   dangerous-action guard; Dangerous / Forbidden stops the run at once
 //!   (process tree killed) and is audited (`agent.cliDangerousCommand`);
 //! * every file change the CLI reports is confined to the worktree — a change
-//!   outside it cancels the run immediately (process tree killed);
-//! * cancellation (stop / emergency / wall-clock) kills the CLI process tree;
-//! * usage is recorded; the turn limit is passed as `--max-turns`.
+//!   outside it cancels the run immediately (process tree killed).
 //!
-//! Known limits (honest): per-command approvals are **not** possible for CLI
-//! agents yet (no permission-prompt bridge), so the post-hoc classification
-//! stops a dangerous Codex sandbox command only once it was reported; file
-//! writes inside the worktree are not individually approved; the post-hoc
-//! budget check cannot stop spend that already happened inside one CLI run.
+//! Both: cancellation (stop / emergency / wall-clock) kills the CLI process
+//! tree; usage is recorded; the turn limit is passed as `--max-turns`.
+//!
+//! Known limits (honest): Codex commands are not individually approved; the
+//! post-hoc budget check cannot stop spend that already happened inside one
+//! CLI run.
 
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
@@ -33,8 +38,8 @@ use std::time::Instant;
 
 use futures::StreamExt;
 use orkestr_domain::{
-    now, Actor, AgentState, AgentTemplate, ApprovalMode, Capability, ProviderKind, RiskLevel, TemplateSource,
-    ToolCall, ToolCallId, ToolCallStatus,
+    now, Actor, AgentState, AgentTemplate, ApprovalMode, Capability, ProviderKind, RiskLevel, TemplateSource, ToolCall,
+    ToolCallId, ToolCallStatus,
 };
 use orkestr_protocol::event::{
     EventKind, FileChangeActor, FileChangeKind, FileChangedPayload, MessageDeltaPayload, MessageRole,
@@ -448,7 +453,14 @@ pub(crate) async fn run_cli(run: &mut Run) -> Outcome {
             CodingAgentEvent::Session { session_id } => {
                 run.agent.cli_session = Some(session_id);
             }
-            CodingAgentEvent::PermissionRequest { request_id, tool, tool_use_id, input, description: _, blocked_path } => {
+            CodingAgentEvent::PermissionRequest {
+                request_id,
+                tool,
+                tool_use_id,
+                input,
+                description: _,
+                blocked_path,
+            } => {
                 let key = tool_use_id.clone().unwrap_or_else(|| format!("perm-{request_id}"));
                 if let Some(id) = tool_use_id.as_deref() {
                     unchecked.remove(id);
@@ -559,8 +571,7 @@ pub(crate) async fn run_cli(run: &mut Run) -> Outcome {
 /// not checked in.
 #[must_use]
 pub fn claude_subagent(t: &AgentTemplate) -> Option<CliSubagent> {
-    if t.source != TemplateSource::ClaudeCode
-        || !orkestr_providers::adapters::claude_code::is_valid_agent_name(&t.name)
+    if t.source != TemplateSource::ClaudeCode || !orkestr_providers::adapters::claude_code::is_valid_agent_name(&t.name)
     {
         return None;
     }

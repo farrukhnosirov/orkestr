@@ -190,9 +190,8 @@ async fn claude_code_as_the_engine_end_to_end() {
         )
         .await;
     let aid = spawned["agent"]["id"].as_str().unwrap().to_owned();
-    let approval = c
-        .wait("ApprovalRequested", |e| e["kind"] == "ApprovalRequested" && e["agentId"] == aid.as_str())
-        .await;
+    let approval =
+        c.wait("ApprovalRequested", |e| e["kind"] == "ApprovalRequested" && e["agentId"] == aid.as_str()).await;
     let approval_id = approval["payload"]["approval"]["id"].as_str().expect("approval id").to_owned();
     assert_eq!(approval["payload"]["approval"]["capability"], "Write", "{approval}");
     assert!(!root.join("fake.txt").exists(), "nothing is written before the approval");
@@ -235,11 +234,85 @@ async fn claude_code_as_the_engine_end_to_end() {
     assert_eq!(mirrored["preferredModel"]["model"], "haiku");
     assert!(mirrored["tools"].as_array().unwrap().iter().any(|t| t == "write_file"));
     assert!(!mirrored["tools"].as_array().unwrap().iter().any(|t| t == "run_command"));
-    c.ok("claudeEngine.deleteAgent", json!({"projectId": pid, "scope": "project", "name": "doc-writer", "confirmed": true}))
-        .await;
+    c.ok(
+        "claudeEngine.deleteAgent",
+        json!({"projectId": pid, "scope": "project", "name": "doc-writer", "confirmed": true}),
+    )
+    .await;
     assert!(!file.exists());
     let templates = c.ok("templates.list", json!({})).await["templates"].as_array().unwrap().clone();
     assert!(!templates.iter().any(|t| t["name"] == "doc-writer"));
 
+    core.shutdown().await;
+}
+
+/// Live check against the real, signed-in Claude Code (haiku, one tiny task):
+/// `ORKESTR_REAL_CLAUDE=C:\path\to\claude.exe cargo test -p orkestr-core
+/// --test claude_engine_rpc -- --ignored --nocapture`.
+#[tokio::test]
+#[ignore = "needs a signed-in Claude Code binary (ORKESTR_REAL_CLAUDE); spends a little usage"]
+async fn real_claude_agent_writes_a_file_after_approval() {
+    let Ok(bin) = std::env::var("ORKESTR_REAL_CLAUDE") else { return };
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().join("proj");
+    std::fs::create_dir_all(&root).unwrap();
+    std::fs::write(root.join("README.md"), "# demo\n").unwrap();
+    let core = orkestr_core::start(CoreConfig::for_tests(dir.path().join("data"))).await.unwrap();
+    let (mut ws, _) = tokio_tungstenite::connect_async(core.url.as_str()).await.unwrap();
+    ws.send(Message::Text(json!({"type": "auth", "token": core.token}).to_string().into())).await.unwrap();
+    let mut c = Client { ws, events: VecDeque::new(), seq: 0 };
+    assert_eq!(c.recv().await["ok"], true);
+    c.ok("claudeCode.setBinaryPath", json!({"path": bin})).await;
+    let st = c.ok("claudeEngine.status", json!({"refresh": true})).await;
+    println!("status: {st}");
+    let provider = st["providerId"].as_str().expect("provider").to_owned();
+    let agents = c.ok("claudeEngine.agents", json!({"refresh": true})).await;
+    let names: Vec<String> = agents["agents"].as_array().unwrap().iter().map(|a| a["name"].to_string()).collect();
+    println!("Claude Code agents: {}", names.join(", "));
+    let project = c
+        .ok("projects.create", json!({"name": "Live", "rootPath": root.to_string_lossy(), "approvalMode": "Ask"}))
+        .await["project"]
+        .clone();
+    let pid = project["id"].as_str().unwrap().to_owned();
+    c.sub(format!("project:{pid}")).await;
+    c.sub("global".into()).await;
+    let list = c.ok("templates.list", json!({})).await["templates"].as_array().unwrap().clone();
+    let backend = list.iter().find(|t| t["role"] == "Backend").unwrap().clone();
+    let exported = c.ok("templates.export", json!({"templateId": backend["id"]})).await;
+    let imported = c.ok("templates.import", json!({"json": exported["json"]})).await;
+    let tid = imported["template"]["id"].as_str().unwrap().to_owned();
+    let mut draft = imported["template"].clone();
+    for k in ["id", "source", "createdAt", "updatedAt"] {
+        draft.as_object_mut().unwrap().remove(k);
+    }
+    draft["tools"] = json!(["write_file", "read_file", "submit_result"]);
+    draft["qualityGates"] = json!([]);
+    draft["worktreePolicy"] = "SharedWorktree".into();
+    draft["maxTurns"] = json!(6);
+    c.ok("templates.update", json!({"templateId": tid, "template": draft})).await;
+    let spawned = c
+        .ok(
+            "agents.spawn",
+            json!({
+                "projectId": pid,
+                "templateId": tid,
+                "newTask": {
+                    "title": "Create the file hello.txt containing exactly: hi",
+                    "description": "Use the Write tool once, then finish. Do nothing else."
+                },
+                "model": {"providerId": provider, "model": "haiku"}
+            }),
+        )
+        .await;
+    let aid = spawned["agent"]["id"].as_str().unwrap().to_owned();
+    let approval =
+        c.wait("ApprovalRequested", |e| e["kind"] == "ApprovalRequested" && e["agentId"] == aid.as_str()).await;
+    println!("approval: {}", approval["payload"]["approval"]["title"]);
+    assert!(!root.join("hello.txt").exists());
+    let id = approval["payload"]["approval"]["id"].as_str().unwrap().to_owned();
+    c.ok("approvals.resolve", json!({"approvalId": id, "decision": "Approve"})).await;
+    let a = wait_agent_final(&mut c, &aid).await;
+    println!("agent: {} usage {}", a["state"], a["usage"]);
+    assert_eq!(std::fs::read_to_string(root.join("hello.txt")).unwrap().trim(), "hi");
     core.shutdown().await;
 }
