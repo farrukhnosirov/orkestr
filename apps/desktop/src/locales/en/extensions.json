@@ -2,7 +2,8 @@
   "tabs": {
     "label": "Extension views",
     "marketplace": "Open VSX",
-    "installed": "Installed ({{n}})"
+    "installed": "Installed ({{n}})",
+    "vscode": "VS Code commands"
   },
   "search": {
     "label": "Search extensions",

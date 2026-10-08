@@ -117,6 +117,7 @@
     "group": "VS Code",
     "openProject": "VS Code: Open project in VS Code",
     "installExtension": "VS Code: Install extension…",
+    "extensionCommands": "VS Code: Run extension command…",
     "extensions": "Extensions"
   },
   "phase": {

@@ -42,6 +42,9 @@ pub enum HostError {
     /// I/O.
     #[error("io: {0}")]
     Io(#[from] std::io::Error),
+    /// A call through the Orkestr bridge extension failed.
+    #[error("{0}")]
+    Bridge(#[from] crate::bridge::BridgeError),
 }
 
 impl From<orkestr_platform::PlatformError> for HostError {

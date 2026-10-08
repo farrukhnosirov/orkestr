@@ -2,6 +2,7 @@ import { clsx } from "clsx";
 import { useCallback, useEffect, useState } from "react";
 
 import { CommandPalette } from "./components/CommandPalette";
+import { LauncherHost } from "./features/vscode/ExtensionLauncher";
 import { ConnectionScreen } from "./components/ConnectionScreen";
 import { CreateProjectDialog } from "./components/CreateProjectDialog";
 import { ProjectRail } from "./components/ProjectRail";
@@ -124,6 +125,7 @@ export function App() {
       )}
       <StatusBar />
       <CommandPalette />
+      {ready && <LauncherHost />}
       <CreateProjectDialog />
       <SecurityLayer connected={ready} />
       {ready && (

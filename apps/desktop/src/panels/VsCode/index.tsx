@@ -25,6 +25,7 @@ import { type FormEvent, useEffect, useRef, useState } from "react";
 
 import { useFormat, useT } from "../../i18n";
 import { useAppStore } from "../../store/app";
+import { ExtensionLauncher } from "../../features/vscode/ExtensionLauncher";
 import { InstallDialog } from "../../features/vscode/InstallDialog";
 import { useVsCodeStore } from "../../features/vscode/store";
 import { vscodeWindow } from "../../features/vscode/windowControls";
@@ -404,6 +405,12 @@ export default function VsCodePanel({ projectId }: PanelProps) {
               </Button>
             </div>
             {showLogs && <LogView />}
+          </section>
+        )}
+
+        {status.installed !== null && state !== "installing" && (
+          <section className="vsc-card vsc-card--wide">
+            <ExtensionLauncher />
           </section>
         )}
 

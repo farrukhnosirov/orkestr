@@ -45,4 +45,9 @@ dataDir: string,
 /**
  * Configuration.
  */
-config: VsCodeConfig, };
+config: VsCodeConfig, 
+/**
+ * A VS Code window is connected through the Orkestr bridge extension
+ * (extension commands can run).
+ */
+bridgeConnected: boolean, };

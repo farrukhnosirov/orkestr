@@ -48,7 +48,8 @@ const status = (patch: Partial<VsCodeStatus> = {}): VsCodeStatus => ({
   progress: null,
   error: null,
   dataDir: "C:/data/vscode-server",
-  config: { autoStop: true, idleStopSecs: 120, autoRestart: true },
+  config: { autoStop: true, idleStopSecs: 120, autoRestart: true, pinnedCommands: [] },
+  bridgeConnected: false,
   ...patch,
 });
 

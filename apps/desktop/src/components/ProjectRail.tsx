@@ -6,6 +6,7 @@ import { useCallback, useState } from "react";
 
 import { openProject } from "../core/client";
 import { useSecurityStore } from "../features/security/store";
+import { RailPins } from "../features/vscode/PinnedCommands";
 import { openExtensions, openVsCodePanel } from "../features/vscode/quickAccess";
 import { openClaudePanel } from "../features/claudeCode/bridge";
 import { useT } from "../i18n";
@@ -105,6 +106,7 @@ export function ProjectRail() {
         {loaded && projects.length === 0 && <div className="rail__hint">{t("rail.empty")}</div>}
       </div>
       <div className="rail__footer">
+        <RailPins />
         <Tooltip content={t("rail.newProject")} side="right">
           <button type="button" className="rail__add" aria-label={t("rail.createProject")} onClick={() => setCreateOpen(true)}>
             <Plus size={18} />

@@ -170,6 +170,8 @@
     "ClaudeCodeEvent_one": "{{count}} Claude Code chat item",
     "ClaudeCodeEvent_other": "{{count}} Claude Code chat items",
     "ClaudeCodeStatus_one": "{{count}} Claude Code session change",
-    "ClaudeCodeStatus_other": "{{count}} Claude Code session changes"
+    "ClaudeCodeStatus_other": "{{count}} Claude Code session changes",
+    "VsCodeCommandExecuted_one": "{{count}} VS Code extension command run",
+    "VsCodeCommandExecuted_other": "{{count}} VS Code extension command runs"
   }
 }

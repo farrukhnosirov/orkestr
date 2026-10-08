@@ -1,0 +1,308 @@
+/* VS Code extension launcher (cards with command buttons). Tokens only (--ok-*). */
+.vxl {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-3);
+  min-width: 0;
+}
+.vxl-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ok-space-2);
+  flex-wrap: wrap;
+}
+.vxl-head h4 {
+  margin: 0 0 var(--ok-space-1);
+  font-size: var(--ok-font-size-md);
+  font-weight: var(--ok-font-weight-semibold);
+}
+.vxl-head p {
+  margin: 0;
+  max-width: 62ch;
+  line-height: 1.5;
+}
+.vxl-spacer {
+  flex: 1;
+}
+.vxl-muted {
+  color: var(--ok-color-text-muted);
+}
+.vxl-mono {
+  font-family: var(--ok-font-mono);
+  overflow-wrap: anywhere;
+}
+.vxl-row {
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-2);
+}
+.vxl-bridge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ok-space-2);
+  padding: var(--ok-space-1) var(--ok-space-3);
+  border-radius: var(--ok-radius-pill);
+  border: 1px solid var(--ok-color-border);
+  background: var(--ok-color-surface-sunken);
+  color: var(--ok-color-text-muted);
+  font-size: var(--ok-font-size-xs);
+}
+.vxl-alert {
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-2);
+  padding: var(--ok-space-2) var(--ok-space-3);
+  border-radius: var(--ok-radius-md);
+  background: var(--ok-color-danger-soft);
+  color: var(--ok-color-danger);
+}
+.vxl-empty {
+  padding: var(--ok-space-4);
+  border: 1px dashed var(--ok-color-border);
+  border-radius: var(--ok-radius-md);
+  text-align: center;
+}
+.vxl-empty p {
+  margin: 0 0 var(--ok-space-1);
+}
+.vxl-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+  gap: var(--ok-space-3);
+}
+.vxl--single .vxl-grid {
+  grid-template-columns: 1fr;
+}
+.vxl-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-2);
+  padding: var(--ok-space-3);
+  border: 1px solid var(--ok-color-border);
+  border-radius: var(--ok-radius-lg);
+  background: var(--ok-gradient-panel), var(--ok-color-surface);
+  box-shadow: var(--ok-shadow-sm);
+  min-width: 0;
+  transition: border-color var(--ok-duration-fast) var(--ok-ease);
+}
+.vxl-card:hover {
+  border-color: var(--ok-color-border-strong);
+}
+.vxl-card__head {
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-3);
+}
+.vxl-card__icon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--ok-radius-md);
+  object-fit: contain;
+  flex: none;
+}
+.vxl-card__icon--placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ok-color-accent-soft);
+  color: var(--ok-color-accent);
+}
+.vxl-card__title {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.vxl-card__title h5 {
+  margin: 0;
+  font-size: var(--ok-font-size-md);
+  font-weight: var(--ok-font-weight-semibold);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vxl-card__title .vxl-muted {
+  font-size: var(--ok-font-size-xs);
+}
+.vxl-card__desc {
+  margin: 0;
+  color: var(--ok-color-text-muted);
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.vxl-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ok-space-2);
+}
+.vxl-cmds {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-1);
+}
+.vxl-cmd {
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-1);
+}
+.vxl-cmd__run {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-2);
+  padding: var(--ok-space-2) var(--ok-space-2);
+  border: 1px solid transparent;
+  border-radius: var(--ok-radius-md);
+  background: var(--ok-color-surface-sunken);
+  color: var(--ok-color-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background var(--ok-duration-fast) var(--ok-ease),
+    border-color var(--ok-duration-fast) var(--ok-ease);
+}
+.vxl-cmd__run:hover:not(:disabled) {
+  background: var(--ok-color-surface-hover);
+  border-color: var(--ok-color-border-accent);
+}
+.vxl-cmd__run:focus-visible {
+  outline: none;
+  box-shadow: var(--ok-focus-ring);
+}
+.vxl-cmd__run:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.vxl-cmd__icon {
+  display: inline-flex;
+  color: var(--ok-color-accent);
+  flex: none;
+}
+.vxl-cmd--danger .vxl-cmd__icon {
+  color: var(--ok-color-warning);
+}
+.vxl-cmd__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+.vxl-cmd__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vxl-cmd__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-2);
+  color: var(--ok-color-text-subtle);
+  font-size: var(--ok-font-size-xs);
+  overflow: hidden;
+  white-space: nowrap;
+}
+.vxl-kbd {
+  font-family: var(--ok-font-mono);
+  font-size: var(--ok-font-size-xs);
+  padding: 0 var(--ok-space-1);
+  border: 1px solid var(--ok-color-border);
+  border-radius: var(--ok-radius-xs);
+}
+.vxl-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex: none;
+  padding: 1px var(--ok-space-2);
+  border-radius: var(--ok-radius-pill);
+  background: var(--ok-color-violet-soft);
+  color: var(--ok-color-violet);
+  font-size: var(--ok-font-size-xs);
+}
+.vxl-cmd__pin {
+  opacity: 0.45;
+}
+.vxl-cmd:hover .vxl-cmd__pin,
+.vxl-cmd__pin:focus-visible,
+.vxl-cmd__pin--on {
+  opacity: 1;
+}
+.vxl-cmd__pin--on {
+  color: var(--ok-color-accent);
+}
+.vxl-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.vxl-toast {
+  position: fixed;
+  right: var(--ok-space-4);
+  bottom: calc(var(--ok-space-10) + var(--ok-space-2));
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-2);
+  max-width: min(480px, calc(100vw - 2 * var(--ok-space-4)));
+  padding: var(--ok-space-2) var(--ok-space-2) var(--ok-space-2) var(--ok-space-3);
+  border: 1px solid var(--ok-color-border-strong);
+  border-radius: var(--ok-radius-lg);
+  background: var(--ok-color-bg-elevated);
+  box-shadow: var(--ok-shadow-md);
+  color: var(--ok-color-success);
+  backdrop-filter: blur(var(--ok-blur));
+}
+.vxl-toast span {
+  color: var(--ok-color-text);
+}
+.vxl-toast--error {
+  color: var(--ok-color-danger);
+}
+/* Pinned commands on the left rail. */
+.vxl-rail-pin {
+  font-size: var(--ok-font-size-xs);
+  font-weight: var(--ok-font-weight-semibold);
+  letter-spacing: 0;
+}
+.vxl-quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ok-space-2);
+}
+.rail__pins {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--ok-space-1);
+  padding-bottom: var(--ok-space-2);
+  margin-bottom: var(--ok-space-1);
+  border-bottom: 1px solid var(--ok-color-border);
+}
+.vxl-warn {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--ok-space-2);
+  padding: var(--ok-space-2) var(--ok-space-3);
+  border: 1px solid var(--ok-color-warning);
+  border-radius: var(--ok-radius-md);
+  background: var(--ok-color-warning-soft);
+  color: var(--ok-color-text);
+}
+.vxl-warn > svg {
+  color: var(--ok-color-warning);
+}
+.vxl-warn > span {
+  flex: 1;
+  min-width: 200px;
+}

@@ -3501,7 +3501,9 @@ dependencies = [
 name = "orkestr-vscode-host"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "chrono",
+ "crc32fast",
  "flate2",
  "futures",
  "hex",
@@ -3516,6 +3518,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "subtle",
  "tar",
  "tempfile",
  "thiserror 2.0.21",

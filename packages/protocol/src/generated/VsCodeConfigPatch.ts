@@ -15,4 +15,8 @@ idleStopSecs?: number,
 /**
  * See [`VsCodeConfig::auto_restart`].
  */
-autoRestart?: boolean, };
+autoRestart?: boolean, 
+/**
+ * See [`VsCodeConfig::pinned_commands`] (replaces the list; ≤ 24 ids).
+ */
+pinnedCommands?: Array<string>, };

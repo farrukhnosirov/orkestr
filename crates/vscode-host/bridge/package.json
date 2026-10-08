@@ -1,0 +1,27 @@
+{
+  "name": "orkestr-bridge",
+  "displayName": "Orkestr Bridge",
+  "description": "Lets Orkestr run commands of your VS Code extensions (loopback only, token-authenticated).",
+  "version": "0.1.0",
+  "publisher": "orkestr",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "extensionKind": [
+    "workspace"
+  ],
+  "activationEvents": [
+    "*"
+  ],
+  "main": "./extension.js",
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": true
+    },
+    "virtualWorkspaces": true
+  }
+}

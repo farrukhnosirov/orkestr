@@ -20,6 +20,10 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::sync::watch;
 use tokio_util::sync::CancellationToken;
 
+use orkestr_protocol::methods::vscode::VsCodeExtensionCommands;
+use serde_json::Value;
+
+use crate::bridge::{self, Bridge, BridgeError};
 use crate::error::{HostError, HostResult};
 use crate::install::{self, Layout};
 use crate::lifecycle::{next_state, Backoff, Trigger};
@@ -56,6 +60,9 @@ pub struct HostOptions {
     pub ready_timeout: Duration,
     /// Idle auto-stop check period.
     pub idle_check: Duration,
+    /// Extra server flags (tests, e.g. `--disable-workspace-trust` for a
+    /// throw-away folder). Empty in the product.
+    pub extra_server_args: Vec<String>,
 }
 
 impl std::fmt::Debug for HostOptions {
@@ -79,6 +86,7 @@ impl HostOptions {
             health_interval: Duration::from_secs(15),
             ready_timeout: Duration::from_secs(90),
             idle_check: Duration::from_secs(15),
+            extra_server_args: Vec::new(),
         }
     }
 
@@ -136,6 +144,8 @@ struct Inner {
     supervisor_stop: Mutex<Option<CancellationToken>>,
     shutdown: CancellationToken,
     last_seen: Mutex<Instant>,
+    /// Loopback listener of the Orkestr bridge extension.
+    bridge: Bridge,
 }
 
 /// The embedded VS Code server host (cheap to clone).
@@ -230,6 +240,7 @@ impl VsCodeHost {
                 supervisor_stop: Mutex::new(None),
                 shutdown: CancellationToken::new(),
                 last_seen: Mutex::new(Instant::now()),
+                bridge: Bridge::new(),
                 opts,
             }),
         })
@@ -237,6 +248,30 @@ impl VsCodeHost {
 
     /// Starts the idle auto-stop loop (needs a tokio runtime).
     pub fn spawn_background(&self) {
+        // Bridge connect / disconnect → status event (`bridgeConnected`).
+        {
+            let host = self.clone();
+            let mut rx = self.inner.bridge.subscribe();
+            tokio::spawn(async move {
+                let mut last = *rx.borrow();
+                loop {
+                    tokio::select! {
+                        () = host.inner.shutdown.cancelled() => return,
+                        changed = rx.changed() => if changed.is_err() { return },
+                    }
+                    let now = *rx.borrow_and_update();
+                    if (now > 0) != (last > 0) {
+                        host.log(if now > 0 {
+                            "Orkestr: a VS Code window connected to the Orkestr bridge"
+                        } else {
+                            "Orkestr: the VS Code window disconnected from the Orkestr bridge"
+                        });
+                        host.emit_current().await;
+                    }
+                    last = now;
+                }
+            });
+        }
         let host = self.clone();
         let every = self.inner.opts.idle_check;
         tokio::spawn(async move {
@@ -293,6 +328,7 @@ impl VsCodeHost {
             error: st.error.clone(),
             data_dir: self.inner.layout.root.to_string_lossy().into_owned(),
             config: st.config.clone(),
+            bridge_connected: self.inner.bridge.is_connected(),
         }
     }
 
@@ -367,8 +403,29 @@ impl VsCodeHost {
                 return Err(HostError::Invalid("idleStopSecs must be between 30 and 3600".into()));
             }
         }
+        let pinned = match patch.pinned_commands {
+            Some(list) => {
+                let mut out: Vec<String> = Vec::new();
+                for id in list.into_iter().map(|s| s.trim().to_owned()) {
+                    if id.is_empty() || id.len() > 200 || id.chars().any(char::is_control) {
+                        return Err(HostError::Invalid("invalid command id".into()));
+                    }
+                    if !out.contains(&id) {
+                        out.push(id);
+                    }
+                }
+                if out.len() > 24 {
+                    return Err(HostError::Invalid("at most 24 commands can be pinned".into()));
+                }
+                Some(out)
+            }
+            None => None,
+        };
         let config = {
             let mut st = self.inner.st.lock();
+            if let Some(v) = pinned {
+                st.config.pinned_commands = v;
+            }
             if let Some(v) = patch.auto_stop {
                 st.config.auto_stop = v;
             }
@@ -753,6 +810,7 @@ impl VsCodeHost {
     /// Core shutdown: stop the server and the background loops.
     pub async fn shutdown(&self) {
         self.inner.shutdown.cancel();
+        self.inner.bridge.shutdown();
         if let Err(e) = self.stop().await {
             tracing::warn!(error = %e, "failed to stop the VS Code server on shutdown");
         }
@@ -846,9 +904,129 @@ impl VsCodeHost {
         self.list_extensions().await
     }
 
+    /// Supervises one user start with the bridge prepared (one-time token for
+    /// this start; the connection file is removed when the server stops).
+    async fn supervise(&self, generation: u64, stop: CancellationToken, dir: PathBuf, target: ServerTarget) {
+        let bridge_token = SecretGuard::new(server::generate_token());
+        self.prepare_bridge(&bridge_token.0).await;
+        self.supervise_loop(generation, stop, dir, target).await;
+        self.inner.bridge.set_token(None);
+        let _ = std::fs::remove_file(self.inner.layout.bridge_file());
+    }
+
+    /// Installs the bridge extension when missing, binds its listener and
+    /// writes the private connection file. Failures only disable the
+    /// launcher; VS Code itself still starts.
+    async fn prepare_bridge(&self, token: &str) {
+        if let Err(e) = self.ensure_bridge_installed().await {
+            self.log(&format!("Orkestr: could not install the Orkestr bridge extension: {e}"));
+        }
+        let port = match self.inner.bridge.listen().await {
+            Ok(p) => p,
+            Err(e) => {
+                self.log(&format!("Orkestr: the Orkestr bridge cannot listen: {e}"));
+                return;
+            }
+        };
+        self.inner.bridge.set_token(Some(token.to_owned()));
+        let body = serde_json::json!({ "port": port, "token": token, "pid": std::process::id() }).to_string();
+        if let Err(e) = orkestr_platform::fs::write_private_file(&self.inner.layout.bridge_file(), body.as_bytes()) {
+            self.log(&format!("Orkestr: cannot write the bridge connection file: {e}"));
+        }
+    }
+
+    /// Whether the bundled bridge version is in the extensions directory.
+    #[must_use]
+    pub fn bridge_installed(&self) -> bool {
+        let dir = self.inner.layout.extensions_dir().join(format!(
+            "{}-{}",
+            bridge::BRIDGE_EXTENSION_ID,
+            bridge::BRIDGE_VERSION
+        ));
+        dir.join("package.json").is_file()
+            && std::fs::read(dir.join("extension.js")).is_ok_and(|b| bridge::is_current_extension_js(&b))
+    }
+
+    /// Installs the bundled bridge `.vsix` with the server CLI (idempotent).
+    ///
+    /// # Errors
+    /// Not installed, or the CLI failed.
+    pub async fn ensure_bridge_installed(&self) -> HostResult<()> {
+        if self.bridge_installed() {
+            return Ok(());
+        }
+        let vsix = self.inner.layout.downloads_dir().join(format!("orkestr-bridge-{}.vsix", bridge::BRIDGE_VERSION));
+        std::fs::create_dir_all(self.inner.layout.downloads_dir())?;
+        std::fs::write(&vsix, bridge::build_vsix())?;
+        self.log("Orkestr: installing the Orkestr bridge extension");
+        let path = vsix.to_string_lossy().into_owned();
+        let result = self.run_extension_cli(&["--install-extension", &path, "--force"]).await;
+        let _ = std::fs::remove_file(&vsix);
+        result.map(|_| ())
+    }
+
+    /// The bridge listener (tests and the core's RPC layer).
+    #[must_use]
+    pub fn bridge(&self) -> &Bridge {
+        &self.inner.bridge
+    }
+
+    /// Calls `method` on the connected VS Code window, first waiting up to
+    /// `wait` for a window to connect.
+    ///
+    /// # Errors
+    /// Not connected (after the wait), timeout, or the extension's error.
+    pub async fn bridge_call(
+        &self,
+        method: &str,
+        params: Value,
+        wait: Duration,
+        timeout: Duration,
+    ) -> HostResult<Value> {
+        let bridge = &self.inner.bridge;
+        if !bridge.is_connected() && !(wait > Duration::ZERO && bridge.wait_connected(wait).await) {
+            return Err(BridgeError::NotConnected.into());
+        }
+        self.keep_alive();
+        Ok(bridge.call(method, params, timeout).await?)
+    }
+
+    /// Installed extensions with their commands (manifests on disk; plus
+    /// runtime-only commands when a window is connected).
+    pub async fn catalog(&self, locale: Option<&str>, only: Option<&str>) -> Vec<VsCodeExtensionCommands> {
+        self.catalog_with(locale, only, true).await
+    }
+
+    /// Like [`VsCodeHost::catalog`]; `runtime: false` reads the manifests only
+    /// (no bridge round trip).
+    pub async fn catalog_with(
+        &self,
+        locale: Option<&str>,
+        only: Option<&str>,
+        runtime: bool,
+    ) -> Vec<VsCodeExtensionCommands> {
+        let dir = self.inner.layout.extensions_dir();
+        let locale = locale.map(str::to_owned);
+        let mut list = tokio::task::spawn_blocking(move || crate::catalog::scan(&dir, locale.as_deref()))
+            .await
+            .unwrap_or_default();
+        if runtime && self.inner.bridge.is_connected() {
+            if let Ok(Value::Array(ids)) =
+                self.inner.bridge.call("listCommands", Value::Null, Duration::from_secs(5)).await
+            {
+                let ids: Vec<String> = ids.into_iter().filter_map(|v| v.as_str().map(str::to_owned)).collect();
+                crate::catalog::merge_runtime(&mut list, &ids);
+            }
+        }
+        if let Some(only) = only.map(str::to_ascii_lowercase) {
+            list.retain(|e| e.id == only);
+        }
+        list
+    }
+
     /// Supervises one user start: runs the server, restarts it after crashes
     /// (back-off), stops on request.
-    async fn supervise(&self, generation: u64, stop: CancellationToken, dir: PathBuf, target: ServerTarget) {
+    async fn supervise_loop(&self, generation: u64, stop: CancellationToken, dir: PathBuf, target: ServerTarget) {
         // One token per user start: restarts after a crash keep it (and the
         // port), so an open VS Code window reconnects with its cookie.
         let token = SecretGuard::new(server::generate_token());
@@ -956,6 +1134,7 @@ impl VsCodeHost {
         };
         let mut cmd = tokio::process::Command::new(&spec.node);
         cmd.args(server::build_args(&spec))
+            .args(&self.inner.opts.extra_server_args)
             .current_dir(dir)
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
@@ -968,6 +1147,8 @@ impl VsCodeHost {
                 cmd.env_remove(&k);
             }
         }
+        // The bridge extension reads its port + one-time token from this file.
+        cmd.env(bridge::BRIDGE_FILE_ENV, layout.bridge_file());
         orkestr_platform::process::isolate_command(&mut cmd);
         let mut child = match cmd.spawn() {
             Ok(c) => c,

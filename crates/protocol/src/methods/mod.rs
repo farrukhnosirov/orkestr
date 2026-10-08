@@ -422,6 +422,12 @@ pub fn registry() -> Vec<MethodDescriptor> {
         MethodDescriptor::of::<vscode::Logs>(),
         MethodDescriptor::of::<vscode::ListExtensions>(),
         MethodDescriptor::of::<vscode::InstallExtension>(),
+        MethodDescriptor::of::<vscode::Commands>(),
+        MethodDescriptor::of::<vscode::Execute>(),
+        MethodDescriptor::of::<vscode::OpenView>(),
+        MethodDescriptor::of::<vscode::OpenFile>(),
+        MethodDescriptor::of::<vscode::Tasks>(),
+        MethodDescriptor::of::<vscode::RunTask>(),
         // VS Code extensions in the native editor + language servers (ADR-0025)
         MethodDescriptor::of::<extensions::Search>(),
         MethodDescriptor::of::<extensions::Details>(),

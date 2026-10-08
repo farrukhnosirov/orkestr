@@ -2,7 +2,8 @@
   "tabs": {
     "label": "Разделы расширений",
     "marketplace": "Open VSX",
-    "installed": "Установленные ({{n}})"
+    "installed": "Установленные ({{n}})",
+    "vscode": "Команды VS Code"
   },
   "search": {
     "label": "Поиск расширений",
