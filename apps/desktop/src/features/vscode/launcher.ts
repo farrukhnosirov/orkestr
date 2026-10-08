@@ -40,6 +40,8 @@ export interface LaunchOutcome {
 
 export interface LauncherStore {
   extensions: VsCodeExtensionCommands[] | null;
+  /** The connected window trusts its folder (`null` = no window). */
+  workspaceTrusted: boolean | null;
   loading: boolean;
   error: string | null;
   /** Key (`command id` / `view:<ext>` / `settings:<ext>`) currently running. */
@@ -130,6 +132,7 @@ async function ensureWindow(): Promise<boolean> {
 
 export const useLauncherStore = create<LauncherStore>((set, get) => ({
   extensions: null,
+  workspaceTrusted: null,
   loading: false,
   error: null,
   running: null,
@@ -146,7 +149,7 @@ export const useLauncherStore = create<LauncherStore>((set, get) => ({
     try {
       const res = await client.call("vscode.commands", { locale }, { timeoutMs: 30_000 });
       loadedFor = locale;
-      set({ extensions: res.extensions, loading: false });
+      set({ extensions: res.extensions, workspaceTrusted: res.workspaceTrusted, loading: false });
     } catch (e) {
       set({ error: describeError(e), loading: false });
     }
@@ -184,8 +187,9 @@ export const useLauncherStore = create<LauncherStore>((set, get) => ({
         set({ running: null, opening: false, confirm: req });
         return false;
       }
-      const message =
+      let message =
         e instanceof OrkestrError && e.code === "conflict" ? t("vscodeLauncher:errors.noWindow") : describeError(e);
+      if (get().workspaceTrusted === false && /not found/i.test(message)) message = `${message} ${t("vscodeLauncher:restricted.hint")}`;
       set({ running: null, opening: false, last: { title: req.title, ok: false, message, at: Date.now() } });
       return false;
     }

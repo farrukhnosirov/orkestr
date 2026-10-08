@@ -288,3 +288,21 @@
   margin-bottom: var(--ok-space-1);
   border-bottom: 1px solid var(--ok-color-border);
 }
+.vxl-warn {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--ok-space-2);
+  padding: var(--ok-space-2) var(--ok-space-3);
+  border: 1px solid var(--ok-color-warning);
+  border-radius: var(--ok-radius-md);
+  background: var(--ok-color-warning-soft);
+  color: var(--ok-color-text);
+}
+.vxl-warn > svg {
+  color: var(--ok-color-warning);
+}
+.vxl-warn > span {
+  flex: 1;
+  min-width: 200px;
+}

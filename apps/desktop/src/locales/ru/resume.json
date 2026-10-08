@@ -324,6 +324,10 @@
     "ClaudeCodeStatus_one": "{{count}} смена состояния сеанса Claude Code",
     "ClaudeCodeStatus_few": "{{count}} смены состояния сеанса Claude Code",
     "ClaudeCodeStatus_many": "{{count}} смен состояния сеанса Claude Code",
-    "ClaudeCodeStatus_other": "{{count}} смены состояния сеанса Claude Code"
+    "ClaudeCodeStatus_other": "{{count}} смены состояния сеанса Claude Code",
+    "VsCodeCommandExecuted_one": "{{count}} запуск команды расширения VS Code",
+    "VsCodeCommandExecuted_few": "{{count}} запуска команд расширений VS Code",
+    "VsCodeCommandExecuted_many": "{{count}} запусков команд расширений VS Code",
+    "VsCodeCommandExecuted_other": "{{count}} запуска команд расширений VS Code"
   }
 }

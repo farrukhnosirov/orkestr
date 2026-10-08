@@ -434,6 +434,10 @@ pub struct VsCodeCommandsResult {
     pub extensions: Vec<VsCodeExtensionCommands>,
     /// A VS Code window is connected (commands can run right away).
     pub bridge_connected: bool,
+    /// Whether the connected window trusts its folder (`null` = no window).
+    /// In Restricted Mode VS Code disables most extensions, so their commands
+    /// are not found until the folder is trusted (`workbench.trust.manage`).
+    pub workspace_trusted: Option<bool>,
 }
 
 /// Params of `vscode.execute`.

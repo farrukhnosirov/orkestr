@@ -117,6 +117,7 @@ async fn vscode_execute_round_trip_through_a_mock_bridge() {
     let r = call(&mut ws, "1", "vscode.commands", json!({})).await;
     assert_eq!(r["ok"], true, "{r}");
     assert_eq!(r["result"]["bridgeConnected"], false);
+    assert!(r["result"]["workspaceTrusted"].is_null());
     let e = &r["result"]["extensions"][0];
     assert_eq!(e["id"], "mechatroner.rainbow-csv");
     assert_eq!(e["commands"][0]["title"], "Align columns");
@@ -139,7 +140,10 @@ async fn vscode_execute_round_trip_through_a_mock_bridge() {
     let port = bridge.listen().await.unwrap();
     let stream = tokio::net::TcpStream::connect(("127.0.0.1", port)).await.unwrap();
     let (r_half, mut w_half) = stream.into_split();
-    w_half.write_all(b"{\"type\":\"hello\",\"token\":\"one-time\",\"version\":\"0.1.0\"}\n").await.unwrap();
+    w_half
+        .write_all(b"{\"type\":\"hello\",\"token\":\"one-time\",\"version\":\"0.1.0\",\"trusted\":true}\n")
+        .await
+        .unwrap();
     let mut lines = BufReader::new(r_half).lines();
     assert!(lines.next_line().await.unwrap().unwrap().contains("welcome"));
     let seen = std::sync::Arc::new(std::sync::Mutex::new(Vec::<Value>::new()));
@@ -169,6 +173,7 @@ async fn vscode_execute_round_trip_through_a_mock_bridge() {
     // Runtime-only commands are merged once a window is connected.
     let r = call(&mut ws, "7", "vscode.commands", json!({"extensionId": "mechatroner.rainbow-csv"})).await;
     assert_eq!(r["result"]["bridgeConnected"], true);
+    assert_eq!(r["result"]["workspaceTrusted"], true);
     let cmds = r["result"]["extensions"][0]["commands"].as_array().unwrap();
     assert!(cmds.iter().any(|c| c["id"] == "rainbow-csv.hiddenThing" && c["runtimeOnly"] == true), "{cmds:?}");
     let s = call(&mut ws, "7b", "vscode.status", json!({})).await;

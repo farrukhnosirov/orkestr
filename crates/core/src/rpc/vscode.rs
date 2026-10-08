@@ -208,9 +208,12 @@ pub fn register(router: &mut RpcRouter) {
         })
         .method::<m::Commands, _, _>(|ctx: RpcContext, p: VsCodeCommandsParams| async move {
             let extensions = ctx.services.vscode.catalog(p.locale.as_deref(), p.extension_id.as_deref()).await;
+            let bridge = ctx.services.vscode.bridge();
+            let connected = bridge.is_connected();
             Ok::<_, RpcError>(VsCodeCommandsResult {
                 extensions,
-                bridge_connected: ctx.services.vscode.bridge().is_connected(),
+                bridge_connected: connected,
+                workspace_trusted: if connected { bridge.hello().map(|h| h.trusted) } else { None },
             })
         })
         .method::<m::Execute, _, _>(|ctx: RpcContext, p: VsCodeExecuteParams| async move {

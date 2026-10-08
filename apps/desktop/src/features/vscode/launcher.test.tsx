@@ -103,11 +103,11 @@ beforeEach(async () => {
   calls.length = 0;
   opened.length = 0;
   handlers.clear();
-  handlers.set("vscode.commands", () => ({ extensions: [claude, rainbow], bridgeConnected: true }));
+  handlers.set("vscode.commands", () => ({ extensions: [claude, rainbow], bridgeConnected: true, workspaceTrusted: true }));
   handlers.set("vscode.execute", () => ({ result: null, durationMs: 3 }));
   handlers.set("vscode.openView", () => ({ result: null, durationMs: 3 }));
   handlers.set("vscode.status", () => status());
-  useLauncherStore.setState({ extensions: null, loading: false, error: null, running: null, opening: false, confirm: null, last: null });
+  useLauncherStore.setState({ extensions: null, workspaceTrusted: null, loading: false, error: null, running: null, opening: false, confirm: null, last: null });
   useVsCodeStore.setState({ status: status(), error: null, busy: null });
   useAppStore.setState({
     connection: { ...useAppStore.getState().connection, state: "open" },
@@ -153,6 +153,15 @@ describe("extension launcher cards", () => {
       waitMs: 60_000,
       settings: true,
     });
+  });
+
+  it("warns about Restricted Mode and offers to trust the folder", async () => {
+    handlers.set("vscode.commands", () => ({ extensions: [rainbow], bridgeConnected: true, workspaceTrusted: false }));
+    render(<ExtensionLauncher />);
+    expect(await screen.findByText("VS Code is in Restricted Mode.")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Trust folder…" }));
+    await waitFor(() => expect(calls.some((c) => c.method === "vscode.execute")).toBe(true));
+    expect(calls.find((c) => c.method === "vscode.execute")?.params).toMatchObject({ commandId: "workbench.trust.manage" });
   });
 
   it("filters commands by search across extensions", async () => {

@@ -60,6 +60,9 @@ pub struct HostOptions {
     pub ready_timeout: Duration,
     /// Idle auto-stop check period.
     pub idle_check: Duration,
+    /// Extra server flags (tests, e.g. `--disable-workspace-trust` for a
+    /// throw-away folder). Empty in the product.
+    pub extra_server_args: Vec<String>,
 }
 
 impl std::fmt::Debug for HostOptions {
@@ -83,6 +86,7 @@ impl HostOptions {
             health_interval: Duration::from_secs(15),
             ready_timeout: Duration::from_secs(90),
             idle_check: Duration::from_secs(15),
+            extra_server_args: Vec::new(),
         }
     }
 
@@ -939,7 +943,8 @@ impl VsCodeHost {
             bridge::BRIDGE_EXTENSION_ID,
             bridge::BRIDGE_VERSION
         ));
-        dir.join("package.json").is_file() && dir.join("extension.js").is_file()
+        dir.join("package.json").is_file()
+            && std::fs::read(dir.join("extension.js")).is_ok_and(|b| bridge::is_current_extension_js(&b))
     }
 
     /// Installs the bundled bridge `.vsix` with the server CLI (idempotent).
@@ -1129,6 +1134,7 @@ impl VsCodeHost {
         };
         let mut cmd = tokio::process::Command::new(&spec.node);
         cmd.args(server::build_args(&spec))
+            .args(&self.inner.opts.extra_server_args)
             .current_dir(dir)
             .stdin(Stdio::null())
             .stdout(Stdio::piped())

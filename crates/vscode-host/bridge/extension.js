@@ -72,6 +72,9 @@ async function handle(method, params) {
       return { version: VERSION };
     case "listCommands":
       return await vscode.commands.getCommands(true);
+    case "listExtensions":
+      // Extensions of this (workspace) extension host and whether they are active.
+      return vscode.extensions.all.map((e) => ({ id: e.id, active: e.isActive, kind: e.extensionKind }));
     case "execute": {
       if (typeof params?.command !== "string") throw new Error("command must be a string");
       const args = Array.isArray(params.args) ? params.args.map(revive) : [];
@@ -135,6 +138,7 @@ function connect(context) {
       version: VERSION,
       vscodeVersion: vscode.version,
       appName: vscode.env.appName,
+      trusted: vscode.workspace.isTrusted,
       folders: (vscode.workspace.workspaceFolders || []).map((f) => f.uri.fsPath),
     });
   });

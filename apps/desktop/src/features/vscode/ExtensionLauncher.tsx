@@ -7,7 +7,7 @@
  * result toast are separate components mounted once (see `LauncherHost`).
  */
 import type { VsCodeCommandInfo, VsCodeExtensionCommands } from "@orkestr/protocol";
-import { Badge, Button, IconButton, Input, Spinner, StatusDot } from "@orkestr/ui";
+import { Button, IconButton, Input, Spinner, StatusDot } from "@orkestr/ui";
 import { clsx } from "clsx";
 import {
   AlertTriangle,
@@ -202,6 +202,7 @@ export function ExtensionLauncher({ only, showHeader = true }: { only?: string; 
   const extensions = useLauncherStore((s) => s.extensions);
   const loading = useLauncherStore((s) => s.loading);
   const error = useLauncherStore((s) => s.error);
+  const trusted = useLauncherStore((s) => s.workspaceTrusted);
   const installed = useVsCodeStore((s) => s.status?.installed != null);
   const statusLoaded = useVsCodeStore((s) => s.status !== null);
   const bridge = useVsCodeStore((s) => s.status?.bridgeConnected ?? false);
@@ -259,6 +260,25 @@ export function ExtensionLauncher({ only, showHeader = true }: { only?: string; 
           leftIcon={<Search size={13} />}
           spellCheck={false}
         />
+      )}
+      {trusted === false && bridge && (
+        <div className="vxl-warn" role="status">
+          <ShieldAlert size={14} aria-hidden="true" />
+          <span>
+            <strong>{t("restricted.title")}</strong> {t("restricted.body")}
+          </span>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() =>
+              void useLauncherStore
+                .getState()
+                .launch({ kind: "command", commandId: "workbench.trust.manage", title: t("restricted.manage") })
+            }
+          >
+            {t("restricted.manage")}
+          </Button>
+        </div>
       )}
       {error && (
         <div className="vxl-alert" role="alert">
@@ -348,10 +368,4 @@ export function LauncherHost() {
       <LauncherToast />
     </>
   );
-}
-
-/** Badge with the number of commands (for compact lists). */
-export function CommandCountBadge({ count }: { count: number }) {
-  const { t } = useT("vscodeLauncher");
-  return <Badge tone="info">{t("card.commands", { count })}</Badge>;
 }

@@ -51,9 +51,7 @@
     "notInstalled": "VS Code is not installed yet: install it in the VS Code panel."
   },
   "palette": {
-    "group": "VS Code: {{name}}",
-    "hint": "Type «VS Code:» to run extension commands",
-    "prefixHint": "VS Code extension commands"
+    "group": "VS Code: {{name}}"
   },
   "pinned": {
     "label": "Pinned VS Code commands",
@@ -61,5 +59,10 @@
     "empty": "Pin extension commands in the VS Code panel to see them here.",
     "run": "Run {{title}}"
   },
-  "tab": "In VS Code"
+  "restricted": {
+    "title": "VS Code is in Restricted Mode.",
+    "body": "Most extensions stay disabled until you trust this folder, so their commands will not run.",
+    "manage": "Trust folder…",
+    "hint": "VS Code is in Restricted Mode: trust the folder first."
+  }
 }

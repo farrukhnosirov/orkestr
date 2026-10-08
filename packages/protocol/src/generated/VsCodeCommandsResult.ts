@@ -12,4 +12,10 @@ extensions: Array<VsCodeExtensionCommands>,
 /**
  * A VS Code window is connected (commands can run right away).
  */
-bridgeConnected: boolean, };
+bridgeConnected: boolean, 
+/**
+ * Whether the connected window trusts its folder (`null` = no window).
+ * In Restricted Mode VS Code disables most extensions, so their commands
+ * are not found until the folder is trusted (`workbench.trust.manage`).
+ */
+workspaceTrusted: boolean | null, };

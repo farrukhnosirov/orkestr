@@ -61,6 +61,15 @@ pub enum BridgeError {
 
 // ------------------------------------------------------------------ vsix
 
+/// Whether an installed `extension.js` is the bundled one (a changed bundle
+/// is reinstalled even when the version is unchanged).
+#[must_use]
+pub fn is_current_extension_js(installed: &[u8]) -> bool {
+    // VS Code may normalize line endings; compare ignoring `\r`.
+    let strip = |b: &[u8]| b.iter().copied().filter(|c| *c != b'\r').collect::<Vec<u8>>();
+    strip(installed) == strip(EXTENSION_JS.as_bytes())
+}
+
 /// Files of the bridge extension as `(path inside the vsix, contents)`.
 #[must_use]
 pub fn bridge_files() -> Vec<(&'static str, &'static [u8])> {
@@ -189,6 +198,9 @@ pub struct BridgeHello {
     pub app_name: String,
     /// Open workspace folders.
     pub folders: Vec<String>,
+    /// The workspace is trusted (in Restricted Mode VS Code disables most
+    /// extensions, so their commands are "not found").
+    pub trusted: bool,
 }
 
 #[derive(Deserialize)]
