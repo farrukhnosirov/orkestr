@@ -273,6 +273,9 @@ pub struct Run {
     /// The "model has no known price" warning was emitted for this run.
     unpriced_warned: bool,
     budget_note: Option<String>,
+    /// The provider error that ended the last CLI attempt (usage-limit
+    /// fallback, [`Run::cli_limit_fallback`]).
+    pub(crate) cli_error: Option<orkestr_providers::ProviderError>,
     started: Instant,
 }
 
@@ -332,6 +335,7 @@ impl Run {
             budget_warned: false,
             unpriced_warned: false,
             budget_note: None,
+            cli_error: None,
             started: Instant::now(),
         }
     }
@@ -498,11 +502,78 @@ impl Run {
         if let Err(o) = self.start().await {
             return o;
         }
-        if self.cli {
-            crate::cli::run_cli(self).await
-        } else {
-            self.chat_loop().await
+        while self.cli {
+            self.cli_error = None;
+            let outcome = crate::cli::run_cli(self).await;
+            match self.cli_limit_fallback().await {
+                Some(true) => {}
+                Some(false) => self.cli = false,
+                None => return outcome,
+            }
         }
+        self.chat_loop().await
+    }
+
+    /// A CLI coding agent (Claude Code subscription, Codex) hit its usage
+    /// limit: the task continues on the next model of the agent's chain
+    /// (template fallback models, then routing), with a structured handoff —
+    /// the same chain and handoff the chat executor uses for its fallback.
+    /// `Some(true)` = the next model is a CLI agent too, `Some(false)` = a
+    /// chat model, `None` = no fallback (the outcome stands).
+    async fn cli_limit_fallback(&mut self) -> Option<bool> {
+        let error = self.cli_error.take()?;
+        if self.control.cancel.is_cancelled() {
+            return None;
+        }
+        let from = self.head_model()?;
+        let models = Arc::clone(&self.deps.models);
+        let to = next_after_usage_limit(&self.chain, &from, &error, |m| {
+            models.provider(m.provider_id).is_some_and(|i| i.enabled)
+        })?;
+        let to_cli = models.provider(to.provider_id).is_some_and(|i| i.is_cli_agent());
+        let progress = self.progress.lock().clone();
+        let h = handoff::build(&HandoffInput {
+            agent: &self.agent,
+            task: &self.task,
+            reason: HandoffReason::ProviderFallback,
+            to_model: Some(to.clone()),
+            progress: &progress,
+            note: Some(format!("{} hit its usage limit: {error}", from.model)),
+            turns_left: self.agent.max_turns.saturating_sub(self.agent.turns_used),
+            cost_left: None,
+        });
+        if let Err(e) = self.store.add_handoff(self.agent.id, &h).await {
+            tracing::warn!(error = %e, "could not persist the usage-limit handoff");
+        }
+        if let Some(pos) = self.chain.iter().position(|m| *m == to) {
+            self.chain.drain(..pos);
+        }
+        if !to_cli {
+            // The chat executor cannot drive CLI agents.
+            self.chain.retain(|m| models.provider(m.provider_id).is_some_and(|i| !i.is_cli_agent()));
+            self.agent.execution_style = Some("chat".into());
+        }
+        self.agent.model = Some(to.clone());
+        self.execution.model = Some(to.clone());
+        self.persist().await;
+        let _ = self
+            .deps
+            .tasks
+            .record_agent_run(self.task.id, AgentRunUpdate { model: Some(to.clone()), ..Default::default() })
+            .await;
+        let reason = error.class().to_owned();
+        self.publish(EventKind::ProviderFallback(orkestr_protocol::event::ProviderFallbackPayload {
+            from: from.clone(),
+            to: to.clone(),
+            reason: reason.clone(),
+        }))
+        .await;
+        self.note(&format!(
+            "Provider fallback: {} → {} ({reason}, usage limit). A structured handoff was created.",
+            from.model, to.model
+        ))
+        .await;
+        Some(to_cli)
     }
 
     async fn start(&mut self) -> Result<(), Outcome> {
@@ -1888,6 +1959,24 @@ impl HandoffHook for FallbackHook {
         request.system = Some(format!("{}{note}", request.system.unwrap_or_default()));
         Some(request)
     }
+}
+
+/// The model a CLI agent falls back to after `error` ended its run on
+/// `from`: only a usage limit (quota / rate limit — e.g. "Claude AI usage
+/// limit reached") switches; the next usable model after `from` in `chain`.
+#[must_use]
+pub fn next_after_usage_limit(
+    chain: &[ModelRef],
+    from: &ModelRef,
+    error: &orkestr_providers::ProviderError,
+    usable: impl Fn(&ModelRef) -> bool,
+) -> Option<ModelRef> {
+    use orkestr_providers::ProviderError as E;
+    if !matches!(error, E::QuotaExceeded(_) | E::RateLimited { .. }) {
+        return None;
+    }
+    let pos = chain.iter().position(|m| m == from)?;
+    chain.iter().skip(pos + 1).find(|m| *m != from && usable(m)).cloned()
 }
 
 /// Helper: JSON for tests and the CLI result parser.

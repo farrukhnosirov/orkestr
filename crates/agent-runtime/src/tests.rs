@@ -1333,6 +1333,56 @@ async fn cli_agent_takes_a_checkpoint_and_its_task_rolls_back() {
     assert!(!h.root.join("src/cli.txt").exists(), "the CLI agent's change was rolled back");
 }
 
+#[test]
+fn only_a_usage_limit_moves_a_cli_agent_to_the_next_model() {
+    let (a, b, c) = (ProviderId::new(), ProviderId::new(), ProviderId::new());
+    let m = |p: ProviderId, n: &str| ModelRef { provider_id: p, model: n.into() };
+    let chain = vec![m(a, "claude"), m(b, "disabled"), m(c, "gpt")];
+    let usable = |x: &ModelRef| x.provider_id != b;
+    let quota = ProviderError::QuotaExceeded("Claude AI usage limit reached".into());
+    let next = crate::run::next_after_usage_limit(&chain, &chain[0], &quota, usable);
+    assert_eq!(next, Some(m(c, "gpt")), "skips the unusable provider");
+    let limited = ProviderError::RateLimited { retry_after_secs: Some(60) };
+    assert!(crate::run::next_after_usage_limit(&chain, &chain[0], &limited, usable).is_some());
+    let other = ProviderError::Server("boom".into());
+    assert_eq!(crate::run::next_after_usage_limit(&chain, &chain[0], &other, usable), None, "not a limit");
+    assert_eq!(crate::run::next_after_usage_limit(&chain, &chain[2], &quota, usable), None, "chain exhausted");
+}
+
+#[tokio::test]
+async fn cli_agent_falls_back_to_the_next_model_when_its_usage_limit_is_hit() {
+    let h = harness(ApprovalMode::FullAuto).await;
+    let tpl = h.template(&["write_file", "run_command", "submit_result"], WorktreePolicy::SharedWorktree, None).await;
+    let limited = h.cli(
+        ProviderKind::ClaudeCode,
+        Vec::new(),
+        vec![
+            cli_text("Working…"),
+            orkestr_providers::CodingAgentEvent::Chat(ChatEvent::Error(ProviderError::QuotaExceeded(
+                "Claude AI usage limit reached|1760000000".into(),
+            ))),
+        ],
+    );
+    let backup = h.cli(
+        ProviderKind::Codex,
+        Vec::new(),
+        vec![
+            cli_text("Done.\n```json\n{\"status\": \"done\", \"summary\": \"finished on the fallback\"}\n```\n"),
+            cli_done(),
+        ],
+    );
+    *h.gateway.chain.lock() = vec![
+        ModelRef { provider_id: limited.id, model: "default".into() },
+        ModelRef { provider_id: backup.id, model: "default".into() },
+    ];
+    let a = h.wait_done(h.spawn(tpl, None).await.id).await;
+    assert_eq!(a.state, AgentState::Completed, "{:?}", a.last_error);
+    assert_eq!(a.model.as_ref().map(|m| m.provider_id), Some(backup.id), "the agent moved to the fallback model");
+    assert_eq!(limited.requests.lock().len(), 1);
+    let req = backup.requests.lock()[0].clone();
+    assert!(req.prompt.contains("usage limit"), "the fallback gets the structured handoff: {}", req.prompt);
+}
+
 #[tokio::test]
 async fn claude_bridge_denies_forbidden_commands_and_files_outside_the_worktree() {
     let h = harness(ApprovalMode::FullAuto).await;

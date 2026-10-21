@@ -317,8 +317,10 @@ impl AgentRuntime {
         };
         let head_cli = models.provider(head.provider_id).is_some_and(|i| i.is_cli_agent());
         if head_cli {
-            // CLI coding agents run their own loop; no chat fallback chain.
-            return Ok((vec![head], true));
+            // CLI coding agents run their own loop; the rest of the chain is
+            // kept only as the usage-limit fallback (`Run::cli_limit_fallback`).
+            chain.retain(|m| *m == head || models.provider(m.provider_id).is_some_and(|i| i.enabled));
+            return Ok((chain, true));
         }
         chain.retain(|m| models.provider(m.provider_id).is_some_and(|i| !i.is_cli_agent() && i.enabled));
         if chain.is_empty() {

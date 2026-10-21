@@ -237,6 +237,7 @@ pub(crate) async fn run_cli(run: &mut Run) -> Outcome {
             CodingAgentEvent::Chat(ChatEvent::Usage(u)) => usage = Some(u),
             CodingAgentEvent::Chat(ChatEvent::Done { .. }) => break,
             CodingAgentEvent::Chat(ChatEvent::Error(e)) => {
+                run.cli_error = Some(e.clone());
                 outcome = Some(if run.control.cancel.is_cancelled() {
                     Outcome::Cancelled
                 } else {
