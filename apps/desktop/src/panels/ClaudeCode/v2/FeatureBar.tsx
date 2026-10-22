@@ -31,6 +31,7 @@ import { chatMarkdown, exportFileName, lastAnswer, lastPrompt } from "../../../f
 import { useClaudeStore, type SessionView } from "../../../features/claudeCode/store";
 import { downloadText } from "../../../features/theme/i18nText";
 import { workspaceActions } from "../../../components/workspaceActions";
+import { useLauncherStore } from "../../../features/vscode/launcher";
 import { useFormat, useT } from "../../../i18n";
 import { useTerminalUi } from "../../Terminal/store";
 import { Popover } from "./Popover";
@@ -233,9 +234,26 @@ export function FeatureBar({ projectId, view, title, onSend }: FeatureBarProps) 
     }
   };
 
+  // The same chat in the Claude Code extension of Orkestr's VS Code window:
+  // `claude-vscode.editor.open(sessionId)` is the command the extension's own
+  // session list and its `vscode://anthropic.claude-code/open?session=` URI
+  // handler use; it runs through the Orkestr bridge (which opens the window
+  // on the project first). The extension looks the transcript up by the
+  // window's folder, so a chat started in a sub-folder / worktree opens as a
+  // new conversation there; the id is copied for /resume in that case.
   const toVsCode = async () => {
     if (claudeId) await copy(claudeId);
-    workspaceActions.openPanel("vscode");
+    say(t("features.vscodeOpening"));
+    const ok = await useLauncherStore.getState().launch({
+      kind: "command",
+      commandId: "claude-vscode.editor.open",
+      title: t("features.vscode"),
+      args: claudeId ? [claudeId] : [],
+    });
+    if (!ok) {
+      say(useLauncherStore.getState().last?.message ?? t("features.vscodeFailed"));
+      workspaceActions.openPanel("vscode");
+    }
   };
 
   const ctxLabel = ctx ? fmt.percent(ctx.percentage / 100) : null;

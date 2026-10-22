@@ -23,6 +23,7 @@ vi.mock("../../core/client", () => ({
 
 import { registerWorkspace } from "../../components/workspaceActions";
 import { useClaudeStore } from "../../features/claudeCode/store";
+import { useVsCodeStore } from "../../features/vscode/store";
 import { i18n } from "../../i18n";
 import { useAppStore } from "../../store/app";
 import ClaudeCodePanel from "./index";
@@ -185,6 +186,20 @@ describe("Claude Code panel v2", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Context" }));
     expect(await screen.findByText("Messages")).toBeTruthy();
+  });
+
+  it("«In VS Code» opens the same chat in the Claude Code extension through the bridge", async () => {
+    useVsCodeStore.setState({ status: { installed: true, bridgeConnected: true } as never });
+    Object.assign(navigator, { clipboard: { writeText: () => Promise.resolve() } });
+    responses.set("claudeCode.start", { session: info({ claudeSessionId: H }), history: [] });
+    responses.set("vscode.execute", { ok: true, result: null });
+    render(<ClaudeCodePanel projectId={P} />);
+    fireEvent.click((await screen.findAllByRole("button", { name: "New chat" }))[0] as HTMLElement);
+    await screen.findByRole("combobox", { name: "Message to Claude" });
+    fireEvent.click(screen.getByRole("button", { name: "In VS Code" }));
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === "vscode.execute")?.params).toMatchObject({ commandId: "claude-vscode.editor.open", args: [H] }),
+    );
   });
 
   it("usage shows «No data» when the CLI reports no plan limits", async () => {
