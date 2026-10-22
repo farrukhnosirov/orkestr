@@ -15,6 +15,8 @@
 //   screenshot <file.png>    save a screenshot
 //   finger [id]              emulator fingerprint touch (biometric prompt)
 //   notifications            dumpsys notification lines for the app
+//   unlock [pin]             wake + dismiss keyguard (+ PIN)
+//   enrollFinger [pin]       set PIN + enroll emulator fingerprint 1 via Settings
 // Env: ADB (path to adb), ANDROID_SERIAL (device).
 // Also importable: import { tap, typeText, waitFor, screenshot, … } from "./android-e2e.mjs".
 import { spawnSync } from "node:child_process";
@@ -137,6 +139,112 @@ export function finger(id = 1) {
   return adb(["emu", "finger", "touch", String(id)], { allowFail: true });
 }
 
+export function key(...codes) {
+  return adb(["shell", "input", "keyevent", ...codes.map(String)]);
+}
+export const back = () => key(4);
+
+/** Clears a text field: focus, move to end, delete. */
+export async function clearField(testID, n = 60) {
+  await tap(testID);
+  await sleep(200);
+  key(123, ...Array(n).fill(67));
+}
+
+/** Swipes the content up until `testID` is visible (RN ScrollView omits off-screen nodes). */
+export async function scrollTo(testID, swipes = 6) {
+  for (let i = 0; i <= swipes; i++) {
+    const n = find(testID);
+    if (n && n.cy < 2150) return n;
+    adb(["shell", "input", "swipe", "540", "1700", "540", "900", "300"]);
+    await sleep(600);
+  }
+  throw new Error(`"${testID}" not found after scrolling`);
+}
+
+/** True when the system BiometricPrompt is on screen. */
+export function biometricPromptVisible(nodes = dump()) {
+  return nodes.some((n) => /systemui:id\/(biometric|auth_|fingerprint)/.test(n.id) || /fingerprint sensor|Use (your )?fingerprint/i.test(`${n.text} ${n.desc}`));
+}
+
+/** Simulated fingerprint touch (emulator only): touch then lift. */
+export async function fingerTap(id = 1) {
+  finger(id);
+  await sleep(500);
+  adb(["emu", "finger", "remove", String(id)], { allowFail: true });
+  await sleep(500);
+}
+
+export function fingerprintEnrolled() {
+  return /"prints":\[\{[^\]]*"count":[1-9]/.test(String(adb(["shell", "dumpsys", "fingerprint"], { allowFail: true }) ?? ""));
+}
+
+export async function unlock(pin = "1111") {
+  adb(["shell", "svc", "power", "stayon", "true"], { allowFail: true });
+  key(224);
+  await sleep(400);
+  adb(["shell", "wm", "dismiss-keyguard"], { allowFail: true });
+  await sleep(800);
+  if (dump().some((n) => n.id === "com.android.systemui:id/keyguard_root_view" || /PIN area/.test(n.desc))) {
+    adb(["shell", "input", "swipe", "540", "2000", "540", "600", "200"]);
+    await sleep(800);
+    adb(["shell", "input", "text", pin]);
+    key(66);
+    await sleep(1200);
+  }
+}
+
+/**
+ * Sets a PIN and enrolls fingerprint 1 through the Settings UI (Pixel AVD,
+ * Android 16 strings). Idempotent; returns true when a fingerprint is enrolled.
+ */
+export async function enrollFingerprint(pin = "1111") {
+  if (fingerprintEnrolled()) return true;
+  adb(["shell", "locksettings", "set-pin", pin], { allowFail: true });
+  await unlock(pin);
+  adb(["shell", "am", "start", "-a", "android.settings.SECURITY_SETTINGS"]);
+  await sleep(2500);
+  const step = async (re, timeoutMs = 10000) => {
+    const end = Date.now() + timeoutMs;
+    for (;;) {
+      const n = dump().find((x) => re.test(x.text));
+      if (n) {
+        adb(["shell", "input", "tap", String(n.cx), String(n.cy)]);
+        await sleep(2000);
+        return true;
+      }
+      if (Date.now() > end) return false;
+      await sleep(700);
+    }
+  };
+  if (!(await step(/^Device unlock$/))) return false;
+  if (!(await step(/^(Pixel Imprint|Fingerprint.*)$/))) return false;
+  if (dump().some((n) => /PIN/.test(n.text) || /PIN area/.test(n.desc))) {
+    adb(["shell", "input", "text", pin]);
+    key(66);
+    await sleep(2500);
+  }
+  for (let i = 0; i < 3 && !dump().some((n) => /I AGREE/i.test(n.text)); i++) await step(/^MORE$/i, 3000);
+  await step(/^I AGREE$/i);
+  for (let i = 0; i < 20 && !fingerprintEnrolled(); i++) await fingerTap(1);
+  await step(/^DONE$/i, 3000);
+  key(3);
+  return fingerprintEnrolled();
+}
+
+/** The app's posted notifications parsed from `dumpsys notification`: [{tag, title, text}]. */
+export function appNotifications() {
+  const out = String(adb(["shell", "dumpsys", "notification", "--noredact"], { allowFail: true }) ?? "");
+  return out
+    .split(/(?=\n\s*NotificationRecord\()/)
+    .filter((b) => b.includes(`pkg=${PACKAGE} `))
+    .map((b) => ({
+      tag: /\btag=(\S+)/.exec(b)?.[1] ?? "",
+      title: /android\.title=\S+ \(([^)]*)\)/.exec(b)?.[1] ?? "",
+      text: /android\.text=\S+ \(([^)]*)\)/.exec(b)?.[1] ?? "",
+    }));
+}
+
 export function notifications() {
   return adb(["shell", "dumpsys", "notification", "--noredact"], { allowFail: true })
     .split("\n")
@@ -172,9 +280,13 @@ async function main([cmd, ...args]) {
     case "running":
       return console.log(isRunning() ? "running" : "not running");
     case "notifications":
-      return console.log(notifications());
+      return console.log(JSON.stringify(appNotifications(), null, 1));
+    case "unlock":
+      return unlock(args[0]);
+    case "enrollFinger":
+      return console.log((await enrollFingerprint(args[0])) ? "enrolled" : "not enrolled");
     default:
-      console.log("usage: node scripts/android-e2e.mjs install|launch|deeplink|reverse|dump|tap|tapText|type|wait|screenshot|finger|running|notifications …");
+      console.log("usage: node scripts/android-e2e.mjs install|launch|deeplink|reverse|dump|tap|tapText|type|wait|screenshot|finger|running|notifications|unlock|enrollFinger …");
       process.exitCode = cmd ? 2 : 0;
   }
 }
