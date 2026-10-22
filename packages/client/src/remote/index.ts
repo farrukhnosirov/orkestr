@@ -6,11 +6,17 @@ export { GATEWAY_PATHS, connectUrl, httpUrl } from "./endpoints";
 export { IndexedDbKeyStore, MemoryKeyStore, defaultKeyStore, deviceSigner, generateDeviceKey } from "./keystore";
 export { isDeviceSigner, remoteCrypto, setRemoteCrypto } from "./crypto";
 export type { AeadKey, Bytes, DeviceSigner, EcdhKeyPair, RawKey, RemoteCrypto } from "./crypto";
-export { cryptoKeySigner, webCrypto } from "./webcrypto";
+export { cryptoKeySigner, signWithCryptoKey, webCrypto } from "./webcrypto";
 export { nobleCrypto } from "./noble";
-export { NATIVE_STEPUP_RP_ID, nativeStepUpAssertion, nativeStepUpOrigin } from "./nativeStepUp";
+export {
+  NATIVE_STEPUP_RP_ID,
+  nativeStepUpAssertion,
+  nativeStepUpOrigin,
+  nativeStepUpRegistration,
+  p1363ToDer,
+} from "./nativeStepUp";
 export type { NativeStepUpRegistration } from "./nativeStepUp";
-export { NATIVE_PUSH_AAD, decryptNativePush } from "./nativePush";
+export { NATIVE_PUSH_AAD, decryptNativePush, encryptNativePush } from "./nativePush";
 export type { DeviceKeyStore, DeviceRecord } from "./keystore";
 export { PAIRING_QR_PREFIX, PairingError, codeMac, fingerprint, pairDevice, parsePairingQr, sas } from "./pairing";
 export type { PairDeviceOptions, PairingOffer, PairingSession, PairingStatus } from "./pairing";

@@ -1,8 +1,12 @@
+import { p256 } from "@noble/curves/nist.js";
 import { describe, expect, it } from "vitest";
 
 import { b64uDecode, b64uEncode, utf8 } from "./bytes";
-import { MemoryKeyStore, generateDeviceKey } from "./keystore";
+import { remoteCrypto } from "./crypto";
+import { MemoryKeyStore, deviceSigner, generateDeviceKey } from "./keystore";
+import { nobleCrypto } from "./noble";
 import { PairingError, completionMessage, fingerprint, pairDevice, parsePairingQr, sas } from "./pairing";
+import { useProvider } from "./providers.testutil";
 import v from "./testdata/e2e-vector.json";
 
 const ECDSA = { name: "ECDSA", hash: "SHA-256" } as const;
@@ -89,5 +93,35 @@ describe("pairDevice", () => {
       gatewayUrl: "https://g", coreId: "c", pairingId: "p", code: "C", coreKeyFingerprint: "f",
     });
     expect(parsePairingQr("nope")).toBeNull();
+  });
+});
+
+describe("pairDevice under the noble provider (mobile, crypto.subtle poisoned)", () => {
+  useProvider(nobleCrypto);
+
+  it("generates a raw provider key, pairs and stores it; deviceSigner(rec) signs with it", async () => {
+    const store = new MemoryKeyStore();
+    let devicePub = new Uint8Array();
+    const fakeFetch = (async (url: string, init?: RequestInit) => {
+      if (url.endsWith("/claim")) {
+        devicePub = b64uDecode((JSON.parse(String(init!.body)) as { devicePubKey: string }).devicePubKey);
+        return new Response(JSON.stringify({ coreId: "core-1", corePublicKey: v.cikPublic }));
+      }
+      const msg = await completionMessage("pair-1", "dev-9", devicePub, "admin");
+      const sig = p256.sign(msg, b64uDecode(v.cikPrivate), { format: "compact" });
+      return new Response(JSON.stringify({ status: "approved", result: { status: "approved", deviceId: "dev-9", role: "admin", sig: b64uEncode(sig) } }));
+    }) as typeof fetch;
+    const session = await pairDevice({
+      gatewayUrl: "http://gw", coreId: "core-1", pairingId: "pair-1", code: "abcd1234",
+      coreKeyFingerprint: await fingerprint(b64uDecode(v.cikPublic)),
+      deviceName: "Phone", platform: "android", store, fetch: fakeFetch,
+    });
+    expect(session.sas).toMatch(/^\d{6}$/);
+    const rec = await session.waitForApproval({ intervalMs: 1 });
+    expect(rec.keyPair).toBeUndefined();
+    expect(rec.rawKey?.pub).toBe(b64uEncode(devicePub));
+    const signer = await deviceSigner(rec);
+    const msg = utf8("hello");
+    expect(await remoteCrypto().verifyP256(devicePub, await signer.sign(msg), msg)).toBe(true);
   });
 });

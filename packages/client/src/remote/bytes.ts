@@ -1,3 +1,5 @@
+import { remoteCrypto } from "./crypto";
+
 /** Byte helpers for the remote transport (base64url without padding, concat, BE ints). */
 
 const enc = new TextEncoder();
@@ -58,6 +60,7 @@ export function equalBytes(a: Uint8Array, b: Uint8Array): boolean {
   return d === 0;
 }
 
+/** `n` random bytes from the installed `RemoteCrypto` provider. */
 export function randomBytes(n: number): Uint8Array<ArrayBuffer> {
-  return crypto.getRandomValues(new Uint8Array(n));
+  return remoteCrypto().randomBytes(n);
 }

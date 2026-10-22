@@ -6,31 +6,28 @@
  * - `fingerprint = base64url(SHA-256(corePub))`;
  * - approval proof: `Sign_CIK(SHA-256("orkestr-pairing-v1" ‖ pairingId ‖ deviceId ‖ devicePub ‖ role))`.
  */
-import type { DeviceSigner, RawKey } from "./crypto";
+import { type Bytes, type DeviceSigner, type RawKey, remoteCrypto } from "./crypto";
 import { b64uDecode, b64uEncode, concat, utf8 } from "./bytes";
-import { importVerifyKey, verifySig } from "./e2e";
+import { verifySig } from "./e2e";
 import { GATEWAY_PATHS, httpUrl } from "./endpoints";
 import { type DeviceKeyStore, type DeviceRecord, defaultKeyStore, generateDeviceKey } from "./keystore";
+import { cryptoKeySigner } from "./webcrypto";
 
-export async function codeMac(code: string, devicePub: Uint8Array, pairingId: string): Promise<Uint8Array> {
-  const key = await crypto.subtle.importKey("raw", utf8(code), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  return new Uint8Array(await crypto.subtle.sign("HMAC", key, concat(devicePub, utf8(pairingId))));
+export function codeMac(code: string, devicePub: Uint8Array, pairingId: string): Promise<Bytes> {
+  return remoteCrypto().hmacSha256(utf8(code), concat(devicePub, utf8(pairingId)));
 }
 
 export async function sas(corePub: Uint8Array, devicePub: Uint8Array, pairingId: string): Promise<string> {
-  const d = new DataView(await crypto.subtle.digest("SHA-256", concat(corePub, devicePub, utf8(pairingId))));
-  return String(d.getUint32(0) % 1_000_000).padStart(6, "0");
+  const h = await remoteCrypto().sha256(concat(corePub, devicePub, utf8(pairingId)));
+  return String(new DataView(h.buffer, h.byteOffset, 4).getUint32(0) % 1_000_000).padStart(6, "0");
 }
 
 export async function fingerprint(corePub: Uint8Array): Promise<string> {
-  return b64uEncode(await crypto.subtle.digest("SHA-256", concat(corePub)));
+  return b64uEncode(await remoteCrypto().sha256(concat(corePub)));
 }
 
-export function completionMessage(pairingId: string, deviceId: string, devicePub: Uint8Array, role: string) {
-  return crypto.subtle.digest(
-    "SHA-256",
-    concat(utf8("orkestr-pairing-v1"), utf8(pairingId), utf8(deviceId), devicePub, utf8(role)),
-  );
+export function completionMessage(pairingId: string, deviceId: string, devicePub: Uint8Array, role: string): Promise<Bytes> {
+  return remoteCrypto().sha256(concat(utf8("orkestr-pairing-v1"), utf8(pairingId), utf8(deviceId), devicePub, utf8(role)));
 }
 
 /** Pairing offer (from the desktop QR / manual entry). */
@@ -103,15 +100,24 @@ export interface PairDeviceOptions extends PairingOffer {
   key?: { signer: DeviceSigner; keyPair?: CryptoKeyPair; rawKey?: RawKey };
 }
 
-/** Claims a pairing offer with a fresh non-extractable device key. */
+/** Device key for a pairing: injected, else fresh (non-extractable WebCrypto pair, or a provider raw key). */
+async function pairingKey(o: PairDeviceOptions): Promise<{ signer: DeviceSigner; keyPair?: CryptoKeyPair; rawKey?: RawKey }> {
+  if (o.key) return o.key;
+  if (o.keyPair || remoteCrypto().name === "webcrypto") {
+    const keyPair = o.keyPair ?? (await generateDeviceKey());
+    return { signer: await cryptoKeySigner(keyPair), keyPair };
+  }
+  const { signer, raw } = await remoteCrypto().generateSigner();
+  return raw ? { signer, rawKey: raw } : { signer };
+}
+
+/** Claims a pairing offer with a fresh device key (or the injected one). */
 export async function pairDevice(o: PairDeviceOptions): Promise<PairingSession> {
   const f = o.fetch ?? globalThis.fetch.bind(globalThis);
   const store = o.store ?? defaultKeyStore();
-  const keyPair = o.key ? o.key.keyPair : (o.keyPair ?? (await generateDeviceKey()));
-  const rawKey = o.key?.rawKey;
-  const devicePub: Uint8Array = o.key
-    ? o.key.signer.publicKey
-    : new Uint8Array(await crypto.subtle.exportKey("raw", (keyPair as CryptoKeyPair).publicKey));
+  const { signer, keyPair, rawKey } = await pairingKey(o);
+  if (!keyPair && !rawKey) throw new Error("pairDevice: the device key cannot be persisted");
+  const devicePub: Uint8Array = signer.publicKey;
   const mac = await codeMac(o.code.trim().toUpperCase(), devicePub, o.pairingId);
   const res = await f(httpUrl(o.gatewayUrl, GATEWAY_PATHS.pairingClaim(o.pairingId)), {
     method: "POST",
@@ -149,7 +155,7 @@ export async function pairDevice(o: PairDeviceOptions): Promise<PairingSession> 
           if (s.status === "rejected" || s.status === "expired") throw new PairingError(s.status, `pairing ${s.status}`);
           if (s.status === "approved" && s.deviceId && s.role && s.sig) {
             const msg = await completionMessage(o.pairingId, s.deviceId, devicePub, s.role);
-            if (!(await verifySig(await importVerifyKey(corePub), b64uDecode(s.sig), msg))) {
+            if (!(await verifySig(corePub, b64uDecode(s.sig), msg))) {
               throw new PairingError("bad_signature", "pairing approval is not signed by the core key");
             }
             const rec: DeviceRecord = {

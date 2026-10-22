@@ -9,7 +9,8 @@
  * - record = ctr_be64 ‖ AES-256-GCM(k, iv = dir_be32 ‖ ctr_be64, aad = ctr_be64).
  */
 import { b64uDecode, b64uEncode, be32, be64, concat, readBe64, utf8 } from "./bytes";
-import { type DeviceSigner, isDeviceSigner } from "./crypto";
+import { type AeadKey, type Bytes, type DeviceSigner, type EcdhKeyPair, isDeviceSigner, remoteCrypto } from "./crypto";
+import { signWithCryptoKey } from "./webcrypto";
 
 export const E2E_PROTOCOL = "orkestr-e2e-v1";
 export const DIR_D2C = 1;
@@ -39,8 +40,6 @@ export interface HandshakeError {
   code: string;
 }
 
-const ECDSA = { name: "ECDSA", hash: "SHA-256" } as const;
-
 export function transcriptHash(
   coreId: string,
   deviceId: string,
@@ -49,82 +48,59 @@ export function transcriptHash(
   ts: number,
   ephC: Uint8Array,
   nonceC: Uint8Array,
-): Promise<ArrayBuffer> {
-  const data = concat(utf8(E2E_PROTOCOL), utf8(coreId), utf8(deviceId), ephD, nonceD, be64(ts), ephC, nonceC);
-  return crypto.subtle.digest("SHA-256", data);
+): Promise<Bytes> {
+  return remoteCrypto().sha256(
+    concat(utf8(E2E_PROTOCOL), utf8(coreId), utf8(deviceId), ephD, nonceD, be64(ts), ephC, nonceC),
+  );
 }
 
-/** Imports a raw SEC1 P-256 public key for ECDSA verification. */
-export function importVerifyKey(raw: Uint8Array<ArrayBuffer>): Promise<CryptoKey> {
-  return crypto.subtle.importKey("raw", raw, { name: "ECDSA", namedCurve: "P-256" }, true, ["verify"]);
-}
-
-export function verifySig(key: CryptoKey, sig: Uint8Array<ArrayBuffer>, data: ArrayBuffer): Promise<boolean> {
-  return crypto.subtle.verify(ECDSA, key, sig, data);
-}
-
-export async function signP1363(key: CryptoKey, data: ArrayBuffer): Promise<Uint8Array<ArrayBuffer>> {
-  return new Uint8Array(await crypto.subtle.sign(ECDSA, key, data));
+/** Verifies a P1363 ECDSA/SHA-256 signature with a raw SEC1 P-256 public key. */
+export async function verifySig(pub: Uint8Array, sig: Uint8Array, data: Uint8Array): Promise<boolean> {
+  try {
+    return await remoteCrypto().verifyP256(new Uint8Array(pub), new Uint8Array(sig), new Uint8Array(data));
+  } catch {
+    return false;
+  }
 }
 
 /** Session keys derived from the handshake. */
 export interface SessionKeys {
-  d2c: CryptoKey;
-  c2d: CryptoKey;
+  d2c: AeadKey;
+  c2d: AeadKey;
 }
 
 export async function deriveSessionKeys(
-  ephDPrivate: CryptoKey,
-  ephCRaw: Uint8Array<ArrayBuffer>,
+  ephD: EcdhKeyPair,
+  ephCRaw: Bytes,
   nonceD: Uint8Array,
   nonceC: Uint8Array,
   coreId: string,
   deviceId: string,
-): Promise<{ keys: SessionKeys; raw: Uint8Array<ArrayBuffer> }> {
-  const peer = await crypto.subtle.importKey("raw", ephCRaw, { name: "ECDH", namedCurve: "P-256" }, false, []);
-  const shared = await crypto.subtle.deriveBits({ name: "ECDH", public: peer }, ephDPrivate, 256);
-  const ikm = await crypto.subtle.importKey("raw", shared, "HKDF", false, ["deriveBits"]);
-  const okm = new Uint8Array(
-    await crypto.subtle.deriveBits(
-      {
-        name: "HKDF",
-        hash: "SHA-256",
-        salt: concat(nonceD, nonceC),
-        info: concat(utf8(E2E_PROTOCOL), utf8(coreId), utf8(deviceId)),
-      },
-      ikm,
-      512,
-    ),
+): Promise<{ keys: SessionKeys; raw: Bytes }> {
+  const c = remoteCrypto();
+  const shared = await ephD.deriveBits(ephCRaw);
+  const okm = await c.hkdfSha256(
+    shared,
+    concat(nonceD, nonceC),
+    concat(utf8(E2E_PROTOCOL), utf8(coreId), utf8(deviceId)),
+    64,
   );
-  const imp = (b: Uint8Array<ArrayBuffer>) =>
-    crypto.subtle.importKey("raw", b, { name: "AES-GCM" }, false, ["encrypt", "decrypt"]);
-  return { keys: { d2c: await imp(okm.slice(0, 32)), c2d: await imp(okm.slice(32, 64)) }, raw: okm };
+  return { keys: { d2c: await c.aesGcm(okm.slice(0, 32)), c2d: await c.aesGcm(okm.slice(32, 64)) }, raw: okm };
 }
 
 const iv = (dir: number, ctr: number) => concat(be32(dir), be64(ctr));
 
-export async function sealRecord(key: CryptoKey, dir: number, ctr: number, plaintext: Uint8Array<ArrayBuffer>) {
+export async function sealRecord(key: AeadKey, dir: number, ctr: number, plaintext: Bytes): Promise<Bytes> {
   const aad = be64(ctr);
-  const ct = await crypto.subtle.encrypt({ name: "AES-GCM", iv: iv(dir, ctr), additionalData: aad }, key, plaintext);
-  return concat(aad, new Uint8Array(ct));
+  return concat(aad, await key.seal(iv(dir, ctr), aad, plaintext));
 }
 
 /** Opens a record; throws on tamper or when the counter is not `expected`. */
-export async function openRecord(
-  key: CryptoKey,
-  dir: number,
-  expected: number,
-  record: Uint8Array,
-): Promise<Uint8Array<ArrayBuffer>> {
+export async function openRecord(key: AeadKey, dir: number, expected: number, record: Uint8Array): Promise<Bytes> {
   if (record.length < 8 + 16) throw new Error("record too short");
   const ctr = readBe64(record.subarray(0, 8));
   if (ctr !== expected) throw new Error(`unexpected record counter ${ctr} (want ${expected})`);
-  const pt = await crypto.subtle.decrypt(
-    { name: "AES-GCM", iv: iv(dir, ctr), additionalData: record.slice(0, 8) },
-    key,
-    record.slice(8),
-  );
-  return new Uint8Array(pt);
+  return key.open(iv(dir, ctr), record.slice(0, 8), record.slice(8));
 }
 
 /** Device-side handshake inputs (ephemeral key / nonce / clock injectable for tests). */
@@ -135,35 +111,30 @@ export interface HandshakeInit {
   deviceKey: CryptoKey | DeviceSigner;
   /** Core identity key (CIK), raw SEC1 base64url. */
   corePubKey: string;
-  ephemeral?: CryptoKeyPair;
+  /** Fixed ephemeral key (tests; see `RemoteCrypto.ecdhFromPrivate`). */
+  ephemeral?: EcdhKeyPair;
   nonce?: Uint8Array<ArrayBuffer>;
   now?: () => number;
 }
 
 /** Device handshake state machine: `hello()` → `finish(serverHello)`. */
 export class DeviceHandshake {
-  private eph: CryptoKeyPair | null = null;
-  private ephRaw = new Uint8Array(0);
+  private eph: EcdhKeyPair | null = null;
   private hello_: ClientHello | null = null;
   private readonly nonce: Uint8Array<ArrayBuffer>;
 
   constructor(private readonly init: HandshakeInit) {
-    this.nonce = init.nonce ?? crypto.getRandomValues(new Uint8Array(32));
+    this.nonce = init.nonce ?? remoteCrypto().randomBytes(32);
   }
 
   async hello(): Promise<ClientHello> {
-    this.eph =
-      this.init.ephemeral ??
-      ((await crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, false, [
-        "deriveBits",
-      ])) as CryptoKeyPair);
-    this.ephRaw = new Uint8Array(await crypto.subtle.exportKey("raw", this.eph.publicKey));
+    this.eph = this.init.ephemeral ?? (await remoteCrypto().generateEcdh());
     this.hello_ = {
       t: "clientHello",
       v: "e2e-v1",
       coreId: this.init.coreId,
       deviceId: this.init.deviceId,
-      ephPub: b64uEncode(this.ephRaw),
+      ephPub: b64uEncode(this.eph.publicKey),
       nonce: b64uEncode(this.nonce),
       ts: (this.init.now ?? Date.now)(),
     };
@@ -177,12 +148,13 @@ export class DeviceHandshake {
     const ephC = b64uDecode(sh.ephPub);
     const nonceC = b64uDecode(sh.nonce);
     if (ephC.length !== 65 || nonceC.length !== 32) throw new Error("malformed serverHello");
-    const th = await transcriptHash(h.coreId, h.deviceId, this.ephRaw, this.nonce, h.ts, ephC, nonceC);
-    const cik = await importVerifyKey(b64uDecode(this.init.corePubKey));
-    if (!(await verifySig(cik, b64uDecode(sh.sig), th))) throw new Error("bad core signature");
-    const { keys } = await deriveSessionKeys(this.eph.privateKey, ephC, this.nonce, nonceC, h.coreId, h.deviceId);
+    const th = await transcriptHash(h.coreId, h.deviceId, this.eph.publicKey, this.nonce, h.ts, ephC, nonceC);
+    if (!(await verifySig(b64uDecode(this.init.corePubKey), b64uDecode(sh.sig), th))) {
+      throw new Error("bad core signature");
+    }
+    const { keys } = await deriveSessionKeys(this.eph, ephC, this.nonce, nonceC, h.coreId, h.deviceId);
     const dk = this.init.deviceKey;
-    const sig = isDeviceSigner(dk) ? await dk.sign(new Uint8Array(th)) : await signP1363(dk, th);
+    const sig = isDeviceSigner(dk) ? await dk.sign(th) : await signWithCryptoKey(dk, th);
     return { keys, finish: { t: "clientFinish", sig: b64uEncode(sig) } };
   }
 }
