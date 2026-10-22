@@ -1,5 +1,6 @@
 /** Pure helpers of the Bug Detective panel (ADR-0042). */
 import type {
+  DetectiveSettings,
   Evidence,
   EvidenceKind,
   Incident,
@@ -172,4 +173,24 @@ export function triggerLabel(inc: Incident): {
     default:
       return { key: "trigger.manual", values: {} };
   }
+}
+
+/** Settings form state (numbers as typed text). */
+export interface SettingsDraft {
+  autoOpenOnAlert: boolean;
+  defaultBudgetUsd: string;
+  maxFixAttempts: number;
+}
+
+export function settingsToDraft(s: DetectiveSettings): SettingsDraft {
+  return { autoOpenOnAlert: s.autoOpenOnAlert, defaultBudgetUsd: String(s.defaultBudgetUsd), maxFixAttempts: s.maxFixAttempts };
+}
+
+/** Mirrors the core: budget in `(0, 1000]` USD, `1..=5` fix attempts. */
+export function draftToSettings(d: SettingsDraft): { settings: DetectiveSettings } | { error: "budget" | "attempts" } {
+  const raw = d.defaultBudgetUsd.trim().replace(",", ".");
+  const budget = Number(raw);
+  if (!raw || !Number.isFinite(budget) || budget <= 0 || budget > 1000) return { error: "budget" };
+  if (!Number.isInteger(d.maxFixAttempts) || d.maxFixAttempts < 1 || d.maxFixAttempts > 5) return { error: "attempts" };
+  return { settings: { autoOpenOnAlert: d.autoOpenOnAlert, defaultBudgetUsd: budget, maxFixAttempts: d.maxFixAttempts } };
 }

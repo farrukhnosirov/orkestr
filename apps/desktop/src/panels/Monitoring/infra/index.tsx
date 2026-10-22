@@ -1,8 +1,9 @@
 /**
  * Infrastructure monitor section of the Monitoring panel (ADR-0042, WP5):
  * node overview with sparklines, HTTP/TCP health checks (add / edit / run,
- * status history), alerts with acknowledge, and a log viewer with source /
- * level / text filters and a polling live tail.
+ * status history), alerts with acknowledge, a log viewer with source /
+ * level / text filters and a polling live tail, the alert rules editor and
+ * the log sources manager (`rules.tsx`).
  */
 import type { Alert, LogLevel, LogLine, MetricSeries, MetricsParams, NodeMetricsSnapshot } from "@orkestr/protocol";
 import { Badge, Button, IconButton, Input, Tabs } from "@orkestr/ui";
@@ -33,16 +34,17 @@ import {
   snapshotPercents,
   upRatio,
 } from "./model";
+import { RulesEditor, SourcesManager } from "./rules";
 import "./infra.css";
 
-type Section = "overview" | "checks" | "alerts" | "logs";
+type Section = "overview" | "checks" | "alerts" | "rules" | "logs" | "sources";
 const TOPICS = ["global"];
 const LEVELS: LogLevel[] = ["trace", "debug", "info", "warn", "error"];
 
 export function InfraMonitor() {
   const { t } = useT("monitorInfra");
   const [section, setSection] = useState<Section>("overview");
-  const tabs = (["overview", "checks", "alerts", "logs"] as const).map((id) => ({ id, label: t(`tabs.${id}`) }));
+  const tabs = (["overview", "checks", "alerts", "rules", "logs", "sources"] as const).map((id) => ({ id, label: t(`tabs.${id}`) }));
   return (
     <section className="mon-card infra" aria-label={t("title")}>
       <div className="infra-head">
@@ -52,7 +54,9 @@ export function InfraMonitor() {
       {section === "overview" && <Overview />}
       {section === "checks" && <Checks />}
       {section === "alerts" && <Alerts />}
+      {section === "rules" && <RulesEditor />}
       {section === "logs" && <Logs />}
+      {section === "sources" && <SourcesManager />}
     </section>
   );
 }

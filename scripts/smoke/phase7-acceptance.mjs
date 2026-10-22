@@ -31,12 +31,14 @@
 //                   Docker runs or is skipped with a reason; rollback
 //   E6 monitor      overview CPU / RAM / disk; HTTP check down → up with
 //                   HealthCheckChanged + AlertRaised / AlertResolved; ingest +
-//                   redacted logs
+//                   redacted logs; alert rule upsert / edit / delete round
+//                   trip; file log source add → lines → remove
 //   E7 detective    broken greeter deployed → check alert → detective.open from
 //                   the alert → evidence (stack trace, deployed version, commit)
 //                   → hypothesis → reproduction fails → approveFix → tests pass
 //                   on detective/<id>, review → AwaitingMergeApproval, main
-//                   untouched
+//                   untouched; detective.setSettings / settings round trip;
+//                   autoOpenOnAlert: an AlertRaised opens an incident
 //   E8 security     emergency stop kills plugins, cancels a deploy and a
 //                   detective run; a remote viewer is refused plugins.install
 //                   and deploy.start; audit records
@@ -56,7 +58,7 @@
 
 import { execFileSync, spawn } from "node:child_process";
 import crypto from "node:crypto";
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import http from "node:http";
 import { createInterface } from "node:readline";
 import { tmpdir } from "node:os";
@@ -1001,6 +1003,45 @@ try {
     check("E6", "log sources include the ingest stream and deployment logs", srcs.some((s) => s.id === "ingest:p7-web") && srcs.some((s) => s.kind?.type === "Deployment"), srcs.map((s) => `${s.id}(${s.kind?.type})`).join(", "));
   });
 
+  await runSection("E6", "Infra monitor: alert rules and log file sources", async () => {
+    const rid = "p7-acc-rule";
+    const before = (await call("monitor.rules", {})).rules;
+    const created = (await call("monitor.ruleUpsert", { rule: { id: rid, name: "p7 disk nearly full", severity: "Warning", enabled: true, kind: { type: "MetricThreshold", metric: "disk", above: 99.5, samples: 3 } } })).rule;
+    const edited = (await call("monitor.ruleUpsert", { rule: { id: rid, name: "p7 api timeouts", severity: "Critical", enabled: false, projectId: ctx.project.id, kind: { type: "LogRate", pattern: "timeout", count: 5, windowSecs: 120, minLevel: "warn" } } })).rule;
+    const listed = (await call("monitor.rules", {})).rules.find((r) => r.id === rid);
+    const bad = await errOf(call("monitor.ruleUpsert", { rule: { id: "p7-bad", name: "bad", severity: "Info", enabled: true, kind: { type: "MetricThreshold", metric: "cpu", above: 150, samples: 0 } } }));
+    await call("monitor.ruleDelete", { ruleId: rid });
+    const after = (await call("monitor.rules", {})).rules;
+    const missing = await errOf(call("monitor.ruleDelete", { ruleId: rid }));
+    check(
+      "E6",
+      "monitor.ruleUpsert create → edit (kind change) → monitor.rules → ruleDelete; invalid threshold refused",
+      created.kind.type === "MetricThreshold" && listed?.kind.type === "LogRate" && listed.enabled === false && edited.severity === "Critical" && refused(bad) && !after.some((r) => r.id === rid) && after.length === before.length && refused(missing),
+      `rules ${before.length} → ${before.length + 1} → ${after.length}; invalid: ${describe(bad)}`,
+    );
+
+    const logPath = join(tmp, "p7-app.log");
+    writeFileSync(logPath, "boot ok\n");
+    const relRefused = await errOf(call("monitor.sourceAdd", { path: "relative/app.log" }));
+    const dirRefused = await errOf(call("monitor.sourceAdd", { path: tmp }));
+    const src = (await call("monitor.sourceAdd", { name: "p7 app log", path: logPath, projectId: ctx.project.id })).source;
+    const dupRefused = await errOf(call("monitor.sourceAdd", { name: "p7 other", path: logPath }));
+    appendFileSync(logPath, "ERROR p7 file source line\n");
+    const lines = await waitFor(async () => {
+      const l = (await call("monitor.logs", { sourceId: src.id })).lines;
+      return l.some((x) => x.message.includes("p7 file source line")) ? l : null;
+    }, 15_000, "file source lines").catch(() => []);
+    const ingestRefused = await errOf(call("monitor.sourceRemove", { sourceId: "ingest:p7-web" }));
+    await call("monitor.sourceRemove", { sourceId: src.id });
+    const gone = !(await call("monitor.logSources", {})).sources.some((s) => s.id === src.id);
+    check(
+      "E6",
+      "monitor.sourceAdd file → lines appear in monitor.logs → sourceRemove; relative / directory / duplicate refused; built-in sources not removable",
+      src.kind?.type === "File" && lines.length >= 2 && gone && refused(relRefused) && refused(dirRefused) && refused(dupRefused) && refused(ingestRefused),
+      `${src.id}: ${lines.length} lines; removed ${gone}`,
+    );
+  });
+
   // ════════════════════════════════════════════════════════════════════════
   await runSection("E7", "Bug Detective: alert → evidence → hypothesis → fix branch → merge gate", async () => {
     // the broken version goes out (deploy health URL is "/", so the deploy itself succeeds)
@@ -1054,6 +1095,45 @@ try {
     const mainAfter = git(ctx.repo, "rev-parse", "main");
     const mainSrc = readFileSync(join(ctx.repo, "src", "greeter.mjs"), "utf8");
     check("E7", "main untouched while waiting for the merge approval (no auto-merge)", mainAfter === mainBefore && /opts\.displayName/.test(mainSrc) && gate2.stage === "AwaitingMergeApproval", `main ${mainBefore.slice(0, 10)} → ${mainAfter.slice(0, 10)}; spent $${gate2.spentUsd} of $${gate2.budgetUsd}`);
+  });
+
+  await runSection("E7", "Bug Detective settings and auto-open on alert", async () => {
+    const original = await call("detective.settings", {});
+    const want = { autoOpenOnAlert: true, defaultBudgetUsd: 3.5, maxFixAttempts: 3 };
+    const saved = await call("detective.setSettings", want);
+    const read = await call("detective.settings", {});
+    const badBudget = await errOf(call("detective.setSettings", { ...want, defaultBudgetUsd: 0 }));
+    const badAttempts = await errOf(call("detective.setSettings", { ...want, maxFixAttempts: 6 }));
+    const still = await call("detective.settings", {});
+    check(
+      "E7",
+      "detective.setSettings → detective.settings round trip; budget 0 and 6 attempts refused",
+      text(saved) === text(want) && text(read) === text(want) && text(still) === text(want) && refused(badBudget) && refused(badAttempts),
+      `${text(original)} → ${text(read)}`,
+    );
+
+    const rid = "p7-autoopen";
+    let incidentId = null;
+    try {
+      await call("monitor.ruleUpsert", { rule: { id: rid, name: "p7 auto-open marker", severity: "Critical", enabled: true, projectId: ctx.project.id, kind: { type: "LogRate", pattern: "P7_AUTOOPEN_MARKER", count: 1, windowSecs: 60 } } });
+      await call("monitor.ingest", { stream: "p7-auto", projectId: ctx.project.id, lines: [{ level: "error", message: "P7_AUTOOPEN_MARKER worker crashed" }] });
+      const raised = await R().waitEvent((e) => e.kind === "AlertRaised" && e.payload.alert.rule === rid, 15_000, "AlertRaised (auto-open rule)");
+      const alertId = raised.payload.alert.id;
+      const opened = await R()
+        .waitEvent((e) => e.kind === "IncidentOpened" && e.payload.incident.trigger?.type === "Alert" && e.payload.incident.trigger.alertId === alertId, 20_000, "IncidentOpened (auto)")
+        .catch(() => null);
+      incidentId = opened?.payload.incident.id ?? null;
+      check(
+        "E7",
+        "autoOpenOnAlert=true: AlertRaised opens an incident by itself (default budget from settings)",
+        !!opened && opened.payload.incident.budgetUsd === want.defaultBudgetUsd,
+        opened ? `${incidentId} from ${alertId}; budget $${opened.payload.incident.budgetUsd}` : "no IncidentOpened",
+      );
+    } finally {
+      if (incidentId) await soft(call("detective.cancel", { incidentId, note: "acceptance cleanup" }));
+      await soft(call("monitor.ruleDelete", { ruleId: rid }));
+      await soft(call("detective.setSettings", original));
+    }
   });
 
   // ════════════════════════════════════════════════════════════════════════

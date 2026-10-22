@@ -44,7 +44,23 @@ gates.
    opening, `AlertResolved` once on clearing. **Default rules:**
    `check-down` (critical), `cpu-high` (> 95 % for 12 samples), `mem-high`
    (> 95 %, 6), `disk-high` (> 95 %, 2), `log-errors` (≥ 20 errors in 60 s,
-   warning). Rules are Rust-only in Phase 7 (no RPC/UI).
+   warning). **Rules over RPC** (`monitor.rules` read, `monitor.ruleUpsert`
+   / `monitor.ruleDelete` write): every upsert is validated — id `1..64` of
+   `[A-Za-z0-9._-]`, name `1..=120` chars, metric `cpu|mem|disk|gpuN`,
+   `above` in `[0, 100)`, `samples` `1..=1000`, `count` `1..=100000`,
+   `windowSecs` `1..=86400`, pattern `1..=200` chars, and a `CheckDown`
+   `checkId` must exist. Defaults are seeded **once**: migration
+   `monitor_0002_meta` adds `monitor_meta` with a `rules_seeded` flag
+   (pre-existing databases with rules are marked seeded by the migration), so
+   deleting every rule is permanent across restarts. The desktop Monitoring →
+   Infrastructure → *Alert rules* tab edits them with a typed form per kind.
+   **File log sources over RPC** (`monitor.sourceAdd` / `monitor.sourceRemove`,
+   local-only): the path must be absolute and name an existing, readable
+   regular file (directories, `\\.\` / `/dev/` device paths and other
+   non-files are refused); the display name is unique (case-insensitive) and
+   the same path cannot be added twice. Ingest streams and deployment logs are
+   built in and cannot be removed. The *Log sources* tab lists every source
+   and adds files through the native file dialog when the shell provides it.
 
 ### Bug Detective (`orkestr-detective`, `detective.*`)
 
@@ -55,8 +71,11 @@ gates.
    (`IncidentOpened` on creation) and is audited (`detective.open`,
    `detective.stage`, `detective.merge`).
 6. **Triggers.** `detective.open` from an alert id, a log line, a test run or
-   a manual report. Auto-open on `AlertRaised` exists in
-   `DetectiveSettings` (default **off**; no RPC/UI for settings yet).
+   a manual report. Auto-open on `AlertRaised` (only alerts that carry a
+   project) is `DetectiveSettings.autoOpenOnAlert` (default **off**).
+   Settings are read with `detective.settings` and saved with
+   `detective.setSettings` (local-only; budget `(0, 1000]` USD, max fix
+   attempts `1..=5`); the Bug Detective panel has a Settings form.
 7. **Evidence.** `EvidenceCollector` trait (`kind`, `collect(incident,
    budget)`). Built-in collectors: the alert, logs around the incident and
    metrics (monitor reader), recent deployments and the deployed version,
@@ -92,4 +111,5 @@ gates.
   scripted mock provider keyed on the Bug Detective system prompt.
 - Deferred: external APM ingestion (Sentry and similar), GitHub PR creation
   (the detective ends with a local branch and a merge approval), persistent
-  log storage, RPC/UI for alert rules, log sources and detective settings.
+  log storage. No dedicated events for rule / source / settings changes: the
+  mutating calls return the stored value and the UI reloads.

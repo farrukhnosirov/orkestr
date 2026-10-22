@@ -5,7 +5,6 @@ use orkestr_domain::{IncidentId, ProjectId};
 use orkestr_protocol::methods::detective::Incident;
 use orkestr_storage::rusqlite::{params, OptionalExtension};
 use orkestr_storage::{Db, Migration, StorageError};
-use serde::{Deserialize, Serialize};
 
 use crate::{stage, DetectiveError};
 
@@ -38,23 +37,8 @@ pub fn migrations() -> Vec<Migration> {
     MIGRATIONS.to_vec()
 }
 
-/// Detective settings (stored in `detective_settings`).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", default)]
-pub struct DetectiveSettings {
-    /// Open an incident automatically on `AlertRaised` (default off).
-    pub auto_open_on_alert: bool,
-    /// Default budget cap per incident (USD).
-    pub default_budget_usd: f64,
-    /// Fix attempts when the fix's tests fail.
-    pub max_fix_attempts: u32,
-}
-
-impl Default for DetectiveSettings {
-    fn default() -> Self {
-        Self { auto_open_on_alert: false, default_budget_usd: 2.0, max_fix_attempts: 2 }
-    }
-}
+/// Detective settings (stored in `detective_settings`; the wire type).
+pub use orkestr_protocol::methods::detective::DetectiveSettings;
 
 fn ser(e: serde_json::Error) -> DetectiveError {
     DetectiveError::Internal(format!("serialization: {e}"))

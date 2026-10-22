@@ -250,7 +250,11 @@ fn explicit(method: &str) -> Option<MethodPolicy> {
         | "marketplace.removeSource"
         | "marketplace.untrustKey"
         | "marketplace.install"
-        | "marketplace.uninstall" => MethodPolicy::local(),
+        | "marketplace.uninstall"
+        | "detective.setSettings"
+        | "monitor.sourceAdd"
+        | "monitor.sourceRemove" => MethodPolicy::local(),
+        "monitor.ruleUpsert" | "monitor.ruleDelete" => MethodPolicy::write(),
         "plugins.disable" | "plugins.killAll" | "deploy.cancel" | "detective.cancel" => MethodPolicy::emergency(),
         "deploy.start" | "deploy.rollback" | "detective.approveMerge" => MethodPolicy::dangerous(),
         "detective.open" | "detective.approveFix" | "plugins.invoke" | "monitor.checkRun" => MethodPolicy::expensive(),
@@ -268,7 +272,9 @@ fn explicit(method: &str) -> Option<MethodPolicy> {
         | "monitor.metrics"
         | "monitor.checksList"
         | "monitor.logSources"
-        | "monitor.alerts" => MethodPolicy::read(),
+        | "monitor.alerts"
+        | "monitor.rules"
+        | "detective.settings" => MethodPolicy::read(),
         // --- emergency ----------------------------------------------------------------------
         "emergency.status" => MethodPolicy::read(),
         // the audit log reveals every resource name: admins only
@@ -472,6 +478,9 @@ mod tests {
             "marketplace.untrustKey",
             "marketplace.install",
             "marketplace.uninstall",
+            "detective.setSettings",
+            "monitor.sourceAdd",
+            "monitor.sourceRemove",
         ];
         for m in local {
             assert!(policy_for(m).unwrap().local_only, "{m} must be local-only");
@@ -521,6 +530,8 @@ mod tests {
             "monitor.alerts",
             "detective.list",
             "detective.get",
+            "monitor.rules",
+            "detective.settings",
         ];
         for m in reads {
             let p = policy_for(m).unwrap();
@@ -529,6 +540,10 @@ mod tests {
         }
         for m in ["dashboards.save", "dashboards.delete", "environments.create", "monitor.checkUpsert"] {
             assert_eq!(policy_for(m).unwrap().min_role, Role::Operator, "{m}");
+        }
+        for m in ["monitor.ruleUpsert", "monitor.ruleDelete"] {
+            let p = policy_for(m).unwrap();
+            assert_eq!((p.min_role, p.rate_class, p.local_only), (Role::Operator, RateClass::Write, false), "{m}");
         }
     }
 

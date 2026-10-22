@@ -33,7 +33,7 @@ use parking_lot::{Mutex, RwLock};
 use tokio::sync::{mpsc, OnceCell};
 use tokio_util::sync::CancellationToken;
 
-use crate::alerts::{default_rules, AlertEngine, AlertRule, Signal};
+use crate::alerts::{default_rules, validate_rule, AlertEngine, AlertRule, Signal};
 use crate::checks::{self, CheckRuntime};
 use crate::logs::{self, BufferedSource, DeploymentLogFeed, LineHook, LogSource, TailReceiver};
 use crate::metrics::{self, MetricsStore, NodeMetricsSource};
@@ -193,13 +193,12 @@ impl MonitorService {
         inner
             .init
             .get_or_try_init(|| async {
-                let mut rules = inner.store.load_rules().await?;
-                if rules.is_empty() {
-                    rules = default_rules();
-                    for r in &rules {
-                        inner.store.save_rule(r).await?;
-                    }
+                // Defaults are written once; afterwards an empty rule set is
+                // what the user chose (ADR-0042).
+                if !inner.store.rules_seeded().await? {
+                    inner.store.seed_rules(&default_rules()).await?;
                 }
+                let rules = inner.store.load_rules().await?;
                 inner.alerts.set_rules(rules);
                 inner.alerts.restore_open(inner.store.load_open_alerts().await?).await;
                 let stored = inner.store.load_checks().await?;
@@ -590,7 +589,9 @@ impl MonitorService {
         logs::spawn_file_tail(src, path, self.inner.cfg.file_poll, token);
     }
 
-    /// Adds (and persists) a tailed file source.
+    /// Adds (and persists) a tailed file source. The path must be absolute
+    /// and name an existing, readable regular file (directories, devices and
+    /// pipes are refused); the display name must be unique among sources.
     pub async fn add_file_source(
         &self,
         name: &str,
@@ -602,13 +603,32 @@ impl MonitorService {
             return Err(MonitorError::Invalid("log file path must be absolute".into()));
         }
         let path_s = path.to_string_lossy().into_owned();
+        if path_s.starts_with(r"\\.\") || path_s.starts_with(r"\\?\GLOBALROOT") || path_s.starts_with("/dev/") {
+            return Err(MonitorError::Invalid("device paths cannot be tailed".into()));
+        }
+        let meta = std::fs::metadata(&path)
+            .map_err(|e| MonitorError::Invalid(format!("log file {path_s} is not accessible: {e}")))?;
+        if !meta.is_file() {
+            return Err(MonitorError::Invalid(format!("{path_s} is not a regular file")));
+        }
+        std::fs::File::open(&path)
+            .map_err(|e| MonitorError::Invalid(format!("log file {path_s} is not readable: {e}")))?;
+        let name = if name.trim().is_empty() { path_s.clone() } else { name.trim().to_owned() };
+        if name.chars().count() > 200 {
+            return Err(MonitorError::Invalid("source name must be at most 200 characters".into()));
+        }
         let id = format!("file:{}", short_hash(&path_s));
-        let info = LogSourceInfo {
-            id: id.clone(),
-            name: if name.trim().is_empty() { path_s.clone() } else { name.trim().to_owned() },
-            kind: LogSourceKind::File { path: path_s },
-            project_id: project,
-        };
+        {
+            let sources = self.inner.sources.read();
+            if sources.contains_key(&id) {
+                return Err(MonitorError::Conflict(format!("{path_s} is already a log source")));
+            }
+            if sources.values().any(|s| s.info().name.eq_ignore_ascii_case(&name)) {
+                return Err(MonitorError::Conflict(format!("a log source named {name:?} already exists")));
+            }
+        }
+        let info =
+            LogSourceInfo { id: id.clone(), name, kind: LogSourceKind::File { path: path_s }, project_id: project };
         self.inner.store.save_source(&info).await?;
         self.register_source(info.clone());
         if self.inner.started.initialized() {
@@ -618,8 +638,14 @@ impl MonitorService {
     }
 
     /// Removes a source (persisted or not) and stops its tail.
+    /// Only `File` sources can be removed: ingest streams and deployment
+    /// logs are built in (they reappear with their next line).
     pub async fn remove_source(&self, id: &str) -> Result<(), MonitorError> {
         self.init().await?;
+        let kind = self.inner.sources.read().get(id).map(|s| s.info().kind.clone());
+        if kind.as_ref().is_some_and(|k| !matches!(k, LogSourceKind::File { .. })) {
+            return Err(MonitorError::Invalid(format!("log source {id} is built in and cannot be removed")));
+        }
         let removed = self.inner.sources.write().remove(id);
         if let Some(t) = self.inner.file_tails.lock().remove(id) {
             t.cancel();
@@ -864,20 +890,24 @@ impl MonitorService {
         Ok(self.inner.alerts.rules())
     }
 
-    /// Creates / replaces a rule.
-    pub async fn upsert_rule(&self, rule: AlertRule) -> Result<(), MonitorError> {
+    /// Creates / replaces a rule (validated; see [`validate_rule`]).
+    pub async fn upsert_rule(&self, mut rule: AlertRule) -> Result<AlertRule, MonitorError> {
         self.init().await?;
-        if !valid_name(&rule.id, 64) {
-            return Err(MonitorError::Invalid("rule id must be 1..64 of [A-Za-z0-9._-]".into()));
+        rule.name = rule.name.trim().to_owned();
+        validate_rule(&rule)?;
+        if let crate::RuleKind::CheckDown { check_id: Some(c) } = &rule.kind {
+            if !self.inner.checks.lock().contains_key(c) {
+                return Err(MonitorError::Invalid(format!("check {c} does not exist")));
+            }
         }
         self.inner.store.save_rule(&rule).await?;
         let mut rules = self.inner.alerts.rules();
         match rules.iter_mut().find(|r| r.id == rule.id) {
-            Some(r) => *r = rule,
-            None => rules.push(rule),
+            Some(r) => *r = rule.clone(),
+            None => rules.push(rule.clone()),
         }
         self.inner.alerts.set_rules(rules);
-        Ok(())
+        Ok(rule)
     }
 
     /// Deletes a rule (its open alerts stay until acknowledged/resolved).

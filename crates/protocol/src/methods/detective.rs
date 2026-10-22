@@ -9,7 +9,7 @@ use ts_rs::TS;
 
 use orkestr_domain::{AgentId, AlertId, ApprovalId, IncidentId, ProjectId, Timestamp};
 
-use super::method;
+use super::{method, Empty};
 
 /// Incident stage (state machine; terminal: `Resolved`, `Failed`, `Cancelled`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
@@ -320,6 +320,26 @@ pub struct IncidentStageChangedPayload {
     pub message: Option<String>,
 }
 
+/// Bug Detective settings (`detective.settings` / `detective.setSettings`).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase", default)]
+#[ts(export)]
+pub struct DetectiveSettings {
+    /// Open an incident automatically on `AlertRaised` for alerts that carry
+    /// a project (default off).
+    pub auto_open_on_alert: bool,
+    /// Default budget cap per incident in USD, `(0, 1000]` (default 2).
+    pub default_budget_usd: f64,
+    /// Fix attempts when the fix's tests fail, `1..=5` (default 2).
+    pub max_fix_attempts: u32,
+}
+
+impl Default for DetectiveSettings {
+    fn default() -> Self {
+        Self { auto_open_on_alert: false, default_budget_usd: 2.0, max_fix_attempts: 2 }
+    }
+}
+
 method!(/// Opens an incident and starts the investigation.
     Open, "detective.open", OpenIncidentParams, IncidentResult);
 method!(/// Incidents.
@@ -332,3 +352,7 @@ method!(/// Human gate 2: approve merging the fix branch.
     ApproveMerge, "detective.approveMerge", IncidentActionParams, IncidentResult);
 method!(/// Cancels an incident at any stage.
     Cancel, "detective.cancel", IncidentActionParams, IncidentResult);
+method!(/// Bug Detective settings.
+    Settings, "detective.settings", Empty, DetectiveSettings);
+method!(/// Saves Bug Detective settings (validated; local only).
+    SetSettings, "detective.setSettings", DetectiveSettings, DetectiveSettings);

@@ -96,5 +96,21 @@
     "pending": "not reached",
     "failed": "failed here",
     "cancelled": "cancelled here"
+  },
+  "settings": {
+    "open": "Settings",
+    "title": "Bug Detective settings",
+    "autoOpen": "Open an incident automatically when an alert is raised",
+    "autoOpenHint": "Only alerts tied to a project start an investigation. Each incident spends from its own budget.",
+    "budget": "Default budget per incident, USD",
+    "budgetHint": "Model, agent and review spend; from 0.01 to 1000.",
+    "attempts": "Fix attempts when the tests fail",
+    "save": "Save settings",
+    "saved": "Settings saved.",
+    "close": "Close",
+    "error": {
+      "budget": "Enter an amount above 0 and up to 1000.",
+      "attempts": "Choose from 1 to 5 attempts."
+    }
   }
 }

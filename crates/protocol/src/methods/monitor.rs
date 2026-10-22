@@ -636,6 +636,144 @@ pub struct AlertPayload {
     pub alert: Alert,
 }
 
+/// What an alert rule watches (`monitor.rules`, ADR-0042).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(tag = "type", rename_all_fields = "camelCase")]
+#[ts(export)]
+pub enum AlertRuleKind {
+    /// A check (or any check when `check_id` is absent) is down; resolved on `Up`.
+    CheckDown {
+        /// Check filter.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[ts(optional)]
+        check_id: Option<HealthCheckId>,
+    },
+    /// `metric > above` for `samples` consecutive samples (hysteresis on resolve).
+    MetricThreshold {
+        /// `cpu`, `mem`, `disk`, `gpuN` (percent).
+        metric: String,
+        /// Node filter (absent = every node).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[ts(optional)]
+        node_id: Option<NodeId>,
+        /// Threshold in percent, `[0, 100)`.
+        above: f64,
+        /// Consecutive samples, `1..=1000`.
+        samples: u32,
+    },
+    /// At least `count` matching lines within `window_secs`.
+    LogRate {
+        /// Source filter (absent = every source).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[ts(optional)]
+        source_id: Option<String>,
+        /// Minimum level (lines without a level only match through `pattern`).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[ts(optional)]
+        min_level: Option<LogLevel>,
+        /// Case-insensitive substring (≤ 200 chars).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[ts(optional)]
+        pattern: Option<String>,
+        /// Lines within the window, `1..=100000`.
+        count: u32,
+        /// Window, `1..=86400` seconds.
+        window_secs: u32,
+    },
+}
+
+/// An alert rule.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct AlertRule {
+    /// Stable id, `1..64` of `[A-Za-z0-9._-]` (part of the dedup key).
+    pub id: String,
+    /// Title prefix (1..=120 chars).
+    pub name: String,
+    /// Severity.
+    pub severity: AlertSeverity,
+    /// Enabled.
+    pub enabled: bool,
+    /// Project scope (absent = any).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub project_id: Option<ProjectId>,
+    /// Condition.
+    pub kind: AlertRuleKind,
+}
+
+/// `monitor.rules` result.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct AlertRulesResult {
+    /// Rules (default rules are seeded once; deleting them is permanent).
+    pub rules: Vec<AlertRule>,
+}
+
+/// `monitor.ruleUpsert` params (creates or replaces the rule with that id).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct UpsertRuleParams {
+    /// The rule.
+    pub rule: AlertRule,
+}
+
+/// Result carrying one rule.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct AlertRuleResult {
+    /// The rule as stored.
+    pub rule: AlertRule,
+}
+
+/// `monitor.ruleDelete` params.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct RuleIdParams {
+    /// Rule id.
+    pub rule_id: String,
+}
+
+/// `monitor.sourceAdd` params: a tailed log file.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct AddFileSourceParams {
+    /// Display name (unique among sources; default: the path).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub name: Option<String>,
+    /// Absolute path of an existing, readable regular file.
+    pub path: String,
+    /// Project.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub project_id: Option<ProjectId>,
+}
+
+/// Result carrying one log source.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct LogSourceResult {
+    /// The source.
+    pub source: LogSourceInfo,
+}
+
+/// `monitor.sourceRemove` params.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct LogSourceIdParams {
+    /// Source id (only `File` sources can be removed).
+    pub source_id: String,
+}
+
 method!(/// Nodes, checks and alert counts.
     Overview, "monitor.overview", MonitorOverviewParams, MonitorOverview);
 method!(/// Metric series.
@@ -658,3 +796,13 @@ method!(/// Alerts.
     Alerts, "monitor.alerts", AlertsParams, AlertsResult);
 method!(/// Acknowledges an alert.
     AckAlert, "monitor.ackAlert", AlertIdParams, AlertResult);
+method!(/// Alert rules.
+    Rules, "monitor.rules", Empty, AlertRulesResult);
+method!(/// Creates / replaces an alert rule (validated).
+    RuleUpsert, "monitor.ruleUpsert", UpsertRuleParams, AlertRuleResult);
+method!(/// Deletes an alert rule (default rules are not re-seeded).
+    RuleDelete, "monitor.ruleDelete", RuleIdParams, Empty);
+method!(/// Adds a tailed log file source (local only).
+    SourceAdd, "monitor.sourceAdd", AddFileSourceParams, LogSourceResult);
+method!(/// Removes a file log source (local only).
+    SourceRemove, "monitor.sourceRemove", LogSourceIdParams, Empty);

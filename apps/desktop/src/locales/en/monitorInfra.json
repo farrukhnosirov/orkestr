@@ -5,7 +5,9 @@
     "overview": "Overview",
     "checks": "Health checks",
     "alerts": "Alerts",
-    "logs": "Logs"
+    "logs": "Logs",
+    "rules": "Alert rules",
+    "sources": "Log sources"
   },
   "overview": {
     "empty": "No metrics yet. The first sample arrives within a few seconds.",
@@ -106,6 +108,94 @@
       "info": "Info",
       "warn": "Warn",
       "error": "Error"
+    }
+  },
+  "rules": {
+    "title": "Alert rules",
+    "add": "New rule",
+    "refresh": "Refresh rules",
+    "edit": "Edit rule",
+    "delete": "Delete rule",
+    "deleteConfirm": "Delete the alert rule “{{name}}”? Default rules are not restored.",
+    "enabled": "Enabled",
+    "empty": "No alert rules. Nothing raises alerts until you add one.",
+    "intro": "Rules turn failing checks, metric spikes and error bursts into alerts. Open alerts can start a Bug Detective investigation.",
+    "kind": {
+      "CheckDown": "Health check down",
+      "MetricThreshold": "Metric threshold",
+      "LogRate": "Log error rate"
+    },
+    "metric": {
+      "cpu": "CPU",
+      "mem": "Memory",
+      "disk": "Disk",
+      "gpu": "GPU {{n}} memory"
+    },
+    "summary": {
+      "checkAny": "Any health check goes down",
+      "checkOne": "Health check {{id}} goes down",
+      "metric": "{{metric}} above {{above}} for {{samples}} samples in a row",
+      "log": "{{count}}+ lines at {{level}} or above within {{window}} s in {{source}}",
+      "pattern": "matching “{{pattern}}”"
+    },
+    "form": {
+      "titleNew": "New alert rule",
+      "titleEdit": "Edit alert rule",
+      "name": "Name",
+      "id": "Id",
+      "idHint": "Letters, digits, dot, dash, underscore. Leave empty to derive it from the name.",
+      "severity": "Severity",
+      "kind": "Condition",
+      "check": "Health check",
+      "anyCheck": "Any check",
+      "metric": "Metric",
+      "above": "Threshold, percent",
+      "aboveHint": "Fires when the value is above this (0–99.9).",
+      "samples": "Consecutive samples",
+      "samplesHint": "Samples are taken every 5 seconds.",
+      "source": "Log source",
+      "minLevel": "Minimum level",
+      "pattern": "Text contains",
+      "patternHint": "Optional, case-insensitive.",
+      "count": "Lines",
+      "window": "Window, seconds"
+    },
+    "error": {
+      "id": "Use 1–64 letters, digits, dots, dashes or underscores.",
+      "name": "Enter a name (up to 120 characters).",
+      "metric": "Pick CPU, memory, disk or a GPU.",
+      "above": "Enter a number from 0 to 99.9.",
+      "samples": "Enter a whole number from 1 to 1000.",
+      "count": "Enter a whole number from 1 to 100000.",
+      "window": "Enter a whole number of seconds from 1 to 86400.",
+      "pattern": "Up to 200 characters."
+    }
+  },
+  "sources": {
+    "title": "Log sources",
+    "add": "Add log file",
+    "refresh": "Refresh sources",
+    "remove": "Remove source",
+    "deleteConfirm": "Stop tailing “{{name}}”? Lines already collected are dropped.",
+    "builtIn": "Built in",
+    "kind": {
+      "File": "File",
+      "Ingest": "Ingest",
+      "Deployment": "Deployment"
+    },
+    "form": {
+      "title": "Tail a log file",
+      "path": "File path",
+      "pathHint": "Absolute path of an existing log file on this machine.",
+      "pick": "Choose a log file",
+      "name": "Display name",
+      "nameHint": "Optional. Defaults to the path.",
+      "add": "Add source"
+    },
+    "error": {
+      "path": "Enter an absolute file path.",
+      "name": "Up to 200 characters.",
+      "duplicate": "This file or name is already a log source."
     }
   }
 }

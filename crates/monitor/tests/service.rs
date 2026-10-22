@@ -257,3 +257,57 @@ async fn deployment_sources_refresh_on_demand() {
     assert!(fx.svc.log_sources(None).iter().any(|s| s.id == id));
     fx.svc.shutdown();
 }
+
+#[tokio::test]
+async fn upgraded_databases_with_rules_are_marked_seeded() {
+    use orkestr_monitor::store::{MonitorStore, MONITOR_0001};
+    let db = orkestr_storage::Db::open_in_memory().unwrap();
+    db.migrate(vec![MONITOR_0001]).await.unwrap();
+    let store = MonitorStore::new(db.clone());
+    let mut only = orkestr_monitor::alerts::default_rules().remove(0);
+    only.id = "custom".into();
+    store.save_rule(&only).await.unwrap();
+    db.migrate(orkestr_monitor::monitor_migrations()).await.unwrap();
+    assert!(store.rules_seeded().await.unwrap(), "pre-existing rules count as seeded");
+
+    let fresh = orkestr_storage::Db::open_in_memory().unwrap();
+    fresh.migrate(orkestr_monitor::monitor_migrations()).await.unwrap();
+    let fresh = MonitorStore::new(fresh);
+    assert!(!fresh.rules_seeded().await.unwrap());
+    fresh.seed_rules(&orkestr_monitor::alerts::default_rules()).await.unwrap();
+    assert!(fresh.rules_seeded().await.unwrap());
+    assert_eq!(fresh.load_rules().await.unwrap().len(), 5);
+}
+
+#[tokio::test]
+async fn rules_are_validated_and_file_sources_refuse_bad_paths() {
+    use orkestr_monitor::{AlertRule, RuleKind};
+    use orkestr_protocol::methods::monitor::AlertSeverity;
+    let fx = fixture().await;
+    let mk = |kind| AlertRule {
+        id: "r1".into(),
+        name: "R".into(),
+        severity: AlertSeverity::Info,
+        enabled: true,
+        project_id: None,
+        kind,
+    };
+    let metric = |m: &str, above: f64, samples| {
+        mk(RuleKind::MetricThreshold { metric: m.into(), node_id: None, above, samples })
+    };
+    assert!(fx.svc.upsert_rule(metric("gpu1", 80.0, 3)).await.is_ok());
+    assert!(fx.svc.upsert_rule(metric("gpu", 80.0, 3)).await.is_err());
+    assert!(fx.svc.upsert_rule(metric("cpu", f64::NAN, 3)).await.is_err());
+    assert!(fx.svc.upsert_rule(metric("cpu", -1.0, 3)).await.is_err());
+    assert!(fx.svc.upsert_rule(metric("cpu", 50.0, 1001)).await.is_err());
+    assert!(fx.svc.rules().await.unwrap().iter().any(|r| r.id == "r1"));
+
+    let dir = fx._dir.path();
+    assert!(fx.svc.add_file_source("d", dir.to_path_buf(), None).await.is_err());
+    assert!(fx.svc.add_file_source("m", dir.join("missing.log"), None).await.is_err());
+    assert!(fx.svc.add_file_source("r", "rel.log".into(), None).await.is_err());
+    #[cfg(windows)]
+    assert!(fx.svc.add_file_source("n", r"\.\NUL".into(), None).await.is_err());
+    #[cfg(unix)]
+    assert!(fx.svc.add_file_source("n", "/dev/null".into(), None).await.is_err());
+}
