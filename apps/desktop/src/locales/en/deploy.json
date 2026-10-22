@@ -1,6 +1,120 @@
 {
-  "stub": {
-    "title": "Deployments",
-    "description": "Environments, deployment adapters, approvals and rollback. Being built in this phase."
+  "noProject": {
+    "title": "No project open",
+    "description": "Open a project to manage its environments, deployments and rollbacks."
+  },
+  "tabs": {
+    "environments": "Environments",
+    "adapters": "Adapters"
+  },
+  "actions": {
+    "newEnvironment": "New environment",
+    "refresh": "Refresh",
+    "edit": "Edit",
+    "delete": "Delete",
+    "confirmDelete": "Confirm delete",
+    "deploy": "Deploy…",
+    "plan": "Preview plan",
+    "confirmDeploy": "Deploy now",
+    "close": "Close",
+    "rollback": "Roll back",
+    "confirmRollback": "Confirm roll back",
+    "cancel": "Cancel deployment",
+    "approve": "Approve",
+    "reject": "Reject",
+    "save": "Save",
+    "discard": "Discard"
+  },
+  "env": {
+    "list": "Environments",
+    "empty": "No environments yet",
+    "emptyHint": "Create an environment, pick a deployment target and deploy. Production is always protected by an approval.",
+    "protected": "Protected",
+    "noTarget": "No target",
+    "current": "Live version",
+    "nothing": "Nothing deployed yet",
+    "select": "Select an environment"
+  },
+  "kind": {
+    "Local": "Local",
+    "Dev": "Development",
+    "Test": "Test",
+    "Staging": "Staging",
+    "Production": "Production",
+    "Custom": "Custom"
+  },
+  "status": {
+    "Pending": "Pending",
+    "AwaitingApproval": "Awaiting approval",
+    "Running": "Running",
+    "Succeeded": "Succeeded",
+    "Failed": "Failed",
+    "RolledBack": "Rolled back",
+    "Cancelled": "Cancelled"
+  },
+  "adapters": {
+    "names": {
+      "staticSite": "Static site",
+      "localProcess": "Local process",
+      "docker": "Docker",
+      "vercel": "Vercel",
+      "netlify": "Netlify",
+      "fly": "Fly.io",
+      "kubernetes": "Kubernetes"
+    },
+    "ready": "Ready",
+    "needsCredential": "Needs vault secret {{secret}}",
+    "unavailable": "Unavailable: {{reason}}",
+    "live": "Verified end to end",
+    "requestShape": "Request shape verified (fake API)",
+    "settings": "Settings: {{keys}}"
+  },
+  "form": {
+    "createTitle": "New environment",
+    "editTitle": "Edit {{name}}",
+    "name": "Name",
+    "kind": "Kind",
+    "protected": "Protected: deploys need approval",
+    "productionProtected": "Production is always protected",
+    "target": "Deployment target",
+    "chooseTarget": "Choose a target…",
+    "settings": "Adapter settings",
+    "required": "required",
+    "variables": "Variables (KEY=VALUE per line, never secrets)",
+    "secrets": "Credentials (vault secrets)",
+    "noSecrets": "No vault secrets yet: add them under Settings → Secrets.",
+    "needsSecret": "This target needs a vault secret named {{secret}}.",
+    "urls": "URLs (one per line)"
+  },
+  "deploy": {
+    "version": "Version (default: current git commit)",
+    "sourceDir": "Source directory (relative, optional)",
+    "steps": "Steps",
+    "requests": "Requests (redacted)",
+    "warnings": "Warnings",
+    "requiresApproval": "Needs approval",
+    "noApproval": "Runs immediately",
+    "awaiting": "Waiting for approval: approve here or in Approvals."
+  },
+  "history": {
+    "title": "History",
+    "empty": "No deployments yet",
+    "rollbackOf": "rollback"
+  },
+  "log": {
+    "title": "Log: {{version}}",
+    "empty": "No log lines yet",
+    "live": "Live"
+  },
+  "notice": {
+    "created": "Environment created",
+    "updated": "Environment saved",
+    "deleted": "Environment deleted",
+    "started": "Deployment started",
+    "awaitingApproval": "Deployment is waiting for approval",
+    "rollback": "Rollback started",
+    "cancelled": "Cancellation requested",
+    "approved": "Approved",
+    "rejected": "Rejected"
   }
 }
