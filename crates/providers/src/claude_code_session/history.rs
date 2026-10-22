@@ -205,10 +205,8 @@ fn active_chain(path: &Path) -> Option<std::collections::HashSet<String>> {
         if !chain.insert(id.clone()) {
             break; // cycle
         }
-        cur = match parents.get(&id) {
-            Some(p) => p.clone(),
-            None => return None, // parent not in this file
-        };
+        // A parent outside this file: no usable chain.
+        cur = parents.get(&id)?.clone();
     }
     (!chain.is_empty()).then_some(chain)
 }

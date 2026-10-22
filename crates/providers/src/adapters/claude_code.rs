@@ -14,6 +14,7 @@ use parking_lot::Mutex;
 use serde_json::Value;
 use tokio_util::sync::CancellationToken;
 
+use super::claude_chat::{ChatPool, CliSpawner};
 use super::cli::{self, CliStreamParser};
 use crate::adapter::ProviderAdapter;
 use crate::catalog::default_models;
@@ -190,13 +191,52 @@ pub struct ClaudeCodeAdapter {
     binary_override: Option<String>,
     last_auth_error: Arc<Mutex<Option<String>>>,
     verified: Arc<Mutex<bool>>,
+    /// Persistent processes of chat-style calls (AI Manager, reviews).
+    chats: Arc<ChatPool>,
 }
 
 impl ClaudeCodeAdapter {
     /// Creates the adapter. `binary_override` = absolute path pinned by the user.
     #[must_use]
     pub fn new(id: ProviderId, name: impl Into<String>, binary_override: Option<String>) -> Self {
-        Self { id, name: name.into(), binary_override, last_auth_error: Arc::default(), verified: Arc::default() }
+        let chat_args = [
+            "--print",
+            "--input-format",
+            "stream-json",
+            "--output-format",
+            "stream-json",
+            "--verbose",
+            "--disallowedTools",
+            CHAT_DISALLOWED,
+        ]
+        .iter()
+        .map(|s| (*s).to_owned())
+        .collect();
+        Self {
+            id,
+            name: name.into(),
+            binary_override,
+            last_auth_error: Arc::default(),
+            verified: Arc::default(),
+            chats: Arc::new(ChatPool::new(Arc::new(CliSpawner), chat_args)),
+        }
+    }
+
+    /// Learns the login state from real runs (never from credential files).
+    fn observe(&self, stream: CodingAgentStream) -> CodingAgentStream {
+        use futures::StreamExt;
+        let verified = Arc::clone(&self.verified);
+        let last_err = Arc::clone(&self.last_auth_error);
+        stream
+            .inspect(move |ev| match ev {
+                CodingAgentEvent::Chat(ChatEvent::Error(ProviderError::Auth(m))) => *last_err.lock() = Some(m.clone()),
+                CodingAgentEvent::Chat(ChatEvent::Done { .. }) => {
+                    *verified.lock() = true;
+                    *last_err.lock() = None;
+                }
+                _ => {}
+            })
+            .boxed()
     }
 
     fn binary(&self) -> Option<PathBuf> {
@@ -447,23 +487,19 @@ impl ProviderAdapter for ClaudeCodeAdapter {
         // Orkestr's own tools (AI Manager, reviews) are emulated: the CLI
         // runs with all of its tools disabled, the tool catalogue goes into
         // the prompt and a `{"tool_calls": […]}` answer becomes tool calls.
+        // One persistent stream-json process per conversation (see
+        // `claude_chat`): later turns send only the new messages.
         let tools = !request.tools.is_empty() && request.tool_choice != ToolChoice::None;
-        let mut args = Self::base_args(Some(request.model.as_str()));
-        args.extend([
-            "--max-turns".to_owned(),
-            "1".to_owned(),
-            "--disallowedTools".to_owned(),
-            CHAT_DISALLOWED.to_owned(),
-        ]);
-        let mut prompt = cli::render_prompt(&request);
-        if tools {
-            prompt.push_str(&tool_protocol(&request));
-        }
-        let stream = self.spawn(args, cli::chat_scratch_dir()?, prompt, cancel.clone())?;
+        let protocol = if tools { tool_protocol(&request) } else { String::new() };
+        let bin =
+            self.binary().ok_or_else(|| ProviderError::Auth("Claude Code CLI (`claude`) is not installed".into()))?;
+        let first = cli::render_prompt(&request);
+        let names: Vec<String> = request.tools.iter().map(|t| t.name.clone()).collect();
+        let stream = self.chats.turn(bin, cli::chat_scratch_dir()?, request, first, protocol, cancel.clone());
+        let stream = self.observe(stream);
         if !tools {
             return Ok(cli::chat_only(stream));
         }
-        let names: Vec<String> = request.tools.iter().map(|t| t.name.clone()).collect();
         Ok(emulate_tool_calls(stream, names, cancel))
     }
 

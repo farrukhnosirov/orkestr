@@ -82,7 +82,7 @@ pub fn resolve_binary(name: &str, override_path: Option<&str>) -> Option<PathBuf
     orkestr_platform::process::which(name)
 }
 
-fn command(program: &Path, args: &[String]) -> tokio::process::Command {
+pub(crate) fn command(program: &Path, args: &[String]) -> tokio::process::Command {
     let mut cmd = tokio::process::Command::new(program);
     cmd.args(args);
     cmd.env_clear();
