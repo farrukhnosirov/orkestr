@@ -1,6 +1,79 @@
 {
-  "stub": {
-    "title": "Dashboards",
-    "description": "Custom dashboards with built-in and plugin widgets. The Dashboard Builder is being built in this phase."
+  "scope": {
+    "label": "Dashboard scope",
+    "global": "Global",
+    "project": "Project"
+  },
+  "list": {
+    "label": "Dashboard"
+  },
+  "actions": {
+    "create": "New dashboard",
+    "rename": "Rename dashboard",
+    "delete": "Delete dashboard",
+    "confirmDelete": "Confirm delete",
+    "edit": "Edit",
+    "done": "Done",
+    "save": "Save",
+    "cancel": "Cancel"
+  },
+  "naming": {
+    "createLabel": "Name of the new dashboard",
+    "renameLabel": "New name"
+  },
+  "empty": {
+    "title": "No dashboards yet",
+    "description": "Create a dashboard and add built-in or plugin widgets to it.",
+    "noProjectTitle": "No project selected",
+    "noProject": "Open a project to see its dashboards.",
+    "noWidgetsTitle": "This dashboard is empty",
+    "noWidgets": "Switch to Edit to add widgets from the palette."
+  },
+  "palette": {
+    "title": "Widgets",
+    "add": "Add widget {{title}}",
+    "plugin": "Plugin"
+  },
+  "grid": {
+    "dragHandle": "Move {{title}}",
+    "dragHint": "Drag to move; arrow keys move, Shift + arrow keys resize",
+    "resizeHandle": "Resize {{title}}",
+    "configure": "Configure widget",
+    "widthPreset": "Next width",
+    "remove": "Remove widget"
+  },
+  "widget": {
+    "loading": "Loading…",
+    "unknown": "Unknown built-in widget {{id}}",
+    "unavailable": "Widget {{id}} is not available (plugin missing or disabled)"
+  },
+  "builtin": {
+    "note": "Note"
+  },
+  "note": {
+    "empty": "Empty note — configure it in Edit mode"
+  },
+  "config": {
+    "title": "Widget settings",
+    "instanceTitle": "Title (optional)",
+    "noOptions": "This widget has no settings.",
+    "unset": "Not set",
+    "apply": "Apply",
+    "errors": {
+      "type": "Wrong type (expected {{detail}})",
+      "required": "Required",
+      "enum": "Not one of the allowed values",
+      "const": "Value is fixed",
+      "minimum": "Must be at least {{detail}}",
+      "maximum": "Must be at most {{detail}}",
+      "minLength": "At least {{detail}} characters",
+      "maxLength": "At most {{detail}} characters",
+      "pattern": "Does not match the expected format",
+      "minItems": "At least {{detail}} items",
+      "maxItems": "At most {{detail}} items",
+      "unknown": "Unknown setting",
+      "unsupported": "The widget's settings schema is not supported ({{detail}})",
+      "noConfig": "This widget takes no settings"
+    }
   }
 }

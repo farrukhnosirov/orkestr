@@ -1,0 +1,269 @@
+/* Dashboard Builder (ADR-0034). Cells reuse Mission Control's .mc-widget look. */
+
+.dsh {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  position: relative;
+}
+
+.dsh-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--ok-space-2);
+  padding: var(--ok-space-2) var(--ok-space-3);
+  border-bottom: 1px solid var(--ok-color-border);
+}
+
+.dsh-toolbar__spacer {
+  flex: 1;
+}
+
+.dsh-select {
+  min-width: 180px;
+  max-width: 320px;
+  height: 28px;
+  padding: 0 var(--ok-space-2);
+  border-radius: var(--ok-radius-sm);
+  border: 1px solid var(--ok-color-border);
+  background: var(--ok-color-surface);
+  color: var(--ok-color-text);
+  font: inherit;
+}
+
+.dsh-naming {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--ok-space-2);
+  padding: var(--ok-space-2) var(--ok-space-3);
+}
+
+.dsh-error {
+  margin: var(--ok-space-2) var(--ok-space-3) 0;
+}
+
+.dsh-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.dsh-board {
+  flex: 1;
+  min-width: 0;
+}
+
+.dsh-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 12px;
+  position: relative;
+}
+
+.dsh-grid--editing {
+  background-image: linear-gradient(to right, color-mix(in srgb, var(--ok-color-border) 50%, transparent) 1px, transparent 1px);
+  background-size: calc((100% + 12px) / 12) 100%;
+  border-radius: var(--ok-radius-md);
+}
+
+.dsh-cell {
+  min-height: 0;
+  touch-action: none;
+}
+
+.dsh-cell--dragging {
+  z-index: 2;
+  border-color: var(--ok-color-accent);
+  box-shadow: 0 0 0 1px var(--ok-color-accent), var(--ok-shadow-panel);
+  opacity: 0.92;
+}
+
+.dsh-grip {
+  cursor: grab;
+}
+
+.dsh-cell--dragging .dsh-grip {
+  cursor: grabbing;
+}
+
+.dsh-cell__body {
+  position: relative;
+}
+
+.dsh-resize {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  width: 14px;
+  height: 14px;
+  cursor: nwse-resize;
+  border-right: 2px solid var(--ok-color-border-strong);
+  border-bottom: 2px solid var(--ok-color-border-strong);
+  border-radius: 0 0 var(--ok-radius-sm) 0;
+}
+
+.dsh-resize:hover {
+  border-color: var(--ok-color-accent);
+}
+
+.dsh-frame {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  border: 0;
+  background: transparent;
+  color-scheme: normal;
+}
+
+.dsh-palette {
+  width: 240px;
+  flex-shrink: 0;
+  overflow-y: auto;
+  padding: var(--ok-space-3);
+  border-left: 1px solid var(--ok-color-border);
+  background: var(--ok-color-surface-sunken);
+}
+
+.dsh-palette__title {
+  margin: 0 0 var(--ok-space-2);
+  font-size: var(--ok-font-size-sm);
+  color: var(--ok-color-text-muted);
+}
+
+.dsh-palette ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dsh-palette__item {
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-2);
+  width: 100%;
+  padding: 6px var(--ok-space-2);
+  border-radius: var(--ok-radius-sm);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ok-color-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dsh-palette__item span {
+  flex: 1;
+}
+
+.dsh-palette__item:hover,
+.dsh-palette__item:focus-visible {
+  background: var(--ok-color-surface-hover);
+  border-color: var(--ok-color-border);
+}
+
+.dsh-note {
+  height: 100%;
+  border-radius: var(--ok-radius-sm);
+  padding: var(--ok-space-2);
+}
+
+.dsh-note__text {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.dsh-note--info { background: var(--ok-color-info-soft); }
+.dsh-note--success { background: var(--ok-color-success-soft); }
+.dsh-note--warning { background: var(--ok-color-warning-soft); }
+.dsh-note--danger { background: var(--ok-color-danger-soft); }
+
+.dsh-dialog {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  background: var(--ok-color-overlay);
+}
+
+.dsh-dialog__card {
+  width: min(440px, calc(100% - 32px));
+  max-height: calc(100% - 32px);
+  overflow-y: auto;
+  padding: var(--ok-space-4);
+  border-radius: var(--ok-radius-lg);
+  border: 1px solid var(--ok-color-border);
+  background: var(--ok-color-bg-elevated);
+  box-shadow: var(--ok-shadow-panel);
+}
+
+.dsh-dialog__card h3 {
+  margin: 0 0 var(--ok-space-3);
+}
+
+.dsh-config {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-3);
+}
+
+.dsh-config__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dsh-config__field select,
+.dsh-config__field textarea {
+  padding: 6px var(--ok-space-2);
+  border-radius: var(--ok-radius-sm);
+  border: 1px solid var(--ok-color-border);
+  background: var(--ok-color-surface);
+  color: var(--ok-color-text);
+  font: inherit;
+}
+
+.dsh-config__field textarea {
+  resize: vertical;
+}
+
+.dsh-config__check {
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-2);
+}
+
+.dsh-config__error {
+  margin: 0;
+  color: var(--ok-color-danger);
+  font-size: var(--ok-font-size-xs);
+}
+
+.dsh-config__empty {
+  margin: 0;
+  color: var(--ok-color-text-muted);
+}
+
+.dsh-config__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--ok-space-2);
+}
+
+@container (max-width: 640px) {
+  .dsh-palette {
+    width: 180px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dsh-cell--dragging {
+    opacity: 1;
+  }
+}

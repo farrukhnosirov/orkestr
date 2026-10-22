@@ -54,7 +54,8 @@ pub struct WidgetDescriptor {
 #[serde(rename_all = "camelCase")]
 #[ts(export)]
 pub struct ListWidgetsResult {
-    /// Widgets of enabled plugins (built-ins are listed by the client itself).
+    /// Built-in widgets (`builtin:<id>`, rendered natively) followed by widgets of
+    /// enabled plugins whose data binding passes the allowlist.
     pub widgets: Vec<WidgetDescriptor>,
 }
 
