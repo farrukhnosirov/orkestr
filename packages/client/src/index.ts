@@ -17,3 +17,6 @@ export { OrkestrError } from "./errors";
 export type { ClientErrorCode } from "./errors";
 export { backoffDelay } from "./backoff";
 export type { BackoffOptions } from "./backoff";
+
+// Remote access (Phase 4, package C).
+export * from "./remote";
