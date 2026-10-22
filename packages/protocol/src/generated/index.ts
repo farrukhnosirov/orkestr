@@ -145,6 +145,8 @@ export * from "./ClaudePermissionDecision";
 export * from "./ClaudePermissionMode";
 export * from "./ClaudePlanUsage";
 export * from "./ClaudeRespondPermissionParams";
+export * from "./ClaudeRewindParams";
+export * from "./ClaudeRewindResult";
 export * from "./ClaudeRisk";
 export * from "./ClaudeRiskLevel";
 export * from "./ClaudeSendParams";

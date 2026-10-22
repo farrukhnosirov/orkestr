@@ -66,6 +66,7 @@ pub fn register(router: &mut RpcRouter) {
             ctx.services.claude.set_chat_meta(&p).map_err(RpcError::bad_request)
         })
         .method::<m::OpenInTerminal, _, _>(open_in_terminal)
+        .method::<m::Rewind, _, _>(rewind)
         .method::<m::Interrupt, _, _>(|ctx: RpcContext, p: ClaudeSessionParams| async move {
             ctx.services.claude.manager.interrupt(p.session_id).await.map_err(to_rpc)
         })
@@ -217,6 +218,65 @@ async fn load_transcript(
     .map_err(RpcError::not_found)
 }
 
+/// `claudeCode.rewind`: finds the user message in the conversation's
+/// transcript (its active branch), restores files (optional) and restarts
+/// the session resuming up to the entry before that message.
+async fn rewind(ctx: RpcContext, p: m::ClaudeRewindParams) -> Result<m::ClaudeRewindResult, RpcError> {
+    let manager = &ctx.services.claude.manager;
+    let info = manager.get(p.session_id).map_err(to_rpc)?;
+    let sid = info
+        .claude_session_id
+        .clone()
+        .ok_or_else(|| RpcError::conflict("this conversation has no messages to rewind yet"))?;
+    let dir = ctx.services.claude.projects_dir().ok_or_else(|| RpcError::not_found("no Claude Code history found"))?;
+    let cwd = PathBuf::from(&info.cwd);
+    let turns = tokio::task::spawn_blocking(move || {
+        let folder =
+            history::folder_for(&dir, &cwd).ok_or_else(|| "no Claude Code history for this folder".to_owned())?;
+        history::user_turns(&folder, &sid)
+    })
+    .await
+    .map_err(|e| RpcError::internal(e.to_string()))?
+    .map_err(RpcError::not_found)?;
+    let turn = pick_turn(&turns, p.turns_from_end as usize, &p.text)
+        .ok_or_else(|| RpcError::not_found("this message was not found in the conversation transcript"))?;
+    let files_at = p.restore_files.then(|| turn.uuid.clone());
+    let (session, files) = manager.rewind(p.session_id, turn.parent_uuid.clone(), files_at).await.map_err(to_rpc)?;
+    let files_changed: Vec<String> = files
+        .as_ref()
+        .and_then(|v| v.get("filesChanged"))
+        .and_then(serde_json::Value::as_array)
+        .map(|a| a.iter().filter_map(|f| f.as_str().map(str::to_owned)).collect())
+        .unwrap_or_default();
+    audit(
+        &ctx,
+        "claudeCode.rewind",
+        info.cwd.clone(),
+        Some(info.project_id),
+        serde_json::json!({
+            "sessionId": p.session_id,
+            "turnsFromEnd": p.turns_from_end,
+            "restoreFiles": p.restore_files,
+            "filesChanged": files_changed.len(),
+        }),
+    )
+    .await;
+    Ok(m::ClaudeRewindResult { session, text: turn.text.clone(), files_changed })
+}
+
+/// The user message `from_end` places before the newest one, checked by
+/// text; when the panel's count is off (a truncated transcript, a slash
+/// command the CLI did not record), the newest message with that text.
+fn pick_turn<'a>(turns: &'a [history::UserTurn], from_end: usize, text: &str) -> Option<&'a history::UserTurn> {
+    let same = |t: &history::UserTurn| t.text.trim() == text.trim();
+    turns
+        .len()
+        .checked_sub(from_end + 1)
+        .and_then(|i| turns.get(i))
+        .filter(|t| same(t))
+        .or_else(|| turns.iter().rev().find(|t| same(t)))
+}
+
 async fn sessions(ctx: RpcContext, p: ClaudeSessionsParams) -> Result<ClaudeSessionsResult, RpcError> {
     let cwd = resolve_cwd(&ctx, p.project_id, p.cwd.as_deref()).await?;
     let live = ctx.services.claude.manager.list(Some(p.project_id));
@@ -264,6 +324,7 @@ async fn start(ctx: RpcContext, p: ClaudeStartParams) -> Result<ClaudeStartResul
         mode,
         allow_bypass: bypass,
         resume: p.resume.clone(),
+        resume_at: None,
         add_dirs: add_dirs.clone(),
         fallback_model: p.fallback_model.clone().map(|m| m.trim().to_owned()).filter(|m| !m.is_empty()),
         stop: Some(stop),

@@ -117,9 +117,10 @@ export function ChatWorkspace({ projectId, root }: { projectId: string; root: st
   const insert = useClaudeStore((s) => s.insert);
   const storeError = useClaudeStore((s) => s.error);
   const meta = useClaudeStore((s) => s.meta);
-  const { start, send, interrupt, respond, setMode, setModel, setPrefs, dequeue, consumeInsert, login, loadHistory, requestInsert } =
+  const { start, send, interrupt, respond, setMode, setModel, setPrefs, dequeue, consumeInsert, login, loadHistory, requestInsert, rewind } =
     useClaudeStore.getState();
   const [drawer, setDrawer] = useState(false);
+  const [rewound, setRewound] = useState<number | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const narrow = useNarrow(rootRef);
   const [overlay, setOverlay] = useState(false);
@@ -128,6 +129,7 @@ export function ChatWorkspace({ projectId, root }: { projectId: string; root: st
   const tabCount = tabs?.length ?? 0;
 
   useUsagePolling(activeId);
+  useEffect(() => setRewound(null), [activeId]);
   useEffect(() => {
     void loadHistory(projectId);
   }, [projectId, loadHistory]);
@@ -251,8 +253,15 @@ export function ChatWorkspace({ projectId, root }: { projectId: string; root: st
               onRespond={(rid, decision, message) => void respond(view.info.sessionId, rid, decision, message)}
               onLogin={() => void onLogin()}
               onEdit={ended ? undefined : (text) => requestInsert(text, true)}
+              onRewind={
+                ended
+                  ? undefined
+                  : (itemId, restoreFiles) =>
+                      void rewind(view.info.sessionId, itemId, restoreFiles).then((files) => setRewound(restoreFiles && files ? files.length : null))
+              }
               empty={<EmptyChat onPick={(text) => requestInsert(text, true)} />}
             />
+            {rewound !== null && <div className="cc-notice">{tp("message.rewound", { count: rewound })}</div>}
             {view.error && <div className="cc-error-text">{view.error}</div>}
             {view.info.state === "failed" && view.info.error && <div className="cc-error-text">{view.info.error}</div>}
             {ended ? (

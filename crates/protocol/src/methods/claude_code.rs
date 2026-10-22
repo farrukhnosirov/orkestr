@@ -903,6 +903,41 @@ pub struct ClaudeOpenInTerminalParams {
     pub cwd: Option<String>,
 }
 
+/// `claudeCode.rewind` params.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct ClaudeRewindParams {
+    /// Session (must be idle).
+    pub session_id: ClaudeSessionId,
+    /// Which user message to rewind to, counted from the newest (0 = the
+    /// last one); the conversation keeps everything before it.
+    pub turns_from_end: u32,
+    /// The message's text (checked against the transcript).
+    pub text: String,
+    /// Also restore the files Claude changed since that message (the CLI's
+    /// file checkpoints).
+    #[serde(default)]
+    pub restore_files: bool,
+}
+
+/// `claudeCode.rewind` result.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct ClaudeRewindResult {
+    /// The restarted session.
+    pub session: ClaudeSessionInfo,
+    /// The rewound message's text (back into the composer).
+    pub text: String,
+    /// Files restored (when `restoreFiles`).
+    pub files_changed: Vec<String>,
+}
+
+method!(
+    /// `claudeCode.rewind` — rolls the conversation (and optionally the files) back to before a user message.
+    Rewind, "claudeCode.rewind", ClaudeRewindParams, ClaudeRewindResult
+);
 method!(
     /// `claudeCode.status` — binary, login state and live sessions.
     Status, "claudeCode.status", ClaudeStatusParams, ClaudeCodeStatus

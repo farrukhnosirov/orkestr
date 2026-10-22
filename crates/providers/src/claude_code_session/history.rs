@@ -162,9 +162,7 @@ pub fn list(folder: &Path) -> Vec<ClaudeHistoryEntry> {
     files.into_iter().take(MAX_HISTORY).filter_map(|(_, p)| summarize(&p)).collect()
 }
 
-/// The chat items of one conversation (oldest first, capped to the newest
-/// [`MAX_TRANSCRIPT_EVENTS`]); `(events, truncated)`.
-pub fn transcript(folder: &Path, session_id: &str) -> Result<(Vec<ClaudeCodeEvent>, bool), String> {
+fn transcript_path(folder: &Path, session_id: &str) -> Result<PathBuf, String> {
     if !is_session_id(session_id) {
         return Err("invalid session id".into());
     }
@@ -172,6 +170,91 @@ pub fn transcript(folder: &Path, session_id: &str) -> Result<(Vec<ClaudeCodeEven
     if !path.is_file() {
         return Err(format!("conversation {session_id} not found"));
     }
+    Ok(path)
+}
+
+fn str_field(v: &Value, key: &str) -> Option<String> {
+    v.get(key).and_then(Value::as_str).map(str::to_owned)
+}
+
+/// The entries (`uuid`s) on the conversation's active branch: from the last
+/// main-chain message back to the root over `parentUuid` (across compaction
+/// via `logicalParentUuid`). A rewound conversation (`--resume-session-at`)
+/// keeps its abandoned turns in the file; they are not on this chain.
+/// `None` = no usable chain (no uuids, or a parent outside the file) — then
+/// nothing is filtered.
+fn active_chain(path: &Path) -> Option<std::collections::HashSet<String>> {
+    let mut parents: std::collections::HashMap<String, Option<String>> = std::collections::HashMap::new();
+    let mut leaf: Option<String> = None;
+    for line in lines(path) {
+        if !line.contains("\"uuid\"") {
+            continue;
+        }
+        let Ok(v) = serde_json::from_str::<Value>(&line) else { continue };
+        let Some(uuid) = str_field(&v, "uuid") else { continue };
+        let parent = str_field(&v, "parentUuid").or_else(|| str_field(&v, "logicalParentUuid"));
+        let kind = v.get("type").and_then(Value::as_str);
+        if matches!(kind, Some("user" | "assistant")) && v.get("isSidechain").and_then(Value::as_bool) != Some(true) {
+            leaf = Some(uuid.clone());
+        }
+        parents.insert(uuid, parent);
+    }
+    let mut chain = std::collections::HashSet::new();
+    let mut cur = leaf;
+    while let Some(id) = cur {
+        if !chain.insert(id.clone()) {
+            break; // cycle
+        }
+        cur = match parents.get(&id) {
+            Some(p) => p.clone(),
+            None => return None, // parent not in this file
+        };
+    }
+    (!chain.is_empty()).then_some(chain)
+}
+
+/// One user message of a conversation's active branch (a rewind target).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UserTurn {
+    /// The message's transcript entry.
+    pub uuid: String,
+    /// The entry before it (`None` = the first message of the conversation).
+    pub parent_uuid: Option<String>,
+    /// Text as the panel shows it.
+    pub text: String,
+}
+
+/// The user messages of a conversation's active branch, oldest first —
+/// exactly the ones [`transcript`] shows as `UserMessage`.
+pub fn user_turns(folder: &Path, session_id: &str) -> Result<Vec<UserTurn>, String> {
+    let path = transcript_path(folder, session_id)?;
+    let chain = active_chain(&path);
+    let mut parser = StreamParser::transcript();
+    let mut out = Vec::new();
+    for line in lines(&path) {
+        if !line.contains("\"type\":\"user\"") {
+            continue;
+        }
+        let Ok(v) = serde_json::from_str::<Value>(&line) else { continue };
+        let Some(uuid) = str_field(&v, "uuid") else { continue };
+        if chain.as_ref().is_some_and(|c| !c.contains(&uuid)) {
+            continue;
+        }
+        for item in parser.value(&v) {
+            if let Inbound::Event(ClaudeCodeEvent::UserMessage { text }) = item {
+                out.push(UserTurn { uuid: uuid.clone(), parent_uuid: str_field(&v, "parentUuid"), text });
+            }
+        }
+    }
+    Ok(out)
+}
+
+/// The chat items of one conversation (oldest first, capped to the newest
+/// [`MAX_TRANSCRIPT_EVENTS`]); `(events, truncated)`. Only the active branch
+/// is shown (turns abandoned by a rewind are skipped).
+pub fn transcript(folder: &Path, session_id: &str) -> Result<(Vec<ClaudeCodeEvent>, bool), String> {
+    let path = transcript_path(folder, session_id)?;
+    let chain = active_chain(&path);
     let mut parser = StreamParser::transcript();
     let mut events = std::collections::VecDeque::new();
     let mut truncated = false;
@@ -179,7 +262,13 @@ pub fn transcript(folder: &Path, session_id: &str) -> Result<(Vec<ClaudeCodeEven
         if !(line.contains("\"type\":\"user\"") || line.contains("\"type\":\"assistant\"")) {
             continue;
         }
-        for item in parser.line(&line) {
+        let Ok(v) = serde_json::from_str::<Value>(&line) else { continue };
+        if let (Some(c), Some(uuid)) = (chain.as_ref(), v.get("uuid").and_then(Value::as_str)) {
+            if !c.contains(uuid) {
+                continue;
+            }
+        }
+        for item in parser.value(&v) {
             if let Inbound::Event(e) = item {
                 if matches!(e, ClaudeCodeEvent::FileChanged { .. }) {
                     continue; // historical, already on disk
@@ -214,6 +303,52 @@ mod tests {
         assert!(!is_session_id("../../secret"));
         assert!(!is_session_id("abc"));
         assert!(!is_session_id("06a417de-ea3e-4314-9648-2072200e551d.jsonl"));
+    }
+
+    #[test]
+    fn rewound_turns_leave_the_active_branch() {
+        let tmp = tempfile::tempdir().unwrap();
+        let sid = "11111111-2222-3333-4444-555555555555";
+        let line = |uuid: &str, parent: Option<&str>, kind: &str, content: &str| {
+            serde_json::json!({
+                "type": kind, "uuid": uuid, "parentUuid": parent,
+                "message": { "role": kind, "content": [{ "type": "text", "text": content }] },
+            })
+            .to_string()
+        };
+        let body = [
+            line("aaaaaaaa-0000-0000-0000-000000000001", None, "user", "first"),
+            line(
+                "aaaaaaaa-0000-0000-0000-000000000002",
+                Some("aaaaaaaa-0000-0000-0000-000000000001"),
+                "assistant",
+                "one",
+            ),
+            line(
+                "aaaaaaaa-0000-0000-0000-000000000003",
+                Some("aaaaaaaa-0000-0000-0000-000000000002"),
+                "user",
+                "second",
+            ),
+            line(
+                "aaaaaaaa-0000-0000-0000-000000000004",
+                Some("aaaaaaaa-0000-0000-0000-000000000003"),
+                "assistant",
+                "two",
+            ),
+            // Rewound to before "second", then a new message.
+            line("aaaaaaaa-0000-0000-0000-000000000005", Some("aaaaaaaa-0000-0000-0000-000000000002"), "user", "again"),
+        ]
+        .join("\n");
+        std::fs::write(tmp.path().join(format!("{sid}.jsonl")), body).unwrap();
+        let turns = user_turns(tmp.path(), sid).unwrap();
+        let texts: Vec<&str> = turns.iter().map(|t| t.text.as_str()).collect();
+        assert_eq!(texts, ["first", "again"]);
+        assert_eq!(turns[0].parent_uuid, None);
+        assert_eq!(turns[1].parent_uuid.as_deref(), Some("aaaaaaaa-0000-0000-0000-000000000002"));
+        let (events, _) = transcript(tmp.path(), sid).unwrap();
+        assert!(!events.iter().any(|e| matches!(e, ClaudeCodeEvent::UserMessage { text } if text == "second")));
+        assert!(!events.iter().any(|e| matches!(e, ClaudeCodeEvent::Text { text, .. } if text == "two")));
     }
 
     #[test]

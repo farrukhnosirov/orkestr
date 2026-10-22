@@ -8,7 +8,7 @@
 import type { ClaudePermissionDecision, ClaudeRisk } from "@orkestr/protocol";
 import { Button, Spinner } from "@orkestr/ui";
 import clsx from "clsx";
-import { AlertTriangle, Check, CircleStop, Copy, FileDiff, LogIn, Pencil, Sparkle, Terminal as TerminalIcon, User } from "lucide-react";
+import { AlertTriangle, Check, CircleStop, Copy, FileDiff, LogIn, Pencil, RotateCcw, Sparkle, Terminal as TerminalIcon, User } from "lucide-react";
 import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { useFormat, useT } from "../../i18n";
@@ -27,9 +27,28 @@ export interface ChatViewProps {
   empty?: ReactNode;
   /** Puts a sent message back into the composer (edit & resend). */
   onEdit?: (text: string) => void;
+  /** Rewinds the chat to before a user message (`/rewind`); `restoreFiles` also restores Claude's file changes. */
+  onRewind?: (itemId: string, restoreFiles: boolean) => void;
 }
 
-function MessageActions({ text, onEdit }: { text: string; onEdit?: (text: string) => void }) {
+function RewindBar({ onRewind, onCancel }: { onRewind: (restoreFiles: boolean) => void; onCancel: () => void }) {
+  const { t } = useT("claudeCodePanel");
+  return (
+    <div className="cc-msg__rewind" role="group" aria-label={t("message.rewindTitle")}>
+      <Button size="sm" variant="secondary" onClick={() => onRewind(false)}>
+        {t("message.rewindChat")}
+      </Button>
+      <Button size="sm" variant="secondary" title={t("message.rewindFilesHint")} onClick={() => onRewind(true)}>
+        {t("message.rewindChatAndFiles")}
+      </Button>
+      <Button size="sm" variant="ghost" onClick={onCancel}>
+        {t("message.rewindCancel")}
+      </Button>
+    </div>
+  );
+}
+
+function MessageActions({ text, onEdit, onRewind }: { text: string; onEdit?: (text: string) => void; onRewind?: () => void }) {
   const { t } = useT("claudeCodePanel");
   const [copied, setCopied] = useState(false);
   const copy = async () => {
@@ -49,6 +68,11 @@ function MessageActions({ text, onEdit }: { text: string; onEdit?: (text: string
       {onEdit && (
         <button type="button" className="cc-msg__action" aria-label={t("message.edit")} title={t("message.edit")} onClick={() => onEdit(text)}>
           <Pencil size={12} />
+        </button>
+      )}
+      {onRewind && (
+        <button type="button" className="cc-msg__action" aria-label={t("message.rewind")} title={t("message.rewindTitle")} onClick={onRewind}>
+          <RotateCcw size={12} />
         </button>
       )}
     </div>
@@ -99,7 +123,7 @@ function ResultFooter({ item, root, cwd }: { item: ResultItem; root: string | nu
   );
 }
 
-export function ChatView({ chat, root, cwd, onRespond, onLogin, empty, onEdit }: ChatViewProps) {
+export function ChatView({ chat, root, cwd, onRespond, onLogin, empty, onEdit, onRewind }: ChatViewProps) {
   const { t } = useT("claudeCode");
   const { t: tp } = useT("claudeCodePanel");
   const modeLabel = (mode: string): string => {
@@ -118,6 +142,7 @@ export function ChatView({ chat, root, cwd, onRespond, onLogin, empty, onEdit }:
   };
   const scroller = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
+  const [rewindId, setRewindId] = useState<string | null>(null);
 
   const onScroll = () => {
     const el = scroller.current;
@@ -150,7 +175,20 @@ export function ChatView({ chat, root, cwd, onRespond, onLogin, empty, onEdit }:
                 </div>
                 <div className="cc-msg__text">{it.text}</div>
               </div>
-              <MessageActions text={it.text} onEdit={onEdit} />
+              <MessageActions
+                text={it.text}
+                onEdit={onEdit}
+                onRewind={onRewind && !chat.running ? () => setRewindId(rewindId === it.id ? null : it.id) : undefined}
+              />
+              {onRewind && rewindId === it.id && !chat.running && (
+                <RewindBar
+                  onRewind={(restoreFiles) => {
+                    setRewindId(null);
+                    onRewind(it.id, restoreFiles);
+                  }}
+                  onCancel={() => setRewindId(null)}
+                />
+              )}
             </div>
           );
         case "assistant":

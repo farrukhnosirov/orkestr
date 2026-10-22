@@ -51,6 +51,8 @@ import type { ClaudeMcpStatusResult } from "./ClaudeMcpStatusResult";
 import type { ClaudeOpenInTerminalParams } from "./ClaudeOpenInTerminalParams";
 import type { ClaudePlanUsage } from "./ClaudePlanUsage";
 import type { ClaudeRespondPermissionParams } from "./ClaudeRespondPermissionParams";
+import type { ClaudeRewindParams } from "./ClaudeRewindParams";
+import type { ClaudeRewindResult } from "./ClaudeRewindResult";
 import type { ClaudeSendParams } from "./ClaudeSendParams";
 import type { ClaudeSessionInfo } from "./ClaudeSessionInfo";
 import type { ClaudeSessionParams } from "./ClaudeSessionParams";
@@ -778,6 +780,7 @@ export type Methods = {
   "claudeCode.setThinking": [ClaudeSetThinkingParams, ClaudeSessionInfo];
   "claudeCode.setChatMeta": [ClaudeSetChatMetaParams, ClaudeChatMeta];
   "claudeCode.openInTerminal": [ClaudeOpenInTerminalParams, ClaudeLoginResult];
+  "claudeCode.rewind": [ClaudeRewindParams, ClaudeRewindResult];
 };
 
 /** All implemented method names. */
@@ -1101,6 +1104,7 @@ export const METHOD_NAMES = [
   "claudeCode.setThinking",
   "claudeCode.setChatMeta",
   "claudeCode.openInTerminal",
+  "claudeCode.rewind",
 ] as const;
 
 /** Wire protocol version (see orkestr-protocol PROTOCOL_VERSION). */

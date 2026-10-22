@@ -476,6 +476,7 @@ pub fn registry() -> Vec<MethodDescriptor> {
         MethodDescriptor::of::<claude_code::SetThinking>(),
         MethodDescriptor::of::<claude_code::SetChatMeta>(),
         MethodDescriptor::of::<claude_code::OpenInTerminal>(),
+        MethodDescriptor::of::<claude_code::Rewind>(),
     ]
 }
 

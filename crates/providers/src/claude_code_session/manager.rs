@@ -193,6 +193,9 @@ pub struct LaunchSpec {
     pub allow_bypass: bool,
     /// Conversation to resume.
     pub resume: Option<String>,
+    /// With `resume`: keep only the conversation up to this transcript entry
+    /// (`--resume-session-at`, a rewind).
+    pub resume_at: Option<String>,
     /// Extra folders (`--add-dir`), already confined by the caller.
     pub add_dirs: Vec<PathBuf>,
     /// Fallback model (`--fallback-model`).
@@ -259,6 +262,10 @@ impl LaunchSpec {
         if let Some(r) = self.resume.as_deref().filter(|r| super::history::is_session_id(r)) {
             a.push("--resume".into());
             a.push(r.to_owned());
+            if let Some(at) = self.resume_at.as_deref().filter(|m| super::history::is_session_id(m)) {
+                a.push("--resume-session-at".into());
+                a.push(at.to_owned());
+            }
         }
         a
     }
@@ -652,6 +659,69 @@ impl ClaudeSessionManager {
         Ok(info)
     }
 
+    /// Rewinds the conversation (the CLI's `/rewind`): with `files_at`, the
+    /// files Claude changed since that user message are restored first from
+    /// the CLI's file checkpoints (`rewind_files` control request); then the
+    /// process is restarted resuming the conversation only up to `keep_until`
+    /// (`--resume-session-at`; `None` = before the first message, a fresh
+    /// conversation). A failed file restore leaves everything unchanged.
+    /// Returns the session and the CLI's `rewind_files` answer.
+    pub async fn rewind(
+        &self,
+        id: ClaudeSessionId,
+        keep_until: Option<String>,
+        files_at: Option<String>,
+    ) -> SessionResult<(ClaudeSessionInfo, Option<Value>)> {
+        let s = self.session(id)?;
+        let (state, resume) = {
+            let info = s.info.lock();
+            (info.state, info.claude_session_id.clone())
+        };
+        if !matches!(state, ClaudeSessionState::Idle) {
+            return Err(SessionError::Conflict("wait until Claude finishes (or interrupt it) before rewinding".into()));
+        }
+        let Some(resume) = resume else {
+            return Err(SessionError::Conflict("this conversation has no messages to rewind yet".into()));
+        };
+        for m in keep_until.iter().chain(files_at.iter()) {
+            if !super::history::is_session_id(m) {
+                return Err(SessionError::BadRequest("invalid message id".into()));
+            }
+        }
+        let files = match files_at {
+            Some(m) => {
+                let req = serde_json::json!({ "subtype": "rewind_files", "user_message_id": m, "dry_run": false });
+                let v = self.control(&s, "rewind", req).await?;
+                if v.get("canRewind").and_then(Value::as_bool) == Some(false) {
+                    let why = v.get("error").and_then(Value::as_str).unwrap_or("no file checkpoint for this message");
+                    return Err(SessionError::Protocol(format!("the files could not be restored: {why}")));
+                }
+                Some(v)
+            }
+            None => None,
+        };
+        {
+            let mut spec = s.spec.lock();
+            spec.resume = keep_until.is_some().then_some(resume);
+            spec.resume_at = keep_until;
+        }
+        let generation = s.generation.fetch_add(1, Ordering::SeqCst) + 1;
+        if let Some(old) = s.proc.lock().take() {
+            old.cancel.cancel();
+        }
+        s.ctrl.lock().clear();
+        s.pending.lock().clear();
+        let spawned = spawn_proc(&self.inner, &s, generation);
+        // Later restarts (bypass, crash) resume the rewound conversation as is.
+        s.spec.lock().resume_at = None;
+        spawned?;
+        let resumed = s.spec.lock().resume.clone();
+        s.info.lock().claude_session_id = resumed;
+        emit_status(&self.inner, &s).await;
+        let info = s.info.lock().clone();
+        Ok((info, files))
+    }
+
     /// Changes the model.
     pub async fn set_model(&self, id: ClaudeSessionId, model: &str) -> SessionResult<ClaudeSessionInfo> {
         let s = self.session(id)?;
@@ -814,6 +884,10 @@ fn spawn_proc(inner: &Arc<Inner>, s: &Arc<Session>, generation: u64) -> SessionR
     }
     let mut cmd = sanitized_command(&spec.program, &spec.args());
     cmd.current_dir(&spec.cwd);
+    // File checkpoints (what `rewind_files` restores) are off in SDK /
+    // stream-json mode unless asked for, as the Agent SDK's
+    // `enableFileCheckpointing` does.
+    cmd.env("CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING", "true");
     let mut child = cmd.spawn().map_err(|e| SessionError::Spawn(format!("{}: {e}", spec.program.display())))?;
     let pid = child.id();
     let (Some(mut stdin), Some(stdout), Some(mut stderr)) =
@@ -1096,10 +1170,26 @@ mod tests {
             mode: ClaudePermissionMode::AcceptEdits,
             allow_bypass: false,
             resume: Some("06a417de-ea3e-4314-9648-2072200e551d".into()),
+            resume_at: None,
             add_dirs: Vec::new(),
             fallback_model: None,
             stop: None,
         }
+    }
+
+    #[test]
+    fn rewind_resumes_at_a_transcript_entry() {
+        let mut s = spec();
+        s.resume_at = Some("aaaaaaaa-1111-2222-3333-444444444444".into());
+        let a = s.args().join(" ");
+        assert!(a.ends_with(
+            "--resume 06a417de-ea3e-4314-9648-2072200e551d --resume-session-at aaaaaaaa-1111-2222-3333-444444444444"
+        ));
+        s.resume_at = Some("--model".into());
+        assert!(!s.args().join(" ").contains("--resume-session-at"), "never a flag or path");
+        s.resume_at = Some("aaaaaaaa-1111-2222-3333-444444444444".into());
+        s.resume = None;
+        assert!(!s.args().join(" ").contains("--resume-session-at"), "only with --resume");
     }
 
     #[test]

@@ -204,6 +204,25 @@ describe("Claude Code panel", () => {
     await waitFor(() => expect(calls.filter((c) => c.method === "claudeCode.send").map((c) => c.params.text)).toEqual(["first", "second"]));
   });
 
+  it("rewinds the chat to before a user message and puts it back into the composer", async () => {
+    await openChat();
+    const done = { type: "result", isError: false, subtype: "success", result: null, durationMs: 1, numTurns: 1, totalCostUsd: null, usage: { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 } } as const;
+    emit({ type: "userMessage", text: "first" });
+    emit(done);
+    emit({ type: "userMessage", text: "second" });
+    emit({ type: "text", text: "second answer", parentToolUseId: null, synthetic: false });
+    emit(done);
+    responses.set("claudeCode.rewind", { session: info({ claudeSessionId: "06a417de-ea3e-4314-9648-2072200e551d" }), text: "first", filesChanged: ["a.ts"] });
+    fireEvent.click(screen.getAllByRole("button", { name: "Rewind to here" })[0] as HTMLElement);
+    fireEvent.click(screen.getByRole("button", { name: "Rewind chat and files" }));
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === "claudeCode.rewind")?.params).toEqual({ sessionId: S, turnsFromEnd: 1, text: "first", restoreFiles: true }),
+    );
+    await waitFor(() => expect((screen.getByRole("combobox", { name: "Message to Claude" }) as HTMLTextAreaElement).value).toBe("first"));
+    expect(screen.queryByText("second answer")).toBeNull();
+    expect(screen.getByText("Restored 1 file")).toBeTruthy();
+  });
+
   it("Ask Claude about selection fills the composer", async () => {
     await openChat();
     act(() => askClaude("@src/a.ts:3\n```\nx\n```\n"));

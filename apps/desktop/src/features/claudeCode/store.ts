@@ -126,6 +126,8 @@ export interface ClaudeState {
   restartWithDirs: (projectId: string, sessionId: string, addDirs: string[]) => Promise<string | null>;
   dequeue: (sessionId: string, index: number) => void;
   interrupt: (sessionId: string) => Promise<void>;
+  /** Rewinds the chat to before a user message (optionally restoring files); the message goes back into the composer. Resolves the restored files, or null on failure. */
+  rewind: (sessionId: string, itemId: string, restoreFiles: boolean) => Promise<string[] | null>;
   setMode: (sessionId: string, mode: ClaudePermissionMode, confirmBypass?: boolean) => Promise<boolean>;
   setModel: (sessionId: string, model: string) => Promise<boolean>;
   respond: (sessionId: string, requestId: string, decision: ClaudePermissionDecision, message?: string) => Promise<void>;
@@ -327,6 +329,29 @@ export const useClaudeStore = create<ClaudeState>()((set, get) => {
         patchSession(sessionId, (v) => ({ ...v, info, queue: [] }));
       } catch (e) {
         patchSession(sessionId, (v) => ({ ...v, error: errorMessage(e) }));
+      }
+    },
+
+    rewind: async (sessionId, itemId, restoreFiles) => {
+      const s = get().sessions[sessionId];
+      const index = s ? s.chat.items.findIndex((it) => it.id === itemId) : -1;
+      const item = s?.chat.items[index];
+      if (!s || !item || item.kind !== "user") return null;
+      const turnsFromEnd = s.chat.items.slice(index + 1).filter((it) => it.kind === "user").length;
+      try {
+        const res = await getClient().call("claudeCode.rewind", { sessionId, turnsFromEnd, text: item.text, restoreFiles });
+        patchSession(sessionId, (v) => ({
+          ...v,
+          info: res.session,
+          queue: [],
+          error: null,
+          chat: { ...v.chat, items: v.chat.items.slice(0, index), running: false, thinking: false, streamingId: null, turnFiles: [] },
+        }));
+        get().requestInsert(res.text, true);
+        return res.filesChanged;
+      } catch (e) {
+        patchSession(sessionId, (v) => ({ ...v, error: errorMessage(e) }));
+        return null;
       }
     },
 

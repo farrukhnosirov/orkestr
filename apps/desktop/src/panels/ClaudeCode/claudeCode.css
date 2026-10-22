@@ -819,3 +819,11 @@
   gap: var(--ok-space-2);
   margin-top: var(--ok-space-3);
 }
+
+.cc-msg__rewind {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--ok-space-1, 4px);
+  margin-top: var(--ok-space-1, 4px);
+}
