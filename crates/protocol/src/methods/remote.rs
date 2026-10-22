@@ -310,6 +310,9 @@ pub mod tunnel {
             rp_id: String,
             /// WebAuthn origins.
             origins: Vec<String>,
+            /// Gateway VAPID public key (base64url SEC1) for Web Push, when configured.
+            #[serde(default, skip_serializing_if = "Option::is_none")]
+            vapid_public_key: Option<String>,
         },
         /// Fatal error; the gateway closes the tunnel.
         Error {

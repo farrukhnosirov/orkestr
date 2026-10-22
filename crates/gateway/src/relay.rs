@@ -155,6 +155,7 @@ async fn run_tunnel(st: GatewayState, mut socket: WebSocket, ip: String) {
         core_token,
         rp_id: st.rp.rp_id.clone(),
         origins: st.rp.origins.clone(),
+        vapid_public_key: crate::push::vapid_public_key(),
     };
     let Ok(text) = serde_json::to_string(&welcome) else { return };
     if socket.send(Message::Text(text.into())).await.is_err() {

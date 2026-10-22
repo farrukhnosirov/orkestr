@@ -11,6 +11,7 @@
 pub mod authz;
 pub mod e2e;
 pub mod pairing;
+pub mod push;
 pub mod store;
 pub mod tunnel;
 
@@ -214,6 +215,12 @@ impl RemoteService {
     #[must_use]
     pub fn cik_public(&self) -> Option<Vec<u8>> {
         self.att.get().map(|a| e2e::public_raw(&p256::PublicKey::from(a.cik.verifying_key())))
+    }
+
+    /// Gateway VAPID public key from the last tunnel `welcome`.
+    #[must_use]
+    pub fn vapid_public_key(&self) -> Option<String> {
+        self.state.lock().vapid_public_key.clone()
     }
 
     /// `(gateway_url, core_token)` for gateway HTTP APIs (e.g. `/v1/sync`)

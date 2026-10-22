@@ -252,6 +252,9 @@ impl GatewayState {
     }
 }
 
+/// VAPID `sub` claim (RFC 8292): contact for push services.
+const VAPID_SUBJECT: &str = "mailto:admin@orkestr.localhost";
+
 /// Builds the application.
 ///
 /// # Errors
@@ -276,6 +279,7 @@ pub fn router(st: GatewayState, cfg: &GatewayConfig) -> anyhow::Result<Router> {
         .route("/v1/connect", get(relay::connect))
         .route("/v1/pairings/{pairing_id}/claim", post(relay::claim))
         .route("/v1/pairings/{pairing_id}", get(relay::pairing_status))
+        .route("/v1/push/vapid", get(push::vapid_handler))
         .with_state(st.clone());
     let store = Arc::clone(&st.store);
     let sync_auth: orkestr_sync::server::AuthFn =
@@ -312,6 +316,9 @@ pub struct Running {
 /// Bind or store failure.
 pub async fn spawn(cfg: GatewayConfig, relay: relay::Relay) -> anyhow::Result<Running> {
     std::fs::create_dir_all(&cfg.data_dir)?;
+    // Web Push sender (ADR-0036): VAPID key under the data dir, advertised to
+    // cores in the tunnel `welcome` and to browsers at GET /v1/push/vapid.
+    push::init(&cfg.data_dir, VAPID_SUBJECT).map_err(|e| anyhow::anyhow!("web push: {e}"))?;
     let listener = tokio::net::TcpListener::bind(cfg.bind).await?;
     let addr = listener.local_addr()?;
     let state = GatewayState::open(&cfg, addr.port(), relay)?;

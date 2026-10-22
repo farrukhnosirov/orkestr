@@ -17,8 +17,13 @@ import { isUnimplemented } from "./logic";
 
 const ROLES: Role[] = ["viewer", "operator", "admin"];
 type Notice = { tone: "ok" | "error"; text: string } | null;
-/** The pairing start result; the SAS appears once the other device has joined. */
-type Pairing = DevicePairingStart & { sas?: string };
+/**
+ * The pairing start result; the SAS (and the joining device's name) appear
+ * once the other device has claimed the code — the core lists it under
+ * `devices.list.pending`, which the panel polls while a pairing is open.
+ */
+type Pairing = DevicePairingStart & { sas?: string; deviceName?: string };
+const PAIRING_POLL_MS = 1500;
 
 export function RemotePanel() {
   const { t } = useT("remote");
@@ -48,6 +53,30 @@ export function RemotePanel() {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  const pairingId = pairing?.pairingId ?? null;
+  const pairingClaimed = Boolean(pairing?.sas);
+  useEffect(() => {
+    if (!pairingId || pairingClaimed) return;
+    let stopped = false;
+    const poll = async () => {
+      try {
+        const list = await getClient().call("devices.list", {});
+        const p = list.pending.find((x) => x.pairingId === pairingId);
+        if (!stopped && p) {
+          setPairing((cur) => (cur && cur.pairingId === pairingId ? { ...cur, sas: p.sas, deviceName: p.deviceName } : cur));
+        }
+      } catch {
+        // transient: keep polling until the code expires or the panel closes
+      }
+    };
+    void poll();
+    const timer = setInterval(() => void poll(), PAIRING_POLL_MS);
+    return () => {
+      stopped = true;
+      clearInterval(timer);
+    };
+  }, [pairingId, pairingClaimed]);
 
   const run = async (key: string, fn: () => Promise<string | null>) => {
     setBusy(key);
@@ -175,8 +204,22 @@ export function RemotePanel() {
             <div className="rs-pairing">
               <p className="rs-code">{t("pairing.code", { code: pairing.code })}</p>
               <p className="rs-muted">{t("pairing.expires", { time: formatDate(pairing.expiresAt) })}</p>
-              {pairing.sas && <p className="rs-code">{t("pairing.sas", { sas: pairing.sas })}</p>}
-              <p className="rs-muted">{t("pairing.sasHint")}</p>
+              {pairing.qr && (
+                <p className="rs-muted rs-qr" title={t("pairing.qrHint")}>
+                  <code>{pairing.qr}</code>
+                </p>
+              )}
+              {pairing.sas ? (
+                <>
+                  {pairing.deviceName && <p>{t("pairing.joined", { name: pairing.deviceName })}</p>}
+                  <p className="rs-code">{t("pairing.sas", { sas: pairing.sas })}</p>
+                  <p className="rs-muted">{t("pairing.sasHint")}</p>
+                </>
+              ) : (
+                <p className="rs-muted" role="status">
+                  {t("pairing.waiting")}
+                </p>
+              )}
               <SettingRow title={t("pairing.sasConfirmed")}>
                 <Switch checked={sasOk} label={t("pairing.sasConfirmed")} onChange={setSasOk} />
               </SettingRow>
@@ -192,7 +235,7 @@ export function RemotePanel() {
                 <Switch checked={terminal} label={t("pairing.remoteTerminal")} onChange={setTerminal} />
               </SettingRow>
               <div className="rs-actions">
-                <Button variant="primary" loading={busy === "approve"} disabled={busy !== null || !sasOk} onClick={() => void approve()}>
+                <Button variant="primary" loading={busy === "approve"} disabled={busy !== null || !sasOk || !pairing.sas} onClick={() => void approve()}>
                   {t("pairing.approve")}
                 </Button>
               </div>

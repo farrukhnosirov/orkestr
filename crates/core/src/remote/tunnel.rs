@@ -98,8 +98,11 @@ async fn connect_once(svc: &Arc<RemoteService>, cancel: &CancellationToken) -> R
         .await
         .map_err(|e| e.to_string())?;
     match next_ctl(&mut stream).await? {
-        ToCore::Welcome { core_id, account_id, core_token, rp_id, origins } => {
+        ToCore::Welcome { core_id, account_id, core_token, rp_id, origins, vapid_public_key } => {
             svc.update_state(|s| {
+                if vapid_public_key.is_some() {
+                    s.vapid_public_key = vapid_public_key;
+                }
                 s.core_id = Some(core_id);
                 s.account_id = Some(account_id);
                 if core_token.is_some() {

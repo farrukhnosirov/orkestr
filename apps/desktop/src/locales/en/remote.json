@@ -30,7 +30,10 @@
     },
     "remoteTerminal": "Allow remote terminal",
     "approve": "Approve device",
-    "approved": "Device “{{name}}” approved."
+    "approved": "Device “{{name}}” approved.",
+    "waiting": "Waiting for the other device to enter the code…",
+    "joined": "“{{name}}” wants to join.",
+    "qrHint": "Paste this pairing text into the web client."
   },
   "devices": {
     "group": "Devices",

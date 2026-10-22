@@ -695,6 +695,7 @@ export * from "./ProviderStatusChangedPayload";
 export * from "./ProviderStatusResult";
 export * from "./ProviderView";
 export * from "./ProviderViewResult";
+export * from "./PushPayload";
 export * from "./PushSubscribeParams";
 export * from "./PushSubscription";
 export * from "./PushTestResult";

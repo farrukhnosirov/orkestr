@@ -1,3 +1,7 @@
+import "@orkestr/ui/styles.css";
+import "@xterm/xterm/css/xterm.css";
+import "./styles.css";
+
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { I18nextProvider } from "react-i18next";

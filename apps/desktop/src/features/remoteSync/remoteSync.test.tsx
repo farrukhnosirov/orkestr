@@ -10,6 +10,7 @@ const calls: { method: string; params: unknown }[] = [];
 let configured = false;
 let conflicts: { id: string; projectId: string; path: string; conflictCopy?: string; detectedAt: string }[] = [];
 let remoteImplemented = false;
+let pending: { pairingId: string; deviceId: string; deviceName: string; platform: string; sas: string; claimedAt: string }[] = [];
 
 const unimplemented = (m: string) =>
   new OrkestrError("bad_request", `\`${m}\` is not implemented yet (unimplemented-feature)`, { unimplementedFeature: m });
@@ -48,7 +49,21 @@ vi.mock("../../core/client", () => ({
             devices: [
               { deviceId: "d1", name: "Phone", role: "operator", remoteTerminal: false, createdAt: "2026-10-01T00:00:00Z", revoked: false },
             ],
+            pending,
           });
+        case "devices.startPairing":
+          return Promise.resolve({
+            pairingId: "pr1",
+            code: "ABCD2345",
+            expiresAt: "2026-10-22T10:10:00Z",
+            coreId: "core-1",
+            gatewayUrl: "http://127.0.0.1:8787",
+            coreKeyFingerprint: "fp",
+            qr: 'orkestr-pair:{"pairingId":"pr1"}',
+          });
+        case "devices.approve":
+          pending = [];
+          return Promise.resolve({ deviceId: "d2", name: "Tablet", role: "operator", remoteTerminal: false, createdAt: "2026-10-22T10:00:00Z", revoked: false });
         case "devices.revoke":
           return Promise.resolve({});
         default:
@@ -91,6 +106,7 @@ beforeEach(async () => {
   configured = false;
   conflicts = [];
   remoteImplemented = false;
+  pending = [];
   useAppStore.setState({ projects: [project()], activeProjectId: "p1" });
 });
 
@@ -171,6 +187,33 @@ describe("Remote & Sync settings", () => {
       fireEvent.click(screen.getByRole("button", { name: "Revoke" }));
     });
     expect(calls.find((c) => c.method === "devices.revoke")?.params).toEqual({ deviceId: "d1" });
+  });
+
+  it("shows the SAS of the device that claimed the code and approves it", async () => {
+    remoteImplemented = true;
+    render(<RemoteSyncSettings projectId="p1" />);
+    const pair = await screen.findByRole("button", { name: "Pair a new device" });
+    await act(async () => {
+      fireEvent.click(pair);
+    });
+    expect(await screen.findByText("Pairing code: ABCD2345")).toBeTruthy();
+    expect(screen.getByText("Waiting for the other device to enter the code…")).toBeTruthy();
+    const approve = screen.getByRole("button", { name: "Approve device" }) as HTMLButtonElement;
+    expect(approve.disabled).toBe(true);
+    pending = [{ pairingId: "pr1", deviceId: "d2", deviceName: "Tablet", platform: "web", sas: "123456", claimedAt: "2026-10-22T10:01:00Z" }];
+    expect(await screen.findByText("Security code: 123456", undefined, { timeout: 4000 })).toBeTruthy();
+    expect(screen.getByText("“Tablet” wants to join.")).toBeTruthy();
+    fireEvent.click(screen.getByRole("switch", { name: "The security codes match" }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Approve device" }));
+    });
+    expect(calls.find((c) => c.method === "devices.approve")?.params).toEqual({
+      pairingId: "pr1",
+      sasConfirmed: true,
+      role: "operator",
+      remoteTerminal: false,
+    });
+    expect(await screen.findByText("Device “Tablet” approved.")).toBeTruthy();
   });
 
   it("is translated to Russian", async () => {

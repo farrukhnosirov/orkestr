@@ -84,6 +84,9 @@ pub struct RemoteState {
     /// Devices.
     #[serde(default)]
     pub devices: Vec<DeviceRecord>,
+    /// Gateway VAPID public key (Web Push), learned from the tunnel `welcome`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub vapid_public_key: Option<String>,
 }
 
 /// File-backed store.

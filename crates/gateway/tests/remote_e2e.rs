@@ -268,6 +268,24 @@ async fn remote_access_end_to_end() {
         }
     }
 
+    // 4b. Web Push: the core learned the gateway VAPID key from the tunnel
+    // `welcome`; the device subscribes over E2E.
+    let vapid: Value = http.get(format!("{base}/v1/push/vapid")).send().await.unwrap().json().await.unwrap();
+    assert!(vapid["publicKey"].as_str().is_some_and(|k| !k.is_empty()), "{vapid}");
+    let key = local.ok("push.vapidKey", json!({})).await;
+    assert_eq!(key["publicKey"], vapid["publicKey"]);
+    let ua = p256::SecretKey::random(&mut rand_core06::OsRng);
+    let endpoint = "http://127.0.0.1:9/push/revoked-device";
+    let r = dev
+        .call(
+            "push.subscribe",
+            json!({"endpoint": endpoint, "p256dh": e2e::b64(&e2e::public_raw(&ua.public_key())), "auth": e2e::b64(&[7u8; 16])}),
+        )
+        .await;
+    assert_eq!(r["ok"], true, "{r}");
+    let subs_file = core_dir.path().join("push").join("subscriptions.json");
+    assert!(std::fs::read_to_string(&subs_file).unwrap().contains(endpoint));
+
     // 5. Policy: local-only and admin-only are forbidden for an operator.
     for m in ["remote.enable", "devices.startPairing", "secrets.list"] {
         let r = dev.call(m, json!({})).await;
@@ -311,6 +329,16 @@ async fn remote_access_end_to_end() {
     assert!(dev.next_res().await.is_none(), "revoked session must be closed");
     let err = device_connect(&gw_addr, &token, &core_id, &device_id, &dk, &core_pub).await.err();
     assert_eq!(err.as_deref(), Some("revoked"));
+    // ... and its push subscriptions are dropped.
+    let mut dropped = false;
+    for _ in 0..40 {
+        if !std::fs::read_to_string(&subs_file).unwrap_or_default().contains(endpoint) {
+            dropped = true;
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    assert!(dropped, "revoked device keeps push subscriptions");
 
     // 9. Kill switch: tunnel dropped, no redial.
     let st = local.ok("remote.disable", json!({})).await;
