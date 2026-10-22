@@ -16,7 +16,7 @@ use std::time::Duration;
 use orkestr_domain::{
     now, Actor, AgentId, ApprovalId, ApprovalStatus, AuditOutcome, Capability, IncidentId, RiskLevel,
 };
-use orkestr_events::{EventBus, Received};
+use orkestr_events::EventBus;
 use orkestr_protocol::event::{EventKind, NewEvent};
 use orkestr_protocol::methods::detective::{
     Evidence, Hypothesis, Incident, IncidentOpenedPayload, IncidentStage, IncidentStageChangedPayload, IncidentTrigger,
@@ -1099,25 +1099,75 @@ impl Detective {
         Ok(())
     }
 
+    /// Follows `AlertRaised` for the optional auto-open. Tails the persisted
+    /// event log (live subscription only on an in-memory bus) instead of
+    /// holding a live bus subscription: a permanent
+    /// subscriber would make the core believe a client is listening (node
+    /// heartbeats would never idle).
     fn spawn_alert_listener(&self) -> JoinHandle<()> {
-        let mut sub = self.inner.deps.events.subscribe_all();
+        const TAIL_POLL: Duration = Duration::from_secs(1);
+        const TAIL_PAGE: u32 = 500;
         let me = self.clone();
         let shutdown = self.inner.shutdown.clone();
         tokio::spawn(async move {
+            let bus = me.inner.deps.events.clone();
+            if !bus.is_persistent() {
+                // In-memory bus (tests): no log to tail, follow live events.
+                let mut sub = bus.subscribe_all();
+                loop {
+                    let ev = tokio::select! {
+                        ev = sub.recv() => ev,
+                        () = shutdown.cancelled() => return,
+                    };
+                    match ev {
+                        None => return,
+                        Some(orkestr_events::Received::Event(ev)) => {
+                            if let EventKind::AlertRaised(p) = &ev.kind {
+                                me.auto_open(&p.alert).await;
+                            }
+                        }
+                        Some(orkestr_events::Received::Lagged(_)) => {}
+                    }
+                }
+            }
+            let mut cursor = bus.last_seq();
             loop {
-                let ev = tokio::select! {
-                    ev = sub.recv() => ev,
+                tokio::select! {
                     () = shutdown.cancelled() => return,
-                };
-                match ev {
-                    None => return,
-                    Some(Received::Lagged(_)) => {}
-                    Some(Received::Event(ev)) => {
+                    () = tokio::time::sleep(TAIL_POLL) => {}
+                }
+                let last = bus.last_seq();
+                if last <= cursor {
+                    continue;
+                }
+                let mut from = cursor + 1;
+                loop {
+                    let q = orkestr_events::ReplayQuery {
+                        from_seq: from,
+                        to_seq: Some(last),
+                        limit: TAIL_PAGE,
+                        topics: None,
+                        newest_first: false,
+                    };
+                    let page = match bus.replay(&q).await {
+                        Ok(p) => p,
+                        Err(e) => {
+                            tracing::warn!(error = %e, "detective: cannot read the event log");
+                            break;
+                        }
+                    };
+                    for ev in &page.events {
+                        from = ev.seq + 1;
                         if let EventKind::AlertRaised(p) = &ev.kind {
                             me.auto_open(&p.alert).await;
                         }
                     }
+                    if !page.has_more || page.events.is_empty() {
+                        break;
+                    }
                 }
+                // Ephemeral events are never stored: everything up to `last` is done.
+                cursor = last;
             }
         })
     }

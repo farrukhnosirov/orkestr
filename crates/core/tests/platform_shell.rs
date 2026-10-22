@@ -233,7 +233,15 @@ async fn resume_summary_and_seq_continuity() {
     core.shutdown().await;
 
     let core = orkestr_core::start(config(dir.path(), Arc::new(MemoryAutostart::default()))).await.unwrap();
-    assert_eq!(core.services.events.last_seq(), last_seq_before, "clean restart continues exactly");
+    // A clean restart continues right after the last seq (no reserved-block
+    // jump as after a crash, no reuse). Startup may already have published a
+    // few events (provider status, possibly ephemeral), so allow those
+    // instead of racing them.
+    let after = core.services.events.last_seq();
+    assert!(
+        after >= last_seq_before && after - last_seq_before < 10,
+        "clean restart continues exactly: {last_seq_before} → {after}"
+    );
     let mut ws = connect(&core).await;
     let summary = ok(&mut ws, "r2", "system.resumeSummary", json!({"projectId": project_id}), &mut events).await;
     assert!(summary["previousSessionStartedAt"].is_string());

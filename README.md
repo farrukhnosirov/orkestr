@@ -9,7 +9,7 @@ contributor follows are in [`docs/ENGINEERING_CONTRACT.md`](docs/ENGINEERING_CON
 > Status: **Phases 0–7 complete on Windows** (Phase 5 for Android). Phase 7
 > (Ecosystem: signed plugins in a wasmtime sandbox, marketplace registries,
 > widgets and dashboards, deployments, infrastructure monitor, Bug Detective)
-> passed its acceptance run <!-- P7-ACCEPTANCE -->TBD<!-- /P7-ACCEPTANCE --> —
+> passed its acceptance run <!-- P7-ACCEPTANCE -->78/78<!-- /P7-ACCEPTANCE --> —
 > see [Ecosystem](#ecosystem-phase-7). Cloud deploy adapters (Vercel, Netlify,
 > Fly, Kubernetes) are verified against a fake API only. Phase 6
 > (Multi-node: worker enrollment with SAS, scheduler, cross-node jobs with

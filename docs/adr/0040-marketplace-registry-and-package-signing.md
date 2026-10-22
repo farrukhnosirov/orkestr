@@ -59,6 +59,15 @@ package or key must be revocable.
    `marketplace:<source>/<id>`, pending grants go to the permission prompt);
    agent templates go through `templates.import`. `marketplace.installed`
    and `marketplace.uninstall` manage what was installed.
+   **One trust decision:** when the `signature.json` signer of a plugin
+   package is a publisher key the marketplace trusts (official or
+   `trustKey`), core pins that key in the plugin host's trust store
+   (source `marketplace`) before `install_bytes`, so the user does not trust
+   the same key twice; any other signer is left to the plugin host (refused
+   unless `ORKESTR_PLUGINS_DEV=1`). `untrustKey` removes such a
+   marketplace-sourced plugin trust again. Both stores use the same key id
+   (first 16 hex of sha256 of the raw ed25519 public key); the marketplace
+   keeps its own strict ed25519 verifier.
 6. **Local publishing.** `marketplace.publish {path, kind, sourceId,
    publisher}` signs with the publisher key held in the vault
    (`MARKETPLACE_PUBLISHER_KEY`, created on first publish; its fingerprint

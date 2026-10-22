@@ -24,7 +24,7 @@ the Widget SDK and Dashboard Builder; environments and deployments (local
 targets live, cloud adapters request-shape verified, guarded production
 deploys, rollback); the infrastructure monitor; and the Bug Detective with
 two human gates (ADR-0034, ADR-0040, ADR-0041, ADR-0042). Acceptance:
-<!-- P7-ACCEPTANCE -->TBD<!-- /P7-ACCEPTANCE --> (`scripts/smoke/phase7-acceptance.mjs`;
+<!-- P7-ACCEPTANCE -->78/78<!-- /P7-ACCEPTANCE --> (`scripts/smoke/phase7-acceptance.mjs`;
 details and the deferred list in `feature-traceability.md` → "Phase 7
 acceptance check").
 

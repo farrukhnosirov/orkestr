@@ -548,6 +548,7 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
             }
         });
     }
+    services.providers.spawn_health_loop(shutdown.clone());
     if let Some(engine) = sync_engine {
         // Offline queue (§8): retry pending uploads / failed rounds.
         let stop = shutdown.clone();
@@ -595,8 +596,6 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
     remote::push::spawn_loop(&services, shutdown.clone());
     // Ecosystem (Phase 7): plugin tools, infra monitor, Bug Detective.
     ecosystem::wire(&services, Arc::clone(&router)).await;
-    // Provider health probes start once the (awaited) wiring above is done.
-    services.providers.spawn_health_loop(shutdown.clone());
     let app = server::app(app_state);
     let server_shutdown = shutdown.clone();
     let server = tokio::spawn(async move {

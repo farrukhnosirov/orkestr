@@ -94,7 +94,9 @@ stoppable at once, independently of providers (contract §6).
     (`script-src 'self'`) and block the widget's inline scripts, so the
     desktop serves widget documents through the Tauri custom URI scheme
     **`orkestr-widget`** (`http://orkestr-widget.localhost` on Windows) with
-    the widget CSP as a response header and a one-time URL; the scheme is in
+    the widget CSP plus `sandbox allow-scripts` as response headers and a
+    one-time URL (`widget_document` command, main + panel windows only;
+    documents expire after 120 s, at most 64 kept); the scheme is in
     `frame-src` of `tauri.conf.json` and the frame gets no Tauri
     capabilities. The only channel is `postMessage` (`@orkestr/widget-sdk`):
     `init`, `data`, `event`, `theme` and `error` go in; `query`, `subscribe`,

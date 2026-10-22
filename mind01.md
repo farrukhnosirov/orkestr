@@ -15,7 +15,7 @@
 Приёмка: фаза 1 — 45/45, фаза 2 — 47/47 (в регрессиях без скриншотов — 46/46), фаза 3 — 64/64, фаза 4 — 40/40,
 фаза 5 — <!-- P5-ACCEPTANCE --> Node-лейн 44/44, Android-лейн 11/11 (эмулятор orkestr_pixel, включая шаг-ап отпечатком) <!-- /P5-ACCEPTANCE -->,
 фаза 6 — 47/47 (`phase6-acceptance.mjs`, C1–C9),
-фаза 7 — <!-- P7-ACCEPTANCE -->TBD<!-- /P7-ACCEPTANCE --> (`scripts/smoke/phase7-acceptance.mjs`, E1–E9).
+фаза 7 — <!-- P7-ACCEPTANCE -->78/78<!-- /P7-ACCEPTANCE --> (`scripts/smoke/phase7-acceptance.mjs`, E1–E9).
 Подробности и списки отложенного — `docs/roadmap/feature-traceability.md` (разделы «Phase N acceptance check») и `docs/roadmap/mvp-milestones.md`.
 
 **Кратко по сессии (фазы 4–7):**

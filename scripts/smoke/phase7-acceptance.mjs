@@ -1072,8 +1072,10 @@ try {
   if (failed.length && process.env.ORKESTR_P7_LOGS !== "0") for (const p of procs) console.error(`--- ${p.label} log tail ---\n${p.log.slice(-1500)}`);
   procs.forEach((p, i) => writeFileSync(join(outDir, `${p.label}-${i}.log`), p.log));
   writeFileSync(join(outDir, "acceptance.json"), `${JSON.stringify({ phase: 7, startedFrom: repo, checks }, null, 2)}\n`);
-  console.log(`\n${checks.length - failed.length}/${checks.length} checks passed  (report: ${join(outDir, "acceptance.json")})`);
-  if (failed.length || checks.length === 0) exitCode = 1;
+  const real = checks.filter((c) => !c.informational);
+  const infos = checks.length - real.length;
+  console.log(`\n${real.length - failed.length}/${real.length} checks passed${infos ? ` (+${infos} informational)` : ""}  (report: ${join(outDir, "acceptance.json")})`);
+  if (failed.length || real.length === 0) exitCode = 1;
   if (ctx.core) {
     // stop supervised deploy processes before the core goes away
     await soft(call("emergency.stopAll", {}));
