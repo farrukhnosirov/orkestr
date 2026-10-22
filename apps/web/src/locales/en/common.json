@@ -1,6 +1,121 @@
 {
   "app": {
     "title": "Orkestr",
-    "placeholder": "Remote access is coming soon."
+    "sections": "Sections",
+    "logout": "Sign out",
+    "connecting": "Connecting securely to your Orkestr core…",
+    "connectFailed": "Could not reach your core. It may be offline, remote access may be disabled, or this device was revoked.",
+    "offline": "The Orkestr gateway is not reachable."
+  },
+  "common": {
+    "loading": "Loading…",
+    "refresh": "Refresh",
+    "retry": "Retry"
+  },
+  "login": {
+    "title": "Sign in",
+    "passkey": "Sign in with a passkey",
+    "firstRun": "Create the owner account for this gateway with a passkey.",
+    "name": "Your name",
+    "register": "Create account with a passkey",
+    "totp": "Authenticator code",
+    "totpSubmit": "Sign in with code",
+    "rejected": "Sign-in was rejected. Check the code and try again.",
+    "failed": "Sign-in failed or was cancelled."
+  },
+  "pairing": {
+    "title": "Pair this browser",
+    "intro": "On your desktop open Settings → Remote & Sync → Pair device and paste the pairing text here.",
+    "payload": "Pairing text (orkestr-pair:…)",
+    "deviceName": "Device name",
+    "submit": "Pair",
+    "compare": "Check that the desktop shows the same code:",
+    "sas": "Verification code",
+    "waiting": "Waiting for approval on your desktop…",
+    "badPayload": "This is not a valid pairing text.",
+    "error": {
+      "fingerprint_mismatch": "The core key does not match the pairing offer. Pairing was stopped.",
+      "claim_failed": "The pairing code was rejected or has expired.",
+      "rejected": "The pairing was rejected on the desktop.",
+      "expired": "The pairing offer expired. Start a new one on the desktop.",
+      "bad_signature": "The approval is not signed by your core. Pairing was stopped.",
+      "aborted": "Pairing was cancelled."
+    }
+  },
+  "tabs": {
+    "projects": "Projects",
+    "tasks": "Tasks",
+    "approvals": "Approvals",
+    "terminal": "Terminal",
+    "editor": "Editor",
+    "settings": "Device"
+  },
+  "projects": { "empty": "No projects yet." },
+  "tasks": { "empty": "No tasks." },
+  "approvals": {
+    "empty": "Nothing is waiting for your approval.",
+    "approve": "Approve",
+    "reject": "Reject"
+  },
+  "risk": { "Low": "Low risk", "Medium": "Medium risk", "High": "High risk", "Critical": "Critical" },
+  "taskStatus": {
+    "Planned": "Planned",
+    "Ready": "Ready",
+    "Running": "Running",
+    "Waiting": "Waiting",
+    "Blocked": "Blocked",
+    "Review": "Review",
+    "Testing": "Testing",
+    "Completed": "Completed",
+    "Failed": "Failed",
+    "Cancelled": "Cancelled",
+    "Interrupted": "Interrupted",
+    "Recovering": "Recovering"
+  },
+  "terminal": {
+    "open": "Open terminal",
+    "disabled": "Remote terminal disabled",
+    "disabledHint": "Allow the remote terminal for this device on your desktop to use it here.",
+    "exited": "process exited"
+  },
+  "editor": {
+    "pickProject": "Select a project first.",
+    "path": "File path in the project",
+    "open": "Open",
+    "content": "File content",
+    "save": "Save",
+    "saved": "Saved.",
+    "binary": "Binary files cannot be edited here."
+  },
+  "settings": {
+    "device": "This device: {{name}} ({{role}})",
+    "push": "Notifications on this device",
+    "pushUnsupported": "This browser does not support push notifications",
+    "pushOn": "Notifications enabled.",
+    "pushOff": "Notifications disabled.",
+    "pushTest": "Send a test notification",
+    "testSent_one": "{{count}} notification sent.",
+    "testSent_other": "{{count}} notifications sent.",
+    "stepUp": "Register security key for dangerous approvals",
+    "stepUpDone": "Security key registered.",
+    "forget": "Forget this device",
+    "error": {
+      "unsupported": "Push notifications are not supported here.",
+      "permission": "Notification permission was denied.",
+      "vapid": "Push is not configured on the gateway.",
+      "keys": "The browser returned an incomplete subscription."
+    }
+  },
+  "errors": {
+    "unauthorized": "Not authorized.",
+    "forbidden": "Not allowed for this device.",
+    "not_found": "Not found.",
+    "conflict": "Conflict: it changed in the meantime.",
+    "rate_limited": "Too many requests. Try again shortly.",
+    "bad_request": "Invalid request.",
+    "unimplemented": "Not available yet.",
+    "timeout": "Timed out.",
+    "disconnected": "Connection lost.",
+    "internal": "Something went wrong."
   }
 }

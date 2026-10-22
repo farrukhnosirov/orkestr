@@ -1,0 +1,70 @@
+/* Web client layout; colors come from @orkestr/ui tokens. */
+body {
+  margin: 0;
+  background: var(--ok-color-bg);
+  color: var(--ok-color-text);
+  font-family: var(--ok-font-sans);
+}
+.web-center {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  box-sizing: border-box;
+}
+.web-card { width: min(440px, 100%); }
+.web-stack { display: flex; flex-direction: column; gap: 12px; }
+.web-sep { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--ok-color-border); }
+.web-error { color: var(--ok-color-danger); }
+.web-muted { color: var(--ok-color-text-muted); }
+.web-field { display: flex; flex-direction: column; gap: 4px; font-size: var(--ok-font-size-sm); }
+.web-field textarea,
+.web-editor {
+  background: var(--ok-color-surface-sunken);
+  color: var(--ok-color-text);
+  border: 1px solid var(--ok-color-border);
+  border-radius: 6px;
+  padding: 8px;
+  font-family: var(--ok-font-mono);
+  font-size: var(--ok-font-size-sm);
+}
+.web-sas {
+  font-family: var(--ok-font-mono);
+  font-size: var(--ok-font-size-2xl);
+  letter-spacing: 0.15em;
+  text-align: center;
+}
+.web-app { display: flex; flex-direction: column; min-height: 100vh; }
+.web-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--ok-color-border);
+}
+.web-header > :last-child { margin-left: auto; }
+.web-body { padding: 16px; flex: 1; }
+.web-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.web-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--ok-color-surface);
+  border: 1px solid var(--ok-color-border);
+  border-radius: 8px;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  box-sizing: border-box;
+}
+button.web-row { cursor: pointer; }
+.web-row[aria-pressed="true"] { border-color: var(--ok-color-border-accent); }
+.web-row--col { flex-direction: column; align-items: stretch; }
+.web-actions,
+.web-toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+.web-editor { min-height: 50vh; width: 100%; box-sizing: border-box; resize: vertical; }
+.web-terminal { margin-top: 8px; overflow-x: auto; }
+.web-switch { display: flex; gap: 8px; align-items: center; }
