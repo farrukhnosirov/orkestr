@@ -13,5 +13,5 @@ pub mod store;
 pub use adapter::{Credentials, DeployAdapter, DeployOutcome, DeployRequest, LogSink, RollbackTarget};
 pub use error::DeployError;
 pub use orkestr_protocol::methods::deploy::{AdapterAvailability, DeployPlan};
-pub use service::{DeployDeps, DeployService};
+pub use service::{DeployDeps, DeployService, DeploymentRef};
 pub use store::{migrations as deploy_migrations, RunKind, StoredDeployment, MIGRATIONS};

@@ -73,6 +73,21 @@ struct Inner {
     recovered: tokio::sync::OnceCell<()>,
 }
 
+/// One entry of [`DeployService::recent`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DeploymentRef {
+    /// Deployment.
+    pub deployment_id: DeploymentId,
+    /// Project.
+    pub project_id: ProjectId,
+    /// Environment.
+    pub environment_id: EnvironmentId,
+    /// `<environment> <version>`.
+    pub name: String,
+    /// Status.
+    pub status: DeploymentStatus,
+}
+
 /// Deployment service.
 #[derive(Clone)]
 pub struct DeployService {
@@ -1093,6 +1108,57 @@ impl DeployService {
     /// Version currently live in `env`.
     pub async fn current_version(&self, env: EnvironmentId) -> Result<Option<String>, DeployError> {
         Ok(self.current(env).await?.and_then(|d| d.version))
+    }
+
+    /// The successful deployment live before the current one in `env`
+    /// (a different version; what a rollback without `toVersion` restores).
+    pub async fn previous(&self, env: EnvironmentId) -> Result<Option<Deployment>, DeployError> {
+        let ok: Vec<Deployment> = self
+            .inner
+            .store
+            .deps(None, Some(env), 500)
+            .await?
+            .into_iter()
+            .filter(|d| d.deployment.status == DeploymentStatus::Succeeded)
+            .map(|d| d.deployment)
+            .collect();
+        let Some(cur) = ok.first() else { return Ok(None) };
+        Ok(ok.iter().skip(1).find(|d| d.version != cur.version).cloned())
+    }
+
+    /// Version live before the current one in `env`.
+    pub async fn previous_version(&self, env: EnvironmentId) -> Result<Option<String>, DeployError> {
+        Ok(self.previous(env).await?.and_then(|d| d.version))
+    }
+
+    /// Most recent deployments of every project (newest first) with a display
+    /// name `<environment> <version>` — the deployment-log feed of the monitor.
+    pub async fn recent(&self, limit: u32) -> Result<Vec<DeploymentRef>, DeployError> {
+        self.recover().await;
+        let rows = self.inner.store.deps(None, None, limit.clamp(1, 500)).await?;
+        let mut names: HashMap<EnvironmentId, String> = HashMap::new();
+        let mut out = Vec::with_capacity(rows.len());
+        for r in rows {
+            let d = r.deployment;
+            if let std::collections::hash_map::Entry::Vacant(slot) = names.entry(d.environment_id) {
+                let n = self
+                    .inner
+                    .store
+                    .env(d.environment_id)
+                    .await?
+                    .map_or_else(|| d.environment_id.to_string(), |e| e.environment.name);
+                slot.insert(n);
+            }
+            let env_name = names.get(&d.environment_id).cloned().unwrap_or_default();
+            out.push(DeploymentRef {
+                deployment_id: d.id,
+                project_id: d.project_id,
+                environment_id: d.environment_id,
+                name: format!("{env_name} {}", d.version.as_deref().unwrap_or("")).trim().to_owned(),
+                status: d.status,
+            });
+        }
+        Ok(out)
     }
 
     /// Redacted log lines from `offset`.

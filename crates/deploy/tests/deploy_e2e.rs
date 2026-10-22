@@ -189,6 +189,10 @@ async fn static_site_deploys_serves_and_rolls_back() {
     assert_eq!(d2.status, DeploymentStatus::Succeeded);
     assert_eq!(fetch(&url).await, "version two");
     assert_eq!(h.svc.current_version(e.environment.id).await.unwrap().as_deref(), Some("v2"));
+    assert_eq!(h.svc.previous_version(e.environment.id).await.unwrap().as_deref(), Some("v1"));
+    let recent = h.svc.recent(10).await.unwrap();
+    assert_eq!(recent[0].deployment_id, d2.id);
+    assert_eq!(recent[0].name, "local v2");
 
     let rb = h
         .svc
