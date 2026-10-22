@@ -1502,3 +1502,91 @@ async fn mutating_command_alone_gets_a_checkpoint_pair() {
     assert!(rb.conflicts.is_empty(), "{rb:?}");
     assert!(!h.root.join("notes.txt").exists(), "the command's change was rolled back");
 }
+
+// ---------------------------------------------------------------------------
+// external (plugin) tools — Phase 7, ADR-0034
+// ---------------------------------------------------------------------------
+
+struct FakePluginTools {
+    calls: Mutex<Vec<(String, Value)>>,
+    capability: Option<orkestr_domain::Capability>,
+}
+
+#[async_trait]
+impl crate::tools::external::ExternalTools for FakePluginTools {
+    fn list(&self, _project: &ProjectId) -> Vec<crate::tools::external::ExternalToolDecl> {
+        vec![crate::tools::external::ExternalToolDecl {
+            name: "plugin_acme__hello".into(),
+            description: "Greets".into(),
+            input_schema: json!({"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]}),
+            capability: self.capability,
+        }]
+    }
+    async fn call(&self, tool: &str, input: Value, ctx: crate::tools::external::ToolCallCtx) -> Result<Value, String> {
+        assert!(!ctx.cancel.is_cancelled());
+        self.calls.lock().push((tool.to_owned(), input.clone()));
+        Ok(json!({ "greeting": format!("hi {}", input["name"].as_str().unwrap_or("?")) }))
+    }
+}
+
+#[tokio::test]
+async fn plugin_tools_are_offered_and_dispatched() {
+    let h = harness(ApprovalMode::SemiAuto).await;
+    let fake = Arc::new(FakePluginTools { calls: Mutex::new(Vec::new()), capability: None });
+    h.rt.set_external_tools(Arc::clone(&fake) as Arc<dyn crate::tools::external::ExternalTools>);
+    let tpl = h.template(&["read_file", "submit_result"], WorktreePolicy::SharedWorktree, None).await;
+    let p = h.provider(vec![
+        tool("plugin_acme__hello", json!({"wrong": 1})),
+        tool("plugin_acme__hello", json!({"name": "Ada"})),
+        submit("done", "greeted"),
+    ]);
+    let a = h.spawn(tpl, None).await;
+    let a = h.wait_done(a.id).await;
+    assert_eq!(a.state, AgentState::Completed, "{:?}", a.last_error);
+    // Invalid arguments never reach the plugin; the valid call does.
+    assert_eq!(fake.calls.lock().clone(), vec![("plugin_acme__hello".to_owned(), json!({"name": "Ada"}))]);
+    let reqs = p.requests.lock().clone();
+    assert!(reqs[0].tools.iter().any(|t| t.name == "plugin_acme__hello"));
+    assert!(reqs[2].messages.iter().any(|m| m.role == orkestr_providers::Role::Tool && m.content.contains("hi Ada")));
+    let tr = h.rt.transcript(a.id, None).await.unwrap();
+    let calls: Vec<_> = tr.tool_calls.iter().filter(|c| c.tool_call.tool == "plugin_acme__hello").collect();
+    assert_eq!(calls.len(), 2);
+    assert!(calls.iter().any(|c| c.tool_call.status == ToolCallStatus::Succeeded));
+}
+
+#[tokio::test]
+async fn plugin_tool_capability_needs_the_agent_permission() {
+    let h = harness(ApprovalMode::SemiAuto).await;
+    let fake = Arc::new(FakePluginTools {
+        calls: Mutex::new(Vec::new()),
+        capability: Some(orkestr_domain::Capability::Network),
+    });
+    h.rt.set_external_tools(Arc::clone(&fake) as Arc<dyn crate::tools::external::ExternalTools>);
+    // The user denies the agent Network for this tool: the plugin is never called.
+    h.sec
+        .permissions
+        .set(
+            None,
+            orkestr_domain::PermissionRule {
+                capability: orkestr_domain::Capability::Network,
+                effect: orkestr_domain::PermissionEffect::Deny,
+                resource: Some("plugin_acme__hello".into()),
+                scope: orkestr_domain::PermissionScope::Global,
+            },
+            None,
+            None,
+            h.sec.user(),
+        )
+        .await
+        .unwrap();
+    let tpl = h.template(&["submit_result"], WorktreePolicy::SharedWorktree, None).await;
+    h.provider(vec![tool("plugin_acme__hello", json!({"name": "Ada"})), submit("done", "greeted")]);
+    let a = h.spawn(tpl, None).await;
+    let a = h.wait_done(a.id).await;
+    assert!(fake.calls.lock().is_empty());
+    let tr = h.rt.transcript(a.id, None).await.unwrap();
+    assert!(tr
+        .tool_calls
+        .iter()
+        .any(|c| c.tool_call.tool == "plugin_acme__hello" && c.tool_call.status == ToolCallStatus::Denied));
+}

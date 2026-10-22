@@ -154,6 +154,27 @@ pub fn all(key: &PublisherKeyPair) -> Result<Vec<Fixture>, PluginError> {
         bytes: package::build(&m, &wasm_files(&wat::fetch())?, Some(key))?,
     });
 
+    let mut wm = hello_manifest();
+    wm.id = "orkestr-dev.hello-widget".into();
+    wm.name = "Hello Widget".into();
+    wm.description = "Declarative widget bound to projects.list.".into();
+    wm.kinds = vec![PluginKind::Widget];
+    wm.entry = None;
+    wm.tools.clear();
+    wm.permissions.clear();
+    out.push(Fixture {
+        file: "hello-widget.orkp",
+        package_id: wm.id.clone(),
+        tool: "",
+        expect:
+            "widget-only plugin (no code, no grants): install + enable, widget `hello-widget` bound to projects.list",
+        bytes: package::build(
+            &wm,
+            &BTreeMap::from([("widgets/hello.html".to_owned(), HELLO_WIDGET_HTML.as_bytes().to_vec())]),
+            Some(key),
+        )?,
+    });
+
     // Tampered: change the manifest after signing, keep the signature.
     let mut files = package::read_zip(&hello)?;
     let mut tm = hello_manifest();

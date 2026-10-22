@@ -41,6 +41,8 @@ use crate::PluginError;
 
 /// Consecutive traps after which a plugin is quarantined.
 pub const QUARANTINE_AFTER_TRAPS: u32 = 3;
+/// Max size of a widget entry HTML.
+pub const MAX_WIDGET_HTML_BYTES: usize = 512 * 1024;
 const SAFE_MODE_KEY: &str = "safe_mode";
 
 /// Services the plugin host needs.
@@ -795,6 +797,40 @@ impl PluginService {
             return Err(PluginError::NotFound(path.to_owned()));
         }
         Ok(tokio::fs::read(&full).await?)
+    }
+
+    /// Entry HTML of a widget of an enabled `Widget` plugin, read from the
+    /// verified, extracted package. `plugin` is the install id (UUID) or the
+    /// package id. Capped at [`MAX_WIDGET_HTML_BYTES`]; refused in safe mode.
+    ///
+    /// # Errors
+    /// Not found / not enabled / too large / not UTF-8 / safe mode.
+    pub async fn widget_html(&self, plugin: &str, widget_id: &str) -> R<String> {
+        self.init().await?;
+        if self.safe_mode() {
+            return Err(PluginError::SafeMode);
+        }
+        let p = {
+            let map = self.plugins.read();
+            map.values()
+                .find(|p| p.plugin.id.to_string() == plugin || p.plugin.package_id == plugin)
+                .cloned()
+                .ok_or_else(|| PluginError::NotFound(format!("plugin {plugin}")))?
+        };
+        if p.plugin.state != PluginState::Enabled {
+            return Err(PluginError::Conflict(format!("plugin {} is {:?}", p.plugin.package_id, p.plugin.state)));
+        }
+        let w = p
+            .manifest
+            .widgets
+            .iter()
+            .find(|w| w.id == widget_id)
+            .ok_or_else(|| PluginError::NotFound(format!("widget `{widget_id}` of {}", p.plugin.package_id)))?;
+        let bytes = self.package_file(p.plugin.id, &w.entry_html).await?;
+        if bytes.len() > MAX_WIDGET_HTML_BYTES {
+            return Err(PluginError::Invalid(format!("widget HTML larger than {MAX_WIDGET_HTML_BYTES} bytes")));
+        }
+        String::from_utf8(bytes).map_err(|_| PluginError::Invalid("widget HTML is not UTF-8".into()))
     }
 
     /// The enforcing host API for calls made in the context of `project`

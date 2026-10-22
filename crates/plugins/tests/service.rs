@@ -416,3 +416,24 @@ fn fixtures_write_to_disk() {
     let idx: Value = serde_json::from_slice(&std::fs::read(dir.path().join("fixtures.json")).unwrap()).unwrap();
     assert_eq!(idx["publicKey"], fixtures::dev_key().public_key_b64());
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn widget_plugin_serves_its_html() {
+    let h = harness().await;
+    let r = h.install("hello-widget.orkp").await.unwrap();
+    assert!(r.pending_grants.is_empty());
+    let id = r.plugin.plugin.id;
+    assert!(matches!(
+        h.svc.widget_html("orkestr-dev.hello-widget", "hello-widget").await,
+        Err(PluginError::Conflict(_))
+    ));
+    h.svc.set_enabled(id, true, None).await.unwrap();
+    let html = h.svc.widget_html("orkestr-dev.hello-widget", "hello-widget").await.unwrap();
+    assert!(html.contains("Hello widget"));
+    assert_eq!(h.svc.widget_html(&id.to_string(), "hello-widget").await.unwrap(), html);
+    assert!(matches!(h.svc.widget_html(&id.to_string(), "nope").await, Err(PluginError::NotFound(_))));
+    let w = h.svc.widgets().await.unwrap();
+    assert_eq!(w[0].widget.data_binding.methods, vec!["projects.list".to_owned()]);
+    h.svc.set_safe_mode(true).await.unwrap();
+    assert!(matches!(h.svc.widget_html(&id.to_string(), "hello-widget").await, Err(PluginError::SafeMode)));
+}
