@@ -463,12 +463,10 @@ pub async fn push_blob_counted(src: &dyn BlobStore, link: &dyn NodeLink, d: &Dig
         if chunk.is_empty() && offset < total {
             return Err(BlobError::Transfer(format!("source blob {d} truncated at {offset}")));
         }
-        let res = call_typed::<BlobPut>(
-            link,
-            &BlobPutParams { digest: d.clone(), offset, total, data: b64.encode(&chunk) },
-        )
-        .await
-        .map_err(transfer)?;
+        let res =
+            call_typed::<BlobPut>(link, &BlobPutParams { digest: d.clone(), offset, total, data: b64.encode(&chunk) })
+                .await
+                .map_err(transfer)?;
         sent += chunk.len() as u64;
         if res.complete {
             return Ok(sent);

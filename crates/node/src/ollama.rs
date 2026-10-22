@@ -4,9 +4,11 @@
 //! the end of the body) so the node crate needs no HTTP stack. `OLLAMA_HOST`
 //! is honoured when it points at a loopback address.
 
+use std::ffi::OsString;
 use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
-use std::time::Duration;
+use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant};
 
 use orkestr_protocol::methods::nodes::{LocalModel, LocalModelsInfo};
 
@@ -89,6 +91,83 @@ pub fn discover(endpoint: &str, timeout: Duration) -> LocalModelsInfo {
     }
 }
 
+/// Overrides the `ollama` binary used by the model adapter (ADR-0039): a path,
+/// or `none` / empty to disable the adapter (deterministic tests).
+pub const BIN_ENV: &str = "ORKESTR_OLLAMA_BIN";
+
+/// Finds the `ollama` binary ([`BIN_ENV`] override, else `PATH`).
+#[must_use]
+pub fn find_binary() -> Option<PathBuf> {
+    find_binary_with(std::env::var_os(BIN_ENV), std::env::var_os("PATH"))
+}
+
+/// [`find_binary`] with explicit inputs.
+#[must_use]
+pub fn find_binary_with(override_bin: Option<OsString>, path_var: Option<OsString>) -> Option<PathBuf> {
+    if let Some(o) = override_bin {
+        let s = o.to_string_lossy();
+        if s.trim().is_empty() || s.trim().eq_ignore_ascii_case("none") {
+            return None;
+        }
+        let p = PathBuf::from(&o);
+        return p.is_file().then_some(p);
+    }
+    let names: &[&str] = if cfg!(windows) { &["ollama.exe", "ollama"] } else { &["ollama"] };
+    std::env::split_paths(&path_var?).flat_map(|dir| names.iter().map(move |n| dir.join(n))).find(|p| p.is_file())
+}
+
+/// Registers a GGUF file with Ollama: writes `Modelfile` (`FROM <gguf>`) in
+/// `scratch` and runs `ollama create <model_ref> -f Modelfile`. Blocking.
+///
+/// # Errors
+/// Spawn failure, non-zero exit, or timeout (the process is killed).
+pub fn import_gguf(bin: &Path, model_ref: &str, gguf: &Path, scratch: &Path, timeout: Duration) -> Result<(), String> {
+    std::fs::create_dir_all(scratch).map_err(|e| e.to_string())?;
+    let modelfile = scratch.join(format!("Modelfile-{}", gguf.file_name().and_then(|n| n.to_str()).unwrap_or("m")));
+    let from = gguf.to_string_lossy().replace('\\', "/");
+    std::fs::write(&modelfile, format!("FROM {from}\n")).map_err(|e| e.to_string())?;
+    let result = run_with_timeout(
+        std::process::Command::new(bin).arg("create").arg(model_ref).arg("-f").arg(&modelfile),
+        timeout,
+    );
+    let _ = std::fs::remove_file(&modelfile);
+    result
+}
+
+fn run_with_timeout(cmd: &mut std::process::Command, timeout: Duration) -> Result<(), String> {
+    let mut child = cmd
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("spawn ollama: {e}"))?;
+    let deadline = Instant::now() + timeout;
+    loop {
+        match child.try_wait().map_err(|e| e.to_string())? {
+            Some(status) if status.success() => return Ok(()),
+            Some(status) => {
+                let mut err = String::new();
+                if let Some(mut e) = child.stderr.take() {
+                    let _ = e.by_ref().take(8 * 1024).read_to_string(&mut err);
+                }
+                return Err(format!("ollama create failed ({status}): {}", err.trim()));
+            }
+            None if Instant::now() >= deadline => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err("ollama create timed out".into());
+            }
+            None => std::thread::sleep(Duration::from_millis(100)),
+        }
+    }
+}
+
+/// Whether Ollama at `endpoint` lists `name`.
+#[must_use]
+pub fn has_model(endpoint: &str, name: &str, timeout: Duration) -> bool {
+    discover(endpoint, timeout).models.iter().any(|m| m.name == name)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -134,6 +213,18 @@ mod tests {
         server.join().unwrap();
         assert!(info.ollama_reachable);
         assert_eq!(info.models.len(), 2);
+    }
+
+    #[test]
+    fn binary_detection() {
+        let dir = tempfile::tempdir().unwrap();
+        // Absent: empty PATH dir, explicit disable, missing override.
+        assert_eq!(find_binary_with(None, Some(dir.path().as_os_str().to_owned())), None);
+        assert_eq!(find_binary_with(Some("none".into()), None), None);
+        assert_eq!(find_binary_with(Some(dir.path().join("nope").into_os_string()), None), None);
+        let name = if cfg!(windows) { "ollama.exe" } else { "ollama" };
+        std::fs::write(dir.path().join(name), b"").unwrap();
+        assert_eq!(find_binary_with(None, Some(dir.path().as_os_str().to_owned())), Some(dir.path().join(name)));
     }
 
     #[test]
