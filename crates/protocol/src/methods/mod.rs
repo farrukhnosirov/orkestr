@@ -557,6 +557,8 @@ pub fn registry() -> Vec<MethodDescriptor> {
         MethodDescriptor::of::<marketplace::Keys>(),
         MethodDescriptor::of::<marketplace::TrustKey>(),
         MethodDescriptor::of::<marketplace::UntrustKey>(),
+        MethodDescriptor::of::<marketplace::Installed>(),
+        MethodDescriptor::of::<marketplace::Uninstall>(),
         MethodDescriptor::of::<dashboards::List>(),
         MethodDescriptor::of::<dashboards::Get>(),
         MethodDescriptor::of::<dashboards::Save>(),

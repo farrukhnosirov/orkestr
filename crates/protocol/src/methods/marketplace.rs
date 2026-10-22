@@ -122,6 +122,9 @@ pub struct RegistryEntry {
     /// Revoked by the index.
     #[serde(default)]
     pub revoked: bool,
+    /// Tags (search facets).
+    #[serde(default)]
+    pub tags: Vec<String>,
     /// Source the entry came from.
     pub source_id: String,
     /// Installed version, if any.
@@ -152,6 +155,11 @@ pub struct AddSourceParams {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub name: Option<String>,
+    /// Publish token of an HTTP registry (gateway session or core token);
+    /// stored in the vault, never returned.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub token: Option<String>,
 }
 
 /// Result carrying one source.
@@ -200,6 +208,9 @@ pub struct MarketplaceSearchParams {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub source_id: Option<String>,
+    /// Every tag must match.
+    #[serde(default)]
+    pub tags: Vec<String>,
     /// Include revoked entries.
     #[serde(default)]
     pub include_revoked: bool,
@@ -353,6 +364,60 @@ pub struct KeyResult {
     pub key: PublisherKey,
 }
 
+/// A package installed from a registry.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct InstalledPackage {
+    /// Package id.
+    pub id: String,
+    /// Kind.
+    pub kind: PackageKind,
+    /// Display name.
+    pub name: String,
+    /// Installed version.
+    pub version: String,
+    /// Source it came from.
+    pub source_id: String,
+    /// Signing key id (pinned for updates).
+    pub key_id: String,
+    /// Package sha256.
+    pub sha256: String,
+    /// Imported agent template ids.
+    #[serde(default)]
+    pub template_ids: Vec<String>,
+    /// Installed plugin id.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub plugin_id: Option<String>,
+    /// Revoked since install (index revocation or key revocation).
+    pub revoked: bool,
+    /// Newest non-revoked version in the source, when newer than `version`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub update_available: Option<String>,
+    /// Install time.
+    pub installed_at: Timestamp,
+}
+
+/// `marketplace.installed` result.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct InstalledResult {
+    /// Installed packages.
+    pub packages: Vec<InstalledPackage>,
+}
+
+/// `marketplace.uninstall` params.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct UninstallEntryParams {
+    /// Package id.
+    pub id: String,
+}
+
 /// `MarketplaceUpdated`: a source was refreshed / added / removed, or a package was installed or published.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
@@ -388,3 +453,7 @@ method!(/// Trusts (pins) a publisher key (local only).
     TrustKey, "marketplace.trustKey", TrustKeyParams, KeyResult);
 method!(/// Removes trust from a publisher key.
     UntrustKey, "marketplace.untrustKey", KeyIdParams, KeyResult);
+method!(/// Packages installed from registries (with update / revocation state).
+    Installed, "marketplace.installed", Empty, InstalledResult);
+method!(/// Uninstalls a package installed from a registry (local only).
+    Uninstall, "marketplace.uninstall", UninstallEntryParams, Empty);
