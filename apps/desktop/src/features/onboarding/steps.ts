@@ -1,7 +1,7 @@
 /**
  * Onboarding steps (§55, RR-G7). Steps 1–8 arrived in Phase 1 and voice
- * (step 9) in Phase 3; 10–12 are shown with the phase they arrive in and can
- * only be acknowledged.
+ * (step 9) in Phase 3, remote access and sync (10–11) in Phase 4; step 12 is
+ * shown with the phase it arrives in and can only be acknowledged.
  */
 import { t } from "../../i18n";
 
@@ -30,8 +30,8 @@ export interface OnboardingStep {
   optional: boolean;
 }
 
-/** The delivered phase: steps up to it are interactive (voice shipped in Phase 3). */
-export const CURRENT_PHASE = 3;
+/** The delivered phase: steps up to it are interactive (remote access and sync shipped in Phase 4). */
+export const CURRENT_PHASE = 4;
 
 function step(id: OnboardingStepId, phase: number, optional: boolean): OnboardingStep {
   return {

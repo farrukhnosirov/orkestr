@@ -1,7 +1,12 @@
 /* Onboarding wizard (§55). Only --ok-* tokens. */
 
+/* First-run setup owns the screen: hide the start page behind it instead of
+   letting its heading show through around the dialog. */
 .onb-overlay {
   padding: var(--ok-space-6);
+  background: color-mix(in srgb, var(--ok-color-bg) 90%, transparent);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
 }
 
 .onb {
@@ -208,20 +213,29 @@
   font-size: var(--ok-font-size-sm);
 }
 
-/* Embedded feature UI (provider setup, Manager model) */
+/* Embedded feature UI (provider setup, Manager model). The step body
+   (.onb-main__body) is the only scroll container; a nested scroller here
+   squashed the cards inside it. */
 .onb-embed {
   display: flex;
   flex-direction: column;
   gap: var(--ok-space-3);
-  max-height: 46vh;
-  overflow: auto;
-  padding-right: var(--ok-space-1);
+}
+
+.onb-embed > * {
+  flex-shrink: 0;
 }
 
 .onb-embed .onb-hint {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--ok-space-2);
+  line-height: 1.5;
+}
+
+.onb-embed .onb-hint > svg {
+  flex-shrink: 0;
+  margin-top: 0.2em;
 }
 
 /* ── Choices ──────────────────────────────────────────── */

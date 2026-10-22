@@ -200,11 +200,12 @@ describe("notifications", () => {
 describe("onboarding steps", () => {
   it("has the 12 §55 steps with later phases marked", () => {
     expect(ONBOARDING_STEPS).toHaveLength(12);
-    expect(ONBOARDING_STEPS.slice(9).every((s) => s.phase > CURRENT_PHASE)).toBe(true);
-    // Voice shipped (Phase 3): it is a real, interactive step, not a "coming later" teaser.
+    expect(ONBOARDING_STEPS.slice(11).every((s) => s.phase > CURRENT_PHASE)).toBe(true);
+    // Voice (Phase 3), remote access and sync (Phase 4) shipped: they are real,
+    // interactive steps, not "coming later" teasers.
     expect(ONBOARDING_STEPS[8]?.id).toBe("voice");
-    expect(ONBOARDING_STEPS[8]!.phase).toBeLessThanOrEqual(CURRENT_PHASE);
-    expect(ONBOARDING_STEPS[LAST_ACTIVE_STEP]?.id).toBe("voice");
+    expect(ONBOARDING_STEPS.slice(8, 11).every((s) => s.phase <= CURRENT_PHASE)).toBe(true);
+    expect(ONBOARDING_STEPS[LAST_ACTIVE_STEP]?.id).toBe("sync");
     expect(canFinishAt(LAST_ACTIVE_STEP)).toBe(true);
     expect(canFinishAt(0)).toBe(false);
   });
@@ -215,7 +216,8 @@ describe("onboarding steps", () => {
     expect(stepState(2, 2, visited)).toBe("current");
     expect(stepState(3, 2, visited)).toBe("upcoming");
     expect(stepState(8, 2, visited)).toBe("upcoming");
-    expect(stepState(10, 2, visited)).toBe("later");
+    expect(stepState(10, 2, visited)).toBe("upcoming");
+    expect(stepState(11, 2, visited)).toBe("later");
   });
 
   it("validates inputs like the core", () => {

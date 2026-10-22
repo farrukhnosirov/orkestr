@@ -1,17 +1,53 @@
 {
   "steps": {
-    "profile": { "title": "Your profile", "subtitle": "A local profile — no account needed" },
-    "storage": { "title": "Storage", "subtitle": "Where your projects and history live" },
-    "providers": { "title": "AI providers", "subtitle": "Connect the models you already pay for" },
-    "manager": { "title": "Manager model", "subtitle": "The model that plans and delegates" },
-    "permissions": { "title": "Permissions", "subtitle": "How much autonomy agents get" },
-    "project": { "title": "First project", "subtitle": "Import a folder or start fresh" },
-    "git": { "title": "Git", "subtitle": "Version control for safe agent work" },
-    "terminal": { "title": "Terminal", "subtitle": "Shells and system readiness" },
-    "voice": { "title": "Voice", "subtitle": "Talk to your Manager" },
-    "remote": { "title": "Remote access", "subtitle": "Reach this machine from anywhere" },
-    "sync": { "title": "Cloud sync", "subtitle": "Sync projects across devices" },
-    "mobile": { "title": "Mobile pairing", "subtitle": "Approve and monitor from your phone" }
+    "profile": {
+      "title": "Your profile",
+      "subtitle": "A local profile — no account needed"
+    },
+    "storage": {
+      "title": "Storage",
+      "subtitle": "Where your projects and history live"
+    },
+    "providers": {
+      "title": "AI providers",
+      "subtitle": "Connect the models you already pay for"
+    },
+    "manager": {
+      "title": "Manager model",
+      "subtitle": "The model that plans and delegates"
+    },
+    "permissions": {
+      "title": "Permissions",
+      "subtitle": "How much autonomy agents get"
+    },
+    "project": {
+      "title": "First project",
+      "subtitle": "Import a folder or start fresh"
+    },
+    "git": {
+      "title": "Git",
+      "subtitle": "Version control for safe agent work"
+    },
+    "terminal": {
+      "title": "Terminal",
+      "subtitle": "Shells and system readiness"
+    },
+    "voice": {
+      "title": "Voice",
+      "subtitle": "Talk to your Manager"
+    },
+    "remote": {
+      "title": "Remote access",
+      "subtitle": "Reach this machine from anywhere"
+    },
+    "sync": {
+      "title": "Cloud sync",
+      "subtitle": "Sync projects across devices"
+    },
+    "mobile": {
+      "title": "Mobile pairing",
+      "subtitle": "Approve and monitor from your phone"
+    }
   },
   "validation": {
     "nameRequired": "Enter a name (it stays on this machine).",
@@ -55,9 +91,20 @@
   "storage": {
     "label": "Storage mode",
     "available": "Available",
-    "local": { "title": "Local only", "body": "Projects, history, memory and secrets stay on this computer. You can add sync later." },
-    "selfHosted": { "title": "Self-hosted", "body": "Sync through your own Orkestr server." },
-    "cloud": { "title": "Orkestr Cloud", "body": "End-to-end encrypted sync across your devices." }
+    "local": {
+      "title": "Local only",
+      "body": "Projects, history, memory and secrets stay on this computer. You can add sync later."
+    },
+    "selfHosted": {
+      "title": "Self-hosted",
+      "body": "Sync through your own Orkestr server."
+    },
+    "cloud": {
+      "title": "Orkestr Cloud",
+      "body": "End-to-end encrypted sync across your devices."
+    },
+    "viaSyncStep": "Via the Cloud sync step",
+    "notYet": "Later"
   },
   "providers": {
     "hint": "Use your own API keys or the official CLIs you are already signed in to (Claude Code, Codex). Keys are stored in the OS secret vault, never in plain text. You can skip this and connect providers later in Settings."
@@ -91,8 +138,15 @@
     "more": "The wake word, speech recognition engines, spoken replies and agent voices are in Settings → Voice."
   },
   "later": {
-    "remote": { "title": "Remote access", "body": "Reach this machine's agents securely through the Orkestr gateway — the core never opens ports." },
-    "sync": { "title": "Cloud sync", "body": "Encrypted sync of projects, memory and settings between your devices." },
-    "mobile": { "title": "Mobile pairing", "body": "Approve actions, watch progress and stop agents from your phone." }
+    "mobile": {
+      "title": "Mobile pairing",
+      "body": "Approve actions, watch progress and stop agents from your phone."
+    }
+  },
+  "remote": {
+    "hint": "Optional. Lets you control this computer from a browser through your own Orkestr gateway. The connection is end-to-end encrypted and each device must be approved here. You can set it up later in Settings → Remote & Sync."
+  },
+  "sync": {
+    "hint": "Optional. Keeps a project's working files, open editors and task context in sync between your computers, end-to-end encrypted. Git history is never touched. You can set it up later in Settings → Remote & Sync."
   }
 }

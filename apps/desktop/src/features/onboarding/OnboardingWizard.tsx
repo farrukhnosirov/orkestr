@@ -31,6 +31,9 @@ import { describeError } from "../../i18n/errors";
 import { getClient, openProject } from "../../core/client";
 import { useAppStore } from "../../store/app";
 import { ClaudeEngineCard } from "../claudeEngine/ClaudeEngineCard";
+import { RemotePanel } from "../remoteSync/RemotePanel";
+import { SyncPanel } from "../remoteSync/SyncPanel";
+import "../remoteSync/remoteSync.css";
 import { ManagerSettings, ProviderSetup } from "../providers";
 import { SystemChecksList } from "../settings/sections/SystemChecksList";
 import { useSettingsStore } from "../settings/settingsStore";
@@ -295,7 +298,7 @@ export function OnboardingWizard() {
             icon={<Server size={18} />}
             title={t("onboarding:storage.selfHosted.title")}
             body={t("onboarding:storage.selfHosted.body")}
-            badge={<Badge tone="violet">{t("common:phase", { phase: 4 })}</Badge>}
+            badge={<Badge tone="violet">{t("onboarding:storage.viaSyncStep")}</Badge>}
           />
           <Choice
             selected={false}
@@ -304,7 +307,7 @@ export function OnboardingWizard() {
             icon={<Cloud size={18} />}
             title={t("onboarding:storage.cloud.title")}
             body={t("onboarding:storage.cloud.body")}
-            badge={<Badge tone="violet">{t("common:phase", { phase: 4 })}</Badge>}
+            badge={<Badge tone="violet">{t("onboarding:storage.notYet")}</Badge>}
           />
         </div>
       );
@@ -416,22 +419,22 @@ export function OnboardingWizard() {
       break;
     case "remote":
       body = (
-        <LaterCard
-          icon={<Wifi size={26} />}
-          phase={current.phase}
-          title={t("onboarding:later.remote.title")}
-          body={t("onboarding:later.remote.body")}
-        />
+        <div className="onb-embed">
+          <p className="onb-hint">
+            <Wifi size={14} /> {t("onboarding:remote.hint")}
+          </p>
+          <RemotePanel />
+        </div>
       );
       break;
     case "sync":
       body = (
-        <LaterCard
-          icon={<Cloud size={26} />}
-          phase={current.phase}
-          title={t("onboarding:later.sync.title")}
-          body={t("onboarding:later.sync.body")}
-        />
+        <div className="onb-embed">
+          <p className="onb-hint">
+            <Cloud size={14} /> {t("onboarding:sync.hint")}
+          </p>
+          <SyncPanel projectId={useAppStore.getState().activeProjectId} />
+        </div>
       );
       break;
     case "mobile":
