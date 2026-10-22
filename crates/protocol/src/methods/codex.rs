@@ -429,6 +429,14 @@ pub enum CodexSessionState {
     Failed,
 }
 
+impl CodexSessionState {
+    /// The session has ended.
+    #[must_use]
+    pub fn is_final(self) -> bool {
+        matches!(self, Self::Exited | Self::Failed)
+    }
+}
+
 /// A live panel session (one thread on the shared app-server process).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]

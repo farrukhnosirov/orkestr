@@ -304,7 +304,8 @@ pub fn approval(
     let reason = s(p, "reason").map(str::to_owned);
     match method {
         "item/commandExecution/requestApproval" => {
-            let cmd = s(p, "command").map(str::to_owned).or_else(|| commands.get(&item_id).cloned()).unwrap_or_default();
+            let cmd =
+                s(p, "command").map(str::to_owned).or_else(|| commands.get(&item_id).cloned()).unwrap_or_default();
             Some(Approval {
                 kind: CodexApprovalKind::Command,
                 tool: "Bash".into(),
@@ -655,16 +656,40 @@ mod tests {
     fn turn() -> Vec<(String, Value)> {
         vec![
             n("turn/started", json!({"threadId":"t1","turn":{"id":"u1","items":[],"status":"inProgress"}})),
-            n("item/completed", json!({"threadId":"t1","turnId":"u1","item":{"id":"r0","type":"reasoning","summary":["**Plan** look at files"],"content":["secret chain"]}})),
-            n("item/started", json!({"threadId":"t1","turnId":"u1","item":{"id":"c1","type":"commandExecution","command":"ls","cwd":"/wt","commandActions":[],"status":"inProgress"}})),
-            n("item/completed", json!({"threadId":"t1","turnId":"u1","item":{"id":"c1","type":"commandExecution","command":"ls","cwd":"/wt","commandActions":[],"status":"completed","exitCode":0,"aggregatedOutput":"README.md\n"}})),
-            n("item/started", json!({"threadId":"t1","turnId":"u1","item":{"id":"f1","type":"fileChange","status":"inProgress","changes":[{"path":"/wt/src/a.rs","kind":{"type":"add"},"diff":"+x"}]}})),
-            n("item/completed", json!({"threadId":"t1","turnId":"u1","item":{"id":"f1","type":"fileChange","status":"completed","changes":[{"path":"/wt/src/a.rs","kind":{"type":"add"},"diff":"+x"}]}})),
+            n(
+                "item/completed",
+                json!({"threadId":"t1","turnId":"u1","item":{"id":"r0","type":"reasoning","summary":["**Plan** look at files"],"content":["secret chain"]}}),
+            ),
+            n(
+                "item/started",
+                json!({"threadId":"t1","turnId":"u1","item":{"id":"c1","type":"commandExecution","command":"ls","cwd":"/wt","commandActions":[],"status":"inProgress"}}),
+            ),
+            n(
+                "item/completed",
+                json!({"threadId":"t1","turnId":"u1","item":{"id":"c1","type":"commandExecution","command":"ls","cwd":"/wt","commandActions":[],"status":"completed","exitCode":0,"aggregatedOutput":"README.md\n"}}),
+            ),
+            n(
+                "item/started",
+                json!({"threadId":"t1","turnId":"u1","item":{"id":"f1","type":"fileChange","status":"inProgress","changes":[{"path":"/wt/src/a.rs","kind":{"type":"add"},"diff":"+x"}]}}),
+            ),
+            n(
+                "item/completed",
+                json!({"threadId":"t1","turnId":"u1","item":{"id":"f1","type":"fileChange","status":"completed","changes":[{"path":"/wt/src/a.rs","kind":{"type":"add"},"diff":"+x"}]}}),
+            ),
             n("item/agentMessage/delta", json!({"threadId":"t1","turnId":"u1","itemId":"m1","delta":"Added "})),
             n("item/agentMessage/delta", json!({"threadId":"t1","turnId":"u1","itemId":"m1","delta":"a.rs."})),
-            n("item/completed", json!({"threadId":"t1","turnId":"u1","item":{"id":"m1","type":"agentMessage","text":"Added a.rs."}})),
-            n("thread/tokenUsage/updated", json!({"threadId":"t1","turnId":"u1","tokenUsage":{"last":{"inputTokens":100,"cachedInputTokens":40,"outputTokens":7,"reasoningOutputTokens":3,"totalTokens":107},"total":{"inputTokens":100,"cachedInputTokens":40,"outputTokens":7,"reasoningOutputTokens":3,"totalTokens":107},"modelContextWindow":272000}})),
-            n("turn/completed", json!({"threadId":"t1","turn":{"id":"u1","items":[],"status":"completed","durationMs":1234}})),
+            n(
+                "item/completed",
+                json!({"threadId":"t1","turnId":"u1","item":{"id":"m1","type":"agentMessage","text":"Added a.rs."}}),
+            ),
+            n(
+                "thread/tokenUsage/updated",
+                json!({"threadId":"t1","turnId":"u1","tokenUsage":{"last":{"inputTokens":100,"cachedInputTokens":40,"outputTokens":7,"reasoningOutputTokens":3,"totalTokens":107},"total":{"inputTokens":100,"cachedInputTokens":40,"outputTokens":7,"reasoningOutputTokens":3,"totalTokens":107},"modelContextWindow":272000}}),
+            ),
+            n(
+                "turn/completed",
+                json!({"threadId":"t1","turn":{"id":"u1","items":[],"status":"completed","durationMs":1234}}),
+            ),
         ]
     }
 
@@ -672,7 +697,9 @@ mod tests {
     fn agent_turn_maps_to_coding_events() {
         let mut p = TurnParser::default();
         let ev: Vec<CodingAgentEvent> = turn().iter().flat_map(|(m, v)| p.notification(m, v)).collect();
-        assert!(matches!(&ev[0], CodingAgentEvent::ToolStarted { tool, summary, .. } if tool == "Bash" && summary == "ls"));
+        assert!(
+            matches!(&ev[0], CodingAgentEvent::ToolStarted { tool, summary, .. } if tool == "Bash" && summary == "ls")
+        );
         assert!(matches!(&ev[1], CodingAgentEvent::ToolFinished { ok: true, .. }));
         assert!(matches!(&ev[2], CodingAgentEvent::ToolStarted { tool, .. } if tool == "Edit"));
         assert!(matches!(&ev[3], CodingAgentEvent::ToolFinished { ok: true, .. }));
@@ -694,15 +721,19 @@ mod tests {
         let ev: Vec<CodexEvent> = turn().iter().flat_map(|(k, v)| m.notification(k, v)).collect();
         assert_eq!(ev[0], CodexEvent::TurnStarted { turn_id: "u1".into() });
         assert_eq!(ev[1], CodexEvent::Reasoning { text: "**Plan** look at files".into() });
-        assert!(matches!(&ev[2], CodexEvent::ToolUse { name, input, .. } if name == "Bash" && input["command"] == "ls"));
         assert!(
-            matches!(&ev[3], CodexEvent::ToolResult { content, is_error: false, .. } if content == "README.md\n")
+            matches!(&ev[2], CodexEvent::ToolUse { name, input, .. } if name == "Bash" && input["command"] == "ls")
         );
-        assert!(matches!(&ev[4], CodexEvent::ToolUse { name, input, .. } if name == "Edit" && input["file_path"] == "/wt/src/a.rs"));
+        assert!(matches!(&ev[3], CodexEvent::ToolResult { content, is_error: false, .. } if content == "README.md\n"));
+        assert!(
+            matches!(&ev[4], CodexEvent::ToolUse { name, input, .. } if name == "Edit" && input["file_path"] == "/wt/src/a.rs")
+        );
         assert_eq!(ev[6], CodexEvent::FileChanged { path: "/wt/src/a.rs".into() });
         assert_eq!(ev[9], CodexEvent::Text { item_id: "m1".into(), text: "Added a.rs.".into() });
         assert!(matches!(ev[10], CodexEvent::TokenUsage { context_window: Some(272_000), .. }));
-        assert!(matches!(&ev[11], CodexEvent::TurnCompleted { status, duration_ms: Some(1234), .. } if status == "completed"));
+        assert!(
+            matches!(&ev[11], CodexEvent::TurnCompleted { status, duration_ms: Some(1234), .. } if status == "completed")
+        );
         assert!(!format!("{ev:?}").contains("secret chain"));
     }
 
@@ -715,10 +746,16 @@ mod tests {
         );
         assert!(matches!(ev.last(), Some(CodingAgentEvent::Chat(ChatEvent::Error(ProviderError::QuotaExceeded(_))))));
         let mut p = TurnParser::default();
-        p.notification("error", &json!({"willRetry": false, "error":{"message":"401 Unauthorized","codexErrorInfo":"unauthorized"}}));
+        p.notification(
+            "error",
+            &json!({"willRetry": false, "error":{"message":"401 Unauthorized","codexErrorInfo":"unauthorized"}}),
+        );
         assert!(matches!(p.died(), CodingAgentEvent::Chat(ChatEvent::Error(ProviderError::Auth(_)))));
         let mut m = PanelMapper::default();
-        let ev = m.notification("error", &json!({"willRetry": false, "error":{"message":"limit","codexErrorInfo":"usageLimitExceeded"}}));
+        let ev = m.notification(
+            "error",
+            &json!({"willRetry": false, "error":{"message":"limit","codexErrorInfo":"usageLimitExceeded"}}),
+        );
         assert!(matches!(&ev[0], CodexEvent::Error { usage_limit: true, auth_required: false, .. }));
     }
 
@@ -776,6 +813,12 @@ mod tests {
             {"id":"u","type":"userMessage","content":[{"type":"text","text":"hi"}]},
             {"id":"m","type":"agentMessage","text":"hello"}
         ]}]}));
-        assert_eq!(tr, vec![CodexEvent::UserMessage { text: "hi".into() }, CodexEvent::Text { item_id: "m".into(), text: "hello".into() }]);
+        assert_eq!(
+            tr,
+            vec![
+                CodexEvent::UserMessage { text: "hi".into() },
+                CodexEvent::Text { item_id: "m".into(), text: "hello".into() }
+            ]
+        );
     }
 }

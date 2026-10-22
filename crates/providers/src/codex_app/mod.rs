@@ -14,6 +14,7 @@
 //! (`gpt-5-codex@high`); `default` = the CLI's default model.
 
 pub mod conn;
+pub mod hub;
 pub mod map;
 
 use std::path::PathBuf;
@@ -266,7 +267,9 @@ mod tests {
     async fn approvals_are_bridged_and_answered() {
         let (ev, fake) = go(true, None).await;
         assert_eq!(ev[0], CodingAgentEvent::Session { session_id: "th-1".into() });
-        assert!(ev.iter().any(|e| matches!(e, CodingAgentEvent::PermissionRequest { request_id, .. } if request_id == "approval-7")));
+        assert!(ev.iter().any(
+            |e| matches!(e, CodingAgentEvent::PermissionRequest { request_id, .. } if request_id == "approval-7")
+        ));
         assert!(ev.iter().any(|e| matches!(e, CodingAgentEvent::ToolFinished { ok: true, .. })));
         assert!(matches!(ev.last(), Some(CodingAgentEvent::Chat(ChatEvent::Done { .. }))));
         let seen = fake.seen.lock().clone();

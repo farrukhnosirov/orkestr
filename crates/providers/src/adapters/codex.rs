@@ -493,9 +493,9 @@ impl ProviderAdapter for CodexAdapter {
         let cwd = cli::validate_cwd(&request.cwd)?;
         let bin = self.binary().ok_or_else(|| ProviderError::Auth("Codex CLI (`codex`) is not installed".into()))?;
         let replies = match &request.permission_bridge {
-            Some(b) => {
-                Some(b.take().ok_or_else(|| ProviderError::BadRequest("the permission bridge was already used".into()))?)
-            }
+            Some(b) => Some(
+                b.take().ok_or_else(|| ProviderError::BadRequest("the permission bridge was already used".into()))?,
+            ),
             None => None,
         };
         let run = Self::agent_run(&request, cwd);
@@ -644,7 +644,10 @@ mod tests {
         assert_eq!(fake.spawned.load(std::sync::atomic::Ordering::SeqCst), 1, "one process for the conversation");
         let seen = fake.seen.lock().clone();
         let start = seen.iter().find(|v| v["method"] == "thread/start").unwrap();
-        assert_eq!((start["params"]["sandbox"].as_str(), start["params"]["approvalPolicy"].as_str()), (Some("read-only"), Some("never")));
+        assert_eq!(
+            (start["params"]["sandbox"].as_str(), start["params"]["approvalPolicy"].as_str()),
+            (Some("read-only"), Some("never"))
+        );
         let last_turn = seen.iter().rev().find(|v| v["method"] == "turn/start").unwrap();
         assert_eq!(last_turn["params"]["input"][0]["text"], "next", "only the new message");
     }

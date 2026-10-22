@@ -583,7 +583,11 @@ pub fn parse_emulated_tool_calls(text: &str, known: &[String]) -> Option<Vec<(St
     None
 }
 
-pub(crate) fn emulate_tool_calls(inner: CodingAgentStream, known: Vec<String>, cancel: CancellationToken) -> ChatStream {
+pub(crate) fn emulate_tool_calls(
+    inner: CodingAgentStream,
+    known: Vec<String>,
+    cancel: CancellationToken,
+) -> ChatStream {
     use futures::StreamExt;
     crate::http::drive(cancel, move |em: crate::http::Emitter<ChatEvent>| async move {
         let mut inner = inner;

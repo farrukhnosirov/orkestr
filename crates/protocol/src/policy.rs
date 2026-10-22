@@ -349,9 +349,7 @@ fn explicit(method: &str) -> Option<MethodPolicy> {
         | "claudeCode.interrupt"
         | "claudeCode.stop"
         | "codex.interrupt"
-        | "codex.stop" => {
-            MethodPolicy::emergency()
-        }
+        | "codex.stop" => MethodPolicy::emergency(),
         _ => return None,
     };
     Some(p)

@@ -237,11 +237,8 @@ pub(crate) mod fake {
                     seen.lock().push(v.clone());
                     let method = v.get("method").and_then(Value::as_str).unwrap_or("response").to_owned();
                     let id = v.get("id").and_then(Value::as_i64).unwrap_or(-1);
-                    let params = if method == "response" {
-                        v.clone()
-                    } else {
-                        v.get("params").cloned().unwrap_or(Value::Null)
-                    };
+                    let params =
+                        if method == "response" { v.clone() } else { v.get("params").cloned().unwrap_or(Value::Null) };
                     let lines = if method == "initialize" {
                         vec![json!({"id": id, "result": {"userAgent": "fake"}})]
                     } else {
