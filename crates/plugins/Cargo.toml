@@ -13,6 +13,7 @@ orkestr-protocol.workspace = true
 orkestr-storage.workspace = true
 orkestr-events.workspace = true
 orkestr-security.workspace = true
+orkestr-deploy.workspace = true
 tokio.workspace = true
 tokio-util.workspace = true
 async-trait.workspace = true
@@ -36,6 +37,7 @@ wat = "1.262"
 [dev-dependencies]
 tempfile.workspace = true
 futures.workspace = true
+zeroize.workspace = true
 
 [lints]
 workspace = true

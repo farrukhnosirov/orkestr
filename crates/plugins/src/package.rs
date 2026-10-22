@@ -274,6 +274,26 @@ pub fn validate_manifest(m: &PluginManifest, files: &BTreeMap<String, Vec<u8>>) 
             return bad(format!("agent template `{t}` is not in the package"));
         }
     }
+    if !m.deploy_providers.is_empty() != m.kinds.contains(&PluginKind::DeploymentProvider) {
+        return bad("kind DeploymentProvider and `deployProviders` go together".into());
+    }
+    let mut provs = std::collections::HashSet::new();
+    for d in &m.deploy_providers {
+        if !valid_tool_name(&d.replace('-', "_")) || !provs.insert(d.as_str()) {
+            return bad(format!("invalid or duplicate deploy provider id `{d}`"));
+        }
+    }
+    if !m.subscribes.is_empty() && m.entry.is_none() {
+        return bad("`subscribes` needs a code plugin (`entry`)".into());
+    }
+    let mut subs = std::collections::HashSet::new();
+    for k in &m.subscribes {
+        if !crate::events::subscribable(k) || !subs.insert(k.as_str()) {
+            return bad(format!(
+                "`subscribes`: `{k}` is not a subscribable event kind (or listed twice); see orkestr_plugins::events::SUBSCRIBABLE"
+            ));
+        }
+    }
     for p in &m.permissions {
         if p.reason.chars().count() > 500 {
             return bad("permission reason too long (max 500)".into());

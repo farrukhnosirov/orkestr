@@ -16,12 +16,18 @@
 //!   audited; denials publish `PluginCallDenied`.
 //! * [`service`]: [`PluginService`]: install / grant / enable / disable /
 //!   kill switch / safe mode / invoke / logs, tool + widget catalogues.
+//! * [`events`]: delivery of `subscribes` events to the optional guest export
+//!   `orkestr_on_event` (grant `Read` `event/<Kind>`, bounded drop-oldest queue).
+//! * [`deploy`]: `DeploymentProvider` plugins as `orkestr_deploy` adapters
+//!   (guest export `orkestr_deploy`), registered while the plugin is enabled.
 //! * [`fixtures`] + [`wat`]: signed test packages (`hello-tool`, `evil-*`).
 
 #![forbid(unsafe_code)]
 
 pub mod abi;
+pub mod deploy;
 pub mod error;
+pub mod events;
 pub mod fixtures;
 pub mod grants;
 pub mod host;

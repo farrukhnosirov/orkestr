@@ -93,6 +93,50 @@ pub fn hello_tool(key: &PublisherKeyPair) -> Result<Vec<u8>, PluginError> {
     package::build(&hello_manifest(), &files, Some(key))
 }
 
+/// Manifest of `hello-subscriber` (Tool + PlatformIntegration): subscribes
+/// to `TaskCreated` (needs the `Read` grant `event/TaskCreated`), counts the
+/// events in its KV store and exposes the tool `count`.
+#[must_use]
+pub fn subscriber_manifest() -> PluginManifest {
+    let mut m = manifest(
+        "hello-subscriber",
+        "Hello Subscriber",
+        "count",
+        "Counts TaskCreated events (event subscription demo); the tool returns the count.",
+    );
+    m.kinds = vec![PluginKind::Tool, PluginKind::PlatformIntegration];
+    m.tools[0].input_schema = json!({"type": "object", "properties": {}});
+    m.subscribes = vec![wat::SUBSCRIBER_KIND.into()];
+    m.permissions = vec![PermissionRequest {
+        capability: Capability::Read,
+        scope: Some(crate::events::event_scope(wat::SUBSCRIBER_KIND)),
+        reason: "Receive TaskCreated events.".into(),
+    }];
+    m
+}
+
+/// Manifest of `hello-deployer` (DeploymentProvider `hello`, target
+/// `Plugin("orkestr-dev.hello-deployer/hello")`); asks for the optional
+/// `Secrets` grant `HELLO_DEPLOY_TOKEN`.
+#[must_use]
+pub fn deployer_manifest() -> PluginManifest {
+    let mut m = manifest(
+        "hello-deployer",
+        "Hello Deployer",
+        "unused",
+        "Demo deployment provider: logs its steps and reports https://hello-deployer.example/.",
+    );
+    m.kinds = vec![PluginKind::DeploymentProvider];
+    m.tools.clear();
+    m.deploy_providers = vec!["hello".into()];
+    m.permissions = vec![PermissionRequest {
+        capability: Capability::Secrets,
+        scope: Some(wat::DEPLOYER_SECRET.into()),
+        reason: "Deploy token (read with SecretGet; the deployment log redacts it).".into(),
+    }];
+    m
+}
+
 /// One fixture.
 #[derive(Debug, Clone)]
 pub struct Fixture {
@@ -152,6 +196,24 @@ pub fn all(key: &PublisherKeyPair) -> Result<Vec<Fixture>, PluginError> {
         expect:
             "invoke returns plugin error `network access to evil.example.com is not granted`; PluginCallDenied + audit",
         bytes: package::build(&m, &wasm_files(&wat::fetch())?, Some(key))?,
+    });
+
+    let m = subscriber_manifest();
+    out.push(Fixture {
+        file: "hello-subscriber.orkp",
+        package_id: m.id.clone(),
+        tool: "count",
+        expect: "with the Read grant event/TaskCreated: each TaskCreated increments its KV counter; tool `count` returns it",
+        bytes: package::build(&m, &wasm_files(&wat::subscriber(false))?, Some(key))?,
+    });
+
+    let m = deployer_manifest();
+    out.push(Fixture {
+        file: "hello-deployer.orkp",
+        package_id: m.id.clone(),
+        tool: "",
+        expect: "enabled: deploy.adapters lists plugin:orkestr-dev.hello-deployer/hello; deploys to https://hello-deployer.example/ with 3 logged steps",
+        bytes: package::build(&m, &wasm_files(&wat::deployer(false))?, Some(key))?,
     });
 
     let mut wm = hello_manifest();
