@@ -3,7 +3,9 @@ import type { ProviderId } from "./ProviderId";
 import type { SoundConfig } from "./SoundConfig";
 import type { SttConsent } from "./SttConsent";
 import type { SttEngine } from "./SttEngine";
+import type { TtsConsent } from "./TtsConsent";
 import type { TtsEngine } from "./TtsEngine";
+import type { VoiceEngineSettings } from "./VoiceEngineSettings";
 import type { VoiceNotificationConfig } from "./VoiceNotificationConfig";
 import type { VoiceProfile } from "./VoiceProfile";
 import type { WakeWordConfig } from "./WakeWordConfig";
@@ -85,4 +87,33 @@ sound: SoundConfig,
  * template's own `voice` (built-in templates are read-only, so the
  * user's choice lives here). Phase 3, additive.
  */
-agentVoices: { [key in string]: VoiceProfile }, };
+agentVoices: { [key in string]: VoiceProfile }, 
+/**
+ * STT engines tried, in order, when the selected one fails (ADR-0046).
+ */
+sttFallback: Array<SttEngine>, 
+/**
+ * TTS engines tried, in order, when the selected one fails. The client
+ * falls back to the system voice last.
+ */
+ttsFallback: Array<TtsEngine>, 
+/**
+ * Per-language STT default: primary language subtag (`ru`) → engine.
+ */
+sttByLanguage: { [key in string]: SttEngine }, 
+/**
+ * Per-language TTS default: primary language subtag (`ru`) → engine.
+ */
+ttsByLanguage: { [key in string]: TtsEngine }, 
+/**
+ * Consents for off-device STT engines (server-owned; `sttConsent` is the legacy single slot).
+ */
+sttConsents: Array<SttConsent>, 
+/**
+ * Consents for cloud TTS engines (server-owned; `ttsConsentAt` is the legacy OpenAI slot).
+ */
+ttsConsents: Array<TtsConsent>, 
+/**
+ * Per-engine options.
+ */
+engines: VoiceEngineSettings, };

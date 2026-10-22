@@ -295,6 +295,7 @@ import type { ListTerminalsParams } from "./ListTerminalsParams";
 import type { ListTerminalsResult } from "./ListTerminalsResult";
 import type { ListTrashParams } from "./ListTrashParams";
 import type { ListTrashResult } from "./ListTrashResult";
+import type { ListVoiceEnginesParams } from "./ListVoiceEnginesParams";
 import type { ListWidgetsResult } from "./ListWidgetsResult";
 import type { LogParams } from "./LogParams";
 import type { LogQuery } from "./LogQuery";
@@ -504,6 +505,7 @@ import type { SetUiLanguageParams } from "./SetUiLanguageParams";
 import type { SetUiLanguageResult } from "./SetUiLanguageResult";
 import type { SetVoiceConfigParams } from "./SetVoiceConfigParams";
 import type { SetVoiceConsentParams } from "./SetVoiceConsentParams";
+import type { SetVoiceEngineKeyParams } from "./SetVoiceEngineKeyParams";
 import type { SettingsResult } from "./SettingsResult";
 import type { ShowParams } from "./ShowParams";
 import type { ShowResult } from "./ShowResult";
@@ -578,6 +580,10 @@ import type { UseClaudeForEverythingParams } from "./UseClaudeForEverythingParam
 import type { UseClaudeForEverythingResult } from "./UseClaudeForEverythingResult";
 import type { VaultStatusResult } from "./VaultStatusResult";
 import type { VoiceConfigResult } from "./VoiceConfigResult";
+import type { VoiceEnginesResult } from "./VoiceEnginesResult";
+import type { VoiceModelsResult } from "./VoiceModelsResult";
+import type { VoicePackageParams } from "./VoicePackageParams";
+import type { VoiceVerifyResult } from "./VoiceVerifyResult";
 import type { VsCodeCommandsParams } from "./VsCodeCommandsParams";
 import type { VsCodeCommandsResult } from "./VsCodeCommandsResult";
 import type { VsCodeConfigPatch } from "./VsCodeConfigPatch";
@@ -867,6 +873,13 @@ export type Methods = {
   "voice.transcribe": [TranscribeParams, TranscribeResult];
   "voice.synthesize": [SynthesizeParams, SynthesizeResult];
   "voice.recordCommand": [RecordVoiceCommandParams, Empty];
+  "voice.listEngines": [ListVoiceEnginesParams, VoiceEnginesResult];
+  "voice.setEngineKey": [SetVoiceEngineKeyParams, VoiceEnginesResult];
+  "voice.listModels": [Empty, VoiceModelsResult];
+  "voice.downloadModel": [VoicePackageParams, VoiceModelsResult];
+  "voice.cancelDownload": [VoicePackageParams, VoiceModelsResult];
+  "voice.removeModel": [VoicePackageParams, VoiceModelsResult];
+  "voice.verifyModel": [VoicePackageParams, VoiceVerifyResult];
   "vscode.status": [Empty, VsCodeStatus];
   "vscode.checkUpdate": [Empty, VsCodeRelease];
   "vscode.install": [VsCodeInstallParams, VsCodeStatus];
@@ -1300,6 +1313,13 @@ export const METHOD_NAMES = [
   "voice.transcribe",
   "voice.synthesize",
   "voice.recordCommand",
+  "voice.listEngines",
+  "voice.setEngineKey",
+  "voice.listModels",
+  "voice.downloadModel",
+  "voice.cancelDownload",
+  "voice.removeModel",
+  "voice.verifyModel",
   "vscode.status",
   "vscode.checkUpdate",
   "vscode.install",

@@ -194,6 +194,54 @@ async fn voice_config_consent_cloud_speech_and_command_log() {
     let r = c.ok("voice.setConsent", json!({"scope": "CloudSpeech", "granted": false})).await;
     assert_eq!(r["config"]["ttsEngine"], "System");
 
+    // ADR-0046: engines, keys in the vault, per-engine consent, models.
+    let engines = c.ok("voice.listEngines", json!({})).await;
+    let whisper = engines["stt"].as_array().unwrap().iter().find(|e| e["stt"] == "WhisperCpp").unwrap().clone();
+    assert_eq!(whisper["needsConsent"], false);
+    assert_ne!(whisper["status"], "Ready", "no models in a fresh data dir");
+    let dg = engines["stt"].as_array().unwrap().iter().find(|e| e["stt"] == "Deepgram").unwrap().clone();
+    assert_eq!((dg["status"].as_str(), dg["keyConfigured"].as_bool()), (Some("NeedsKey"), Some(false)));
+    let r = c.ok("voice.setEngineKey", json!({"key": "Deepgram", "apiKey": "dg-secret-key"})).await;
+    assert_eq!(r["configuredKeys"], json!(["Deepgram"]));
+    assert!(!r.to_string().contains("dg-secret-key"), "keys are write-only");
+    let secrets = c.ok("secrets.list", json!({})).await;
+    assert!(secrets.to_string().contains("voice.deepgram.apiKey"), "stored in the vault: {secrets}");
+    assert!(!c.ok("voice.getConfig", json!({})).await.to_string().contains("dg-secret-key"));
+    // A cloud fallback needs its own consent; granting with keepSelection keeps the primary engine.
+    let mut cfg = c.ok("voice.getConfig", json!({})).await["config"].clone();
+    cfg["sttEngine"] = json!("WhisperCpp");
+    cfg["sttFallback"] = json!(["Deepgram"]);
+    cfg["sttByLanguage"] = json!({"ru": "Vosk"});
+    assert_eq!(c.err_code("voice.setConfig", json!({"config": cfg.clone()})).await, "forbidden");
+    c.ok(
+        "voice.setConsent",
+        json!({"scope": "SpeechRecognition", "engine": "Deepgram", "granted": true, "keepSelection": true}),
+    )
+    .await;
+    let saved = c.ok("voice.setConfig", json!({"config": cfg.clone()})).await["config"].clone();
+    assert_eq!(
+        (saved["sttEngine"].as_str(), saved["sttByLanguage"]["ru"].as_str()),
+        (Some("WhisperCpp"), Some("Vosk"))
+    );
+    // Local engines need no consent, but need their model.
+    let wav = json!({"audioBase64": "UklGRiQAAABXQVZFZm10IBAAAAABAAEAgD4AAAB9AAACABAAZGF0YQAAAAA=", "mimeType": "audio/wav", "engine": "WhisperCpp"});
+    let err = c.call("voice.transcribe", wav).await;
+    assert_eq!(err["error"]["code"], "bad_request", "{err}");
+    assert!(err.to_string().contains("not installed"), "{err}");
+    // Revoking one engine prunes it from the chain.
+    let r =
+        c.ok("voice.setConsent", json!({"scope": "SpeechRecognition", "engine": "Deepgram", "granted": false})).await;
+    assert_eq!(r["config"]["sttFallback"], json!([]));
+    assert_eq!(r["config"]["sttEngine"], "WhisperCpp");
+    c.ok("voice.setEngineKey", json!({"key": "Deepgram"})).await;
+    assert!(!c.ok("secrets.list", json!({})).await.to_string().contains("voice.deepgram.apiKey"));
+    let models = c.ok("voice.listModels", json!({})).await;
+    let base = models["packages"].as_array().unwrap().iter().find(|p| p["id"] == "whisper-base").unwrap().clone();
+    assert_eq!(base["state"], "NotInstalled");
+    assert_eq!(base["sha256"].as_array().unwrap().len(), 1);
+    assert_eq!(c.err_code("voice.removeModel", json!({"id": "nope"})).await, "bad_request");
+    assert_eq!(c.err_code("voice.verifyModel", json!({"id": "whisper-base"})).await, "bad_request");
+
     // Command log: transcript + intent only.
     c.ok(
         "voice.recordCommand",

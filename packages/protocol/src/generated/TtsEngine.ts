@@ -3,4 +3,4 @@
 /**
  * Text-to-speech engine.
  */
-export type TtsEngine = "System" | "OpenAi";
+export type TtsEngine = "System" | "OpenAi" | "Piper" | "Silero" | "WindowsOneCore" | "AzureSpeech" | "GoogleCloud" | "YandexSpeechKit" | "ElevenLabs";

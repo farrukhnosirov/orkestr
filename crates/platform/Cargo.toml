@@ -18,6 +18,8 @@ serde_json.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["signal", "macros", "rt"] }
 tracing.workspace = true
+# Vosk runtime is loaded at run time (ADR-0046); the only FFI besides power.
+libloading = "0.7"
 
 [target.'cfg(windows)'.dependencies]
 windows-sys.workspace = true

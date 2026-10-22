@@ -43,6 +43,9 @@ pub enum PlatformError {
     /// Invalid input.
     #[error("invalid: {0}")]
     Invalid(String),
+    /// A native library failed (load, symbol lookup or call).
+    #[error("{0}")]
+    Native(String),
     /// No usable home/data directory could be determined.
     #[error("cannot determine a data directory; set ORKESTR_HOME")]
     NoDataDir,

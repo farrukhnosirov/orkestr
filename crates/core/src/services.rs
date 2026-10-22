@@ -108,6 +108,8 @@ pub struct Services {
     pub monitor: Arc<orkestr_monitor::MonitorService>,
     /// Bug Detective (Phase 7, ADR-0042).
     pub detective: Arc<orkestr_detective::Detective>,
+    /// Speech engines + voice model manager (ADR-0046).
+    pub voice: Arc<orkestr_voice::VoiceService>,
     /// Encrypted sync engine (Phase 4); `None` until the sync package wires it.
     pub sync: Option<Arc<dyn orkestr_sync::SyncEngine>>,
 }

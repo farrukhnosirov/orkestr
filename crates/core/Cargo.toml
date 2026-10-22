@@ -48,6 +48,7 @@ orkestr-marketplace.workspace = true
 orkestr-deploy.workspace = true
 orkestr-monitor.workspace = true
 orkestr-detective.workspace = true
+orkestr-voice.workspace = true
 tokio.workspace = true
 tokio-util.workspace = true
 futures.workspace = true
