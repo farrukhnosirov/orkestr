@@ -10,7 +10,11 @@ export type SyncConfigureParams = {
  */
 projectId: ProjectId, 
 /**
- * Sync server (gateway) URL; `None` disables remote sync.
+ * Turns remote sync off for the project (other fields ignored).
+ */
+disable?: boolean, 
+/**
+ * Sync server (gateway) URL; `None` = the gateway of remote access.
  */
 serverUrl?: string, 
 /**
@@ -20,4 +24,9 @@ accessToken?: string,
 /**
  * Shared remote key (base64url); generated when absent.
  */
-remoteKey?: string, };
+remoteKey?: string, 
+/**
+ * Name of the project at the remote, identical on every device
+ * (defaults to the project slug).
+ */
+remoteProject?: string, };

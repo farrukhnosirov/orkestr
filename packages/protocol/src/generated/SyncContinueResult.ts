@@ -12,4 +12,8 @@ publishedAt: string,
 /**
  * Result of the sync round.
  */
-report: SyncNowResult, };
+report: SyncNowResult, 
+/**
+ * The task summary that was handed over.
+ */
+summary?: string, };

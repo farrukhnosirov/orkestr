@@ -73,10 +73,8 @@ fn now_result(r: SyncReport) -> m::SyncNowResult {
 
 /// Gateway URL + core token for `/v1/sync` when remote access is enabled.
 ///
-/// Integration point with package A: on merge this becomes
-/// `ctx.services.remote.sync_credentials()`.
-fn gateway_credentials(_ctx: &RpcContext) -> Option<(String, String)> {
-    None
+fn gateway_credentials(ctx: &RpcContext) -> Option<(String, String)> {
+    ctx.services.remote.sync_credentials()
 }
 
 async fn configure(ctx: RpcContext, p: m::SyncConfigureParams) -> Result<m::SyncStatusInfo, RpcError> {

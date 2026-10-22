@@ -914,6 +914,7 @@ export * from "./SyncCompletedPayload";
 export * from "./SyncConfigureParams";
 export * from "./SyncConflictInfo";
 export * from "./SyncConflictList";
+export * from "./SyncContinueParams";
 export * from "./SyncContinueResult";
 export * from "./SyncNowResult";
 export * from "./SyncPolicy";

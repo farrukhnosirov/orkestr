@@ -409,6 +409,7 @@ import type { StopAgentParams } from "./StopAgentParams";
 import type { StopProjectParams } from "./StopProjectParams";
 import type { SyncConfigureParams } from "./SyncConfigureParams";
 import type { SyncConflictList } from "./SyncConflictList";
+import type { SyncContinueParams } from "./SyncContinueParams";
 import type { SyncContinueResult } from "./SyncContinueResult";
 import type { SyncNowResult } from "./SyncNowResult";
 import type { SyncProjectParams } from "./SyncProjectParams";
@@ -815,7 +816,7 @@ export type Methods = {
   "sync.configure": [SyncConfigureParams, SyncStatusInfo];
   "sync.status": [SyncProjectParams, SyncStatusInfo];
   "sync.now": [SyncProjectParams, SyncNowResult];
-  "sync.continueOn": [SyncProjectParams, SyncContinueResult];
+  "sync.continueOn": [SyncContinueParams, SyncContinueResult];
   "sync.resume": [SyncProjectParams, SyncResumeResult];
   "sync.listConflicts": [SyncProjectParams, SyncConflictList];
   "sync.resolveConflict": [SyncResolveConflictParams, Empty];
