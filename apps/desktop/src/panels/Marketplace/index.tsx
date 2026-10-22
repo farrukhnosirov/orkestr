@@ -9,17 +9,25 @@ import "./marketplace.css";
 import type { Event } from "@orkestr/protocol";
 import { topic } from "@orkestr/protocol";
 import { Tabs } from "@orkestr/ui";
-import { KeyRound, Package, Server, Store } from "lucide-react";
+import { KeyRound, Package, Puzzle, Server, Store, Upload } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import { maybeClient } from "../../core/client";
+import { PluginsManager } from "../../features/plugins/PluginsManager";
 import { useT } from "../../i18n";
 import type { PanelProps } from "../types";
 import { BrowseTab } from "./BrowseTab";
 import { useInstallFlow } from "./flow";
+import { PublishTab } from "./PublishTab";
 import { InstalledTab, KeysTab, SourcesTab } from "./tabs";
 
-type MarketTab = "browse" | "installed" | "sources" | "keys";
+type MarketTab =
+  | "browse"
+  | "installed"
+  | "plugins"
+  | "publish"
+  | "sources"
+  | "keys";
 
 export default function MarketplacePanel(_props: PanelProps) {
   const { t } = useT("marketplace");
@@ -46,6 +54,16 @@ export default function MarketplacePanel(_props: PanelProps) {
       id: "installed" as const,
       label: t("tabs.installed"),
       icon: <Package size={14} />,
+    },
+    {
+      id: "plugins" as const,
+      label: t("tabs.plugins"),
+      icon: <Puzzle size={14} />,
+    },
+    {
+      id: "publish" as const,
+      label: t("tabs.publish"),
+      icon: <Upload size={14} />,
     },
     {
       id: "sources" as const,
@@ -89,6 +107,12 @@ export default function MarketplacePanel(_props: PanelProps) {
         {tab === "browse" && <BrowseTab flow={flow} version={version} />}
         {tab === "installed" && (
           <InstalledTab flow={flow} version={version} onChanged={bump} />
+        )}
+        {tab === "plugins" && (
+          <PluginsManager version={version} onNotice={flow.setNotice} />
+        )}
+        {tab === "publish" && (
+          <PublishTab version={version} onChanged={bump} />
         )}
         {tab === "sources" && (
           <SourcesTab flow={flow} version={version} onChanged={bump} />

@@ -536,10 +536,18 @@ Open **Marketplace** → *Browse*, pick a plugin and click *Install*. Orkestr
 checks the signature, then shows what the plugin asks for (network hosts,
 secrets, read access). Nothing runs until you have decided every request and
 the plugin is enabled (*Save and enable*). *Installed* lists what you
-installed and uninstalls it. **Emergency Stop** kills every plugin at once
-(also `plugins.killAll`); `plugins.disable` stops one; **safe mode**
-(`plugins.setSafeMode`, persisted) starts Orkestr without loading any plugin
-code. These three have no buttons yet.
+installed from the marketplace and uninstalls it.
+
+**Marketplace** → *Plugins* manages every installed plugin: state (Enabled,
+Disabled, Killed, Quarantined, awaiting permissions), kinds, the publisher key
+fingerprint it was signed with, and its grants — *Revoke* / *Allow* change a
+single grant. *Enable* / *Disable*, *Logs* (the plugin's log lines) and
+*Uninstall* (asks first) are per plugin; *Decide permissions…* reopens the
+permission prompt for undecided requests. *Install from file* installs a local
+signed `.orkp` (Browse… opens the file dialog). **Kill all plugins** (asks
+first) interrupts every running plugin call and stops every plugin; enable
+them again one by one. **Safe mode** (persisted) loads no plugin code at all
+until you turn it off; Enable is blocked while it is on.
 
 Plugins are WebAssembly modules with limits on CPU (fuel), time (5 s per call
 by default) and memory (64 MB). A plugin that crashes three times in a row is
@@ -592,11 +600,13 @@ fingerprint in *Keys*: an unknown publisher must be trusted before its
 packages install, and an update signed by a different key than the installed
 version is refused. Revoked packages and keys cannot be installed.
 
-**Publishing** (RPC only, no button yet): `marketplace.publish` signs a `.orkp`
-or an agent template JSON with your publisher key — created on the first
-publish, kept in the vault as `MARKETPLACE_PUBLISHER_KEY` and shown in
-*Keys* — and adds it to
-a folder registry or uploads it to a gateway registry. On the gateway,
+**Publishing**: **Marketplace** → *Publish* — choose a `.orkp` or an agent
+template JSON, its kind and a writable source (a folder or gateway registry;
+the official catalogue is read-only) and click *Sign and publish*
+(`marketplace.publish`). The package is signed with your publisher key —
+created on the first publish under the publisher name you enter, kept in the
+vault as `MARKETPLACE_PUBLISHER_KEY`; its fingerprint is shown in *Publish*
+and *Keys*. On the gateway,
 `POST /registry/revoke` with `{id, version?}` or `{keyId}` revokes a package
 or a whole key.
 
@@ -608,6 +618,10 @@ enabled plugins), drag and resize them on the 12-column grid and fill in
 their settings. Plugin widgets run in a sandboxed frame without network
 access; they can only read the data their manifest declares (read-only
 methods and events). Writing a widget: `packages/widget-sdk/README.md`.
+A walkthrough of the packaged app (install signed widgets from file, build a
+dashboard, check the widget frame's query result and that it cannot use the
+app's IPC, reload, publish) with screenshots:
+`node scripts/smoke/phase7-dashboard-screenshots.mjs` → `docs/screenshots/phase7/`.
 
 ### Deployments
 

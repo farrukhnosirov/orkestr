@@ -1,0 +1,170 @@
+/* Plugin management — uses only --ok-* tokens (contract §8). */
+
+.pl-manager {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-3);
+}
+
+.pl-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--ok-space-3);
+  padding: var(--ok-space-3);
+  border: 1px solid var(--ok-color-border);
+  border-radius: var(--ok-radius-md);
+  background: var(--ok-color-surface);
+}
+
+.pl-controls--safe {
+  border-color: var(--ok-color-warning);
+}
+
+@container (max-width: 640px) {
+  .pl-controls {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.pl-controls__safe,
+.pl-controls__kill {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--ok-space-1);
+}
+
+.pl-controls p {
+  margin: 0;
+}
+
+.pl-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ok-space-2);
+  cursor: pointer;
+  font-weight: var(--ok-font-weight-semibold);
+}
+
+.pl-switch__label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ok-space-1);
+}
+
+.pl-install {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--ok-space-2);
+}
+
+.pl-install > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.pl-row__title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ok-space-1);
+}
+
+.pl-row__desc {
+  margin: var(--ok-space-1) 0 0;
+}
+
+.pl-row__fp {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ok-space-2);
+  margin-top: var(--ok-space-1);
+  font-size: var(--ok-font-size-xs);
+}
+
+.pl-grants {
+  list-style: none;
+  margin: var(--ok-space-2) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pl-grant {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--ok-space-2);
+  font-size: var(--ok-font-size-sm);
+}
+
+.pl-logs-dialog {
+  width: min(760px, 92vw);
+}
+
+.pl-logs {
+  list-style: none;
+  margin: 0;
+  padding: var(--ok-space-2);
+  max-height: 50vh;
+  overflow: auto;
+  border: 1px solid var(--ok-color-border);
+  border-radius: var(--ok-radius-md);
+  background: var(--ok-color-bg);
+  font-family: var(--ok-font-mono);
+  font-size: var(--ok-font-size-xs);
+}
+
+.pl-log {
+  display: grid;
+  grid-template-columns: auto 4.5em minmax(0, 1fr);
+  gap: var(--ok-space-2);
+  padding: 1px 0;
+}
+
+.pl-log__level {
+  text-transform: uppercase;
+  color: var(--ok-color-text-muted);
+}
+
+.pl-log--warn .pl-log__level {
+  color: var(--ok-color-warning);
+}
+
+.pl-log--error .pl-log__level {
+  color: var(--ok-color-danger);
+}
+
+.pl-log__msg {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.mp-publish {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-3);
+  max-width: 720px;
+}
+
+.mp-publish form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-2);
+}
+
+.mp-publish__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-1);
+  font-size: var(--ok-font-size-sm);
+}
+
+.mp-publish__result {
+  padding: var(--ok-space-2) var(--ok-space-3);
+  border: 1px solid var(--ok-color-border-accent);
+  border-radius: var(--ok-radius-md);
+  background: var(--ok-color-surface);
+}
