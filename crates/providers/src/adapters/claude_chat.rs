@@ -164,6 +164,8 @@ pub struct ChatPool {
     idle: Mutex<Vec<Session>>,
     /// Extra CLI arguments (model / tool restrictions are added per request).
     base_args: Vec<String>,
+    /// How long an idle process is kept ([`IDLE_TTL`]; shorter in tests).
+    ttl: Duration,
 }
 
 impl std::fmt::Debug for ChatPool {
@@ -184,7 +186,7 @@ impl ChatPool {
     /// Creates a pool; `base_args` are appended to every process.
     #[must_use]
     pub fn new(spawner: Arc<dyn ProcSpawner>, base_args: Vec<String>) -> Self {
-        Self { spawner, idle: Mutex::new(Vec::new()), base_args }
+        Self { spawner, idle: Mutex::new(Vec::new()), base_args, ttl: IDLE_TTL }
     }
 
     /// Idle processes (tests, diagnostics).
@@ -198,9 +200,16 @@ impl ChatPool {
         self.idle.lock().clear();
     }
 
+    /// Stops the processes idle for longer than the TTL.
+    fn prune(&self) {
+        let ttl = self.ttl;
+        self.idle.lock().retain(|s| s.last_used.elapsed() < ttl);
+    }
+
     fn take(&self, key: &str, convo: &[String]) -> Plan {
+        let ttl = self.ttl;
         let mut idle = self.idle.lock();
-        idle.retain(|s| s.last_used.elapsed() < IDLE_TTL);
+        idle.retain(|s| s.last_used.elapsed() < ttl);
         // The conversation must be: what the process saw + its answer + new messages.
         let pos = idle.iter().position(|s| {
             s.key == key
@@ -218,15 +227,27 @@ impl ChatPool {
         }
     }
 
-    fn put_back(&self, mut s: Session) {
+    fn put_back(self: &Arc<Self>, mut s: Session) {
         s.last_used = Instant::now();
-        let mut idle = self.idle.lock();
-        idle.push(s);
-        while idle.len() > MAX_IDLE {
-            if let Some(oldest) = idle.iter().enumerate().min_by_key(|(_, s)| s.last_used).map(|(i, _)| i) {
-                idle.swap_remove(oldest);
+        {
+            let mut idle = self.idle.lock();
+            idle.push(s);
+            while idle.len() > MAX_IDLE {
+                if let Some(oldest) = idle.iter().enumerate().min_by_key(|(_, s)| s.last_used).map(|(i, _)| i) {
+                    idle.swap_remove(oldest);
+                }
             }
         }
+        // Stop it once its TTL is over even if no other chat call comes
+        // (expired processes are otherwise only dropped by the next `take`).
+        let pool = Arc::downgrade(self);
+        let ttl = self.ttl;
+        tokio::spawn(async move {
+            tokio::time::sleep(ttl + Duration::from_millis(50)).await;
+            if let Some(pool) = pool.upgrade() {
+                pool.prune();
+            }
+        });
     }
 
     /// Runs one chat turn. `first_prompt` is the full one-shot prompt (used
@@ -463,6 +484,18 @@ mod tests {
         convo.push(ChatMessage::user("are you there?"));
         assert_eq!(ask(&pool, convo).await, "reply 1");
         assert_eq!(fake.spawned.load(Ordering::SeqCst), 3);
+    }
+
+    #[tokio::test]
+    async fn an_idle_process_is_stopped_after_its_ttl_without_further_calls() {
+        let fake = Arc::new(FakeClaude::default());
+        let mut p = ChatPool::new(Arc::clone(&fake) as Arc<dyn ProcSpawner>, Vec::new());
+        p.ttl = Duration::from_millis(100);
+        let pool = Arc::new(p);
+        assert_eq!(ask(&pool, vec![ChatMessage::user("a")]).await, "reply 1");
+        assert_eq!(pool.idle_count(), 1);
+        tokio::time::sleep(Duration::from_millis(400)).await;
+        assert_eq!(pool.idle_count(), 0, "reaped without another take()");
     }
 
     #[tokio::test]
