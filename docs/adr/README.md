@@ -50,6 +50,7 @@ summarises them: **Built** = implemented as decided (with listed deviations),
 | [0040](0040-marketplace-registry-and-package-signing.md) | Marketplace: static signed registries (official / directory / gateway HTTP), publisher key TOFU + pinning + revocation | Accepted | 7 | — | — | Implemented (Phase 7; see the ADR's "as built" notes) |
 | [0041](0041-environments-and-deployment-adapters.md) | Environments and `DeployAdapter`s: local targets live, cloud adapters request-shape verified, guarded production deploys | Accepted | 7 | — | — | Implemented (Phase 7; see the ADR's "as built" notes) |
 | [0042](0042-infrastructure-monitor-and-bug-detective.md) | Infrastructure monitor (metrics, checks, logs, alerts) and the Bug Detective workflow with two human gates | Accepted | 7 | — | — | Implemented (Phase 7; see the ADR's "as built" notes) |
+| [0048](0048-updates-and-installer.md) | App updates (signed, remote or local channel, backups, downgrade guard) and the Windows installer (per-user NSIS + MSI, in-place upgrades) | Accepted | W8 | — | — | Implemented (wave 8, task 9) |
 
 ## Planned ADRs (to be written when their phase starts)
 
@@ -73,6 +74,7 @@ summarises them: **Built** = implemented as decided (with listed deviations),
 | [ADR-0040](0040-marketplace-registry-and-package-signing.md) | Marketplace registry & package signing (§6, §48) — Implemented (Phase 7) | 7 |
 | [ADR-0041](0041-environments-and-deployment-adapters.md) | Environments & deployment adapters (§26) — Implemented (Phase 7) | 7 |
 | [ADR-0042](0042-infrastructure-monitor-and-bug-detective.md) | Infrastructure monitor & Bug Detective (§27) — Implemented (Phase 7) | 7 |
+| [ADR-0048](0048-updates-and-installer.md) | Updates & installer — Implemented (wave 8) | W8 |
 
 ## Decision map
 
@@ -109,6 +111,7 @@ flowchart TB
   A34 --> A40[0040 Marketplace registry]
   A10 --> A41[0041 Deployment adapters]
   A41 --> A42[0042 Infra monitor + Bug Detective]
+  A4 --> A48[0048 Updates + installer]
   A18 --> A22[0022 Crash recovery]
   A20[0020 UUID v7] --> A18
 ```

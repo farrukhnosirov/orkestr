@@ -29,6 +29,7 @@
 mod app_commands;
 mod hud;
 pub mod stop_all;
+pub mod updates;
 pub mod vscode_window;
 mod widget_scheme;
 pub mod windows;
@@ -142,7 +143,10 @@ struct ShellState {
     language: std::sync::Mutex<String>,
 }
 
-async fn boot_core(handle_slot: Arc<Mutex<Option<CoreHandle>>>) -> Result<CoreConnection, String> {
+async fn boot_core(
+    handle_slot: Arc<Mutex<Option<CoreHandle>>>,
+    updates: Arc<updates::Updates>,
+) -> Result<CoreConnection, String> {
     let started = Instant::now();
     let paths = Paths::resolve().map_err(|e| e.to_string())?;
     if let Some(running) = orkestr_core::discovery::find_running(&paths).await {
@@ -154,6 +158,16 @@ async fn boot_core(handle_slot: Arc<Mutex<Option<CoreHandle>>>) -> Result<CoreCo
             mode: "external",
             startup_ms: started.elapsed().as_millis() as u64,
         });
+    }
+    // First start of this version (ADR-0048): refuse data written by a newer
+    // Orkestr, back the data up before new migrations run.
+    let retention = updates.status().await.settings.backup_retention as usize;
+    let startup_paths = paths.clone();
+    match tokio::task::spawn_blocking(move || updates::startup_check(&startup_paths, retention)).await {
+        Ok(Ok(Some(report))) => updates.set_startup(report).await,
+        Ok(Ok(None)) => {}
+        Ok(Err(refused)) => return Err(refused),
+        Err(e) => tracing::warn!(error = %e, "startup update checks did not run"),
     }
     let config = CoreConfig {
         autostart: AutostartConfig {
@@ -409,6 +423,9 @@ pub fn run() {
         // Native folder/file pickers ("Browse…", File → Open). Only `dialog:allow-open`
         // is granted, and only to the main and detached panel windows (capabilities).
         .plugin(tauri_plugin_dialog::init())
+        // Installs verified updates (ADR-0048). Its own commands are not granted
+        // to any window: the UI goes through the `updates_*` shell commands.
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(CoreState { ready: ready_rx, handle: Arc::clone(&handle_slot) })
         .manage(ShellState {
             close_to_tray: AtomicBool::new(true),
@@ -445,9 +462,13 @@ pub fn run() {
             } else {
                 tracing::info!("started by autostart; staying in the tray");
             }
+            let paths = Paths::resolve().unwrap_or_else(|_| Paths::from_root(std::env::temp_dir().join("orkestr")));
+            let updates = Arc::new(updates::Updates::new(paths, updates::configured_pubkey(app)));
+            app.manage(Arc::clone(&updates));
+            updates::spawn_scheduler(app.handle().clone(), Arc::clone(&updates));
             let slot = Arc::clone(&handle_slot);
             tauri::async_runtime::spawn(async move {
-                let result = boot_core(slot).await;
+                let result = boot_core(slot, updates).await;
                 if let Err(e) = &result {
                     tracing::error!(error = %e, "failed to start or find the Orkestr core");
                 }
@@ -522,7 +543,14 @@ pub fn run() {
             vscode_window::vscode_window_reload,
             vscode_window::vscode_window_is_open,
             vscode_window::vscode_open_external,
-            widget_scheme::widget_document
+            widget_scheme::widget_document,
+            updates::updates_status,
+            updates::updates_set_settings,
+            updates::updates_check,
+            updates::updates_download,
+            updates::updates_cancel,
+            updates::updates_install,
+            updates::updates_backup_now
         ]);
 
     let app = match builder.build(tauri::generate_context!()) {
@@ -543,6 +571,10 @@ pub fn run() {
                     core.shutdown().await;
                 }
             });
+            // "Install on next restart": hand over to the installer now that the data is closed.
+            if let Some(updates) = updates::managed(app_handle) {
+                updates.run_pending_install(app_handle);
+            }
         }
     });
 }
@@ -639,6 +671,21 @@ mod tests {
             .filter(|s| !s.is_empty())
             .collect();
         assert_eq!(handlers, app_commands::APP_COMMANDS);
+    }
+
+    /// The updater plugin's own commands (check / download / install) are not
+    /// granted to any window: the UI uses the `updates_*` shell commands, which
+    /// verify, back up and stop the core first (ADR-0048).
+    #[test]
+    fn updater_plugin_commands_are_not_exposed() {
+        for capability in [
+            include_str!("../capabilities/default.json"),
+            include_str!("../capabilities/panels.json"),
+            include_str!("../capabilities/robots.json"),
+            include_str!("../capabilities/hud.json"),
+        ] {
+            assert!(!capability.contains("updater:"), "no updater plugin permission may be granted");
+        }
     }
 
     /// The native dialog plugin is reachable only for opening (Browse…,

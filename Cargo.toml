@@ -52,6 +52,8 @@ orkestr-marketplace = { path = "crates/marketplace" }
 orkestr-deploy = { path = "crates/deploy" }
 orkestr-monitor = { path = "crates/monitor" }
 orkestr-detective = { path = "crates/detective" }
+# Wave 8: app updates (ADR-0048)
+orkestr-updater = { path = "crates/updater" }
 
 # --- async ---------------------------------------------------------------------
 tokio = { version = "1.47", features = ["full"] }
@@ -137,6 +139,8 @@ tauri = { version = "2.8", features = [] }
 tauri-build = { version = "2.4", features = [] }
 tauri-plugin-single-instance = "2.5"
 tauri-plugin-dialog = "2"
+# Installs verified updates (NSIS /UPDATE hand-off); checks/downloads are done by orkestr-updater (ADR-0048).
+tauri-plugin-updater = { version = "2.14", default-features = false, features = ["rustls-tls"] }
 
 [profile.dev]
 # Keep debug builds reasonably fast while making deps quick at runtime.

@@ -9,6 +9,7 @@ import { ApprovalsBadge } from "../features/security/ApprovalsInbox";
 import { EmergencyStopButton } from "../features/security/EmergencyStop";
 import { useSettingsStore } from "../features/settings/settingsStore";
 import { FileMenu } from "../features/workbench/FileMenu";
+import { UpdateBadge } from "../features/updates";
 import { MicIndicator } from "../features/voice";
 import { useT } from "../i18n";
 import { isTauri, windowControls } from "../lib/tauri";
@@ -89,6 +90,7 @@ export function TitleBar() {
       </div>
 
       <div className="titlebar__controls">
+        <UpdateBadge />
         <MicIndicator />
         <NotificationBell />
         {native && (

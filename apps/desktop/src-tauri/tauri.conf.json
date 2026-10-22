@@ -1,7 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Orkestr",
-  "version": "0.1.0",
   "identifier": "dev.orkestr.desktop",
   "build": {
     "devUrl": "http://127.0.0.1:1420",
@@ -44,15 +43,61 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": [
+      "nsis",
+      "msi"
+    ],
+    "publisher": "Orkestr",
+    "copyright": "Copyright (c) Orkestr contributors. MIT OR Apache-2.0.",
+    "homepage": "https://orkestr.dev",
     "category": "DeveloperTool",
     "shortDescription": "AI Development OS",
+    "longDescription": "Orkestr — AI Development OS: orchestrates AI coding agents, providers and tools on your machine.",
+    "createUpdaterArtifacts": false,
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "windows": {
+      "digestAlgorithm": "sha256",
+      "certificateThumbprint": null,
+      "timestampUrl": "",
+      "allowDowngrades": true,
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper",
+        "silent": true
+      },
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": [
+          "English",
+          "Russian"
+        ],
+        "displayLanguageSelector": true,
+        "installerIcon": "icons/icon.ico",
+        "startMenuFolder": "Orkestr",
+        "installerHooks": "windows/installer-hooks.nsh",
+        "compression": "lzma"
+      },
+      "wix": {
+        "upgradeCode": "c6529465-36f6-467f-aca3-22bbb51d90b1",
+        "language": [
+          "en-US",
+          "ru-RU"
+        ]
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDFEMEU4MEIwNDI3NzE3NTAKUldSUUYzZENzSUFPSFpYdUdBQTNXTHVsK3k0Um5MZjJCUEg5bEpyU05pbzBzWmpieHJGSWRJMkQK",
+      "endpoints": [],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
   }
 }

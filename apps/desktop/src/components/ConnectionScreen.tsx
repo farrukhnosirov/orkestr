@@ -1,6 +1,7 @@
 import { Button, Spinner } from "@orkestr/ui";
 import { AlertTriangle } from "lucide-react";
 
+import { describeBootError } from "../features/updates";
 import { useT } from "../i18n";
 import { useAppStore } from "../store/app";
 import { Logo } from "./Logo";
@@ -20,7 +21,7 @@ export function ConnectionScreen({ onRetry }: { onRetry: () => void }) {
       {failed ? (
         <div className="splash__error" role="alert">
           <AlertTriangle size={16} />
-          <span>{connection.error ?? t("shell:connection.failed")}</span>
+          <span>{describeBootError(connection.error) ?? connection.error ?? t("shell:connection.failed")}</span>
         </div>
       ) : (
         <div className="splash__status">

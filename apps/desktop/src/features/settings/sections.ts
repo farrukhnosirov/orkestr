@@ -10,6 +10,7 @@ import { editorSettingsSection } from "../extensions";
 import { visualSettingsSection } from "../performance/section";
 import { managerSettingsSection, providersSettingsSection } from "../providers";
 import { qualitySettingsSection } from "../quality";
+import { updatesSettingsSection } from "../updates";
 import { soundSettingsSection, voiceSettingsSection } from "../voice";
 import { vscodeSettingsSection } from "../vscode";
 import { AboutSection } from "./sections/AboutSection";
@@ -71,6 +72,8 @@ settingsSections.push(voiceSettingsSection, soundSettingsSection);
 settingsSections.push(vscodeSettingsSection);
 // VS Code extensions: editor theme, icon theme, language servers (ADR-0025)
 settingsSections.push(editorSettingsSection);
+// App updates + data backups (ADR-0048)
+settingsSections.push(updatesSettingsSection);
 
 /** Sections in display order (stable for equal `order`). */
 export function orderedSections(list: readonly SettingsSection[] = settingsSections): SettingsSection[] {

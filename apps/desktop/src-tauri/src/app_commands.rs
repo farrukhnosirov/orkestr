@@ -35,4 +35,11 @@ pub const APP_COMMANDS: &[&str] = &[
     "vscode_window_is_open",
     "vscode_open_external",
     "widget_document",
+    "updates_status",
+    "updates_set_settings",
+    "updates_check",
+    "updates_download",
+    "updates_cancel",
+    "updates_install",
+    "updates_backup_now",
 ];
