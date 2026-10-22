@@ -82,7 +82,7 @@ tested.
 | 29 | Wake Word | Full | Partial | Local MFCC/DTW spotter with enrollment, opt-in, VAD-gated, paused in Battery Saver. SP-15 budgets and the zero-network packet capture were not measured. |
 | 30 | Voice Notifications | Full | Full | Spoken notifications with DND / quiet hours. Robots with voice on speak for their agent, with no double announcement. |
 | 34 | Rollback Everything | Full | Partial | UI part: every UI config change is versioned; AI patches carry an exact inverse patch, and Undo is verified. Scenario J was not re-run on the Phase 3 build. Memory-item and permission-rule versions are **not built** (hard delete, in-place update, no restore RPC), so the item as a whole is Partial. |
-| 45 | Live Infrastructure Monitor | Partial | Partial | Local node resources shown in Monitoring and Mission Control. |
+| 45 | Live Infrastructure Monitor | Partial | Partial | Local node resources shown in Monitoring and Mission Control.. **P7 (as built, ADR-0042):** per-node metric rings (local + enrolled nodes), HTTP/TCP health checks with hysteresis, log sources (file, deployment, ingest; memory-only, redacted), alert rules with dedup + defaults; Monitoring → Infrastructure. No GPU utilisation, no RPC/UI for rules and sources |
 | — | Custom Visual OS | Full | Full | Frameless shell and custom controls. Transparent robot windows, verified: alpha-0 corners, `WS_EX_LAYERED|TRANSPARENT`, topmost. Floating and detached panels. |
 | — | Floating robots | Full | Partial | Scenario H passes: robot per agent, live states, completion pose + bubble, click opens the result. Click-through, context menu, drag/snap, drop-on-project and overflow cluster all work. Missing: per-robot CPU/RAM budget not measured; no Linux Wayland fallback; robot windows do not follow the battery / frame-rate auto-downgrade. |
 | — | Robot Designer | Full | Full | 2D/3D, skin, material, accent, size, accessories, animation intensity, voice, sounds, behaviour. Stored per template. The theme supplies defaults for unstyled robots. |
@@ -111,7 +111,7 @@ Section D counts are computed from these delivered columns.
 
 | # | Feature | Spec | Target phase | Crates | UI panel(s) | P1 | P2 | P3 | Notes / remaining scope |
 |---|---|---|---|---|---|---|---|---|---|
-| 1 | Agent Marketplace | §6, §48 | 7 | agent-runtime, protocol, (plugin host P7) | Agents (Templates tab) | Partial | Partial | Partial | P1–3: local template import/export (JSON manifest with version and permissions). Official/community/private catalogue and signing are Phase 7 |
+| 1 | Agent Marketplace | §6, §48 | 7 | agent-runtime, protocol, (plugin host P7) | Agents (Templates tab) | Partial | Partial | Partial | P1–3: local template import/export (JSON manifest with version and permissions). Official/community/private catalogue and signing are Phase 7. **P7 (as built, ADR-0040):** signed static registries — bundled official catalogue (embedded key), local directory, self-hosted gateway registry (`/registry/*`); publisher key TOFU + per-package pin + revocation; search / install / uninstall of templates, plugins and widgets; local publishing with a vault-held key; Marketplace panel (Browse / Installed / Sources / Keys) |
 | 2 | Dynamic Agent Spawn | §1.5, §6 | 2 | orchestrator, agent-runtime, node, task-engine | Manager, Agents | Partial | Full | Full | P1: Manager proposes agents from templates and the user approves the plan; `maxParallelAgents` (RR-A7). P2: resource, cost and coordination-aware spawning without approval in SemiAuto/FullAuto |
 | 3 | Agent Teams | §6 | 2 | domain, orchestrator, agent-runtime | Agents | Arch | Full | Full | P1: `AgentTeam` entity and team template schema. P2: ERP/Web/Mobile/Security/Rapid Prototype/custom teams. **P2 done (teams-pm):** persistent teams with members (template × count, model override), optional lead and bounded default policies; `teams.*` RPC; Agents → Teams tab; Manager plans delegate to a team (`ManagerRequestOptions.teamId` or `teams.assign` with `planId`) |
 | 4 | Agent Hierarchy | §6 | 2 | orchestrator, domain | Agents, TaskGraph | Arch | Full | Full | P1: `AgentInstance.parentAgentId`. P2: Manager → Team Leads → Executors → Reviewers delegation with handoffs. **P2 done (teams-pm):** `orchestrator::team_lead` — lead decomposes a delegated task (structured output, fan-out cap), creates child tasks (`parentId`) with dependencies, spawns executors (`parentAgentId` = lead, parallel cap, attempts, split budget, time limit), then a reviewer; depth ≤ 2 below the Manager; hierarchy tree in the Teams tab. Handoffs between executors are not used yet |
@@ -153,10 +153,10 @@ Section D counts are computed from these delivered columns.
 | 40 | Context Optimizer | §20 | 2 | context, memory, vcs | Manager (context preview) | Partial | Full | Full | P1: task, referenced files, project rules, relevant memory (FTS), token budget, concise handoff. P2: tree-sitter symbols, relevance ranking, dependency closure (ADR-0024) |
 | 41 | MCP Hub | §19 | 7 | agent-runtime (MCP client), security, core | McpHub | — | Arch | Arch | **Planned P2/P3 Partial; delivered Arch:** only the `McpServer` domain entity exists. No stdio MCP client, no capability gating and no McpHub panel (M2.7 not built). P2: stdio MCP client, servers configured per project, capability gating (CA-4). P3: McpHub panel (status, tools, permissions, secrets, projects). P7: catalogue and community servers |
 | 42 | Secrets Vault | §24 | 1 | security, platform | Settings (Secrets), Environments | Full | Full | Full | Keyring + encrypted vault, scopes, audit, Lock Vault (ADR-0011). Self-hosted and cloud secret providers in Phase 4 |
-| 43 | Environment Manager | §26 | 4 | domain, security, core | Environments | Arch | Arch | Arch | **Planned P2/P3 Partial; delivered Arch:** the `Environment` entity has Dev/Test/Staging/Production kinds and a protected flag, but there is no environment manager, RPC or Environments panel (M2.7 not built). P1: `Environment` entity (Local) for secret scoping. P2: Dev/Test/Staging/Prod definitions, prod flag feeding the guard. P4: remote environments, DB connections |
-| 44 | Deployment Agents | §26 | 4 | orchestrator, security (Deploy), platform | Deployments | Arch | Arch | Arch | `Deploy` capability (always Ask), `Deployment` entity, `DeploymentFinished` event. Providers (Docker, Compose, VPS/SSH, Vercel, Cloudflare, clouds) in Phases 4 and 7 |
+| 43 | Environment Manager | §26 | 4 | domain, security, core | Environments | Arch | Arch | Arch | **Planned P2/P3 Partial; delivered Arch:** the `Environment` entity has Dev/Test/Staging/Production kinds and a protected flag, but there is no environment manager, RPC or Environments panel (M2.7 not built). P1: `Environment` entity (Local) for secret scoping. P2: Dev/Test/Staging/Prod definitions, prod flag feeding the guard. P4: remote environments, DB connections. **P7:** `environments.*` RPC (target + non-secret adapter settings, production always protected) in the Deployments panel (ADR-0041) |
+| 44 | Deployment Agents | §26 | 4 | orchestrator, security (Deploy), platform | Deployments | Arch | Arch | Arch | `Deploy` capability (always Ask), `Deployment` entity, `DeploymentFinished` event. Providers (Docker, Compose, VPS/SSH, Vercel, Cloudflare, clouds) in Phases 4 and 7. **P7 (as built, ADR-0041):** StaticSite + LocalProcess live, Docker gated on PATH, Vercel / Netlify / Fly / Kubernetes request-shape verified against a fake API; guarded production deploys, redacted logs, rollback; Deployments panel. Deferred: AWS / GCP / Azure / Cloudflare, live cloud runs, container sandbox |
 | 45 | Live Infrastructure Monitor | §27 | 4 | node (sysinfo), core | Monitoring, MissionControl | Arch | Partial | Partial | P2: local node CPU/RAM/GPU/disk via `NodeStatus`. P3: shown in Mission Control. P4: services, containers, health checks, remote nodes |
-| 46 | Bug Detective | §27 | 4 | orchestrator, memory, vcs | Logs, Tasks | — | — | — | Builds on #45, #15 and #16 plus production log access (Phase 4). No P1–3 seam beyond the existing Log and Task models |
+| 46 | Bug Detective | §27 | 4 | orchestrator, memory, vcs | Logs, Tasks | — | — | — | Builds on #45, #15 and #16 plus production log access (Phase 4). No P1–3 seam beyond the existing Log and Task models. **P7 (as built, ADR-0042):** incidents from alert / log / test failure / manual; evidence collectors, schema-validated hypothesis, reproduction, fix on `detective/<id>` behind two approval gates, budget cap, no auto-merge; Bug Detective panel. Deferred: APM ingestion, GitHub PRs |
 | 47 | AI Product Manager | §9 | 2 | orchestrator (planning), task-engine | Manager, Tasks | Partial | Full | Full | P1: Manager plan → tasks with acceptance criteria and dependencies → approve → run. P2: Idea → Epic → Features → Stories → AC → Tasks hierarchy. **P2 done (teams-pm):** `pm.*` RPC — structured, validated draft (one repair round), editable in Tasks → Product, approval creates the task hierarchy with dependencies and an approved Manager plan (optional run / team); Manager composer "Product Manager mode" |
 | 48 | Architecture Map | §21 | 3 | context (symbol graph), memory | Architecture | — | Partial | Full | P2: modules, dependencies and APIs extracted from code and memory. P3: Architecture panel visual map. **As built (Phase 2):** new crate `orkestr-insight` (`arch`): Cargo/npm/Python/Go/.NET/dir modules, binaries/Dockerfiles/compose services, compose DBs/SQLite/migrations/ORM schemas, axum/actix/express/nest/fastapi/flask/aspnet/gin/net-http routes + OpenAPI, manifest + import edges, grouped externals; incremental per-file cache, persisted snapshots (`architecture_snapshots`, 50/project), diffs, debounced auto-refresh after `FileChanged`; RPC `architecture.{map,refresh,diff}`, event `ArchitectureMapUpdated`; Architecture panel (React Flow map + list, search, kind filters, details → open in Code, change highlighting, SVG export) already shipped |
 | 49 | Decision Log | §21 | 2 | memory (decisions), events | Decisions | Partial | Full | Full | **Planned P1 Arch; delivered P1 Partial (above plan):** decisions are recorded through the Manager tool and the Memory panel. P1: `Decision` entity, `DecisionRecorded`, created by Manager plan approvals. P2: Decisions panel, consensus alternatives, links to tasks and files |
@@ -195,9 +195,9 @@ Section D counts are computed from these delivered columns.
 | Local-Only | §45 | 1 | sync (LocalOnly), storage | Onboarding, Settings | Full | Full | Full | The only storage mode in P1–3 (RR-A8) |
 | Offline-first | §44, §63I | 4 | all | — | Partial | Partial | Partial | P1–3: editor, Git, terminal, Ollama and snapshots work offline (no network dependency in core paths). **P4:** sync outbox keeps changes while the gateway is down and flushes after it returns (acceptance C) |
 | Cross-device continuation | §43, §63C | 4 | sync, core | — | Arch | Arch | Arch | Resume summary and handoff model reused. **P4 delivered Partial:** Seamless Continue (`sync.continueOn` / `sync.resume`: working tree incl. uncommitted files, UI state, task summary); git history is never touched, so the other device needs the repo at the same commit |
-| Plugin SDK | §48 | 7 | (plugin host), security (`Actor::Plugin`) | — | Arch | Arch | Arch | `Plugin` entity and actor kind. Manifest and sandbox per ADR-0034 |
-| Widget SDK | §48 | 7 | ui, (plugin host) | — | — | — | — | Phase 7. Widgets get no filesystem or secrets access by default |
-| Dashboard Builder | §48 | 7 | ui | — | — | — | — | Phase 7. MissionControl tile model (P3) is the precursor |
+| Plugin SDK | §48 | 7 | (plugin host), security (`Actor::Plugin`) | — | Arch | Arch | Arch | `Plugin` entity and actor kind. Manifest and sandbox per ADR-0034. **P7 (as built):** signed `.orkp`, wasmtime 50 ABI v1 sandbox (fuel, epoch, memory caps, quarantine after 3 traps), grants as permission rules, audited host API, kill switch + safe mode, agent tools `plugin_*`, Rust guest SDK (`crates/plugin-sdk`). Not wired: DeploymentProvider / PlatformIntegration runtime |
+| Widget SDK | §48 | 7 | ui, (plugin host) | — | — | — | — | Phase 7. Widgets get no filesystem or secrets access by default. **P7 (as built):** `@orkestr/widget-sdk` postMessage API; iframe `sandbox="allow-scripts"` + strict CSP (no network), `orkestr-widget` URI scheme in the packaged app; Read-class binding allowlist enforced in the host and in core |
+| Dashboard Builder | §48 | 7 | ui | — | — | — | — | Phase 7. MissionControl tile model (P3) is the precursor. **P7 (as built):** per-project and global dashboards on a 12-column grid with drag / resize, palette of 13 built-ins + plugin widgets, config validated against `configSchema` |
 
 ## C. Cross-cutting requirements (spec sections outside §68 that also must not be lost)
 
@@ -334,28 +334,54 @@ Deferred with reasons (ADR-0033 / ADR-0039; RR-G14 `unimplementedFeature`):
 | Real macOS node | Acceptance simulates macOS with a node profile and a fake `xcodebuild` |
 | Checkpoints through the sync chunk store | Direct blob transfer between cores instead |
 
-## Phase 7 plan of record (Ecosystem)
+## Phase 7 acceptance check (Ecosystem)
 
-Step 0 (skeleton) landed. All Phase 7 RPC methods are registered and
-answer `unimplementedFeature` until their work package lands. The crates,
-services, migration slots, events, policies, panels and `@orkestr/widget-sdk`
-exist. ADRs: 0034, 0040, 0041 and 0042.
+`scripts/smoke/phase7-acceptance.mjs`: a temp `orkestrd` home with
+`ORKESTR_PLUGINS_TRUSTED_KEYS` set to the fixture publisher key, a temp
+gateway (registry), the Mock provider, a git fixture project (tiny HTTP
+service + a test) and `fixtures/fake-cloud-api.mjs`. Condition waits only;
+`--only E2,E5`; report `acceptance.json`.
 
-| Feature | Spec | ADR | Crates / core | UI | Work package | Status |
-|---|---|---|---|---|---|---|
-| Plugin SDK (#48: signed `.orkp`, wasmtime sandbox, grants, kill switch, safe mode; kinds Tool / DeploymentProvider / PlatformIntegration + declarative AgentTemplate / Widget / Mcp) | §48 | 0034 | `orkestr-plugins`, `orkestr-plugin-sdk`, `core/rpc/plugins.rs`, `core/plugin_tools.rs` | Marketplace (Installed) | WP1 | In progress |
-| Agent Marketplace (#1: official / directory / gateway registries, key trust, publish) | §6, §48 | 0040 | `orkestr-marketplace`, `gateway/registry.rs`, `core/rpc/marketplace.rs` | Marketplace | WP2 | In progress |
-| Widget SDK + Dashboard Builder | §48 | 0034 | `packages/widget-sdk`, `core/dashboards_store.rs`, `core/rpc/{dashboards,widgets}.rs` | Dashboards | WP3 | In progress |
-| Deployment Agents (#44: environments, StaticSite / LocalProcess / Docker live, Vercel / Netlify / Fly / Kubernetes request-shape verified, approvals, rollback) | §26 | 0041 | `orkestr-deploy`, `core/rpc/deploy.rs` | Deployments | WP4 | In progress |
-| Live Infrastructure Monitor (#45: node metrics, health checks, log sources, alerts) | §27 | 0042 | `orkestr-monitor`, `core/rpc/monitor.rs` | Monitoring (infra) | WP5 | In progress |
-| Bug Detective (#46: evidence, hypothesis, reproduction, gated fix + merge) | §27 | 0042 | `orkestr-detective`, `core/rpc/detective.rs` | Bug Detective | WP6 | In progress |
+<!-- P7-ACCEPTANCE -->TBD<!-- /P7-ACCEPTANCE -->
 
-Deferred in Phase 7 (RR-G14 `unimplementedFeature`): JS/QuickJS plugins,
-the `Provider` and `Panel` plugin kinds, plugin auto-update, widget network
-access, AWS / GCP / Azure / Cloudflare adapters, live cloud runs, GitHub PR
-creation, a public hosted marketplace (ratings, payments), external APM
-ingestion, deploys inside a container sandbox, mobile/web dashboard editing,
-and Computer Control (ADR-0035).
+| Check | What is checked |
+|---|---|
+| E1 — setup | Core, gateway, mock provider, fixture project, fake cloud API |
+| E2 — plugin SDK | `hello-tool` install → `pendingGrants` → grant → an agent calls `plugin_*` tool; tampered / unsigned rejected; undeclared host denied + audited (`PluginCallDenied`); infinite loop trapped under the timeout; `killAll` → `PluginStateChanged` + invoke refused; safe mode survives a restart |
+| E3 — marketplace | Publish template, widget and plugin to the gateway registry; search; template install appears in `templates.list`; untrusted key needs `trustKey`; tampered index, revoked entry and key-change update refused |
+| E4 — widgets / dashboards | `widgets.list` includes the plugin widget; global + project dashboards saved and read back; bindings to a write or `local_only` method rejected; `widgets.bundle` carries the CSP |
+| E5 — deployments | StaticSite healthy + `DeploymentFinished` Succeeded; LocalProcess healthy; Production → `ApprovalRequested`, deploys after approval; Vercel / Netlify / Fly / Kubernetes against the fake API with the token never in logs, `NeedsCredential` without it; Docker runs or is skipped with a reason; rollback |
+| E6 — monitor | Overview CPU / RAM / disk; a check goes down then up → `HealthCheckChanged` + `AlertRaised` / `AlertResolved`; log tail redacted |
+| E7 — Bug Detective | Broken version deployed → alert → `detective.open` from the alert; evidence with stack trace, deployed version and commit; hypothesis; reproduction fails as expected; `approveFix`; the fix on `detective/<id>` makes the tests pass, review runs, `AwaitingMergeApproval` with the project branch untouched |
+| E8 — security | Emergency stop kills plugins, cancels a deployment and a detective run; a remote viewer is refused `plugins.install` and `deploy.start`; audit records |
+| E9 — deferred | AWS adapter, JS plugins and the `Panel` kind answer `unimplementedFeature` |
+
+| Feature | Spec | ADR | Crates / core | UI | Status |
+|---|---|---|---|---|---|
+| Plugin SDK (#48) | §48 | 0034 | `orkestr-plugins`, `orkestr-plugin-sdk`, `core/rpc/plugins.rs`, `core/plugin_tools.rs` | Marketplace (Installed, permission prompt) | **Done**: signed `.orkp`, trust store, wasmtime ABI v1 (fuel / epoch / memory, quarantine after 3 traps), host API with grants + audit, kill switch, safe mode, `Tool` kind for agents, declarative AgentTemplate / Widget / Mcp, Rust guest SDK + example. **Not done:** DeploymentProvider and PlatformIntegration runtime paths (`subscribes` not delivered) |
+| Agent Marketplace (#1) | §6, §48 | 0040 | `orkestr-marketplace`, `gateway/registry.rs`, `core/rpc/marketplace.rs` | Marketplace | **Done**: official / directory / gateway sources, registry key TOFU, publisher trust + per-package pin, revocation, publish / revoke, install / uninstall |
+| Widget SDK + Dashboard Builder | §48 | 0034 | `packages/widget-sdk`, `core/dashboards_store.rs`, `core/rpc/{dashboards,widgets}.rs` | Dashboards | **Done**: sandboxed iframe + CSP (`orkestr-widget` scheme in the packaged app), Read-only bindings checked in host and core, 12-column builder with config forms |
+| Deployment Agents (#44) + environments (#43) | §26 | 0041 | `orkestr-deploy`, `core/rpc/deploy.rs` | Deployments | **Done** for local targets (StaticSite, LocalProcess; Docker when present); cloud adapters **request-shape verified** only |
+| Live Infrastructure Monitor (#45) | §27 | 0042 | `orkestr-monitor`, `core/rpc/monitor.rs` | Monitoring → Infrastructure | **Done**: metrics, checks, logs, alerts. **Not done:** GPU utilisation, persistent logs, RPC/UI for alert rules and log sources (desktop tail polls every 2 s) |
+| Bug Detective (#46) | §27 | 0042 | `orkestr-detective`, `core/rpc/detective.rs` | Bug Detective | **Done**: full stage machine with two approval gates, evidence, hypothesis, reproduction, fix + tests + review, budget, cancel, restart handling. **Not done:** RPC/UI for detective settings (auto-open stays off); the panel diff is two-dot `HEAD..detective/<id>` |
+
+Deferred with reasons (ADR-0034 / 0040 / 0041 / 0042; RR-G14
+`unimplementedFeature`):
+
+| Item | Reason |
+|---|---|
+| JS / QuickJS plugins | One sandbox (wasmtime) in Phase 7; a second runtime doubles the attack surface |
+| `Provider` and `Panel` plugin kinds | Provider plugins touch credentials and routing; panels need a stable UI extension API |
+| Plugin auto-update | Updates are explicit installs with key continuity checks |
+| Widget network access | Widgets get data only through Read-class RPC bindings (CSP `connect-src 'none'`) |
+| AWS / GCP / Azure / Cloudflare adapters | Not in Phase 7 scope; the `DeployAdapter` trait is the extension point |
+| Live cloud runs | Vercel / Netlify / Fly / Kubernetes are verified against a fake API only |
+| Deploys inside a container sandbox | Deploy commands run with the Terminal capability + guard (residual risk in ADR-0041) |
+| GitHub PR creation | The detective ends with a local `detective/<id>` branch and a merge approval |
+| Public hosted marketplace, ratings, payments | Registries are self-hosted or bundled |
+| External APM ingestion (Sentry, …) | Logs come from files, deployments and `monitor.ingest` |
+| Mobile / web dashboard editing | Dashboards are edited in the desktop app |
+| Computer Control (ADR-0035) | Stays deferred; capability is Deny by default |
 
 ## D. Summary
 
