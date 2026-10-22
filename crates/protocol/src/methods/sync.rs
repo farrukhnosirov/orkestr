@@ -1,0 +1,195 @@
+//! `sync.*` — encrypted workspace / records sync and Seamless Continue
+//! (Phase 4, ADR-0031, `docs/architecture/sync-protocol.md`).
+//!
+//! Step 0 skeleton: types are minimal and may be extended (additively) by the
+//! sync package; handlers currently return `unimplementedFeature`.
+
+use serde::{Deserialize, Serialize};
+use ts_rs::TS;
+
+use orkestr_domain::{ProjectId, Timestamp};
+
+use super::{method, Empty};
+
+/// Params naming a project.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct SyncProjectParams {
+    /// Project.
+    pub project_id: ProjectId,
+}
+
+/// Params of `sync.configure` (local only).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct SyncConfigureParams {
+    /// Project.
+    pub project_id: ProjectId,
+    /// Sync server (gateway) URL; `None` disables remote sync.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub server_url: Option<String>,
+    /// Access token at the sync server.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub access_token: Option<String>,
+    /// Shared remote key (base64url); generated when absent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub remote_key: Option<String>,
+}
+
+/// Sync state of a project.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct SyncStatusInfo {
+    /// Project.
+    pub project_id: ProjectId,
+    /// Remote sync configured.
+    pub configured: bool,
+    /// Last successful sync.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub last_sync_at: Option<Timestamp>,
+    /// Pending outbox items.
+    pub pending: u64,
+    /// Unresolved conflicts.
+    pub conflicts: u32,
+    /// Last error, if any.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub last_error: Option<String>,
+}
+
+/// Result of `sync.now`.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct SyncNowResult {
+    /// Items pushed.
+    pub pushed: u64,
+    /// Items pulled.
+    pub pulled: u64,
+    /// Bytes transferred.
+    pub bytes: u64,
+    /// New conflicts.
+    pub conflicts: u32,
+}
+
+/// Result of `sync.continueOn` (push everything incl. uiState + summary).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct SyncContinueResult {
+    /// When the handoff state was published.
+    pub published_at: Timestamp,
+    /// Result of the sync round.
+    pub report: SyncNowResult,
+}
+
+/// Result of `sync.resume` (pull + restore on this device).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct SyncResumeResult {
+    /// Result of the sync round.
+    pub report: SyncNowResult,
+    /// UI state published by the other device.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub ui_state: Option<serde_json::Value>,
+    /// Human-readable summary of where work stopped.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub summary: Option<String>,
+}
+
+/// A sync conflict (both versions are kept on disk).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct SyncConflictInfo {
+    /// Conflict id.
+    pub id: String,
+    /// Project.
+    pub project_id: ProjectId,
+    /// Path (workspace stream) or record key (records stream).
+    pub path: String,
+    /// Path of the conflict copy.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub conflict_copy: Option<String>,
+    /// Detected at.
+    pub detected_at: Timestamp,
+}
+
+/// Result of `sync.listConflicts`.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct SyncConflictList {
+    /// Conflicts.
+    pub conflicts: Vec<SyncConflictInfo>,
+}
+
+/// How to resolve a conflict.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub enum SyncResolution {
+    /// Keep the local version.
+    KeepLocal,
+    /// Keep the remote version.
+    KeepRemote,
+    /// Keep both (conflict copy stays).
+    KeepBoth,
+}
+
+/// Params of `sync.resolveConflict`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct SyncResolveConflictParams {
+    /// Project.
+    pub project_id: ProjectId,
+    /// Conflict id.
+    pub conflict_id: String,
+    /// Resolution.
+    pub resolution: SyncResolution,
+}
+
+method!(
+    /// `sync.configure` (local only).
+    Configure, "sync.configure", SyncConfigureParams, SyncStatusInfo
+);
+method!(
+    /// `sync.status`.
+    Status, "sync.status", SyncProjectParams, SyncStatusInfo
+);
+method!(
+    /// `sync.now`.
+    Now, "sync.now", SyncProjectParams, SyncNowResult
+);
+method!(
+    /// `sync.continueOn` — Seamless Continue (publish).
+    ContinueOn, "sync.continueOn", SyncProjectParams, SyncContinueResult
+);
+method!(
+    /// `sync.resume` — Seamless Continue (restore).
+    Resume, "sync.resume", SyncProjectParams, SyncResumeResult
+);
+method!(
+    /// `sync.listConflicts`.
+    ListConflicts, "sync.listConflicts", SyncProjectParams, SyncConflictList
+);
+method!(
+    /// `sync.resolveConflict`.
+    ResolveConflict, "sync.resolveConflict", SyncResolveConflictParams, Empty
+);
+method!(
+    /// `sync.rotateKeys` (local only; deferred, always `unimplementedFeature`).
+    RotateKeys, "sync.rotateKeys", SyncProjectParams, Empty
+);

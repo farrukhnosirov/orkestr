@@ -112,5 +112,9 @@
   "lspMessage": "Сообщение языкового сервера (сеанс {{session}})",
   "lspStatus": "Языковой сервер {{server}}: {{state}}",
   "claudeCodeEvent": "Claude Code {{session}}: {{type}}",
-  "claudeCodeStatus": "Claude Code {{session}}: {{state}}"
+  "claudeCodeStatus": "Claude Code {{session}}: {{state}}",
+  "remoteSessionOpened": "Открыт удалённый сеанс с устройства {{device}}",
+  "remoteSessionRevoked": "Удалённый сеанс устройства {{device}} закрыт",
+  "deviceAuthorized": "Устройство «{{name}}» авторизовано",
+  "deviceRevoked": "Устройство {{device}} отозвано"
 }

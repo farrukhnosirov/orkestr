@@ -30,6 +30,7 @@ pub mod logging;
 pub mod migrations;
 pub mod recovery;
 pub mod redact;
+pub mod remote;
 pub mod resume;
 pub mod rpc;
 pub mod server;
@@ -449,6 +450,8 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
         extensions,
         lsp,
         claude,
+        remote: Arc::new(remote::RemoteService::new()),
+        sync: None,
     });
     logging::attach_event_bus(services.events.clone());
 
@@ -500,9 +503,20 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
     // Benchmarks + router statistics + context-index invalidation (Phase 2).
     benchmarks::spawn_collector(Arc::clone(&services), shutdown.clone());
     let router = Arc::new(rpc::build_router());
-    let app = server::app(
-        server::AppState::new(Arc::clone(&services), token.clone(), router, shutdown.clone()).with_port(addr.port()),
-    );
+    let app_state =
+        server::AppState::new(Arc::clone(&services), token.clone(), router, shutdown.clone()).with_port(addr.port());
+    // Remote access (Phase 4): load device registry + CIK, re-dial the tunnel when enabled.
+    if let Err(e) = services.remote.attach(
+        &paths.data_dir,
+        services.events.clone(),
+        Arc::clone(&services.security.audit),
+        server::connection::remote_runner(&app_state),
+        shutdown.clone(),
+        services.version.clone(),
+    ) {
+        tracing::error!(error = %e, "remote access unavailable: cannot load the core identity key");
+    }
+    let app = server::app(app_state);
     let server_shutdown = shutdown.clone();
     let server = tokio::spawn(async move {
         let result = axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>())

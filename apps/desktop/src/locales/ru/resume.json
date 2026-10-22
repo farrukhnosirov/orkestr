@@ -331,6 +331,22 @@
     "VsCodeCommandExecuted_one": "{{count}} запуск команды расширения VS Code",
     "VsCodeCommandExecuted_few": "{{count}} запуска команд расширений VS Code",
     "VsCodeCommandExecuted_many": "{{count}} запусков команд расширений VS Code",
-    "VsCodeCommandExecuted_other": "{{count}} запуска команд расширений VS Code"
+    "VsCodeCommandExecuted_other": "{{count}} запуска команд расширений VS Code",
+    "RemoteSessionOpened_one": "{{count}} открытый удалённый сеанс",
+    "RemoteSessionOpened_few": "{{count}} открытых удалённых сеанса",
+    "RemoteSessionOpened_many": "{{count}} открытых удалённых сеансов",
+    "RemoteSessionOpened_other": "{{count}} открытых удалённых сеанса",
+    "RemoteSessionRevoked_one": "{{count}} закрытый удалённый сеанс",
+    "RemoteSessionRevoked_few": "{{count}} закрытых удалённых сеанса",
+    "RemoteSessionRevoked_many": "{{count}} закрытых удалённых сеансов",
+    "RemoteSessionRevoked_other": "{{count}} закрытых удалённых сеанса",
+    "DeviceAuthorized_one": "{{count}} авторизованное устройство",
+    "DeviceAuthorized_few": "{{count}} авторизованных устройства",
+    "DeviceAuthorized_many": "{{count}} авторизованных устройств",
+    "DeviceAuthorized_other": "{{count}} авторизованных устройства",
+    "DeviceRevoked_one": "{{count}} отозванное устройство",
+    "DeviceRevoked_few": "{{count}} отозванных устройства",
+    "DeviceRevoked_many": "{{count}} отозванных устройств",
+    "DeviceRevoked_other": "{{count}} отозванных устройства"
   }
 }

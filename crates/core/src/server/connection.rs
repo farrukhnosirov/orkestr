@@ -1,4 +1,7 @@
-//! One WebSocket connection: auth handshake, request dispatch, subscriptions.
+//! One RPC session: auth handshake, request dispatch, subscriptions.
+//!
+//! The same session logic serves the local WebSocket ([`run`]) and remote E2E
+//! streams ([`run_channel`], frames already decrypted by `remote::tunnel`).
 
 use std::collections::HashSet;
 use std::net::IpAddr;
@@ -17,7 +20,7 @@ use tokio::sync::{mpsc, oneshot, Semaphore};
 
 use super::AppState;
 use crate::auth::token_matches;
-use crate::rpc::RpcContext;
+use crate::rpc::{Principal, RemotePrincipal, RpcContext};
 
 const AUTH_TIMEOUT: Duration = Duration::from_secs(10);
 const MAX_INFLIGHT_REQUESTS: usize = 64;
@@ -86,12 +89,80 @@ pub(super) async fn run(socket: WebSocket, state: AppState, header_authed: bool,
         let _ = tokio::time::timeout(Duration::from_secs(2), writer).await;
         return;
     }
-    tracing::debug!(%session_id, "rpc session opened");
+    let incoming = stream
+        .take_while(|m| futures::future::ready(matches!(m, Ok(msg) if !matches!(msg, Message::Close(_)))))
+        .filter_map(|m| {
+            futures::future::ready(match m {
+                Ok(Message::Text(t)) => Some(Inbound::Text(t.to_string())),
+                Ok(Message::Binary(_)) => Some(Inbound::Binary),
+                _ => None, // ping/pong handled by axum
+            })
+        });
+    serve(Box::pin(incoming), &state, out_tx, Principal::Local, session_id, peer).await;
+    let _ = tokio::time::timeout(Duration::from_secs(2), writer).await;
+}
 
+/// Runs an RPC session over text channels for `principal` (remote E2E
+/// streams). The client's `auth` frame is accepted and its token ignored —
+/// the principal was established by the E2E handshake (ADR-0030).
+pub(crate) async fn run_channel(
+    state: AppState,
+    principal: Principal,
+    mut incoming: mpsc::Receiver<String>,
+    outgoing: mpsc::Sender<String>,
+) {
+    let session_id = SessionId::new();
+    let (out_tx, mut out_rx) = mpsc::channel::<Outgoing>(OUTBOUND_BUFFER);
+    let writer = tokio::spawn(async move {
+        while let Some(out) = out_rx.recv().await {
+            match out {
+                Outgoing::Frame(frame) => {
+                    let Ok(text) = serde_json::to_string(&frame) else { continue };
+                    if outgoing.send(text).await.is_err() {
+                        break;
+                    }
+                }
+                Outgoing::Close(..) => break,
+            }
+        }
+    });
+    let stream = futures::stream::poll_fn(move |cx| incoming.poll_recv(cx).map(|o| o.map(Inbound::Text)));
+    serve(Box::pin(stream), &state, out_tx, principal, session_id, None).await;
+    let _ = tokio::time::timeout(Duration::from_secs(2), writer).await;
+}
+
+/// An inbound transport message.
+enum Inbound {
+    Text(String),
+    Binary,
+}
+
+async fn serve(
+    mut incoming: std::pin::Pin<Box<dyn futures::Stream<Item = Inbound> + Send + '_>>,
+    state: &AppState,
+    out_tx: mpsc::Sender<Outgoing>,
+    principal: Principal,
+    session_id: SessionId,
+    peer: Option<IpAddr>,
+) {
+    tracing::debug!(%session_id, remote = !principal.is_local(), "rpc session opened");
+    let remote = match &principal {
+        Principal::Remote(rp) => Some(rp.clone()),
+        Principal::Local => None,
+    };
     let (sub_tx, sub_rx) = mpsc::channel::<SubCommand>(32);
-    let forwarder = tokio::spawn(forward_events(state.services.events.clone(), sub_rx, out_tx.clone()));
+    let forwarder = tokio::spawn(forward_events(state.services.events.clone(), sub_rx, out_tx.clone(), remote));
     let inflight = Arc::new(Semaphore::new(MAX_INFLIGHT_REQUESTS));
     let inflight_ids: InflightIds = Arc::new(Mutex::new(HashSet::new()));
+    let conn = Conn {
+        state,
+        out: &out_tx,
+        subs: &sub_tx,
+        inflight: (&inflight, &inflight_ids),
+        session_id,
+        peer,
+        principal: &principal,
+    };
 
     loop {
         tokio::select! {
@@ -99,18 +170,16 @@ pub(super) async fn run(socket: WebSocket, state: AppState, header_authed: bool,
                 let _ = out_tx.send(Outgoing::Close(CLOSE_GOING_AWAY, "core shutting down")).await;
                 break;
             }
-            msg = stream.next() => match msg {
-                None | Some(Err(_)) | Some(Ok(Message::Close(_))) => break,
-                Some(Ok(Message::Text(text))) => {
-                    let keep_open = handle_text(text.as_str(), &state, &out_tx, &sub_tx, (&inflight, &inflight_ids), session_id, peer).await;
-                    if !keep_open {
+            msg = incoming.next() => match msg {
+                None => break,
+                Some(Inbound::Text(text)) => {
+                    if !handle_text(text.as_str(), &conn).await {
                         break;
                     }
                 }
-                Some(Ok(Message::Binary(_))) => {
+                Some(Inbound::Binary) => {
                     let _ = out_tx.send(res(ResFrame::err("", RpcError::bad_request("binary frames are not supported")))).await;
                 }
-                Some(Ok(_)) => {} // ping/pong handled by axum
             }
         }
     }
@@ -119,8 +188,18 @@ pub(super) async fn run(socket: WebSocket, state: AppState, header_authed: bool,
     state.services.files.unwatch_all(&session_id.to_string());
     drop(sub_tx);
     drop(out_tx);
-    let _ = tokio::time::timeout(Duration::from_secs(2), writer).await;
     tracing::debug!(%session_id, "rpc session closed");
+}
+
+/// Per-connection handles for [`handle_text`].
+struct Conn<'a> {
+    state: &'a AppState,
+    out: &'a mpsc::Sender<Outgoing>,
+    subs: &'a mpsc::Sender<SubCommand>,
+    inflight: (&'a Arc<Semaphore>, &'a InflightIds),
+    session_id: SessionId,
+    peer: Option<IpAddr>,
+    principal: &'a Principal,
 }
 
 fn auth_result(state: &AppState, session_id: SessionId) -> serde_json::Value {
@@ -181,15 +260,8 @@ async fn authenticate(
 }
 
 /// Handles one text frame. Returns `false` when the connection must close.
-async fn handle_text(
-    text: &str,
-    state: &AppState,
-    out: &mpsc::Sender<Outgoing>,
-    subs: &mpsc::Sender<SubCommand>,
-    (inflight, inflight_ids): (&Arc<Semaphore>, &InflightIds),
-    session_id: SessionId,
-    peer: Option<IpAddr>,
-) -> bool {
+async fn handle_text(text: &str, conn: &Conn<'_>) -> bool {
+    let Conn { state, out, subs, inflight: (inflight, inflight_ids), session_id, peer, principal } = *conn;
     let frame = match serde_json::from_str::<ClientFrame>(text) {
         Ok(f) => f,
         Err(e) => {
@@ -201,7 +273,8 @@ async fn handle_text(
     };
     match frame {
         ClientFrame::Auth { token, id, .. } => {
-            if token_matches(&state.token, &token) {
+            // Remote sessions: the E2E handshake authenticated the device; the token is ignored.
+            if !principal.is_local() || token_matches(&state.token, &token) {
                 let _ = out.send(res(ResFrame::ok(id, auth_result(state, session_id)))).await;
                 true
             } else {
@@ -227,8 +300,12 @@ async fn handle_text(
             }
             let Ok(permit) = Arc::clone(inflight).acquire_owned().await else { return false };
             let ids = Arc::clone(inflight_ids);
-            let ctx =
-                RpcContext { services: Arc::clone(&state.services), session_id, correlation_id: CorrelationId::new() };
+            let ctx = RpcContext {
+                services: Arc::clone(&state.services),
+                session_id,
+                correlation_id: CorrelationId::new(),
+                principal: principal.clone(),
+            };
             let router = Arc::clone(&state.router);
             let out = out.clone();
             tokio::spawn(async move {
@@ -257,6 +334,13 @@ async fn handle_text(
             true
         }
         ClientFrame::Sub { id, topics } => {
+            if let Principal::Remote(rp) = principal {
+                if let Some(bad) = topics.iter().find(|t| !crate::remote::authz::topic_allowed(rp, t)) {
+                    let err = RpcError::forbidden(format!("topic `{bad}` is not allowed for this device"));
+                    let _ = out.send(res(ResFrame::err(id, err))).await;
+                    return true;
+                }
+            }
             sub_command(out, subs, id, |tx| SubCommand::Add(topics, tx)).await;
             true
         }
@@ -307,7 +391,12 @@ fn lag_notice(dropped: u64) -> ServerFrame {
 }
 
 /// Owns the connection's subscription; applies topic changes and forwards events.
-async fn forward_events(bus: EventBus, mut cmds: mpsc::Receiver<SubCommand>, out: mpsc::Sender<Outgoing>) {
+async fn forward_events(
+    bus: EventBus,
+    mut cmds: mpsc::Receiver<SubCommand>,
+    out: mpsc::Sender<Outgoing>,
+    remote: Option<RemotePrincipal>,
+) {
     let mut sub: Option<Subscription> = None;
     loop {
         tokio::select! {
@@ -344,6 +433,9 @@ async fn forward_events(bus: EventBus, mut cmds: mpsc::Receiver<SubCommand>, out
                 match received {
                     None => break,
                     Some(Received::Event(event)) => {
+                        if remote.as_ref().is_some_and(|rp| !crate::remote::authz::event_visible(rp, &event)) {
+                            continue;
+                        }
                         let frame = ServerFrame::Event { seq: event.seq, event: Box::new((*event).clone()) };
                         if out.send(Outgoing::Frame(Box::new(frame))).await.is_err() {
                             break;
@@ -359,4 +451,27 @@ async fn forward_events(bus: EventBus, mut cmds: mpsc::Receiver<SubCommand>, out
             }
         }
     }
+}
+
+/// Session runner for `remote::RemoteService` (holds the services weakly so
+/// the service graph has no reference cycle).
+pub(crate) fn remote_runner(state: &AppState) -> crate::remote::SessionRunner {
+    let services = Arc::downgrade(&state.services);
+    let token = Arc::clone(&state.token);
+    let router = Arc::clone(&state.router);
+    let shutdown = state.shutdown.clone();
+    let limiter = Arc::clone(&state.limiter);
+    let port = state.port;
+    Arc::new(move |principal, incoming, outgoing| {
+        let services = services.upgrade();
+        let token = Arc::clone(&token);
+        let router = Arc::clone(&router);
+        let shutdown = shutdown.clone();
+        let limiter = Arc::clone(&limiter);
+        Box::pin(async move {
+            let Some(services) = services else { return };
+            let state = AppState { services, token, router, shutdown, port, limiter };
+            run_channel(state, principal, incoming, outgoing).await;
+        })
+    })
 }

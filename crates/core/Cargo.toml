@@ -61,9 +61,17 @@ parking_lot.workspace = true
 sysinfo.workspace = true
 regex.workspace = true
 base64.workspace = true
+# Phase 4 (remote: E2E tunnel, push RFC 8291)
+orkestr-sync.workspace = true
+p256.workspace = true
+sha2.workspace = true
+hkdf.workspace = true
+aes-gcm.workspace = true
+rand_core06.workspace = true
+hmac.workspace = true
+tokio-tungstenite.workspace = true
 
 [dev-dependencies]
-tokio-tungstenite.workspace = true
 tempfile.workspace = true
 
 [lints]

@@ -83,6 +83,20 @@ base64 = "0.22"
 subtle = "2.6"
 hex = "0.4"
 zeroize = "1.8"
+# Phase 4 (remote & sync): E2E (P-256 ECDH/ECDSA, HKDF, AES-GCM), WebAuthn
+# (CBOR), TOTP (HMAC-SHA1), sync signing/sealing, content-defined chunking.
+# RustCrypto 0.x generation uses rand_core 0.6 (`OsRng` via `rand_core06`).
+p256 = { version = "0.13", features = ["ecdh", "ecdsa", "std", "pem"] }
+sha2 = "0.10"
+hkdf = "0.12"
+hmac = "0.12"
+sha1 = "0.10"
+aes-gcm = { version = "0.10", features = ["std"] }
+ed25519-dalek = { version = "2.2", features = ["rand_core"] }
+x25519-dalek = { version = "2.0", features = ["static_secrets"] }
+rand_core06 = { package = "rand_core", version = "0.6", features = ["getrandom"] }
+ciborium = "0.2"
+fastcdc = "3.2"
 
 # --- platform / system ------------------------------------------------------------
 sysinfo = "0.37"

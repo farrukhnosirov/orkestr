@@ -175,6 +175,14 @@
     "ClaudeCodeStatus_one": "{{count}} Claude Code session change",
     "ClaudeCodeStatus_other": "{{count}} Claude Code session changes",
     "VsCodeCommandExecuted_one": "{{count}} VS Code extension command run",
-    "VsCodeCommandExecuted_other": "{{count}} VS Code extension command runs"
+    "VsCodeCommandExecuted_other": "{{count}} VS Code extension command runs",
+    "RemoteSessionOpened_one": "{{count}} remote session opened",
+    "RemoteSessionOpened_other": "{{count}} remote sessions opened",
+    "RemoteSessionRevoked_one": "{{count}} remote session closed",
+    "RemoteSessionRevoked_other": "{{count}} remote sessions closed",
+    "DeviceAuthorized_one": "{{count}} device authorized",
+    "DeviceAuthorized_other": "{{count}} devices authorized",
+    "DeviceRevoked_one": "{{count}} device revoked",
+    "DeviceRevoked_other": "{{count}} devices revoked"
   }
 }

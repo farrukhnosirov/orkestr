@@ -14,7 +14,7 @@
 //!   backoff ([`AuthLimiter`]) — blocked peers get HTTP 429 before upgrade;
 //! * request ids must be unique among a connection's in-flight requests.
 
-mod connection;
+pub(crate) mod connection;
 
 use std::collections::HashMap;
 use std::net::{IpAddr, SocketAddr};

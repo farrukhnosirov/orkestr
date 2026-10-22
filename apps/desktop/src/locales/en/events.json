@@ -96,5 +96,9 @@
   "lspMessage": "Language server message (session {{session}})",
   "lspStatus": "Language server {{server}}: {{state}}",
   "claudeCodeEvent": "Claude Code {{session}}: {{type}}",
-  "claudeCodeStatus": "Claude Code {{session}}: {{state}}"
+  "claudeCodeStatus": "Claude Code {{session}}: {{state}}",
+  "remoteSessionOpened": "Remote session opened from device {{device}}",
+  "remoteSessionRevoked": "Remote session of device {{device}} closed",
+  "deviceAuthorized": "Device “{{name}}” authorized",
+  "deviceRevoked": "Device {{device}} revoked"
 }

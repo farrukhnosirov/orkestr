@@ -1089,6 +1089,14 @@ event_kinds! {
     ClaudeCodeStatus(crate::methods::claude_code::ClaudeCodeStatusPayload),
     /// A VS Code extension command ran through the Orkestr bridge (result or error). Appended.
     VsCodeCommandExecuted(crate::methods::vscode::VsCodeCommandExecutedPayload),
+    /// A paired device completed an E2E handshake (Phase 4, ADR-0030). Appended.
+    RemoteSessionOpened(crate::methods::remote::RemoteSessionPayload),
+    /// A remote session was closed by revocation / kill switch. Appended.
+    RemoteSessionRevoked(crate::methods::remote::RemoteSessionPayload),
+    /// A device was authorized after pairing. Appended.
+    DeviceAuthorized(crate::methods::remote::DeviceAuthorizedPayload),
+    /// A device was revoked. Appended.
+    DeviceRevoked(crate::methods::remote::DeviceRevokedPayload),
 }
 
 // ---------------------------------------------------------------------------

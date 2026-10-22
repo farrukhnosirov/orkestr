@@ -374,6 +374,14 @@ export function describeEvent(event: Event): string {
       return t("events:claudeCodeEvent", { session: short(event.payload.sessionId), type: event.payload.event.type });
     case "ClaudeCodeStatus":
       return t("events:claudeCodeStatus", { session: short(event.payload.session.sessionId), state: event.payload.session.state });
+    case "RemoteSessionOpened":
+      return t("events:remoteSessionOpened", { device: short(event.payload.deviceId) });
+    case "RemoteSessionRevoked":
+      return t("events:remoteSessionRevoked", { device: short(event.payload.deviceId) });
+    case "DeviceAuthorized":
+      return t("events:deviceAuthorized", { name: event.payload.device.name });
+    case "DeviceRevoked":
+      return t("events:deviceRevoked", { device: short(event.payload.deviceId) });
   }
 }
 

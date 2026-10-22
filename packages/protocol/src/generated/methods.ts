@@ -123,7 +123,13 @@ import type { DeleteThemeParams } from "./DeleteThemeParams";
 import type { DeleteThemeResult } from "./DeleteThemeResult";
 import type { DeletedResult } from "./DeletedResult";
 import type { Detection } from "./Detection";
+import type { DeviceApproveParams } from "./DeviceApproveParams";
+import type { DeviceInfo } from "./DeviceInfo";
 import type { DeviceInfoResult } from "./DeviceInfoResult";
+import type { DeviceList } from "./DeviceList";
+import type { DevicePairingStart } from "./DevicePairingStart";
+import type { DeviceRegisterStepUpParams } from "./DeviceRegisterStepUpParams";
+import type { DeviceRevokeParams } from "./DeviceRevokeParams";
 import type { DiffParams } from "./DiffParams";
 import type { DiffResult } from "./DiffResult";
 import type { DiscardParams } from "./DiscardParams";
@@ -292,6 +298,11 @@ import type { ProviderModelsParams } from "./ProviderModelsParams";
 import type { ProviderModelsResult } from "./ProviderModelsResult";
 import type { ProviderStatusResult } from "./ProviderStatusResult";
 import type { ProviderViewResult } from "./ProviderViewResult";
+import type { PushSubscribeParams } from "./PushSubscribeParams";
+import type { PushSubscription } from "./PushSubscription";
+import type { PushTestResult } from "./PushTestResult";
+import type { PushUnsubscribeParams } from "./PushUnsubscribeParams";
+import type { PushVapidKey } from "./PushVapidKey";
 import type { QualityProfile } from "./QualityProfile";
 import type { QualityProjectParams } from "./QualityProjectParams";
 import type { QualityRun } from "./QualityRun";
@@ -300,6 +311,9 @@ import type { ReadFileParams } from "./ReadFileParams";
 import type { ReadFileResult } from "./ReadFileResult";
 import type { RecordVoiceCommandParams } from "./RecordVoiceCommandParams";
 import type { RejectPlanParams } from "./RejectPlanParams";
+import type { RemoteEnableParams } from "./RemoteEnableParams";
+import type { RemoteRevokeAllResult } from "./RemoteRevokeAllResult";
+import type { RemoteStatus } from "./RemoteStatus";
 import type { RemoveDependencyParams } from "./RemoveDependencyParams";
 import type { RemoveKnowledgeResult } from "./RemoveKnowledgeResult";
 import type { RemoveWorktreeParams } from "./RemoveWorktreeParams";
@@ -393,6 +407,14 @@ import type { SpawnAgentResult } from "./SpawnAgentResult";
 import type { StartPipelineParams } from "./StartPipelineParams";
 import type { StopAgentParams } from "./StopAgentParams";
 import type { StopProjectParams } from "./StopProjectParams";
+import type { SyncConfigureParams } from "./SyncConfigureParams";
+import type { SyncConflictList } from "./SyncConflictList";
+import type { SyncContinueResult } from "./SyncContinueResult";
+import type { SyncNowResult } from "./SyncNowResult";
+import type { SyncProjectParams } from "./SyncProjectParams";
+import type { SyncResolveConflictParams } from "./SyncResolveConflictParams";
+import type { SyncResumeResult } from "./SyncResumeResult";
+import type { SyncStatusInfo } from "./SyncStatusInfo";
 import type { SynthesizeParams } from "./SynthesizeParams";
 import type { SynthesizeResult } from "./SynthesizeResult";
 import type { SystemChecksResult } from "./SystemChecksResult";
@@ -781,6 +803,27 @@ export type Methods = {
   "claudeCode.setChatMeta": [ClaudeSetChatMetaParams, ClaudeChatMeta];
   "claudeCode.openInTerminal": [ClaudeOpenInTerminalParams, ClaudeLoginResult];
   "claudeCode.rewind": [ClaudeRewindParams, ClaudeRewindResult];
+  "remote.enable": [RemoteEnableParams, RemoteStatus];
+  "remote.disable": [Empty, RemoteStatus];
+  "remote.status": [Empty, RemoteStatus];
+  "remote.revokeAllSessions": [Empty, RemoteRevokeAllResult];
+  "devices.startPairing": [Empty, DevicePairingStart];
+  "devices.approve": [DeviceApproveParams, DeviceInfo];
+  "devices.list": [Empty, DeviceList];
+  "devices.revoke": [DeviceRevokeParams, Empty];
+  "devices.registerStepUp": [DeviceRegisterStepUpParams, Empty];
+  "sync.configure": [SyncConfigureParams, SyncStatusInfo];
+  "sync.status": [SyncProjectParams, SyncStatusInfo];
+  "sync.now": [SyncProjectParams, SyncNowResult];
+  "sync.continueOn": [SyncProjectParams, SyncContinueResult];
+  "sync.resume": [SyncProjectParams, SyncResumeResult];
+  "sync.listConflicts": [SyncProjectParams, SyncConflictList];
+  "sync.resolveConflict": [SyncResolveConflictParams, Empty];
+  "sync.rotateKeys": [SyncProjectParams, Empty];
+  "push.vapidKey": [Empty, PushVapidKey];
+  "push.subscribe": [PushSubscribeParams, PushSubscription];
+  "push.unsubscribe": [PushUnsubscribeParams, Empty];
+  "push.test": [Empty, PushTestResult];
 };
 
 /** All implemented method names. */
@@ -1105,6 +1148,27 @@ export const METHOD_NAMES = [
   "claudeCode.setChatMeta",
   "claudeCode.openInTerminal",
   "claudeCode.rewind",
+  "remote.enable",
+  "remote.disable",
+  "remote.status",
+  "remote.revokeAllSessions",
+  "devices.startPairing",
+  "devices.approve",
+  "devices.list",
+  "devices.revoke",
+  "devices.registerStepUp",
+  "sync.configure",
+  "sync.status",
+  "sync.now",
+  "sync.continueOn",
+  "sync.resume",
+  "sync.listConflicts",
+  "sync.resolveConflict",
+  "sync.rotateKeys",
+  "push.vapidKey",
+  "push.subscribe",
+  "push.unsubscribe",
+  "push.test",
 ] as const;
 
 /** Wire protocol version (see orkestr-protocol PROTOCOL_VERSION). */
@@ -1185,6 +1249,10 @@ export const EVENT_KINDS = [
   "ClaudeCodeEvent",
   "ClaudeCodeStatus",
   "VsCodeCommandExecuted",
+  "RemoteSessionOpened",
+  "RemoteSessionRevoked",
+  "DeviceAuthorized",
+  "DeviceRevoked",
 ] as const;
 
 /** UI config schema version (see orkestr-protocol ui_config). */
