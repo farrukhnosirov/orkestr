@@ -4077,6 +4077,7 @@ dependencies = [
  "base64 0.22.1",
  "chrono",
  "ed25519-dalek",
+ "futures",
  "hex",
  "orkestr-domain",
  "orkestr-events",
@@ -4084,6 +4085,8 @@ dependencies = [
  "orkestr-security",
  "orkestr-storage",
  "parking_lot",
+ "rand_core 0.6.4",
+ "reqwest 0.12.28",
  "semver",
  "serde",
  "serde_json",
@@ -4094,6 +4097,7 @@ dependencies = [
  "tokio-util",
  "tracing",
  "wasmtime",
+ "wat",
  "zip",
 ]
 
