@@ -9,7 +9,7 @@
 //! * `POST /v1/auth/login/finish {ceremonyId, credential}` → `{token, accountId}` + cookie
 //! * `POST /v1/auth/totp/setup` (session) → `{secret, uri}`; `POST /v1/auth/totp/confirm {code}` (session)
 //! * `POST /v1/auth/totp/login {code}` → `{token, accountId}` + cookie
-//! * `POST /v1/auth/logout`
+//! * `POST /v1/auth/logout`; `POST /v1/auth/panic` (session): drop every session and tunnel of the account
 //! * `POST /v1/cores/enrollment-token` (session) → `{token, expiresAt}`; `GET /v1/cores` (session)
 //! * `GET  /v1/audit` (session)
 
@@ -375,4 +375,18 @@ pub async fn cores(State(st): State<GatewayState>, headers: HeaderMap) -> Result
 pub async fn audit(State(st): State<GatewayState>, headers: HeaderMap) -> Result<Json<Value>, ApiError> {
     let account = require(&st, &headers)?;
     Ok(Json(json!({ "entries": st.store.audit_list(&account, 500) })))
+}
+
+/// `POST /v1/auth/panic` (session): drops every session and core tunnel of
+/// the account (remote-access.md §8 "account panic").
+pub async fn panic(
+    State(st): State<GatewayState>,
+    ClientIp(ip): ClientIp,
+    headers: HeaderMap,
+) -> Result<Json<Value>, ApiError> {
+    let account = require(&st, &headers)?;
+    let sessions = st.store.delete_sessions(&account);
+    st.relay.drop_account(&account);
+    st.store.audit(Some(&account), "auth.panic", Some(&ip), &json!({ "sessions": sessions }));
+    Ok(Json(json!({ "ok": true, "sessionsDropped": sessions })))
 }

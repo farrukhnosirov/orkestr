@@ -268,6 +268,7 @@ pub fn router(st: GatewayState, cfg: &GatewayConfig) -> anyhow::Result<Router> {
         .route("/v1/auth/totp/confirm", post(auth::totp_confirm))
         .route("/v1/auth/totp/login", post(auth::totp_login))
         .route("/v1/auth/logout", post(auth::logout))
+        .route("/v1/auth/panic", post(auth::panic))
         .route("/v1/cores", get(auth::cores))
         .route("/v1/cores/enrollment-token", post(auth::enrollment_token))
         .route("/v1/audit", get(auth::audit))

@@ -229,6 +229,11 @@ impl Store {
         Some(account)
     }
 
+    /// Deletes every session of an account ("panic").
+    pub fn delete_sessions(&self, account: &str) -> usize {
+        self.conn.lock().execute("DELETE FROM sessions WHERE account_id=?1", params![account]).unwrap_or(0)
+    }
+
     /// Deletes a session.
     pub fn delete_session(&self, token: &str) {
         let _ = self.conn.lock().execute("DELETE FROM sessions WHERE token_hash=?1", params![token_hash(token)]);

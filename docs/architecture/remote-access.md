@@ -6,12 +6,18 @@ MFA/passkey) and E (Mobile approval). Implementation: **Phase 4** (web), **Phase
 (mobile + push). Phase 1–3 obligations are listed in §11 so nothing built earlier blocks
 this design.
 
-**Implementation status (2026-10-02):** design only. What exists that this
-design builds on: loopback-only RPC with a `Host` check and constant-time
-bearer token (`../api/protocol.md` §0), `Actor = User | Agent | Manager |
-System` (no `RemoteDevice` yet), `Device`/`DeviceKind` domain types. The
-`hello` frame of the E2E handshake is the P4 transport frame, distinct from
-the local protocol, where `hello` is still planned.
+**Implementation status (2026-10-22):** Phase 4 web half implemented —
+see ADR-0030 for decisions and deviations. Built: `orkestr-gateway` (SQLite,
+passkey + TOTP, sessions, enrollment, tunnel with CIK challenge instead of
+mTLS, opaque relay, pairing relay, audit, rate limits, `/v1/sync`, static web
+client; no TLS — loopback or `--behind-tls-proxy`), `orkestr-core::remote`
+(`e2e-v1` with published test vector, device registry, pairing with codeMac +
+SAS, step-up verified in Core, kill switch, revocation), MethodPolicy
+enforcement in `RpcRouter::dispatch`, `Actor::RemoteDevice`, events
+`RemoteSessionOpened/Revoked`, `DeviceAuthorized`, `DeviceRevoked`. Deviations
+from this document: CIK is P-256 (no X.509/mTLS), record AAD is the counter
+only, the remote client's `auth` frame is accepted and its token ignored,
+PostgreSQL deferred. Mobile/native push stays P5.
 
 Binding: `docs/ENGINEERING_CONTRACT.md` (C§N). Threat analysis: `docs/security/threat-model.md`
 (TB9, TB11; requirements SR-60..66, SR-77..79).
