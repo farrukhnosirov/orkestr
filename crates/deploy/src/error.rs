@@ -48,6 +48,9 @@ impl From<DeployError> for RpcError {
             DeployError::Denied(m) => RpcError::forbidden(m),
             DeployError::Conflict(m) => RpcError::conflict(m),
             DeployError::Unimplemented(f) => RpcError::unimplemented_feature(f),
+            DeployError::Unavailable(m) => RpcError::bad_request(format!("adapter unavailable: {m}"))
+                .with_data(serde_json::json!({ "reason": "adapterUnavailable" })),
+            DeployError::Cancelled => RpcError::conflict("cancelled"),
             other => RpcError::internal(other.to_string()),
         }
     }

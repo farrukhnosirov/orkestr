@@ -311,3 +311,81 @@ async fn missing_token_and_api_errors_are_redacted() {
     assert!(matches!(err, DeployError::Failed(_)));
     assert_no_token("error", &err.to_string());
 }
+
+/// The smoke fixture `scripts/smoke/fixtures/fake-cloud-api.mjs` accepts every
+/// request the adapters send (auth + shapes), so acceptance runs can rely on it.
+#[tokio::test]
+async fn fake_cloud_api_fixture_accepts_every_adapter() {
+    use tokio::io::AsyncBufReadExt;
+    let Some(node) = orkestr_platform::process::which("node") else {
+        eprintln!("skipped: node is not on PATH");
+        return;
+    };
+    let script = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../scripts/smoke/fixtures/fake-cloud-api.mjs");
+    let mut child = tokio::process::Command::new(node)
+        .arg(&script)
+        .args(["--port", "0", "--token", TOKEN])
+        .stdout(std::process::Stdio::piped())
+        .kill_on_drop(true)
+        .spawn()
+        .unwrap();
+    let mut lines = tokio::io::BufReader::new(child.stdout.take().unwrap()).lines();
+    let first = lines.next_line().await.unwrap().unwrap();
+    let base = serde_json::from_str::<Value>(&first).unwrap()["base"].as_str().unwrap().to_owned();
+    let dir = tempfile::tempdir().unwrap();
+    site(dir.path());
+    let b = Some(base.clone());
+    let cases: Vec<(Box<dyn DeployAdapter>, DeployRequest)> = vec![
+        (
+            Box::new(VercelAdapter::with_base(b.clone())),
+            request(
+                dir.path(),
+                DeploymentTarget::Vercel,
+                &[("project", "site"), ("dir", "dist")],
+                "VERCEL_TOKEN",
+                true,
+            ),
+        ),
+        (
+            Box::new(NetlifyAdapter::with_base(b.clone())),
+            request(dir.path(), DeploymentTarget::Netlify, &[("siteId", "site1")], "NETLIFY_AUTH_TOKEN", true),
+        ),
+        (
+            Box::new(FlyAdapter::with_base(b.clone())),
+            request(
+                dir.path(),
+                DeploymentTarget::Fly,
+                &[("app", "app1"), ("image", "img:{version}")],
+                "FLY_API_TOKEN",
+                true,
+            ),
+        ),
+        (
+            Box::new(KubernetesAdapter::with_base(b.clone())),
+            request(
+                dir.path(),
+                DeploymentTarget::Kubernetes,
+                &[("deployment", "web"), ("image", "img:{version}")],
+                "KUBE_TOKEN",
+                true,
+            ),
+        ),
+    ];
+    for (a, req) in &cases {
+        let out = a.deploy(req, sink().0, CancellationToken::new()).await;
+        assert!(out.is_ok(), "{} vs fake API: {:?}", a.id(), out.err());
+    }
+    // Vercel + Netlify rollbacks against the ids the fake handed out.
+    let (v, vr) = &cases[0];
+    let first_vercel = reqwest::get(format!("{base}/__requests")).await.unwrap().json::<Vec<Value>>().await.unwrap();
+    assert!(first_vercel.iter().any(|r| r["path"] == "/v13/deployments"));
+    v.rollback_to(vr, &earlier(DeploymentTarget::Vercel, "dpl_1"), sink().0, CancellationToken::new()).await.unwrap();
+    let recs = reqwest::get(format!("{base}/__requests")).await.unwrap().json::<Vec<Value>>().await.unwrap();
+    assert!(recs.len() > 10);
+    for r in &recs {
+        assert_eq!(r["authOk"], true, "{r}");
+        assert_eq!(r["shapeOk"], true, "{r}");
+    }
+    assert_no_token("fake API log", &serde_json::to_string(&recs).unwrap());
+    let _ = child.kill().await;
+}
