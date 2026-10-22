@@ -14,7 +14,10 @@ import { topic } from "@orkestr/protocol";
 import { Spinner } from "@orkestr/ui";
 import type { FitAddon } from "@xterm/addon-fit";
 import type { Terminal } from "@xterm/xterm";
+import { ClipboardPaste, Copy, Eraser, TextSelect } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+
+import { readClipboardText, useContextMenu, writeClipboardText } from "../../features/contextMenu";
 
 import { t as i18nT, useT } from "../../i18n";
 import { terminalTitle } from "../../lib/coreText";
@@ -33,7 +36,7 @@ export interface TerminalViewProps {
 const RESIZE_DEBOUNCE_MS = 60;
 
 export function TerminalView({ client, session, active, onExited }: TerminalViewProps) {
-  const { t } = useT("terminal");
+  const { t } = useT(["terminal", "contextMenu"]);
   const hostRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
@@ -219,8 +222,36 @@ export function TerminalView({ client, session, active, onExited }: TerminalView
     }
   }, [readOnly, running, ready]);
 
+  // Orkestr context menu: Copy, Paste, Clear, Select all.
+  const menu = useContextMenu(
+    () => {
+      const term = termRef.current;
+      if (!term) return [];
+      const canWrite = !readOnly && runningRef.current;
+      return [
+        { id: "term.copy", label: t("contextMenu:terminal.copy"), icon: <Copy size={14} />, shortcut: "Ctrl+Shift+C", disabled: !term.hasSelection(), onSelect: () => void writeClipboardText(term.getSelection()) },
+        {
+          id: "term.paste",
+          label: t("contextMenu:terminal.paste"),
+          icon: <ClipboardPaste size={14} />,
+          shortcut: "Ctrl+Shift+V",
+          disabled: !canWrite,
+          onSelect: async () => {
+            const text = await readClipboardText();
+            if (text) term.paste(text);
+            term.focus();
+          },
+        },
+        { kind: "separator", id: "term.s1" },
+        { id: "term.selectAll", label: t("contextMenu:terminal.selectAll"), icon: <TextSelect size={14} />, onSelect: () => term.selectAll() },
+        { id: "term.clear", label: t("contextMenu:terminal.clear"), icon: <Eraser size={14} />, onSelect: () => term.clear() },
+      ];
+    },
+    { replaceDefaults: true },
+  );
+
   return (
-    <div className="term-view" hidden={!active} data-terminal-id={terminalId}>
+    <div className="term-view" hidden={!active} data-terminal-id={terminalId} {...menu}>
       <div
         ref={hostRef}
         className="term-view__host"

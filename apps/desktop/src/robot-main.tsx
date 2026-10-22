@@ -9,6 +9,7 @@ import "./features/robots/window/robot-window.css";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
+import { ContextMenuProvider } from "./features/contextMenu";
 import "./i18n";
 import { RobotApp } from "./features/robots/window/RobotApp";
 
@@ -17,6 +18,9 @@ if (!root) throw new Error("#root element missing");
 
 createRoot(root).render(
   <StrictMode>
-    <RobotApp />
+    {/* No browser menu on the robots either (items only where text is selected / editable). */}
+    <ContextMenuProvider>
+      <RobotApp />
+    </ContextMenuProvider>
   </StrictMode>,
 );

@@ -6,6 +6,9 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
 import { App } from "./App";
+import { ContextMenuProvider, setContextMenuEnvironment } from "./features/contextMenu";
+import { askManager } from "./features/files/actions";
+import { SEARCH_PREFIX, usePaletteStore } from "./features/search/paletteStore";
 import { DetachedPanelApp } from "./features/layout/DetachedPanelApp";
 import { parseDetachedRoute } from "./features/layout/route";
 import { HudApp } from "./features/hud/HudApp";
@@ -13,7 +16,7 @@ import { isHudWindow } from "./features/hud/hudWindow";
 import "./i18n";
 import { installLanguageEffects } from "./lib/language";
 import { installWidgetDocumentLoader } from "./lib/tauri";
-import { ownActiveProject } from "./store/app";
+import { ownActiveProject, useAppStore } from "./store/app";
 
 installLanguageEffects();
 
@@ -27,10 +30,20 @@ const hud = !detached && isHudWindow();
 if (!detached && !hud) ownActiveProject();
 // Plugin widgets (dashboards) render in the main shell and detached panels.
 if (!hud) installWidgetDocumentLoader();
+// Orkestr's own context menu: window-specific default actions on selected text.
+if (!hud) {
+  setContextMenuEnvironment({
+    askManager: (text) => askManager({ text, projectId: useAppStore.getState().activeProjectId }),
+    // Global search lives in the main window's command palette.
+    ...(detached ? {} : { searchInOrkestr: (text: string) => usePaletteStore.getState().openPalette(`${SEARCH_PREFIX}${text}`) }),
+  });
+}
 
 createRoot(root).render(
   <StrictMode>
-    {/* Exactly one root per window: detached panel, HUD, or the main shell. */}
-    {detached ? <DetachedPanelApp route={detached} /> : hud ? <HudApp /> : <App />}
+    <ContextMenuProvider>
+      {/* Exactly one root per window: detached panel, HUD, or the main shell. */}
+      {detached ? <DetachedPanelApp route={detached} /> : hud ? <HudApp /> : <App />}
+    </ContextMenuProvider>
   </StrictMode>,
 );

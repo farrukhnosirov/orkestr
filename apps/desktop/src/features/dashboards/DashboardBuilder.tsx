@@ -13,6 +13,7 @@ import { Check, GripVertical, LayoutGrid, Pencil, Plus, Puzzle, Scaling, Setting
 import { type FormEvent, type KeyboardEvent, type PointerEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { getClient } from "../../core/client";
+import { contextMenuHandler } from "../contextMenu";
 import { useT } from "../../i18n";
 import { errorMessage, useRpcQuery } from "../../lib/rpcQuery";
 import { useAppStore } from "../../store/app";
@@ -262,7 +263,20 @@ export function DashboardBuilder() {
             aria-label={title}
             data-instance={item.instanceId}
           >
-            <header className="mc-widget__head">
+            <header
+              className="mc-widget__head"
+              onContextMenu={contextMenuHandler(() => [
+                { id: "widget.configure", label: t("grid.configure"), icon: <Settings2 size={14} />, onSelect: () => setConfiguring(item.instanceId) },
+                {
+                  id: "widget.width",
+                  label: t("grid.widthPreset"),
+                  icon: <Scaling size={14} />,
+                  onSelect: () => void persist({ widgets: resizeItem(items, item.instanceId, nextWidthPreset(item.w), item.h) }),
+                },
+                { kind: "separator", id: "widget.s1" },
+                { id: "widget.remove", label: t("grid.remove"), icon: <X size={14} />, danger: true, onSelect: () => void persist({ widgets: removeItem(items, item.instanceId) }) },
+              ])}
+            >
               {editing && (
                 <span
                   className="mc-widget__grip dsh-grip"

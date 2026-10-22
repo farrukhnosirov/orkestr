@@ -30,6 +30,7 @@ mod app_commands;
 mod hud;
 pub mod stop_all;
 pub mod vscode_window;
+mod webview_policy;
 mod widget_scheme;
 pub mod windows;
 
@@ -409,6 +410,8 @@ pub fn run() {
         // Native folder/file pickers ("Browse…", File → Open). Only `dialog:allow-open`
         // is granted, and only to the main and detached panel windows (capabilities).
         .plugin(tauri_plugin_dialog::init())
+        // Orkestr's own context menu replaces the WebView2 one in every app window.
+        .plugin(webview_policy::plugin())
         .manage(CoreState { ready: ready_rx, handle: Arc::clone(&handle_slot) })
         .manage(ShellState {
             close_to_tray: AtomicBool::new(true),

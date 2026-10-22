@@ -34,7 +34,8 @@
 //!   then calls fail with an explicit [`PlatformError::NotSupported`].
 //!
 //! The only `unsafe` in the workspace is the documented Win32 FFI call in
-//! [`power`] (`GetSystemPowerStatus`).
+//! [`power`] (`GetSystemPowerStatus`) and the WebView2 COM calls in
+//! [`webview_shell`] (feature `webview2`, desktop shell only).
 #![deny(unsafe_code)]
 #![warn(missing_docs)]
 
@@ -55,6 +56,7 @@ pub mod resources;
 pub mod shell;
 pub mod signals;
 pub mod webview;
+pub mod webview_shell;
 
 use std::sync::Arc;
 

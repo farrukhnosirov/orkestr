@@ -1,0 +1,122 @@
+/*
+ * Orkestr context menu. Theme tokens only (light/dark follow the theme);
+ * the entrance animation uses `--ok-duration-fast` and is switched off with
+ * the rest of the motion by Performance Mode (`data-ok-motion="off"`), the
+ * blur by `data-ok-blur="off"`.
+ */
+.ok-ctxmenu {
+  position: fixed;
+  z-index: calc(var(--ok-z-overlay) + 20);
+  min-width: 220px;
+  max-width: min(420px, calc(100vw - 8px));
+  max-height: calc(100vh - 8px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: var(--ok-space-1);
+  border-radius: var(--ok-radius-md);
+  border: 1px solid var(--ok-color-border-strong);
+  /* opaque base: content behind a floating surface must not ghost through */
+  background: var(--ok-gradient-panel), linear-gradient(var(--ok-color-surface-strong), var(--ok-color-surface-strong)), var(--ok-color-bg);
+  backdrop-filter: blur(var(--ok-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--ok-blur)) saturate(150%);
+  box-shadow: var(--ok-shadow-panel);
+  color: var(--ok-color-text);
+  font-family: var(--ok-font-sans);
+  font-size: var(--ok-font-size-md);
+  user-select: none;
+  outline: none;
+  animation: ok-ctxmenu-in var(--ok-duration-fast) var(--ok-ease);
+}
+
+@keyframes ok-ctxmenu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-2px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.ok-ctxmenu__item {
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-2);
+  height: 28px;
+  padding: 0 var(--ok-space-2);
+  border-radius: var(--ok-radius-sm);
+  color: var(--ok-color-text-muted);
+  white-space: nowrap;
+  cursor: default;
+}
+
+.ok-ctxmenu__item--active:not([aria-disabled="true"]) {
+  background: var(--ok-color-surface-active);
+  color: var(--ok-color-text);
+}
+
+.ok-ctxmenu:focus-visible .ok-ctxmenu__item--active:not([aria-disabled="true"]) {
+  box-shadow: inset 0 0 0 1px var(--ok-color-border-strong);
+}
+
+.ok-ctxmenu__item[aria-disabled="true"] {
+  opacity: 0.42;
+}
+
+.ok-ctxmenu__item--danger.ok-ctxmenu__item--active:not([aria-disabled="true"]) {
+  background: var(--ok-color-danger-soft);
+  color: var(--ok-color-danger);
+}
+
+.ok-ctxmenu__item--danger .ok-ctxmenu__icon {
+  color: var(--ok-color-danger);
+}
+
+.ok-ctxmenu__icon {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 16px;
+  color: var(--ok-color-text-subtle);
+}
+
+.ok-ctxmenu__item--active .ok-ctxmenu__icon {
+  color: var(--ok-color-accent);
+}
+
+.ok-ctxmenu__label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ok-ctxmenu__shortcut {
+  flex: none;
+  margin-left: var(--ok-space-4);
+  color: var(--ok-color-text-subtle);
+  font-family: var(--ok-font-mono);
+  font-size: var(--ok-font-size-xs);
+}
+
+.ok-ctxmenu__chevron {
+  flex: none;
+  margin-left: var(--ok-space-4);
+  color: var(--ok-color-text-subtle);
+}
+
+.ok-ctxmenu__sep {
+  height: 1px;
+  margin: var(--ok-space-1) var(--ok-space-2);
+  background: var(--ok-color-border);
+}
+
+.ok-ctxmenu__group {
+  padding: var(--ok-space-1) var(--ok-space-2) 2px;
+  color: var(--ok-color-text-subtle);
+  font-size: var(--ok-font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}

@@ -12,6 +12,7 @@ import type { Event } from "@orkestr/protocol";
 import { topic } from "@orkestr/protocol";
 import { Badge, Button, EmptyState } from "@orkestr/ui";
 import {
+  Copy,
   FileDown,
   Power,
   PowerOff,
@@ -26,6 +27,7 @@ import {
 import { useCallback, useEffect, useState } from "react";
 
 import { PathInput } from "../../components/PathInput";
+import { contextMenuHandler, writeClipboardText } from "../contextMenu";
 import { Overlay } from "../../components/Overlay";
 import { maybeClient } from "../../core/client";
 import { useT } from "../../i18n";
@@ -68,7 +70,7 @@ export function PluginsManager({
   /** External reload trigger. */
   version?: number;
 }) {
-  const { t } = useT(["marketplace", "security", "common"]);
+  const { t } = useT(["marketplace", "security", "common", "contextMenu"]);
   const [plugins, setPlugins] = useState<PluginInfo[]>([]);
   const [safeMode, setSafeMode] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -325,7 +327,40 @@ export function PluginsManager({
             const id = p.plugin.id;
             const action = toggleAction(p);
             return (
-              <li key={id} className="mp-row pl-row" data-plugin={p.plugin.packageId}>
+              <li
+                key={id}
+                className="mp-row pl-row"
+                data-plugin={p.plugin.packageId}
+                onContextMenu={contextMenuHandler(() => [
+                  {
+                    id: "plugin.decide",
+                    label: t("plugins.decide"),
+                    icon: <ShieldCheck size={14} />,
+                    hidden: action !== "decide",
+                    onSelect: () => setDecide({ pluginId: id, name: p.plugin.name, pending: p.pendingGrants }),
+                  },
+                  {
+                    id: "plugin.enable",
+                    label: t("plugins.enable"),
+                    icon: <Power size={14} />,
+                    hidden: action !== "enable",
+                    disabled: safeMode,
+                    onSelect: () => void run(`e:${id}`, () => pluginsApi.enable(id), t("plugins.enabled", { name: p.plugin.name })),
+                  },
+                  {
+                    id: "plugin.disable",
+                    label: t("plugins.disable"),
+                    icon: <PowerOff size={14} />,
+                    hidden: action !== "disable",
+                    onSelect: () => void run(`e:${id}`, () => pluginsApi.disable(id), t("plugins.disabled", { name: p.plugin.name })),
+                  },
+                  { id: "plugin.logs", label: t("plugins.logs"), icon: <ScrollText size={14} />, onSelect: () => setLogsFor(p) },
+                  { kind: "separator", id: "plugin.s1" },
+                  { id: "plugin.copyId", label: t("contextMenu:plugins.copyPackageId"), icon: <Copy size={14} />, onSelect: () => void writeClipboardText(p.plugin.packageId) },
+                  { kind: "separator", id: "plugin.s2" },
+                  { id: "plugin.uninstall", label: `${t("action.uninstall")}…`, icon: <Trash2 size={14} />, danger: true, onSelect: () => setConfirm({ kind: "uninstall", plugin: p }) },
+                ])}
+              >
                 <div className="mp-row__main">
                   <div className="pl-row__title">
                     <strong>{p.plugin.name}</strong>{" "}
