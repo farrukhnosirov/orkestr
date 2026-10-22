@@ -408,7 +408,7 @@ export function OrbApp() {
             onOpenApprovals={() => void orbShell.toMain("open-approvals")}
             onClose={() => {
               close();
-              sphereRef.current?.focus();
+              sphereRef.current?.focus({ preventScroll: true });
             }}
           />
         </div>

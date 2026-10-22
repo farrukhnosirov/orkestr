@@ -1,0 +1,252 @@
+{
+  "date": "2026-10-22T23:26:32.691Z",
+  "result": "24/24 checks passed",
+  "checks": [
+    {
+      "id": "O0",
+      "label": "seeded projects and agents",
+      "ok": true,
+      "detail": "3 agents"
+    },
+    {
+      "id": "O1",
+      "label": "the orb window opened (single window, label orb)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "id": "O2",
+      "label": "no robot windows remain",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "id": "M-idle-dark",
+      "label": "orb shows idle (dark)",
+      "ok": true,
+      "detail": "idle"
+    },
+    {
+      "id": "M-working-dark",
+      "label": "orb shows working (dark)",
+      "ok": true,
+      "detail": "working"
+    },
+    {
+      "id": "M-approval-dark",
+      "label": "orb shows approval (dark)",
+      "ok": true,
+      "detail": "approval"
+    },
+    {
+      "id": "M-error-dark",
+      "label": "orb shows error (dark)",
+      "ok": true,
+      "detail": "error"
+    },
+    {
+      "id": "M-listening-dark",
+      "label": "orb shows listening (dark)",
+      "ok": true,
+      "detail": "listening"
+    },
+    {
+      "id": "M-speaking-dark",
+      "label": "orb shows speaking (dark)",
+      "ok": true,
+      "detail": "speaking"
+    },
+    {
+      "id": "M-stopped-dark",
+      "label": "orb shows stopped (dark)",
+      "ok": true,
+      "detail": "stopped"
+    },
+    {
+      "id": "H-en-dark",
+      "label": "Agent Hub opens next to the orb (en, dark)",
+      "ok": true,
+      "detail": "3 rows"
+    },
+    {
+      "id": "H-ru-dark",
+      "label": "Agent Hub opens next to the orb (ru, dark)",
+      "ok": true,
+      "detail": "3 rows"
+    },
+    {
+      "id": "M-idle-light",
+      "label": "orb shows idle (light)",
+      "ok": true,
+      "detail": "idle"
+    },
+    {
+      "id": "M-working-light",
+      "label": "orb shows working (light)",
+      "ok": true,
+      "detail": "working"
+    },
+    {
+      "id": "M-approval-light",
+      "label": "orb shows approval (light)",
+      "ok": true,
+      "detail": "approval"
+    },
+    {
+      "id": "M-error-light",
+      "label": "orb shows error (light)",
+      "ok": true,
+      "detail": "error"
+    },
+    {
+      "id": "M-listening-light",
+      "label": "orb shows listening (light)",
+      "ok": true,
+      "detail": "listening"
+    },
+    {
+      "id": "M-speaking-light",
+      "label": "orb shows speaking (light)",
+      "ok": true,
+      "detail": "speaking"
+    },
+    {
+      "id": "M-stopped-light",
+      "label": "orb shows stopped (light)",
+      "ok": true,
+      "detail": "stopped"
+    },
+    {
+      "id": "H-en-light",
+      "label": "Agent Hub opens next to the orb (en, light)",
+      "ok": true,
+      "detail": "3 rows"
+    },
+    {
+      "id": "H-ru-light",
+      "label": "Agent Hub opens next to the orb (ru, light)",
+      "ok": true,
+      "detail": "3 rows"
+    },
+    {
+      "id": "O3",
+      "label": "the orb survives a main window reload",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "id": "S-en",
+      "label": "Settings → Orb opens from the hub (en)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "id": "S-ru",
+      "label": "Settings → Orb opens from the hub (ru)",
+      "ok": true,
+      "detail": ""
+    }
+  ],
+  "screenshots": [
+    {
+      "name": "orb-idle-dark.png",
+      "note": "Orb, idle mood, dark theme",
+      "consoleMessages": []
+    },
+    {
+      "name": "orb-working-dark.png",
+      "note": "Orb, working mood, dark theme",
+      "consoleMessages": []
+    },
+    {
+      "name": "orb-approval-dark.png",
+      "note": "Orb, approval mood, dark theme",
+      "consoleMessages": []
+    },
+    {
+      "name": "orb-error-dark.png",
+      "note": "Orb, error mood, dark theme",
+      "consoleMessages": []
+    },
+    {
+      "name": "orb-listening-dark.png",
+      "note": "Orb, listening mood, dark theme",
+      "consoleMessages": []
+    },
+    {
+      "name": "orb-speaking-dark.png",
+      "note": "Orb, speaking mood, dark theme",
+      "consoleMessages": []
+    },
+    {
+      "name": "orb-stopped-dark.png",
+      "note": "Orb, stopped mood, dark theme",
+      "consoleMessages": []
+    },
+    {
+      "name": "hub-en-dark.png",
+      "note": "Agent Hub, en, dark theme",
+      "consoleMessages": []
+    },
+    {
+      "name": "hub-ru-dark.png",
+      "note": "Agent Hub, ru, dark theme",
+      "consoleMessages": []
+    },
+    {
+      "name": "orb-idle-light.png",
+      "note": "Orb, idle mood, light theme",
+      "consoleMessages": []
+    },
+    {
+      "name": "orb-working-light.png",
+      "note": "Orb, working mood, light theme",
+      "consoleMessages": []
+    },
+    {
+      "name": "orb-approval-light.png",
+      "note": "Orb, approval mood, light theme",
+      "consoleMessages": []
+    },
+    {
+      "name": "orb-error-light.png",
+      "note": "Orb, error mood, light theme",
+      "consoleMessages": []
+    },
+    {
+      "name": "orb-listening-light.png",
+      "note": "Orb, listening mood, light theme",
+      "consoleMessages": []
+    },
+    {
+      "name": "orb-speaking-light.png",
+      "note": "Orb, speaking mood, light theme",
+      "consoleMessages": []
+    },
+    {
+      "name": "orb-stopped-light.png",
+      "note": "Orb, stopped mood, light theme",
+      "consoleMessages": []
+    },
+    {
+      "name": "hub-en-light.png",
+      "note": "Agent Hub, en, light theme",
+      "consoleMessages": []
+    },
+    {
+      "name": "hub-ru-light.png",
+      "note": "Agent Hub, ru, light theme",
+      "consoleMessages": []
+    },
+    {
+      "name": "settings-orb-en.png",
+      "note": "Settings → Orb, en",
+      "consoleMessages": []
+    },
+    {
+      "name": "settings-orb-ru.png",
+      "note": "Settings → Orb, ru",
+      "consoleMessages": []
+    }
+  ]
+}

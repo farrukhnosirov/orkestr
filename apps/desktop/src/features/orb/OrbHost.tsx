@@ -56,13 +56,15 @@ export function OrbHost() {
   const loaded = useAiUiStore((s) => s.config !== null);
   const prefs = orbPrefsOf(useUiPrefs().orb);
   const box = orbBoxSize(prefs.size);
-  const show = connected && loaded && prefs.enabled;
+  const ready = connected && loaded;
+  const show = prefs.enabled;
 
-  // Window lifecycle.
+  // Window lifecycle. Nothing happens until the preferences are known: a
+  // reloading main window must not close (and re-create) a visible orb.
   useEffect(() => {
-    if (!orbShell.available()) return;
+    if (!orbShell.available() || !ready) return;
     (show ? orbShell.show(box) : orbShell.hide()).catch((e: unknown) => console.warn("orb window", e));
-  }, [show, box]);
+  }, [ready, show, box]);
 
   // Requests from the orb window.
   useEffect(() => {

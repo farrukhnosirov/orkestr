@@ -25,11 +25,14 @@
   touch-action: none;
 }
 
-.orb:focus-visible .orb-sphere {
-  filter: drop-shadow(0 0 0 var(--ok-color-accent));
-  outline: 2px solid var(--ok-color-accent);
-  outline-offset: -10px;
+/* Keyboard focus: a thin ring just outside the sphere (only for keyboard users). */
+.orb:focus-visible::after {
+  content: "";
+  position: absolute;
+  inset: 8px;
   border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--ok-color-accent);
+  pointer-events: none;
 }
 
 .orb--drag {

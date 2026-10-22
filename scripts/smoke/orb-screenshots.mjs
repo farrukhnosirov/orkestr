@@ -135,7 +135,14 @@ class Cdp {
   send(method, params = {}) {
     const id = ++this.id;
     return new Promise((res, rej) => {
-      this.pending.set(id, { resolve: res, reject: rej });
+      const timer = setTimeout(() => {
+        this.pending.delete(id);
+        rej(new Error(`CDP ${method} timed out: ${String(params.expression ?? "").slice(0, 80)} @ ${this.ws.url.slice(-12)}`));
+      }, 20_000);
+      this.pending.set(id, {
+        resolve: (v) => (clearTimeout(timer), res(v)),
+        reject: (e) => (clearTimeout(timer), rej(e)),
+      });
       this.ws.send(JSON.stringify({ id, method, params }));
     });
   }
@@ -162,14 +169,17 @@ async function pages() {
 }
 
 async function windowOf(kind) {
-  for (const t of await pages()) {
-    const cdp = new Cdp(t.webSocketDebuggerUrl);
+  const t = (await pages()).find((p) => (kind === "orb" ? p.url.endsWith("#/orb") : !p.url.includes("#/")));
+  if (!t) return null;
+  const cdp = new Cdp(t.webSocketDebuggerUrl);
+  try {
     await cdp.open();
-    const w = await cdp.eval("document.documentElement.dataset.okWindow ?? 'main'").catch(() => null);
-    if (w === kind) return cdp;
+  } catch (e) {
+    console.log(`attach ${kind}: ${e.message}`);
     cdp.ws.close();
+    return null;
   }
-  return null;
+  return cdp;
 }
 
 const MOODS = {
@@ -189,42 +199,63 @@ try {
   const rpc = rpcClient(info.url, token);
   await rpc.open();
   const { settings } = await rpc.call("settings.get", {});
-  const darkTheme = settings.themeId ?? "nebula";
+  const darkTheme = settings.themeId && settings.themeId !== "solar-light" ? settings.themeId : "nebula";
   await rpc.call("settings.update", { patch: { profileName: "Demo", onboardingCompleted: true, performanceMode: "Balanced", language: "en" } });
+  for (const p of projects) {
+    // Agents need a git repository with a commit for their worktree.
+    const git = (...a) => execFileSync("git", ["-C", p.dir, ...a], { stdio: "ignore" });
+    git("init", "-q");
+    git("add", ".");
+    git("-c", "user.name=Orkestr", "-c", "user.email=demo@orkestr.local", "commit", "-q", "-m", "init");
+  }
   for (const p of projects) p.id = (await rpc.call("projects.create", { name: p.name, rootPath: p.dir, approvalMode: "SemiAuto" })).project?.id;
   // A few agents for the hub (they may fail without a model provider — that shows the error state).
-  for (const [i, tpl] of ["backend", "qa", "frontend"].entries()) {
+  const templates = (await rpc.call("templates.list", {})).templates.slice(0, 3);
+  for (const [i, tpl] of templates.entries()) {
     try {
-      await rpc.call("agents.spawn", { projectId: projects[i % 2].id, templateId: tpl, newTask: { title: `Demo task ${i + 1}` } });
+      await rpc.call("agents.spawn", { projectId: projects[i % 2].id, templateId: tpl.id, newTask: { title: `Demo task ${i + 1}` } });
     } catch (e) {
-      console.log(`spawn ${tpl}: ${e.message}`);
+      console.log(`spawn ${tpl.name}: ${e.message}`);
     }
   }
   const agents = (await rpc.call("agents.list", {})).agents;
   check("O0", "seeded projects and agents", projects.every((p) => p.id), `${agents.length} agents`);
 
-  const main = await waitFor(() => windowOf("main"), 60_000, "main window");
+  let main = await waitFor(() => windowOf("main"), 120_000, "main window");
+  console.log("pages:", (await pages()).map((t) => t.url).join(" | "));
   await main.eval(`localStorage.setItem("orkestr.debugHooks", "1"), true`);
-  const orb = await waitFor(() => windowOf("orb"), 60_000, "orb window");
+  let orb = await waitFor(() => windowOf("orb"), 60_000, "orb window").catch(async (e) => {
+    console.log((await pages()).map((t) => t.url).join(" | "));
+    throw e;
+  });
   check("O1", "the orb window opened (single window, label orb)", !!orb);
   await orb.send("Page.reload", { ignoreCache: true });
   await waitFor(() => orb.eval("!!document.querySelector('.orb') && !!window.__orkestrDebug?.orb"), 30_000, "orb rendered");
   await sleep(1500);
   check("O2", "no robot windows remain", !(await pages()).some((t) => t.url.includes("robot.html")));
 
-  const setSignals = (s) => orb.eval(`window.__orkestrDebug.orb.setSignals(${JSON.stringify(s)}), true`);
+  const QUIET = { connected: true, working: 0, approvals: 0, errors: 0, voicePhase: null, speaking: false, allStopped: false };
+  const setSignals = (s) => orb.eval(`window.__orkestrDebug.orb.setSignals(${JSON.stringify(s ? { ...QUIET, ...s } : null)}), true`);
   const openHub = () =>
     orb.eval(`(() => { const o = document.querySelector('.orb'); o.dispatchEvent(new PointerEvent('pointerdown', {bubbles: true, button: 0})); o.dispatchEvent(new PointerEvent('pointerup', {bubbles: true, button: 0})); return true; })()`);
   const hubOpen = () => orb.eval("!!document.querySelector('.orb-hub')");
 
+  // Themes live in the UI configuration (what the theme picker does: ui.setConfig).
+  const setTheme = async (id) => {
+    const { themes } = await rpc.call("ui.themes", {});
+    const entry = themes.find((e) => (e.theme ?? e).id === id) ?? themes.find((e) => (e.theme ?? e).mode === (id === "solar-light" ? "Light" : "Dark"));
+    const { config } = await rpc.call("ui.getConfig", {});
+    await rpc.call("ui.setConfig", { config: { ...config, theme: entry.theme ?? entry } });
+  };
   for (const [theme, themeId] of [
     ["dark", darkTheme],
     ["light", "solar-light"],
   ]) {
-    await rpc.call("settings.update", { patch: { themeId, language: "en" } });
+    await setTheme(themeId);
+    await rpc.call("settings.update", { patch: { language: "en" } });
     await sleep(1500);
     for (const [mood, s] of Object.entries(MOODS)) {
-      await setSignals(Object.keys(s).length ? s : null);
+      await setSignals(s);
       await sleep(400);
       const shown = await orb.eval("document.querySelector('.orb')?.dataset.orbMood");
       check(`M-${mood}-${theme}`, `orb shows ${mood} (${theme})`, shown === mood, shown);
@@ -241,15 +272,32 @@ try {
       check(`H-${lang}-${theme}`, `Agent Hub opens next to the orb (${lang}, ${theme})`, true, `${rows} rows`);
       await capture(orb, `hub-${lang}-${theme}`, `Agent Hub, ${lang}, ${theme} theme`);
       await orb.eval(`document.querySelector('.orb-hub__head button:last-child')?.click(), true`);
-      await orb.eval(`document.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape'})), window.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape'})), true`);
+      await orb.eval(`document.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape'})), window.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape'})), document.activeElement?.blur(), true`);
       await sleep(800);
     }
   }
   await setSignals(null);
+  await setTheme(darkTheme);
 
-  // Settings → Orb (opened from the hub's settings button), en + ru.
+  // Settings → Orb (opened from the hub's settings button), en + ru. The main
+  // window reloads first: onboarding was completed over RPC after it started.
+  console.log("reloading the main window");
+  main.send("Page.reload", { ignoreCache: true }).catch(() => undefined);
+  await sleep(4000);
+  main.ws.close();
+  main = await waitFor(() => windowOf("main"), 60_000, "main window (after reload)");
+  await waitFor(() => main.eval("!!document.querySelector('.app__body')"), 60_000, "app shell");
+  await sleep(2500);
+  // The orb window must survive the main window's reload (same DevTools target).
+  const alive = await orb.eval("!!document.querySelector('.orb')").catch(() => false);
+  check("O3", "the orb survives a main window reload", alive);
+  if (!alive) {
+    orb.ws.close();
+    orb = await waitFor(() => windowOf("orb"), 60_000, "orb window (again)");
+    await waitFor(() => orb.eval("!!document.querySelector('.orb')"), 30_000, "orb rendered");
+  }
   for (const lang of ["en", "ru"]) {
-    await rpc.call("settings.update", { patch: { language: lang, themeId: darkTheme } });
+    await rpc.call("settings.update", { patch: { language: lang } });
     await sleep(800);
     if (!(await hubOpen())) await openHub();
     await waitFor(hubOpen, 10_000, "hub open");
