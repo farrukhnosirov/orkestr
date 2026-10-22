@@ -5,6 +5,8 @@
 //! push triggers can be wired; every operation returns `unimplementedFeature`
 //! until the remote-access package lands.
 
+pub mod e2e;
+
 use orkestr_domain::DeviceId;
 use orkestr_protocol::RpcError;
 
