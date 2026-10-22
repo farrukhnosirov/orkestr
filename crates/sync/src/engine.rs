@@ -20,6 +20,9 @@ pub struct RemoteSyncConfig {
     pub access_token: String,
     /// Shared remote key material (base64url) all devices of the account use.
     pub remote_key: String,
+    /// Name of the project at the remote, shared by all devices (stream ids
+    /// derive from it); `None` = the local project id.
+    pub project_key: Option<String>,
 }
 
 /// Conflict id.

@@ -1,16 +1,26 @@
 //! # orkestr-sync
 //!
-//! Sync engine (MASTER_SPEC §40–45). Phase 0 ships the [`SyncBackend`] trait,
-//! journal types and the **Local Only** backend (real: with local-only storage
-//! there is nothing to push/pull). Phase 4 adds the encrypted, incremental,
-//! resumable cloud/self-hosted backends with conflict detection.
+//! Sync engine (MASTER_SPEC §40–45, ADR-0019, ADR-0031). The **Local Only**
+//! backend never transfers anything. Phase 4 adds [`DefaultSyncEngine`]:
+//! encrypted (zstd + XChaCha20-Poly1305, keyed chunk ids), incremental
+//! (FastCDC), signed (Ed25519 manifests/refs, version vectors with
+//! anti-rollback), offline-first (outbox) sync of the `workspace:` and
+//! `records:` streams against the [`server_router`] store, with conflict copies.
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod crypto;
 pub mod engine;
+pub mod local_engine;
+pub mod manifest;
+pub mod merge;
+pub mod remote;
+pub mod scan;
 pub mod server;
+pub mod vv;
 
 pub use engine::{ConflictId, RemoteSyncConfig, Resolution, SyncConflict, SyncEngine, SyncStatus};
+pub use local_engine::{check_policy, DefaultSyncEngine};
 pub use server::{server_router, SyncServerState};
 
 use async_trait::async_trait;
@@ -25,6 +35,27 @@ pub enum SyncError {
     /// Backend failure.
     #[error("backend: {0}")]
     Backend(String),
+    /// Forbidden by the project's privacy policy (§56, SR-76).
+    #[error("forbidden by privacy policy: {0}")]
+    PolicyDenied(String),
+    /// Bad AEAD tag / signature / unknown signer / rollback.
+    #[error("integrity check failed: {0}")]
+    Integrity(String),
+    /// Sync server unreachable or refused the request.
+    #[error("network: {0}")]
+    Network(String),
+    /// Object or conflict not found.
+    #[error("not found")]
+    NotFound,
+    /// Remote sync is not configured for the project.
+    #[error("remote sync is not configured for this project")]
+    NotConfigured,
+    /// Invalid configuration.
+    #[error("invalid configuration: {0}")]
+    Config(String),
+    /// Local storage failure.
+    #[error("storage: {0}")]
+    Storage(String),
 }
 
 /// A local journal entry (File Change → Local Journal → Snapshot → Sync).
