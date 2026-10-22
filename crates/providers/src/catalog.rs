@@ -159,15 +159,16 @@ pub fn kind_info(kind: ProviderKind) -> KindInfo {
             ..base
         },
         ProviderKind::Codex => KindInfo {
-            display_name: "OpenAI Codex",
-            description: "Official Codex CLI using your own logged-in session (ChatGPT plan or API key login).",
+            display_name: "Codex (ChatGPT subscription)",
+            description: "Official OpenAI Codex CLI using your own ChatGPT sign-in (Plus / Pro / Team plan) or API key login.",
             auth_method: AuthMethod::CliSession,
             requires_api_key: false,
             coding_agent: true,
             binary: Some("codex"),
             login_instructions: Some(
-                "Install the official CLI (npm install -g @openai/codex), then run `codex login` in a terminal. Orkestr never reads the CLI's credentials.",
+                "Install the official CLI from the Codex panel (or npm install -g @openai/codex), then press \"Sign in with ChatGPT\" there (or run `codex login`). Orkestr never reads the CLI's credentials.",
             ),
+            default_model: Some("default"),
             ..base
         },
         ProviderKind::Mock => KindInfo {
