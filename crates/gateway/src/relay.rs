@@ -156,7 +156,7 @@ async fn run_tunnel(st: GatewayState, mut socket: WebSocket, ip: String) {
         rp_id: st.rp.rp_id.clone(),
         origins: st.rp.origins.clone(),
         vapid_public_key: crate::push::vapid_public_key(),
-        native_push: Vec::new(),
+        native_push: st.native.transports(),
     };
     let Ok(text) = serde_json::to_string(&welcome) else { return };
     if socket.send(Message::Text(text.into())).await.is_err() {
@@ -254,11 +254,36 @@ async fn on_core_frame(st: &GatewayState, core_id: &str, account: &str, f: ToGat
             st.store.audit(Some(account), "devices.revoked", None, &json!({ "deviceId": device_id }));
         }
         ToGateway::Push { device_ids, endpoint, body, collapse_key, urgency, transport } => {
+            let Ok(body) = orkestr_security::webauthn::unb64(&body) else { return };
             if transport != orkestr_protocol::methods::push::PushTransport::WebPush {
-                // Native FCM/APNs senders land in Phase 5 WP-A (ADR-0037).
+                // Native FCM/APNs (ADR-0037): `body` is the core's envelope
+                // {"k", "p": {"n","c"}}; `endpoint` is the device token.
+                let native = st.native.clone();
+                let store = Arc::clone(&st.store);
+                let account = account.to_owned();
+                tokio::spawn(async move {
+                    let outcome =
+                        match crate::push_native::NativeDelivery::from_envelope(endpoint, &body, collapse_key, urgency)
+                        {
+                            Ok(msg) => native.deliver(transport, &msg).await,
+                            Err(e) => Err(e),
+                        };
+                    if let Err(e) = &outcome {
+                        tracing::debug!(error = %e, ?transport, "native push not delivered");
+                    }
+                    store.audit(
+                        Some(&account),
+                        "push.deliver",
+                        None,
+                        &json!({
+                            "devices": device_ids, "transport": transport, "ok": outcome.is_ok(),
+                            "gone": matches!(outcome, Err(crate::push_native::NativePushError::Gone(_))),
+                            "error": outcome.err().map(|e| e.to_string()),
+                        }),
+                    );
+                });
                 return;
             }
-            let Ok(body) = orkestr_security::webauthn::unb64(&body) else { return };
             let msg = crate::push::PushDelivery { endpoint, body, topic: collapse_key, urgency, ttl_secs: 24 * 3600 };
             let store = Arc::clone(&st.store);
             let account = account.to_owned();

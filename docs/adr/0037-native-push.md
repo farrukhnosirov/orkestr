@@ -1,6 +1,6 @@
 # ADR-0037 — Native push: FCM HTTP v1 and APNs with end-to-end encrypted payloads
 
-Status: accepted, implementation Phase 5
+Status: accepted, implemented Phase 5 (WP-A)
 
 ## Context
 
@@ -12,35 +12,77 @@ The gateway is untrusted for content (ADR-0030).
 
 ## Decision
 
-1. **Registration.** New method `push.registerNative`
+1. **Registration.** `push.registerNative`
    (`PushRegisterNativeParams { transport: fcm|apns, token, key, categories?,
    lockScreen: generic|detailed }` → `PushNativeRegistration { id,
    deliverable }`), policy Viewer / no step-up / Write rate class. `key` is a
    device-generated 32-byte AES-256 key (base64url) stored only in the core
-   with the subscription; `deliverable` reports whether the gateway
-   announced a sender for that transport (`ToCore::Welcome.nativePush`).
-2. **Payload.** The core serializes the existing `PushPayload`, encrypts it
-   with AES-256-GCM (random 12-byte nonce, AAD `"orkestr-push-v1"`) and
-   sends `{"n": b64u(nonce), "c": b64u(ciphertext)}` through the tunnel as
-   `ToGateway::Push` with `transport: fcm|apns` (the token in `endpoint`).
-   A reference vector lives in `crates/core/src/remote/testdata`.
-3. **Delivery (gateway).** FCM HTTP v1: service-account JSON, RS256 JWT →
-   OAuth token (cached), `POST /v1/projects/{id}/messages:send`, Android
-   priority high, `collapse_key`, data `{p, k}`. APNs: ES256 provider JWT,
-   HTTP/2, `apns-push-type: alert`, `apns-collapse-id`, priority 10,
-   `mutable-content: 1`. Endpoints are overridable for mocks; `Gone`
-   (`UNREGISTERED`/404/410) drops the registration.
+   (`<data>/push/subscriptions.json`, `StoredSubscription { transport, key,
+   lockScreen }`, all `#[serde(default)]` so Phase 4 files still load).
+   `transport: webPush` is rejected (use `push.subscribe`). A device has at
+   most one registration per transport: a new token replaces the old one
+   (same id). `deliverable` is true iff the gateway listed the transport in
+   `ToCore::Welcome.nativePush` on the last tunnel connect (persisted in
+   `remote/state.json`).
+2. **Payload.** The core serializes the existing `PushPayload` and encrypts
+   it with AES-256-GCM: random 12-byte nonce, AAD `"orkestr-push-v1"`,
+   `c = ciphertext ‖ 16-byte tag`, giving `p = {"n": b64u(nonce), "c":
+   b64u(c)}`. The core hands the gateway the envelope
+   `{"k": category, "p": p}` as `ToGateway::Push { transport: fcm|apns,
+   endpoint: <device token>, body: b64u(envelope JSON), collapseKey:
+   SHA-256-derived topic, urgency }` (no protocol change beyond Step 0).
+   Reference vector: `crates/core/src/remote/testdata/native-push-vector.json`
+   (`key`, `nonce`, `aad`, `plaintext`, `payload`, `body.{n,c}`).
+3. **Delivery (gateway, `crates/gateway/src/push_native.rs`).**
+   - FCM HTTP v1 (`--fcm-service-account <json>`, `--fcm-endpoint`, default
+     `https://fcm.googleapis.com`): RS256 JWT (`iss` = `client_email`, `scope`
+     `firebase.messaging`, `aud` = `token_uri`, 1 h) via the `rsa` crate,
+     JWT-bearer exchange at the service account's `token_uri` (cached until
+     `expires_in − 60 s`, dropped on 401), then
+     `POST /v1/projects/{project_id}/messages:send` with
+     `android.priority`, `android.collapse_key`, generic
+     `notification {title: "Orkestr", body: "Action needed"}` and
+     `data {p: <JSON text of p>, k: category}`. 404 or `UNREGISTERED` → Gone;
+     anything else → retryable.
+   - APNs (`--apns-key <.p8> --apns-key-id --apns-team-id --apns-topic`,
+     `--apns-endpoint`, default `https://api.push.apple.com`): ES256
+     provider JWT (`kid`, `iss`, `iat`; cached 50 min, dropped on
+     `ExpiredProviderToken`), HTTP/2 (`http://` endpoints use prior-knowledge
+     h2c for mocks), `POST /3/device/{token}` with `apns-push-type: alert`,
+     `apns-priority`, `apns-collapse-id`, `apns-topic`; body
+     `{aps: {alert: {title, body}, mutable-content: 1, sound}, p, k}`.
+     410 / `Unregistered` / `BadDeviceToken` → Gone; else retryable.
+   - `ToCore::Welcome.nativePush` lists the configured transports; a push for
+     an unconfigured transport is audited as `NotConfigured`.
 4. **Visible alert is generic** ("Orkestr — Action needed"). The app
    decrypts `p` when it runs (tap / foreground) and routes to the item.
    While connected, the app also raises a local notification from the E2E
    event stream, which works without Firebase (emulator).
-5. Quiet hours / DND skip non-high-priority pushes; approvals still go.
+5. **Quiet hours / DND.** Non-high pushes (everything except approvals) are
+   skipped while the global `doNotDisturb` setting is on or inside the
+   notification quiet hours (`voice` config `notifications.quietHours`, local
+   time, may wrap midnight). Approvals (`urgency: high`) always go.
+   `push.test` ignores DND.
+
+## Deviations from the Step 0 sketch
+
+- Priority follows urgency: `high` (approvals) → FCM `HIGH` / APNs 10;
+  others → `NORMAL` / 5 (FCM deprioritizes apps that send non-user-visible
+  high-priority messages; Apple recommends 5 for non-urgent alerts).
+- `p` is carried as JSON *text* in both FCM `data` (values must be strings)
+  and the APNs payload, so one client decoder handles both.
+- Gone tokens are audited at the gateway (`push.deliver` with `gone: true`)
+  but not yet reported back to the core; the registration stays until the
+  device re-registers, unregisters, or is revoked (revocation drops all its
+  registrations).
 
 ## Consequences
 
-- FCM/APNs learn only timing, size and category (`k`); content stays E2E.
+- FCM/APNs learn only timing, size, collapse topic and category (`k`);
+  content stays E2E.
 - `lockScreen: detailed` and approve-from-notification need background
   decryption (Notification Service Extension / FCM data handler) — deferred;
   Phase 5 always shows the generic alert.
 - Real delivery requires the operator's Firebase project / Apple key; CI and
-  acceptance use mock FCM/APNs servers.
+  acceptance use mock FCM/APNs servers (axum mocks in
+  `push_native.rs` tests and `tests/remote_e2e.rs`).

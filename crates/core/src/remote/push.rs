@@ -19,7 +19,7 @@ use base64::Engine as _;
 use hkdf::Hkdf;
 use orkestr_domain::{DeviceId, RiskLevel, TaskStatus};
 use orkestr_protocol::event::{Event, EventKind};
-use orkestr_protocol::methods::push::PushPayload;
+use orkestr_protocol::methods::push::{PushLockScreen, PushPayload, PushTransport};
 use orkestr_protocol::RpcError;
 use p256::elliptic_curve::sec1::ToEncodedPoint;
 use p256::{PublicKey, SecretKey};
@@ -223,6 +223,39 @@ pub fn encrypt_with(
     Ok(out)
 }
 
+/// AAD of native (FCM/APNs) payloads (ADR-0037).
+pub const NATIVE_AAD: &[u8] = b"orkestr-push-v1";
+
+/// AES-256-GCM encryption of a native payload with an explicit nonce
+/// (deterministic; used by the vector). Returns `{"n": b64u(nonce), "c": b64u(ct‖tag)}`.
+///
+/// # Errors
+/// Key is not 32 bytes or oversize payload.
+pub fn encrypt_native_with(
+    key: &[u8],
+    nonce: &[u8; 12],
+    plaintext: &[u8],
+) -> Result<serde_json::Value, PushCryptoError> {
+    if plaintext.len() > MAX_PLAINTEXT {
+        return Err(PushCryptoError::TooLarge);
+    }
+    let cipher = aes_gcm::Aes256Gcm::new_from_slice(key).map_err(|_| PushCryptoError::BadKey)?;
+    let ct = cipher
+        .encrypt(Nonce::from_slice(nonce), aes_gcm::aead::Payload { msg: plaintext, aad: NATIVE_AAD })
+        .map_err(|_| PushCryptoError::Aead)?;
+    Ok(serde_json::json!({ "n": URL_SAFE_NO_PAD.encode(nonce), "c": URL_SAFE_NO_PAD.encode(ct) }))
+}
+
+/// AES-256-GCM encryption of a native payload with a random 12-byte nonce.
+///
+/// # Errors
+/// See [`encrypt_native_with`].
+pub fn encrypt_native(key: &[u8], plaintext: &[u8]) -> Result<serde_json::Value, PushCryptoError> {
+    let mut nonce = [0u8; 12];
+    OsRng.fill_bytes(&mut nonce);
+    encrypt_native_with(key, &nonce, plaintext)
+}
+
 /// RFC 8291 encryption with a fresh sender key and salt.
 ///
 /// # Errors
@@ -236,7 +269,7 @@ pub fn encrypt_aes128gcm(plaintext: &[u8], ua_public: &[u8], auth_secret: &[u8])
 
 // ---------------------------------------------------------------- subscriptions
 
-/// A stored browser subscription.
+/// A stored browser subscription or native (FCM/APNs) registration.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StoredSubscription {
@@ -244,14 +277,35 @@ pub struct StoredSubscription {
     pub id: String,
     /// Owning device (`None` = subscribed from a local client).
     pub device_id: Option<DeviceId>,
-    /// Push endpoint.
+    /// Push endpoint (FCM/APNs: the device token).
     pub endpoint: String,
-    /// UA public key (base64url).
+    /// UA public key (base64url; empty for native).
+    #[serde(default)]
     pub p256dh: String,
-    /// UA auth secret (base64url).
+    /// UA auth secret (base64url; empty for native).
+    #[serde(default)]
     pub auth: String,
     /// Category filter (`None` = all).
     pub categories: Option<Vec<String>>,
+    /// Transport (`webPush` for Phase 4 records).
+    #[serde(default)]
+    pub transport: PushTransport,
+    /// Native payload key (AES-256, base64url).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub key: Option<String>,
+    /// Native lock-screen privacy (Phase 5 always shows the generic alert).
+    #[serde(default)]
+    pub lock_screen: PushLockScreen,
+}
+
+/// Wire name of a native transport (`ToCore::Welcome.nativePush`).
+#[must_use]
+pub const fn transport_name(t: PushTransport) -> &'static str {
+    match t {
+        PushTransport::WebPush => "webPush",
+        PushTransport::Fcm => "fcm",
+        PushTransport::Apns => "apns",
+    }
 }
 
 impl StoredSubscription {
@@ -331,6 +385,40 @@ impl PushService {
         Ok(id)
     }
 
+    /// Adds or replaces a native (FCM/APNs) registration. The same token, or
+    /// an older registration of the same device and transport, is replaced
+    /// (keeping its id).
+    ///
+    /// # Errors
+    /// Web Push transport, empty/oversize token, key not 32 bytes, storage failure.
+    pub fn register_native(&self, mut sub: StoredSubscription) -> Result<String, RpcError> {
+        if sub.transport == PushTransport::WebPush {
+            return Err(RpcError::bad_request("transport must be fcm or apns (use push.subscribe for Web Push)"));
+        }
+        if sub.endpoint.is_empty() || sub.endpoint.len() > 4096 || sub.endpoint.chars().any(char::is_whitespace) {
+            return Err(RpcError::bad_request("invalid device token"));
+        }
+        let key = sub.key.as_deref().map(|k| URL_SAFE_NO_PAD.decode(k.trim_end_matches('=')));
+        if !matches!(key, Some(Ok(ref k)) if k.len() == 32) {
+            return Err(RpcError::bad_request("key must be 32 bytes, base64url"));
+        }
+        sub.p256dh.clear();
+        sub.auth.clear();
+        let (t, ep, dev) = (sub.transport, sub.endpoint.clone(), sub.device_id);
+        let same = move |s: &StoredSubscription| {
+            s.transport == t && (s.endpoint == ep || (dev.is_some() && s.device_id == dev))
+        };
+        let mut subs = self.subs.lock();
+        if let Some(old) = subs.iter().find(|s| same(s)) {
+            sub.id.clone_from(&old.id);
+        }
+        subs.retain(|s| !same(s));
+        let id = sub.id.clone();
+        subs.push(sub);
+        self.persist(&subs)?;
+        Ok(id)
+    }
+
     /// Removes the subscription for `endpoint` (only its owner, or a local caller).
     ///
     /// # Errors
@@ -385,10 +473,7 @@ impl PushService {
         let mut sent = 0;
         let mut first_err = None;
         for s in targets {
-            let (Ok(ua), Ok(auth)) = (URL_SAFE_NO_PAD.decode(&s.p256dh), URL_SAFE_NO_PAD.decode(&s.auth)) else {
-                continue;
-            };
-            let enc = match encrypt_aes128gcm(&body, &ua, &auth) {
+            let enc = match encrypt_for(&s, &body, &payload.category) {
                 Ok(b) => b,
                 Err(e) => {
                     tracing::warn!(error = %e, "push encryption failed");
@@ -401,6 +486,7 @@ impl PushService {
                 body: enc,
                 collapse_key: collapse_key.map(topic_for),
                 urgency: urgency.to_owned(),
+                transport: s.transport,
             };
             match remote.send_push(req).await {
                 Ok(()) => sent += 1,
@@ -413,6 +499,64 @@ impl PushService {
             Some(e) if sent == 0 => Err(e),
             _ => Ok(sent),
         }
+    }
+}
+
+/// Encrypts `body` for one subscription: RFC 8291 for Web Push; for FCM/APNs
+/// the envelope `{"k": category, "p": {"n", "c"}}` the gateway maps onto the
+/// provider message (`data.k`, `data.p`).
+fn encrypt_for(s: &StoredSubscription, body: &[u8], category: &str) -> Result<Vec<u8>, PushCryptoError> {
+    match s.transport {
+        PushTransport::WebPush => {
+            let ua = URL_SAFE_NO_PAD.decode(&s.p256dh).map_err(|_| PushCryptoError::BadKey)?;
+            let auth = URL_SAFE_NO_PAD.decode(&s.auth).map_err(|_| PushCryptoError::BadAuth)?;
+            encrypt_aes128gcm(body, &ua, &auth)
+        }
+        PushTransport::Fcm | PushTransport::Apns => {
+            let key = s
+                .key
+                .as_deref()
+                .and_then(|k| URL_SAFE_NO_PAD.decode(k.trim_end_matches('=')).ok())
+                .ok_or(PushCryptoError::BadKey)?;
+            let p = encrypt_native(&key, body)?;
+            Ok(serde_json::json!({ "k": category, "p": p }).to_string().into_bytes())
+        }
+    }
+}
+
+/// Whether non-high-priority pushes are muted now: the global
+/// `doNotDisturb` setting or the notification quiet hours (local time).
+async fn muted_now(services: &crate::services::Services) -> bool {
+    if services.settings.get().do_not_disturb {
+        return true;
+    }
+    let raw: Option<String> = services
+        .db
+        .call(|c| {
+            use orkestr_storage::rusqlite::OptionalExtension as _;
+            Ok(c.query_row(
+                "SELECT value FROM core_settings WHERE key = ?1",
+                orkestr_storage::rusqlite::params![crate::rpc::voice::VOICE_KEY],
+                |r| r.get(0),
+            )
+            .optional()?)
+        })
+        .await
+        .ok()
+        .flatten();
+    let q = crate::rpc::voice::parse_stored(raw.as_deref()).notifications.quiet_hours;
+    q.enabled && in_quiet_hours(&q.start, &q.end, chrono::Local::now().time())
+}
+
+/// `HH:MM` window check (wraps past midnight; `start == end` = never).
+#[must_use]
+pub fn in_quiet_hours(start: &str, end: &str, now: chrono::NaiveTime) -> bool {
+    let parse = |s: &str| chrono::NaiveTime::parse_from_str(s, "%H:%M").ok();
+    let (Some(s), Some(e)) = (parse(start), parse(end)) else { return false };
+    if s <= e {
+        s <= now && now < e
+    } else {
+        now >= s || now < e
     }
 }
 
@@ -503,6 +647,11 @@ async fn handle_event(services: &Arc<crate::services::Services>, push: &PushServ
         return;
     }
     let Some(trigger) = trigger_for(ev) else { return };
+    // DND / quiet hours: only high-priority pushes (approvals) still go.
+    if trigger.urgency != "high" && muted_now(services).await {
+        tracing::debug!(category = trigger.category, "push muted (do not disturb / quiet hours)");
+        return;
+    }
     let payload = payload_for(ev, &trigger);
     if let Err(e) =
         push.dispatch(&services.remote, &payload, trigger.urgency, trigger.collapse_key.as_deref(), None).await
@@ -619,6 +768,9 @@ mod tests {
             p256dh: URL_SAFE_NO_PAD.encode(ua.as_bytes()),
             auth: URL_SAFE_NO_PAD.encode([7u8; 16]),
             categories: Some(vec!["approval".into()]),
+            transport: PushTransport::WebPush,
+            key: None,
+            lock_screen: PushLockScreen::Generic,
         };
         assert_eq!(svc.subscribe(sub.clone()).unwrap(), "s1");
         let mut again = sub.clone();
@@ -633,5 +785,126 @@ mod tests {
         let mut bad = sub;
         bad.endpoint = "http://evil.example/".into();
         assert!(svc.subscribe(bad).is_err());
+    }
+
+    const NATIVE_VECTOR: &str = include_str!("testdata/native-push-vector.json");
+    const NATIVE_VECTOR_PATH: &str = "src/remote/testdata/native-push-vector.json";
+
+    fn native_vector() -> serde_json::Value {
+        let key: Vec<u8> = (0u8..32).collect();
+        let nonce: [u8; 12] = [0xa0, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6, 0xa7, 0xa8, 0xa9, 0xaa, 0xab];
+        let payload = PushPayload {
+            v: 1,
+            event_id: "0192f5d4-0000-7000-8000-0000000000e1".into(),
+            category: category::APPROVAL.into(),
+            project_id: Some("0192f5d4-0000-7000-8000-000000000001".into()),
+            ts: "2026-10-22T12:00:00+00:00".into(),
+            title: "Approval needed".into(),
+            body: "High-risk Shell action is waiting for you".into(),
+        };
+        let plaintext = serde_json::to_string(&payload).unwrap();
+        let body = encrypt_native_with(&key, &nonce, plaintext.as_bytes()).unwrap();
+        serde_json::json!({
+            "description": "Native push payload (ADR-0037): AES-256-GCM, 12-byte nonce, AAD \"orkestr-push-v1\", c = ciphertext || 16-byte tag; binary fields base64url without padding. FCM/APNs carry data.p = JSON text of `body` and data.k = category.",
+            "key": URL_SAFE_NO_PAD.encode(&key),
+            "nonce": URL_SAFE_NO_PAD.encode(nonce),
+            "aad": std::str::from_utf8(NATIVE_AAD).unwrap(),
+            "plaintext": plaintext,
+            "payload": payload,
+            "body": body,
+        })
+    }
+
+    /// `ORKESTR_WRITE_VECTORS=1 cargo test -p orkestr-core native_push_vector` rewrites the file.
+    #[test]
+    fn native_push_vector() {
+        let v = native_vector();
+        if std::env::var_os("ORKESTR_WRITE_VECTORS").is_some() {
+            std::fs::write(NATIVE_VECTOR_PATH, serde_json::to_string_pretty(&v).unwrap() + "\n").unwrap();
+        } else {
+            let file: serde_json::Value = serde_json::from_str(NATIVE_VECTOR).unwrap();
+            assert_eq!(file, v, "testdata/native-push-vector.json is stale");
+        }
+        // Decrypts back with the published values.
+        let key = d(v["key"].as_str().unwrap());
+        let ct = d(v["body"]["c"].as_str().unwrap());
+        let cipher = aes_gcm::Aes256Gcm::new_from_slice(&key).unwrap();
+        let pt = cipher
+            .decrypt(
+                Nonce::from_slice(&d(v["body"]["n"].as_str().unwrap())),
+                aes_gcm::aead::Payload { msg: &ct, aad: NATIVE_AAD },
+            )
+            .unwrap();
+        assert_eq!(std::str::from_utf8(&pt).unwrap(), v["plaintext"].as_str().unwrap());
+        // Wrong AAD fails.
+        assert!(cipher
+            .decrypt(
+                Nonce::from_slice(&d(v["body"]["n"].as_str().unwrap())),
+                aes_gcm::aead::Payload { msg: &ct, aad: b"other" }
+            )
+            .is_err());
+        // Random nonces differ.
+        let a = encrypt_native(&key, b"x").unwrap();
+        let b = encrypt_native(&key, b"x").unwrap();
+        assert_ne!(a["n"], b["n"]);
+        assert_eq!(encrypt_native(&[0; 16], b"x"), Err(PushCryptoError::BadKey));
+    }
+
+    fn native(dev: Option<DeviceId>, token: &str, transport: PushTransport) -> StoredSubscription {
+        StoredSubscription {
+            id: format!("n-{token}"),
+            device_id: dev,
+            endpoint: token.into(),
+            p256dh: String::new(),
+            auth: String::new(),
+            categories: None,
+            transport,
+            key: Some(URL_SAFE_NO_PAD.encode([5u8; 32])),
+            lock_screen: PushLockScreen::Generic,
+        }
+    }
+
+    #[test]
+    fn native_registration_and_envelope() {
+        let dir = tempfile::tempdir().unwrap();
+        let svc = PushService::open(dir.path());
+        let dev = DeviceId::new();
+        assert_eq!(svc.register_native(native(Some(dev), "tok1", PushTransport::Fcm)).unwrap(), "n-tok1");
+        // A new token of the same device + transport replaces the old one.
+        assert_eq!(svc.register_native(native(Some(dev), "tok2", PushTransport::Fcm)).unwrap(), "n-tok1");
+        svc.register_native(native(Some(dev), "apns1", PushTransport::Apns)).unwrap();
+        let list = PushService::open(dir.path()).list();
+        assert_eq!(list.len(), 2);
+        assert!(list.iter().any(|s| s.endpoint == "tok2" && s.transport == PushTransport::Fcm));
+        assert!(svc.register_native(native(Some(dev), "t", PushTransport::WebPush)).is_err());
+        assert!(svc.register_native(native(Some(dev), "", PushTransport::Fcm)).is_err());
+        let mut short = native(Some(dev), "t", PushTransport::Fcm);
+        short.key = Some(URL_SAFE_NO_PAD.encode([1u8; 16]));
+        assert!(svc.register_native(short).is_err());
+
+        let env = encrypt_for(&list[0], b"{\"v\":1}", "approval").unwrap();
+        let env: serde_json::Value = serde_json::from_slice(&env).unwrap();
+        assert_eq!(env["k"], "approval");
+        assert_eq!(d(env["p"]["n"].as_str().unwrap()).len(), 12);
+        assert_eq!(d(env["p"]["c"].as_str().unwrap()).len(), 7 + 16);
+
+        // Phase 4 records (no transport/key) still load as Web Push.
+        let legacy: StoredSubscription = serde_json::from_value(serde_json::json!({
+            "id": "x", "deviceId": null, "endpoint": "https://p/1", "p256dh": "a", "auth": "b", "categories": null
+        }))
+        .unwrap();
+        assert_eq!(legacy.transport, PushTransport::WebPush);
+        assert_eq!(transport_name(PushTransport::Apns), "apns");
+    }
+
+    #[test]
+    fn quiet_hours_window() {
+        let t = |s: &str| chrono::NaiveTime::parse_from_str(s, "%H:%M").unwrap();
+        assert!(in_quiet_hours("22:00", "08:00", t("23:30")));
+        assert!(in_quiet_hours("22:00", "08:00", t("07:59")));
+        assert!(!in_quiet_hours("22:00", "08:00", t("08:00")));
+        assert!(in_quiet_hours("12:00", "13:00", t("12:30")));
+        assert!(!in_quiet_hours("12:00", "13:00", t("13:30")));
+        assert!(!in_quiet_hours("bad", "13:00", t("12:30")));
     }
 }

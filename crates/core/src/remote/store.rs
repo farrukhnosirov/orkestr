@@ -42,6 +42,32 @@ pub struct DeviceRecord {
     /// Step-up WebAuthn credential (registered over E2E).
     #[serde(default)]
     pub step_up: Option<Credential>,
+    /// Kind of [`Self::step_up`] (WebAuthn passkey or native `orkestr-native-v1`).
+    #[serde(default)]
+    pub step_up_kind: StepUpKind,
+}
+
+/// Kind of step-up credential (ADR-0038).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum StepUpKind {
+    /// WebAuthn credential verified against the gateway relying party.
+    #[default]
+    WebAuthn,
+    /// Native `orkestr-native-v1` credential verified against the per-device
+    /// relying party `orkestr-native-stepup` / `orkestr-native:<deviceId>`.
+    Native,
+}
+
+impl StepUpKind {
+    /// Wire name (`DeviceInfo.stepUpKind`).
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::WebAuthn => "webauthn",
+            Self::Native => "native",
+        }
+    }
 }
 
 impl DeviceRecord {
@@ -59,7 +85,7 @@ impl DeviceRecord {
             revoked: self.revoked,
             platform: self.platform.clone(),
             step_up_registered: self.step_up.is_some(),
-            step_up_kind: self.step_up.as_ref().map(|_| "webauthn".to_owned()),
+            step_up_kind: self.step_up.as_ref().map(|_| self.step_up_kind.as_str().to_owned()),
         }
     }
 }
@@ -88,6 +114,10 @@ pub struct RemoteState {
     /// Gateway VAPID public key (Web Push), learned from the tunnel `welcome`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub vapid_public_key: Option<String>,
+    /// Native push transports the gateway announced in the last `welcome`
+    /// (`fcm`, `apns`).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub native_push: Vec<String>,
 }
 
 /// File-backed store.

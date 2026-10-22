@@ -13,6 +13,10 @@ async fn main() -> std::process::ExitCode {
         .init();
     let cfg = match GatewayConfig::from_args(std::env::args().skip(1)) {
         Ok(cfg) => cfg,
+        Err(orkestr_gateway::ConfigError::Help) => {
+            println!("{}", orkestr_gateway::HELP);
+            return std::process::ExitCode::SUCCESS;
+        }
         Err(e) => {
             eprintln!("orkestr-gateway: {e}");
             return std::process::ExitCode::from(2);
