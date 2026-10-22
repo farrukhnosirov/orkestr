@@ -1,0 +1,17 @@
+{
+  "name": "mac",
+  "os": "MacOs",
+  "arch": "Arm64",
+  "cpuCores": 10,
+  "memoryTotalBytes": 34359738368,
+  "gpus": [
+    { "name": "Apple M2 Pro GPU", "vendor": "apple", "vramBytes": null, "driverVersion": null, "source": "profile" }
+  ],
+  "tools": ["git", "node", "xcodebuild", "swift"],
+  "labels": { "role": "apple-builds", "simulated": "true" },
+  "models": [],
+  "toolShims": {
+    "xcodebuild": "node scripts/smoke/fixtures/fake-xcodebuild.mjs"
+  },
+  "maxConcurrentJobs": 2
+}

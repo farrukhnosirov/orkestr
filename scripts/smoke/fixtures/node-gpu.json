@@ -1,0 +1,15 @@
+{
+  "name": "gpu",
+  "os": "Linux",
+  "arch": "X64",
+  "cpuCores": 32,
+  "memoryTotalBytes": 137438953472,
+  "gpus": [
+    { "name": "NVIDIA GeForce RTX 4090", "vendor": "nvidia", "vramBytes": 25769803776, "driverVersion": "560.35.03", "source": "profile" }
+  ],
+  "tools": ["git", "node", "python3", "cuda", "nvidia-smi", "docker"],
+  "labels": { "role": "gpu", "simulated": "true" },
+  "models": [],
+  "toolShims": {},
+  "maxConcurrentJobs": 2
+}

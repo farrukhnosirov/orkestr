@@ -1,7 +1,168 @@
 {
   "title": "Nodes",
+  "refresh": "Refresh",
+  "unavailable": "Nodes are not available on this core yet.",
+  "notAvailable": "This action is not available on this core yet.",
   "empty": {
     "title": "No other nodes yet",
     "description": "Enroll another computer running Orkestr to run builds, tests and agents on it."
+  },
+  "tabs": {
+    "nodes": "Nodes",
+    "jobs": "Jobs",
+    "models": "Models"
+  },
+  "status": {
+    "Online": "Online",
+    "Busy": "Busy",
+    "Degraded": "Degraded",
+    "Offline": "Offline",
+    "Suspect": "Not responding",
+    "Draining": "Draining",
+    "Revoked": "Revoked"
+  },
+  "trust": {
+    "restricted": "Restricted",
+    "standard": "Standard",
+    "trusted": "Trusted"
+  },
+  "trustHint": {
+    "restricted": "Commands and builds only: no agents, no network secrets.",
+    "standard": "Commands, builds and agents for allowed projects.",
+    "trusted": "Everything, including jobs that need the network."
+  },
+  "os": {
+    "Windows": "Windows",
+    "MacOs": "macOS",
+    "Linux": "Linux",
+    "Other": "Other OS"
+  },
+  "arch": {
+    "X64": "x86-64",
+    "Arm64": "ARM64",
+    "Other": "other architecture"
+  },
+  "lease": {
+    "starting": "starting",
+    "running": "running",
+    "draining": "draining",
+    "finished": "finished",
+    "failed": "failed",
+    "cancelled": "cancelled"
+  },
+  "node": {
+    "coordinator": "This computer",
+    "lastHeartbeat": "Last heartbeat {{time}}",
+    "platform": "Platform",
+    "cpu": "CPU",
+    "cpuValue": "{{cores}} cores, {{usage}} used",
+    "memory": "Memory",
+    "memoryValue": "{{used}} of {{total}}",
+    "gpus": "GPUs",
+    "gpuValue": "{{name}} ({{vram}} VRAM)",
+    "tools": "Tools",
+    "models": "Local models",
+    "slots": "Job slots",
+    "slotsValue": "{{used}} of {{max}} in use",
+    "projects": "Projects",
+    "allProjects": "All projects",
+    "none": "None",
+    "leases": "Leases",
+    "epoch": "epoch {{epoch}}",
+    "drain": "Drain",
+    "undrain": "Resume",
+    "drained": "{{name}} is draining: its jobs move to other nodes.",
+    "undrained": "{{name}} accepts jobs again.",
+    "revoke": "Revoke",
+    "revokeConfirm": "Revoke {{name}}? Its jobs are cancelled and it can no longer connect.",
+    "revoked": "{{name}} was revoked."
+  },
+  "policy": {
+    "edit": "Policy",
+    "trust": "Trust level",
+    "projects": "Allowed projects (comma separated ids, * for all)",
+    "maxJobs": "Maximum concurrent jobs",
+    "save": "Save policy",
+    "saved": "Policy saved."
+  },
+  "enroll": {
+    "group": "Enroll a node",
+    "intro": "On the other computer open Nodes → This computer as a node and allow it. Then enter what it shows here.",
+    "coreId": "Core id",
+    "pairingId": "Pairing id",
+    "code": "Pairing code",
+    "name": "Name (optional)",
+    "submit": "Enroll",
+    "enrolled": "{{name}} was enrolled with trust level {{trust}}.",
+    "sasLabel": "Verification code",
+    "sasHint": "Check that the other computer shows the same verification code, then confirm there.",
+    "sasMatches": "Codes match",
+    "sasMismatch": "Codes differ",
+    "done": "{{name}} is now a node.",
+    "mismatchRevoked": "The enrollment was revoked because the codes differed."
+  },
+  "worker": {
+    "group": "This computer as a node",
+    "intro": "Let another Orkestr coordinate jobs on this computer. Remote access must be enabled.",
+    "allow": "Allow this computer to be a node",
+    "restart": "New pairing code",
+    "expires": "Expires {{time}}",
+    "waiting": "Waiting for the coordinator to enter the code…",
+    "claimedBy": "Coordinator: {{name}}",
+    "sasHint": "Compare this verification code with the one on the coordinator's screen.",
+    "sasConfirmed": "The codes match",
+    "approve": "Approve",
+    "approved": "{{name}} can now run jobs on this computer."
+  },
+  "jobState": {
+    "pending": "Pending",
+    "offered": "Offered",
+    "running": "Running",
+    "migrating": "Migrating",
+    "completed": "Completed",
+    "failed": "Failed",
+    "cancelled": "Cancelled",
+    "infeasible": "Cannot be placed"
+  },
+  "jobs": {
+    "none": "No jobs yet.",
+    "unavailable": "Jobs are not available on this core yet.",
+    "unassigned": "not placed",
+    "on": "On {{node}}",
+    "why": "Why this node",
+    "needsDecision": "Needs your decision: the job had side effects that cannot be safely repeated.",
+    "kind": {
+      "command": "Command",
+      "agentTask": "Agent",
+      "service": "Service"
+    },
+    "migrate": "Migrate",
+    "target": "Target node",
+    "auto": "Choose automatically",
+    "migrated": "Migrating to {{node}}.",
+    "cancel": "Cancel job",
+    "cancelled": "The job is being cancelled."
+  },
+  "models": {
+    "none": "No models in the local store.",
+    "unavailable": "The model store is not available on this core yet.",
+    "importGroup": "Import a model",
+    "importIntro": "Import a GGUF file, or generate a test model of the given size.",
+    "name": "Name",
+    "tag": "Tag",
+    "path": "GGUF file path",
+    "pathHint": "Leave empty to generate a test model.",
+    "mockSize": "Test model size, MB",
+    "import": "Import",
+    "imported": "{{ref}} was imported.",
+    "ollama": "In Ollama",
+    "distribute": "Distribute",
+    "noTargets": "Enroll a node first.",
+    "pickNodes": "Nodes",
+    "send": "Send",
+    "distributed": "Delivered to nodes: {{ok}} of {{total}}.",
+    "outcomes": "Delivery",
+    "outcomeOk": "delivered, {{size}} sent",
+    "outcomeFailed": "failed: {{error}}"
   }
 }
