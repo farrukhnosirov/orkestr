@@ -769,7 +769,7 @@ impl PluginService {
         if self.events_started.swap(true, Ordering::SeqCst) {
             return;
         }
-        let mut sub = self.deps.events.subscribe_all();
+        let mut sub = self.deps.events.subscribe_internal_all();
         let weak = Arc::downgrade(self);
         tokio::spawn(async move {
             while let Some(r) = sub.recv().await {

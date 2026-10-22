@@ -133,7 +133,9 @@ stoppable at once, independently of providers (contract §6).
     the grant **`Read` with scope `event/<Kind>`**, requested in
     `permissions` like any grant; without it (or when denied) the event is
     not delivered and counted as `denied`. The host subscribes to the bus
-    once (`PluginService::start_event_delivery`, wired at boot); the bus side
+    once (`PluginService::start_event_delivery`, wired at boot) with an
+    internal subscription (`EventBus::subscribe_internal_all`, not counted as a
+    live client listener, so the node heartbeat can still idle); the bus side
     only pushes into a **bounded per-plugin queue (64, drop-oldest, counted
     as `dropped`)** and never waits on plugin code. One worker per plugin
     drains it, calling `orkestr_on_event` with `{"event": <envelope>}` (the

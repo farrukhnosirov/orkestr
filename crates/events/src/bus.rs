@@ -1,7 +1,7 @@
 //! The event bus.
 
 use std::collections::BTreeSet;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
 
 use orkestr_protocol::{topic, Event, NewEvent};
@@ -23,6 +23,8 @@ struct Inner {
     publish_lock: Mutex<u64>,
     last_seq: AtomicU64,
     log: Option<Arc<dyn EventLog>>,
+    /// Live internal subscriptions (see [`EventBus::subscribe_internal_all`]).
+    internal: Arc<AtomicUsize>,
 }
 
 /// Cloneable handle to the bus.
@@ -57,7 +59,15 @@ impl EventBus {
 
     fn build(capacity: usize, log: Option<Arc<dyn EventLog>>, last: u64) -> Self {
         let (tx, _) = broadcast::channel(capacity.max(16));
-        Self { inner: Arc::new(Inner { tx, publish_lock: Mutex::new(last), last_seq: AtomicU64::new(last), log }) }
+        Self {
+            inner: Arc::new(Inner {
+                tx,
+                publish_lock: Mutex::new(last),
+                last_seq: AtomicU64::new(last),
+                log,
+                internal: Arc::new(AtomicUsize::new(0)),
+            }),
+        }
     }
 
     /// Publishes an event: assigns `seq`, `id`, `ts` (and the ambient
@@ -92,7 +102,7 @@ impl EventBus {
         I: IntoIterator<Item = S>,
         S: Into<String>,
     {
-        let mut sub = Subscription { rx: self.inner.tx.subscribe(), topics: BTreeSet::new() };
+        let mut sub = Subscription { rx: self.inner.tx.subscribe(), topics: BTreeSet::new(), internal: None };
         sub.add_topics(topics)?;
         Ok(sub)
     }
@@ -102,7 +112,18 @@ impl EventBus {
     pub fn subscribe_all(&self) -> Subscription {
         let mut topics = BTreeSet::new();
         topics.insert(topic::ALL.to_owned());
-        Subscription { rx: self.inner.tx.subscribe(), topics }
+        Subscription { rx: self.inner.tx.subscribe(), topics, internal: None }
+    }
+
+    /// Subscribes to every event for an in-process consumer (e.g. plugin event
+    /// delivery). Such a subscription is not a client listening, so it is not
+    /// counted by [`EventBus::subscriber_count`].
+    #[must_use]
+    pub fn subscribe_internal_all(&self) -> Subscription {
+        let mut sub = self.subscribe_all();
+        self.inner.internal.fetch_add(1, Ordering::SeqCst);
+        sub.internal = Some(InternalGuard(Arc::clone(&self.inner.internal)));
+        sub
     }
 
     /// Last assigned seq (0 when nothing was published).
@@ -125,10 +146,10 @@ impl EventBus {
         }
     }
 
-    /// Number of live subscriptions.
+    /// Number of live client subscriptions (internal ones are not counted).
     #[must_use]
     pub fn subscriber_count(&self) -> usize {
-        self.inner.tx.receiver_count()
+        self.inner.tx.receiver_count().saturating_sub(self.inner.internal.load(Ordering::SeqCst))
     }
 }
 
@@ -145,6 +166,16 @@ pub enum Received {
 pub struct Subscription {
     rx: broadcast::Receiver<Arc<Event>>,
     topics: BTreeSet<String>,
+    internal: Option<InternalGuard>,
+}
+
+/// Decrements the internal-subscription count when its subscription drops.
+struct InternalGuard(Arc<AtomicUsize>);
+
+impl Drop for InternalGuard {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, Ordering::SeqCst);
+    }
 }
 
 impl std::fmt::Debug for Subscription {
@@ -321,5 +352,21 @@ mod tests {
             bus.publish(NewEvent::new(log_kind(&i.to_string()))).await.unwrap();
         }
         assert!(matches!(sub.recv().await, Some(Received::Lagged(_))));
+    }
+
+    #[tokio::test]
+    async fn internal_subscriptions_receive_events_but_are_not_counted() {
+        let bus = EventBus::in_memory(64);
+        let mut internal = bus.subscribe_internal_all();
+        assert_eq!(bus.subscriber_count(), 0);
+        let client = bus.subscribe_all();
+        assert_eq!(bus.subscriber_count(), 1);
+        bus.publish(NewEvent::new(log_kind("x"))).await.unwrap();
+        assert!(matches!(next_event(&mut internal).await.kind, EventKind::Log(_)));
+        drop(client);
+        assert_eq!(bus.subscriber_count(), 0);
+        drop(internal);
+        let _c = bus.subscribe_all();
+        assert_eq!(bus.subscriber_count(), 1);
     }
 }

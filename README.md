@@ -9,7 +9,7 @@ contributor follows are in [`docs/ENGINEERING_CONTRACT.md`](docs/ENGINEERING_CON
 > Status: **Phases 0–7 complete on Windows** (Phase 5 for Android). Phase 7
 > (Ecosystem: signed plugins in a wasmtime sandbox, marketplace registries,
 > widgets and dashboards, deployments, infrastructure monitor, Bug Detective)
-> passed its acceptance run <!-- P7-ACCEPTANCE -->78/78<!-- /P7-ACCEPTANCE --> —
+> passed its acceptance run <!-- P7-ACCEPTANCE -->91/91<!-- /P7-ACCEPTANCE --> —
 > see [Ecosystem](#ecosystem-phase-7). Cloud deploy adapters (Vercel, Netlify,
 > Fly, Kubernetes) are verified against a fake API only. Phase 6
 > (Multi-node: worker enrollment with SAS, scheduler, cross-node jobs with
@@ -554,6 +554,14 @@ by default) and memory (64 MB). A plugin that crashes three times in a row is
 quarantined. Agents see plugin tools as `plugin_<package>__<tool>`; both the
 agent's permissions and the plugin's grants apply.
 
+Plugins can also react to events and deploy. A plugin that lists event kinds
+in `subscribes` (for example `TaskCreated`) receives them once you allow its
+`Read event/<Kind>` request; only non-sensitive kinds can be subscribed, each
+plugin has a bounded queue, and disable, kill and safe mode stop delivery. A
+`DeploymentProvider` plugin adds its providers to **Deployments** as
+`plugin:<package>/<provider>` targets while it is enabled; credentials reach it
+only through granted secrets. Details: ADR-0034 §12–13.
+
 Only signed packages from trusted publisher keys install. To trust keys at
 startup, set `ORKESTR_PLUGINS_TRUSTED_KEYS` (comma-separated base64 public
 keys). For plugin development only, `ORKESTR_PLUGINS_DEV=1` also accepts
@@ -655,7 +663,10 @@ computer and enrolled nodes, health checks (HTTP or TCP; add them here),
 alerts (acknowledge them) and live logs from files, deployments and
 `monitor.ingest`. Logs are kept in memory only (10 000 lines per source) and
 secrets are masked. Default alerts: a check is down, CPU / memory / disk
-above 95 %, a burst of errors in the logs.
+above 95 %, a burst of errors in the logs. The *Alert rules* tab adds, edits,
+disables and deletes rules (metric threshold, check down, log rate for a
+pattern); deleted default rules stay deleted. The *Log sources* tab adds and
+removes log files (absolute path to an existing file).
 
 ### Bug Detective
 
@@ -666,7 +677,9 @@ the stack-trace lines), asks the model for a root-cause hypothesis and runs
 the reproduction. Then it waits for **your first approval** before an agent
 writes a fix on branch `detective/<id>` in its own worktree; tests and a
 review follow. Nothing is merged until **your second approval**. You can
-cancel at any stage.
+cancel at any stage. *Settings* sets the default budget, the number of fix
+attempts and whether a new alert on a project opens an incident by itself
+(off by default).
 
 ### Phase 7 acceptance
 

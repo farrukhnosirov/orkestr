@@ -57,8 +57,15 @@ fn wasm_files(src: &str) -> Result<BTreeMap<String, Vec<u8>>, PluginError> {
 }
 
 /// Widget HTML of `hello-tool`.
-pub const HELLO_WIDGET_HTML: &str = r#"<!doctype html><html><body><h3 id="t">Hello widget</h3>
-<script>window.addEventListener("message",function(e){var d=e.data||{};if(d.type==="init"){document.getElementById("t").textContent="Hello "+(d.config&&d.config.name||"world");}});parent.postMessage({type:"ready"},"*");</script>
+/// Uses the theme tokens the host sends with `init` / `theme` (`--ok-*`) and
+/// paints the opaque `bg-elevated` token (a transparent iframe canvas is still
+/// white in WebView2); before `init` it falls back to transparent + system font.
+pub const HELLO_WIDGET_HTML: &str = r#"<!doctype html><html><body><style>
+html,body{margin:0;height:100%;box-sizing:border-box;background:var(--ok-color-bg-elevated,transparent);color:var(--ok-color-text,CanvasText);font-family:var(--ok-font-sans,system-ui,-apple-system,"Segoe UI",sans-serif);font-size:var(--ok-font-size-md,14px)}
+body{padding:12px}h3{margin:0 0 4px;font-size:var(--ok-font-size-lg,16px);font-weight:600}p{margin:0;color:var(--ok-color-text-muted,GrayText);font-size:var(--ok-font-size-sm,12px)}
+</style><h3 id="t">Hello widget</h3><p>Signed plugin widget</p>
+<script>function th(t){if(!t)return;for(var k in t){if(/^[a-z0-9-]+$/.test(k)&&typeof t[k]==="string")document.documentElement.style.setProperty("--ok-"+k,t[k]);}}
+window.addEventListener("message",function(e){var d=e.data||{};if(d.type==="init"){th(d.theme);document.getElementById("t").textContent="Hello "+(d.config&&d.config.name||"world");}else if(d.type==="theme"){th(d.theme);}});parent.postMessage({type:"ready"},"*");</script>
 </body></html>"#;
 
 /// Manifest of `hello-tool` (Tool + Widget; asks for one Network grant so the

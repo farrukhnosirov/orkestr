@@ -1,5 +1,5 @@
 {
-  "date": "2026-10-22T17:55:23.950Z",
+  "date": "2026-10-22T18:57:03.693Z",
   "result": "21/21 checks passed",
   "closedRunningApp": false,
   "checks": [
@@ -13,7 +13,7 @@
       "id": "W1",
       "label": "hello-widget.orkp (signed fixture) installed from file + enabled via the UI",
       "ok": true,
-      "detail": "Enabled; install 736 ms; signer 3b5a57b983fef440…"
+      "detail": "Enabled; install 732 ms; signer 3b5a57b983fef440…"
     },
     {
       "id": "W1",
@@ -25,7 +25,7 @@
       "id": "W1",
       "label": "hello-tool.orkp → pending grants → marketplace permission prompt",
       "ok": true,
-      "detail": "after 719 ms"
+      "detail": "after 733 ms"
     },
     {
       "id": "W1",
@@ -43,13 +43,13 @@
       "id": "W1",
       "label": "logs viewer shows plugin log lines (plugins.logs)",
       "ok": true,
-      "detail": "22:54:25infoinstalled orkestr-dev.hello-tool 1.0.0 from file (trusted)22:54:28infohello called"
+      "detail": "23:56:05infoinstalled orkestr-dev.hello-tool 1.0.0 from file (trusted)23:56:08infohello called"
     },
     {
       "id": "W2",
       "label": "widget palette lists built-ins + both plugin widgets",
       "ok": true,
-      "detail": "Add widget Overview, Add widget Active agents, Add widget Pending approvals, Add widget Projects, Add widget Task graph, Add widget Nodes, Add widget Provider health, Add widget Spend & budgets, Add widget Alerts, Add widget Builds & tests, Add widget Reviews & merges, Add widget Deployments, Add widget Note, Add widget Hello, Add widget Projects widget, Add widget Hello"
+      "detail": "Add widget Overview, Add widget Active agents, Add widget Pending approvals, Add widget Projects, Add widget Task graph, Add widget Nodes, Add widget Provider health, Add widget Spend & budgets, Add widget Alerts, Add widget Builds & tests, Add widget Reviews & merges, Add widget Deployments, Add widget Note, Add widget Hello, Add widget Hello, Add widget Projects widget"
     },
     {
       "id": "W2",
@@ -61,19 +61,19 @@
       "id": "W3",
       "label": "plugin widgets render in sandboxed iframes (sandbox=allow-scripts, orkestr-widget scheme)",
       "ok": true,
-      "detail": "[{\"id\":\"orkestr-dev.projects-widget/w\",\"sandbox\":\"allow-scripts\",\"src\":\"http://orkestr-widget.localhost/3db30b32003f8bc7cf45feab2e1d3e308d52bac027839eed0c21e38cca2f4e88\",\"srcdoc\":false},{\"id\":\"orkestr-dev.hello-widget/hello-widget\",\"sandbox\":\"allow-scripts\",\"src\":\"http://orkestr-widget.localhost/48b3c8a1e8bcc6b23ed5644e05c50963fac573b0fe5ee2c5ed9ac6994ffb999b\",\"srcdoc\":false}]"
+      "detail": "[{\"id\":\"orkestr-dev.projects-widget/w\",\"sandbox\":\"allow-scripts\",\"src\":\"http://orkestr-widget.localhost/ba38dd6eaa302462961d4e0f49674463424f02dded6dbce8f25c62e2ed21becf\",\"srcdoc\":false},{\"id\":\"orkestr-dev.hello-widget/hello-widget\",\"sandbox\":\"allow-scripts\",\"src\":\"http://orkestr-widget.localhost/b47ae961b1573ca456b97fc06b22a9eef1db0713a00638e9541dd91c2556bb8a\",\"srcdoc\":false}]"
     },
     {
       "id": "W3",
       "label": "projects widget rendered the project names from its projects.list query (read via CDP inside the frame)",
       "ok": true,
-      "detail": "oopif-session: [billing-api, hello-app] url http://orkestr-widget.localhost/3db30b32003f8bc7cf45feab2e1d3e308d52bac027839eed0c21e38cca2f4e88"
+      "detail": "oopif-session: [billing-api, hello-app] url http://orkestr-widget.localhost/ba38dd6eaa302462961d4e0f49674463424f02dded6dbce8f25c62e2ed21becf"
     },
     {
       "id": "W3",
       "label": "hello-widget fixture rendered inside its frame",
       "ok": true,
-      "detail": "Hello world"
+      "detail": "Hello world\n\nSigned plugin widget"
     },
     {
       "id": "W4",
@@ -97,13 +97,13 @@
       "id": "W6",
       "label": "Publish signs + adds the package to the folder registry; result shown",
       "ok": true,
-      "detail": "Published Hello Widget 1.0.0 Widgetorkestr-dev.hello-widget → dir-9577aeca · key 57c72fb823e38d0csha256 ee865eacb6b1f9b50dc46711bd9967942fd0762247c12198b1ff0d01"
+      "detail": "Published Hello Widget 1.0.0 Widgetorkestr-dev.hello-widget → dir-c0df1180 · key b8ca63f7a9b345b8sha256 886daf308009e25a8c0fbd63654341c43739286a7632a3de08b3b5f9"
     },
     {
       "id": "W6",
       "label": "local publisher key fingerprint shown in the Publish tab (marketplace.keys localPublisher)",
       "ok": true,
-      "detail": "57c7 2fb8 23e3 8d0c 3757 5fd2 ca94 55f4 c4de f9f7 4fc3 955d dd87 c2b7 8630 c6e4"
+      "detail": "b8ca 63f7 a9b3 45b8 bda7 1826 a57f 04b4 2431 e26f 129d 5459 5e21 5b74 4312 ad4e"
     },
     {
       "id": "W1",
@@ -127,14 +127,19 @@
       "id": "I18N",
       "label": "Publish tab renders in Russian",
       "ok": true,
-      "detail": "Ваш ключ издателяПубликация от имени Orkestr Dev (ключ 57c72fb823e38d0c). Закрытый ключ хранится в хранилище секретов.57"
+      "detail": "Ваш ключ издателяПубликация от имени Orkestr Dev (ключ b8ca63f7a9b345b8). Закрытый ключ хранится в хранилище секретов.b8"
     }
   ],
   "screenshots": [
     {
       "name": "03-plugins-permission-prompt-en.png",
       "note": "Plugins: permission prompt after installing hello-tool.orkp from file (Network example.com)",
-      "consoleMessages": []
+      "consoleMessages": [
+        "warning: IPC custom protocol failed, Tauri will now use the postMessage interface instead TypeError: Failed to fetch\n    at Object.sendIpcMessage (<anonymous>:83:7)\n    at Object.<anonymous> (<anonymous>:177:38)\n    at action (<anonymous>:336:38)\n    at <anonymous>:345:11\n    at new Promise (<anonymous>)\n    at Object.value (<anonymous>:325:14)\n    at R (http://tauri.localhost/assets/ThemeRuntime-BlSufgDA.js:11:52884)\n    at Object.listPanels (http://tauri.localhost/assets/main-CCWFdOWc.js:47:160052)\n    at c3 (http://tauri.localhost/assets/main-CCWFdOWc.js:47:162330)\n    at http://tauri.localhost/assets/main-CCWFdOWc.js:47:164815",
+        "warning: IPC custom protocol failed, Tauri will now use the postMessage interface instead TypeError: Failed to fetch",
+        "warning: [TAURI] Couldn't find callback id 3398389878. This might happen when the app is reloaded while Rust is running an asynchronous operation.",
+        "warning: [TAURI] Couldn't find callback id 87253668. This might happen when the app is reloaded while Rust is running an asynchronous operation."
+      ]
     },
     {
       "name": "02-plugins-management-en.png",
