@@ -46,6 +46,10 @@ url: string,
  */
 revoked: boolean, 
 /**
+ * Tags (search facets).
+ */
+tags: Array<string>, 
+/**
  * Source the entry came from.
  */
 sourceId: string, 

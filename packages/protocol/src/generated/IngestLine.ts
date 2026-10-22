@@ -16,4 +16,9 @@ level?: LogLevel,
 /**
  * Text.
  */
-message: string, };
+message: string, 
+/**
+ * Structured attributes (appended to the stored line as `key=value`;
+ * values of sensitive keys are redacted).
+ */
+attrs?: { [key in string]: string }, };

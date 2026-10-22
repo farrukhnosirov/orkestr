@@ -6,6 +6,7 @@ import type { WidgetDescriptor } from "./WidgetDescriptor";
  */
 export type ListWidgetsResult = { 
 /**
- * Widgets of enabled plugins (built-ins are listed by the client itself).
+ * Built-in widgets (`builtin:<id>`, rendered natively) followed by widgets of
+ * enabled plugins whose data binding passes the allowlist.
  */
 widgets: Array<WidgetDescriptor>, };

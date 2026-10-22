@@ -16,4 +16,9 @@ metrics: Array<string>,
 /**
  * Window start (default: last 15 min).
  */
-since?: string, };
+since?: string, 
+/**
+ * Bucket width in seconds; points inside a bucket are averaged
+ * (default: raw samples).
+ */
+resolutionSecs?: number, };

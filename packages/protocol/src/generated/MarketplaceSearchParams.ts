@@ -18,6 +18,10 @@ kind?: PackageKind,
  */
 sourceId?: string, 
 /**
+ * Every tag must match.
+ */
+tags: Array<string>, 
+/**
  * Include revoked entries.
  */
 includeRevoked: boolean, 

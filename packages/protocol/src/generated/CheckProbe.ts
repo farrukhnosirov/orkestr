@@ -9,6 +9,10 @@ export type CheckProbe = { "type": "Http",
  */
 url: string, 
 /**
+ * Method (`GET` default, `HEAD`, `POST`, ...).
+ */
+method?: string, 
+/**
  * Expected status (default: any 2xx/3xx).
  */
 expectStatus?: number, 

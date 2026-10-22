@@ -16,4 +16,9 @@ location: string,
 /**
  * Display name.
  */
-name?: string, };
+name?: string, 
+/**
+ * Publish token of an HTTP registry (gateway session or core token);
+ * stored in the vault, never returned.
+ */
+token?: string, };

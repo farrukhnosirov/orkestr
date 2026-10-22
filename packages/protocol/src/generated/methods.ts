@@ -214,6 +214,7 @@ import type { InstallPluginParams } from "./InstallPluginParams";
 import type { InstallPluginResult } from "./InstallPluginResult";
 import type { InstallVsixParams } from "./InstallVsixParams";
 import type { InstalledExtensionResult } from "./InstalledExtensionResult";
+import type { InstalledResult } from "./InstalledResult";
 import type { InvokePluginParams } from "./InvokePluginParams";
 import type { InvokePluginResult } from "./InvokePluginResult";
 import type { JobIdParams } from "./JobIdParams";
@@ -554,6 +555,7 @@ import type { TranscriptParams } from "./TranscriptParams";
 import type { TransitionTaskParams } from "./TransitionTaskParams";
 import type { TrustKeyParams } from "./TrustKeyParams";
 import type { UiConfigResult } from "./UiConfigResult";
+import type { UninstallEntryParams } from "./UninstallEntryParams";
 import type { UpdateDecisionParams } from "./UpdateDecisionParams";
 import type { UpdateEnvironmentParams } from "./UpdateEnvironmentParams";
 import type { UpdateMemoryParams } from "./UpdateMemoryParams";
@@ -986,6 +988,8 @@ export type Methods = {
   "marketplace.keys": [Empty, KeysResult];
   "marketplace.trustKey": [TrustKeyParams, KeyResult];
   "marketplace.untrustKey": [KeyIdParams, KeyResult];
+  "marketplace.installed": [Empty, InstalledResult];
+  "marketplace.uninstall": [UninstallEntryParams, Empty];
   "dashboards.list": [ListDashboardsParams, ListDashboardsResult];
   "dashboards.get": [DashboardIdParams, DashboardResult];
   "dashboards.save": [SaveDashboardParams, DashboardResult];
@@ -1410,6 +1414,8 @@ export const METHOD_NAMES = [
   "marketplace.keys",
   "marketplace.trustKey",
   "marketplace.untrustKey",
+  "marketplace.installed",
+  "marketplace.uninstall",
   "dashboards.list",
   "dashboards.get",
   "dashboards.save",
