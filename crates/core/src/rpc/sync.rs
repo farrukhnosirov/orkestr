@@ -71,22 +71,41 @@ fn now_result(r: SyncReport) -> m::SyncNowResult {
     m::SyncNowResult { pushed: r.pushed, pulled: r.pulled, bytes: r.bytes, conflicts: r.conflicts }
 }
 
+/// Gateway URL + core token for `/v1/sync` when remote access is enabled.
+///
+/// Integration point with package A: on merge this becomes
+/// `ctx.services.remote.sync_credentials()`.
+fn gateway_credentials(_ctx: &RpcContext) -> Option<(String, String)> {
+    None
+}
+
 async fn configure(ctx: RpcContext, p: m::SyncConfigureParams) -> Result<m::SyncStatusInfo, RpcError> {
     if !ctx.principal.is_local() {
         return Err(RpcError::forbidden("sync.configure is local-only"));
     }
     let eng = engine(&ctx)?;
-    let Some(server_url) = p.server_url.filter(|u| !u.trim().is_empty()) else {
+    if p.disable == Some(true) {
         eng.disable(p.project_id).await.map_err(sync_to_rpc)?;
         return Ok(status_info(p.project_id, eng.status(p.project_id).await.map_err(sync_to_rpc)?));
-    };
+    }
     let proj = allowed_project(&ctx, p.project_id).await?;
     let root = proj
         .root_path
         .clone()
         .ok_or_else(|| RpcError::bad_request("the project is not bound to a folder; sync needs a root path"))?;
-    let token =
-        p.access_token.filter(|t| !t.is_empty()).ok_or_else(|| RpcError::bad_request("accessToken is required"))?;
+    // Explicit server URL + token win; otherwise the paired gateway's
+    // credentials (remote access, ADR-0030) are used.
+    let gateway = gateway_credentials(&ctx);
+    let server_url = p
+        .server_url
+        .filter(|u| !u.trim().is_empty())
+        .or_else(|| gateway.as_ref().map(|g| g.0.clone()))
+        .ok_or_else(|| RpcError::bad_request("serverUrl is required (remote access is not enabled)"))?;
+    let token = p
+        .access_token
+        .filter(|t| !t.is_empty())
+        .or_else(|| gateway.as_ref().map(|g| g.1.clone()))
+        .ok_or_else(|| RpcError::bad_request("accessToken is required"))?;
     let (remote_key, generated) = match p.remote_key.filter(|k| !k.trim().is_empty()) {
         Some(k) => (k.trim().to_owned(), None),
         None => {

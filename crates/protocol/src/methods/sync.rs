@@ -27,7 +27,11 @@ pub struct SyncProjectParams {
 pub struct SyncConfigureParams {
     /// Project.
     pub project_id: ProjectId,
-    /// Sync server (gateway) URL; `None` disables remote sync.
+    /// Turns remote sync off for the project (other fields ignored).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub disable: Option<bool>,
+    /// Sync server (gateway) URL; `None` = the gateway of remote access.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub server_url: Option<String>,

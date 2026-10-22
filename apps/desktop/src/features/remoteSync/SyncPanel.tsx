@@ -87,7 +87,7 @@ export function SyncPanel({ projectId }: { projectId: string | null }) {
     });
   const disable = () =>
     run("disable", async () => {
-      await getClient().call("sync.configure", { projectId });
+      await getClient().call("sync.configure", { projectId, disable: true });
       return null;
     });
   const syncNow = () =>
