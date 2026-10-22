@@ -20,3 +20,4 @@ export type { BackoffOptions } from "./backoff";
 
 // Remote access (Phase 4, package C).
 export * from "./remote";
+export * from "./voice";

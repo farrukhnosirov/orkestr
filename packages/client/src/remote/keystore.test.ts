@@ -28,9 +28,9 @@ describe("device key", () => {
       deviceName: "test", keyPair: cloned, pairedAt: 1,
     });
     const back = await store.get("core-1");
-    expect(back?.keyPair.privateKey.extractable).toBe(false);
+    expect(back?.keyPair?.privateKey.extractable).toBe(false);
     const msg = utf8("hello");
-    const sig = await crypto.subtle.sign(ECDSA, back!.keyPair.privateKey, msg);
+    const sig = await crypto.subtle.sign(ECDSA, back!.keyPair!.privateKey, msg);
     expect(await crypto.subtle.verify(ECDSA, kp.publicKey, sig, msg)).toBe(true);
     expect(await store.list()).toHaveLength(1);
     await store.delete("core-1");
@@ -70,7 +70,7 @@ describe("pairDevice", () => {
     expect(session.sas).toBe(await sas(b64uDecode(v.cikPublic), devicePub, "pair-1"));
     const rec = await session.waitForApproval({ intervalMs: 1 });
     expect(rec.deviceId).toBe("dev-9");
-    expect(rec.keyPair.privateKey.extractable).toBe(false);
+    expect(rec.keyPair?.privateKey.extractable).toBe(false);
     expect((await store.get("core-1"))?.role).toBe("operator");
   });
 

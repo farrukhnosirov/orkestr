@@ -20,7 +20,7 @@ silently.
 
 ```
 /Cargo.toml                 cargo workspace (members = crates/*, apps/desktop/src-tauri)
-/package.json               npm workspaces (apps/desktop, packages/*)
+/package.json               npm workspaces (apps/desktop, apps/web, packages/*); apps/mobile is standalone (own package-lock, React 19 — ADR-0032)
 /docs                       architecture, adr, security, sync, agents, providers, platform, api, spikes
 /crates
   domain/         orkestr-domain        entities (§51), ids, enums, value objects. NO I/O.
@@ -50,7 +50,10 @@ silently.
   ui/             @orkestr/ui           design system: tokens, theme engine, primitives (Button, Panel, ...)
 ```
 Web (`apps/web`) and Mobile (`apps/mobile`) are Phase 4/5: they reuse
-`@orkestr/client` + `@orkestr/protocol` (+ `@orkestr/ui` for web). Nothing in
+`@orkestr/client` + `@orkestr/protocol` (+ `@orkestr/ui` for web). `apps/mobile` is NOT a root
+workspace: it has its own `package-lock.json` (Expo needs React 19, the root pins
+React 18) and consumes the shared packages from source via Metro/TS paths; run
+`npm install|typecheck|test` inside `apps/mobile` (ADR-0032). Nothing in
 desktop UI may talk to Tauri for business data — **all business data goes through
 the RPC protocol** so Web/Mobile get it for free (§67).
 

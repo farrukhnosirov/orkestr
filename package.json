@@ -5,7 +5,8 @@
   "description": "Orkestr — AI Development OS (monorepo root)",
   "type": "module",
   "workspaces": [
-    "apps/*",
+    "apps/desktop",
+    "apps/web",
     "packages/*"
   ],
   "scripts": {

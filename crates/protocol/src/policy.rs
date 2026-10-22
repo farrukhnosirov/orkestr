@@ -206,7 +206,9 @@ fn explicit(method: &str) -> Option<MethodPolicy> {
         "sync.configure" | "sync.rotateKeys" => MethodPolicy::local(),
         "sync.now" | "sync.continueOn" | "sync.resolveConflict" => MethodPolicy::write(),
         // --- push (Phase 4) ---------------------------------------------------------------
-        "push.subscribe" | "push.unsubscribe" => MethodPolicy::new(Role::Viewer, StepUp::Never, RateClass::Write),
+        "push.subscribe" | "push.unsubscribe" | "push.registerNative" => {
+            MethodPolicy::new(Role::Viewer, StepUp::Never, RateClass::Write)
+        }
         "push.test" => MethodPolicy::write(),
         // --- emergency ----------------------------------------------------------------------
         "emergency.status" => MethodPolicy::read(),
@@ -339,6 +341,12 @@ mod tests {
         for m in ["emergency.stopAll", "agents.stop", "remote.disable"] {
             assert_eq!(policy_for(m).unwrap().min_role, Role::Viewer, "{m}: stopping is allowed to every role");
         }
+        let native = policy_for("push.registerNative").unwrap();
+        assert_eq!(
+            (native.min_role, native.step_up, native.rate_class),
+            (Role::Viewer, StepUp::Never, RateClass::Write)
+        );
+        assert!(!native.local_only);
         let revoke = policy_for("devices.revoke").unwrap();
         assert_eq!((revoke.min_role, revoke.step_up), (Role::Admin, StepUp::Always));
     }

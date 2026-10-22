@@ -4,6 +4,7 @@
  * `OrkestrClient` works unchanged (its `auth` frame travels encrypted and is
  * ignored by the remote session — the principal comes from the handshake).
  */
+import { type DeviceSigner, isDeviceSigner } from "./crypto";
 import type { WebSocketFactory, WebSocketLike } from "../client";
 import { fromUtf8, utf8 } from "./bytes";
 import { connectUrl } from "./endpoints";
@@ -36,8 +37,8 @@ export interface RemoteSocketOptions {
   gatewayUrl: string;
   coreId: string;
   deviceId: string;
-  /** Device key DK (non-extractable private key). */
-  deviceKey: CryptoKeyPair;
+  /** Device key DK: non-extractable WebCrypto pair or a provider signer (mobile). */
+  deviceKey: CryptoKeyPair | DeviceSigner;
   /** Core identity key, raw SEC1 base64url (pinned at pairing). */
   corePubKey: string;
   /** Gateway session token appended as `&token=` (default: rely on the session cookie). */
@@ -94,7 +95,7 @@ class RemoteSocket implements WebSocketLike {
     this.hs = new DeviceHandshake({
       coreId: o.coreId,
       deviceId: o.deviceId,
-      deviceKey: o.deviceKey.privateKey,
+      deviceKey: isDeviceSigner(o.deviceKey) ? o.deviceKey : o.deviceKey.privateKey,
       corePubKey: o.corePubKey,
       ...o.handshake,
     });

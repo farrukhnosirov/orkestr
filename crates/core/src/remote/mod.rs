@@ -778,6 +778,7 @@ impl RemoteService {
             body: e2e::b64(&req.body),
             collapse_key: req.collapse_key,
             urgency: req.urgency,
+            transport: orkestr_protocol::methods::push::PushTransport::WebPush,
         });
         Ok(())
     }

@@ -77,6 +77,62 @@ pub struct PushUnsubscribeParams {
     pub endpoint: String,
 }
 
+/// Push delivery transport.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub enum PushTransport {
+    /// Web Push (RFC 8291 / VAPID), the Phase 4 default.
+    #[default]
+    WebPush,
+    /// Firebase Cloud Messaging HTTP v1 (Android).
+    Fcm,
+    /// Apple Push Notification service (iOS).
+    Apns,
+}
+
+/// What a native notification shows on the lock screen.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub enum PushLockScreen {
+    /// Generic alert ("Action needed"); details only after unlock.
+    #[default]
+    Generic,
+    /// Decrypted title/body (needs background decryption; ADR-0037).
+    Detailed,
+}
+
+/// Params of `push.registerNative` (mobile FCM/APNs token, ADR-0037).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct PushRegisterNativeParams {
+    /// `fcm` or `apns` (`webPush` is rejected; use `push.subscribe`).
+    pub transport: PushTransport,
+    /// FCM registration token / APNs device token.
+    pub token: String,
+    /// Payload key: 32 random bytes (AES-256-GCM), base64url.
+    pub key: String,
+    /// Notification categories; `None` = all.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub categories: Option<Vec<String>>,
+    /// Lock-screen privacy.
+    pub lock_screen: PushLockScreen,
+}
+
+/// Result of `push.registerNative`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct PushNativeRegistration {
+    /// Registration id.
+    pub id: String,
+    /// The gateway announced a sender for this transport.
+    pub deliverable: bool,
+}
+
 /// Result of `push.test`.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
@@ -97,6 +153,10 @@ method!(
 method!(
     /// `push.unsubscribe`.
     Unsubscribe, "push.unsubscribe", PushUnsubscribeParams, Empty
+);
+method!(
+    /// `push.registerNative`.
+    RegisterNative, "push.registerNative", PushRegisterNativeParams, PushNativeRegistration
 );
 method!(
     /// `push.test`.

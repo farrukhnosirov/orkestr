@@ -156,6 +156,7 @@ async fn run_tunnel(st: GatewayState, mut socket: WebSocket, ip: String) {
         rp_id: st.rp.rp_id.clone(),
         origins: st.rp.origins.clone(),
         vapid_public_key: crate::push::vapid_public_key(),
+        native_push: Vec::new(),
     };
     let Ok(text) = serde_json::to_string(&welcome) else { return };
     if socket.send(Message::Text(text.into())).await.is_err() {
@@ -252,7 +253,11 @@ async fn on_core_frame(st: &GatewayState, core_id: &str, account: &str, f: ToGat
             st.store.revoke_device(&device_id);
             st.store.audit(Some(account), "devices.revoked", None, &json!({ "deviceId": device_id }));
         }
-        ToGateway::Push { device_ids, endpoint, body, collapse_key, urgency } => {
+        ToGateway::Push { device_ids, endpoint, body, collapse_key, urgency, transport } => {
+            if transport != orkestr_protocol::methods::push::PushTransport::WebPush {
+                // Native FCM/APNs senders land in Phase 5 WP-A (ADR-0037).
+                return;
+            }
             let Ok(body) = orkestr_security::webauthn::unb64(&body) else { return };
             let msg = crate::push::PushDelivery { endpoint, body, topic: collapse_key, urgency, ttl_secs: 24 * 3600 };
             let store = Arc::clone(&st.store);

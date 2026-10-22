@@ -9,6 +9,7 @@
  * - record = ctr_be64 ‖ AES-256-GCM(k, iv = dir_be32 ‖ ctr_be64, aad = ctr_be64).
  */
 import { b64uDecode, b64uEncode, be32, be64, concat, readBe64, utf8 } from "./bytes";
+import { type DeviceSigner, isDeviceSigner } from "./crypto";
 
 export const E2E_PROTOCOL = "orkestr-e2e-v1";
 export const DIR_D2C = 1;
@@ -130,8 +131,8 @@ export async function openRecord(
 export interface HandshakeInit {
   coreId: string;
   deviceId: string;
-  /** Device key DK (private part signs `clientFinish`). */
-  deviceKey: CryptoKey;
+  /** Device key DK (private part signs `clientFinish`): WebCrypto key or provider signer. */
+  deviceKey: CryptoKey | DeviceSigner;
   /** Core identity key (CIK), raw SEC1 base64url. */
   corePubKey: string;
   ephemeral?: CryptoKeyPair;
@@ -180,7 +181,8 @@ export class DeviceHandshake {
     const cik = await importVerifyKey(b64uDecode(this.init.corePubKey));
     if (!(await verifySig(cik, b64uDecode(sh.sig), th))) throw new Error("bad core signature");
     const { keys } = await deriveSessionKeys(this.eph.privateKey, ephC, this.nonce, nonceC, h.coreId, h.deviceId);
-    const sig = await signP1363(this.init.deviceKey, th);
+    const dk = this.init.deviceKey;
+    const sig = isDeviceSigner(dk) ? await dk.sign(new Uint8Array(th)) : await signP1363(dk, th);
     return { keys, finish: { t: "clientFinish", sig: b64uEncode(sig) } };
   }
 }

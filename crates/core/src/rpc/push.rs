@@ -49,6 +49,8 @@ pub fn register(router: &mut RpcRouter) {
         push::service(&ctx.services).unsubscribe(&p.endpoint, caller(&ctx))?;
         Ok(Empty {})
     });
+    // Native (FCM/APNs) registrations land in Phase 5 WP-A (ADR-0037).
+    super::stub::<m::RegisterNative>(router);
     router.method::<m::Test, _, _>(|ctx: RpcContext, _p: Empty| async move {
         let svc = push::service(&ctx.services);
         let payload = m::PushPayload {

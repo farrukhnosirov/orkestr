@@ -298,6 +298,8 @@ import type { ProviderModelsParams } from "./ProviderModelsParams";
 import type { ProviderModelsResult } from "./ProviderModelsResult";
 import type { ProviderStatusResult } from "./ProviderStatusResult";
 import type { ProviderViewResult } from "./ProviderViewResult";
+import type { PushNativeRegistration } from "./PushNativeRegistration";
+import type { PushRegisterNativeParams } from "./PushRegisterNativeParams";
 import type { PushSubscribeParams } from "./PushSubscribeParams";
 import type { PushSubscription } from "./PushSubscription";
 import type { PushTestResult } from "./PushTestResult";
@@ -825,6 +827,7 @@ export type Methods = {
   "push.subscribe": [PushSubscribeParams, PushSubscription];
   "push.unsubscribe": [PushUnsubscribeParams, Empty];
   "push.test": [Empty, PushTestResult];
+  "push.registerNative": [PushRegisterNativeParams, PushNativeRegistration];
 };
 
 /** All implemented method names. */
@@ -1170,6 +1173,7 @@ export const METHOD_NAMES = [
   "push.subscribe",
   "push.unsubscribe",
   "push.test",
+  "push.registerNative",
 ] as const;
 
 /** Wire protocol version (see orkestr-protocol PROTOCOL_VERSION). */

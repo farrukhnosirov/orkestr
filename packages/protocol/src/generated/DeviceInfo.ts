@@ -46,4 +46,8 @@ platform: string,
 /**
  * A step-up (WebAuthn) credential is registered.
  */
-stepUpRegistered: boolean, };
+stepUpRegistered: boolean, 
+/**
+ * Step-up credential kind (`webauthn` | `native`) when registered.
+ */
+stepUpKind?: string, };

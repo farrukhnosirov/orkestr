@@ -1,6 +1,7 @@
 /** Remote core connection (E2E through the gateway) and step-up retry. */
 import {
   type DeviceRecord,
+  deviceSigner,
   OrkestrClient,
   type StepUp,
   createRemoteSocketFactory,
@@ -17,7 +18,7 @@ export async function connectRemote(rec: DeviceRecord, sessionToken?: string): P
     gatewayUrl: rec.gatewayUrl,
     coreId: rec.coreId,
     deviceId: rec.deviceId,
-    deviceKey: rec.keyPair,
+    deviceKey: rec.keyPair ?? (await deviceSigner(rec)),
     corePubKey: rec.corePubKey,
     ...(sessionToken ? { sessionToken } : {}),
   };

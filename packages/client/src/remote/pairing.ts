@@ -6,6 +6,7 @@
  * - `fingerprint = base64url(SHA-256(corePub))`;
  * - approval proof: `Sign_CIK(SHA-256("orkestr-pairing-v1" ‖ pairingId ‖ deviceId ‖ devicePub ‖ role))`.
  */
+import type { DeviceSigner, RawKey } from "./crypto";
 import { b64uDecode, b64uEncode, concat, utf8 } from "./bytes";
 import { importVerifyKey, verifySig } from "./e2e";
 import { GATEWAY_PATHS, httpUrl } from "./endpoints";
@@ -98,14 +99,19 @@ export interface PairDeviceOptions extends PairingOffer {
   fetch?: typeof fetch;
   /** Injected device key (tests). */
   keyPair?: CryptoKeyPair;
+  /** Provider device key (mobile): `signer` is used for the pairing, `keyPair`/`rawKey` are persisted. */
+  key?: { signer: DeviceSigner; keyPair?: CryptoKeyPair; rawKey?: RawKey };
 }
 
 /** Claims a pairing offer with a fresh non-extractable device key. */
 export async function pairDevice(o: PairDeviceOptions): Promise<PairingSession> {
   const f = o.fetch ?? globalThis.fetch.bind(globalThis);
   const store = o.store ?? defaultKeyStore();
-  const keyPair = o.keyPair ?? (await generateDeviceKey());
-  const devicePub = new Uint8Array(await crypto.subtle.exportKey("raw", keyPair.publicKey));
+  const keyPair = o.key ? o.key.keyPair : (o.keyPair ?? (await generateDeviceKey()));
+  const rawKey = o.key?.rawKey;
+  const devicePub: Uint8Array = o.key
+    ? o.key.signer.publicKey
+    : new Uint8Array(await crypto.subtle.exportKey("raw", (keyPair as CryptoKeyPair).publicKey));
   const mac = await codeMac(o.code.trim().toUpperCase(), devicePub, o.pairingId);
   const res = await f(httpUrl(o.gatewayUrl, GATEWAY_PATHS.pairingClaim(o.pairingId)), {
     method: "POST",
@@ -154,7 +160,8 @@ export async function pairDevice(o: PairDeviceOptions): Promise<PairingSession> 
               corePubKey: claim.corePublicKey,
               role: s.role,
               deviceName: o.deviceName,
-              keyPair,
+              ...(keyPair ? { keyPair } : {}),
+              ...(rawKey ? { rawKey } : {}),
               pairedAt: Date.now(),
             };
             await store.put(rec);

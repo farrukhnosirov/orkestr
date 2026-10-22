@@ -502,6 +502,7 @@ pub fn registry() -> Vec<MethodDescriptor> {
         MethodDescriptor::of::<push::Subscribe>(),
         MethodDescriptor::of::<push::Unsubscribe>(),
         MethodDescriptor::of::<push::Test>(),
+        MethodDescriptor::of::<push::RegisterNative>(),
     ]
 }
 

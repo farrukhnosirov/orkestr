@@ -206,6 +206,10 @@ pub struct DeviceInfo {
     /// A step-up (WebAuthn) credential is registered.
     #[serde(default)]
     pub step_up_registered: bool,
+    /// Step-up credential kind (`webauthn` | `native`) when registered.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub step_up_kind: Option<String>,
 }
 
 /// Result of `devices.list`.
@@ -313,6 +317,9 @@ pub mod tunnel {
             /// Gateway VAPID public key (base64url SEC1) for Web Push, when configured.
             #[serde(default, skip_serializing_if = "Option::is_none")]
             vapid_public_key: Option<String>,
+            /// Native push transports the gateway can deliver (`fcm`, `apns`).
+            #[serde(default, skip_serializing_if = "Vec::is_empty")]
+            native_push: Vec<String>,
         },
         /// Fatal error; the gateway closes the tunnel.
         Error {
@@ -442,6 +449,9 @@ pub mod tunnel {
             collapse_key: Option<String>,
             /// `Urgency`.
             urgency: String,
+            /// Delivery transport (`webPush` when absent; FCM/APNs: `endpoint` is the device token).
+            #[serde(default)]
+            transport: crate::methods::push::PushTransport,
         },
     }
 }

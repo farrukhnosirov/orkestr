@@ -43,6 +43,9 @@ summarises them: **Built** = implemented as decided (with listed deviations),
 | [0030](0030-remote-gateway-e2e.md) | Remote access: self-hosted gateway, `e2e-v1`, MethodPolicy enforcement | Accepted | 4 | — | R-08 | Implemented (Phase 4; mTLS/ACME/device-code deferred) |
 | [0031](0031-encrypted-sync-engine.md) | Encrypted sync engine and where it deviates from `sync-protocol.md` | Accepted | 4 | — | — | Implemented (Phase 4; HPKE conformance, recovery key, rotation deferred) |
 | [0036](0036-web-client-and-web-push.md) | Web client over the E2E channel, and Web Push | Accepted | 4 | — | R-08 | Implemented (Phase 4; PWA signature/SRI deferred) |
+| [0032](0032-mobile-stack.md) | Mobile stack: Expo/React Native, pure-JS crypto provider, key storage, voice | Accepted | 5 | — | — | Not started (Phase 5 step 0 skeleton) |
+| [0037](0037-native-push.md) | Native push: FCM HTTP v1 and APNs with E2E-encrypted payloads | Accepted | 5 | — | R-08 | Not started (Phase 5 step 0 skeleton) |
+| [0038](0038-native-biometric-step-up.md) | Native biometric step-up credential (`orkestr-native-v1`) | Accepted | 5 | — | R-08 | Not started (Phase 5 step 0 skeleton) |
 
 ## Planned ADRs (to be written when their phase starts)
 
@@ -58,7 +61,7 @@ summarises them: **Built** = implemented as decided (with listed deviations),
 | ADR-0029 | STT/TTS provider abstraction and consent (§33) | 3 |
 | ADR-0030 | Secure gateway / relay + device auth (WebAuthn) (§35–36) | 4 |
 | ADR-0031 | Sync protocol: journal, chunks, conflict model (§41–44) | 4 |
-| ADR-0032 | Mobile stack (React Native) & push (§2, §37) | 5 |
+| [ADR-0032](0032-mobile-stack.md) | Mobile stack (React Native) & push (§2, §37) — written, Accepted (push split into ADR-0037, step-up ADR-0038) | 5 |
 | ADR-0033 | Node protocol & task migration (§38–39) | 6 |
 | ADR-0034 | Plugin/Widget sandbox (§48) | 7 |
 | ADR-0035 | Computer Control adapters (§18) | 7 |
@@ -89,6 +92,9 @@ flowchart TB
   A19 --> A31[0031 Encrypted sync]
   A30[0030 Remote gateway + e2e-v1] --> A36[0036 Web client + Web Push]
   A30 --> A31
+  A30 --> A32[0032 Mobile stack]
+  A36 --> A37[0037 Native push]
+  A32 --> A38[0038 Native step-up]
   A18 --> A22[0022 Crash recovery]
   A20[0020 UUID v7] --> A18
 ```

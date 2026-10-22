@@ -1,0 +1,48 @@
+{
+  "expo": {
+    "name": "Orkestr",
+    "slug": "orkestr",
+    "version": "0.1.0",
+    "scheme": "orkestr",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "dev.orkestr.mobile"
+    },
+    "android": {
+      "package": "dev.orkestr.mobile",
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-secure-store",
+      [
+        "expo-audio",
+        { "microphonePermission": "Orkestr records voice commands for your cores." }
+      ],
+      [
+        "expo-camera",
+        { "cameraPermission": "Orkestr scans pairing QR codes.", "recordAudioAndroid": false }
+      ],
+      [
+        "expo-local-authentication",
+        { "faceIDPermission": "Orkestr confirms dangerous actions with Face ID." }
+      ],
+      "expo-notifications",
+      [
+        "expo-build-properties",
+        { "android": { "usesCleartextTraffic": true } }
+      ]
+    ]
+  }
+}

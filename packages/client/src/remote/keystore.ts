@@ -5,6 +5,9 @@
  */
 
 /** A paired core as seen by this device. */
+import { type DeviceSigner, type RawKey, remoteCrypto } from "./crypto";
+import { cryptoKeySigner } from "./webcrypto";
+
 export interface DeviceRecord {
   /** Record id (`coreId`). */
   id: string;
@@ -15,8 +18,10 @@ export interface DeviceRecord {
   corePubKey: string;
   role?: string;
   deviceName: string;
-  /** Device key DK (non-extractable private key). */
-  keyPair: CryptoKeyPair;
+  /** Device key DK (non-extractable WebCrypto pair; browsers/desktop). */
+  keyPair?: CryptoKeyPair;
+  /** Device key DK as an exportable raw key (mobile, kept in SecureStore). */
+  rawKey?: RawKey;
   pairedAt: number;
 }
 
@@ -101,4 +106,11 @@ export async function generateDeviceKey(): Promise<CryptoKeyPair> {
     "sign",
     "verify",
   ])) as CryptoKeyPair;
+}
+
+/** The record's device key as a `DeviceSigner` (raw key via the installed provider, else the WebCrypto pair). */
+export async function deviceSigner(rec: DeviceRecord): Promise<DeviceSigner> {
+  if (rec.rawKey) return remoteCrypto().signerFromRaw(rec.rawKey);
+  if (rec.keyPair) return cryptoKeySigner(rec.keyPair);
+  throw new Error(`device record ${rec.id} has no device key`);
 }

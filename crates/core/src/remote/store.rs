@@ -59,6 +59,7 @@ impl DeviceRecord {
             revoked: self.revoked,
             platform: self.platform.clone(),
             step_up_registered: self.step_up.is_some(),
+            step_up_kind: self.step_up.as_ref().map(|_| "webauthn".to_owned()),
         }
     }
 }
