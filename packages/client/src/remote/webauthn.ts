@@ -8,7 +8,7 @@ import { b64uDecode, b64uEncode, randomBytes } from "./bytes";
 export interface StepUp {
   credentialId: string;
   authenticatorData: string;
-  clientDataJson: string;
+  clientDataJSON: string;
   /** DER ECDSA signature, base64url. */
   signature: string;
 }
@@ -83,7 +83,7 @@ export async function stepUpAssertion(
   return {
     credentialId: b64uEncode(c.rawId),
     authenticatorData: b64uEncode(r.authenticatorData),
-    clientDataJson: b64uEncode(r.clientDataJSON),
+    clientDataJSON: b64uEncode(r.clientDataJSON),
     signature: b64uEncode(r.signature),
   };
 }

@@ -50,16 +50,17 @@ describe("pairDevice", () => {
       calls.push({ url, ...(body ? { body } : {}) });
       if (url.endsWith("/claim")) {
         devicePub = b64uDecode(body!.devicePubKey!);
-        return new Response(JSON.stringify({ coreId: "core-1", corePubKey: v.cikPublic }));
+        expect(body!.coreId).toBe("core-1");
+        return new Response(JSON.stringify({ status: "pending", deviceId: "dev-9", coreId: "core-1", corePublicKey: v.cikPublic }));
       }
       polls++;
       if (polls < 2) return new Response(JSON.stringify({ status: "pending" }));
       const sig = await crypto.subtle.sign(ECDSA, cikKey, await completionMessage("pair-1", "dev-9", devicePub, "operator"));
-      return new Response(JSON.stringify({ status: "approved", deviceId: "dev-9", role: "operator", sig: b64uEncode(sig) }));
+      return new Response(JSON.stringify({ status: "approved", coreId: "core-1", corePublicKey: v.cikPublic, result: { status: "approved", deviceId: "dev-9", role: "operator", sig: b64uEncode(sig) } }));
     }) as typeof fetch;
 
     const session = await pairDevice({
-      gatewayUrl: "http://gw/", pairingId: "pair-1", code: "abcd1234",
+      gatewayUrl: "http://gw/", coreId: "core-1", pairingId: "pair-1", code: "abcd1234",
       coreKeyFingerprint: await fingerprint(b64uDecode(v.cikPublic)),
       deviceName: "Laptop", platform: "web", store, fetch: fakeFetch,
     });
@@ -74,18 +75,18 @@ describe("pairDevice", () => {
   });
 
   it("refuses a core key that does not match the offer fingerprint", async () => {
-    const fakeFetch = (async () => new Response(JSON.stringify({ coreId: "c", corePubKey: v.devicePublic }))) as unknown as typeof fetch;
+    const fakeFetch = (async () => new Response(JSON.stringify({ coreId: "c", corePublicKey: v.devicePublic }))) as unknown as typeof fetch;
     await expect(
       pairDevice({
-        gatewayUrl: "http://gw", pairingId: "p", code: "X", coreKeyFingerprint: await fingerprint(b64uDecode(v.cikPublic)),
+        gatewayUrl: "http://gw", coreId: "c", pairingId: "p", code: "X", coreKeyFingerprint: await fingerprint(b64uDecode(v.cikPublic)),
         deviceName: "d", platform: "web", store: new MemoryKeyStore(), fetch: fakeFetch,
       }),
     ).rejects.toBeInstanceOf(PairingError);
   });
 
   it("parses the QR payload", () => {
-    expect(parsePairingQr('{"gatewayUrl":"https://g","pairingId":"p","code":"C","coreKeyFingerprint":"f"}')).toEqual({
-      gatewayUrl: "https://g", pairingId: "p", code: "C", coreKeyFingerprint: "f",
+    expect(parsePairingQr('orkestr-pair:{"gatewayUrl":"https://g","coreId":"c","pairingId":"p","code":"C","coreKeyFingerprint":"f"}')).toEqual({
+      gatewayUrl: "https://g", coreId: "c", pairingId: "p", code: "C", coreKeyFingerprint: "f",
     });
     expect(parsePairingQr("nope")).toBeNull();
   });

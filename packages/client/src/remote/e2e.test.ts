@@ -142,7 +142,7 @@ describe("RemoteSocket over a fake relay", () => {
     ws.onmessage = (e) => got.push(e.data);
     await until(() => relay().sent.length === 1);
     expect(JSON.parse(relay().sent[0] as string)).toEqual(v.clientHello);
-    relay().push(JSON.stringify(v.serverHello));
+    relay().push(utf8(JSON.stringify(v.serverHello)).buffer); // the core sends handshake JSON as binary
     await until(() => opened);
     const fin = JSON.parse(relay().sent[1] as string) as { t: string; sig: string };
     expect(fin.t).toBe("clientFinish");

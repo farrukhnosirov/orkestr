@@ -1,8 +1,8 @@
 //! `push.*` — Web Push subscriptions (Phase 4, ADR-0036). Payloads are
 //! encrypted in the core (RFC 8291) and delivered by the gateway (VAPID).
 //!
-//! Step 0 skeleton: types are minimal and may be extended (additively) by the
-//! push package; handlers currently return `unimplementedFeature`.
+//! Subscriptions are stored by the core; notifications are triggered by
+//! contract events (`orkestr-core::remote::push`).
 
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
@@ -33,6 +33,30 @@ pub struct PushSubscribeParams {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub categories: Option<Vec<String>>,
+}
+
+/// Decrypted Web Push payload (remote-access.md §11), shown by the web
+/// client's service worker.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct PushPayload {
+    /// Payload version (1).
+    pub v: u32,
+    /// Source event id.
+    pub event_id: String,
+    /// Category (`approval`, `taskCompleted`, `taskBlocked`, `buildFailed`, `testFailed`, `budget`, `test`).
+    pub category: String,
+    /// Project scope.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub project_id: Option<String>,
+    /// RFC 3339 time.
+    pub ts: String,
+    /// Notification title.
+    pub title: String,
+    /// Notification body.
+    pub body: String,
 }
 
 /// Result of `push.subscribe`.

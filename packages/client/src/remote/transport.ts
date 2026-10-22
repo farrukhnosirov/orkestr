@@ -40,6 +40,8 @@ export interface RemoteSocketOptions {
   deviceKey: CryptoKeyPair;
   /** Core identity key, raw SEC1 base64url (pinned at pairing). */
   corePubKey: string;
+  /** Gateway session token appended as `&token=` (default: rely on the session cookie). */
+  sessionToken?: string;
   /** Raw socket factory (default: global `WebSocket`). */
   rawSocket?: RawSocketFactory;
   /** Handshake timeout (ms). Default 10 000. */
@@ -119,10 +121,16 @@ class RemoteSocket implements WebSocketLike {
 
   private async onRaw(data: unknown): Promise<void> {
     if (this.phase === "done") return;
-    if (typeof data === "string") {
+    // Handshake frames are JSON; the gateway relays them as text or binary.
+    let text: string | null = typeof data === "string" ? data : null;
+    if (text === null && this.phase !== "open") {
+      const b = await toBytes(data);
+      text = b ? fromUtf8(b) : null;
+    }
+    if (text !== null) {
       let frame: { t?: string; code?: string };
       try {
-        frame = JSON.parse(data) as { t?: string; code?: string };
+        frame = JSON.parse(text) as { t?: string; code?: string };
       } catch {
         throw new Error("malformed handshake frame");
       }
@@ -199,10 +207,10 @@ class RemoteSocket implements WebSocketLike {
  * argument means "the relay URL for `coreId`".
  */
 export function createRemoteSocketFactory(opts: RemoteSocketOptions): WebSocketFactory {
-  return (url: string) => new RemoteSocket(url || connectUrl(opts.gatewayUrl, opts.coreId), opts);
+  return (url: string) => new RemoteSocket(url || connectUrl(opts.gatewayUrl, opts.coreId, opts.sessionToken), opts);
 }
 
 /** URL to pass to `new OrkestrClient(url, token, { webSocket })` for a remote core. */
-export function remoteClientUrl(opts: Pick<RemoteSocketOptions, "gatewayUrl" | "coreId">): string {
-  return connectUrl(opts.gatewayUrl, opts.coreId);
+export function remoteClientUrl(opts: Pick<RemoteSocketOptions, "gatewayUrl" | "coreId" | "sessionToken">): string {
+  return connectUrl(opts.gatewayUrl, opts.coreId, opts.sessionToken);
 }

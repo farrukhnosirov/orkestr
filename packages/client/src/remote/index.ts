@@ -5,7 +5,7 @@ export type { ClientFinish, ClientHello, HandshakeError, ServerHello } from "./e
 export { GATEWAY_PATHS, connectUrl, httpUrl } from "./endpoints";
 export { IndexedDbKeyStore, MemoryKeyStore, defaultKeyStore, generateDeviceKey } from "./keystore";
 export type { DeviceKeyStore, DeviceRecord } from "./keystore";
-export { PairingError, codeMac, fingerprint, pairDevice, parsePairingQr, sas } from "./pairing";
+export { PAIRING_QR_PREFIX, PairingError, codeMac, fingerprint, pairDevice, parsePairingQr, sas } from "./pairing";
 export type { PairDeviceOptions, PairingOffer, PairingSession, PairingStatus } from "./pairing";
 export { E2E_CLOSE_CODE, E2E_TRANSIENT_CLOSE_CODE, createRemoteSocketFactory, remoteClientUrl } from "./transport";
 export type { RawSocket, RawSocketFactory, RemoteSocketOptions } from "./transport";

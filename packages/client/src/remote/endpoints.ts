@@ -1,31 +1,33 @@
 /**
  * Gateway endpoint URLs used by the web client — kept in ONE place so they
- * can be reconciled with the gateway implementation at integration time.
+ * can be reconciled with the gateway (crates/gateway, package A) at integration.
  *
- * Assumed shapes (JSON, cookie session `credentials: "include"`):
- * - `POST /v1/auth/passkey/register/begin {username}` → `{options}` (PublicKeyCredentialCreationOptions, base64url binary fields)
- * - `POST /v1/auth/passkey/register/finish {credential}` → `{accountId}`
- * - `POST /v1/auth/passkey/login/begin {username?}` → `{options}` (PublicKeyCredentialRequestOptions)
- * - `POST /v1/auth/passkey/login/finish {credential}` → `{accountId}`
- * - `POST /v1/auth/totp {username, code}` → `{accountId}`
- * - `POST /v1/auth/logout`, `GET /v1/auth/session` → `{accountId, username}`
- * - `GET /v1/cores` → `{cores:[{coreId, name?, cikPublic, online}]}`
- * - `POST /v1/pairings/{pairingId}/claim {devicePubKey, deviceName, platform, codeMac}` → `{coreId, corePubKey}`
- * - `GET /v1/pairings/{pairingId}` → `{status:"pending"|"approved"|"rejected"|"expired", deviceId?, role?, sig?}`
- * - `GET  ws(s)://…/v1/connect?coreId=…` → opaque relay of the e2e-v1 stream to the core
+ * JSON, binary values base64url, cookie session `orkestr_session` (`credentials: "include"`):
+ * - `GET  /v1/auth/state` → `{hasAccount, authenticated, accountId?, rpId, origins, totpEnabled}`
+ * - `POST /v1/auth/register/begin {name?}` / `login/begin` → `{ceremonyId, publicKey}`
+ * - `POST /v1/auth/register/finish|login/finish {ceremonyId, credential}` → `{token, accountId}`
+ * - `POST /v1/auth/totp/login {code}` → `{token, accountId}`; `POST /v1/auth/logout`
+ * - `GET  /v1/cores` (session)
+ * - `POST /v1/pairings/{id}/claim {coreId, devicePubKey, deviceName, platform, codeMac}`
+ *   → `{status:"pending", deviceId, coreId, corePublicKey}`
+ * - `GET  /v1/pairings/{id}` → `{status, coreId, corePublicKey, result:{status, deviceId, role, sig}}`
+ * - `WS   /v1/connect?coreId=…[&token=…]` → opaque relay of the e2e-v1 stream
+ * - `GET  /v1/push/vapid` → `{publicKey}` (gateway push module; fallback when the core does not know the key)
  */
 export const GATEWAY_PATHS = {
-  passkeyRegisterBegin: "/v1/auth/passkey/register/begin",
-  passkeyRegisterFinish: "/v1/auth/passkey/register/finish",
-  passkeyLoginBegin: "/v1/auth/passkey/login/begin",
-  passkeyLoginFinish: "/v1/auth/passkey/login/finish",
-  totp: "/v1/auth/totp",
+  authState: "/v1/auth/state",
+  registerBegin: "/v1/auth/register/begin",
+  registerFinish: "/v1/auth/register/finish",
+  loginBegin: "/v1/auth/login/begin",
+  loginFinish: "/v1/auth/login/finish",
+  totpLogin: "/v1/auth/totp/login",
   logout: "/v1/auth/logout",
-  session: "/v1/auth/session",
   cores: "/v1/cores",
+  pushVapid: "/v1/push/vapid",
   pairingClaim: (pairingId: string) => `/v1/pairings/${encodeURIComponent(pairingId)}/claim`,
   pairing: (pairingId: string) => `/v1/pairings/${encodeURIComponent(pairingId)}`,
-  connect: (coreId: string) => `/v1/connect?coreId=${encodeURIComponent(coreId)}`,
+  connect: (coreId: string, token?: string) =>
+    `/v1/connect?coreId=${encodeURIComponent(coreId)}${token ? `&token=${encodeURIComponent(token)}` : ""}`,
 } as const;
 
 const trim = (u: string) => u.replace(/\/+$/, "");
@@ -36,6 +38,6 @@ export function httpUrl(gatewayUrl: string, path: string): string {
 }
 
 /** WebSocket URL of the relay for `coreId` (http→ws, https→wss). */
-export function connectUrl(gatewayUrl: string, coreId: string): string {
-  return trim(gatewayUrl).replace(/^http/i, "ws") + GATEWAY_PATHS.connect(coreId);
+export function connectUrl(gatewayUrl: string, coreId: string, token?: string): string {
+  return trim(gatewayUrl).replace(/^http/i, "ws") + GATEWAY_PATHS.connect(coreId, token);
 }

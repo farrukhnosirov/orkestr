@@ -35,6 +35,7 @@ export function completionMessage(pairingId: string, deviceId: string, devicePub
 /** Pairing offer (from the desktop QR / manual entry). */
 export interface PairingOffer {
   gatewayUrl: string;
+  coreId: string;
   pairingId: string;
   /** 8-character code. */
   code: string;
@@ -42,13 +43,23 @@ export interface PairingOffer {
   coreKeyFingerprint?: string;
 }
 
-/** Parses the QR payload `{gatewayUrl, coreId, pairingId, code, coreKeyFingerprint}` (JSON). */
+/** QR payload prefix (`orkestr-pair:` + JSON). */
+export const PAIRING_QR_PREFIX = "orkestr-pair:";
+
+/** Parses the QR payload `orkestr-pair:{gatewayUrl, coreId, pairingId, code, coreKeyFingerprint}` (prefix optional). */
 export function parsePairingQr(text: string): PairingOffer | null {
+  const t = text.trim();
   try {
-    const v = JSON.parse(text) as Partial<PairingOffer>;
-    if (typeof v.gatewayUrl === "string" && typeof v.pairingId === "string" && typeof v.code === "string") {
+    const v = JSON.parse(t.startsWith(PAIRING_QR_PREFIX) ? t.slice(PAIRING_QR_PREFIX.length) : t) as Partial<PairingOffer>;
+    if (
+      typeof v.gatewayUrl === "string" &&
+      typeof v.coreId === "string" &&
+      typeof v.pairingId === "string" &&
+      typeof v.code === "string"
+    ) {
       return {
         gatewayUrl: v.gatewayUrl,
+        coreId: v.coreId,
         pairingId: v.pairingId,
         code: v.code,
         ...(typeof v.coreKeyFingerprint === "string" ? { coreKeyFingerprint: v.coreKeyFingerprint } : {}),
@@ -101,6 +112,7 @@ export async function pairDevice(o: PairDeviceOptions): Promise<PairingSession> 
     credentials: "include",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
+      coreId: o.coreId,
       devicePubKey: b64uEncode(devicePub),
       deviceName: o.deviceName,
       platform: o.platform,
@@ -108,8 +120,8 @@ export async function pairDevice(o: PairDeviceOptions): Promise<PairingSession> 
     }),
   });
   if (!res.ok) throw new PairingError("claim_failed", `pairing claim failed (${res.status})`);
-  const claim = (await res.json()) as { coreId: string; corePubKey: string };
-  const corePub = b64uDecode(claim.corePubKey);
+  const claim = (await res.json()) as { coreId: string; corePublicKey: string; deviceId?: string };
+  const corePub = b64uDecode(claim.corePublicKey);
   if (o.coreKeyFingerprint && (await fingerprint(corePub)) !== o.coreKeyFingerprint) {
     throw new PairingError("fingerprint_mismatch", "core key fingerprint does not match the pairing offer");
   }
@@ -123,7 +135,11 @@ export async function pairDevice(o: PairDeviceOptions): Promise<PairingSession> 
         if (signal?.aborted) throw new PairingError("aborted", "pairing aborted");
         const r = await f(httpUrl(o.gatewayUrl, GATEWAY_PATHS.pairing(o.pairingId)), { credentials: "include" });
         if (r.ok) {
-          const s = (await r.json()) as { status: PairingStatus; deviceId?: string; role?: string; sig?: string };
+          const body = (await r.json()) as {
+            status: PairingStatus;
+            result?: { status?: PairingStatus; deviceId?: string; role?: string; sig?: string } | null;
+          };
+          const s = { ...(body.result ?? {}), status: body.result?.status ?? body.status };
           if (s.status === "rejected" || s.status === "expired") throw new PairingError(s.status, `pairing ${s.status}`);
           if (s.status === "approved" && s.deviceId && s.role && s.sig) {
             const msg = await completionMessage(o.pairingId, s.deviceId, devicePub, s.role);
@@ -135,7 +151,7 @@ export async function pairDevice(o: PairDeviceOptions): Promise<PairingSession> 
               gatewayUrl: o.gatewayUrl,
               coreId: claim.coreId,
               deviceId: s.deviceId,
-              corePubKey: claim.corePubKey,
+              corePubKey: claim.corePublicKey,
               role: s.role,
               deviceName: o.deviceName,
               keyPair,
