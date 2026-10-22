@@ -52,6 +52,8 @@ orkestr-marketplace = { path = "crates/marketplace" }
 orkestr-deploy = { path = "crates/deploy" }
 orkestr-monitor = { path = "crates/monitor" }
 orkestr-detective = { path = "crates/detective" }
+# Wave 8: computer assistant (ADR-0035)
+orkestr-computer = { path = "crates/computer" }
 
 # --- async ---------------------------------------------------------------------
 tokio = { version = "1.47", features = ["full"] }

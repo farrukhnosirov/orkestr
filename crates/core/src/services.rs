@@ -108,6 +108,8 @@ pub struct Services {
     pub monitor: Arc<orkestr_monitor::MonitorService>,
     /// Bug Detective (Phase 7, ADR-0042).
     pub detective: Arc<orkestr_detective::Detective>,
+    /// Computer assistant (ADR-0035): local-only voice / text control of this PC.
+    pub computer: Arc<orkestr_computer::ComputerService>,
     /// Encrypted sync engine (Phase 4); `None` until the sync package wires it.
     pub sync: Option<Arc<dyn orkestr_sync::SyncEngine>>,
 }

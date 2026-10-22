@@ -22,6 +22,7 @@ pub mod audit;
 pub mod benchmarks;
 pub mod claude_code;
 pub mod claude_engine;
+pub mod computer;
 pub mod consensus;
 pub mod context;
 pub mod cost;
@@ -601,6 +602,28 @@ pub fn registry() -> Vec<MethodDescriptor> {
         MethodDescriptor::of::<detective::Cancel>(),
         MethodDescriptor::of::<detective::Settings>(),
         MethodDescriptor::of::<detective::SetSettings>(),
+        // computer assistant (ADR-0035): local only
+        MethodDescriptor::of::<computer::Status>(),
+        MethodDescriptor::of::<computer::Handle>(),
+        MethodDescriptor::of::<computer::Match>(),
+        MethodDescriptor::of::<computer::Run>(),
+        MethodDescriptor::of::<computer::Execute>(),
+        MethodDescriptor::of::<computer::Confirm>(),
+        MethodDescriptor::of::<computer::Plan>(),
+        MethodDescriptor::of::<computer::ApprovePlan>(),
+        MethodDescriptor::of::<computer::RememberPlan>(),
+        MethodDescriptor::of::<computer::Catalogue>(),
+        MethodDescriptor::of::<computer::ListSets>(),
+        MethodDescriptor::of::<computer::GetSet>(),
+        MethodDescriptor::of::<computer::SaveSet>(),
+        MethodDescriptor::of::<computer::DeleteSet>(),
+        MethodDescriptor::of::<computer::SetEnabled>(),
+        MethodDescriptor::of::<computer::ExportSet>(),
+        MethodDescriptor::of::<computer::ImportSet>(),
+        MethodDescriptor::of::<computer::Windows>(),
+        MethodDescriptor::of::<computer::Processes>(),
+        MethodDescriptor::of::<computer::Stop>(),
+        MethodDescriptor::of::<computer::History>(),
     ]
 }
 

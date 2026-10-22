@@ -343,6 +343,8 @@ fn area_default(area: &str, verb: &str) -> MethodPolicy {
     match area {
         // credentials, host processes and host-wide installs stay local
         "secrets" | "vscode" | "extensions" | "lsp" | "claudeEngine" => MethodPolicy::local(),
+        // computer assistant (ADR-0035): driving this machine is never remote, not even `computer.stop`
+        "computer" => MethodPolicy::local(),
         // emergency stop controls
         "emergency" => MethodPolicy::emergency(),
         // worker side of the node protocol (Phase 6)
@@ -379,6 +381,18 @@ mod tests {
         for m in crate::methods::registry() {
             assert!(policy_for(m.name).is_some(), "no policy for {}", m.name);
         }
+    }
+
+    #[test]
+    fn computer_area_is_local_only() {
+        let mut n = 0;
+        for m in crate::methods::registry().iter().filter(|m| m.name.starts_with("computer.")) {
+            let p = policy_for(m.name).unwrap();
+            assert!(p.local_only, "{} must be local-only", m.name);
+            assert_eq!((p.min_role, p.step_up), (Role::Admin, StepUp::Always), "{}", m.name);
+            n += 1;
+        }
+        assert!(n >= 20, "computer.* methods registered: {n}");
     }
 
     #[test]

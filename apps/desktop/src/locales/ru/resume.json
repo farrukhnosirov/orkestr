@@ -419,6 +419,10 @@
     "DashboardChanged_one": "{{count}} изменение дашборда",
     "DashboardChanged_few": "{{count}} изменения дашбордов",
     "DashboardChanged_many": "{{count}} изменений дашбордов",
-    "DashboardChanged_other": "{{count}} изменения дашбордов"
+    "DashboardChanged_other": "{{count}} изменения дашбордов",
+    "ComputerCommand_one": "{{count}} команда ассистента",
+    "ComputerCommand_few": "{{count}} команды ассистента",
+    "ComputerCommand_many": "{{count}} команд ассистента",
+    "ComputerCommand_other": "{{count}} команды ассистента"
   }
 }

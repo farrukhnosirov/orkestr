@@ -1,0 +1,51 @@
+[package]
+name = "orkestr-computer"
+description = "Orkestr personal computer assistant (ADR-0035): action vocabulary, 1000+ command catalogue, user command sets, local matcher (normalization, light Russian stemming, slots, fuzzy), AI planner, safety classification and the Windows backend (ShellExecute, SendInput, EnumWindows, UI Automation)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+orkestr-domain.workspace = true
+orkestr-protocol.workspace = true
+orkestr-events.workspace = true
+orkestr-security.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+async-trait.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+chrono.workspace = true
+parking_lot.workspace = true
+uuid.workspace = true
+sysinfo.workspace = true
+directories.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_Graphics_Dwm",
+    "Win32_Graphics_Gdi",
+    "Win32_System_Com",
+    "Win32_System_Ole",
+    "Win32_System_Variant",
+    "Win32_System_Threading",
+    "Win32_System_Power",
+    "Win32_System_Shutdown",
+    "Win32_UI_Accessibility",
+    "Win32_UI_HiDpi",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_Shell",
+    "Win32_UI_WindowsAndMessaging",
+] }
+
+[dev-dependencies]
+tempfile.workspace = true
+orkestr-storage.workspace = true
+
+[lints]
+workspace = true

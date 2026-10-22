@@ -48,6 +48,8 @@ orkestr-marketplace.workspace = true
 orkestr-deploy.workspace = true
 orkestr-monitor.workspace = true
 orkestr-detective.workspace = true
+# Wave 8: computer assistant (ADR-0035)
+orkestr-computer.workspace = true
 tokio.workspace = true
 tokio-util.workspace = true
 futures.workspace = true

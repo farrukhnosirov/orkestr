@@ -1134,6 +1134,8 @@ event_kinds! {
     IncidentStageChanged(crate::methods::detective::IncidentStageChangedPayload),
     /// A dashboard was saved or deleted (Phase 7). Appended.
     DashboardChanged(crate::methods::dashboards::DashboardChangedPayload),
+    /// The computer assistant ran / proposed / rejected a command, or a timer fired (ADR-0035). Appended.
+    ComputerCommand(crate::methods::computer::ComputerCommandPayload),
 }
 
 // ---------------------------------------------------------------------------

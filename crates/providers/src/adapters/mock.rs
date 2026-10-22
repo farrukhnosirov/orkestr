@@ -1046,6 +1046,10 @@ pub fn script(req: &ChatRequest) -> MockScript {
     if let Some(s) = super::mock_review::script(req) {
         return s;
     }
+    // Computer-assistant planner (ADR-0035, system-prompt marker).
+    if let Some(s) = super::mock_assistant::script(req) {
+        return s;
+    }
     // Bug Detective hypothesis (Phase 7, system-prompt marker).
     if let Some(s) = super::mock_detective::script(req) {
         return s;

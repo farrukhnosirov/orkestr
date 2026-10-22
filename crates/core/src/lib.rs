@@ -468,6 +468,20 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
         security: Arc::clone(&security),
         data_dir: paths.data_dir.join("detective"),
     }));
+    // Computer assistant (ADR-0035). ORKESTR_COMPUTER_BACKEND=mock|unsupported
+    // swaps the OS backend (tests / CI never drive the real desktop).
+    let computer_backend: Arc<dyn orkestr_computer::ComputerBackend> =
+        match std::env::var("ORKESTR_COMPUTER_BACKEND").unwrap_or_default().as_str() {
+            "mock" => Arc::new(orkestr_computer::MockBackend::default()),
+            "unsupported" => Arc::new(orkestr_computer::UnsupportedBackend),
+            _ => orkestr_computer::default_backend(),
+        };
+    let computer = orkestr_computer::ComputerService::new(orkestr_computer::ComputerDeps {
+        events: events.clone(),
+        security: Arc::clone(&security),
+        data_dir: paths.data_dir.join("computer"),
+        backend: computer_backend,
+    });
     let services = Arc::new(Services {
         version: VERSION.to_owned(),
         started_at: chrono::Utc::now(),
@@ -513,6 +527,7 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
         deploy,
         monitor,
         detective,
+        computer,
         sync: sync_engine.clone().map(|e| Arc::new(e) as Arc<dyn orkestr_sync::SyncEngine>),
     });
     logging::attach_event_bus(services.events.clone());
@@ -596,6 +611,8 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
     remote::push::spawn_loop(&services, shutdown.clone());
     // Ecosystem (Phase 7): plugin tools, infra monitor, Bug Detective.
     ecosystem::wire(&services, Arc::clone(&router)).await;
+    // Computer assistant: AI planner over the provider stack + Start-menu index.
+    rpc::computer::install(&services);
     let app = server::app(app_state);
     let server_shutdown = shutdown.clone();
     let server = tokio::spawn(async move {
