@@ -145,8 +145,8 @@ const procs = [];
 function launch(exe, args, env, label) {
   const child = spawn(exe, args, { env: { ...process.env, ...env }, stdio: ["ignore", "pipe", "pipe"] });
   const rec = { child, label, log: "", exited: false };
-  child.stdout.on("data", (d) => (rec.log = (rec.log + d).slice(-40000)));
-  child.stderr.on("data", (d) => (rec.log = (rec.log + d).slice(-40000)));
+  child.stdout.on("data", (d) => (rec.log = (rec.log + d).slice(-400000)));
+  child.stderr.on("data", (d) => (rec.log = (rec.log + d).slice(-400000)));
   child.on("exit", () => (rec.exited = true));
   procs.push(rec);
   return rec;
@@ -439,6 +439,8 @@ const outputText = (core, jobId) =>
     .map((i) => i.text)
     .join("");
 const taskStatuses = (core, taskId) => core.rpc.events.filter((e) => e.kind === "TaskStatusChanged" && e.payload.taskId === taskId).map((e) => e.payload.to);
+/** "Preferred" is a soft score term; jobs meant for a worker also exclude the coordinator itself. */
+const offCoordinator = () => (ctx.winId ? [ctx.winId] : []);
 const explanationOf = (job) => (job?.placement?.explanation ?? []).join(" | ");
 
 /** Files under a store directory whose name is the sha256 hex (FsBlobStore layout: blobs/sha256/..). */
@@ -583,7 +585,7 @@ try {
       "C3",
       "artifact (.app.zip) returned as a blob, hash-verified on the coordinator",
       done.state === "completed" && !!art && m?.[2] === art && !!blob && sha256File(blob) === art,
-      `${done.state}; artifact ${art}; worker printed ${m?.[2]}; blob ${blob ?? "missing"}`,
+      `${done.state}${done.detail ? ` (${done.detail})` : ""}; artifact ${art}; worker printed ${m?.[2]}; blob ${blob ?? "missing"}`,
     );
     const t = (await win.rpc.call("tasks.get", { taskId: task.id })).task;
     check("C3", "task Completed on the coordinator with owner = mac", t.status === "Completed" && t.owner?.kind === "node" && t.owner.nodeId === ctx.macId, `${t.status} owner ${JSON.stringify(t.owner)}`);
@@ -598,6 +600,11 @@ try {
     const g = await submit(win, ctx.project.id, "Train on GPU", jobSpec({ kind: command("node", ["--version"]), requirements: { gpu: { minVramMb: 16384 } }, estimate: { vramMb: 16384 } }));
     check("C4", "GPU ≥ 16 GB VRAM → gpu", g.job.placement?.decision === "place" && g.job.placement.nodeId === ctx.gpuId, explanationOf(g.job));
     await waitJob(win, g.job.spec.jobId, (j) => TERMINAL.has(j.state), 30_000, "gpu job done").catch(() => null);
+
+    // no requirements: the coordinator itself wins (locality) and runs it on its own worker host
+    const l = await submit(win, ctx.project.id, "Local job", jobSpec({ kind: command("node", ["-e", "console.log('local ok')"]) }));
+    const lDone = await waitJob(win, l.job.spec.jobId, (j) => TERMINAL.has(j.state), 30_000, "local job done").catch(() => null);
+    check("C4", "job without requirements → coordinator node, runs on its own worker host", l.job.placement?.nodeId === ctx.winId && lDone?.state === "completed" && /local ok/.test(outputText(win, l.job.spec.jobId)), `${l.job.placement?.decision} ${l.job.placement?.nodeId === ctx.winId ? "coordinator" : l.job.placement?.nodeId}; ${lDone?.state} ${lDone?.detail ?? ""}`);
 
     const imp = await submit(win, ctx.project.id, "Impossible GPU job", jobSpec({ kind: command("node", ["--version"]), requirements: { gpu: { minVramMb: 100_000 } } }));
     const impTask = await waitFor(async () => {
@@ -633,17 +640,22 @@ try {
       win,
       ctx.project.id,
       "Add hello module",
-      jobSpec({ kind: agentTask("Add a hello module.", { templateId: ctx.backendTpl.id, model: ctx.smart }), requirements: { gpu: { minVramMb: 16384 } } }),
+      // the remote mock provider follows a deterministic plan: one prompt line = one tool step
+      jobSpec({ kind: agentTask("Add a hello module.\nwrite src/hello.txt Hello from the gpu node\\n", { templateId: ctx.backendTpl.id, model: ctx.smart }), requirements: { gpu: { minVramMb: 16384 } } }),
     );
     check("C5", "AgentTask placed on gpu", a.job.placement?.decision === "place" && a.job.placement.nodeId === ctx.gpuId, explanationOf(a.job));
     const done = await waitJob(win, a.job.spec.jobId, (j) => TERMINAL.has(j.state), 120_000, "agent done");
     const log = git(ctx.repo, "log", "--all", "--oneline");
-    const diff = await soft(win.rpc.call("vcs.diff", { projectId: ctx.project.id }));
+    const diff = await soft(win.rpc.call("vcs.diff", { projectId: ctx.project.id, target: { kind: "Head" } }));
+    // the worker's result lands in the coordinator's project as uncommitted changes (new file → untracked)
+    const hello = join(ctx.repo, "src", "hello.txt");
+    const landed = existsSync(hello) && readFileSync(hello, "utf8").includes("Hello from the gpu node");
+    const status = git(ctx.repo, "status", "--porcelain");
     check(
       "C5",
       "agent edited the worker's worktree; the change is applied in the coordinator's repository",
-      done.state === "completed" && (log.split("\n").length > before || JSON.stringify(diff ?? {}).length > 50),
-      `${done.state}; commits ${before} → ${log.split("\n").length}`,
+      done.state === "completed" && (log.split("\n").length > before || landed || JSON.stringify(diff ?? {}).length > 50),
+      `${done.state}${done.detail ? ` (${done.detail})` : ""}; commits ${before} → ${log.split("\n").length}; src/hello.txt ${landed ? "applied" : "missing"}; status ${status.replace(/\n/g, " ")}`,
     );
   });
 
@@ -657,8 +669,9 @@ try {
       ctx.project.id,
       "Long agent job",
       jobSpec({
-        kind: agentTask(`Work in steps.\nRun: \`node ${fakeXcode} -scheme Mig --steps 40 --step-ms 250\``, { templateId: ctx.backendTpl.id, model: ctx.smart }),
-        affinity: { preferred: [ctx.gpuId] },
+        // one plan line = one step; safe points sit between steps (a drained job resumes after the last completed one)
+        kind: agentTask(["Work in steps.", ...Array.from({ length: 14 }, (_, i) => `run node ${fakeXcode} -scheme Mig${i + 1} --steps 2 --step-ms 250`)].join("\n"), { templateId: ctx.backendTpl.id, model: ctx.smart }),
+        affinity: { preferred: [ctx.gpuId], forbidden: offCoordinator() },
       }),
     );
     const pid = p.job.spec.jobId;
@@ -683,7 +696,7 @@ try {
     );
 
     // unplanned: kill gpu mid-job
-    const u = await submit(win, ctx.project.id, "Long command (unplanned)", jobSpec({ kind: longCommand(80, 250), affinity: { preferred: [ctx.gpuId] } }));
+    const u = await submit(win, ctx.project.id, "Long command (unplanned)", jobSpec({ kind: longCommand(80, 250), affinity: { preferred: [ctx.gpuId], forbidden: offCoordinator() } }));
     const uid = u.job.spec.jobId;
     const running = await waitJob(win, uid, (j) => j.state === "running" && ownerNode(j) === ctx.gpuId, 30_000, "running on gpu");
     const oldEpoch = running.epoch;
@@ -719,7 +732,7 @@ try {
     await soft(win.rpc.call("jobs.cancel", { jobId: uid, immediate: true }));
 
     // side effects: a non-idempotent action, then an unplanned loss → needs_user_decision
-    const s = await submit(win, ctx.project.id, "Deploy (side effect)", jobSpec({ kind: longCommand(80, 250, ["--side-effect", "deploy"]), affinity: { preferred: [ctx.gpuId] } }));
+    const s = await submit(win, ctx.project.id, "Deploy (side effect)", jobSpec({ kind: longCommand(80, 250, ["--side-effect", "deploy"]), affinity: { preferred: [ctx.gpuId], forbidden: offCoordinator() } }));
     const sid = s.job.spec.jobId;
     await waitJob(win, sid, (j) => j.state === "running" && ownerNode(j) === ctx.gpuId, 30_000, "side-effect job running on gpu");
     await waitFor(() => outputText(win, sid).includes("::orkestr-side-effect"), 20_000, "side effect reported");
@@ -761,7 +774,8 @@ try {
     const tamOnGpu = (await ctx.gpu.rpc.call("models.list")).models.find((m) => m.modelRef === "mock-tampered:1");
     check("C7", "tampered chunk rejected (digest mismatch), model not installed on gpu", !!path && !!tam && !tamOnGpu, describe(tam));
 
-    const j = await submit(win, ctx.project.id, "Use the local model", jobSpec({ kind: command("node", ["--version"]), requirements: { localModels: ["mock-coder:7b"] } }));
+    const j = await submit(win, ctx.project.id, "Use the local model", jobSpec({ kind: command("node", ["--version"]), requirements: { localModels: ["mock-coder:7b"] }, affinity: { forbidden: ctx.winId ? [ctx.winId] : [] } }));
+    // (the coordinator holds the imported model too; it is excluded so the route is decided between the workers)
     check("C7", "job requiring mock-coder:7b routed to gpu (scheduler sees the installed model)", j.job.placement?.decision === "place" && j.job.placement.nodeId === ctx.gpuId, explanationOf(j.job));
     await waitJob(win, j.job.spec.jobId, (x) => TERMINAL.has(x.state), 30_000, "done").catch(() => null);
   });
@@ -770,8 +784,8 @@ try {
   await runSection("C8", "security: emergency stop, revoke, audit", async () => {
     needNodes();
     const { win, mac } = ctx;
-    const a = await submit(win, ctx.project.id, "Long on mac", jobSpec({ kind: longCommand(200, 250), affinity: { preferred: [ctx.macId] } }));
-    const b = await submit(win, ctx.project.id, "Long on gpu", jobSpec({ kind: longCommand(200, 250), affinity: { preferred: [ctx.gpuId] } }));
+    const a = await submit(win, ctx.project.id, "Long on mac", jobSpec({ kind: longCommand(200, 250), affinity: { preferred: [ctx.macId], forbidden: offCoordinator() } }));
+    const b = await submit(win, ctx.project.id, "Long on gpu", jobSpec({ kind: longCommand(200, 250), affinity: { preferred: [ctx.gpuId], forbidden: offCoordinator() } }));
     await waitJob(win, a.job.spec.jobId, (j) => j.state === "running", 30_000, "a running");
     await waitJob(win, b.job.spec.jobId, (j) => j.state === "running", 30_000, "b running");
     await win.rpc.call("emergency.stopAll", {});
@@ -784,7 +798,7 @@ try {
     check("C8", "emergency stop broadcast cancels jobs on all nodes", ca.state === "cancelled" && cb.state === "cancelled" && !!leasesClear && workerStops.every(Boolean), `worker EmergencyStop events: ${workerStops.join(",")}`);
     await soft(win.rpc.call("emergency.reset", {}));
 
-    const r = await submit(win, ctx.project.id, "Long on mac (revoke)", jobSpec({ kind: longCommand(200, 250), affinity: { preferred: [ctx.macId] } }));
+    const r = await submit(win, ctx.project.id, "Long on mac (revoke)", jobSpec({ kind: longCommand(200, 250), affinity: { preferred: [ctx.macId], forbidden: offCoordinator() } }));
     await waitJob(win, r.job.spec.jobId, (j) => j.state === "running" && ownerNode(j) === ctx.macId, 30_000, "running on mac");
     await win.rpc.call("nodes.revoke", { nodeId: ctx.macId });
     const revoked = await waitNodeStatus(win, ctx.macId, "Revoked", 10_000);
@@ -829,6 +843,7 @@ try {
 } finally {
   const failed = checks.filter((c) => !c.ok);
   if (failed.length && process.env.ORKESTR_P6_LOGS !== "0") for (const p of procs) console.error(`--- ${p.label} log tail ---\n${p.log.slice(-1500)}`);
+  procs.forEach((p, i) => writeFileSync(join(outDir, `${p.label}-${i}.log`), p.log));
   writeFileSync(join(outDir, "acceptance.json"), `${JSON.stringify({ phase: 6, startedFrom: repo, checks }, null, 2)}\n`);
   console.log(`\n${checks.length - failed.length}/${checks.length} checks passed  (report: ${join(outDir, "acceptance.json")})`);
   if (failed.length || checks.length === 0) exitCode = 1;

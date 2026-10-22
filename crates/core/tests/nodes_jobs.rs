@@ -14,14 +14,16 @@ use orkestr_core::nodes::coordinator_jobs::{
     self, BlobTransfer, CoordinatorConfig, CoordinatorDeps, CoordinatorJobs, FirstFitPlacer, StaticLinks,
 };
 use orkestr_core::nodes::lease::{LeaseConfig, PolicySigner};
-use orkestr_core::nodes::worker::{self, sha_digest, MemBlobStore, WorkerConfig, WorkerJobs};
+use orkestr_core::nodes::worker::{self, WorkerConfig, WorkerJobs};
 use orkestr_core::nodes::LoopbackLink;
+use orkestr_core::rpc::models::blob_store;
 use orkestr_core::rpc::{build_router, Principal, RpcContext, RpcRouter};
 use orkestr_core::{CoreConfig, CoreHandle};
 use orkestr_domain::{
     CorrelationId, Digest, JobId, LeaseEpoch, NodeId, ProjectId, SessionId, TaskActor, TaskId, TaskStatus,
 };
 use orkestr_events::Received;
+use orkestr_node::blobs::digest_of;
 use orkestr_node::exec::ToolShims;
 use orkestr_node::link::call_typed;
 use orkestr_node::{BlobError, BlobStore, NodeLink};
@@ -111,7 +113,7 @@ impl Harness {
         let links = Arc::new(StaticLinks::default());
         let transfer = Arc::new(DirectTransfer::default());
         let placer = Arc::new(FirstFitPlacer::default());
-        let cblobs: Arc<dyn BlobStore> = Arc::new(MemBlobStore::default());
+        let cblobs: Arc<dyn BlobStore> = blob_store(&core.services).unwrap();
         let coord_id = core.services.node_id;
         let mut workers = Vec::new();
         for _ in 0..2 {
@@ -119,7 +121,7 @@ impl Harness {
             let wcore = orkestr_core::start(CoreConfig::for_tests(d.path())).await.unwrap();
             dirs.push(d);
             let s = Arc::clone(&wcore.services);
-            let blobs: Arc<dyn BlobStore> = Arc::new(MemBlobStore::default());
+            let blobs: Arc<dyn BlobStore> = blob_store(&s).unwrap();
             let cfg = WorkerConfig {
                 node_id: s.node_id,
                 jobs_root: s.paths.data_dir.join("jobs"),
@@ -322,7 +324,7 @@ async fn command_job_with_tool_shim_produces_artifact() {
     let v = h.wait_state(job, JobState::Completed).await;
     assert_eq!(v.epoch, LeaseEpoch(1));
     assert_eq!(v.artifacts.len(), 1, "{v:?}");
-    let expected = sha_digest(b"IPA:-scheme App");
+    let expected = digest_of(b"IPA:-scheme App");
     assert_eq!(v.artifacts[0], expected, "artifact is hash-verified and identical");
     assert_eq!(h.task_status(tid).await, TaskStatus::Completed);
     let task = h.core.services.tasks.get(tid).await.unwrap();

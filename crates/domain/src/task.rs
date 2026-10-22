@@ -210,6 +210,11 @@ pub struct Task {
     /// `None` = the local core. Stored in the task document (no column).
     #[serde(default)]
     pub owner: Option<ExecutorRef>,
+    /// Explanation of the latest node placement decision of the task's job
+    /// (Phase 6 scheduler, node-protocol.md §5); absent for local work.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub placement: Option<Vec<String>>,
 }
 
 impl Task {
@@ -248,6 +253,7 @@ impl Task {
             estimate_minutes: None,
             ready_since: None,
             owner: None,
+            placement: None,
         }
     }
 }

@@ -4,14 +4,16 @@
 //!
 //! Integration seams:
 //! * [`host`] / [`install`] — the per-core [`WorkerJobs`] (keyed by node id;
-//!   `install` replaces the default host, e.g. with WP-D's `FsBlobStore` — the
-//!   store **must** be the one `node.blobPut` writes into);
+//!   the default host uses the core's shared `FsBlobStore` — the store
+//!   `node.blobPut` writes into; `install` replaces it in tests);
 //! * [`WorkerJobs::trust_coordinator`] — WP-A calls it with the coordinator's
 //!   CIK public key from the pairing record (offers from untrusted
 //!   coordinators are rejected, fail closed);
-//! * [`WorkerJobs::renew`] / [`WorkerJobs::revoke`] / [`WorkerJobs::leases`]
-//!   — WP-A's `node.heartbeat` handler calls `revoke(&params.revoke)` then
-//!   `renew(&params.renew)` and returns the resulting `Vec<LeaseState>`.
+//! * [`WorkerJobs::renew`] / [`WorkerJobs::revoke_of`] / [`WorkerJobs::leases_of`]
+//!   — the hub's `node.heartbeat` (`nodes::wiring::HubWorker`) revokes,
+//!   renews and reports the leases of the calling coordinator only
+//!   (`bind_coordinator_device` at `node.hello`); runs interrupted by a
+//!   restart are reported as `Failed` until revoked.
 //!
 //! Job kinds: `Command` (tool shims from the node profile apply; files written
 //! to `$ORKESTR_JOB_OUTPUT_DIR` (alias `$ORKESTR_ARTIFACTS_DIR`) become artifact
@@ -30,7 +32,7 @@ use std::sync::{Arc, LazyLock};
 use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
-use orkestr_domain::{CheckpointId, Digest, JobId, LeaseEpoch, NodeId, Timestamp, TrustLevel};
+use orkestr_domain::{CheckpointId, DeviceId, Digest, JobId, LeaseEpoch, NodeId, Timestamp, TrustLevel};
 use orkestr_events::EventBus;
 use orkestr_node::exec::{check_epoch, classify_side_effect, JobControl, JobError, JobExecutor, ToolShims};
 use orkestr_node::{BlobError, BlobStore};
@@ -43,11 +45,12 @@ use orkestr_protocol::methods::jobs::{
     JobProgressItem, JobProgressPayload, SideEffectKind, SideEffectRecord,
 };
 use orkestr_protocol::methods::nodes::{LeasePhase, LeaseRenewal, LeaseState};
+use orkestr_protocol::Event;
 use orkestr_vcs::GitCli;
 use parking_lot::Mutex;
 use sha2::{Digest as _, Sha256};
 use tokio::io::{AsyncBufReadExt, BufReader};
-use tokio::sync::{mpsc, oneshot, watch};
+use tokio::sync::{broadcast, mpsc, oneshot, watch};
 
 use super::lease::PolicyVerifier;
 use crate::services::Services;
@@ -137,6 +140,51 @@ pub struct WorkerJobs {
     events: EventBus,
     verifier: PolicyVerifier,
     slots: Mutex<HashMap<JobId, Arc<Slot>>>,
+    /// Copy of every job event this host publishes (the coordinator's
+    /// in-process link to its own worker host reads it).
+    tap: broadcast::Sender<Event>,
+    /// Paired coordinator devices → their node ids (bound at `node.hello`).
+    devices: Mutex<HashMap<DeviceId, NodeId>>,
+    /// Runs interrupted by a crash / restart of this core (lease markers left
+    /// on disk), reported as `Failed` until their coordinator revokes them.
+    orphans: Mutex<HashMap<JobId, Orphan>>,
+}
+
+/// A run found on disk after a restart.
+#[derive(Debug, Clone, Copy)]
+struct Orphan {
+    epoch: LeaseEpoch,
+    coordinator: NodeId,
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LeaseMarker {
+    coordinator: NodeId,
+    epoch: LeaseEpoch,
+}
+
+/// `jobs_root/<job>/e<epoch>.lease` markers of runs that did not end.
+fn scan_orphans(jobs_root: &Path) -> HashMap<JobId, Orphan> {
+    let mut out: HashMap<JobId, Orphan> = HashMap::new();
+    let Ok(jobs) = std::fs::read_dir(jobs_root) else { return out };
+    for job_dir in jobs.flatten() {
+        let Ok(job) = job_dir.file_name().to_string_lossy().parse::<JobId>() else { continue };
+        let Ok(files) = std::fs::read_dir(job_dir.path()) else { continue };
+        for f in files.flatten() {
+            if f.path().extension().is_none_or(|e| e != "lease") {
+                continue;
+            }
+            let Some(m) = std::fs::read(f.path()).ok().and_then(|b| serde_json::from_slice::<LeaseMarker>(&b).ok())
+            else {
+                continue;
+            };
+            if out.get(&job).is_none_or(|o| o.epoch < m.epoch) {
+                out.insert(job, Orphan { epoch: m.epoch, coordinator: m.coordinator });
+            }
+        }
+    }
+    out
 }
 
 impl std::fmt::Debug for WorkerJobs {
@@ -148,16 +196,24 @@ impl std::fmt::Debug for WorkerJobs {
 static HOSTS: LazyLock<Mutex<HashMap<NodeId, Arc<WorkerJobs>>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
 
 /// The worker host of the core behind `services` (created on first use with
-/// an in-memory blob store and the process `ORKESTR_NODE_PROFILE` shims).
+/// the core's shared blob store and the process `ORKESTR_NODE_PROFILE` shims).
 #[must_use]
 pub fn host(services: &Services) -> Arc<WorkerJobs> {
     let mut hosts = HOSTS.lock();
     Arc::clone(hosts.entry(services.node_id).or_insert_with(|| {
         let profile = orkestr_node::profile::load_profile(&orkestr_node::profile::EnvSource::process());
+        // the store `node.blobPut` / `node.blobGet` use (WP-D)
+        let blobs: Arc<dyn BlobStore> = match crate::rpc::models::blob_store(services) {
+            Ok(b) => b,
+            Err(e) => {
+                tracing::error!(error = %e.message, "blob store unavailable; worker jobs use an in-memory store");
+                Arc::new(orkestr_node::blobs::MemBlobStore::new())
+            }
+        };
         let cfg = WorkerConfig {
             node_id: services.node_id,
             jobs_root: services.paths.data_dir.join("jobs"),
-            blobs: Arc::new(MemBlobStore::default()),
+            blobs,
             shims: ToolShims::from_profile(profile.as_ref()),
             max_concurrent: profile.and_then(|p| p.max_concurrent_jobs).map_or(4, |n| n.max(1) as usize),
             checkpoint_every: Some(Duration::from_secs(300)),
@@ -237,6 +293,12 @@ fn now() -> Timestamp {
     chrono::Utc::now()
 }
 
+/// `jobs_root/<job>/e<epoch>.lease` next to the run directory `.../e<epoch>`.
+fn marker_path(run_dir: &Path) -> PathBuf {
+    let name = run_dir.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+    run_dir.with_file_name(format!("{name}.lease"))
+}
+
 fn blob_err(e: BlobError) -> String {
     e.to_string()
 }
@@ -245,7 +307,24 @@ impl WorkerJobs {
     /// New host.
     #[must_use]
     pub fn new(cfg: WorkerConfig, git: Arc<GitCli>, events: EventBus) -> Self {
-        Self { cfg, git, events, verifier: PolicyVerifier::default(), slots: Mutex::new(HashMap::new()) }
+        let (tap, _) = broadcast::channel(1024);
+        let orphans = scan_orphans(&cfg.jobs_root);
+        if !orphans.is_empty() {
+            tracing::warn!(
+                count = orphans.len(),
+                "job runs interrupted by a restart; reporting them to their coordinators"
+            );
+        }
+        Self {
+            cfg,
+            git,
+            events,
+            verifier: PolicyVerifier::default(),
+            slots: Mutex::new(HashMap::new()),
+            tap,
+            devices: Mutex::new(HashMap::new()),
+            orphans: Mutex::new(orphans),
+        }
     }
 
     /// Node id.
@@ -263,6 +342,73 @@ impl WorkerJobs {
     /// Trusts `key` as the policy-signing CIK of coordinator `node`.
     pub fn trust_coordinator(&self, node: NodeId, key: p256::ecdsa::VerifyingKey) {
         self.verifier.trust(node, key);
+    }
+
+    /// Remembers that the paired `device` is the coordinator core `node`
+    /// (heartbeats from it then only see / revoke that coordinator's jobs).
+    pub fn bind_coordinator_device(&self, device: DeviceId, node: NodeId) {
+        self.devices.lock().insert(device, node);
+    }
+
+    /// The coordinator node bound to a paired device.
+    #[must_use]
+    pub fn coordinator_of_device(&self, device: DeviceId) -> Option<NodeId> {
+        self.devices.lock().get(&device).copied()
+    }
+
+    /// Lease states of the jobs offered by `coordinator` (every job for
+    /// `None`), including runs interrupted by a restart (`Failed`).
+    #[must_use]
+    pub fn leases_of(&self, coordinator: Option<NodeId>) -> Vec<LeaseState> {
+        let mine = |c: NodeId| coordinator.is_none_or(|x| x == c);
+        let mut v: Vec<LeaseState> =
+            self.slots.lock().values().filter(|s| mine(s.offer.coordinator_node_id)).map(|s| s.state()).collect();
+        v.extend(self.orphans.lock().iter().filter(|(_, o)| mine(o.coordinator)).map(|(job, o)| LeaseState {
+            job_id: *job,
+            epoch: o.epoch,
+            phase: LeasePhase::Failed,
+            progress: None,
+            last_checkpoint: None,
+            lease_until: None,
+        }));
+        v.sort_by_key(|s| s.job_id.to_string());
+        v
+    }
+
+    /// [`Self::revoke`] limited to the jobs of `coordinator` (`None` = any);
+    /// revoked restart leftovers are deleted from disk.
+    pub fn revoke_of(&self, coordinator: Option<NodeId>, jobs: &[JobId]) {
+        let mine = |c: NodeId| coordinator.is_none_or(|x| x == c);
+        let own: Vec<JobId> = {
+            let slots = self.slots.lock();
+            jobs.iter().copied().filter(|j| slots.get(j).is_some_and(|s| mine(s.offer.coordinator_node_id))).collect()
+        };
+        self.revoke(&own);
+        let gone: Vec<(JobId, Orphan)> = {
+            let mut orphans = self.orphans.lock();
+            let ids: Vec<JobId> =
+                jobs.iter().copied().filter(|j| orphans.get(j).is_some_and(|o| mine(o.coordinator))).collect();
+            ids.into_iter().filter_map(|j| orphans.remove(&j).map(|o| (j, o))).collect()
+        };
+        for (job, o) in gone {
+            tracing::info!(job_id = %job, epoch = o.epoch.0, "interrupted run revoked by its coordinator; removed");
+            let dir = self.cfg.jobs_root.join(job.to_string());
+            let _ = std::fs::remove_file(dir.join(format!("e{}.lease", o.epoch.0)));
+            let _ = std::fs::remove_dir_all(dir.join(format!("e{}", o.epoch.0)));
+            let _ = std::fs::remove_dir_all(dir.join(format!("e{}-artifacts", o.epoch.0)));
+        }
+    }
+
+    fn write_marker(&self, slot: &Slot) {
+        let path = marker_path(&slot.dir);
+        let marker = LeaseMarker { coordinator: slot.offer.coordinator_node_id, epoch: slot.epoch };
+        let res = path
+            .parent()
+            .map_or(Ok(()), std::fs::create_dir_all)
+            .and_then(|()| std::fs::write(&path, serde_json::to_vec(&marker).unwrap_or_default()));
+        if let Err(e) = res {
+            tracing::warn!(error = %e, "job lease marker not written");
+        }
     }
 
     /// Handles `jobs.offer` (`trust` = trust level granted to the calling
@@ -322,9 +468,12 @@ impl WorkerJobs {
         });
         // a newer epoch supersedes an older local run of the same job
         if let Some(prev) = self.slots.lock().insert(job, Arc::clone(&slot)) {
+            tracing::info!(job_id = %job, old = prev.epoch.0, new = epoch.0, "newer epoch supersedes the local run");
             prev.immediate.store(true, Ordering::SeqCst);
             let _ = prev.cancel_tx.send(true);
         }
+        self.write_marker(&slot);
+        self.orphans.lock().remove(&job);
         self.spawn_forwarder(progress_rx);
         let this = Arc::clone(self);
         tokio::spawn(async move { this.run(slot, ctl).await });
@@ -334,15 +483,31 @@ impl WorkerJobs {
 
     fn spawn_forwarder(&self, mut rx: mpsc::UnboundedReceiver<JobProgressPayload>) {
         let events = self.events.clone();
+        let tap = self.tap.clone();
         let node = self.cfg.node_id;
         tokio::spawn(async move {
             while let Some(p) = rx.recv().await {
                 let ev = NewEvent::new(EventKind::JobProgress(p)).node(node);
-                if let Err(e) = events.publish(ev).await {
-                    tracing::warn!(error = %e, "JobProgress publish failed");
+                match events.publish(ev).await {
+                    Ok(ev) => {
+                        let _ = tap.send((*ev).clone());
+                    }
+                    Err(e) => tracing::warn!(error = %e, "JobProgress publish failed"),
                 }
             }
         });
+    }
+
+    /// Job events published by this host (`JobProgress`, `JobCheckpointed`).
+    #[must_use]
+    pub fn subscribe(&self) -> broadcast::Receiver<Event> {
+        self.tap.subscribe()
+    }
+
+    /// Jobs currently holding a slot (starting / running / draining).
+    #[must_use]
+    pub fn active_jobs(&self) -> usize {
+        self.slots.lock().values().filter(|s| s.active()).count()
     }
 
     fn slot(&self, job: JobId) -> Result<Arc<Slot>, JobError> {
@@ -373,6 +538,7 @@ impl WorkerJobs {
         let mut slots = self.slots.lock();
         for j in jobs {
             if let Some(s) = slots.remove(j) {
+                tracing::info!(job_id = %j, epoch = s.epoch.0, "job revoked by the coordinator");
                 s.immediate.store(true, Ordering::SeqCst);
                 let _ = s.cancel_tx.send(true);
             }
@@ -402,8 +568,11 @@ impl WorkerJobs {
     async fn publish_checkpoint(&self, cp: &JobCheckpoint) {
         let ev = NewEvent::new(EventKind::JobCheckpointed(JobCheckpointedPayload { checkpoint: Box::new(cp.clone()) }))
             .node(self.cfg.node_id);
-        if let Err(e) = self.events.publish(ev).await {
-            tracing::warn!(error = %e, "JobCheckpointed publish failed");
+        match self.events.publish(ev).await {
+            Ok(ev) => {
+                let _ = self.tap.send((*ev).clone());
+            }
+            Err(e) => tracing::warn!(error = %e, "JobCheckpointed publish failed"),
         }
     }
 
@@ -416,6 +585,7 @@ impl WorkerJobs {
             }
             Err(e) => Outcome::Finished { success: false, exit_code: None, detail: Some(format!("materialize: {e}")) },
         };
+        let _ = std::fs::remove_file(marker_path(&slot.dir));
         let send = |items: Vec<JobProgressItem>| {
             let _ = ctl.progress.send(JobProgressPayload {
                 job_id: slot.offer.spec.job_id,
@@ -516,6 +686,7 @@ impl WorkerJobs {
             return Some(Outcome::Drained);
         }
         if *slot.lease_until.lock() < now() {
+            tracing::warn!(job_id = %slot.offer.spec.job_id, epoch = slot.epoch.0, "lease expired: job self-fenced");
             return Some(Outcome::Cancelled("lease expired (self-fenced)".into()));
         }
         if let Some(every) = self.cfg.checkpoint_every {
@@ -899,6 +1070,7 @@ impl JobExecutor for WorkerJobs {
     async fn cancel(&self, job: JobId, epoch: LeaseEpoch, immediate: bool) -> Result<(), JobError> {
         let slot = self.slot(job)?;
         check_epoch(job, slot.epoch, epoch)?;
+        tracing::info!(job_id = %job, epoch = epoch.0, immediate, "job cancelled by the coordinator");
         slot.immediate.store(immediate, Ordering::SeqCst);
         let _ = slot.cancel_tx.send(true);
         Ok(())
@@ -968,7 +1140,9 @@ impl PlanStep {
 
     fn parse(line: &str) -> Self {
         let (verb, rest) = line.split_once(char::is_whitespace).unwrap_or((line, ""));
-        let rest = rest.trim();
+        // tolerate "Run: `cmd args`" (prose-style plans)
+        let verb = verb.trim_end_matches(':');
+        let rest = rest.trim().trim_matches('`').trim();
         match verb.to_ascii_lowercase().as_str() {
             "write" | "append" => {
                 let (path, text) = rest.split_once(char::is_whitespace).unwrap_or((rest, ""));
@@ -979,7 +1153,7 @@ impl PlanStep {
                 }
             }
             "run" => {
-                let mut parts = rest.split_whitespace().map(str::to_owned);
+                let mut parts = orkestr_node::exec::split_command_line(rest).into_iter();
                 let program = parts.next().unwrap_or_default();
                 Self::Run { program, args: parts.collect(), env: Vec::new(), timeout: None }
             }
@@ -1020,100 +1194,6 @@ impl PlanStep {
     }
 }
 
-/// In-memory [`BlobStore`] (tests / default until WP-D's `FsBlobStore` is
-/// installed). Verified blobs are spilled to a temp dir so `path()` works.
-#[derive(Debug)]
-pub struct MemBlobStore {
-    dir: PathBuf,
-    partial: Mutex<HashMap<Digest, Vec<u8>>>,
-    done: Mutex<HashMap<Digest, PathBuf>>,
-}
-
-impl Default for MemBlobStore {
-    fn default() -> Self {
-        let dir = std::env::temp_dir().join(format!("orkestr-blobs-{}", uuid_like()));
-        Self { dir, partial: Mutex::new(HashMap::new()), done: Mutex::new(HashMap::new()) }
-    }
-}
-
-fn uuid_like() -> String {
-    let mut h = Sha256::new();
-    h.update(format!("{:?}{}", Instant::now(), std::process::id()).as_bytes());
-    h.update(CheckpointId::new().to_string().as_bytes());
-    hex::encode(h.finalize())[..16].to_owned()
-}
-
-impl MemBlobStore {
-    fn finalize(&self, d: &Digest, bytes: &[u8]) -> Result<(), BlobError> {
-        if sha_digest(bytes) != *d {
-            return Err(BlobError::DigestMismatch(d.clone()));
-        }
-        std::fs::create_dir_all(&self.dir)?;
-        let p = self.dir.join(d.hex());
-        std::fs::write(&p, bytes)?;
-        self.done.lock().insert(d.clone(), p);
-        Ok(())
-    }
-}
-
-#[async_trait]
-impl BlobStore for MemBlobStore {
-    async fn has(&self, d: &Digest) -> bool {
-        self.done.lock().contains_key(d)
-    }
-
-    async fn put_chunk(&self, d: &Digest, offset: u64, total: u64, bytes: &[u8]) -> Result<u64, BlobError> {
-        if !d.is_valid() {
-            return Err(BlobError::InvalidDigest(d.to_string()));
-        }
-        if self.done.lock().contains_key(d) {
-            return Ok(total);
-        }
-        let buf = {
-            let mut partial = self.partial.lock();
-            let buf = partial.entry(d.clone()).or_default();
-            let have = buf.len() as u64;
-            if offset != have {
-                return Err(BlobError::BadOffset { got: offset, expected: have });
-            }
-            buf.extend_from_slice(bytes);
-            if (buf.len() as u64) < total {
-                return Ok(buf.len() as u64);
-            }
-            partial.remove(d).unwrap_or_default()
-        };
-        self.finalize(d, &buf)?;
-        Ok(total)
-    }
-
-    async fn get_chunk(&self, d: &Digest, offset: u64, len: u32) -> Result<Vec<u8>, BlobError> {
-        let p = self.path(d).ok_or_else(|| BlobError::NotFound(d.clone()))?;
-        let bytes = std::fs::read(p)?;
-        let start = usize::try_from(offset).unwrap_or(usize::MAX).min(bytes.len());
-        let end = start.saturating_add(len as usize).min(bytes.len());
-        Ok(bytes[start..end].to_vec())
-    }
-
-    async fn put_file(&self, path: &Path) -> Result<Digest, BlobError> {
-        let bytes = tokio::fs::read(path).await?;
-        let d = sha_digest(&bytes);
-        if !self.done.lock().contains_key(&d) {
-            self.finalize(&d, &bytes)?;
-        }
-        Ok(d)
-    }
-
-    fn path(&self, d: &Digest) -> Option<PathBuf> {
-        self.done.lock().get(d).cloned()
-    }
-}
-
-/// SHA-256 content digest of `bytes`.
-#[must_use]
-pub fn sha_digest(bytes: &[u8]) -> Digest {
-    Digest::from_sha256(&Sha256::digest(bytes).into())
-}
-
 async fn wait_cancel(rx: &mut watch::Receiver<bool>) {
     if rx.wait_for(|v| *v).await.is_err() {
         std::future::pending::<()>().await;
@@ -1133,21 +1213,17 @@ mod tests {
         assert_eq!(steps[2].side_effect().unwrap().kind, SideEffectKind::NonIdempotent);
         assert!(steps[3].side_effect().is_none());
         assert_ne!(steps[0].label(), steps[1].label());
+        assert_eq!(
+            PlanStep::parse_plan("Run: `node fake.mjs --steps 2`")[0],
+            PlanStep::Run {
+                program: "node".into(),
+                args: vec!["fake.mjs".into(), "--steps".into(), "2".into()],
+                env: Vec::new(),
+                timeout: None
+            }
+        );
         assert!(sanitize_rel("../x").is_none());
         assert!(sanitize_rel("C:/x").is_none());
         assert_eq!(sanitize_rel("src\\a.rs").as_deref(), Some("src/a.rs"));
-    }
-
-    #[tokio::test]
-    async fn mem_blob_store_verifies() {
-        let s = MemBlobStore::default();
-        let d = sha_digest(b"abc");
-        assert_eq!(s.put_chunk(&d, 0, 3, b"ab").await.unwrap(), 2);
-        assert!(matches!(s.put_chunk(&d, 0, 3, b"c").await, Err(BlobError::BadOffset { .. })));
-        assert_eq!(s.put_chunk(&d, 2, 3, b"c").await.unwrap(), 3);
-        assert!(s.has(&d).await);
-        let bad = sha_digest(b"zzz");
-        assert!(matches!(s.put_chunk(&bad, 0, 3, b"abc").await, Err(BlobError::DigestMismatch(_))));
-        assert_eq!(s.get_chunk(&d, 1, 10).await.unwrap(), b"bc");
     }
 }

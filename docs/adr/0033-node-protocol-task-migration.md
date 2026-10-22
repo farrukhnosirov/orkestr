@@ -1,6 +1,6 @@
 # ADR-0033 — Node protocol & task migration
 
-Status: accepted (Phase 6, Step 0 skeleton; work packages A–E fill in the bodies)
+Status: accepted — implemented (Phase 6)
 
 ## Context
 

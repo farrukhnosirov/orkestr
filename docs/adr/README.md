@@ -62,8 +62,8 @@ summarises them: **Built** = implemented as decided (with listed deviations),
 | ADR-0030 | Secure gateway / relay + device auth (WebAuthn) (§35–36) | 4 |
 | ADR-0031 | Sync protocol: journal, chunks, conflict model (§41–44) | 4 |
 | [ADR-0032](0032-mobile-stack.md) | Mobile stack (React Native) & push (§2, §37) — written, Accepted (push split into ADR-0037, step-up ADR-0038) | 5 |
-| [ADR-0033](0033-node-protocol-task-migration.md) | Node protocol & task migration (§38–39): gateway + e2e-v1 core-to-core, P-256 CIK, pull heartbeat, leases/fencing, blob checkpoints — written, Accepted | 6 |
-| [ADR-0039](0039-local-model-distribution.md) | Local model distribution: content-addressed store, chunked verified transfer, Ollama adapter — written, Accepted | 6 |
+| [ADR-0033](0033-node-protocol-task-migration.md) | Node protocol & task migration (§38–39): gateway + e2e-v1 core-to-core, P-256 CIK, pull heartbeat, leases/fencing, blob checkpoints — Implemented (Phase 6) | 6 |
+| [ADR-0039](0039-local-model-distribution.md) | Local model distribution: content-addressed store, chunked verified transfer, Ollama adapter — Implemented (Phase 6) | 6 |
 | ADR-0034 | Plugin/Widget sandbox (§48) | 7 |
 | ADR-0035 | Computer Control adapters (§18) | 7 |
 

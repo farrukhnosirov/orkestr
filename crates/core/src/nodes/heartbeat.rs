@@ -9,6 +9,7 @@
 //! health is re-evaluated with [`orkestr_node::registry::next_health`]; changes
 //! are published (`NodeStatus`, `NodeOffline`) and passed to the hooks.
 
+use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -18,6 +19,7 @@ use orkestr_node::link::call_typed;
 use orkestr_node::registry::{next_health, NodeRegistry};
 use orkestr_node::NodeError;
 use orkestr_protocol::methods::nodes::{self as m, LeaseRenewal, NodeHeartbeatParams, NodeHeartbeatResult};
+use parking_lot::Mutex;
 use tokio_util::sync::CancellationToken;
 
 use crate::services::Services;
@@ -41,19 +43,47 @@ pub trait HeartbeatHook: Send + Sync {
     }
 }
 
-/// Spawns the loop (stops on `shutdown`).
+/// Bound of opening a link (gateway E2E session + `node.hello`).
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
+
+/// Spawns the loop (stops on `shutdown`). Nodes are beaten independently: a
+/// slow / unreachable node (connect or call hanging until its timeout) never
+/// delays the heartbeats — and so the health — of the others.
 pub fn spawn(services: Arc<Services>, shutdown: CancellationToken) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
         let every = services.node_hub.health().heartbeat;
         let mut tick = tokio::time::interval(every);
         tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        let in_flight: Arc<Mutex<HashSet<NodeId>>> = Arc::default();
         loop {
             tokio::select! {
                 () = shutdown.cancelled() => break,
-                _ = tick.tick() => run_once(&services).await,
+                _ = tick.tick() => {
+                    for node in beat_targets(&services).await {
+                        if !in_flight.lock().insert(node) {
+                            continue; // previous beat still running
+                        }
+                        let (services, in_flight) = (Arc::clone(&services), Arc::clone(&in_flight));
+                        tokio::spawn(async move {
+                            beat_one(&services, node).await;
+                            in_flight.lock().remove(&node);
+                        });
+                    }
+                    sweep(&services).await;
+                }
             }
         }
     })
+}
+
+async fn beat_targets(services: &Arc<Services>) -> Vec<NodeId> {
+    match services.node_hub.registry().all_stored().await {
+        Ok(e) => e.into_iter().filter(|s| s.enrollment.revoked_at.is_none()).map(|s| s.enrollment.node_id).collect(),
+        Err(e) => {
+            tracing::warn!(error = %e, "node registry unavailable");
+            Vec::new()
+        }
+    }
 }
 
 /// One heartbeat round over every enrolled node + a health sweep (public for tests).
@@ -76,11 +106,14 @@ pub async fn run_once(services: &Arc<Services>) {
 
 async fn beat_one(services: &Arc<Services>, node: NodeId) {
     let hub = &services.node_hub;
+    let timeout = (hub.health().heartbeat * 2).max(Duration::from_secs(5));
     let result = async {
-        let link = hub.link(node).await?;
+        // connect + hello (worker inventory detection may take up to 10 s once)
+        let link = tokio::time::timeout(CONNECT_TIMEOUT, hub.link(node))
+            .await
+            .map_err(|_| NodeError::Transport("connect timed out".into()))??;
         let (renew, revoke) = hub.lease_params(node).await;
         let params = NodeHeartbeatParams { seq: hub.next_seq(), renew, revoke };
-        let timeout = (hub.health().heartbeat * 2).max(Duration::from_secs(5));
         tokio::time::timeout(timeout, call_typed::<m::Heartbeat>(link.as_ref(), &params))
             .await
             .map_err(|_| NodeError::Transport("heartbeat timed out".into()))?

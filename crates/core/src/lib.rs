@@ -530,8 +530,8 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
     // Benchmarks + router statistics + context-index invalidation (Phase 2).
     benchmarks::spawn_collector(Arc::clone(&services), shutdown.clone());
     let router = Arc::new(rpc::build_router());
-    let app_state =
-        server::AppState::new(Arc::clone(&services), token.clone(), router, shutdown.clone()).with_port(addr.port());
+    let app_state = server::AppState::new(Arc::clone(&services), token.clone(), Arc::clone(&router), shutdown.clone())
+        .with_port(addr.port());
     // Remote access (Phase 4): load device registry + CIK, re-dial the tunnel when enabled.
     if let Err(e) = services.remote.attach(
         &paths.data_dir,
@@ -543,7 +543,9 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
     ) {
         tracing::error!(error = %e, "remote access unavailable: cannot load the core identity key");
     }
-    // Multi-node (Phase 6): pull heartbeats to enrolled workers.
+    // Multi-node (Phase 6): wire registry ↔ jobs ↔ blobs ↔ models (needs the
+    // CIK loaded above), then pull heartbeats to enrolled workers.
+    nodes::wiring::wire(&services, Arc::clone(&router), &shutdown);
     nodes::heartbeat::spawn(Arc::clone(&services), shutdown.clone());
     // Web Push (Phase 4, ADR-0036): event → push loop (stops on shutdown).
     remote::push::spawn_loop(&services, shutdown.clone());

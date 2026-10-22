@@ -105,7 +105,7 @@ async fn submit_places_waits_and_blocks() {
     let me = core.services.node_id;
     let pid = rpc.ok("projects.create", json!({"name": "Nodes"})).await["project"]["id"].as_str().unwrap().to_owned();
 
-    // No hooks: the local node (coordinator) takes a plain command.
+    // Default wiring (no workers enrolled): the local node (coordinator) takes a plain command.
     let t0 = rpc.task(&pid).await;
     let job = rpc.submit(&t0, cmd(), Requirements::default()).await.unwrap();
     assert_eq!(job["state"], "offered");

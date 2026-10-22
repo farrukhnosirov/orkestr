@@ -95,10 +95,10 @@ async fn distribute_mock_model_core_to_core() {
     assert_eq!(listed["models"].as_array().unwrap().len(), 1);
     let params = json!({"modelRef": "mock-coder:20m", "nodeIds": [worker_id]});
 
-    // No links wired → per-node failure, not a crash.
+    // Default (node hub) links: the worker is not enrolled → per-node failure, not a crash.
     let r = call(&router, &coord, "models.distribute", params.clone()).await.unwrap();
     assert_eq!(r["outcomes"][0]["ok"], false);
-    assert!(r["outcomes"][0]["error"].as_str().unwrap().contains("not wired"));
+    assert!(r["outcomes"][0]["error"].as_str().unwrap().contains("not found"), "{r}");
 
     // Tampered chunk: finalize fails on the worker, nothing visible.
     wire(

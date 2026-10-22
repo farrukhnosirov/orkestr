@@ -60,7 +60,10 @@ async fn info(ctx: RpcContext, p: NodeInfoParams) -> Result<NodeInfo, RpcError> 
     let info = tokio::task::spawn_blocking(move || monitor.info(refresh))
         .await
         .map_err(|e| RpcError::internal(format!("node detection failed: {e}")))?;
-    Ok((*info).clone())
+    let mut info = (*info).clone();
+    // models installed through the node model store (WP-D) next to Ollama's
+    orkestr_node::models::merge_local_models(&mut info.local_models, &ctx.services.paths.data_dir);
+    Ok(info)
 }
 
 async fn resources(ctx: RpcContext) -> Result<NodeResourcesResult, RpcError> {

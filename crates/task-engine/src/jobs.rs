@@ -428,6 +428,34 @@ impl JobStore {
         Ok(t)
     }
 
+    /// Records the placement explanation of the task's job on the task
+    /// document (never touches the status).
+    ///
+    /// # Errors
+    /// Unknown task, storage failure.
+    pub async fn set_task_placement(&self, task: TaskId, explanation: Vec<String>) -> Result<Task, JobError> {
+        let explanation = Some(explanation);
+        let t = self
+            .run(move |c| {
+                let tx = c.transaction()?;
+                let mut t = store::require_task(&tx, task)?;
+                if t.placement != explanation {
+                    t.placement = explanation;
+                    t.updated_at = now();
+                    store::save_task(&tx, &mut t)?;
+                }
+                tx.commit()?;
+                Ok(t)
+            })
+            .await?;
+        if let Err(e) =
+            self.events.publish(NewEvent::new(EventKind::TaskUpdated(TaskPayload { task: t.clone() }))).await
+        {
+            tracing::error!(error = %e, "failed to publish TaskUpdated");
+        }
+        Ok(t)
+    }
+
     /// Number of active jobs per node (local slot accounting).
     pub async fn active_per_node(&self) -> Result<BTreeMap<NodeId, u32>, JobError> {
         let jobs = self.list(JobFilter { active_only: true, ..JobFilter::default() }).await?;

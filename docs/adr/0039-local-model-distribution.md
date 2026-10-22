@@ -1,6 +1,6 @@
 # ADR-0039 — Local model distribution
 
-Status: accepted (Phase 6, Step 0 skeleton; WP-D implements)
+Status: accepted — implemented (Phase 6)
 
 ## Context
 
@@ -13,8 +13,9 @@ model it already has to selected nodes, verified end to end.
 ## Decision
 
 1. **Content-addressed store.** Every node keeps blobs under
-   `ORKESTR_HOME/blobs/sha256/<aa>/<hex>`; a blob is written to a temp file,
-   hash-verified (SHA-256) and atomically renamed on finalize. `Digest` =
+   `ORKESTR_HOME/blobs/sha256/<hex>` (flat; partial uploads in
+   `blobs/staging/<hex>.part`, resumable); a blob is hash-verified (SHA-256)
+   and atomically renamed on finalize. `Digest` =
    `sha256:<64 hex>` (`orkestr_domain::Digest`). The same store carries job
    checkpoints (ADR-0033).
 2. **Model = manifest + layers.** `ModelManifest {name, tag, format,

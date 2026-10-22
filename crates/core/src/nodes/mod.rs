@@ -29,6 +29,7 @@ pub mod lease;
 pub mod loopback;
 pub mod migration;
 pub mod registry_store;
+pub mod wiring;
 pub mod worker;
 
 use std::collections::HashMap;

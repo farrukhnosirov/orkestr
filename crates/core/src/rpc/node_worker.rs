@@ -23,7 +23,14 @@ pub fn register(router: &mut RpcRouter) {
                 )));
             }
             let trust = match &ctx.principal {
-                Principal::Remote(rp) => rp.trust_level.unwrap_or_default(),
+                Principal::Remote(rp) => {
+                    // the coordinator signs policy snapshots with the CIK it
+                    // paired with: trust it for that coordinator node's offers
+                    if rp.coordinator {
+                        trust_coordinator_key(&ctx, rp.device_id, p.coordinator_node_id);
+                    }
+                    rp.trust_level.unwrap_or_default()
+                }
                 Principal::Local => TrustLevel::Trusted,
             };
             tracing::debug!(coordinator = %p.coordinator_node_id, ?trust, "node.hello");
@@ -36,4 +43,19 @@ pub fn register(router: &mut RpcRouter) {
             };
             Ok::<_, RpcError>(ctx.services.node_hub.worker_heartbeat(coordinator, &p).await)
         });
+}
+
+fn trust_coordinator_key(ctx: &RpcContext, device: orkestr_domain::DeviceId, coordinator: orkestr_domain::NodeId) {
+    let Some(record) = ctx.services.remote.device(device) else {
+        tracing::warn!(%device, "node.hello from an unknown device");
+        return;
+    };
+    match crate::remote::e2e::parse_verifying_b64(&record.public_key) {
+        Ok(key) => {
+            let host = crate::nodes::worker::host(&ctx.services);
+            host.trust_coordinator(coordinator, key);
+            host.bind_coordinator_device(device, coordinator);
+        }
+        Err(e) => tracing::warn!(%device, error = %e, "coordinator public key unusable"),
+    }
 }

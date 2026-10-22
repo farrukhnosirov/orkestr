@@ -145,4 +145,9 @@ readySince: string | null,
  * Executor currently owning the task (Phase 6, node-protocol.md §10);
  * `None` = the local core. Stored in the task document (no column).
  */
-owner: ExecutorRef | null, };
+owner: ExecutorRef | null, 
+/**
+ * Explanation of the latest node placement decision of the task's job
+ * (Phase 6 scheduler, node-protocol.md §5); absent for local work.
+ */
+placement?: Array<string>, };

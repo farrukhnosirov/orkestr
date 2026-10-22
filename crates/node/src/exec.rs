@@ -97,6 +97,55 @@ pub struct ToolShims {
     map: BTreeMap<String, Vec<String>>,
 }
 
+/// Splits a shim command line into program + arguments: whitespace separates
+/// words; `"…"` / `'…'` group (paths with spaces); inside double quotes `\"`
+/// and `\\` are escapes (JSON-quoted paths); elsewhere a backslash is literal
+/// (Windows paths).
+#[must_use]
+pub fn split_command_line(cmd: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut cur = String::new();
+    let mut in_word = false;
+    let mut quote: Option<char> = None;
+    let mut chars = cmd.chars().peekable();
+    while let Some(c) = chars.next() {
+        match quote {
+            Some('"') => match c {
+                '"' => quote = None,
+                '\\' if matches!(chars.peek(), Some('"' | '\\')) => cur.push(chars.next().unwrap_or(c)),
+                _ => cur.push(c),
+            },
+            Some(q) => {
+                if c == q {
+                    quote = None;
+                } else {
+                    cur.push(c);
+                }
+            }
+            None => match c {
+                '"' | '\'' => {
+                    quote = Some(c);
+                    in_word = true;
+                }
+                c if c.is_whitespace() => {
+                    if in_word {
+                        out.push(std::mem::take(&mut cur));
+                        in_word = false;
+                    }
+                }
+                _ => {
+                    cur.push(c);
+                    in_word = true;
+                }
+            },
+        }
+    }
+    if in_word {
+        out.push(cur);
+    }
+    out
+}
+
 impl ToolShims {
     /// Shims of a profile (none without a profile).
     #[must_use]
@@ -104,7 +153,7 @@ impl ToolShims {
         let mut map = BTreeMap::new();
         if let Some(shims) = profile.and_then(|p| p.tool_shims.as_ref()) {
             for (tool, cmd) in shims {
-                let parts: Vec<String> = cmd.split_whitespace().map(str::to_owned).collect();
+                let parts = split_command_line(cmd);
                 if !parts.is_empty() {
                     map.insert(tool.clone(), parts);
                 }
@@ -213,6 +262,19 @@ pub fn needs_user_decision(effects: &[SideEffectRecord]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn shim_command_lines_split_with_quotes() {
+        assert_eq!(split_command_line("node  fake.mjs -x"), ["node", "fake.mjs", "-x"]);
+        // JSON-quoted Windows path with spaces (the acceptance fixtures do this)
+        assert_eq!(
+            split_command_line(r#"node "C:\\Program Files\\o k\\fake.mjs" --a"#),
+            ["node", r"C:\Program Files\o k\fake.mjs", "--a"]
+        );
+        assert_eq!(split_command_line(r"node C:\x\y.mjs"), ["node", r"C:\x\y.mjs"]);
+        assert_eq!(split_command_line(r#"sh 'a b' """#), ["sh", "a b", ""]);
+        assert!(split_command_line("   ").is_empty());
+    }
 
     #[test]
     fn shims_resolve_and_classify() {

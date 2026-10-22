@@ -192,6 +192,12 @@ async fn submit(ctx: RpcContext, p: SubmitJobParams) -> Result<JobResult, RpcErr
     let placement = DefaultNodeScheduler.place(&spec, &nodes, &policy);
     let job_id = spec.job_id;
     store.create(spec, Some(placement.clone())).await.map_err(job_to_rpc)?;
+    let explanation = match &placement {
+        Placement::Place { explanation, .. }
+        | Placement::Wait { explanation, .. }
+        | Placement::Infeasible { explanation, .. } => explanation.clone(),
+    };
+    store.set_task_placement(task.id, explanation).await.map_err(job_to_rpc)?;
     match &placement {
         Placement::Place { node_id, .. } => {
             store.assign(job_id, *node_id, orkestr_domain::LeaseEpoch(1)).await.map_err(job_to_rpc)?;

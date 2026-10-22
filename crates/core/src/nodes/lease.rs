@@ -149,6 +149,18 @@ impl LeaseBook {
         }
     }
 
+    /// Releases the lease of `job` only if it still is `lease` (node + epoch);
+    /// `false` when someone else already moved / released it.
+    pub fn release_if(&self, job: JobId, lease: &Lease) -> bool {
+        let mut leases = self.leases.lock();
+        if leases.get(&job).is_some_and(|l| l.epoch == lease.epoch && l.node_id == lease.node_id) {
+            leases.remove(&job);
+            true
+        } else {
+            false
+        }
+    }
+
     /// Jobs whose lease ended before `now`.
     #[must_use]
     pub fn expired(&self, now: Timestamp) -> Vec<(JobId, Lease)> {

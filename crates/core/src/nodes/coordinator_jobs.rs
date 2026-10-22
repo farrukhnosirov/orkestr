@@ -1,10 +1,10 @@
-//! Coordinator job driver: place в†’ offer (epoch + 1) в†’ accept в†’ progress
-//! intake (stale epochs dropped) в†’ completion through the task engine, which
+//! Coordinator job driver: place → offer (epoch + 1) → accept → progress
+//! intake (stale epochs dropped) → completion through the task engine, which
 //! stays the only task-status writer (Phase 6). **Owner: WP-C.**
 //!
 //! [`CoordinatorJobs`] is wired by the integrator with three small traits:
-//! * [`LinkProvider`] вЂ” `Arc<dyn NodeLink>` per node + current snapshots (WP-A registry);
-//! * [`JobPlacer`] вЂ” placement with an exclusion list (wrap WP-B's
+//! * [`LinkProvider`] — `Arc<dyn NodeLink>` per node + current snapshots (WP-A registry);
+//! * [`JobPlacer`] — placement with an exclusion list (wrap WP-B's
 //!   `NodeScheduler` with [`SchedulerPlacer`]; [`FirstFitPlacer`] for tests);
 //! * WP-B's `JobStore` (jobs table) is the persisted source of truth for job
 //!   rows / epochs; [`CoordinatorJobs::dispatcher`] is the `JobDispatcher` for
@@ -45,7 +45,6 @@ use parking_lot::Mutex;
 use tokio::sync::Notify;
 
 use super::lease::{Lease, LeaseBook, LeaseConfig, PolicySigner};
-use super::worker::sha_digest;
 use crate::services::Services;
 
 /// Errors of the coordinator job driver.
@@ -88,35 +87,40 @@ impl From<JobsError> for orkestr_protocol::RpcError {
             JobsError::NotFound(_) => Self::not_found(e.to_string()),
             JobsError::State(_) | JobsError::Rejected { .. } => Self::conflict(e.to_string()),
             JobsError::NotPlaced(_) | JobsError::NoLink(_) => Self::conflict(e.to_string()),
+            // the worker's own answer (e.g. a stale epoch → conflict)
+            JobsError::Node(NodeError::Rpc(r)) => r,
             _ => Self::internal(e.to_string()),
         }
     }
 }
 
-/// Links to worker nodes (WP-A registry / connector).
+/// Links to worker nodes (production: `nodes::wiring::HubLinks` over the
+/// WP-A `NodeHub`; tests: [`StaticLinks`]).
+#[async_trait]
 pub trait LinkProvider: Send + Sync {
-    /// Link to `node`, when connected.
-    fn link(&self, node: NodeId) -> Option<Arc<dyn NodeLink>>;
+    /// Link to `node` (connects on demand), `None` when unreachable.
+    async fn link(&self, node: NodeId) -> Option<Arc<dyn NodeLink>>;
     /// Current node snapshots (placement input).
-    fn snapshots(&self) -> Vec<NodeSnapshot>;
-    /// Every known node (emergency broadcast); defaults to the snapshot ids.
-    fn node_ids(&self) -> Vec<NodeId> {
-        self.snapshots().iter().map(|s| s.node.id).collect()
+    async fn snapshots(&self) -> Vec<NodeSnapshot>;
+    /// Every known worker node (emergency broadcast); defaults to the snapshot ids.
+    async fn node_ids(&self) -> Vec<NodeId> {
+        self.snapshots().await.iter().map(|s| s.node.id).collect()
     }
 }
 
 /// Placement with exclusions (re-placement after node loss excludes the old node).
+#[async_trait]
 pub trait JobPlacer: Send + Sync {
     /// Places `spec`, never on a node in `exclude`.
-    fn place(&self, spec: &JobSpec, exclude: &[NodeId]) -> Placement;
+    async fn place(&self, spec: &JobSpec, exclude: &[NodeId]) -> Placement;
 }
 
 /// Moves blobs between the coordinator store and workers.
 #[async_trait]
 pub trait BlobTransfer: Send + Sync {
-    /// Coordinator в†’ worker.
+    /// Coordinator → worker.
     async fn push(&self, src: &dyn BlobStore, link: &dyn NodeLink, d: &Digest) -> Result<(), BlobError>;
-    /// Worker в†’ coordinator (hash verified by `dst` on finalize).
+    /// Worker → coordinator (hash verified by `dst` on finalize).
     async fn fetch(&self, link: &dyn NodeLink, d: &Digest, dst: &dyn BlobStore) -> Result<(), BlobError>;
 }
 
@@ -148,16 +152,17 @@ impl StaticLinks {
     }
 }
 
+#[async_trait]
 impl LinkProvider for StaticLinks {
-    fn link(&self, node: NodeId) -> Option<Arc<dyn NodeLink>> {
+    async fn link(&self, node: NodeId) -> Option<Arc<dyn NodeLink>> {
         self.links.lock().iter().find(|(l, _)| l.node_id() == node).map(|(l, _)| Arc::clone(l))
     }
 
-    fn snapshots(&self) -> Vec<NodeSnapshot> {
+    async fn snapshots(&self) -> Vec<NodeSnapshot> {
         self.links.lock().iter().filter_map(|(_, s)| s.clone()).collect()
     }
 
-    fn node_ids(&self) -> Vec<NodeId> {
+    async fn node_ids(&self) -> Vec<NodeId> {
         self.links.lock().iter().map(|(l, _)| l.node_id()).collect()
     }
 }
@@ -167,8 +172,9 @@ impl LinkProvider for StaticLinks {
 #[derive(Debug, Default)]
 pub struct FirstFitPlacer(pub Mutex<Vec<NodeId>>);
 
+#[async_trait]
 impl JobPlacer for FirstFitPlacer {
-    fn place(&self, spec: &JobSpec, exclude: &[NodeId]) -> Placement {
+    async fn place(&self, spec: &JobSpec, exclude: &[NodeId]) -> Placement {
         let ids = self.0.lock().clone();
         match ids.into_iter().find(|n| !exclude.contains(n) && !spec.affinity.forbidden.contains(n)) {
             Some(node_id) => {
@@ -192,10 +198,11 @@ pub struct SchedulerPlacer {
     pub policy: PlacementPolicy,
 }
 
+#[async_trait]
 impl JobPlacer for SchedulerPlacer {
-    fn place(&self, spec: &JobSpec, exclude: &[NodeId]) -> Placement {
+    async fn place(&self, spec: &JobSpec, exclude: &[NodeId]) -> Placement {
         let nodes: Vec<NodeSnapshot> =
-            self.links.snapshots().into_iter().filter(|s| !exclude.contains(&s.node.id)).collect();
+            self.links.snapshots().await.into_iter().filter(|s| !exclude.contains(&s.node.id)).collect();
         self.scheduler.place(spec, &nodes, &self.policy)
     }
 }
@@ -273,6 +280,9 @@ pub struct CoordinatorJobs {
     stale_dropped: AtomicU64,
     stale_audited: Mutex<HashSet<(JobId, NodeId, LeaseEpoch)>>,
     changed: Notify,
+    /// Worker events arrive through [`CoordinatorJobs::spawn_hub_intake`]
+    /// (merged, reconnect-proof) instead of per-link subscriptions.
+    hub_intake: std::sync::atomic::AtomicBool,
 }
 
 impl std::fmt::Debug for CoordinatorJobs {
@@ -338,6 +348,7 @@ impl CoordinatorJobs {
             stale_dropped: AtomicU64::new(0),
             stale_audited: Mutex::new(HashSet::new()),
             changed: Notify::new(),
+            hub_intake: std::sync::atomic::AtomicBool::new(false),
         })
     }
 
@@ -481,7 +492,9 @@ impl CoordinatorJobs {
         let branch = git.current_branch(worktree).await.ok().flatten();
         let tmp = self.services.paths.data_dir.join("jobs-out");
         tokio::fs::create_dir_all(&tmp).await.map_err(|e| JobsError::Internal(e.to_string()))?;
-        let bundle_path = tmp.join(format!("{}.bundle", sha_digest(head.as_bytes()).hex()));
+        // unique per call: concurrent submissions share the same HEAD
+        let unique = orkestr_domain::CheckpointId::new();
+        let bundle_path = tmp.join(format!("{unique}.bundle"));
         git.create_bundle(worktree, &bundle_path).await.map_err(|e| JobsError::Internal(e.to_string()))?;
         let bundle = self.blobs.put_file(&bundle_path).await?;
         let _ = tokio::fs::remove_file(&bundle_path).await;
@@ -489,7 +502,7 @@ impl CoordinatorJobs {
         let dirty = if patch.is_empty() {
             None
         } else {
-            let p = tmp.join(format!("{}.patch", sha_digest(&patch).hex()));
+            let p = tmp.join(format!("{unique}.patch"));
             tokio::fs::write(&p, &patch).await.map_err(|e| JobsError::Internal(e.to_string()))?;
             let d = self.blobs.put_file(&p).await?;
             let _ = tokio::fs::remove_file(&p).await;
@@ -505,15 +518,29 @@ impl CoordinatorJobs {
             return Ok(());
         }
         let view = self.store.get(job).await.map_err(store_err)?;
-        let worktree = self
+        // the task's isolated worktree, else the project's repository root
+        // (the result diff is applied back into it as uncommitted changes)
+        let task_worktree = self
             .services
             .tasks
             .get(view.spec.task_id)
             .await
             .ok()
             .and_then(|t| t.worktree)
-            .map(|w| PathBuf::from(w.path))
-            .filter(|p| p.join(".git").exists());
+            .map(|w| PathBuf::from(w.path));
+        let worktree = match task_worktree {
+            Some(w) => Some(w),
+            None => self
+                .services
+                .projects
+                .get(view.spec.project_id)
+                .await
+                .ok()
+                .flatten()
+                .and_then(|p| p.root_path)
+                .map(PathBuf::from),
+        }
+        .filter(|p| p.join(".git").exists());
         let git = match &worktree {
             Some(w) => self.workspace_inputs(w).await?,
             None => GitStateDescriptor::default(),
@@ -575,7 +602,15 @@ impl CoordinatorJobs {
             (e.view.spec.clone(), e.excluded.clone())
         };
         excl.extend(exclude);
-        let placement = self.placer.place(&spec, &excl);
+        let placement = self.placer.place(&spec, &excl).await;
+        let explanation = match &placement {
+            Placement::Place { explanation, .. }
+            | Placement::Wait { explanation, .. }
+            | Placement::Infeasible { explanation, .. } => explanation.clone(),
+        };
+        if let Err(e) = self.store.set_task_placement(spec.task_id, explanation).await {
+            tracing::debug!(job_id = %job, error = %e, "placement explanation not stored on the task");
+        }
         match &placement {
             Placement::Place { node_id, .. } => {
                 let node = *node_id;
@@ -622,7 +657,7 @@ impl CoordinatorJobs {
         node: NodeId,
         resume: Option<(JobCheckpoint, NodeId, String)>,
     ) -> Result<(), JobsError> {
-        if self.links.link(node).is_none() {
+        if self.links.link(node).await.is_none() {
             return Err(JobsError::NoLink(node));
         }
         let persisted = self.store.get(job).await.map_err(store_err)?.epoch;
@@ -672,7 +707,7 @@ impl CoordinatorJobs {
         epoch: LeaseEpoch,
         resume: Option<(JobCheckpoint, NodeId, String)>,
     ) -> Result<(), JobsError> {
-        let link = self.links.link(node).ok_or(JobsError::NoLink(node))?;
+        let link = self.links.link(node).await.ok_or(JobsError::NoLink(node))?;
         self.attach(&link);
         let (spec, mut inputs) = {
             let jobs = self.jobs.lock();
@@ -778,6 +813,32 @@ impl CoordinatorJobs {
         Ok(())
     }
 
+    /// Marks a job `Pending` (re-placed by the lease loop) — also when the
+    /// runtime entry could not be built (the jobs table is the source of truth).
+    pub(super) async fn mark_pending(&self, job: JobId, detail: String) {
+        let d = detail.clone();
+        let updated = self
+            .update(job, |en| {
+                en.view.state = JobState::Pending;
+                en.view.detail = Some(d);
+            })
+            .await;
+        if updated.is_none() {
+            if let Ok(v) = self.store.get(job).await {
+                if let Err(e) = self
+                    .store
+                    .update_fenced(job, v.epoch, move |s| {
+                        s.state = JobState::Pending;
+                        s.detail = Some(detail);
+                    })
+                    .await
+                {
+                    tracing::warn!(job_id = %job, error = %e, "job not marked pending");
+                }
+            }
+        }
+    }
+
     /// Re-places `Pending` jobs (placement `Wait`, failed offers, pending migrations).
     pub async fn replace_pending(self: &Arc<Self>) {
         let rows = self.store.list(JobFilter { active_only: true, ..JobFilter::default() }).await.unwrap_or_default();
@@ -797,6 +858,9 @@ impl CoordinatorJobs {
     /// Starts consuming the worker's `jobs` events (once per node).
     pub fn attach(self: &Arc<Self>, link: &Arc<dyn NodeLink>) {
         let node = link.node_id();
+        if node != self.cfg.node_id && self.hub_intake.load(Ordering::SeqCst) {
+            return;
+        }
         if !self.attached.lock().insert(node) {
             return;
         }
@@ -822,6 +886,46 @@ impl CoordinatorJobs {
             }
             if let Some(this) = this.upgrade() {
                 this.attached.lock().remove(&node);
+            }
+        });
+    }
+
+    /// Consumes worker events merged by the node hub (`(node, event)`, topic
+    /// `jobs`, survives reconnects) instead of per-link subscriptions; the
+    /// coordinator's own in-process link keeps using [`Self::attach`].
+    pub fn spawn_hub_intake(
+        self: &Arc<Self>,
+        mut rx: tokio::sync::broadcast::Receiver<(NodeId, orkestr_protocol::Event)>,
+        shutdown: tokio_util::sync::CancellationToken,
+    ) {
+        self.hub_intake.store(true, Ordering::SeqCst);
+        let this = Arc::downgrade(self);
+        tokio::spawn(async move {
+            loop {
+                let (node, ev) = tokio::select! {
+                    () = shutdown.cancelled() => break,
+                    r = rx.recv() => match r {
+                        Ok(x) => x,
+                        Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
+                            tracing::warn!(n, "node job events lagged");
+                            continue;
+                        }
+                        Err(_) => break,
+                    },
+                };
+                let Some(this) = this.upgrade() else { break };
+                if !matches!(ev.kind, EventKind::JobProgress(_) | EventKind::JobCheckpointed(_)) {
+                    continue;
+                }
+                let Some(link) = this.links.link(node).await else {
+                    tracing::debug!(node_id = %node, "job event from a node without a link dropped");
+                    continue;
+                };
+                match ev.kind {
+                    EventKind::JobProgress(p) => this.on_progress(&link, p).await,
+                    EventKind::JobCheckpointed(c) => this.on_checkpoint(&link, *c.checkpoint).await,
+                    _ => {}
+                }
             }
         });
     }
@@ -867,9 +971,12 @@ impl CoordinatorJobs {
             }
         })
         .await;
-        let mut relay = p.clone();
-        relay.node_id = node;
-        self.publish(EventKind::JobProgress(relay), Some(node)).await;
+        // the coordinator's own worker host already published it on this bus
+        if node != self.cfg.node_id {
+            let mut relay = p.clone();
+            relay.node_id = node;
+            self.publish(EventKind::JobProgress(relay), Some(node)).await;
+        }
         if let Some((success, exit_code, artifacts, detail)) = finished {
             self.complete(link, job, success, exit_code, artifacts, detail).await;
         }
@@ -887,11 +994,13 @@ impl CoordinatorJobs {
             return;
         }
         self.record_checkpoint(cp.clone()).await;
-        self.publish(
-            EventKind::JobCheckpointed(JobCheckpointedPayload { checkpoint: Box::new(cp.clone()) }),
-            Some(node),
-        )
-        .await;
+        if node != self.cfg.node_id {
+            self.publish(
+                EventKind::JobCheckpointed(JobCheckpointedPayload { checkpoint: Box::new(cp.clone()) }),
+                Some(node),
+            )
+            .await;
+        }
         self.audit(
             "jobs.checkpoint",
             cp.job_id,
@@ -1031,6 +1140,29 @@ impl CoordinatorJobs {
         }
     }
 
+    /// Fences leases a worker reports for an epoch older than the job's
+    /// current one (e.g. a run interrupted by the worker's restart after the
+    /// job moved on): audited once (`jobs.staleEpochFenced`) and revoked.
+    pub async fn fence_reported(&self, node: NodeId, states: &[LeaseState]) {
+        for s in states {
+            if self.leases.is_current(s.job_id, node, s.epoch) {
+                continue;
+            }
+            let current = match self.store.get(s.job_id).await {
+                Ok(v) => v.epoch,
+                Err(orkestr_task_engine::jobs::JobError::NotFound(_)) => {
+                    self.queue_revoke(node, s.job_id);
+                    continue;
+                }
+                Err(_) => continue,
+            };
+            if s.epoch < current {
+                self.fenced(s.job_id, node, s.epoch).await;
+                self.queue_revoke(node, s.job_id);
+            }
+        }
+    }
+
     pub(super) fn queue_revoke(&self, node: NodeId, job: JobId) {
         let mut p = self.pending_revokes.lock();
         let l = p.entry(node).or_default();
@@ -1039,7 +1171,7 @@ impl CoordinatorJobs {
         }
     }
 
-    /// Expired leases в†’ unplanned migration. Returns the affected jobs.
+    /// Expired leases → unplanned migration. Returns the affected jobs.
     pub async fn tick(self: &Arc<Self>) -> Vec<JobId> {
         let expired = self.leases.expired(now());
         let mut out = Vec::new();
@@ -1079,7 +1211,7 @@ impl CoordinatorJobs {
     pub async fn cancel(self: &Arc<Self>, job: JobId, immediate: bool) -> Result<JobView, JobsError> {
         let view = self.get(job).ok_or(JobsError::NotFound(job))?;
         if let Some(lease) = self.leases.release(job) {
-            if let Some(link) = self.links.link(lease.node_id) {
+            if let Some(link) = self.links.link(lease.node_id).await {
                 let p = WorkerJobParams { job_id: job, epoch: lease.epoch, immediate };
                 if let Err(e) = call_typed::<jm::JobCancel>(link.as_ref(), &p).await {
                     tracing::warn!(job_id = %job, error = %e, "remote cancel failed; revoking at next heartbeat");
@@ -1119,8 +1251,11 @@ impl CoordinatorJobs {
             tracing::warn!(job_id = %job, node_id = %lease.node_id, "remote job cancelled by emergency stop");
         }
         // every node also runs its own emergency stop (cancels its jobs + local AI work)
-        for id in self.links.node_ids() {
-            if let Some(link) = self.links.link(id) {
+        for id in self.links.node_ids().await {
+            if id == self.cfg.node_id {
+                continue;
+            }
+            if let Some(link) = self.links.link(id).await {
                 if let Err(e) = link.call("emergency.stopAll", serde_json::json!({})).await {
                     tracing::warn!(node_id = %id, error = %e, "emergency stop broadcast failed");
                 }
@@ -1158,7 +1293,7 @@ impl CoordinatorJobs {
     /// Drains `job` on its node (planned migration step 1): returns the checkpoint.
     pub(super) async fn drain(self: &Arc<Self>, job: JobId) -> Result<(JobCheckpoint, NodeId), JobsError> {
         let lease = self.leases.get(job).ok_or_else(|| JobsError::State("job holds no lease".into()))?;
-        let link = self.links.link(lease.node_id).ok_or(JobsError::NoLink(lease.node_id))?;
+        let link = self.links.link(lease.node_id).await.ok_or(JobsError::NoLink(lease.node_id))?;
         self.update(job, |e| e.view.state = JobState::Migrating).await;
         let p = WorkerJobParams { job_id: job, epoch: lease.epoch, immediate: false };
         let r: DrainJobResult = match call_typed::<jm::Drain>(link.as_ref(), &p).await {
@@ -1171,11 +1306,13 @@ impl CoordinatorJobs {
         self.leases.release(job);
         self.fetch_checkpoint_blobs(&link, &r.checkpoint).await?;
         self.record_checkpoint(r.checkpoint.clone()).await;
-        self.publish(
-            EventKind::JobCheckpointed(JobCheckpointedPayload { checkpoint: Box::new(r.checkpoint.clone()) }),
-            Some(lease.node_id),
-        )
-        .await;
+        if lease.node_id != self.cfg.node_id {
+            self.publish(
+                EventKind::JobCheckpointed(JobCheckpointedPayload { checkpoint: Box::new(r.checkpoint.clone()) }),
+                Some(lease.node_id),
+            )
+            .await;
+        }
         self.audit(
             "jobs.drain",
             job,
@@ -1193,10 +1330,7 @@ pub(super) fn truncate_reason(s: &str) -> String {
 }
 
 /// Content digest helper re-exported for callers verifying artifacts.
-#[must_use]
-pub fn digest_of(bytes: &[u8]) -> Digest {
-    sha_digest(bytes)
-}
+pub use orkestr_node::blobs::digest_of;
 
 fn store_err(e: orkestr_task_engine::jobs::JobError) -> JobsError {
     match e {
@@ -1215,12 +1349,7 @@ impl JobDispatcher for CoordinatorDispatcher {
         tokio::spawn(async move {
             if let Err(e) = c.dispatch_assigned(job_id).await {
                 tracing::warn!(job_id = %job_id, error = %e, "dispatch failed; job re-placed later");
-                let detail = e.to_string();
-                c.update(job_id, |en| {
-                    en.view.state = JobState::Pending;
-                    en.view.detail = Some(detail);
-                })
-                .await;
+                c.mark_pending(job_id, e.to_string()).await;
             }
         });
     }

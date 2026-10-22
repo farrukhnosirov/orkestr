@@ -34,10 +34,15 @@ impl CoordinatorJobs {
 
     /// Unplanned migration after node loss / lease expiry (§7.2).
     pub async fn recover_unplanned(self: &Arc<Self>, job: JobId, lease: Lease, reason: &str) {
-        if self.leases.get(job).is_some_and(|l| l.epoch == lease.epoch) {
-            self.leases.release(job);
-        }
+        // exactly one recovery per lost lease (lease expiry and the node going
+        // offline both report it)
+        let released = self.leases.release_if(job, &lease);
         self.queue_revoke(lease.node_id, job);
+        if !released {
+            tracing::debug!(job_id = %job, "lease already moved on; nothing to recover");
+            return;
+        }
+        tracing::warn!(job_id = %job, node_id = %lease.node_id, epoch = lease.epoch.0, reason, "unplanned migration");
         let Some(view) = self.get(job) else { return };
         if matches!(view.state, JobState::Completed | JobState::Failed | JobState::Cancelled) {
             return;
