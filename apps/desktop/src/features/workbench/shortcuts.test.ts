@@ -16,6 +16,7 @@ import { useEditorStore } from "../../store/editor";
 import { chordCommand, isModifierKey, shortcutCommand } from "../commands/dispatch";
 import { chordSteps, matchesShortcut } from "../commands/keys";
 import { commands } from "../commands/registry";
+import { i18n } from "../../i18n";
 import { registerSaveAsHandler, registerSaveHandler, requestSave, requestSaveAs, resetSaveBus } from "./saveBus";
 
 const ev = (key: string, code: string, mods: Partial<KeyboardEvent> = {}) => ({
@@ -86,6 +87,24 @@ describe("file shortcuts", () => {
       expect(c?.enabled?.(none), id).toBe(false);
     }
     expect(shortcutCommand(ev("n", "KeyN"), commands, none)).toBeNull();
+  });
+});
+
+describe("File menu", () => {
+  it("every entry has a command and a label in both languages; hidden items leave no stray separators", async () => {
+    const { FILE_MENU, visibleEntries } = await import("./FileMenu");
+    const cmds = FILE_MENU.filter((e) => e.kind === "cmd");
+    for (const e of cmds) {
+      expect(commands.some((c) => c.id === e.command), e.command).toBe(true);
+      for (const lng of ["en", "ru"]) expect(i18n.exists(`workbench:menu.${e.label}`, { lng }), `${lng} ${e.label}`).toBe(true);
+    }
+    const browser = visibleEntries(FILE_MENU, (id) => id !== "app.exit");
+    expect(browser.at(-1)?.kind).not.toBe("sep");
+    expect(visibleEntries([{ kind: "sep" }, { kind: "recent" }, { kind: "sep" }, { kind: "sep" }, { kind: "recent" }, { kind: "sep" }], () => true)).toEqual([
+      { kind: "recent" },
+      { kind: "sep" },
+      { kind: "recent" },
+    ]);
   });
 });
 

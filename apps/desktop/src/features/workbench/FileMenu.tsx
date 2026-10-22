@@ -33,7 +33,7 @@ type MenuLabelKey =
   | "closeProject"
   | "exit";
 
-type Entry = { kind: "cmd"; command: string; label: MenuLabelKey } | { kind: "sep" } | { kind: "recent" };
+export type Entry = { kind: "cmd"; command: string; label: MenuLabelKey } | { kind: "sep" } | { kind: "recent" };
 
 /** Menu layout (command ids from the registry). */
 export const FILE_MENU: readonly Entry[] = [
@@ -57,6 +57,22 @@ export const FILE_MENU: readonly Entry[] = [
   { kind: "sep" },
   { kind: "cmd", command: "app.exit", label: "exit" },
 ];
+
+/**
+ * The entries actually shown: commands that are hidden here (Exit outside
+ * the desktop shell, unknown ids) are dropped, and so are the separators
+ * they would leave at the start, the end or twice in a row.
+ */
+export function visibleEntries(entries: readonly Entry[], shown: (command: string) => boolean): Entry[] {
+  const out: Entry[] = [];
+  for (const e of entries) {
+    if (e.kind === "cmd" && !shown(e.command)) continue;
+    if (e.kind === "sep" && (out.length === 0 || out[out.length - 1]?.kind === "sep")) continue;
+    out.push(e);
+  }
+  while (out.length > 0 && out[out.length - 1]?.kind === "sep") out.pop();
+  return out;
+}
 
 const ITEM = "[role='menuitem']:not(:disabled)";
 
@@ -95,6 +111,10 @@ export function FileMenu() {
   const recent = useMemo(() => recentProjects(projects, hidden, activeProjectId), [projects, hidden, activeProjectId]);
   const native = isTauri();
   const ctx = { projectId: activeProjectId };
+  const entries = useMemo(
+    () => visibleEntries(FILE_MENU, (id) => (id !== "app.exit" || native) && commands.some((c) => c.id === id)),
+    [native],
+  );
 
   // Focus the first item when the menu opens (click, keyboard or Alt+F).
   useEffect(() => {
@@ -184,7 +204,7 @@ export function FileMenu() {
       </button>
       {open && (
         <div id="wb-file-menu" className="wb-menu" role="menu" aria-label={t("menu.fileAria")} ref={menuRef} onKeyDown={onMenuKey}>
-          {FILE_MENU.map((entry, i) => {
+          {entries.map((entry, i) => {
             if (entry.kind === "sep") return <div key={`sep-${i}`} className="wb-menu__sep" role="separator" />;
             if (entry.kind === "recent") {
               return (
@@ -234,7 +254,6 @@ export function FileMenu() {
                 </div>
               );
             }
-            if (entry.command === "app.exit" && !native) return null;
             const cmd = commands.find((c) => c.id === entry.command);
             if (!cmd) return null;
             const Icon: LucideIcon = entry.command === "project.create" ? FolderPlus : (cmd.icon ?? FolderPlus);
