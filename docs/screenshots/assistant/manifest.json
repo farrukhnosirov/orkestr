@@ -1,0 +1,79 @@
+{
+  "date": "2026-10-22T21:34:47.127Z",
+  "result": "12/12 checks passed",
+  "backend": "mock (no desktop input)",
+  "checks": [
+    {
+      "id": "en-mode",
+      "label": "title-bar switch → Assistant mode (workspace hidden)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "id": "en-run",
+      "label": "typed command ran and the reply shows",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "id": "en-plan",
+      "label": "unknown command → AI plan card",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "id": "en-confirm",
+      "label": "risky command → confirmation card",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "id": "en-back",
+      "label": "footer button → Orchestra mode restored",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "id": "en-sets",
+      "label": "Settings → Assistant lists the sets",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "id": "ru-mode",
+      "label": "title-bar switch → Assistant mode (workspace hidden)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "id": "ru-run",
+      "label": "typed command ran and the reply shows",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "id": "ru-plan",
+      "label": "unknown command → AI plan card",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "id": "ru-confirm",
+      "label": "risky command → confirmation card",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "id": "ru-back",
+      "label": "footer button → Orchestra mode restored",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "id": "ru-sets",
+      "label": "Settings → Assistant lists the sets",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}

@@ -592,3 +592,17 @@
   color: var(--ok-color-danger);
   font-size: var(--ok-font-size-sm);
 }
+
+/* ── Compact title bar in Assistant mode (460 px window) ── */
+:root[data-ok-ui-mode="assistant"] .titlebar {
+  gap: var(--ok-space-2);
+}
+:root[data-ok-ui-mode="assistant"] .titlebar__wordmark {
+  display: none;
+}
+:root[data-ok-ui-mode="assistant"] .titlebar__ctl {
+  width: 36px;
+}
+:root[data-ok-ui-mode="assistant"] .sec-titlebar-group {
+  margin-right: 0;
+}

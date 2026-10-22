@@ -245,7 +245,7 @@ export function AssistantSurface() {
 
         <footer className="as-foot">
           <span className="as-foot__meta">
-            {s.status ? t("surface.catalogue", { count: s.status.catalogueCommands, user: s.status.userCommands }) : ""}
+            {s.status ? t("surface.catalogue", { n: s.status.catalogueCommands, user: s.status.userCommands }) : ""}
           </span>
           <Button variant="ghost" size="sm" leftIcon={<BookOpen size={14} />} onClick={() => openSettings("assistant")}>
             {t("surface.commandSets")}

@@ -70,20 +70,20 @@ export function TitleBar() {
       {!compact && <FileMenu />}
 
       {!compact && (
-      <button
-        type="button"
-        className="titlebar__search"
-        aria-label={t("titleBar.search")}
-        title={t("titleBar.search")}
-        onClick={() => setPaletteOpen(true)}
-      >
-        <Search size={14} />
-        <span>{t("titleBar.search")}</span>
-        <span className="titlebar__search-keys">
-          <Kbd>Ctrl</Kbd>
-          <Kbd>K</Kbd>
-        </span>
-      </button>
+        <button
+          type="button"
+          className="titlebar__search"
+          aria-label={t("titleBar.search")}
+          title={t("titleBar.search")}
+          onClick={() => setPaletteOpen(true)}
+        >
+          <Search size={14} />
+          <span>{t("titleBar.search")}</span>
+          <span className="titlebar__search-keys">
+            <Kbd>Ctrl</Kbd>
+            <Kbd>K</Kbd>
+          </span>
+        </button>
       )}
 
       {/* layout-multimonitor (Phase 3): layout presets / editor */}
@@ -120,14 +120,16 @@ export function TitleBar() {
           <button type="button" className="titlebar__ctl" aria-label={t("titleBar.minimize")} onClick={() => void windowControls.minimize()}>
             <Minus size={15} />
           </button>
-          <button
-            type="button"
-            className="titlebar__ctl"
-            aria-label={maximized ? t("titleBar.restore") : t("titleBar.maximize")}
-            onClick={() => void windowControls.toggleMaximize()}
-          >
-            {maximized ? <Copy size={13} style={{ transform: "scaleX(-1)" }} /> : <Square size={12} />}
-          </button>
+          {!compact && (
+            <button
+              type="button"
+              className="titlebar__ctl"
+              aria-label={maximized ? t("titleBar.restore") : t("titleBar.maximize")}
+              onClick={() => void windowControls.toggleMaximize()}
+            >
+              {maximized ? <Copy size={13} style={{ transform: "scaleX(-1)" }} /> : <Square size={12} />}
+            </button>
+          )}
           <button
             type="button"
             className="titlebar__ctl titlebar__ctl--close"

@@ -494,9 +494,9 @@ impl ComputerService {
         let id = new_id("pending");
         let level = reasons.iter().map(|r| r.level).max().unwrap_or(SafetyLevel::Confirm);
         let summary = format!(
-            "Computer: {} — {}",
+            "Computer assistant: {} — {}",
             spec.title,
-            reasons.iter().map(|r| format!("{} {}", r.code, r.detail)).collect::<Vec<_>>().join("; ")
+            reasons.iter().map(reason_text).collect::<Vec<_>>().join("; ")
         );
         let mut req = ApprovalRequest::new(
             Capability::ComputerControl,
@@ -1060,6 +1060,26 @@ impl ComputerService {
             token.cancel();
             me.timers.lock().retain(|t| !t.is_cancelled());
         });
+    }
+}
+
+/// Readable risk line for the approvals inbox (the assistant UI localizes codes itself).
+fn reason_text(r: &RiskReason) -> String {
+    let what = match r.code.as_str() {
+        "closeDiscard" => "close without saving",
+        "closeUnsaved" => "window has unsaved changes",
+        "killProcess" => "terminate process",
+        "fileDelete" => "delete to the recycle bin",
+        "fileMove" => "move",
+        "power" => "power action",
+        "passwordField" => "type into a password field",
+        "declared" => "marked as risky",
+        other => other,
+    };
+    if r.detail.is_empty() {
+        what.to_owned()
+    } else {
+        format!("{what}: {}", r.detail)
     }
 }
 

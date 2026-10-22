@@ -4,7 +4,7 @@
     "status": "Computer assistant",
     "available": "Computer control is available ({{backend}})",
     "unavailable": "Computer control is not available on this computer",
-    "counts": "{{catalogue}} built-in commands · {{user}} own commands · {{sets}} sets on · {{apps}} Start-menu apps indexed",
+    "counts": "{{catalogue}} built-in commands · own commands: {{user}} · sets on: {{sets}} · Start-menu apps indexed: {{apps}}",
     "safetyTitle": "Safety",
     "safetyText": "Closing without saving, ending processes, deleting or moving files, power actions and typing into password fields always ask first (approvals inbox). Every command is audited; Stop All also stops the assistant. Remote devices can never control this computer."
   },

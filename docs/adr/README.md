@@ -50,6 +50,7 @@ summarises them: **Built** = implemented as decided (with listed deviations),
 | [0040](0040-marketplace-registry-and-package-signing.md) | Marketplace: static signed registries (official / directory / gateway HTTP), publisher key TOFU + pinning + revocation | Accepted | 7 | — | — | Implemented (Phase 7; see the ADR's "as built" notes) |
 | [0041](0041-environments-and-deployment-adapters.md) | Environments and `DeployAdapter`s: local targets live, cloud adapters request-shape verified, guarded production deploys | Accepted | 7 | — | — | Implemented (Phase 7; see the ADR's "as built" notes) |
 | [0042](0042-infrastructure-monitor-and-bug-detective.md) | Infrastructure monitor (metrics, checks, logs, alerts) and the Bug Detective workflow with two human gates | Accepted | 7 | — | — | Implemented (Phase 7; see the ADR's "as built" notes) |
+| [0035](0035-computer-control.md) | Computer Control: personal computer assistant (`orkestr-computer`, Windows backend, 1035-command catalogue, user sets, AI plans, confirmations, Assistant mode) | Accepted | Wave 8 | — | — | Implemented (Wave 8; macOS/Linux backends `Unsupported`) |
 
 ## Planned ADRs (to be written when their phase starts)
 
@@ -69,7 +70,7 @@ summarises them: **Built** = implemented as decided (with listed deviations),
 | [ADR-0033](0033-node-protocol-task-migration.md) | Node protocol & task migration (§38–39): gateway + e2e-v1 core-to-core, P-256 CIK, pull heartbeat, leases/fencing, blob checkpoints — Implemented (Phase 6) | 6 |
 | [ADR-0039](0039-local-model-distribution.md) | Local model distribution: content-addressed store, chunked verified transfer, Ollama adapter — Implemented (Phase 6) | 6 |
 | [ADR-0034](0034-plugin-and-widget-sandbox.md) | Plugin/Widget sandbox (§48) — Implemented (Phase 7) | 7 |
-| ADR-0035 | Computer Control adapters (§18) — deferred (not in Phase 7) | 7+ |
+| [ADR-0035](0035-computer-control.md) | Computer Control (§18) — Implemented (Wave 8) | 8 |
 | [ADR-0040](0040-marketplace-registry-and-package-signing.md) | Marketplace registry & package signing (§6, §48) — Implemented (Phase 7) | 7 |
 | [ADR-0041](0041-environments-and-deployment-adapters.md) | Environments & deployment adapters (§26) — Implemented (Phase 7) | 7 |
 | [ADR-0042](0042-infrastructure-monitor-and-bug-detective.md) | Infrastructure monitor & Bug Detective (§27) — Implemented (Phase 7) | 7 |
@@ -109,6 +110,8 @@ flowchart TB
   A34 --> A40[0040 Marketplace registry]
   A10 --> A41[0041 Deployment adapters]
   A41 --> A42[0042 Infra monitor + Bug Detective]
+  A10 --> A35[0035 Computer control]
+  A17 --> A35
   A18 --> A22[0022 Crash recovery]
   A20[0020 UUID v7] --> A18
 ```

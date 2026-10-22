@@ -98,7 +98,8 @@ describe("assistant api", () => {
     expect(r.outcome).toBe("needsConfirmation");
     expect(r.reply).toContain("notepad closes without saving");
     expect(useAssistantStore.getState().pending?.pendingId).toBe("p1");
-    applyResult({ status: "Executed", run: { ...((run("m") as { run: object }).run as never), effects: [{ type: "SetMode", mode: "Assistant" }] } } as HandleResult);
+    const base = run("m") as Extract<HandleResult, { status: "Executed" }>;
+    applyResult({ status: "Executed", run: { ...base.run, effects: [{ type: "SetMode", mode: "Assistant" }] } });
     expect(useAssistantStore.getState().mode).toBe("assistant");
   });
 
