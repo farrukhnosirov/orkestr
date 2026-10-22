@@ -16,6 +16,8 @@
 //   npm run dev -w @orkestr/desktop          # Vite on 127.0.0.1:1420
 //   cargo build -p orkestr-desktop
 //   node scripts/smoke/i18n-ru-screenshots.mjs [--out docs/screenshots/i18n-ru]
+// or, without Vite (e.g. when :1420 is in a Windows excluded port range):
+//   npm run build && cargo build -p orkestr-desktop --features custom-protocol
 
 import { spawn, execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -323,9 +325,9 @@ try {
     const list = await (await fetch(`http://127.0.0.1:${cdpPort}/json/list`)).json();
     // The main window — not a floating robot (robot.html), the HUD or a detached panel (#/…).
     return list.find(
-      (t) => t.type === "page" && t.url.includes("127.0.0.1:1420") && !t.url.includes("robot.html") && !t.url.includes("#/") && !/hud/i.test(t.url),
+      (t) => t.type === "page" && /tauri\.localhost|127\.0\.0\.1:1420/.test(t.url) &&!t.url.includes("robot.html") && !t.url.includes("#/") && !/hud/i.test(t.url),
     );
-  }, 60_000, "webview DevTools target (is Vite running on :1420?)");
+  }, 60_000, "webview DevTools target (is Vite running on :1420, or is this a custom-protocol build?)");
   const cdp = new Cdp(target.webSocketDebuggerUrl);
   await cdp.open();
   await cdp.send("Emulation.setDeviceMetricsOverride", { width: WIDTH, height: HEIGHT, deviceScaleFactor: 1, mobile: false });
