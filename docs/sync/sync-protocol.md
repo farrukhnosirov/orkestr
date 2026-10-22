@@ -1,6 +1,9 @@
 # Sync Protocol
 
-Status: Phase 0 deliverable #12 (§65). Covers §40–45 (Cloud Workspace, Continuous Sync,
+Status: Phase 0 deliverable #12 (§65); **Phase 4 implemented** as `DefaultSyncEngine` +
+`server_router` in `orkestr-sync` — see ADR-0031 for what is built and the deviations
+(shared remote key instead of HPKE envelopes, SQLite + filesystem store, JSON manifests,
+conflict copies instead of three-way merge, no Git state descriptor yet). Covers §40–45 (Cloud Workspace, Continuous Sync,
 Offline-first, Seamless Continue, Storage Modes), §56 privacy policies, risks §62.3,
 §62.4, §62.14, scenario §63 C (cross-device) and I (offline).
 
