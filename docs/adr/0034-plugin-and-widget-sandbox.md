@@ -83,7 +83,14 @@ stoppable at once, independently of providers (contract §6).
    `PluginEvent` kind). Lifecycle events: `PluginInstalled`,
    `PluginStateChanged{reason}`, `PluginCallDenied`.
 10. **Widgets** run in `<iframe sandbox="allow-scripts">` with an opaque
-    origin (no `allow-same-origin`), so there is no `__TAURI_INTERNALS__`.
+    origin (no `allow-same-origin`): no parent DOM, no app storage and no
+    access to the parent's `__TAURI_INTERNALS__`. Note: in WebView2 Tauri's
+    init script runs in every frame, so a widget sees its *own*
+    `__TAURI_INTERNALS__` object, but its IPC transport is unusable — the
+    widget CSP (`connect-src 'none'`) blocks `ipc.localhost` and `invoke`
+    never resolves (verified in the packaged app, 2026-10-22: inline widget
+    script runs, `postMessage` arrives with origin `"null"`, `invoke` of
+    `core_connection` / `widget_document` from the frame gets no answer).
     `widgets.bundle` returns the HTML (≤ 512 KB, sha256) with the CSP
     `default-src 'none'; script-src 'unsafe-inline'; style-src
     'unsafe-inline'; img-src data:; font-src data:; connect-src 'none';

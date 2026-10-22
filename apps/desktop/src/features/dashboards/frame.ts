@@ -1,6 +1,6 @@
 /**
  * Sandboxed document for plugin widgets (ADR-0034): the iframe gets only
- * `allow-scripts` (opaque origin → no `__TAURI_INTERNALS__`, no parent DOM,
+ * `allow-scripts` (opaque origin → no parent `__TAURI_INTERNALS__`, no parent DOM,
  * no app storage) and a CSP meta injected as the first element of `<head>`,
  * so no network and no external resources.
  */

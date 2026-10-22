@@ -861,6 +861,17 @@ try {
       const r = await deployStart(env.environment.id, "d1", dDir);
       const d = await waitDeploy(r.deployment.id, undefined, 600_000);
       check("E5", "Docker available → container deployed and healthy", d.status === "Succeeded", `${d.status} ${(await deployLogs(d.id)).slice(-200)}`);
+      // The deployed container outlives the test core by design: remove it (and its image).
+      try {
+        const names = execFileSync("docker", ["ps", "-a", "--filter", `name=orkestr-`, "--format", "{{.Names}} {{.Image}}"], { encoding: "utf8" })
+          .split("\n").map((l) => l.trim().split(" ")).filter(([n, img]) => n && img?.startsWith(`${n}:`));
+        for (const [n, img] of names) {
+          execFileSync("docker", ["rm", "-f", n], { stdio: "ignore" });
+          execFileSync("docker", ["rmi", "-f", img], { stdio: "ignore" });
+        }
+      } catch {
+        /* best effort */
+      }
     } else {
       info("E5", "Docker run skipped", docker ? `availability ${docker.availability.state}; set ORKESTR_P7_DOCKER=1 to deploy a busybox container` : "no docker adapter listed");
     }

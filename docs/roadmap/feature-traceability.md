@@ -342,7 +342,7 @@ gateway (registry), the Mock provider, a git fixture project (tiny HTTP
 service + a test) and `fixtures/fake-cloud-api.mjs`. Condition waits only;
 `--only E2,E5`; report `acceptance.json`.
 
-<!-- P7-ACCEPTANCE -->**Result: 78/78 checks passed** (+3 informational; E1 6, E2 16, E3 11, E4 8, E5 11, E6 7, E7 10, E8 6, E9 3) on Windows 11, 2026-10-22. Docker deploy runs only with `ORKESTR_P7_DOCKER=1` (otherwise reported as info); cloud adapters are request-shape verified against `fake-cloud-api.mjs`.<!-- /P7-ACCEPTANCE -->
+<!-- P7-ACCEPTANCE -->**Result: 78/78 checks passed** (+3 informational; E1 6, E2 16, E3 11, E4 8, E5 11, E6 7, E7 10, E8 6, E9 3) on Windows 11, 2026-10-22. Docker deploy runs only with `ORKESTR_P7_DOCKER=1` (otherwise reported as info; verified separately: `--only E5` with Docker 18/18, busybox container healthy, container and image removed afterwards); the `orkestr-widget` scheme was smoke-checked in the packaged app (WebView2); cloud adapters are request-shape verified against `fake-cloud-api.mjs`.<!-- /P7-ACCEPTANCE -->
 
 | Check | What is checked |
 |---|---|
