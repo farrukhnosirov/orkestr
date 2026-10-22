@@ -12,7 +12,7 @@ import { describeError } from "../../i18n/errors";
 import { canPickPaths, pickFile, pickFolder, shellControls } from "../../lib/tauri";
 import { useAppStore } from "../../store/app";
 import { useEditorStore } from "../../store/editor";
-import { openInEditor, saveEditor } from "../files/actions";
+import { openInEditor, saveAsEditor, saveEditor } from "../files/actions";
 import { useNotificationsStore } from "../notifications/notificationsStore";
 import { hostBasename, hostDirname, projectAtFolder, projectForFile, relativeTo } from "./hostPaths";
 import { type OutsideFile, useWorkbenchStore } from "./store";
@@ -140,6 +140,11 @@ export async function createEntry(projectId: string, kind: "file" | "folder", re
 /** File → Save / Save all (Code panel). */
 export function saveCommand(all: boolean): void {
   saveEditor(all);
+}
+
+/** File → Save As… (Code panel: native save dialog, the copy opens as the active tab). */
+export function saveAsCommand(): void {
+  saveAsEditor();
 }
 
 /** File → Show in file manager: opens the project folder in the OS file manager. */

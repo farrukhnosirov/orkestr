@@ -4,7 +4,7 @@
  * goes through Tauri (§67) — everything else uses @orkestr/client.
  */
 import { invoke, isTauri as tauriDetected } from "@tauri-apps/api/core";
-import { open as openDialog } from "@tauri-apps/plugin-dialog";
+import { open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
@@ -177,4 +177,13 @@ export function pickFolder(opts: PickOptions = {}): Promise<string | null> {
 /** Shows the native "open file" dialog; resolves to the absolute path, or `null` (cancelled / not in the shell). */
 export function pickFile(opts: PickOptions = {}): Promise<string | null> {
   return pick(false, opts);
+}
+
+/** Shows the native "save file" dialog; resolves to the chosen absolute path, or `null` (cancelled / not in the shell). */
+export async function pickSavePath(opts: PickOptions = {}): Promise<string | null> {
+  if (!canPickPaths()) return null;
+  const options: { title?: string; defaultPath?: string } = {};
+  if (opts.title) options.title = opts.title;
+  if (opts.defaultPath) options.defaultPath = opts.defaultPath;
+  return firstPath(await saveDialog(options));
 }

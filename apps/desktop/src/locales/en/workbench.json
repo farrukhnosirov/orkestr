@@ -7,6 +7,7 @@
     "file": "Choose a file",
     "openFolder": "Open folder",
     "openFile": "Open file",
+    "saveAs": "Save as",
     "cloneParent": "Choose where to clone the repository"
   },
   "menu": {
@@ -19,6 +20,7 @@
     "newFile": "New file",
     "newFolder": "New folder",
     "save": "Save",
+    "saveAs": "Save As…",
     "saveAll": "Save all",
     "clone": "Clone repository…",
     "recent": "Recent projects",

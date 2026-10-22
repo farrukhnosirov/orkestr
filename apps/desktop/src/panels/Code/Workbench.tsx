@@ -4,7 +4,7 @@
  * `FileChanged`, agent change markers and the status line.
  */
 import type { FileChangedPayload } from "@orkestr/protocol";
-import { Badge, Button, EmptyState, IconButton, Spinner } from "@orkestr/ui";
+import { Badge, Button, EmptyState, IconButton, Input, Spinner } from "@orkestr/ui";
 import { clsx } from "clsx";
 import {
   Bot,
@@ -43,7 +43,9 @@ import { lspCoordinator } from "./lsp/bridge";
 import { LspBanner } from "./lsp/LspBanner";
 import { applyTokensTheme, getMonaco } from "./monaco";
 import { useThemeRevision } from "../../features/theme/useThemeRevision";
-import { registerSaveHandler } from "../../features/workbench/saveBus";
+import { registerSaveAsHandler, registerSaveHandler } from "../../features/workbench/saveBus";
+import { relativeTo } from "../../features/workbench/hostPaths";
+import { canPickPaths, pickSavePath } from "../../lib/tauri";
 
 const ENCODINGS: Record<string, string> = {
   utf8: "UTF-8",
@@ -90,6 +92,10 @@ export default function Workbench({ projectId }: { projectId: string }) {
   const [confirmClose, setConfirmClose] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  /** "Save As…" without the native dialog (browser): the project-relative path being typed. */
+  const [saveAsPrompt, setSaveAsPrompt] = useState<{ from: string; value: string } | null>(null);
+  const { t: tw } = useT("workbench");
+  const projectRoot = useAppStore((s) => s.projects.find((p) => p.id === projectId)?.rootPath ?? null);
 
   useEffect(() => registry.onChange(rerender), [registry]);
 
@@ -218,6 +224,53 @@ export default function Workbench({ projectId }: { projectId: string }) {
     })();
   };
   useEffect(() => registerSaveHandler((all) => saveRequest.current(all)), []);
+
+  // File → Save As…: writes the active buffer to a new path inside the
+  // project (files.* is confined to the project folder) and opens it.
+  const writeCopy = useCallback(
+    async (from: string, rel: string) => {
+      const d = registry.get(from);
+      const target = rel.trim().replace(/\\/g, "/").replace(/^\/+/, "");
+      if (!d || !target) return;
+      if (target === from) {
+        await save(from);
+        return;
+      }
+      setBusy(true);
+      try {
+        await getClient().call("files.write", { projectId, path: target, content: d.model.getValue(), encoding: d.encoding, create: true });
+        useEditorStore.getState().openFile(target);
+        setNotice(t("notice.savedAs", { path: target }));
+      } catch (e) {
+        setNotice(t("notice.saveFailed", { name: basename(target), error: describeError(e) }));
+      } finally {
+        setBusy(false);
+      }
+    },
+    [registry, projectId, save, t],
+  );
+  const saveAsRequest = useRef<() => void>(() => undefined);
+  saveAsRequest.current = () => {
+    const from = useEditorStore.getState().activePath;
+    if (!from || !registry.get(from)) return;
+    if (!canPickPaths() || !projectRoot) {
+      setSaveAsPrompt({ from, value: from });
+      return;
+    }
+    void (async () => {
+      const sep = projectRoot.includes("\\") ? "\\" : "/";
+      const defaultPath = `${projectRoot.replace(/[\\/]+$/, "")}${sep}${from.split("/").join(sep)}`;
+      const target = await pickSavePath({ title: tw("pick.saveAs"), defaultPath }).catch(() => null);
+      if (!target) return;
+      const rel = relativeTo(projectRoot, target);
+      if (!rel) {
+        setNotice(t("notice.saveAsOutside", { root: projectRoot }));
+        return;
+      }
+      await writeCopy(from, rel);
+    })();
+  };
+  useEffect(() => registerSaveAsHandler(() => saveAsRequest.current()), []);
 
   const doClose = useCallback(
     (path: string) => {
@@ -512,6 +565,35 @@ export default function Workbench({ projectId }: { projectId: string }) {
           ]}
         >
           <p className="fx-dialog__text">{t("conflict.text")}</p>
+        </ActionDialog>
+      )}
+
+      {saveAsPrompt && (
+        <ActionDialog
+          title={tw("menu.saveAs")}
+          icon={<Save size={18} />}
+          onCancel={() => setSaveAsPrompt(null)}
+          actions={[
+            { id: "cancel", label: t("common:actions.cancel"), variant: "ghost", onSelect: () => setSaveAsPrompt(null) },
+            {
+              id: "save",
+              label: t("common:actions.save"),
+              variant: "primary",
+              disabled: !saveAsPrompt.value.trim(),
+              onSelect: () => {
+                const p = saveAsPrompt;
+                setSaveAsPrompt(null);
+                void writeCopy(p.from, p.value);
+              },
+            },
+          ]}
+        >
+          <Input
+            label={tw("pick.saveAs")}
+            value={saveAsPrompt.value}
+            autoFocus
+            onChange={(e) => setSaveAsPrompt({ ...saveAsPrompt, value: e.target.value })}
+          />
         </ActionDialog>
       )}
 

@@ -16,7 +16,7 @@ import { useEditorStore } from "../../store/editor";
 import { chordCommand, isModifierKey, shortcutCommand } from "../commands/dispatch";
 import { chordSteps, matchesShortcut } from "../commands/keys";
 import { commands } from "../commands/registry";
-import { registerSaveHandler, requestSave, resetSaveBus } from "./saveBus";
+import { registerSaveAsHandler, registerSaveHandler, requestSave, requestSaveAs, resetSaveBus } from "./saveBus";
 
 const ev = (key: string, code: string, mods: Partial<KeyboardEvent> = {}) => ({
   key,
@@ -72,7 +72,7 @@ describe("file shortcuts", () => {
   });
 
   it("file commands are searchable in both languages", () => {
-    for (const id of ["file.openFolder", "file.openFile", "file.newFile", "file.save", "file.clone", "file.closeProject"]) {
+    for (const id of ["file.openFolder", "file.openFile", "file.newFile", "file.save", "file.saveAs", "file.clone", "file.closeProject"]) {
       const kw = commands.find((c) => c.id === id)?.keywords ?? [];
       expect(kw.some((k) => /[a-z]/.test(k)), id).toBe(true);
       expect(kw.some((k) => /[а-я]/.test(k)), id).toBe(true);
@@ -81,7 +81,7 @@ describe("file shortcuts", () => {
 
   it("project-dependent commands are disabled without a project", () => {
     const none = { projectId: null };
-    for (const id of ["file.newFile", "file.newFolder", "file.save", "file.reveal", "file.closeProject"]) {
+    for (const id of ["file.newFile", "file.newFolder", "file.save", "file.saveAs", "file.reveal", "file.closeProject"]) {
       const c = commands.find((x) => x.id === id);
       expect(c?.enabled?.(none), id).toBe(false);
     }
@@ -101,6 +101,16 @@ describe("save bus", () => {
     expect(got).toEqual([true, false]);
     off();
     expect(requestSave(false)).toBe("queued");
+  });
+
+  it("Save As goes to the mounted Code panel only", () => {
+    expect(requestSaveAs()).toBe(false);
+    let n = 0;
+    const off = registerSaveAsHandler(() => (n += 1));
+    expect(requestSaveAs()).toBe(true);
+    expect(n).toBe(1);
+    off();
+    expect(requestSaveAs()).toBe(false);
   });
 });
 

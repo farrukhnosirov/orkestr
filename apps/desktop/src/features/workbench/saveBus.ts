@@ -43,8 +43,26 @@ export function requestSave(all: boolean): "saved" | "queued" | "nothing" {
   return "queued";
 }
 
+let saveAsHandler: (() => void) | null = null;
+
+/** Registers the workbench "Save As…" handler (it shows the save dialog). Returns the disposer. */
+export function registerSaveAsHandler(h: () => void): () => void {
+  saveAsHandler = h;
+  return () => {
+    if (saveAsHandler === h) saveAsHandler = null;
+  };
+}
+
+/** File → Save As… for the active editor tab. Returns whether the Code panel took it (false = no editor is mounted). */
+export function requestSaveAs(): boolean {
+  if (!saveAsHandler) return false;
+  saveAsHandler();
+  return true;
+}
+
 /** Test hook. */
 export function resetSaveBus(): void {
   handler = null;
   pending = null;
+  saveAsHandler = null;
 }

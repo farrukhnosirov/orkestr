@@ -20,6 +20,7 @@ import {
   Save,
   SaveAll,
   FileInput,
+  FileOutput,
 } from "lucide-react";
 
 import { t } from "../../i18n";
@@ -33,6 +34,7 @@ import {
   openFileCommand,
   openFolderCommand,
   revealProjectCommand,
+  saveAsCommand,
   saveCommand,
 } from "./actions";
 import { useWorkbenchStore } from "./store";
@@ -117,6 +119,19 @@ export const WORKBENCH_COMMANDS: AppCommand[] = [
     shortcut: SHORTCUTS.save,
     enabled: hasProject,
     run: () => saveCommand(false),
+  },
+  {
+    id: "file.saveAs",
+    get title() {
+      return t("workbench:menu.saveAs");
+    },
+    get group() {
+      return group();
+    },
+    icon: FileOutput,
+    keywords: ["save as", "save copy", "сохранить как", "сохранить копию"],
+    enabled: hasFolder,
+    run: () => saveAsCommand(),
   },
   {
     id: "file.saveAll",

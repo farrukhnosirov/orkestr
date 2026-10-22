@@ -26,6 +26,7 @@ type MenuLabelKey =
   | "newFile"
   | "newFolder"
   | "save"
+  | "saveAs"
   | "saveAll"
   | "reveal"
   | "openInVsCode"
@@ -45,6 +46,7 @@ export const FILE_MENU: readonly Entry[] = [
   { kind: "cmd", command: "file.newFolder", label: "newFolder" },
   { kind: "sep" },
   { kind: "cmd", command: "file.save", label: "save" },
+  { kind: "cmd", command: "file.saveAs", label: "saveAs" },
   { kind: "cmd", command: "file.saveAll", label: "saveAll" },
   { kind: "sep" },
   { kind: "recent" },

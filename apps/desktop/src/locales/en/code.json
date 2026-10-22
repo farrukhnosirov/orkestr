@@ -79,6 +79,8 @@
   "notice": {
     "dismiss": "Dismiss",
     "saveFailed": "Could not save {{name}}: {{error}}",
+    "saveAsOutside": "Save As writes only inside the project folder ({{root}}). Choose a location there.",
+    "savedAs": "Saved as {{path}}",
     "gone": "The file no longer exists on disk."
   },
   "empty": {

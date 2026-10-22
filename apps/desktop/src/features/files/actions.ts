@@ -14,7 +14,7 @@
 import { workspaceActions } from "../../components/workspaceActions";
 import { windowControls } from "../../lib/tauri";
 import { type RevealTarget, useEditorStore } from "../../store/editor";
-import { requestSave } from "../workbench/saveBus";
+import { requestSave, requestSaveAs } from "../workbench/saveBus";
 
 /** Detail of the `orkestr:ask-manager` event. */
 export interface AskManagerDetail {
@@ -39,7 +39,9 @@ export type PanelIntent =
   /** Text for the Claude Code composer ("Ask Claude about selection"). */
   | { type: "askClaude"; text: string }
   /** File → Save / Save all for the Code panel. */
-  | { type: "saveFiles"; all: boolean };
+  | { type: "saveFiles"; all: boolean }
+  /** File → Save As… for the Code panel's active tab. */
+  | { type: "saveAs" };
 
 const INTENT_CHANNEL = "orkestr.panel-intents";
 
@@ -61,6 +63,8 @@ function applyLocally(intent: PanelIntent): void {
   } else if (intent.type === "saveFiles") {
     // Unsaved tabs but no mounted editor: show the Code panel; the save runs when it mounts.
     if (requestSave(intent.all) === "queued") workspaceActions.openPanel("code");
+  } else if (intent.type === "saveAs") {
+    requestSaveAs();
   } else if (intent.type === "askClaude") {
     window.dispatchEvent(new CustomEvent<string>(ASK_CLAUDE_EVENT, { detail: intent.text }));
     workspaceActions.openPanel("claudeCode");
@@ -77,6 +81,7 @@ function isIntent(v: unknown): v is PanelIntent {
   if (o.type === "askManager") return !!o.detail && typeof (o.detail as { text?: unknown }).text === "string";
   if (o.type === "saveFiles") return typeof (o as { all?: unknown }).all === "boolean";
   if (o.type === "askClaude") return typeof (o as { text?: unknown }).text === "string";
+  if (o.type === "saveAs") return true;
   return false;
 }
 
@@ -139,6 +144,11 @@ export function openInEditor(path: string, at?: RevealTarget): void {
 /** Saves the active Code tab (or all unsaved tabs), in whichever window hosts the Code panel. */
 export function saveEditor(all: boolean): void {
   dispatchPanelIntent({ type: "saveFiles", all });
+}
+
+/** File → Save As… (Code panel), in whichever window hosts it. */
+export function saveAsEditor(): void {
+  dispatchPanelIntent({ type: "saveAs" });
 }
 
 /** Sends text to the Claude Code composer, in whichever window hosts the panel. */
