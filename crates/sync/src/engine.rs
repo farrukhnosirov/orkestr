@@ -87,4 +87,9 @@ pub trait SyncEngine: Send + Sync {
     async fn list_conflicts(&self, p: ProjectId) -> Result<Vec<SyncConflict>, SyncError>;
     /// Resolves a conflict.
     async fn resolve_conflict(&self, id: ConflictId, r: Resolution) -> Result<(), SyncError>;
+    /// Turns remote sync off for a project (local data stays untouched).
+    async fn disable(&self, p: ProjectId) -> Result<(), SyncError> {
+        let _ = p;
+        Err(SyncError::Backend("disabling sync is not supported by this engine".into()))
+    }
 }

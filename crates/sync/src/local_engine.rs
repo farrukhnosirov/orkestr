@@ -827,6 +827,16 @@ impl SyncEngine for DefaultSyncEngine {
         Ok(())
     }
 
+    async fn disable(&self, p: ProjectId) -> Result<(), SyncError> {
+        let pid = p.to_string();
+        self.inner.with_db(|c| {
+            for t in ["projects", "streams", "file_cache", "uploaded", "sync_outbox"] {
+                c.execute(&format!("DELETE FROM {t} WHERE project_id=?1"), [&pid])?;
+            }
+            Ok(())
+        })
+    }
+
     async fn put_record(&self, p: ProjectId, key: &str, v: serde_json::Value) -> Result<(), SyncError> {
         manifest::validate_path(key).map_err(|_| SyncError::Config(format!("invalid record key {key}")))?;
         let hlc =
