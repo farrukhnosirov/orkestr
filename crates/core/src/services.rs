@@ -94,6 +94,10 @@ pub struct Services {
     pub lsp: orkestr_extensions::lsp::LspManager,
     /// Claude Code panel: chat sessions over the official `claude` CLI.
     pub claude: crate::claude_code::ClaudeCodeService,
+    /// Remote access via the gateway (Phase 4; skeleton until wired).
+    pub remote: Arc<crate::remote::RemoteService>,
+    /// Encrypted sync engine (Phase 4); `None` until the sync package wires it.
+    pub sync: Option<Arc<dyn orkestr_sync::SyncEngine>>,
 }
 
 impl std::fmt::Debug for Services {

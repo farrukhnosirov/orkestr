@@ -41,7 +41,9 @@ pub mod pipeline;
 pub mod pm;
 pub mod projects;
 pub mod providers;
+pub mod push;
 pub mod quality;
+pub mod remote;
 pub mod replay;
 pub mod reviews;
 pub mod robots;
@@ -49,6 +51,7 @@ pub mod scheduler;
 pub mod secrets;
 pub mod settings;
 pub mod snapshots;
+pub mod sync;
 pub mod system;
 pub mod tasks;
 pub mod teams;
@@ -476,6 +479,28 @@ pub fn registry() -> Vec<MethodDescriptor> {
         MethodDescriptor::of::<claude_code::SetThinking>(),
         MethodDescriptor::of::<claude_code::SetChatMeta>(),
         MethodDescriptor::of::<claude_code::OpenInTerminal>(),
+        // remote access, sync, Web Push (Phase 4)
+        MethodDescriptor::of::<remote::Enable>(),
+        MethodDescriptor::of::<remote::Disable>(),
+        MethodDescriptor::of::<remote::Status>(),
+        MethodDescriptor::of::<remote::RevokeAllSessions>(),
+        MethodDescriptor::of::<remote::DevicesStartPairing>(),
+        MethodDescriptor::of::<remote::DevicesApprove>(),
+        MethodDescriptor::of::<remote::DevicesList>(),
+        MethodDescriptor::of::<remote::DevicesRevoke>(),
+        MethodDescriptor::of::<remote::DevicesRegisterStepUp>(),
+        MethodDescriptor::of::<sync::Configure>(),
+        MethodDescriptor::of::<sync::Status>(),
+        MethodDescriptor::of::<sync::Now>(),
+        MethodDescriptor::of::<sync::ContinueOn>(),
+        MethodDescriptor::of::<sync::Resume>(),
+        MethodDescriptor::of::<sync::ListConflicts>(),
+        MethodDescriptor::of::<sync::ResolveConflict>(),
+        MethodDescriptor::of::<sync::RotateKeys>(),
+        MethodDescriptor::of::<push::VapidKey>(),
+        MethodDescriptor::of::<push::Subscribe>(),
+        MethodDescriptor::of::<push::Unsubscribe>(),
+        MethodDescriptor::of::<push::Test>(),
     ]
 }
 

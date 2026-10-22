@@ -7,6 +7,12 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod engine;
+pub mod server;
+
+pub use engine::{ConflictId, RemoteSyncConfig, Resolution, SyncConflict, SyncEngine, SyncStatus};
+pub use server::{server_router, SyncServerState};
+
 use async_trait::async_trait;
 use orkestr_domain::{ProjectId, Timestamp};
 

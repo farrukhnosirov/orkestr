@@ -19,6 +19,7 @@ pub mod error;
 pub mod event;
 pub mod frames;
 pub mod methods;
+pub mod policy;
 pub mod topic;
 pub mod ui_config;
 pub mod ui_patch;
@@ -32,6 +33,7 @@ pub use error::{RpcError, RpcErrorCode};
 pub use event::{Event, EventKind, NewEvent};
 pub use frames::{ClientFrame, ResFrame, ServerFrame};
 pub use methods::Method;
+pub use policy::{policy_for, MethodPolicy, RateClass, Role, StepUp};
 
 /// Protocol version. Bumped only on breaking wire changes; additive changes
 /// (new methods, new event kinds, new optional fields) keep the version.

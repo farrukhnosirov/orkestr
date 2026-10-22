@@ -10,7 +10,7 @@
   ],
   "scripts": {
     "gen:protocol": "node scripts/gen-protocol.mjs",
-    "build": "npm run build:packages && npm run build -w @orkestr/desktop",
+    "build": "npm run build:packages && npm run build -w @orkestr/desktop && npm run build -w @orkestr/web",
     "build:packages": "npm run build -w @orkestr/protocol && npm run build -w @orkestr/client && npm run build -w @orkestr/ui",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",

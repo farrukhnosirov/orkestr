@@ -30,6 +30,7 @@ pub mod logging;
 pub mod migrations;
 pub mod recovery;
 pub mod redact;
+pub mod remote;
 pub mod resume;
 pub mod rpc;
 pub mod server;
@@ -449,6 +450,8 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
         extensions,
         lsp,
         claude,
+        remote: Arc::new(remote::RemoteService::new()),
+        sync: None,
     });
     logging::attach_event_bus(services.events.clone());
 

@@ -227,8 +227,12 @@ async fn handle_text(
             }
             let Ok(permit) = Arc::clone(inflight).acquire_owned().await else { return false };
             let ids = Arc::clone(inflight_ids);
-            let ctx =
-                RpcContext { services: Arc::clone(&state.services), session_id, correlation_id: CorrelationId::new() };
+            let ctx = RpcContext {
+                services: Arc::clone(&state.services),
+                session_id,
+                correlation_id: CorrelationId::new(),
+                principal: crate::rpc::Principal::Local,
+            };
             let router = Arc::clone(&state.router);
             let out = out.clone();
             tokio::spawn(async move {

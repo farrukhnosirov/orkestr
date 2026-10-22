@@ -30,7 +30,9 @@ pub mod pipeline;
 pub mod pm;
 pub mod projects;
 pub mod providers;
+pub mod push;
 pub mod quality;
+pub mod remote;
 pub mod replay;
 pub mod reviews;
 pub mod robots;
@@ -38,6 +40,7 @@ pub mod scheduler;
 pub mod secrets;
 pub mod settings;
 pub mod snapshots;
+pub mod sync;
 pub mod system;
 pub mod tasks;
 pub mod teams;
@@ -53,12 +56,46 @@ use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
 
-use orkestr_domain::{CorrelationId, SessionId};
+use orkestr_domain::{CorrelationId, DeviceId, ProjectId, SessionId};
 use orkestr_protocol::methods::Method;
+use orkestr_protocol::policy::Role;
 use orkestr_protocol::RpcError;
 use serde_json::Value;
 
 use crate::services::Services;
+
+/// A remote caller (paired device over the E2E tunnel, Phase 4).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RemotePrincipal {
+    /// Paired device.
+    pub device_id: DeviceId,
+    /// Granted role.
+    pub role: Role,
+    /// Remote terminal access granted.
+    pub remote_terminal: bool,
+    /// Project restriction (empty = all projects).
+    pub project_ids: Vec<ProjectId>,
+}
+
+/// Who is calling. Local callers (desktop, CLI over loopback) are not
+/// restricted by `MethodPolicy`; remote callers are (enforced in dispatch by
+/// the remote-access package).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub enum Principal {
+    /// The local machine (loopback + core token).
+    #[default]
+    Local,
+    /// A paired remote device.
+    Remote(RemotePrincipal),
+}
+
+impl Principal {
+    /// True for [`Principal::Local`].
+    #[must_use]
+    pub fn is_local(&self) -> bool {
+        matches!(self, Self::Local)
+    }
+}
 
 /// Per-request context.
 #[derive(Clone)]
@@ -69,6 +106,8 @@ pub struct RpcContext {
     pub session_id: SessionId,
     /// Correlation id of this request (ambient for published events).
     pub correlation_id: CorrelationId,
+    /// Caller identity (default [`Principal::Local`]).
+    pub principal: Principal,
 }
 
 impl std::fmt::Debug for RpcContext {
@@ -76,6 +115,7 @@ impl std::fmt::Debug for RpcContext {
         f.debug_struct("RpcContext")
             .field("session_id", &self.session_id)
             .field("correlation_id", &self.correlation_id)
+            .field("principal", &self.principal)
             .finish_non_exhaustive()
     }
 }
@@ -152,6 +192,14 @@ impl RpcRouter {
     }
 }
 
+/// Registers `M` with a handler that always fails with the explicit
+/// `unimplementedFeature` error (RR-G14) — for skeleton areas.
+pub(crate) fn stub<M: Method>(router: &mut RpcRouter) {
+    router.method::<M, _, _>(|_ctx: RpcContext, _params: M::Params| async {
+        Err::<M::Result, RpcError>(RpcError::unimplemented_feature(M::NAME))
+    });
+}
+
 /// Builds the router with every implemented area.
 #[must_use]
 pub fn build_router() -> RpcRouter {
@@ -200,6 +248,8 @@ pub fn build_router() -> RpcRouter {
     // Claude Code panel (official `claude` CLI, stream-json)
     router.register(claude_code::register);
     router.register(claude_engine::register);
+    // remote access, sync, Web Push (Phase 4)
+    router.register(remote::register).register(sync::register).register(push::register);
     router
 }
 
@@ -215,5 +265,10 @@ mod tests {
         registered.sort_unstable();
         declared.sort_unstable();
         assert_eq!(registered, declared, "protocol registry and core router must list the same methods");
+    }
+
+    #[test]
+    fn principal_defaults_to_local() {
+        assert!(Principal::default().is_local());
     }
 }
