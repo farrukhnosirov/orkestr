@@ -1,6 +1,100 @@
 {
-  "stub": {
-    "title": "Bug Detective",
-    "description": "Investigates incidents from alerts, logs and failing tests and proposes a fix for your approval. Being built in this phase."
+  "title": "Bug Detective",
+  "intro": "Open an incident from an alert, a log error or a manual report. The detective collects evidence, writes a root-cause hypothesis, reproduces the failure and — after your approval — lets an agent fix it on its own branch.",
+  "noProject": "Open a project to investigate its incidents.",
+  "unavailable": "The Bug Detective is not available on this core yet.",
+  "loading": "Loading incidents…",
+  "empty": "No incidents yet.",
+  "incidents": "Incidents",
+  "refresh": "Refresh",
+  "showClosed": "Show closed",
+  "cancel": "Cancel",
+  "budget": "spent {{spent}} of {{cap}}",
+  "budgetLabel": "Budget used",
+  "timeline": "Stages",
+  "review": "Review {{id}}",
+  "trigger": {
+    "alert": "From alert {{id}}",
+    "log": "From a log error in {{source}}",
+    "test": "From test run {{run}}",
+    "manual": "Reported manually"
+  },
+  "report": {
+    "open": "Report a bug",
+    "description": "What is going wrong?",
+    "placeholder": "Paste the error, stack trace or steps to reproduce…",
+    "budget": "Budget cap (USD, optional)",
+    "submit": "Start investigation"
+  },
+  "alerts": {
+    "title": "Open alerts",
+    "investigate": "Investigate",
+    "investigating": "Investigating"
+  },
+  "actions": {
+    "approveFix": "Approve fix",
+    "approveMerge": "Approve merge…",
+    "confirmMerge": "Merge {{branch}} now",
+    "cancel": "Cancel incident"
+  },
+  "gate": {
+    "fix": "Waiting for your approval: an agent will write the fix on {{branch}} in its own worktree. Your main branch stays untouched.",
+    "merge": "Tests and review are done. Approving merges {{branch}} into the project branch."
+  },
+  "hypothesis": {
+    "title": "Root-cause hypothesis",
+    "confidence": "confidence {{pct}}",
+    "rootCause": "Root cause",
+    "fix": "Proposed fix",
+    "files": "Suspected files",
+    "reproduction": "Reproduction:"
+  },
+  "runs": {
+    "reproduction": "Reproduction (expected to fail)",
+    "fixTests": "Tests on the fix branch",
+    "passed": "passed",
+    "failed": "failed"
+  },
+  "diff": {
+    "title": "Fix diff",
+    "pending": "The agent has not finished the fix yet.",
+    "empty": "No changes on the fix branch.",
+    "merged": "The fix has been merged."
+  },
+  "evidence": {
+    "title_one": "Evidence ({{count}} item)",
+    "title_other": "Evidence ({{count}} items)"
+  },
+  "kind": {
+    "Alert": "Alerts",
+    "StackTrace": "Stack traces",
+    "CodeSnippet": "Code",
+    "Logs": "Logs",
+    "Metrics": "Metrics",
+    "Deployments": "Deployments",
+    "Commits": "Commits",
+    "Diff": "Diff",
+    "QualityFailures": "Failing checks"
+  },
+  "stage": {
+    "Opened": "Opened",
+    "Collecting": "Collecting evidence",
+    "Hypothesizing": "Hypothesizing",
+    "Reproducing": "Reproducing",
+    "AwaitingFixApproval": "Awaiting fix approval",
+    "Fixing": "Fixing",
+    "Testing": "Testing",
+    "Reviewing": "Reviewing",
+    "AwaitingMergeApproval": "Awaiting merge approval",
+    "Resolved": "Resolved",
+    "Failed": "Failed",
+    "Cancelled": "Cancelled"
+  },
+  "stepState": {
+    "done": "done",
+    "current": "in progress",
+    "pending": "not reached",
+    "failed": "failed here",
+    "cancelled": "cancelled here"
   }
 }

@@ -1,0 +1,344 @@
+.bd-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--ok-color-bg);
+  color: var(--ok-color-text);
+}
+
+.bd-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ok-space-2, 8px);
+  padding: var(--ok-space-2, 8px) var(--ok-space-3, 12px);
+  border-bottom: 1px solid var(--ok-color-border);
+}
+
+.bd-toolbar-actions,
+.bd-row {
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-2, 8px);
+  flex-wrap: wrap;
+}
+
+.bd-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.bd-body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(220px, 300px) 1fr;
+}
+
+.bd-side {
+  border-right: 1px solid var(--ok-color-border);
+  overflow: auto;
+  padding: var(--ok-space-2, 8px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-2, 8px);
+}
+
+.bd-main {
+  overflow: auto;
+  padding: var(--ok-space-3, 12px);
+  min-width: 0;
+}
+
+.bd-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bd-item {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 8px;
+  text-align: left;
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.bd-item:hover {
+  background: var(--ok-color-surface-2, rgba(127, 127, 127, 0.08));
+}
+
+.bd-item--active {
+  border-color: var(--ok-color-accent, #6aa0ff);
+  background: var(--ok-color-surface-2, rgba(127, 127, 127, 0.08));
+}
+
+.bd-item-title {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bd-alerts h4,
+.bd-card h4 {
+  margin: 0 0 6px;
+}
+
+.bd-alert {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+}
+
+.bd-alert-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bd-muted {
+  color: var(--ok-color-text-muted, #888);
+}
+
+.bd-small {
+  font-size: 12px;
+}
+
+.bd-error {
+  margin: var(--ok-space-2, 8px) var(--ok-space-3, 12px);
+  color: var(--ok-color-danger, #e5484d);
+}
+
+.bd-report {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: var(--ok-space-3, 12px);
+  border-bottom: 1px solid var(--ok-color-border);
+}
+
+.bd-report label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.bd-report .bd-inline {
+  flex-direction: row;
+  align-items: center;
+}
+
+.bd-report textarea,
+.bd-report input {
+  font: inherit;
+  color: inherit;
+  background: var(--ok-color-surface, transparent);
+  border: 1px solid var(--ok-color-border);
+  border-radius: 6px;
+  padding: 6px;
+}
+
+.bd-incident {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-3, 12px);
+}
+
+.bd-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.bd-head h3 {
+  margin: 0 0 4px;
+}
+
+.bd-meter {
+  height: 4px;
+  width: 200px;
+  max-width: 100%;
+  margin-top: 6px;
+  border-radius: 2px;
+  background: var(--ok-color-border);
+  overflow: hidden;
+}
+
+.bd-meter span {
+  display: block;
+  height: 100%;
+  background: var(--ok-color-accent, #6aa0ff);
+}
+
+.bd-meter--conf {
+  width: 100%;
+  margin: 0 0 8px;
+}
+
+.bd-gate {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--ok-color-warning, #f5a524);
+}
+
+.bd-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  font-size: 12px;
+}
+
+.bd-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.bd-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 2px solid var(--ok-color-border);
+}
+
+.bd-step--done .bd-dot {
+  background: var(--ok-color-success, #30a46c);
+  border-color: var(--ok-color-success, #30a46c);
+}
+
+.bd-step--current {
+  font-weight: 600;
+}
+
+.bd-step--current .bd-dot {
+  border-color: var(--ok-color-accent, #6aa0ff);
+  background: var(--ok-color-accent, #6aa0ff);
+}
+
+.bd-step--failed .bd-dot {
+  background: var(--ok-color-danger, #e5484d);
+  border-color: var(--ok-color-danger, #e5484d);
+}
+
+.bd-step--cancelled .bd-dot {
+  background: var(--ok-color-text-muted, #888);
+  border-color: var(--ok-color-text-muted, #888);
+}
+
+.bd-step--pending {
+  color: var(--ok-color-text-muted, #888);
+}
+
+.bd-card {
+  border: 1px solid var(--ok-color-border);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.bd-card h5 {
+  margin: 8px 0 2px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ok-color-text-muted, #888);
+}
+
+.bd-card p {
+  margin: 0 0 4px;
+}
+
+.bd-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.bd-pre-wrap {
+  white-space: pre-wrap;
+}
+
+.bd-pre {
+  margin: 6px 0 0;
+  padding: 8px;
+  max-height: 320px;
+  overflow: auto;
+  border-radius: 6px;
+  background: var(--ok-color-surface-2, rgba(127, 127, 127, 0.08));
+  font-family: var(--ok-font-mono, ui-monospace, monospace);
+  font-size: 12px;
+  white-space: pre;
+}
+
+.bd-add {
+  color: var(--ok-color-success, #30a46c);
+}
+
+.bd-del {
+  color: var(--ok-color-danger, #e5484d);
+}
+
+.bd-files {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.bd-refs {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.bd-ref {
+  font: inherit;
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  border: 1px solid var(--ok-color-border);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.bd-ev-group + .bd-ev-group {
+  margin-top: 8px;
+}
+
+.bd-ev summary {
+  cursor: pointer;
+  padding: 2px 0;
+}
+
+.bd-ev--focus {
+  outline: 1px solid var(--ok-color-accent, #6aa0ff);
+  border-radius: 4px;
+}
+
+.bd-ev-id {
+  font-family: var(--ok-font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  color: var(--ok-color-text-muted, #888);
+}
