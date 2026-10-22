@@ -1,8 +1,17 @@
-import { b64uEncode, sas } from "@orkestr/client";
+import { b64uDecode, b64uEncode, encryptNativePush, nobleCrypto, sas, setRemoteCrypto } from "@orkestr/client";
+
+const cat = (...p: Uint8Array[]) => {
+  const out = new Uint8Array(p.reduce((n, x) => n + x.length, 0));
+  let o = 0;
+  for (const x of p) {
+    out.set(x, o);
+    o += x.length;
+  }
+  return out;
+};
 import type { Event } from "@orkestr/protocol";
 
 import { approval, fakeClient, stepUpRequired } from "../test/fakeClient";
-import { installTestCrypto } from "../test/testCrypto";
 import { BiometricDeniedError, MemoryBiometricGate, MemoryNotifier, MemorySecureKV } from "./adapters";
 import { createMemoryCore } from "./app";
 import { callWithStepUp, resolveWithStepUp } from "./approvals";
@@ -13,29 +22,7 @@ import { pairingDeepLink, parsePairingInput, sasMatches } from "./pairing";
 import { PushManager, extractSealed, routeForNotification } from "./push";
 import { executeTranscript } from "./voice/executor";
 
-jest.mock("@orkestr/client", () => {
-  const actual = jest.requireActual("@orkestr/client");
-  return {
-    ...actual,
-    // WP-B implements these; the mobile core only needs their contract.
-    nativeStepUpAssertion: jest.fn(async (o: { challenge: string; credentialId: string; counter: number }) => ({
-      credentialId: o.credentialId,
-      authenticatorData: `counter-${o.counter}`,
-      clientDataJSON: o.challenge,
-      signature: "sig",
-    })),
-    decryptNativePush: jest.fn(async (_key: Uint8Array, d: { n: string; c: string }) => ({
-      v: 1,
-      eventId: d.n,
-      category: "approval",
-      ts: "now",
-      title: "Orkestr",
-      body: d.c,
-    })),
-  };
-});
-
-beforeAll(installTestCrypto);
+beforeAll(() => setRemoteCrypto(nobleCrypto()));
 
 const offer = { gatewayUrl: "http://gw.test", coreId: "core-1", pairingId: "p-1", code: "ABCD2345", coreKeyFingerprint: "fp" };
 
@@ -88,18 +75,18 @@ describe("pairing flow", () => {
   it("claims with a raw device key, shows the SAS, stores the record and registers step-up", async () => {
     const coreKey = (await crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, ["sign", "verify"])) as CryptoKeyPair;
     const corePub = new Uint8Array(await crypto.subtle.exportKey("raw", coreKey.publicKey));
-    let devicePub = new Uint8Array();
+    let devicePub: Uint8Array = new Uint8Array();
     const f = (async (url: string, init: RequestInit = {}) => {
       expect(new Headers(init.headers).get("authorization")).toBe("Bearer tok");
       if (url.endsWith("/claim")) {
         const body = JSON.parse(String(init.body)) as { devicePubKey: string };
-        devicePub = Uint8Array.from(Buffer.from(body.devicePubKey, "base64url"));
+        devicePub = b64uDecode(body.devicePubKey);
         return new Response(JSON.stringify({ status: "pending", coreId: "core-1", corePublicKey: b64uEncode(corePub) }));
       }
       const enc = new TextEncoder();
       const msg = await crypto.subtle.digest(
         "SHA-256",
-        Buffer.concat([enc.encode("orkestr-pairing-v1"), enc.encode("p-1"), enc.encode("dev-1"), devicePub, enc.encode("admin")]),
+        cat(enc.encode("orkestr-pairing-v1"), enc.encode("p-1"), enc.encode("dev-1"), devicePub, enc.encode("admin")),
       );
       const sig = new Uint8Array(await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, coreKey.privateKey, msg));
       return new Response(JSON.stringify({ status: "approved", result: { status: "approved", deviceId: "dev-1", role: "admin", sig: b64uEncode(sig) } }));
@@ -179,8 +166,13 @@ describe("approvals step-up", () => {
     await keys.create("c");
     const a1 = await keys.assert("c", "d", "x", "p");
     const a2 = await new StepUpKeys(kv, new MemoryBiometricGate()).meta("c");
-    expect(a1.authenticatorData).toBe("counter-1");
+    expect(a1.credentialId).toBe(a2?.credentialId);
+    // authenticatorData = rpIdHash(32) ‖ flags ‖ counterBE32
+    expect(Array.from(b64uDecode(a1.authenticatorData).slice(33))).toEqual([0, 0, 0, 1]);
+    expect(JSON.parse(new TextDecoder().decode(b64uDecode(a1.clientDataJSON)))).toMatchObject({ type: "webauthn.get", challenge: "x", origin: "orkestr-native:d" });
     expect(a2?.counter).toBe(1);
+    await keys.assert("c", "d", "y", "p");
+    expect((await keys.meta("c"))?.counter).toBe(2);
   });
 });
 
@@ -207,10 +199,12 @@ describe("push", () => {
     n.token = { transport: "fcm", token: "fcm-token" };
     expect(await pm.registerNative(client, "c")).toMatchObject({ status: "registered", deliverable: true });
     const p = client.calls[0]?.params as { key: string; transport: string; lockScreen: string };
-    expect(Buffer.from(p.key, "base64url")).toHaveLength(32);
+    expect(b64uDecode(p.key)).toHaveLength(32);
     expect(p).toMatchObject({ transport: "fcm", lockScreen: "generic" });
     expect(b64uEncode((await pm.payloadKey("c")) as Uint8Array<ArrayBuffer>)).toBe(p.key);
-    await expect(pm.decrypt("c", { p: JSON.stringify({ n: "evt", c: "body" }), k: "approval" })).resolves.toMatchObject({ eventId: "evt" });
+    const payload = { v: 1, eventId: "evt-1", category: "approval", ts: "now", title: "Orkestr", body: "Action needed" };
+    const sealed = await encryptNativePush(b64uDecode(p.key), payload);
+    await expect(pm.decrypt("c", { p: JSON.stringify(sealed), k: "approval" })).resolves.toEqual(payload);
   });
 
   it("raises a generic local notification for ApprovalRequested", async () => {

@@ -13,8 +13,8 @@ import {
   type NativeStepUpRegistration,
   type RawKey,
   type StepUp,
-  b64uEncode,
   nativeStepUpAssertion,
+  nativeStepUpRegistration,
   remoteCrypto,
 } from "@orkestr/client";
 
@@ -102,11 +102,11 @@ export class StepUpKeys {
   async create(coreId: string): Promise<NativeStepUpRegistration> {
     const { signer, raw } = await remoteCrypto().generateSigner();
     if (!raw) throw new Error("the installed crypto provider cannot export step-up keys");
-    const credentialId = b64uEncode(remoteCrypto().randomBytes(16));
+    const reg = nativeStepUpRegistration(signer, this.keyStorage);
     await this.gate.setSecret(this.secretKey(coreId), JSON.stringify(raw));
-    const meta: StepUpMeta = { credentialId, publicKey: b64uEncode(signer.publicKey), counter: 0 };
+    const meta: StepUpMeta = { credentialId: reg.credentialId, publicKey: reg.publicKey, counter: 0 };
     await this.kv.set(this.metaKey(coreId), JSON.stringify(meta));
-    return { type: "orkestr-native-v1", credentialId, publicKey: meta.publicKey, keyStorage: this.keyStorage };
+    return reg;
   }
 
   /**

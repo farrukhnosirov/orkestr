@@ -2,9 +2,8 @@
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
-    "types": ["jest"],
+    "types": ["jest", "node"],
     "noUncheckedIndexedAccess": true,
-    "customConditions": ["source"],
     "paths": {
       "@orkestr/client": ["../../packages/client/src/index.ts"],
       "@orkestr/protocol": ["../../packages/protocol/src/index.ts"]
