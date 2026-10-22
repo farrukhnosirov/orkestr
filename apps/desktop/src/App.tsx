@@ -15,6 +15,7 @@ import { LayoutEditorPanel } from "./features/layout/LayoutEditor";
 import { registerLayoutFeature } from "./features/layout/register";
 import { AiUiLayer } from "./features/aiui/AiUiLayer";
 import { VisualLayer } from "./features/performance/VisualLayer";
+import { registerRemoteSyncFeature } from "./features/remoteSync/register";
 import { registerSecurityFeature } from "./features/security/register";
 import { SecurityLayer } from "./features/security/SecurityLayer";
 import { CHORD_TIMEOUT_MS, chordCommand, isModifierKey, shortcutCommand } from "./features/commands/dispatch";
@@ -35,6 +36,7 @@ import { WorkbenchDialogs } from "./features/workbench/WorkbenchDialogs";
 import { useAppStore } from "./store/app";
 
 registerSecurityFeature();
+registerRemoteSyncFeature();
 registerThemeFeature();
 registerLayoutFeature();
 registerRobotsFeature();
