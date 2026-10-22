@@ -1275,13 +1275,58 @@ type BudgetRow = { id: Id; scope: BudgetScope; scopeId?: string; budget: Budget;
 |---|---|---|---|
 | `nodes.list` / `nodes.get` | P1 | V | — |
 | `nodes.update` | P1 | L | — (name, labels, `maxParallelAgents`) |
-| `nodes.register` / `nodes.heartbeat` / `nodes.drain` / `nodes.remove` | P6 | node principal / A | see `node-protocol.md` |
+| `nodes.register` / `nodes.heartbeat` / `nodes.drain` / `nodes.remove` | P6 | node principal / A | superseded — see "As built (Phase 6)" below |
 
 ```ts
 "nodes.list":   (p: {}) => { nodes: (Node & { runningAgents: number })[] }
 "nodes.get":    (p: { nodeId: Id }) => { node: Node; live: NodeResources; agents: AgentSummary[] }
 "nodes.update": (p: { nodeId: Id; name?: string; labels?: string[]; maxParallelAgents?: number }) => { node: Node }
 ```
+
+**As built (Phase 6, ADR-0033 / ADR-0039).** The planned `nodes.register` /
+`nodes.heartbeat` / `nodes.remove` were replaced by pairing-based enrollment
+and a pull heartbeat (`node-protocol.md` §11). Types are in
+`orkestr_protocol::methods::{nodes, jobs, models}`. Policy:
+V = Viewer, O = Operator, A = Admin, ⇧ = step-up, C = coordinator-only
+(`MethodPolicy.coordinator_only`: only a paired principal with
+`coordinator = true` and a sufficient trust level may call it; rate class
+`Node`).
+
+UI methods (coordinator):
+
+| Method | Params | Result | Pol | Emits |
+|---|---|---|---|---|
+| `nodes.list` | `{}` | `ListNodesResult {nodes, snapshots: NodeSnapshot[]}` (coordinator first; `NodeSnapshot {node, status, trustLevel, allowedProjects, slots, leases, lastHeartbeatAt?, isCoordinator, labels, modelDigests}`) | V | — |
+| `nodes.enroll` | `EnrollNodeParams {coreId, pairingId, code, name?}` | `EnrollNodeResult {enrollment: NodeEnrollment, sas}` | A ⇧ | `NodeRegistered` |
+| `nodes.revoke` | `NodeIdParams {nodeId}` | `NodeSnapshotResult {node}` | A ⇧ | `NodeStatus` |
+| `nodes.drain` | `DrainNodeParams {nodeId, drain}` | `NodeSnapshotResult` | O | `NodeStatus`, `JobMigrated` |
+| `nodes.setPolicy` | `SetNodePolicyParams {nodeId, trustLevel?, allowedProjects?, maxConcurrentJobs?}` (trust never above the worker's grant) | `NodeSnapshotResult` | O | `NodeStatus` |
+| `jobs.submit` | `SubmitJobParams {taskId, spec: JobSubmitSpec {kind, requirements, estimate, needs, affinity}}` | `JobResult {job: JobView}` (placement decided synchronously; `infeasible` blocks the task) | O | `JobAssigned` |
+| `jobs.list` | `ListJobsParams {taskId?, nodeId?, activeOnly?}` | `ListJobsResult {jobs}` (newest first) | V | — |
+| `jobs.get` | `JobIdParams {jobId}` | `JobResult` | V | — |
+| `jobs.migrate` | `MigrateJobParams {jobId, targetNodeId?}` | `JobResult` | O | `JobCheckpointed`, `JobMigrated` |
+| `jobs.cancel` | `CancelJobParams {jobId, immediate}` | `JobResult` | O | `JobProgress` (finished) |
+| `models.list` | `{}` | `ListModelsResult {models: StoredModel[]}` | V | — |
+| `models.import` | `ImportModelParams {name, tag, path? \| mockSizeBytes?}` | `ModelResult {model}` | O (Expensive) | — |
+| `models.distribute` | `DistributeModelParams {modelRef, nodeIds}` | `DistributeModelResult {digest, outcomes: {nodeId, ok, bytesSent, error?}[]}` | O (Expensive) | `ModelDistributed` |
+
+Worker side (called by the coordinator over the E2E session):
+
+| Method | Params | Result | Pol |
+|---|---|---|---|
+| `node.hello` | `NodeHelloParams {coordinatorNodeId, protocolVersion}` | `NodeHelloResult` | C |
+| `node.heartbeat` | `NodeHeartbeatParams {seq, renew: LeaseRenewal[], revoke: JobId[]}` | `NodeHeartbeatResult` (sample, slots, lease states) | C |
+| `jobs.offer` | `JobOffer` (spec, epoch, signed `PolicySnapshot`, inputs) | `JobOfferResult` | C |
+| `jobs.drain` | `WorkerJobParams {jobId, epoch, immediate}` | `DrainJobResult {checkpoint: JobCheckpoint}` | C |
+| `node.jobCancel` | `WorkerJobParams` | `WorkerCancelResult` | C |
+| `node.blobHas` / `node.blobPut` / `node.blobGet` | `{digest}` / `{digest, offset, total, data (base64, ≤ 512 KiB)}` / `{digest, offset, len}` | has / received / data | C |
+| `node.modelInstall` | `ModelInstallParams {manifest, digest}` | `ModelResult` | C |
+
+Enrollment also uses `devices.startPairing {kind: "node", trustLevel}` and
+`devices.approve {…, kind: "node", trustLevel}` on the worker (§8 devices).
+Job events are published on topic `jobs` as well as the task / node scopes.
+Deferred features answer `unimplementedFeature` (RR-G14): per-job secret
+delivery to remote nodes (HPKE), critical-job preemption, `service` jobs.
 
 ### 8.23 `ui` (§28–§34, ADR-0015: validated config only, never code)
 

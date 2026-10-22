@@ -422,6 +422,87 @@ core, the mobile core with in-memory adapters, mock FCM/APNs) and
 `scripts/android-e2e.mjs`). Results and the deferred list are in
 [`docs/roadmap/feature-traceability.md`](docs/roadmap/feature-traceability.md).
 
+## Multiple computers (Phase 6)
+
+One Orkestr core, the **coordinator**, can run jobs (builds, tests, agents)
+on other computers running Orkestr, called **nodes**. Traffic between cores
+goes through your gateway, end-to-end encrypted, so both computers only need
+remote access (above). Design and deviations:
+[`docs/architecture/node-protocol.md`](docs/architecture/node-protocol.md) §11,
+ADR-0033 and ADR-0039.
+
+### Make a second computer a node
+
+1. On both computers, enable remote access with the same gateway account
+   (Settings → Remote & Sync).
+2. On the second computer, open the **Nodes** panel → *This computer as a
+   node*, choose a trust level and click *Allow this computer to be a node*.
+   It shows a core id, a pairing id and a pairing code.
+3. On the coordinator, open **Nodes** → *Enroll a node* and enter the three
+   values. Both screens now show a verification code (SAS).
+4. If the codes match, confirm on the second computer (*The codes match* →
+   *Approve*). If they differ, click *Codes differ* on the coordinator; the
+   enrollment is revoked.
+
+The node then appears in the Nodes panel with its health, trust level,
+CPU / RAM / GPUs (with VRAM), OS / architecture, tools, local models, job
+slots and leases. From there you can **Drain** it (its jobs move elsewhere,
+no new ones), edit its **Policy** (trust level, allowed projects, maximum
+concurrent jobs) or **Revoke** it. The *Jobs* tab shows where each job runs
+and why (the scheduler's explanation), with *Migrate* and *Cancel*; the
+*Models* tab imports a model and distributes it to nodes.
+
+### Trust levels
+
+The worker grants a trust level when it approves the coordinator; the
+coordinator can lower it but never raise it above that grant.
+
+| Level | Allowed on the node |
+|---|---|
+| `restricted` | Command jobs (builds, tests) only; no agents, no network-dependent jobs |
+| `standard` | Commands and agent tasks for the allowed projects |
+| `trusted` | Everything, including jobs that need the network |
+
+Secrets are never sent to other nodes yet: jobs that need secrets only run
+on the coordinator.
+
+### Simulated nodes for testing
+
+`ORKESTR_NODE_PROFILE` overrides what a core reports about its machine
+(inline JSON, or `@path` once supported): `os`, `arch`, `cpuCores`,
+`memoryTotalBytes`, `gpus`, `tools`, `labels`, `models`, `maxConcurrentJobs`
+and `toolShims` (a tool name mapped to the command run instead). Fixtures:
+
+- `scripts/smoke/fixtures/node-mac.json` — macOS / arm64 with `xcodebuild`
+  shimmed by `scripts/smoke/fixtures/fake-xcodebuild.mjs` (prints a build log
+  and writes a fake `<Scheme>.app.zip`);
+- `scripts/smoke/fixtures/node-gpu.json` — Linux / x86_64 with an RTX 4090
+  (24 GB VRAM) and CUDA.
+
+Faster timings for tests: `ORKESTR_NODE_HEARTBEAT_MS` (default 5000) and
+`ORKESTR_NODE_LEASE_TTL_MS`.
+
+```powershell
+$env:ORKESTR_NODE_PROFILE = Get-Content -Raw scripts\smoke\fixtures\node-gpu.json
+.\target\debug\orkestrd.exe --data-dir $env:TEMP\orkestr-gpu-node
+```
+
+### Phase 6 acceptance
+
+```powershell
+cargo build -p orkestr-core -p orkestr-gateway --bins
+node scripts/smoke/phase6-acceptance.mjs [--out <dir>] [--only C2,C3]
+```
+
+It starts a gateway and three cores (coordinator `win`, simulated `mac` and
+`gpu` workers), runs checks C1–C9 (enrollment, scenario F "build a macOS app
+on the Mac", routing, cross-node agents, migration, models, security,
+deferred features) and writes `acceptance.json`. Ports: `ORKESTR_GW_PORT`
+(18887) and `ORKESTR_GW_PROXY_PORT` (18888); binaries from
+`ORKESTR_SMOKE_BIN_DIR` (default `target/debug`). Results and the deferred
+list are in
+[`docs/roadmap/feature-traceability.md`](docs/roadmap/feature-traceability.md).
+
 ## Troubleshooting
 
 - **`npm run tauri dev` fails because port 1420 is unavailable.** Windows may

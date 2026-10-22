@@ -402,3 +402,74 @@ All transitions used are in the C§5 table: `Running→Interrupted`, `Interrupte
   authority) and scheduling — propose `owner: Option<ExecutorRef>` on Task.
 - `Interrupted` is reused for planned migration (reason field distinguishes); C§5 says
   `Interrupted` is set on crash — confirm reuse is intended (no new state needed).
+
+## 11. As built (Phase 6)
+
+Phase 6 implements §3–§7 with four deliberate deviations, recorded in
+ADR-0033 (node protocol and task migration) and ADR-0039 (local model
+distribution).
+
+**Deviations from the design above**
+
+| Design (§2–§7) | As built | Why |
+|---|---|---|
+| Ed25519 node keys (§3, §9) | The existing **P-256 core identity key (CIK)** signs the coordinator's enrollment record and policy snapshots, and pins the worker | One key type for tunnel, pairing and nodes; the e2e-v1 handshakes (`crates/core/src/remote/e2e.rs`) are reused unchanged |
+| Worker pushes heartbeats (§4) | **Pull heartbeat**: the coordinator calls `node.heartbeat` on every worker (default 5 s, `ORKESTR_NODE_HEARTBEAT_MS`); one round trip returns the sample, slots and lease states and renews leases (TTL `ORKESTR_NODE_LEASE_TTL_MS`) | No bidirectional RPC; job progress flows as events on topic `jobs` over the same E2E session |
+| Direct node channel / LAN mTLS (§2) | **Gateway-relayed core-to-core**: the coordinator opens `/v1/connect` to the worker's core id with its *core* bearer token (same account only, rate limited, audited) and runs the device side of e2e-v1 as a paired principal with `coordinator = true` | Reuses the Phase 4 relay; the gateway sees only ciphertext. LAN mTLS is deferred |
+| Checkpoints in the sync chunk store (§7.1) | **Content-addressed blobs**: SHA-256 blobs moved in 512 KiB chunks by `node.blobHas` / `node.blobPut` / `node.blobGet` (under the 1 MiB E2E record limit), hash-checked on finalize, stored at `ORKESTR_HOME/blobs/sha256/…` | One primitive for workspace checkpoints (git bundle + dirty-tree tar), artifacts and model layers |
+
+**Enrollment.** The worker creates a pairing with `kind: "node"` and the trust
+level it grants (`restricted` < `standard` < `trusted`); the coordinator calls
+`nodes.enroll {coreId, pairingId, code}`, which runs the device-side pairing
+client (`crates/core/src/remote/client.rs`). Both screens show the SAS and the
+worker confirms locally (`devices.approve`). The worker stores the coordinator
+as a paired principal with `coordinator = true` and the trust level; the
+coordinator stores a signed `NodeEnrollment`. `nodes.revoke` marks the node
+`Revoked`, cancels its jobs and the worker refuses the next heartbeat.
+
+**Health.** `Online → Suspect` (missed heartbeats) `→ Offline`; `Draining`
+(`nodes.drain`) takes no new placements and migrates jobs away; `Revoked` is
+terminal. `nodes.list` returns `NodeSnapshot`s (coordinator first).
+
+**Scheduling.** Deterministic filter + score per §5 with the default weights
+(`ScoreWeights`); ties prefer the coordinator, then the lowest node id. The
+human-readable explanation (one line per node) is stored on the job and the
+task and shown in the desktop Nodes panel. Results: `place`, `wait`
+(`noCapacity` / `nodesUnavailable`) or `infeasible` (task → `Blocked`).
+
+**Execution and fencing.** Job kinds `command` (tool shims from the node
+profile apply) and `agentTask` (Mock / Ollama providers on workers). The
+coordinator's task engine is the only task status writer; worker callbacks
+go through it with `SystemRecovery`. Every offer carries a `LeaseEpoch`; the
+worker rejects stale epochs and the coordinator drops progress with a stale
+epoch.
+
+**Migration.** Planned (`jobs.migrate`, `nodes.drain`): checkpoint at a safe
+point (`JobCheckpointed`: git state, workspace bundle, handoff,
+`AgentStateCheckpoint`, side-effect log) → re-offer with epoch + 1 →
+`JobMigrated`. Unplanned: lease expiry → `Interrupted` → `Recovering` →
+re-placement excluding the old node. Unknown or non-idempotent side effects
+since the last checkpoint → `failed` with `needs_user_decision` and an
+`ApprovalRequested`, never a silent re-run.
+
+**Models.** `models.import` (GGUF path or a deterministic mock),
+`models.distribute` pushes manifest + layers as blobs, `node.modelInstall`
+verifies digests and registers with Ollama when present (`ollama create`);
+installed models feed `localModels` and the scheduler.
+
+**Simulated nodes.** `ORKESTR_NODE_PROFILE=<json>` overrides os, arch, CPU,
+memory, GPUs, tools, labels, models and `toolShims` (e.g. `xcodebuild` →
+`node scripts/smoke/fixtures/fake-xcodebuild.mjs`); fixtures
+`scripts/smoke/fixtures/node-mac.json` and `node-gpu.json`. Without a profile,
+detection is real (`nvidia-smi` for GPUs).
+
+**Deferred** (answer `unimplementedFeature`, RR-G14): HPKE per-job secret
+delivery (jobs with `needs.secrets` are infeasible on remote nodes),
+critical-job preemption, `service` jobs, direct LAN mTLS, coordinator
+failover and lease reconciliation after a coordinator crash (jobs are only
+marked `Interrupted`), portable Claude Code / Codex session state (handoff
+only), mobile / web node UI, a real macOS node (profile-simulated in
+acceptance), checkpoints through the sync chunk store.
+
+Acceptance: `scripts/smoke/phase6-acceptance.mjs` (checks C1–C9, see
+`docs/roadmap/feature-traceability.md` → "Phase 6 acceptance check").
