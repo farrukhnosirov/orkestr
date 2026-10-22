@@ -1,0 +1,50 @@
+{
+  "format": 1,
+  "name": "Orkestr official",
+  "keys": [
+    {
+      "keyId": "b07a72240e0c6158",
+      "publisher": "orkestr",
+      "publicKey": "2BDN46nRbghtBEQTw587wSzluwozuAXZBpAeoKunFRE="
+    }
+  ],
+  "entries": [
+    {
+      "id": "orkestr.docs-writer",
+      "kind": "AgentTemplate",
+      "name": "Docs Writer",
+      "version": "1.0.0",
+      "publisher": "orkestr",
+      "description": "Writes and updates READMEs, ADRs and how-to guides from the code; never changes source files.",
+      "tags": [
+        "agent-template",
+        "researcher"
+      ],
+      "permissions": [],
+      "keyId": "b07a72240e0c6158",
+      "sha256": "f79fc7c87adabc8c039f6a4534f14c54f79370e8ece2969f9da35e411e19d546",
+      "signature": "DH+2tB2ewvTRFxgT7HS923rSXgLMNaBmIKFhtDiHpcue2ttBHYEgOhZYXOd69ja8en5sKexUOYR9jnrqTd5rDw==",
+      "url": "packages/orkestr.docs-writer-1.0.0.agent.json",
+      "revoked": false
+    },
+    {
+      "id": "orkestr.strict-code-reviewer",
+      "kind": "AgentTemplate",
+      "name": "Strict Code Reviewer",
+      "version": "1.0.0",
+      "publisher": "orkestr",
+      "description": "Marketplace edition of the reviewer: read-only, blocking findings first, with file:line references.",
+      "tags": [
+        "agent-template",
+        "reviewer"
+      ],
+      "permissions": [],
+      "keyId": "b07a72240e0c6158",
+      "sha256": "dcb6ad5fcf6c31429b71e24a0887c1e7a49718faecb2b43987aff2b5f86353b7",
+      "signature": "tWbJZrXYphig4W89yb1C9Mi+87CZ8p8xV4KEW5i5SjukIclE8RAHeQdAKq4eRwBpqeh6WM/jACNGVqoi24yeDg==",
+      "url": "packages/orkestr.strict-code-reviewer-1.0.0.agent.json",
+      "revoked": false
+    }
+  ],
+  "revokedKeys": []
+}

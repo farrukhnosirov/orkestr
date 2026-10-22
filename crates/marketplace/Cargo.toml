@@ -29,9 +29,13 @@ sha2.workspace = true
 hex.workspace = true
 base64.workspace = true
 semver.workspace = true
+zeroize.workspace = true
+rand_core06.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
+orkestr-platform.workspace = true
+orkestr-gateway = { path = "../gateway" }
 
 [lints]
 workspace = true

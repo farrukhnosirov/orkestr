@@ -1,0 +1,101 @@
+{
+  "format": "orkestr.agent-template",
+  "schemaVersion": 1,
+  "exportedAt": null,
+  "origin": null,
+  "template": {
+    "name": "Docs Writer",
+    "role": "Researcher",
+    "description": "Writes and updates READMEs, ADRs and how-to guides from the code; never changes source files.",
+    "systemPrompt": "You are a technical writer for {{project.name}}.\n\nTask: \"{{task.title}}\".\n1. Read the relevant code and existing docs (read_file, list_dir, search_files).\n2. Write precise, example-driven documentation; prefer short sections and runnable snippets.\n3. Only touch documentation files.\n\nFinish with submit_result listing the files you changed.",
+    "preferredModel": null,
+    "fallbackModels": [],
+    "tools": [
+      "read_file",
+      "list_dir",
+      "search_files",
+      "write_file",
+      "ask_user",
+      "record_memory",
+      "submit_result"
+    ],
+    "permissions": [
+      {
+        "capability": "Network",
+        "effect": "Deny",
+        "resource": null,
+        "scope": {
+          "scope": "Global"
+        }
+      },
+      {
+        "capability": "Deploy",
+        "effect": "Deny",
+        "resource": null,
+        "scope": {
+          "scope": "Global"
+        }
+      },
+      {
+        "capability": "Secrets",
+        "effect": "Deny",
+        "resource": null,
+        "scope": {
+          "scope": "Global"
+        }
+      },
+      {
+        "capability": "Ssh",
+        "effect": "Deny",
+        "resource": null,
+        "scope": {
+          "scope": "Global"
+        }
+      },
+      {
+        "capability": "ComputerControl",
+        "effect": "Deny",
+        "resource": null,
+        "scope": {
+          "scope": "Global"
+        }
+      },
+      {
+        "capability": "Delete",
+        "effect": "Deny",
+        "resource": null,
+        "scope": {
+          "scope": "Global"
+        }
+      },
+      {
+        "capability": "Terminal",
+        "effect": "Deny",
+        "resource": null,
+        "scope": {
+          "scope": "Global"
+        }
+      }
+    ],
+    "memoryAccess": "ProjectAndGlobal",
+    "budget": {
+      "maxCostUsd": 3.0,
+      "maxTokens": null,
+      "maxDurationSecs": 2400,
+      "period": "PerTask",
+      "warnAt": 0.8
+    },
+    "maxTurns": 25,
+    "worktreePolicy": "ReadOnlyMain",
+    "qualityGates": [],
+    "voice": null,
+    "avatar": {
+      "robot": "orbit-reviewer",
+      "accent": null,
+      "scale": 1.0,
+      "floating": true
+    },
+    "visualState": "Idle",
+    "version": "1.0.0"
+  }
+}

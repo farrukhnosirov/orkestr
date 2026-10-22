@@ -3855,6 +3855,7 @@ dependencies = [
  "base64 0.22.1",
  "chrono",
  "ciborium",
+ "ed25519-dalek",
  "futures",
  "hex",
  "hkdf",
@@ -3927,11 +3928,14 @@ dependencies = [
  "hex",
  "orkestr-domain",
  "orkestr-events",
+ "orkestr-gateway",
+ "orkestr-platform",
  "orkestr-plugins",
  "orkestr-protocol",
  "orkestr-security",
  "orkestr-storage",
  "parking_lot",
+ "rand_core 0.6.4",
  "reqwest 0.12.28",
  "semver",
  "serde",
@@ -3942,6 +3946,7 @@ dependencies = [
  "tokio",
  "tokio-util",
  "tracing",
+ "zeroize",
 ]
 
 [[package]]

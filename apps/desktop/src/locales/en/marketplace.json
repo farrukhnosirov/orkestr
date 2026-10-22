@@ -1,6 +1,118 @@
 {
-  "stub": {
-    "title": "Marketplace",
-    "description": "Signed plugins, widgets and agent templates from trusted registries. The marketplace is being built in this phase."
+  "tabs": {
+    "label": "Marketplace sections",
+    "browse": "Browse",
+    "installed": "Installed",
+    "sources": "Sources",
+    "keys": "Keys"
+  },
+  "browse": {
+    "search": "Search packages",
+    "searchPlaceholder": "Search by name, publisher, tag…",
+    "kind": "Package kind",
+    "allKinds": "All kinds",
+    "tags": "Tags",
+    "results": "Packages",
+    "loading": "Loading packages",
+    "empty": "No packages found",
+    "emptyHint": "Change the search or add a registry source.",
+    "by": "by {{publisher}}"
+  },
+  "kind": {
+    "AgentTemplate": "Agent template",
+    "Plugin": "Plugin",
+    "Widget": "Widget"
+  },
+  "status": {
+    "revoked": "Revoked",
+    "installed": "Installed",
+    "updateAvailable": "Update available"
+  },
+  "details": {
+    "label": "Package details",
+    "none": "Select a package to see its details.",
+    "source": "source: {{source}}",
+    "publisherKey": "Publisher key",
+    "permissions": "Requested permissions",
+    "versions": "Versions: {{versions}}"
+  },
+  "trustState": {
+    "Untrusted": "Not trusted",
+    "Trusted": "Trusted",
+    "Official": "Official",
+    "Revoked": "Revoked"
+  },
+  "keys": {
+    "fingerprint": "Key fingerprint",
+    "fingerprintOf": "Fingerprint of {{publisher}}",
+    "local": "Your publisher key",
+    "localPublisher": "Publishing as {{publisher}} (key {{keyId}}). The private key stays in the vault.",
+    "noLocal": "Created on your first publish.",
+    "empty": "No publisher keys yet",
+    "trust": "Trust…",
+    "untrust": "Untrust"
+  },
+  "action": {
+    "install": "Install",
+    "update": "Update",
+    "installed": "Installed",
+    "blocked": "Blocked",
+    "uninstall": "Uninstall"
+  },
+  "notice": {
+    "installed": "{{name}} {{version}} installed.",
+    "revoked": "{{name}} is revoked by its registry and cannot be installed.",
+    "keyRevoked": "The publisher key of {{name}} is revoked.",
+    "granted": "Permissions for {{name}} saved.",
+    "grantsPending": "{{name}} stays disabled until its permissions are decided (Plugins).",
+    "uninstalled": "{{name}} uninstalled.",
+    "sourceAdded": "Source added.",
+    "refreshed": "Sources refreshed.",
+    "sourceRemoved": "Source removed.",
+    "keyTrusted": "Key of {{publisher}} trusted.",
+    "keyUntrusted": "Key of {{publisher}} is no longer trusted.",
+    "dismiss": "Dismiss"
+  },
+  "installed": {
+    "empty": "Nothing installed from the marketplace",
+    "emptyHint": "Install agent templates, plugins and widgets from Browse.",
+    "update": "{{version}} available"
+  },
+  "sources": {
+    "refreshAll": "Refresh all",
+    "entries_one": "{{count}} package",
+    "entries_other": "{{count}} packages",
+    "lastRefresh": "refreshed {{at}}",
+    "lastError": "Last refresh failed: {{error}}",
+    "refreshOne": "Refresh {{name}}",
+    "remove": "Remove {{name}}",
+    "add": "Add a source",
+    "kind": "Source kind",
+    "location": "Location",
+    "urlPlaceholder": "https://gateway.example.com/registry",
+    "dirPlaceholder": "Absolute folder path",
+    "name": "Display name",
+    "token": "Publish token",
+    "tokenHint": "Gateway session or core token; stored in the vault. Only needed to publish.",
+    "addButton": "Add source"
+  },
+  "sourceKind": {
+    "Official": "Official",
+    "Directory": "Folder",
+    "Http": "HTTP registry"
+  },
+  "trust": {
+    "title": "Trust this publisher key?",
+    "subtitle": "Publisher: {{publisher}}",
+    "explain": "Compare the fingerprint with one the publisher gave you over another channel. Once trusted, the key is pinned: updates signed by a different key are refused.",
+    "keyId": "Key id {{keyId}}",
+    "confirm": "Trust and continue"
+  },
+  "permissions": {
+    "title": "Permissions",
+    "subtitle": "{{name}} asks for these permissions",
+    "hint": "Unchecked requests are denied. You can change grants later in Plugins.",
+    "later": "Decide later",
+    "apply": "Save and enable"
   }
 }

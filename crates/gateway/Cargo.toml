@@ -44,6 +44,7 @@ subtle.workspace = true
 zeroize.workspace = true
 p256.workspace = true
 sha2.workspace = true
+ed25519-dalek.workspace = true
 hmac.workspace = true
 sha1.workspace = true
 hkdf.workspace = true

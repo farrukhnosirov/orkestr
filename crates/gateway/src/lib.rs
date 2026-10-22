@@ -366,10 +366,11 @@ pub fn router(st: GatewayState, cfg: &GatewayConfig) -> anyhow::Result<Router> {
     let store = Arc::clone(&st.store);
     let sync_auth: orkestr_sync::server::AuthFn =
         Arc::new(move |token: &str| store.session(token).or_else(|| store.core_token_account(token)));
+    let registry_auth: registry::AuthFn = sync_auth.clone();
     let sync = orkestr_sync::server::SyncServerState::open(&cfg.data_dir.join("sync"), sync_auth)?;
     let mut app = api
         .nest("/v1/sync", orkestr_sync::server::server_router(sync))
-        .nest("/registry", registry::router(&cfg.data_dir.join("registry")));
+        .nest("/registry", registry::router(&cfg.data_dir.join("registry"), registry_auth)?);
     if let Some(dist) = &cfg.web_dist {
         let index = dist.join("index.html");
         app = app.fallback_service(
