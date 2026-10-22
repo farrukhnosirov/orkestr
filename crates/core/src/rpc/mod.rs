@@ -182,8 +182,21 @@ impl RpcRouter {
         self.handlers.keys().copied().collect()
     }
 
-    /// Dispatches a request. Unknown methods → `bad_request`.
-    pub async fn dispatch(&self, ctx: RpcContext, method: &str, params: Value) -> Result<Value, RpcError> {
+    /// Dispatches a request. Unknown methods → `bad_request` (local) /
+    /// `forbidden` (remote: fail closed before revealing anything).
+    ///
+    /// Local callers are unrestricted. Remote callers go through
+    /// `remote::authz::authorize` (MethodPolicy: local-only, role, remote
+    /// terminal, project scope, per-device rate limit, step-up); every remote
+    /// decision is audited.
+    pub async fn dispatch(&self, ctx: RpcContext, method: &str, mut params: Value) -> Result<Value, RpcError> {
+        if let Principal::Remote(rp) = &ctx.principal {
+            let rp = rp.clone();
+            let audited = params.clone();
+            let decision = crate::remote::authz::authorize(&ctx, &rp, method, &mut params).await;
+            ctx.services.remote.audit_call(rp.device_id, method, &audited, decision.as_ref().err()).await;
+            decision?;
+        }
         let Some(handler) = self.handlers.get(method).cloned() else {
             return Err(RpcError::bad_request(format!("unknown method `{method}`")));
         };

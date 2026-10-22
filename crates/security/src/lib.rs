@@ -33,6 +33,8 @@ pub mod paths;
 pub mod permissions;
 pub mod redact;
 pub mod secrets;
+pub mod totp;
+pub mod webauthn;
 
 #[cfg(test)]
 pub(crate) mod test_support {

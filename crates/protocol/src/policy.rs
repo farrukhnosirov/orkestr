@@ -98,8 +98,9 @@ impl MethodPolicy {
     const fn admin_step_up() -> Self {
         Self::new(Role::Admin, StepUp::Always, RateClass::Write)
     }
+    /// Stopping work is always safe: every role may call it (remote-access.md §3).
     const fn emergency() -> Self {
-        Self::new(Role::Operator, StepUp::Never, RateClass::Emergency)
+        Self::new(Role::Viewer, StepUp::Never, RateClass::Emergency)
     }
     const fn local() -> Self {
         Self { min_role: Role::Admin, local_only: true, step_up: StepUp::Always, rate_class: RateClass::Write }
@@ -209,6 +210,8 @@ fn explicit(method: &str) -> Option<MethodPolicy> {
         "push.test" => MethodPolicy::write(),
         // --- emergency ----------------------------------------------------------------------
         "emergency.status" => MethodPolicy::read(),
+        // the audit log reveals every resource name: admins only
+        "audit.list" => MethodPolicy::new(Role::Admin, StepUp::Never, RateClass::Read),
         "emergency.reset" => MethodPolicy::local(),
         // --- security-sensitive ---------------------------------------------------------------
         "providers.setCredential"
@@ -332,6 +335,9 @@ mod tests {
         }
         for m in ["sync.now", "sync.continueOn", "sync.resolveConflict", "push.test", "devices.registerStepUp"] {
             assert_eq!(policy_for(m).unwrap().min_role, Role::Operator, "{m}");
+        }
+        for m in ["emergency.stopAll", "agents.stop", "remote.disable"] {
+            assert_eq!(policy_for(m).unwrap().min_role, Role::Viewer, "{m}: stopping is allowed to every role");
         }
         let revoke = policy_for("devices.revoke").unwrap();
         assert_eq!((revoke.min_role, revoke.step_up), (Role::Admin, StepUp::Always));

@@ -37,6 +37,7 @@ hmac.workspace = true
 sha1.workspace = true
 ciborium.workspace = true
 rand_core06.workspace = true
+subtle.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

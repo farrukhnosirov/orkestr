@@ -68,6 +68,7 @@ sha2.workspace = true
 hkdf.workspace = true
 aes-gcm.workspace = true
 rand_core06.workspace = true
+hmac.workspace = true
 tokio-tungstenite.workspace = true
 
 [dev-dependencies]

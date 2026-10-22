@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use crate::ids::{AgentId, ProviderId, UserId};
+use crate::ids::{AgentId, DeviceId, ProviderId, UserId};
 
 /// UTC timestamp, serialized as RFC 3339.
 pub type Timestamp = DateTime<Utc>;
@@ -29,6 +29,8 @@ pub enum Actor {
     Manager,
     /// The system itself (scheduler, recovery, automation).
     System,
+    /// A paired remote device acting over the E2E tunnel (Phase 4, ADR-0030).
+    RemoteDevice(DeviceId),
 }
 
 /// Reference to a concrete model of a provider, e.g. `(anthropic-1, "claude-opus")`.
