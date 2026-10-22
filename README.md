@@ -6,7 +6,11 @@ specialised agents, models, tools and compute nodes. The product spec is in
 [`docs/spec/MASTER_SPEC.md`](docs/spec/MASTER_SPEC.md). The rules every
 contributor follows are in [`docs/ENGINEERING_CONTRACT.md`](docs/ENGINEERING_CONTRACT.md).
 
-> Status: **Phases 0–3 complete on Windows, audited (2026-10-07).** Phases 1–3
+> Status: **Phases 0–4 complete on Windows.** Phase 4 (Remote & Sync:
+> self-hosted gateway, web client, end-to-end encrypted sync, Web Push) passed
+> its acceptance run 40/40 on 2026-10-22 — see
+> [Remote access and sync](#remote-access-and-sync-phase-4). Phases 0–3 were
+> audited on 2026-10-07. Phases 1–3
 > passed acceptance against the real desktop app with the offline Mock
 > provider: Phase 1 45/45 checks, Phase 2 47/47 and Phase 3 64/64. Two audit
 > rounds then confirmed and fixed 157 findings; see
@@ -102,7 +106,7 @@ lets the Web and Mobile clients reuse the same code.
 
 ## Prerequisites
 
-- Rust stable (MSVC on Windows). In Git Bash, run `export PATH="$HOME/.cargo/bin:$PATH"` first.
+- Rust stable (MSVC on Windows; `winget install Rustlang.Rustup`). In Git Bash, run `export PATH="$HOME/.cargo/bin:$PATH"` first.
 - Node.js 20.19 or newer with npm.
 - Windows: WebView2, which ships with Windows 10/11. Linux: the usual Tauri
   system packages (`webkit2gtk-4.1` and related libraries).
@@ -231,6 +235,93 @@ cargo test --workspace
 npm run gen:protocol && git diff --exit-code   # generated TS types up to date
 npm run typecheck && npm test && npm run build
 ```
+
+## Remote access and sync (Phase 4)
+
+Phase 4 adds a self-hosted gateway, a web client and end-to-end encrypted
+sync. The gateway only relays ciphertext: RPC traffic is encrypted between
+the paired device and your core (`e2e-v1`, ADR-0030), and synced files are
+encrypted before they leave the computer (ADR-0031). The web client and Web
+Push are described in ADR-0036.
+
+### 1. Run the gateway and the web client
+
+```bash
+npm run build                                   # builds apps/web/dist too
+cargo build -p orkestr-gateway -p orkestr-core --bins
+target/debug/orkestr-gateway --data-dir ~/.orkestr-gateway   --bind 127.0.0.1:8787 --web-dist apps/web/dist
+```
+
+Open `http://localhost:8787` and create the owner account with a passkey
+(the first visitor becomes the owner). The WebAuthn relying party defaults to
+`localhost`; for another host pass `--rp-id <host>` and
+`--origin https://<host>` (repeatable). The gateway refuses to bind a
+non-loopback address unless it runs behind a TLS proxy
+(`--behind-tls-proxy`); TLS/ACME is not built in. An authenticator-app code
+(TOTP) can be added as a fallback sign-in through `POST /v1/auth/totp/setup`
+and `/confirm`.
+
+### 2. Connect a core
+
+1. Get a one-time enrollment token: after signing in, the web client's
+   **Pair this browser** screen has **Create enrollment token**
+   (`POST /v1/cores/enrollment-token`).
+2. Desktop: **Settings → Remote & Sync → Remote access**: enter the gateway
+   URL and the token, then **Enable remote access**. The core dials out
+   (nothing listens on the network; `orkestrd` stays on loopback). The same
+   works headless with `remote.enable {gatewayUrl, enrollmentToken}`.
+3. **Disable** or the **kill switch** (revoke all sessions + disable) cut the
+   tunnel immediately; the core does not redial.
+
+### 3. Pair a device
+
+1. Desktop: **Pair a new device**. Copy the pairing text (`orkestr-pair:{…}`).
+2. Web client (signed in): paste it under **Pair this browser** and choose a
+   device name.
+3. Both screens show a 6-digit security code (SAS). If they match, tick
+   **The security codes match**, pick a role (viewer / operator / admin) and,
+   if needed, **Allow remote terminal**, then **Approve device**.
+4. The browser keeps a non-extractable device key in IndexedDB. Dangerous
+   actions (for example approving a high-risk command, discarding changes)
+   ask for a passkey confirmation (step-up). Revoke a device from the same
+   settings page; its sessions close and its push subscriptions are dropped.
+
+### 4. Configure sync
+
+**Settings → Remote & Sync → Encrypted sync** for the active project:
+
+- Gateway URL and access token can stay empty when remote access is enabled
+  on this core (the core's gateway credentials are used); otherwise use the
+  gateway URL and a session token.
+- On the first device leave **Remote key** empty: a key is generated and
+  shown once. Paste the same key and the same **Project name at the remote**
+  on every other device. Lose the key and the synced data cannot be read.
+- **Sync now** pushes and pulls; **Continue on another device** publishes the
+  working tree (including uncommitted files), open editors and a task summary;
+  **Resume from another device** restores them on the other computer. Git
+  history is never synced, so the other device needs the repository at the
+  same commit. Concurrent edits keep both versions (a `*.conflict-*` copy)
+  until you resolve them.
+
+### Phase 4 acceptance
+
+```bash
+cargo build -p orkestr-core -p orkestr-gateway --bins && npm run build
+node scripts/smoke/phase4-acceptance.mjs        # needs Microsoft Edge
+```
+
+It starts a gateway, two headless cores, headless Edge with a virtual
+passkey authenticator (driving the built web app) and a mock push endpoint,
+and runs scenarios D (secure remote access) and C (encrypted sync).
+
+## Troubleshooting
+
+- **`npm run tauri dev` fails because port 1420 is unavailable.** Windows may
+  reserve it for Hyper-V / WinNAT. Check with
+  `netsh interface ipv4 show excludedportrange protocol=tcp`. If 1420 is in an
+  excluded range, run an elevated terminal: `net stop winnat` then
+  `net start winnat` (or reboot), or use a custom-protocol build instead of
+  the dev server: `npm run build && cargo build -p orkestr-desktop --features custom-protocol`.
 
 ## Layout
 

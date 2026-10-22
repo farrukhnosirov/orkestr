@@ -179,22 +179,22 @@ Section D counts are computed from these delivered columns.
 | Voice per agent | §33 | 3 | domain (VoiceProfile), core::voice | Agents, RobotDesigner | Arch | Arch | Full | Field exists from P1 (RR-C1) |
 | Performance Mode | §31 | 3 | ui, apps/desktop, core::voice | Settings, TitleBar | Partial | Partial | Full | P1: Balanced and Performance. P3: Ultra Visual and Battery Saver wired to robots and wake word |
 | Windows-first + macOS/Linux | §2, §46, §47 | 3 | platform, all | — | Partial | Partial | Partial | **Planned P3 Full; delivered Partial:** Windows only, no macOS / Linux packages. P1/P2: Windows shipped, macOS/Linux compile and test in CI (RR-C9). P3: macOS and Linux packages pass the demo script |
-| Web Client | §2, §35 | 4 | client, protocol, ui, (apps/web) | — | Arch | Arch | Arch | Protocol prerequisites RR-P1…P10 in P1 |
+| Web Client | §2, §35 | 4 | client, protocol, ui, (apps/web) | — | Arch | Arch | Arch | Protocol prerequisites RR-P1…P10 in P1. **P4 delivered Partial** (ADR-0036): `apps/web` — passkey/TOTP sign-in, pairing with SAS, projects, tasks, approvals with WebAuthn step-up, remote terminal (xterm), textarea editor, Web Push opt-in, en/ru; `@orkestr/client` RemoteTransport (`e2e-v1` in WebCrypto, non-extractable device key in IndexedDB). Not built: PWA signature/SRI (R-08), the remaining desktop panels |
 | Android | §2 | 5 | client, protocol, (apps/mobile) | — | Arch | Arch | Arch | Shared protocol and client |
 | iOS | §2 | 5 | client, protocol, (apps/mobile) | — | Arch | Arch | Arch | Shared protocol and client |
-| Secure remote access | §35–36 | 4 | core (session/auth), security, (gateway) | Settings | Arch | Arch | Arch | Opaque token → `Session{actor, deviceId, scopes}` from P1 (RR-P1). Gateway, MFA and passkeys in P4 |
+| Secure remote access | §35–36 | 4 | core (session/auth), security, (gateway) | Settings | Arch | Arch | Arch | Opaque token → `Session{actor, deviceId, scopes}` from P1 (RR-P1). **P4 delivered Partial** (ADR-0030): self-hosted `orkestr-gateway`, passkeys (ES256, attestation none) + TOTP, CIK-signed tunnel, pairing (codeMac + SAS), `e2e-v1`, roles + MethodPolicy (fail closed), step-up with replay protection, revoke, kill switch, per-device rate limits, audit on gateway and core. Deferred: mTLS/CA, ACME/TLS (gateway refuses a non-loopback bind without `--behind-tls-proxy`), device-code flow, admin-device approval, DPoP refresh |
 | Headless AI Node | §12, §38 | 4 | core (`orkestrd`), node | — | Partial | Partial | Partial | **The P2 hand off to the daemon is not built** (M2.7); manual `orkestrd` (P1) and autostart (P3) remain. P1: manual `orkestrd`. P2: handoff. P3: autostart. P4: node behind the gateway |
 | Multi-computer cluster | §38 | 6 | node, orchestrator | Nodes | Arch | Arch | Arch | `nodeId` on events and entities from P1 (RR-P4) |
 | Resource-aware scheduling | §11, §38 | 6 | task-engine, node | Tasks, MissionControl | Arch | Full | Full | Full for the local node in P2. Cross-node in P6 |
 | Task migration / checkpointing | §39 | 6 | task-engine, agent-runtime, snapshots | Tasks | Partial | Partial | Partial | P1: checkpoint and handoff record used for crash recovery (ADR-0022). P6: migration between nodes |
-| Cloud Workspace | §40 | 4 | sync, storage | Settings | Arch | Arch | Arch | `SyncBackend` trait, syncable flags (ADR-0019) |
+| Cloud Workspace | §40 | 4 | sync, storage | Settings | Arch | Arch | Arch | `SyncBackend` trait, syncable flags (ADR-0019). **P4 delivered Partial** (ADR-0031): end-to-end encrypted working-tree sync (FastCDC, zstd + XChaCha20, keyed chunk ids, Ed25519-signed manifests/refs, version vectors + anti-rollback) through the gateway; `workspace:` + `records:` streams. Deferred: events/snapshots/artifacts/worktree streams, recovery key, key rotation, PostgreSQL/S3 stores |
 | Local Cache | §40 | 4 | storage, sync | — | Arch | Arch | Arch | The local DB and object store are the cache when cloud mode arrives |
-| Continuous Sync | §42 | 4 | sync, snapshots, storage | Settings | Arch | Arch | Arch | `rev`/`origin_device_id` columns, content-addressed objects (ADR-0019) |
+| Continuous Sync | §42 | 4 | sync, snapshots, storage | Settings | Arch | Arch | Arch | `rev`/`origin_device_id` columns, content-addressed objects (ADR-0019). **P4 delivered Partial:** sync on demand (`sync.now`) + outbox retry loop; conflict copies with resolve (keep local / remote / both). Not built: 3-way text merge, continuous file-watch push |
 | Git as a separate layer | §40–41 | 1 | vcs, snapshots | Git | Full | Full | Full | Snapshots ≠ commits, no auto-commit on user branches (RR-C5) |
-| Self-Hosted | §45 | 4 | storage, sync, security | Settings | Arch | Arch | Arch | `MetadataStore`/`ObjectStore`/`SecretStore`/`SyncBackend` traits |
+| Self-Hosted | §45 | 4 | storage, sync, security | Settings | Arch | Arch | Arch | `MetadataStore`/`ObjectStore`/`SecretStore`/`SyncBackend` traits. **P4 delivered Partial:** `orkestr-gateway --data-dir … --web-dist apps/web/dist` (SQLite + filesystem object store). Not built: container image, PostgreSQL/S3 adapters, multi-instance |
 | Local-Only | §45 | 1 | sync (LocalOnly), storage | Onboarding, Settings | Full | Full | Full | The only storage mode in P1–3 (RR-A8) |
-| Offline-first | §44, §63I | 4 | all | — | Partial | Partial | Partial | P1–3: editor, Git, terminal, Ollama and snapshots work offline (no network dependency in core paths). P4: sync queue |
-| Cross-device continuation | §43, §63C | 4 | sync, core | — | Arch | Arch | Arch | Resume summary and handoff model reused |
+| Offline-first | §44, §63I | 4 | all | — | Partial | Partial | Partial | P1–3: editor, Git, terminal, Ollama and snapshots work offline (no network dependency in core paths). **P4:** sync outbox keeps changes while the gateway is down and flushes after it returns (acceptance C) |
+| Cross-device continuation | §43, §63C | 4 | sync, core | — | Arch | Arch | Arch | Resume summary and handoff model reused. **P4 delivered Partial:** Seamless Continue (`sync.continueOn` / `sync.resume`: working tree incl. uncommitted files, UI state, task summary); git history is never touched, so the other device needs the repo at the same commit |
 | Plugin SDK | §48 | 7 | (plugin host), security (`Actor::Plugin`) | — | Arch | Arch | Arch | `Plugin` entity and actor kind. Manifest and sandbox per ADR-0034 |
 | Widget SDK | §48 | 7 | ui, (plugin host) | — | — | — | — | Phase 7. Widgets get no filesystem or secrets access by default |
 | Dashboard Builder | §48 | 7 | ui | — | — | — | — | Phase 7. MissionControl tile model (P3) is the precursor |
@@ -239,6 +239,25 @@ not built or not verified. Details are in `mvp-milestones.md` → Phase 2 Status
 | 48 | Architecture Map | Non-empty map of the temp repo | — |
 | 49, 50 | Decision Log, Replay | Plan → agents → tools → files → tests → reviews → approvals → merge | — |
 | 20, 26 | Monaco LSP, background hand-off | — | **Not built** (no LSP bridge; no hand off to `orkestrd`) |
+
+## Phase 4 acceptance check (2026-10-22)
+
+`scripts/smoke/phase4-acceptance.mjs` — **40/40 checks pass** (self-hosted
+gateway, two headless `orkestrd` cores, headless Edge with a virtual WebAuthn
+authenticator driving the built web app, Node devices through
+`@orkestr/client`, a mock Web Push endpoint).
+
+| Scenario | Result | What is checked |
+|---|---|---|
+| D — secure remote access | Pass (26 checks + 2 setup) | Passkey register / logout / login in the web UI; wrong TOTP rejected; enrollment + tunnel; VAPID key in the tunnel welcome; web UI pairing with matching SAS lists projects over E2E; operator pairing; `projects.list`/`tasks.list` over E2E; relay sees no plaintext; local-only and viewer mutations forbidden; dangerous approval → `stepUpRequired` → resolved with a WebAuthn assertion, replay rejected; terminal forbidden without the grant, echo with it; editor save; burst → `rate_limited`; `ApprovalRequested` → Web Push (VAPID, RFC 8291 decrypts, category `approval`); revoke closes + refuses + drops push subscriptions; kill switch, no redial; gateway + core audit; `orkestrd` loopback only |
+| C — encrypted sync | Pass (12 checks) | Same remote key; uncommitted + new file + UI state + task handed over (`continueOn` → `now` + `resume`), identical content, `git status` shows the change, `rev-list` unchanged; concurrent edit → one conflict with both versions on disk, resolved; tampered chunk → integrity error; offline outbox flushed after a gateway restart |
+
+Not verified at runtime: delivery through a real push service (FCM /
+Mozilla autopush — the gateway POSTs to whatever endpoint the browser gives;
+only a local mock was used) and the web app on a phone.
+
+Phase 4b (not started): M4.5/M4.6, OTLP export, the Visual Browser Agent
+(#17), native mobile push (Phase 5).
 
 ## D. Summary
 

@@ -40,6 +40,9 @@ summarises them: **Built** = implemented as decided (with listed deviations),
 | [0020](0020-uuid-v7-ids.md) | UUID v7 identifiers | Accepted | 1 | — | — | Partial (v7 ids; `ProviderId` slug and `b3:` prefix not implemented) |
 | [0021](0021-snapshots-content-manifests.md) | Snapshots as content manifests in the object store (not git commits) | Accepted | 1 | SP-16 | R-14, R-21 | Not started (object store ready) |
 | [0022](0022-crash-recovery-and-interruption.md) | Crash recovery, interruption and child-process containment | Accepted | 1–2 | SP-13 | R-13 | Partial (crash detection via `session.lock`, hook runner; no hooks) |
+| [0030](0030-remote-gateway-e2e.md) | Remote access: self-hosted gateway, `e2e-v1`, MethodPolicy enforcement | Accepted | 4 | — | R-08 | Implemented (Phase 4; mTLS/ACME/device-code deferred) |
+| [0031](0031-encrypted-sync-engine.md) | Encrypted sync engine and where it deviates from `sync-protocol.md` | Accepted | 4 | — | — | Implemented (Phase 4; HPKE conformance, recovery key, rotation deferred) |
+| [0036](0036-web-client-and-web-push.md) | Web client over the E2E channel, and Web Push | Accepted | 4 | — | R-08 | Implemented (Phase 4; PWA signature/SRI deferred) |
 
 ## Planned ADRs (to be written when their phase starts)
 
@@ -83,6 +86,9 @@ flowchart TB
   A3 --> A16[0016 Robot windows]
   A16 --> A17[0017 Wake word]
   A18 --> A19[0019 Sync seam]
+  A19 --> A31[0031 Encrypted sync]
+  A30[0030 Remote gateway + e2e-v1] --> A36[0036 Web client + Web Push]
+  A30 --> A31
   A18 --> A22[0022 Crash recovery]
   A20[0020 UUID v7] --> A18
 ```
