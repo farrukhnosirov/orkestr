@@ -51,6 +51,8 @@ export interface BackupInfo {
   fromVersion: string;
   toVersion: string | null;
   databases: string[];
+  /** Databases that could not be copied (locked by another program). */
+  skipped?: string[];
   files: number;
   sizeBytes: number;
 }

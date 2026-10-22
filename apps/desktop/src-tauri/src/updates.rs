@@ -648,15 +648,17 @@ mod tests {
         assert_eq!(conf["productName"], "Orkestr", "the NSIS uninstall key is derived from the product name");
         let pubkey = conf["plugins"]["updater"]["pubkey"].as_str().unwrap();
         assert!(orkestr_updater::signature::verify(b"x", "", pubkey, &current_version()).is_err());
-        let text = String::from_utf8(
-            base64::Engine::decode(&base64::engine::general_purpose::STANDARD, pubkey).unwrap(),
-        )
-        .unwrap();
+        let text =
+            String::from_utf8(base64::Engine::decode(&base64::engine::general_purpose::STANDARD, pubkey).unwrap())
+                .unwrap();
         assert!(text.contains("minisign public key"), "a public key, never a private one");
         let win = &conf["bundle"]["windows"];
         assert_eq!(win["nsis"]["installMode"], "currentUser");
         assert_eq!(win["nsis"]["languages"], serde_json::json!(["English", "Russian"]));
-        assert_eq!(win["wix"]["upgradeCode"], "c6529465-36f6-467f-aca3-22bbb51d90b1", "never change the MSI upgrade code");
+        assert_eq!(
+            win["wix"]["upgradeCode"], "c6529465-36f6-467f-aca3-22bbb51d90b1",
+            "never change the MSI upgrade code"
+        );
         assert_eq!(conf["bundle"]["createUpdaterArtifacts"], false, "update artifacts are signed by scripts/release");
         let hooks = include_str!("../windows/installer-hooks.nsh");
         assert!(hooks.contains("$DeleteAppDataCheckboxState = 1"), "data is removed only on explicit request");

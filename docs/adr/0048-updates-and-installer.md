@@ -86,11 +86,15 @@ the user re-confirms after the next check.
 * User data is never inside the install folder: `%APPDATA%\Orkestr\Orkestr\{data,config}`
   (or `ORKESTR_HOME`), cache `%LOCALAPPDATA%\Orkestr\Orkestr\cache`.
 * **Backups** (`<data_dir>/backups/orkestr-backup-<ts>-<reason>-v<from>[-to-v<to>].zip`):
-  every SQLite DB under the data dir via the SQLite **online-backup API**
-  (consistent while the core writes; WAL included), plus small `*.json`
-  settings of data and config dirs. Excluded: `objects/` (append-only,
-  content-addressed), downloaded runtimes (`vscode-server/`, `extensions/`),
-  logs, caches, and secrets (`*.key`, `*.token`, `*.pem`). Taken before every
+  the SQLite DBs of the data dir and its direct subfolders (`orkestr.db`,
+  `sync/sync.db`, …) via the SQLite **online-backup API** (consistent while
+  the core writes; WAL included), plus small `*.json` settings of data and
+  config dirs. Excluded: `objects/` (append-only, content-addressed),
+  downloaded runtimes (`vscode-server/`, `extensions/`), browser profiles
+  (`wv2/`, `EBWebView/` — WebView2 keeps its DBs locked), logs, caches, and
+  secrets (`*.key`, `*.token`, `*.pem`). A busy source is retried for at most
+  30 s: `orkestr.db` failing aborts the backup (the install is not started),
+  any other DB is listed as `skipped`. Taken before every
   install (`preUpdate`), on the first start of a new version before
   migrations (`preMigration` — this also covers updates installed manually by
   running a new installer), and on demand. Retention prunes the oldest.

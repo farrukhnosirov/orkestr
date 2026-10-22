@@ -41,7 +41,14 @@ const SKIP_DIRS: &[&str] = &[
     "node_modules",
     "staging",
     "downloads",
+    // Browser profiles (WebView2 keeps its own SQLite files locked while running).
+    "wv2",
+    "EBWebView",
+    "webview",
 ];
+/// Databases are looked for in the data dir and its direct subfolders only
+/// (`orkestr.db`, `sync/sync.db`, …); deeper `.db` files belong to embedded tools.
+const MAX_DB_DEPTH: usize = 1;
 /// Files never copied (runtime state and secrets).
 const SKIP_FILES: &[&str] = &["core.json", "core.token", "session.lock"];
 
@@ -83,6 +90,9 @@ pub struct BackupInfo {
     pub to_version: Option<String>,
     /// Database files included (paths relative to the data dir).
     pub databases: Vec<String>,
+    /// Databases that could not be copied (busy/locked by another program).
+    #[serde(default)]
+    pub skipped: Vec<String>,
     /// Other files included.
     pub files: usize,
     /// Zip size in bytes.
@@ -146,7 +156,9 @@ fn collect(
         let rel_str = rel_path.to_string_lossy().replace('\\', "/");
         let abs = entry.path();
         if is_db(&abs) {
-            dbs.push((abs, rel_str));
+            if depth <= MAX_DB_DEPTH {
+                dbs.push((abs, rel_str));
+            }
         } else if name.ends_with(".json") && entry.metadata().is_ok_and(|m| m.len() <= MAX_SMALL_FILE) {
             small.push((abs, rel_str));
         }
@@ -155,20 +167,40 @@ fn collect(
 
 /// Copies a live SQLite database with the online-backup API.
 pub fn backup_sqlite(src: &Path, dest: &Path) -> UpdateResult<()> {
+    // Read-only: a backup never changes the source. Busy/locked sources are
+    // retried until BACKUP_DEADLINE, then reported (never an endless wait).
     let from = rusqlite::Connection::open_with_flags(
         src,
         rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
     )?;
-    from.busy_timeout(std::time::Duration::from_secs(10))?;
+    from.busy_timeout(BUSY_TIMEOUT)?;
     let mut to = rusqlite::Connection::open(dest)?;
     {
         let backup = rusqlite::backup::Backup::new(&from, &mut to)?;
-        backup.run_to_completion(256, std::time::Duration::from_millis(5), None)?;
+        let deadline = std::time::Instant::now() + BACKUP_DEADLINE;
+        loop {
+            match backup.step(256)? {
+                rusqlite::backup::StepResult::Done => break,
+                rusqlite::backup::StepResult::More => {}
+                // Busy / Locked (and future variants): retry until the deadline.
+                _ => {
+                    if std::time::Instant::now() > deadline {
+                        return Err(UpdateError::Io(format!("{} stayed busy; backup aborted", src.display())));
+                    }
+                    std::thread::sleep(std::time::Duration::from_millis(20));
+                }
+            }
+        }
     }
     // A self-contained file (no -wal next to it inside the zip).
     to.pragma_update(None, "journal_mode", "DELETE")?;
     Ok(())
 }
+
+/// Busy timeout of the backup connections.
+const BUSY_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
+/// A backup never blocks startup or an install for longer than this.
+const BACKUP_DEADLINE: std::time::Duration = std::time::Duration::from_secs(30);
 
 /// Takes a backup and prunes old ones. Fails without leaving partial files.
 pub fn create_backup(req: &BackupRequest<'_>) -> UpdateResult<BackupInfo> {
@@ -191,12 +223,25 @@ pub fn create_backup(req: &BackupRequest<'_>) -> UpdateResult<BackupInfo> {
             collect(cfg, Path::new(""), 1, &mut cfg_dbs, &mut config_files);
         }
         let mut databases = Vec::new();
+        let mut skipped = Vec::new();
         let mut copies: Vec<(PathBuf, String)> = Vec::new();
         for (i, (abs, rel)) in dbs.iter().enumerate() {
             let tmp = staging.join(format!("db{i}.sqlite"));
-            backup_sqlite(abs, &tmp).map_err(|e| UpdateError::Io(format!("backing up {rel}: {e}")))?;
-            copies.push((tmp, format!("data/{rel}")));
-            databases.push(rel.clone());
+            match backup_sqlite(abs, &tmp) {
+                Ok(()) => {
+                    copies.push((tmp, format!("data/{rel}")));
+                    databases.push(rel.clone());
+                }
+                // The core database is the point of the backup: never skip it.
+                Err(e) if rel == crate::startup::DATABASE_FILE => {
+                    return Err(UpdateError::Io(format!("backing up {rel}: {e}")));
+                }
+                Err(e) => {
+                    tracing::warn!(db = %rel, error = %e, "database skipped in backup");
+                    let _ = std::fs::remove_file(&tmp);
+                    skipped.push(rel.clone());
+                }
+            }
         }
         let files = small.len() + config_files.len();
         copies.extend(small.into_iter().map(|(a, r)| (a, format!("data/{r}"))));
@@ -209,6 +254,7 @@ pub fn create_backup(req: &BackupRequest<'_>) -> UpdateResult<BackupInfo> {
             from_version: req.from_version.to_owned(),
             to_version: req.to_version.map(str::to_owned),
             databases,
+            skipped,
             files,
             size_bytes: 0,
         };
@@ -275,6 +321,16 @@ fn read_meta(path: &Path) -> UpdateResult<BackupInfo> {
 
 /// Deletes all but the `keep` newest backups. Returns how many were removed.
 pub fn prune(data_dir: &Path, keep: usize) -> UpdateResult<usize> {
+    // Leftovers of an interrupted backup (`.<name>.tmp` dirs, `.<name>.zip.part`).
+    if let Ok(entries) = std::fs::read_dir(backups_dir(data_dir)) {
+        for e in entries.flatten() {
+            let name = e.file_name().to_string_lossy().into_owned();
+            if name.starts_with(&format!(".{PREFIX}")) {
+                let _ =
+                    if e.path().is_dir() { std::fs::remove_dir_all(e.path()) } else { std::fs::remove_file(e.path()) };
+            }
+        }
+    }
     let all = list_backups(data_dir)?;
     let mut removed = 0;
     for old in all.iter().skip(keep.max(1)) {

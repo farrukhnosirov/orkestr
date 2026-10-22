@@ -35,6 +35,8 @@ tracing.workspace = true
 
 [dev-dependencies]
 base64.workspace = true
+# `tauri::test` mock runtime for the updater-plugin compatibility test.
+tauri = { workspace = true, features = ["tray-icon", "test"] }
 tempfile.workspace = true
 
 [lints]

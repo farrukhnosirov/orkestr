@@ -39,6 +39,8 @@ param(
   [string]$PasswordPath = "",
   [string]$CertThumbprint = "",
   [string]$OutDir = "",
+  # Extra Tauri config (JSON file) merged last, e.g. a test identifier for e2e install runs.
+  [string]$ExtraConfig = "",
   [switch]$SkipFrontend
 )
 
@@ -96,6 +98,7 @@ if ($extra.Count -gt 0) {
   Utf8NoBom $cfg ($extra | ConvertTo-Json -Depth 6)
   $tauriArgs += @("--config", $cfg)
 }
+if ($ExtraConfig) { $tauriArgs += @("--config", (Resolve-Path $ExtraConfig).Path) }
 Step "tauri build (target dir: $targetDir)"
 $buildStart = Get-Date
 Push-Location $root

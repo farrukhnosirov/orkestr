@@ -55,6 +55,14 @@ fn backup_copies_live_databases_and_settings_but_not_secrets() {
     std::fs::write(data.join("core.token"), "secret").unwrap();
     std::fs::write(data.join("remote").join("cik.key"), "secret").unwrap();
     std::fs::write(data.join("vscode-server").join("big.json"), "{}").unwrap();
+    // A WebView2 profile inside the data dir (ORKESTR_HOME setups): its DBs are locked
+    // by the browser process and must not be touched (found by the installer e2e run).
+    std::fs::create_dir_all(data.join("wv2").join("EBWebView").join("Default")).unwrap();
+    let browser = rusqlite::Connection::open(data.join("wv2").join("EBWebView").join("Default").join("x.db")).unwrap();
+    browser.execute_batch("PRAGMA locking_mode=EXCLUSIVE; CREATE TABLE t(v); INSERT INTO t VALUES (1);").unwrap();
+    // A deep tool database is not ours either.
+    std::fs::create_dir_all(data.join("sync").join("deep")).unwrap();
+    drop(rusqlite::Connection::open(data.join("sync").join("deep").join("tool.db")).unwrap());
     std::fs::write(config.join("updates.json"), "{}").unwrap();
 
     let info = create_backup(&BackupRequest {
@@ -71,6 +79,8 @@ fn backup_copies_live_databases_and_settings_but_not_secrets() {
     let mut dbs = info.databases.clone();
     dbs.sort();
     assert_eq!(dbs, vec!["orkestr.db", "sync/sync.db"]);
+    assert!(info.skipped.is_empty());
+    drop(browser);
     let names = zip_entries(&info.path);
     for want in ["backup.json", "data/orkestr.db", "data/sync/sync.db", "data/claude-code.json", "config/updates.json"]
     {
@@ -170,4 +180,50 @@ fn first_start_of_a_new_version_backs_up_before_migrations() {
     assert!(matches!(&err, UpdateError::DatabaseNewer(by) if by.contains("0.1.1")), "{err}");
     assert_eq!(err.code(), "database_newer");
     assert_eq!(read_marker(data).unwrap().version, "0.1.1", "a refused start must not rewrite the marker");
+}
+
+/// The state a killed / crashed core leaves behind (`-wal` with committed but
+/// un-checkpointed pages, a `-shm` index) plus a stale staging dir of an
+/// interrupted backup: the backup must finish, include the WAL content and
+/// clean up.
+#[test]
+fn backup_and_schema_check_survive_a_crashed_writer() {
+    let live = tempfile::tempdir().unwrap();
+    let conn = make_db(&live.path().join("orkestr.db"), KNOWN);
+    conn.pragma_update(None, "wal_autocheckpoint", 0).unwrap();
+    conn.execute("INSERT INTO marker VALUES ('in the wal')", []).unwrap();
+    // "Crash": copy the files while the writer still has them open.
+    let crashed = tempfile::tempdir().unwrap();
+    for f in ["orkestr.db", "orkestr.db-wal", "orkestr.db-shm"] {
+        std::fs::copy(live.path().join(f), crashed.path().join(f)).unwrap();
+    }
+    drop(conn);
+    // An interrupted earlier backup left a staging dir behind.
+    std::fs::create_dir_all(crashed.path().join("backups").join(".orkestr-backup-x.tmp")).unwrap();
+
+    let started = std::time::Instant::now();
+    let r = prepare_start(&StartRequest {
+        data_dir: crashed.path(),
+        config_dir: None,
+        version: &Version::new(0, 1, 1),
+        known_migrations: &["core_0001_meta", "storage_0001_projects", "new_0001"],
+        retention: 5,
+    })
+    .unwrap();
+    assert!(started.elapsed() < std::time::Duration::from_secs(30));
+    let b = r.backup.expect("backup taken");
+    let mut z = zip::ZipArchive::new(std::fs::File::open(&b.path).unwrap()).unwrap();
+    let mut bytes = Vec::new();
+    z.by_name("data/orkestr.db").unwrap().read_to_end(&mut bytes).unwrap();
+    let restored = crashed.path().join("restored.db");
+    std::fs::write(&restored, bytes).unwrap();
+    let c = rusqlite::Connection::open(&restored).unwrap();
+    let n: i64 = c.query_row("SELECT COUNT(*) FROM marker WHERE v = 'in the wal'", [], |r| r.get(0)).unwrap();
+    assert_eq!(n, 1, "committed WAL content is in the backup");
+    let leftovers = std::fs::read_dir(crashed.path().join("backups"))
+        .unwrap()
+        .flatten()
+        .filter(|e| e.file_name().to_string_lossy().starts_with('.'))
+        .count();
+    assert_eq!(leftovers, 0, "stale staging dirs are cleaned up");
 }
