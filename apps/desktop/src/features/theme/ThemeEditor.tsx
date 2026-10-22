@@ -10,7 +10,7 @@ import { clsx } from "clsx";
 import {
   Boxes,
   Braces,
-  Bot,
+  CircleDot,
   Download,
   Image,
   Music,
@@ -28,14 +28,14 @@ import { type ComponentType, useEffect, useRef, useState } from "react";
 
 import { useT } from "../../i18n";
 import { Segmented } from "../settings/controls";
-import { BackgroundTab, ColorsTab, EffectsTab, MotionTab, RobotTab, SoundsTab, TypographyTab, type TabProps } from "./editorTabs";
+import { BackgroundTab, ColorsTab, EffectsTab, MotionTab, OrbTab, SoundsTab, TypographyTab, type TabProps } from "./editorTabs";
 import { downloadText } from "./i18nText";
 import { exportFileName, savesAsNew } from "./logic";
 import { ThemeMiniature } from "./ThemeCard";
 import { useVisualsStore } from "./ThemeRuntime";
 import { useThemeStore } from "./themeStore";
 
-type TabId = "colors" | "typography" | "effects" | "motion" | "background" | "sounds" | "robot" | "json";
+type TabId = "colors" | "typography" | "effects" | "motion" | "background" | "sounds" | "orb" | "json";
 
 const TABS: ReadonlyArray<{ id: TabId; icon: LucideIcon; component?: ComponentType<TabProps> }> = [
   { id: "colors", icon: Palette, component: ColorsTab },
@@ -44,7 +44,7 @@ const TABS: ReadonlyArray<{ id: TabId; icon: LucideIcon; component?: ComponentTy
   { id: "motion", icon: Boxes, component: MotionTab },
   { id: "background", icon: Image, component: BackgroundTab },
   { id: "sounds", icon: Music, component: SoundsTab },
-  { id: "robot", icon: Bot, component: RobotTab },
+  { id: "orb", icon: CircleDot, component: OrbTab },
   { id: "json", icon: Braces },
 ];
 

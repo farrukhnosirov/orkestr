@@ -34,10 +34,9 @@ export default defineConfig({
     sourcemap: shouldEmitSourcemap(process.env),
     chunkSizeWarningLimit: 2048,
     rollupOptions: {
-      // Main window + the small floating-robot entry (ADR-0016).
+      // One entry for every window (main, HUD, orb, detached panels).
       input: {
         main: fileURLToPath(new URL("./index.html", import.meta.url)),
-        robot: fileURLToPath(new URL("./robot.html", import.meta.url)),
       },
     },
   },

@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+// NOTE (Wave 8, ADR-0045): the per-agent robot windows checked by Scenario H
+// were replaced by one floating orb; see scripts/smoke/orb-screenshots.mjs.
 // Phase 3 (Visual OS) acceptance + visual QA run.
 //
 // Launches the real desktop app (debug build with the bundled frontend),

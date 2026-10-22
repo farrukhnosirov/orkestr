@@ -12,7 +12,6 @@ import {
   FONT_SIZES,
   MONO_FONTS,
   RADII,
-  ROBOT_SKINS,
   SANS_FONTS,
   SHADOW_PRESETS,
   SOUND_EVENTS,
@@ -152,7 +151,6 @@ describe("theme i18n coverage", () => {
       ...MONO_FONTS.map((f) => `fonts.${f.id}`),
       ...SOUND_EVENTS.map((e) => `soundEvents.${e}`),
       ...SOUND_PRESETS.map((p) => `soundPresets.${p}`),
-      ...ROBOT_SKINS.map((s) => `robotSkins.${s}`),
       ...Object.keys(BUILTIN_THEMES).map((id) => `builtin.${id}`),
     ];
     for (const key of keys) {

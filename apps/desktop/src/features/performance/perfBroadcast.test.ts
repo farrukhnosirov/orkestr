@@ -1,11 +1,11 @@
-/** Robot windows follow the main window's effective mode, not the raw user choice. */
+/** The orb window follows the main window's effective mode, not the raw user choice. */
 import type { PerformanceMode } from "@orkestr/protocol";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { resolvePolicy } from "./policy";
 import { startPerfBroadcast, subscribeEffectiveMode } from "./perfBroadcast";
 import { usePerfStore } from "./perfStore";
-import { robotEffects, robotFps } from "../robots/model/perf";
+import { orbFps, orbMotion } from "../orb/model";
 
 const offs: (() => void)[] = [];
 afterEach(() => {
@@ -23,11 +23,12 @@ describe("effective mode broadcast", () => {
     await vi.waitFor(() => expect(seen.at(-1)).toBe("UltraVisual"));
     usePerfStore.getState().setPower({ supported: true, hasBattery: true, onAcPower: false } as never);
     await vi.waitFor(() => expect(seen.at(-1)).toBe("BatterySaver"));
-    // What a robot window then renders with.
+    // What the orb window then renders with: a still sphere.
     const mode = seen.at(-1) ?? "UltraVisual";
-    const busy = { state: "Coding", reducedMotion: false, hidden: false, intensity: 1, asleep: false, hovered: false } as const;
-    expect(robotFps({ ...busy, mode })).toBeLessThan(robotFps({ ...busy, mode: "UltraVisual" }));
-    expect(robotEffects(mode, false).threeD).toBe(false);
+    const env = { pref: "Full", reducedMotion: false, hidden: false, appActive: true, hovered: false, hubOpen: false, voice: false } as const;
+    expect(orbMotion({ ...env, mode })).toBe("static");
+    expect(orbFps(orbMotion({ ...env, mode }), mode)).toBe(0);
+    expect(orbFps(orbMotion({ ...env, mode: "UltraVisual" }), "UltraVisual")).toBeGreaterThan(0);
     expect(resolvePolicy(mode, { reducedMotion: false, hidden: false }).robots3d).toBe(false);
   });
 });

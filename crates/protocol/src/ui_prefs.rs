@@ -1,4 +1,5 @@
-//! Shell preferences of the UI configuration (§29 AI-editable UI, §34 HUD).
+//! Shell preferences of the UI configuration (§29 AI-editable UI, §34 HUD,
+//! ADR-0045 floating orb).
 //!
 //! Appended to [`crate::ui_config::UiConfig`] as the optional `prefs` section
 //! (schema v1, additive: documents without it load with the defaults).
@@ -82,6 +83,46 @@ impl Default for HudPrefs {
     }
 }
 
+/// Animation level of the floating orb (ADR-0045). The effective level is
+/// also capped by the Performance Mode and `prefers-reduced-motion`.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub enum OrbAnimation {
+    /// Breathing, rotating rings, particles.
+    #[default]
+    Full,
+    /// State animations only (rings, pulses), no particles or breathing.
+    Reduced,
+    /// A still sphere; states show by colour and badge.
+    Static,
+}
+
+/// Min / max sphere size of the orb in logical px.
+pub const ORB_SIZE_RANGE: (u16, u16) = (48, 96);
+
+/// The floating orb (ADR-0045): one sphere on the desktop that opens the
+/// Agent Hub. Its position is remembered per device and monitor by the
+/// desktop (not in this document).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase", default)]
+#[ts(export)]
+pub struct OrbPrefs {
+    /// Show the orb on the desktop.
+    pub enabled: bool,
+    /// Sphere diameter in logical px ([`ORB_SIZE_RANGE`]).
+    pub size: u16,
+    /// Show the count badge (working agents / pending approvals).
+    pub show_badge: bool,
+    /// Animation level.
+    pub animation: OrbAnimation,
+}
+
+impl Default for OrbPrefs {
+    fn default() -> Self {
+        Self { enabled: true, size: 64, show_badge: true, animation: OrbAnimation::Full }
+    }
+}
+
 /// Shell preferences.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase", default)]
@@ -97,6 +138,8 @@ pub struct UiPrefs {
     pub background_dim: f32,
     /// HUD look.
     pub hud: HudPrefs,
+    /// Floating orb (ADR-0045, additive).
+    pub orb: OrbPrefs,
 }
 
 impl Default for UiPrefs {
@@ -107,6 +150,7 @@ impl Default for UiPrefs {
             hidden_widgets: Vec::new(),
             background_dim: 0.0,
             hud: HudPrefs::default(),
+            orb: OrbPrefs::default(),
         }
     }
 }
@@ -154,6 +198,13 @@ impl UiPrefs {
         }
         range(issues, "prefs.backgroundDim", self.background_dim, 0.0, 0.9);
         range(issues, "prefs.hud.opacity", self.hud.opacity, 0.4, 1.0);
+        let (min, max) = ORB_SIZE_RANGE;
+        if !(min..=max).contains(&self.orb.size) {
+            issues.push(UiConfigIssue {
+                path: "prefs.orb.size".into(),
+                message: format!("must be between {min} and {max}"),
+            });
+        }
     }
 }
 
@@ -179,6 +230,19 @@ mod tests {
         let p: UiPrefs = serde_json::from_str(r#"{"density":"Compact"}"#).unwrap();
         assert_eq!(p.density, Density::Compact);
         assert_eq!(p.hud, HudPrefs::default());
+        assert_eq!(p.orb, OrbPrefs::default());
+    }
+
+    #[test]
+    fn orb_prefs_default_and_validate() {
+        let p: UiPrefs = serde_json::from_str(r#"{"orb":{"enabled":false,"animation":"Static"}}"#).unwrap();
+        assert!(!p.orb.enabled);
+        assert_eq!(p.orb.animation, OrbAnimation::Static);
+        assert_eq!(p.orb.size, 64, "missing fields default");
+        let mut issues = Vec::new();
+        UiPrefs { orb: OrbPrefs { size: 200, ..OrbPrefs::default() }, ..UiPrefs::default() }.validate_into(&mut issues);
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].path, "prefs.orb.size");
     }
 
     #[test]

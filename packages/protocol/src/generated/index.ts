@@ -788,6 +788,8 @@ export * from "./OpenExternalResult";
 export * from "./OpenIncidentParams";
 export * from "./OpenTarget";
 export * from "./OpenTerminalParams";
+export * from "./OrbAnimation";
+export * from "./OrbPrefs";
 export * from "./OrkestrProcess";
 export * from "./OrkestrProcessKind";
 export * from "./OsKind";

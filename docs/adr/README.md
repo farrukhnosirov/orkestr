@@ -33,7 +33,7 @@ summarises them: **Built** = implemented as decided (with listed deviations),
 | [0013](0013-dockview-docking-layout.md) | dockview for docking layout | Accepted | 1–3 | SP-01 | — | Built for the shell (`dockview-react`) |
 | [0014](0014-portable-pty-terminals.md) | Terminals on portable-pty (ConPTY on Windows) | Accepted | 1 | SP-03, SP-17 | R-02, R-11 | Not started (skeleton trait) |
 | [0015](0015-ui-config-validated-schema.md) | UI config as a validated schema (AI-editable UI) | Accepted | 1–3 | — | R-20 | Partial (v1 schema validated in Rust + TS) |
-| [0016](0016-floating-robots-transparent-windows.md) | Floating robots as separate transparent Tauri windows | Accepted (pending SP-04) | 3 | SP-04 | R-01 | Not started |
+| [0016](0016-floating-robots-transparent-windows.md) | Floating robots as separate transparent Tauri windows | Superseded by 0045 | 3 | SP-04 | R-01 | Removed (Wave 8) |
 | [0017](0017-local-wake-word.md) | Local wake-word strategy | Accepted (pending SP-15) | 3 | SP-15 | R-08 | Not started |
 | [0018](0018-event-sourcing-light.md) | Event sourcing light: event log + replay | Accepted | 1 | SP-14 | R-16 | Partial (persisted log + replay; no outbox, no retention) |
 | [0019](0019-sync-deferred-behind-syncbackend.md) | Sync deferred to Phase 4 behind `SyncBackend` | Accepted | 1 (seam), 4 | SP-20 (Phase 4) | R-03, R-04, R-14 | Partial (minimal trait + `LocalOnlyBackend`) |
@@ -73,6 +73,7 @@ summarises them: **Built** = implemented as decided (with listed deviations),
 | [ADR-0040](0040-marketplace-registry-and-package-signing.md) | Marketplace registry & package signing (§6, §48) — Implemented (Phase 7) | 7 |
 | [ADR-0041](0041-environments-and-deployment-adapters.md) | Environments & deployment adapters (§26) — Implemented (Phase 7) | 7 |
 | [ADR-0042](0042-infrastructure-monitor-and-bug-detective.md) | Infrastructure monitor & Bug Detective (§27) — Implemented (Phase 7) | 7 |
+| [ADR-0045](0045-floating-orb-agent-hub.md) | One floating orb + Agent Hub replaces per-agent robots (supersedes 0016) — Implemented (Wave 8) | W8 |
 
 ## Decision map
 
@@ -109,6 +110,7 @@ flowchart TB
   A34 --> A40[0040 Marketplace registry]
   A10 --> A41[0041 Deployment adapters]
   A41 --> A42[0042 Infra monitor + Bug Detective]
+  A16 --> A45[0045 Floating orb + Agent Hub]
   A18 --> A22[0022 Crash recovery]
   A20[0020 UUID v7] --> A18
 ```

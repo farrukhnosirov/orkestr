@@ -23,7 +23,7 @@ import { commands, matchesShortcut } from "./features/commands/registry";
 import { Toasts } from "./features/notifications/NotificationCenter";
 import { OnboardingWizard } from "./features/onboarding/OnboardingWizard";
 import { ResumeCard } from "./features/resume/ResumeCard";
-import { RobotHost, registerRobotsFeature } from "./features/robots/register";
+import { OrbHost, registerOrbFeature } from "./features/orb/register";
 import { SettingsView } from "./features/settings/SettingsView";
 import { useShellBootstrap } from "./features/settings/useShellBootstrap";
 import { registerThemeFeature } from "./features/theme/register";
@@ -39,7 +39,7 @@ registerSecurityFeature();
 registerRemoteSyncFeature();
 registerThemeFeature();
 registerLayoutFeature();
-registerRobotsFeature();
+registerOrbFeature();
 
 
 function useGlobalShortcuts() {
@@ -139,7 +139,7 @@ export function App() {
           <LayoutDialogs />
           <WorkbenchDialogs />
           <MissionControlOverlay />
-          <RobotHost />
+          <OrbHost />
           <VoiceHud />
         </>
       )}
