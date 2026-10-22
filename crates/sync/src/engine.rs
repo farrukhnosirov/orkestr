@@ -20,6 +20,9 @@ pub struct RemoteSyncConfig {
     pub access_token: String,
     /// Shared remote key material (base64url) all devices of the account use.
     pub remote_key: String,
+    /// Name of the project at the remote, shared by all devices (stream ids
+    /// derive from it); `None` = the local project id.
+    pub project_key: Option<String>,
 }
 
 /// Conflict id.
@@ -84,4 +87,9 @@ pub trait SyncEngine: Send + Sync {
     async fn list_conflicts(&self, p: ProjectId) -> Result<Vec<SyncConflict>, SyncError>;
     /// Resolves a conflict.
     async fn resolve_conflict(&self, id: ConflictId, r: Resolution) -> Result<(), SyncError>;
+    /// Turns remote sync off for a project (local data stays untouched).
+    async fn disable(&self, p: ProjectId) -> Result<(), SyncError> {
+        let _ = p;
+        Err(SyncError::Backend("disabling sync is not supported by this engine".into()))
+    }
 }

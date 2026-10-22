@@ -1,0 +1,70 @@
+.rs-settings,
+.rs-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-4, 16px);
+}
+
+.rs-muted {
+  color: var(--ok-color-text-muted);
+  font-size: var(--ok-font-size-sm);
+}
+
+.rs-error {
+  color: var(--ok-color-danger);
+  font-size: var(--ok-font-size-sm);
+}
+
+.rs-ok {
+  color: var(--ok-color-success, var(--ok-color-text));
+  font-size: var(--ok-font-size-sm);
+}
+
+.rs-status,
+.rs-actions,
+.rs-list__main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ok-space-2, 8px);
+}
+
+.rs-form,
+.rs-pairing {
+  display: grid;
+  gap: var(--ok-space-3, 12px);
+  max-width: 560px;
+}
+
+.rs-key {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-1, 4px);
+  font-size: var(--ok-font-size-sm);
+}
+
+.rs-code {
+  font-family: var(--ok-font-mono, monospace);
+  font-size: var(--ok-font-size-md, 14px);
+  user-select: all;
+  word-break: break-all;
+}
+
+.rs-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-2, 8px);
+}
+
+.rs-list__item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ok-space-2, 8px);
+  padding: var(--ok-space-2, 8px) 0;
+  border-bottom: 1px solid var(--ok-color-border);
+}

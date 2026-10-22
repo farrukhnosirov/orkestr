@@ -1,1 +1,42 @@
-{}
+{
+  "group": "Remote access",
+  "intro": "Reach this Orkestr from a browser or phone through your gateway. Traffic is end-to-end encrypted between the paired device and this computer.",
+  "unavailable": "Remote access is not available in this build of the core yet.",
+  "enabled": "Enabled",
+  "disabled": "Disabled",
+  "connected": "Connected",
+  "disconnected": "Not connected",
+  "sessions": "Active sessions: {{count}}",
+  "gatewayUrl": "Gateway URL",
+  "enrollmentToken": "Enrollment token",
+  "enable": "Enable remote access",
+  "disable": "Disable",
+  "killSwitch": "Disconnect everything",
+  "killSwitchHint": "Revokes all remote sessions and turns remote access off immediately.",
+  "killed": "Remote sessions revoked: {{count}}.",
+  "pairing": {
+    "group": "Pair a device",
+    "start": "Pair a new device",
+    "code": "Pairing code: {{code}}",
+    "expires": "Expires {{time}}",
+    "sas": "Security code: {{sas}}",
+    "sasHint": "Check that the other device shows exactly the same security code.",
+    "sasConfirmed": "The security codes match",
+    "role": "Role",
+    "roles": {
+      "viewer": "Viewer",
+      "operator": "Operator",
+      "admin": "Admin"
+    },
+    "remoteTerminal": "Allow remote terminal",
+    "approve": "Approve device",
+    "approved": "Device “{{name}}” approved."
+  },
+  "devices": {
+    "group": "Devices",
+    "none": "No paired devices.",
+    "lastSeen": "Last seen {{time}}",
+    "revoked": "Revoked",
+    "revoke": "Revoke"
+  }
+}

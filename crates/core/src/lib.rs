@@ -412,6 +412,14 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
         vscode.layout().extensions_dir(),
     );
 
+    // Encrypted sync engine (Phase 4, ADR-0031): `<data_dir>/sync`.
+    let sync_engine = match orkestr_sync::DefaultSyncEngine::open(&paths.data_dir.join("sync")) {
+        Ok(e) => Some(e),
+        Err(e) => {
+            tracing::warn!(error = %e, "sync engine unavailable");
+            None
+        }
+    };
     let services = Arc::new(Services {
         version: VERSION.to_owned(),
         started_at: chrono::Utc::now(),
@@ -451,7 +459,7 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
         lsp,
         claude,
         remote: Arc::new(remote::RemoteService::new()),
-        sync: None,
+        sync: sync_engine.clone().map(|e| Arc::new(e) as Arc<dyn orkestr_sync::SyncEngine>),
     });
     logging::attach_event_bus(services.events.clone());
 
@@ -487,6 +495,16 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
         });
     }
     services.providers.spawn_health_loop(shutdown.clone());
+    if let Some(engine) = sync_engine {
+        // Offline queue (§8): retry pending uploads / failed rounds.
+        let stop = shutdown.clone();
+        tokio::spawn(async move {
+            tokio::select! {
+                () = engine.run_retry_loop(std::time::Duration::from_secs(30)) => {}
+                () = stop.cancelled() => {}
+            }
+        });
+    }
     rpc::lsp::spawn_bridge(services.lsp.clone(), lsp_rx, services.events.clone(), shutdown.clone());
     claude_code::spawn_bridge(Arc::clone(&services), claude_rx);
     if config.claude_auto_register {

@@ -1,1 +1,46 @@
-{}
+{
+  "section": "Remote & Sync",
+  "commands": {
+    "continueOn": "Continue on another device"
+  },
+  "sync": {
+    "group": "Encrypted sync",
+    "intro": "Sync the working tree of “{{name}}” (including uncommitted files) and its UI state through your Orkestr gateway. Everything is end-to-end encrypted; the server only stores ciphertext. Git history is never touched.",
+    "noProject": "Open a project to configure sync.",
+    "noRoot": "This project is not bound to a folder, so there is nothing to sync.",
+    "policyDenied": "The project’s privacy policy forbids remote sync.",
+    "unavailable": "Sync is not available in this build of the core yet.",
+    "status": "Status",
+    "notConfigured": "Not configured",
+    "configured": "Configured",
+    "lastSync": "Last sync: {{time}}",
+    "never": "Never synced",
+    "pending": "Waiting to upload: {{count}}",
+    "lastError": "Last error: {{error}}",
+    "serverUrl": "Gateway URL",
+    "serverUrlHint": "For example http://127.0.0.1:8787",
+    "token": "Access token",
+    "remoteKey": "Remote key",
+    "remoteKeyHint": "Leave empty on the first device to generate one; paste the same key on your other devices.",
+    "remoteProject": "Project name at the remote",
+    "remoteProjectHint": "Must be the same on every device. Defaults to the project slug.",
+    "save": "Save",
+    "disable": "Turn off",
+    "generatedKey": "New remote key — copy it to your other devices now, it is shown only once:",
+    "syncNow": "Sync now",
+    "synced": "Synced: {{pushed}} up, {{pulled}} down, conflicts: {{conflicts}}.",
+    "continueOn": "Continue on another device",
+    "continueHint": "Publishes the working tree, open editors and a task summary so another device can pick up.",
+    "continued": "Ready to continue elsewhere. {{summary}}",
+    "resume": "Resume from another device",
+    "resumed": "Restored the last session. {{summary}}"
+  },
+  "conflicts": {
+    "group": "Conflicts",
+    "none": "No conflicts.",
+    "copy": "Other version saved as {{copy}}",
+    "keepLocal": "Keep mine",
+    "keepRemote": "Take theirs",
+    "keepBoth": "Keep both"
+  }
+}
