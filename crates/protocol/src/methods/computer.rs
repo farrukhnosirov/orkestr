@@ -718,7 +718,7 @@ pub enum RunOutcome {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export)]
-pub struct RunReport {
+pub struct ComputerRunReport {
     /// Run id.
     pub run_id: String,
     /// Command (absent for ad-hoc steps / plans).
@@ -811,7 +811,7 @@ pub enum HandleResult {
         #[ts(optional)]
         matched: Option<CommandMatch>,
         /// Report.
-        run: RunReport,
+        run: ComputerRunReport,
     },
     /// Waiting for a confirmation (`computer.confirm` or the approvals inbox).
     NeedsConfirmation {

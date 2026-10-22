@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Main window: custom title bar window controls, fullscreen, hide-to-tray and tray events, plus the native open / save dialogs (`dialog:allow-open`, `dialog:allow-save` for File → Save As…, for Browse… and File → Open) and every shell command (app commands are declared in build.rs, so other windows only get what their capability grants). Business data never flows through Tauri — the webview talks to the core over the RPC protocol.",
+  "description": "Main window: custom title bar window controls, Assistant-mode compact geometry (size / centre / position / always on top, ADR-0035), fullscreen, hide-to-tray and tray events, plus the native open / save dialogs (`dialog:allow-open`, `dialog:allow-save` for File → Save As…, for Browse… and File → Open) and every shell command (app commands are declared in build.rs, so other windows only get what their capability grants). Business data never flows through Tauri — the webview talks to the core over the RPC protocol.",
   "windows": [
     "main"
   ],
@@ -20,6 +20,12 @@
     "core:window:allow-set-focus",
     "core:window:allow-set-fullscreen",
     "core:window:allow-is-fullscreen",
+    "core:window:allow-set-size",
+    "core:window:allow-center",
+    "core:window:allow-set-always-on-top",
+    "core:window:allow-outer-size",
+    "core:window:allow-outer-position",
+    "core:window:allow-set-position",
     "dialog:allow-open",
     "dialog:allow-save",
     "allow-core-connection",

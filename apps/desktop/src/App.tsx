@@ -14,6 +14,9 @@ import { LayoutDialogs } from "./features/layout/LayoutDialogs";
 import { LayoutEditorPanel } from "./features/layout/LayoutEditor";
 import { registerLayoutFeature } from "./features/layout/register";
 import { AiUiLayer } from "./features/aiui/AiUiLayer";
+import { AssistantSurface } from "./features/assistant/AssistantSurface";
+import { registerAssistantFeature, useAssistantMode } from "./features/assistant/register";
+import { useAssistantStore } from "./features/assistant/store";
 import { VisualLayer } from "./features/performance/VisualLayer";
 import { registerRemoteSyncFeature } from "./features/remoteSync/register";
 import { registerSecurityFeature } from "./features/security/register";
@@ -40,6 +43,7 @@ registerRemoteSyncFeature();
 registerThemeFeature();
 registerLayoutFeature();
 registerRobotsFeature();
+registerAssistantFeature();
 
 
 function useGlobalShortcuts() {
@@ -95,6 +99,8 @@ export function App() {
   useGlobalShortcuts();
   useShellBootstrap(ready);
   useVoiceBootstrap(ready); // voice-sound (Phase 3)
+  useAssistantMode(ready); // computer assistant (ADR-0035)
+  const assistantMode = useAssistantStore((s) => s.mode === "assistant");
 
   const boot = useCallback(() => {
     bootstrapCore().then(
@@ -112,8 +118,14 @@ export function App() {
       <ThemeBackdrop />
       <VisualLayer connected={ready} />
       <TitleBar />
+      {ready && assistantMode && (
+        <main className="app__assistant">
+          <AssistantSurface />
+        </main>
+      )}
       {ready ? (
-        <div className="app__body">
+        // Assistant mode keeps the workspace mounted (layout, editors, terminals) but hidden.
+        <div className={clsx("app__body", assistantMode && "app__body--hidden")} aria-hidden={assistantMode || undefined}>
           <ProjectRail />
           <main className="app__main">
             <div className={clsx("app__workspace", showWelcome && "app__workspace--hidden")} aria-hidden={showWelcome || undefined}>
@@ -125,7 +137,7 @@ export function App() {
       ) : (
         <ConnectionScreen onRetry={boot} />
       )}
-      <StatusBar />
+      {!assistantMode && <StatusBar />}
       <CommandPalette />
       {ready && <LauncherConfirmDialog />}
       <CreateProjectDialog />
@@ -140,7 +152,7 @@ export function App() {
           <WorkbenchDialogs />
           <MissionControlOverlay />
           <RobotHost />
-          <VoiceHud />
+          {!assistantMode && <VoiceHud />}
         </>
       )}
       {ready && <AiUiLayer connected={ready} />}

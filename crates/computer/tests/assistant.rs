@@ -83,7 +83,7 @@ async fn fx() -> Fx {
     Fx { svc, backend, security, _dir: dir }
 }
 
-fn executed(r: &HandleResult) -> &orkestr_protocol::methods::computer::RunReport {
+fn executed(r: &HandleResult) -> &orkestr_protocol::methods::computer::ComputerRunReport {
     match r {
         HandleResult::Executed { run, .. } => run,
         other => panic!("expected Executed, got {other:?}"),

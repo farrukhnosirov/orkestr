@@ -227,6 +227,7 @@ export * from "./CommitResult";
 export * from "./CommitTrailer";
 export * from "./ComputerAction";
 export * from "./ComputerCommandPayload";
+export * from "./ComputerRunReport";
 export * from "./ComputerStatus";
 export * from "./ConfirmParams";
 export * from "./ConflictKind";

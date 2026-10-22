@@ -19,7 +19,7 @@ use orkestr_protocol::methods::computer::{
     AssistantCommand, CatalogueParams, CatalogueResult, CategoryCount, CommandMatch, CommandResult, CommandSet,
     CommandSetSummary, CommandSummary, ComputerAction, ComputerCommandPayload, ComputerStatus, ExportSetResult,
     HandleResult, HistoryEntry, LocalizedText, PendingConfirmation, PlanProposal, ProcessInfo, RiskReason, RunOutcome,
-    RunReport, SafetyLevel, StopResult, WindowInfo,
+    ComputerRunReport, SafetyLevel, StopResult, WindowInfo,
 };
 use orkestr_protocol::NewEvent;
 use orkestr_security::{ApprovalDecision, ApprovalRequest, NewAudit, Security, SecurityError};
@@ -467,7 +467,7 @@ impl ComputerService {
             return p;
         }
         let outcome = r.outcome.unwrap_or(RunOutcome::Failed);
-        let run = RunReport {
+        let run = ComputerRunReport {
             run_id: new_id("run"),
             command_id: spec.command_id.clone(),
             title: spec.title.clone(),
@@ -579,7 +579,7 @@ impl ComputerService {
             self.publish(pending_id, p.command_id.clone(), &p.title, "Rejected", None).await;
             HandleResult::Executed {
                 matched: p.matched.clone(),
-                run: RunReport {
+                run: ComputerRunReport {
                     run_id: new_id("run"),
                     command_id: p.command_id.clone(),
                     title: p.title.clone(),
