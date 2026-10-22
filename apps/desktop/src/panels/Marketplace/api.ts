@@ -51,12 +51,23 @@ export interface GrantDecision {
   allow: boolean;
 }
 
-type LooseCall = (method: string, params: unknown) => Promise<unknown>;
+type LooseCall = (
+  method: string,
+  params: unknown,
+  options?: { timeoutMs?: number },
+) => Promise<unknown>;
+
+/** Install / publish download, verify, sign and (plugins) compile: allow more than the default timeout. */
+const SLOW = { timeoutMs: 180_000 };
 
 /** Untyped call: the methods / fields above are not in the generated map yet. */
-function call<T>(method: string, params: unknown): Promise<T> {
+function call<T>(
+  method: string,
+  params: unknown,
+  options?: { timeoutMs?: number },
+): Promise<T> {
   const client = getClient() as unknown as { call: LooseCall };
-  return client.call(method, params) as Promise<T>;
+  return client.call(method, params, options) as Promise<T>;
 }
 
 export const marketplaceApi = {
@@ -82,14 +93,16 @@ export const marketplaceApi = {
   get: (id: string, sourceId?: string) =>
     call<EntryDetails>("marketplace.get", sourceId ? { id, sourceId } : { id }),
   install: (p: InstallEntryParams) =>
-    call<InstallEntryResult>("marketplace.install", p),
+    call<InstallEntryResult>("marketplace.install", p, SLOW),
   installed: () =>
     call<{ packages: InstalledPackage[] }>("marketplace.installed", {}).then(
       (r) => r.packages,
     ),
   uninstall: (id: string) => call<object>("marketplace.uninstall", { id }),
   publish: (p: PublishPackageParams) =>
-    call<{ entry: MarketEntry }>("marketplace.publish", p).then((r) => r.entry),
+    call<{ entry: MarketEntry }>("marketplace.publish", p, SLOW).then(
+      (r) => r.entry,
+    ),
   keys: () => call<KeysResult>("marketplace.keys", {}),
   trustKey: (keyId: string, fingerprint: string) =>
     call<{ key: PublisherKey }>("marketplace.trustKey", {
@@ -101,5 +114,5 @@ export const marketplaceApi = {
       (r) => r.key,
     ),
   grant: (pluginId: string, decisions: GrantDecision[], enable: boolean) =>
-    call<object>("plugins.grant", { pluginId, decisions, enable }),
+    call<object>("plugins.grant", { pluginId, decisions, enable }, SLOW),
 };

@@ -34,7 +34,14 @@ import { PermissionDialog } from "../../panels/Marketplace/dialogs";
 import { fingerprintRows } from "../../panels/Marketplace/model";
 import { ActionDialog } from "../files/Dialog";
 import { type PluginInfo, type PluginLogLine, pluginsApi } from "./api";
-import { grantKey, sortPlugins, stateTone, toggleAction } from "./model";
+import {
+  grantKey,
+  groupFingerprint,
+  sortPlugins,
+  stateKey,
+  stateTone,
+  toggleAction,
+} from "./model";
 
 export interface PluginsNotice {
   tone: "success" | "danger" | "info";
@@ -324,7 +331,7 @@ export function PluginsManager({
                     <strong>{p.plugin.name}</strong>{" "}
                     <span className="mp-muted">{p.plugin.version}</span>{" "}
                     <Badge tone={stateTone(p.plugin.state)}>
-                      {t(`plugins.state.${p.plugin.state}`)}
+                      {t(`plugins.state.${stateKey(p)}`)}
                     </Badge>
                     {p.pendingGrants.length > 0 && (
                       <Badge tone="warning">
@@ -355,7 +362,7 @@ export function PluginsManager({
                           publisher: p.plugin.publisher,
                         })}
                       >
-                        {fingerprintRows(p.signerFingerprint).map((r) => (
+                        {fingerprintRows(groupFingerprint(p.signerFingerprint)).map((r) => (
                           <code key={r}>{r}</code>
                         ))}
                       </div>

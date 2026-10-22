@@ -16,11 +16,22 @@ import { getClient } from "../../core/client";
 
 export type { InstallPluginResult, PluginInfo, PluginLogLine };
 
-type LooseCall = (method: string, params: unknown) => Promise<unknown>;
+type LooseCall = (
+  method: string,
+  params: unknown,
+  options?: { timeoutMs?: number },
+) => Promise<unknown>;
 
-function call<T>(method: string, params: unknown): Promise<T> {
+/** Installs verify the package and compile the wasm module: allow more than the default timeout. */
+export const SLOW_CALL_TIMEOUT_MS = 180_000;
+
+function call<T>(
+  method: string,
+  params: unknown,
+  options?: { timeoutMs?: number },
+): Promise<T> {
   const client = getClient() as unknown as { call: LooseCall };
-  return client.call(method, params) as Promise<T>;
+  return client.call(method, params, options) as Promise<T>;
 }
 
 export const pluginsApi = {
@@ -30,14 +41,19 @@ export const pluginsApi = {
       (r) => r.plugin,
     ),
   install: (p: InstallPluginParams) =>
-    call<InstallPluginResult>("plugins.install", p),
+    call<InstallPluginResult>("plugins.install", p, {
+      timeoutMs: SLOW_CALL_TIMEOUT_MS,
+    }),
   grant: (p: GrantPluginParams) =>
-    call<{ plugin: PluginInfo }>("plugins.grant", p).then((r) => r.plugin),
-  enable: (pluginId: string) =>
-    call<{ plugin: PluginInfo }>("plugins.enable", {
-      pluginId,
-      reason: "user",
+    call<{ plugin: PluginInfo }>("plugins.grant", p, {
+      timeoutMs: SLOW_CALL_TIMEOUT_MS,
     }).then((r) => r.plugin),
+  enable: (pluginId: string) =>
+    call<{ plugin: PluginInfo }>(
+      "plugins.enable",
+      { pluginId, reason: "user" },
+      { timeoutMs: SLOW_CALL_TIMEOUT_MS },
+    ).then((r) => r.plugin),
   disable: (pluginId: string) =>
     call<{ plugin: PluginInfo }>("plugins.disable", {
       pluginId,

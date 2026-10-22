@@ -142,7 +142,8 @@
       "Enabled": "Enabled",
       "Disabled": "Disabled",
       "Killed": "Killed",
-      "Quarantined": "Quarantined"
+      "Quarantined": "Quarantined",
+      "Ready": "Not enabled yet"
     },
     "kind": {
       "Provider": "Provider",

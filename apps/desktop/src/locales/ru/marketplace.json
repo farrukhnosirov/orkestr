@@ -146,7 +146,8 @@
       "Enabled": "Включён",
       "Disabled": "Выключен",
       "Killed": "Остановлен",
-      "Quarantined": "В карантине"
+      "Quarantined": "В карантине",
+      "Ready": "Ещё не включён"
     },
     "kind": {
       "Provider": "Провайдер",

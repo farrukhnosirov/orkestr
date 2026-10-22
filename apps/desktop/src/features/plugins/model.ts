@@ -45,3 +45,17 @@ export function sortPlugins(plugins: PluginInfo[]): PluginInfo[] {
     return pa - pb || a.plugin.name.localeCompare(b.plugin.name);
   });
 }
+
+/** Locale key of the state badge (`Installed` without open requests = ready to enable). */
+export function stateKey(p: PluginInfo): PluginStateName | "Ready" {
+  return p.plugin.state === "Installed" && p.pendingGrants.length === 0
+    ? "Ready"
+    : p.plugin.state;
+}
+
+/** Groups a bare hex fingerprint into 4-character blocks (already grouped ones pass through). */
+export function groupFingerprint(fp: string): string {
+  const s = fp.trim();
+  if (/\s/.test(s)) return s;
+  return (s.match(/.{1,4}/g) ?? []).join(" ");
+}
