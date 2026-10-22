@@ -68,3 +68,27 @@
   padding: var(--ok-space-2, 8px) 0;
   border-bottom: 1px solid var(--ok-color-border);
 }
+
+.rs-qr-block {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.rs-qr-img {
+  width: 200px;
+  height: 200px;
+  flex: none;
+  background: #ffffff;
+  border-radius: 4px;
+  image-rendering: pixelated;
+}
+
+.rs-qr-text {
+  flex: 1 1 200px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}

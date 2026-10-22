@@ -5,6 +5,7 @@ import type { Project } from "@orkestr/protocol";
 import { OrkestrError } from "@orkestr/client";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import QRCode from "qrcode";
 
 const calls: { method: string; params: unknown }[] = [];
 let configured = false;
@@ -77,6 +78,7 @@ vi.mock("../../core/client", () => ({
 import { i18n } from "../../i18n";
 import { useAppStore } from "../../store/app";
 import { useEditorStore } from "../../store/editor";
+import { PAIRING_QR_OPTIONS, pairingDeepLink } from "./logic";
 import { RemoteSyncSettings } from "./RemoteSyncSettings";
 
 const project = (sync: "Allowed" | "NoRemoteSync" = "Allowed"): Project =>
@@ -198,6 +200,15 @@ describe("Remote & Sync settings", () => {
     });
     expect(await screen.findByText("Pairing code: ABCD2345")).toBeTruthy();
     expect(screen.getByText("Waiting for the other device to enter the code…")).toBeTruthy();
+    const qr = (await screen.findByRole("img", { name: /QR code for pairing/ })) as HTMLImageElement;
+    const pairingText = 'orkestr-pair:{"pairingId":"pr1"}';
+    expect(screen.getByText(pairingText)).toBeTruthy();
+    const deepLink = pairingDeepLink(pairingText);
+    expect(deepLink).toBe(`orkestr://pair?offer=${encodeURIComponent(pairingText)}`);
+    const svg = await QRCode.toString(deepLink, PAIRING_QR_OPTIONS);
+    expect(qr.getAttribute("src")).toBe(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`);
+    // the deep link decodes back to exactly the text shown next to the QR
+    expect(decodeURIComponent(/[?&]offer=([^&#]+)/.exec(deepLink)![1]!)).toBe(pairingText);
     const approve = screen.getByRole("button", { name: "Approve device" }) as HTMLButtonElement;
     expect(approve.disabled).toBe(true);
     pending = [{ pairingId: "pr1", deviceId: "d2", deviceName: "Tablet", platform: "web", sas: "123456", claimedAt: "2026-10-22T10:01:00Z" }];

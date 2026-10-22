@@ -6,6 +6,7 @@
  */
 import type { DeviceInfo, DevicePairingStart, RemoteStatus, Role } from "@orkestr/protocol";
 import { Badge, Button, Input } from "@orkestr/ui";
+import QRCode from "qrcode";
 import { useCallback, useEffect, useState } from "react";
 
 import { getClient } from "../../core/client";
@@ -13,7 +14,7 @@ import { useT } from "../../i18n";
 import { describeError } from "../../i18n/errors";
 import { formatDate } from "../../i18n/format";
 import { Segmented, SettingGroup, SettingRow, Switch } from "../settings/controls";
-import { isUnimplemented } from "./logic";
+import { isUnimplemented, PAIRING_QR_OPTIONS, pairingDeepLink } from "./logic";
 
 const ROLES: Role[] = ["viewer", "operator", "admin"];
 type Notice = { tone: "ok" | "error"; text: string } | null;
@@ -24,6 +25,59 @@ type Notice = { tone: "ok" | "error"; text: string } | null;
  */
 type Pairing = DevicePairingStart & { sas?: string; deviceName?: string };
 const PAIRING_POLL_MS = 1500;
+
+/**
+ * QR of the pairing deep link (what the phone scans) next to the plain pairing
+ * text (what the web client accepts) and a copy button.
+ */
+function PairingQr({ text }: { text: string }) {
+  const { t } = useT("remote");
+  const [src, setSrc] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    let live = true;
+    setSrc(null);
+    QRCode.toString(pairingDeepLink(text), PAIRING_QR_OPTIONS)
+      .then((svg) => {
+        if (live) setSrc(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`);
+      })
+      .catch(() => {
+        // too long for a QR: the text + copy button still work
+      });
+    return () => {
+      live = false;
+    };
+  }, [text]);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+    } catch {
+      setCopied(false);
+    }
+  };
+  return (
+    <div className="rs-qr-block">
+      {src && <img className="rs-qr-img" src={src} alt={t("pairing.qrAlt")} data-testid="pairing-qr" />}
+      <div className="rs-qr-text">
+        <p className="rs-muted">{t("pairing.qrLabel")}</p>
+        <p className="rs-muted rs-qr" title={t("pairing.qrHint")}>
+          <code>{text}</code>
+        </p>
+        <div className="rs-actions">
+          <Button size="sm" onClick={() => void copy()}>
+            {t("pairing.copy")}
+          </Button>
+          {copied && (
+            <span className="rs-ok" role="status">
+              {t("pairing.copied")}
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function RemotePanel() {
   const { t } = useT("remote");
@@ -204,11 +258,7 @@ export function RemotePanel() {
             <div className="rs-pairing">
               <p className="rs-code">{t("pairing.code", { code: pairing.code })}</p>
               <p className="rs-muted">{t("pairing.expires", { time: formatDate(pairing.expiresAt) })}</p>
-              {pairing.qr && (
-                <p className="rs-muted rs-qr" title={t("pairing.qrHint")}>
-                  <code>{pairing.qr}</code>
-                </p>
-              )}
+              {pairing.qr && <PairingQr text={pairing.qr} />}
               {pairing.sas ? (
                 <>
                   {pairing.deviceName && <p>{t("pairing.joined", { name: pairing.deviceName })}</p>}

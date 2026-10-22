@@ -381,9 +381,10 @@ computer as `http://10.0.2.2:<port>` or, after `adb reverse`, as
    authenticator for the owner account (`POST /v1/auth/totp/setup` and
    `/confirm`): the app signs in with the gateway URL and a TOTP code
    (passkey sign-in on mobile is not built yet).
-2. Desktop: **Settings → Remote & Sync → Pair a new device** shows the
-   pairing text (`orkestr-pair:{…}`). On the phone open **Pair** and paste
-   it, scan a QR code that encodes it, or open a deep link
+2. Desktop: **Settings → Remote & Sync → Pair a new device** shows a QR
+   code (the `orkestr://pair?offer=…` deep link) next to the pairing text
+   (`orkestr-pair:{…}`) and a copy button. On the phone open **Pair** and scan
+   the QR, paste the text, or open a deep link
    `orkestr://pair?offer=<urlencoded text>` (on the emulator:
    `adb shell am start -a android.intent.action.VIEW -d "orkestr://pair?offer=…"`).
 3. Compare the 6-digit SAS on both screens, then approve the device on the

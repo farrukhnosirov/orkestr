@@ -33,7 +33,11 @@
     "approved": "Device “{{name}}” approved.",
     "waiting": "Waiting for the other device to enter the code…",
     "joined": "“{{name}}” wants to join.",
-    "qrHint": "Paste this pairing text into the web client."
+    "qrHint": "Paste this pairing text into the web client.",
+    "qrAlt": "QR code for pairing — scan it with the Orkestr mobile app",
+    "qrLabel": "Scan with the Orkestr app on your phone, or paste the text below into the web client.",
+    "copy": "Copy pairing text",
+    "copied": "Pairing text copied."
   },
   "devices": {
     "group": "Devices",

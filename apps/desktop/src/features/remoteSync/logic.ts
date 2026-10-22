@@ -51,3 +51,19 @@ export function restoreUiState(state: unknown): number {
   if (typeof s.activePath === "string" && s.activePath) open(s.activePath);
   return n;
 }
+
+/**
+ * Deep link the phone scans: `orkestr://pair?offer=<urlencoded pairing text>`
+ * (the mobile `parsePairingInput` decodes it back to the same text).
+ */
+export function pairingDeepLink(pairingText: string): string {
+  return `orkestr://pair?offer=${encodeURIComponent(pairingText)}`;
+}
+
+/** QR options: black on a white quiet zone so it scans in light and dark themes. */
+export const PAIRING_QR_OPTIONS = {
+  type: "svg",
+  margin: 4,
+  errorCorrectionLevel: "M",
+  color: { dark: "#000000", light: "#ffffff" },
+} as const;
