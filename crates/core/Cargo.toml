@@ -42,6 +42,12 @@ orkestr-quality.workspace = true
 orkestr-insight.workspace = true
 orkestr-vscode-host.workspace = true
 orkestr-extensions.workspace = true
+# Phase 7 (ecosystem)
+orkestr-plugins.workspace = true
+orkestr-marketplace.workspace = true
+orkestr-deploy.workspace = true
+orkestr-monitor.workspace = true
+orkestr-detective.workspace = true
 tokio.workspace = true
 tokio-util.workspace = true
 futures.workspace = true

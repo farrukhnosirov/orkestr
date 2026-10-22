@@ -2,15 +2,24 @@
 import type { Capability } from "./Capability";
 import type { PluginId } from "./PluginId";
 import type { PluginKind } from "./PluginKind";
+import type { PluginState } from "./PluginState";
 
 /**
  * An installed plugin. Permissions are explicit; widgets get no FS/secrets by default.
  */
 export type Plugin = { 
 /**
- * Id.
+ * Id (install instance).
  */
 id: PluginId, 
+/**
+ * Package id from the manifest (`publisher.name`; Phase 7, appended).
+ */
+packageId: string, 
+/**
+ * Lifecycle state (Phase 7, appended; `enabled` mirrors `state == Enabled`).
+ */
+state: PluginState, 
 /**
  * Package name.
  */

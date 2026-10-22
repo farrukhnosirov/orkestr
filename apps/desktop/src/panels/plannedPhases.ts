@@ -7,9 +7,8 @@
 export const PLANNED_PHASE = {
   // #17 Visual Browser Agent: no browser tool exists yet; deferred from P3.
   browser: 4,
-  // §21: Database and Deployments are Phase 4.
+  // §21: Database is Phase 4. (Deployments shipped in Phase 7, ADR-0041.)
   database: 4,
-  deployments: 4,
 } as const;
 
 export type PlannedPanel = keyof typeof PLANNED_PHASE;

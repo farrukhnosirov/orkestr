@@ -86,6 +86,18 @@ pub enum DeploymentTarget {
     Azure,
     /// Custom script (name).
     CustomScript(String),
+    /// Supervised local process with a health URL (Phase 7, appended).
+    LocalProcess,
+    /// Static site published to a served directory (Phase 7, appended).
+    StaticSite,
+    /// Netlify (Phase 7, appended).
+    Netlify,
+    /// Fly.io (Phase 7, appended).
+    Fly,
+    /// Kubernetes (Phase 7, appended).
+    Kubernetes,
+    /// Deployment provider contributed by a plugin (`<packageId>/<provider>`; Phase 7, appended).
+    Plugin(String),
 }
 
 /// Deployment status.

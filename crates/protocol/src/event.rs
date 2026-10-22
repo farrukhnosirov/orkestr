@@ -928,6 +928,7 @@ macro_rules! event_kinds {
                         | EventKind::LspStatus(_)
                         | EventKind::ClaudeCodeEvent(_)
                         | EventKind::ClaudeCodeStatus(_)
+                        | EventKind::DeploymentProgress(_)
                 )
             }
 
@@ -1109,6 +1110,30 @@ event_kinds! {
     JobMigrated(crate::methods::jobs::JobMigratedPayload),
     /// A model was distributed to a node and verified (Phase 6, ADR-0039). Appended.
     ModelDistributed(crate::methods::models::ModelDistributedPayload),
+    /// A plugin was installed (Phase 7, ADR-0034). Appended.
+    PluginInstalled(crate::methods::plugins::PluginInstalledPayload),
+    /// A plugin changed state (enabled, disabled, killed, quarantined, uninstalled). Appended.
+    PluginStateChanged(crate::methods::plugins::PluginStateChangedPayload),
+    /// A plugin host call was denied (audited). Appended.
+    PluginCallDenied(crate::methods::plugins::PluginCallDeniedPayload),
+    /// Marketplace sources / installs / keys changed (Phase 7, ADR-0040). Appended.
+    MarketplaceUpdated(crate::methods::marketplace::MarketplaceUpdatedPayload),
+    /// A deployment started (Phase 7, ADR-0041). Appended.
+    DeploymentStarted(crate::methods::deploy::DeploymentStartedPayload),
+    /// Deployment progress (ephemeral). Appended.
+    DeploymentProgress(crate::methods::deploy::DeploymentProgressPayload),
+    /// A health check went up / down (Phase 7, ADR-0042). Appended.
+    HealthCheckChanged(crate::methods::monitor::HealthCheckChangedPayload),
+    /// An alert was raised (or re-raised while open). Appended.
+    AlertRaised(crate::methods::monitor::AlertPayload),
+    /// An alert was resolved. Appended.
+    AlertResolved(crate::methods::monitor::AlertPayload),
+    /// A Bug Detective incident was opened (Phase 7, ADR-0042). Appended.
+    IncidentOpened(crate::methods::detective::IncidentOpenedPayload),
+    /// A Bug Detective incident changed stage. Appended.
+    IncidentStageChanged(crate::methods::detective::IncidentStageChangedPayload),
+    /// A dashboard was saved or deleted (Phase 7). Appended.
+    DashboardChanged(crate::methods::dashboards::DashboardChangedPayload),
 }
 
 // ---------------------------------------------------------------------------
@@ -1272,6 +1297,16 @@ impl NewEvent {
                 self.project_id = Some(d.deployment.project_id);
                 self.task_id = d.deployment.task_id;
             }
+            EventKind::DeploymentStarted(d) => {
+                self.project_id = Some(d.deployment.project_id);
+                self.task_id = d.deployment.task_id;
+            }
+            EventKind::DeploymentProgress(d) => self.project_id = Some(d.project_id),
+            EventKind::HealthCheckChanged(h) => self.project_id = h.project_id,
+            EventKind::AlertRaised(a) | EventKind::AlertResolved(a) => self.project_id = a.alert.project_id,
+            EventKind::IncidentOpened(i) => self.project_id = Some(i.incident.project_id),
+            EventKind::IncidentStageChanged(i) => self.project_id = Some(i.project_id),
+            EventKind::DashboardChanged(d) => self.project_id = d.project_id,
             EventKind::DecisionRecorded(d) => self.project_id = Some(d.decision.project_id),
             EventKind::ManagerMessageAdded(m) => self.project_id = Some(m.message.project_id),
             EventKind::ManagerPlanUpdated(p) => self.project_id = Some(p.plan.project_id),

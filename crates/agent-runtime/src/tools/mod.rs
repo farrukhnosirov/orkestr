@@ -8,6 +8,7 @@
 //! and `run_command`, whose check happens in the terminal's security gate
 //! (same engine, same actor) right before anything is spawned.
 
+pub mod external;
 pub mod fs;
 pub mod git;
 pub mod memory;

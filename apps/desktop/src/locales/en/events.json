@@ -107,5 +107,17 @@
   "jobProgress_other": "Job {{job}}: {{count}} progress updates",
   "jobCheckpointed": "Job {{job}} checkpointed",
   "jobMigrated": "Job {{job}} migrated from {{from}} to {{to}}",
-  "modelDistributed": "Model {{model}} distributed to node {{node}}"
+  "modelDistributed": "Model {{model}} distributed to node {{node}}",
+  "pluginInstalled": "Plugin {{name}} installed",
+  "pluginStateChanged": "Plugin {{plugin}}: {{state}}",
+  "pluginCallDenied": "Plugin {{plugin}} denied {{op}}",
+  "marketplaceUpdated": "Marketplace updated: {{change}}",
+  "deploymentStarted": "Deployment {{id}} started",
+  "deploymentProgress": "Deployment {{id}}: {{step}}",
+  "healthCheckChanged": "Health check {{name}}: {{state}}",
+  "alertRaised": "Alert: {{title}}",
+  "alertResolved": "Alert resolved: {{title}}",
+  "incidentOpened": "Incident opened: {{title}}",
+  "incidentStageChanged": "Incident {{id}}: {{stage}}",
+  "dashboardChanged": "Dashboard {{id}} changed"
 }

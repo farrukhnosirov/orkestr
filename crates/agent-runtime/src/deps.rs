@@ -30,6 +30,8 @@ pub struct RuntimeConfig {
     /// The user's UI language: agents write messages for the user in it
     /// (shared with the core, which updates it from settings / the UI).
     pub ui_language: crate::language::UiLanguage,
+    /// Late-bound provider of plugin tools (Phase 7, ADR-0034; shared like `ui_language`).
+    pub external_tools: crate::tools::external::ExternalToolsSlot,
 }
 
 impl Default for RuntimeConfig {
@@ -43,6 +45,7 @@ impl Default for RuntimeConfig {
             max_output_tokens: 8_192,
             max_running_agents: 16,
             ui_language: crate::language::UiLanguage::default(),
+            external_tools: crate::tools::external::ExternalToolsSlot::default(),
         }
     }
 }

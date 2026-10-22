@@ -1,0 +1,27 @@
+{
+  "name": "@orkestr/widget-sdk",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Orkestr Widget SDK: postMessage bridge for plugin widgets running in a sandboxed iframe (Phase 7, ADR-0034)",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@orkestr/protocol": "0.1.0"
+  }
+}

@@ -137,6 +137,11 @@ impl AgentRuntime {
         }
     }
 
+    /// Installs the provider of plugin tools (Phase 7, ADR-0034).
+    pub fn set_external_tools(&self, tools: Arc<dyn crate::tools::external::ExternalTools>) {
+        self.deps.config.external_tools.set(tools);
+    }
+
     /// Template service.
     #[must_use]
     pub fn templates(&self) -> &TemplateService {

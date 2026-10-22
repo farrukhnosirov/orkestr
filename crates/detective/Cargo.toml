@@ -1,0 +1,32 @@
+[package]
+name = "orkestr-detective"
+description = "Orkestr Bug Detective (Phase 7, ADR-0042): incident stage machine, evidence collectors, root-cause hypothesis, reproduction, agent fix on a detective/<id> worktree with two human gates and a budget cap."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+orkestr-domain.workspace = true
+orkestr-protocol.workspace = true
+orkestr-storage.workspace = true
+orkestr-events.workspace = true
+orkestr-security.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+async-trait.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+chrono.workspace = true
+parking_lot.workspace = true
+orkestr-monitor.workspace = true
+orkestr-deploy.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

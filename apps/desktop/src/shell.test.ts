@@ -44,6 +44,10 @@ describe("panel registry", () => {
       "Claude Code",
       // multi-node (Phase 6)
       "Nodes",
+      // ecosystem (Phase 7)
+      "Marketplace",
+      "Dashboards",
+      "Bug Detective",
     ];
     expect(PANELS.map((p) => p.title).sort()).toEqual([...expected].sort());
     expect(new Set(PANELS.map((p) => p.id)).size).toBe(PANELS.length);

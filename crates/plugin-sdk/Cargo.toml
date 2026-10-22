@@ -1,0 +1,15 @@
+[package]
+name = "orkestr-plugin-sdk"
+description = "Orkestr plugin SDK (guest side, wasm32-unknown-unknown): ABI v1 helpers for code plugins (ADR-0034). On non-wasm targets only the pure-Rust ABI helpers compile, so the host workspace build stays green."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

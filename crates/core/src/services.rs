@@ -98,6 +98,16 @@ pub struct Services {
     pub remote: Arc<crate::remote::RemoteService>,
     /// Multi-node registry, links, enrollment, worker state (Phase 6).
     pub node_hub: Arc<crate::nodes::NodeHub>,
+    /// Plugin host (Phase 7, ADR-0034).
+    pub plugins: Arc<orkestr_plugins::PluginService>,
+    /// Marketplace (Phase 7, ADR-0040).
+    pub marketplace: Arc<orkestr_marketplace::Marketplace>,
+    /// Environments + deployments (Phase 7, ADR-0041).
+    pub deploy: Arc<orkestr_deploy::DeployService>,
+    /// Infrastructure monitor (Phase 7, ADR-0042).
+    pub monitor: Arc<orkestr_monitor::MonitorService>,
+    /// Bug Detective (Phase 7, ADR-0042).
+    pub detective: Arc<orkestr_detective::Detective>,
     /// Encrypted sync engine (Phase 4); `None` until the sync package wires it.
     pub sync: Option<Arc<dyn orkestr_sync::SyncEngine>>,
 }

@@ -399,6 +399,31 @@ export function describeEvent(event: Event): string {
       });
     case "ModelDistributed":
       return t("events:modelDistributed", { model: event.payload.modelRef, node: short(event.payload.nodeId) });
+    // Phase 7: ecosystem.
+    case "PluginInstalled":
+      return t("events:pluginInstalled", { name: event.payload.plugin.manifest.name });
+    case "PluginStateChanged":
+      return t("events:pluginStateChanged", { plugin: event.payload.packageId, state: event.payload.state });
+    case "PluginCallDenied":
+      return t("events:pluginCallDenied", { plugin: event.payload.packageId, op: event.payload.op });
+    case "MarketplaceUpdated":
+      return t("events:marketplaceUpdated", { change: event.payload.change });
+    case "DeploymentStarted":
+      return t("events:deploymentStarted", { id: short(event.payload.deployment.id) });
+    case "DeploymentProgress":
+      return t("events:deploymentProgress", { id: short(event.payload.deploymentId), step: event.payload.step });
+    case "HealthCheckChanged":
+      return t("events:healthCheckChanged", { name: event.payload.name, state: event.payload.to });
+    case "AlertRaised":
+      return t("events:alertRaised", { title: event.payload.alert.title });
+    case "AlertResolved":
+      return t("events:alertResolved", { title: event.payload.alert.title });
+    case "IncidentOpened":
+      return t("events:incidentOpened", { title: event.payload.incident.title });
+    case "IncidentStageChanged":
+      return t("events:incidentStageChanged", { id: short(event.payload.incidentId), stage: event.payload.to });
+    case "DashboardChanged":
+      return t("events:dashboardChanged", { id: short(event.payload.dashboardId) });
   }
 }
 

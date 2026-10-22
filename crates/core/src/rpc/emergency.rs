@@ -58,6 +58,11 @@ pub async fn stop_all(services: &Services) -> Result<EmergencyStopResult, RpcErr
     let terminals = terminals + services.quality.cancel_all();
     // Claude Code chat sessions (their tokens are children of the emergency root too).
     let terminals = terminals + services.claude.manager.stop_all();
+    // Phase 7: plugin calls (kill switch), deployments, Bug Detective runs.
+    let killed = services.plugins.kill(None, "emergency stop").await;
+    let terminals = terminals + killed.calls_interrupted as usize;
+    let terminals = terminals + services.deploy.cancel_all().await;
+    let terminals = terminals + services.detective.cancel_all().await;
     // The VS Code server runs (untrusted) extension code: Stop All stops it too.
     let vscode = usize::from(services.vscode.status().running.is_some());
     if let Err(e) = services.vscode.stop().await {

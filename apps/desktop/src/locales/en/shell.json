@@ -192,6 +192,18 @@
     "nodes": {
       "title": "Nodes",
       "description": "Enrolled computers, remote jobs and model distribution"
+    },
+    "marketplace": {
+      "title": "Marketplace",
+      "description": "Plugins, widgets and agent templates from signed registries"
+    },
+    "dashboards": {
+      "title": "Dashboards",
+      "description": "Custom dashboards with built-in and plugin widgets"
+    },
+    "bugDetective": {
+      "title": "Bug Detective",
+      "description": "Incident investigation: evidence, root cause, approved fixes"
     }
   },
   "phasePlaceholder": {

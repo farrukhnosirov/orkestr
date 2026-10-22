@@ -1,0 +1,6 @@
+{
+  "stub": {
+    "title": "Deployments",
+    "description": "Environments, deployment adapters, approvals and rollback. Being built in this phase."
+  }
+}

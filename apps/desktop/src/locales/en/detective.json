@@ -1,0 +1,6 @@
+{
+  "stub": {
+    "title": "Bug Detective",
+    "description": "Investigates incidents from alerts, logs and failing tests and proposes a fix for your approval. Being built in this phase."
+  }
+}

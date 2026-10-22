@@ -26,6 +26,9 @@ pub mod consensus;
 pub mod context;
 pub mod cost;
 pub mod dashboard;
+pub mod dashboards;
+pub mod deploy;
+pub mod detective;
 pub mod emergency;
 pub mod events;
 pub mod extensions;
@@ -34,12 +37,15 @@ pub mod jobs;
 pub mod layouts;
 pub mod lsp;
 pub mod manager;
+pub mod marketplace;
 pub mod memory;
 pub mod merge;
 pub mod models;
+pub mod monitor;
 pub mod nodes;
 pub mod permissions;
 pub mod pipeline;
+pub mod plugins;
 pub mod pm;
 pub mod projects;
 pub mod providers;
@@ -63,6 +69,7 @@ pub mod ui;
 pub mod vcs;
 pub mod voice;
 pub mod vscode;
+pub mod widgets;
 
 /// A typed RPC method.
 pub trait Method: 'static {
@@ -527,6 +534,64 @@ pub fn registry() -> Vec<MethodDescriptor> {
         MethodDescriptor::of::<models::BlobPut>(),
         MethodDescriptor::of::<models::BlobGet>(),
         MethodDescriptor::of::<models::ModelInstall>(),
+        // ecosystem (Phase 7, ADR-0034 / 0040 / 0041 / 0042)
+        MethodDescriptor::of::<plugins::List>(),
+        MethodDescriptor::of::<plugins::Get>(),
+        MethodDescriptor::of::<plugins::Install>(),
+        MethodDescriptor::of::<plugins::Grant>(),
+        MethodDescriptor::of::<plugins::Uninstall>(),
+        MethodDescriptor::of::<plugins::Enable>(),
+        MethodDescriptor::of::<plugins::Disable>(),
+        MethodDescriptor::of::<plugins::KillAll>(),
+        MethodDescriptor::of::<plugins::SetSafeMode>(),
+        MethodDescriptor::of::<plugins::Invoke>(),
+        MethodDescriptor::of::<plugins::Logs>(),
+        MethodDescriptor::of::<marketplace::Sources>(),
+        MethodDescriptor::of::<marketplace::AddSource>(),
+        MethodDescriptor::of::<marketplace::RemoveSource>(),
+        MethodDescriptor::of::<marketplace::Refresh>(),
+        MethodDescriptor::of::<marketplace::Search>(),
+        MethodDescriptor::of::<marketplace::Get>(),
+        MethodDescriptor::of::<marketplace::Install>(),
+        MethodDescriptor::of::<marketplace::Publish>(),
+        MethodDescriptor::of::<marketplace::Keys>(),
+        MethodDescriptor::of::<marketplace::TrustKey>(),
+        MethodDescriptor::of::<marketplace::UntrustKey>(),
+        MethodDescriptor::of::<dashboards::List>(),
+        MethodDescriptor::of::<dashboards::Get>(),
+        MethodDescriptor::of::<dashboards::Save>(),
+        MethodDescriptor::of::<dashboards::Delete>(),
+        MethodDescriptor::of::<widgets::List>(),
+        MethodDescriptor::of::<widgets::Bundle>(),
+        MethodDescriptor::of::<deploy::EnvironmentsList>(),
+        MethodDescriptor::of::<deploy::EnvironmentsCreate>(),
+        MethodDescriptor::of::<deploy::EnvironmentsUpdate>(),
+        MethodDescriptor::of::<deploy::EnvironmentsDelete>(),
+        MethodDescriptor::of::<deploy::Adapters>(),
+        MethodDescriptor::of::<deploy::Plan>(),
+        MethodDescriptor::of::<deploy::Start>(),
+        MethodDescriptor::of::<deploy::Cancel>(),
+        MethodDescriptor::of::<deploy::List>(),
+        MethodDescriptor::of::<deploy::Get>(),
+        MethodDescriptor::of::<deploy::Logs>(),
+        MethodDescriptor::of::<deploy::Rollback>(),
+        MethodDescriptor::of::<monitor::Overview>(),
+        MethodDescriptor::of::<monitor::Metrics>(),
+        MethodDescriptor::of::<monitor::ChecksList>(),
+        MethodDescriptor::of::<monitor::CheckUpsert>(),
+        MethodDescriptor::of::<monitor::CheckDelete>(),
+        MethodDescriptor::of::<monitor::CheckRun>(),
+        MethodDescriptor::of::<monitor::LogSources>(),
+        MethodDescriptor::of::<monitor::Logs>(),
+        MethodDescriptor::of::<monitor::Ingest>(),
+        MethodDescriptor::of::<monitor::Alerts>(),
+        MethodDescriptor::of::<monitor::AckAlert>(),
+        MethodDescriptor::of::<detective::Open>(),
+        MethodDescriptor::of::<detective::List>(),
+        MethodDescriptor::of::<detective::Get>(),
+        MethodDescriptor::of::<detective::ApproveFix>(),
+        MethodDescriptor::of::<detective::ApproveMerge>(),
+        MethodDescriptor::of::<detective::Cancel>(),
     ]
 }
 

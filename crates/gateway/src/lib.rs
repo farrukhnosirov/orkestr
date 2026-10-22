@@ -12,6 +12,7 @@
 //! * `GET /v1/connect?coreId=…` — client WS relayed opaquely to the core
 //! * `POST /v1/pairings/{id}/claim`, `GET /v1/pairings/{id}` — pairing relay
 //! * `/v1/sync/*` — `orkestr_sync::server_router` (bearer: session or core token)
+//! * `/registry/*` — self-hosted marketplace registry (Phase 7), see [`registry`]
 //! * everything else — static files from `--web-dist` (SPA fallback to `index.html`)
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
@@ -20,6 +21,7 @@ pub mod auth;
 pub mod limits;
 pub mod push;
 pub mod push_native;
+pub mod registry;
 pub mod relay;
 pub mod store;
 
@@ -365,7 +367,9 @@ pub fn router(st: GatewayState, cfg: &GatewayConfig) -> anyhow::Result<Router> {
     let sync_auth: orkestr_sync::server::AuthFn =
         Arc::new(move |token: &str| store.session(token).or_else(|| store.core_token_account(token)));
     let sync = orkestr_sync::server::SyncServerState::open(&cfg.data_dir.join("sync"), sync_auth)?;
-    let mut app = api.nest("/v1/sync", orkestr_sync::server::server_router(sync));
+    let mut app = api
+        .nest("/v1/sync", orkestr_sync::server::server_router(sync))
+        .nest("/registry", registry::router(&cfg.data_dir.join("registry")));
     if let Some(dist) = &cfg.web_dist {
         let index = dist.join("index.html");
         app = app.fallback_service(

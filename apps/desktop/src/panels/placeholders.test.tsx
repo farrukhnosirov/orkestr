@@ -22,7 +22,7 @@ describe("placeholder panels", () => {
     }
     expect(getPanel("browser")?.phase).toBe(4);
     expect(getPanel("database")?.phase).toBe(4);
-    expect(getPanel("deployments")?.phase).toBe(4);
+    expect(getPanel("deployments")?.phase).toBe(0);
   });
 
   it("the badge shows the planned phase", () => {

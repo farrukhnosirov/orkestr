@@ -334,6 +334,29 @@ Deferred with reasons (ADR-0033 / ADR-0039; RR-G14 `unimplementedFeature`):
 | Real macOS node | Acceptance simulates macOS with a node profile and a fake `xcodebuild` |
 | Checkpoints through the sync chunk store | Direct blob transfer between cores instead |
 
+## Phase 7 plan of record (Ecosystem)
+
+Step 0 (skeleton) landed. All Phase 7 RPC methods are registered and
+answer `unimplementedFeature` until their work package lands. The crates,
+services, migration slots, events, policies, panels and `@orkestr/widget-sdk`
+exist. ADRs: 0034, 0040, 0041 and 0042.
+
+| Feature | Spec | ADR | Crates / core | UI | Work package | Status |
+|---|---|---|---|---|---|---|
+| Plugin SDK (#48: signed `.orkp`, wasmtime sandbox, grants, kill switch, safe mode; kinds Tool / DeploymentProvider / PlatformIntegration + declarative AgentTemplate / Widget / Mcp) | §48 | 0034 | `orkestr-plugins`, `orkestr-plugin-sdk`, `core/rpc/plugins.rs`, `core/plugin_tools.rs` | Marketplace (Installed) | WP1 | In progress |
+| Agent Marketplace (#1: official / directory / gateway registries, key trust, publish) | §6, §48 | 0040 | `orkestr-marketplace`, `gateway/registry.rs`, `core/rpc/marketplace.rs` | Marketplace | WP2 | In progress |
+| Widget SDK + Dashboard Builder | §48 | 0034 | `packages/widget-sdk`, `core/dashboards_store.rs`, `core/rpc/{dashboards,widgets}.rs` | Dashboards | WP3 | In progress |
+| Deployment Agents (#44: environments, StaticSite / LocalProcess / Docker live, Vercel / Netlify / Fly / Kubernetes request-shape verified, approvals, rollback) | §26 | 0041 | `orkestr-deploy`, `core/rpc/deploy.rs` | Deployments | WP4 | In progress |
+| Live Infrastructure Monitor (#45: node metrics, health checks, log sources, alerts) | §27 | 0042 | `orkestr-monitor`, `core/rpc/monitor.rs` | Monitoring (infra) | WP5 | In progress |
+| Bug Detective (#46: evidence, hypothesis, reproduction, gated fix + merge) | §27 | 0042 | `orkestr-detective`, `core/rpc/detective.rs` | Bug Detective | WP6 | In progress |
+
+Deferred in Phase 7 (RR-G14 `unimplementedFeature`): JS/QuickJS plugins,
+the `Provider` and `Panel` plugin kinds, plugin auto-update, widget network
+access, AWS / GCP / Azure / Cloudflare adapters, live cloud runs, GitHub PR
+creation, a public hosted marketplace (ratings, payments), external APM
+ingestion, deploys inside a container sandbox, mobile/web dashboard editing,
+and Computer Control (ADR-0035).
+
 ## D. Summary
 
 | Level | P1 | P2 | P3 |

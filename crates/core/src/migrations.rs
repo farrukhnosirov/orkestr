@@ -51,6 +51,14 @@ pub fn all() -> Vec<Migration> {
     // multi-node (Phase 6): node registry + enrollments (WP-A), remote jobs (WP-B)
     all.extend_from_slice(crate::nodes::registry_store::NODE_MIGRATIONS);
     all.extend(orkestr_task_engine::job_migrations());
+    // ecosystem (Phase 7): plugins (WP1), marketplace (WP2), dashboards (WP3),
+    // deploy (WP4), monitor (WP5), detective (WP6)
+    all.extend(orkestr_plugins::plugin_migrations());
+    all.extend(orkestr_marketplace::marketplace_migrations());
+    all.extend_from_slice(crate::dashboards_store::DASHBOARD_MIGRATIONS);
+    all.extend(orkestr_deploy::deploy_migrations());
+    all.extend(orkestr_monitor::monitor_migrations());
+    all.extend(orkestr_detective::detective_migrations());
     all
 }
 

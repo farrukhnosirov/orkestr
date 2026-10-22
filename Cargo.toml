@@ -1,6 +1,8 @@
 [workspace]
 resolver = "2"
 members = ["crates/*", "apps/desktop/src-tauri"]
+# `plugin-sdk` targets wasm32-unknown-unknown (guest side); its host build is
+# target-gated to an empty crate, so it stays in the default set.
 default-members = ["crates/*"]
 
 [workspace.package]
@@ -43,6 +45,13 @@ orkestr-quality = { path = "crates/quality" }
 orkestr-insight = { path = "crates/insight" }
 orkestr-vscode-host = { path = "crates/vscode-host" }
 orkestr-extensions = { path = "crates/extensions" }
+# Phase 7 (ecosystem)
+orkestr-plugins = { path = "crates/plugins" }
+orkestr-plugin-sdk = { path = "crates/plugin-sdk" }
+orkestr-marketplace = { path = "crates/marketplace" }
+orkestr-deploy = { path = "crates/deploy" }
+orkestr-monitor = { path = "crates/monitor" }
+orkestr-detective = { path = "crates/detective" }
 
 # --- async ---------------------------------------------------------------------
 tokio = { version = "1.47", features = ["full"] }
@@ -97,6 +106,12 @@ x25519-dalek = { version = "2.0", features = ["static_secrets"] }
 rand_core06 = { package = "rand_core", version = "0.6", features = ["getrandom"] }
 ciborium = "0.2"
 fastcdc = "3.2"
+
+# --- plugins / packages (Phase 7, ADR-0034/0040) ----------------------------------
+# Minimal wasmtime: no WASI, no component model, no cache, cranelift JIT only.
+wasmtime = { version = "50", default-features = false, features = ["runtime", "cranelift", "wat", "std"] }
+zip = { version = "2", default-features = false, features = ["deflate"] }
+semver = "1"
 
 # --- platform / system ------------------------------------------------------------
 sysinfo = "0.37"

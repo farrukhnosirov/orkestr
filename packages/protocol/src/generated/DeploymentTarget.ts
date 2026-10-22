@@ -3,4 +3,4 @@
 /**
  * Deployment target type.
  */
-export type DeploymentTarget = "Docker" | "Compose" | "Ssh" | "Vercel" | "Cloudflare" | "Aws" | "Gcp" | "Azure" | { "CustomScript": string };
+export type DeploymentTarget = "Docker" | "Compose" | "Ssh" | "Vercel" | "Cloudflare" | "Aws" | "Gcp" | "Azure" | { "CustomScript": string } | "LocalProcess" | "StaticSite" | "Netlify" | "Fly" | "Kubernetes" | { "Plugin": string };

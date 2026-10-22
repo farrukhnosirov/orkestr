@@ -15,6 +15,9 @@ pub mod consensus;
 pub mod context;
 pub mod cost;
 pub mod dashboard;
+pub mod dashboards;
+pub mod deploy;
+pub mod detective;
 pub mod emergency;
 pub mod events;
 pub mod extensions;
@@ -24,13 +27,16 @@ pub mod jobs_ui;
 pub mod layouts;
 pub mod lsp;
 pub mod manager;
+pub mod marketplace;
 pub mod memory;
 pub mod merge;
 pub mod models;
+pub mod monitor;
 pub mod node_worker;
 pub mod nodes;
 pub mod permissions;
 pub mod pipeline;
+pub mod plugins;
 pub mod pm;
 pub mod projects;
 pub mod providers;
@@ -54,6 +60,7 @@ pub mod ui;
 pub mod vcs;
 pub mod voice;
 pub mod vscode;
+pub mod widgets;
 
 use std::collections::BTreeMap;
 use std::future::Future;
@@ -278,6 +285,11 @@ pub fn build_router() -> RpcRouter {
         .register(jobs_ui::register)
         .register(jobs_ctl::register)
         .register(models::register);
+    // ecosystem (Phase 7): WP1 plugins, WP2 marketplace, WP3 dashboards + widgets,
+    // WP4 environments + deploy, WP5 monitor, WP6 detective
+    router.register(plugins::register).register(marketplace::register);
+    router.register(dashboards::register).register(widgets::register);
+    router.register(deploy::register).register(monitor::register).register(detective::register);
     router
 }
 

@@ -239,6 +239,32 @@ fn explicit(method: &str) -> Option<MethodPolicy> {
         "models.import" | "models.distribute" => MethodPolicy::expensive(),
         "node.hello" | "node.heartbeat" | "jobs.offer" | "jobs.drain" | "node.jobCancel" | "node.blobHas"
         | "node.blobPut" | "node.blobGet" | "node.modelInstall" => MethodPolicy::worker(),
+        // --- ecosystem (Phase 7, ADR-0034 / 0040 / 0041 / 0042) ------------------------------
+        "plugins.install"
+        | "plugins.grant"
+        | "plugins.enable"
+        | "plugins.setSafeMode"
+        | "marketplace.publish"
+        | "marketplace.trustKey"
+        | "marketplace.addSource"
+        | "marketplace.install" => MethodPolicy::local(),
+        "plugins.disable" | "plugins.killAll" | "deploy.cancel" | "detective.cancel" => MethodPolicy::emergency(),
+        "deploy.start" | "deploy.rollback" | "detective.approveMerge" => MethodPolicy::dangerous(),
+        "detective.open" | "detective.approveFix" | "plugins.invoke" | "monitor.checkRun" => MethodPolicy::expensive(),
+        "environments.update" | "environments.delete" => MethodPolicy::admin_step_up(),
+        // webhook: local callers or an operator token; plain write bucket
+        "monitor.ingest" => MethodPolicy::write(),
+        // reads whose verbs are not in READ_VERBS (widget data bindings need Read class)
+        "marketplace.sources"
+        | "marketplace.keys"
+        | "widgets.bundle"
+        | "deploy.adapters"
+        | "deploy.plan"
+        | "monitor.overview"
+        | "monitor.metrics"
+        | "monitor.checksList"
+        | "monitor.logSources"
+        | "monitor.alerts" => MethodPolicy::read(),
         // --- emergency ----------------------------------------------------------------------
         "emergency.status" => MethodPolicy::read(),
         // the audit log reveals every resource name: admins only
@@ -425,6 +451,76 @@ mod tests {
         // no other method is coordinator-only
         for m in crate::methods::registry() {
             assert_eq!(policy_for(m.name).unwrap().coordinator_only, worker.contains(&m.name), "{}", m.name);
+        }
+    }
+
+    #[test]
+    fn phase7_methods_follow_the_plan() {
+        let local = [
+            "plugins.install",
+            "plugins.grant",
+            "plugins.enable",
+            "plugins.setSafeMode",
+            "marketplace.publish",
+            "marketplace.trustKey",
+            "marketplace.addSource",
+            "marketplace.install",
+        ];
+        for m in local {
+            assert!(policy_for(m).unwrap().local_only, "{m} must be local-only");
+        }
+        for m in ["plugins.disable", "plugins.killAll", "deploy.cancel", "detective.cancel"] {
+            let p = policy_for(m).unwrap();
+            assert_eq!((p.min_role, p.rate_class), (Role::Viewer, RateClass::Emergency), "{m}");
+        }
+        for m in ["deploy.start", "deploy.rollback", "detective.approveMerge"] {
+            let p = policy_for(m).unwrap();
+            assert_eq!((p.min_role, p.step_up), (Role::Operator, StepUp::WhenDangerous), "{m}");
+        }
+        for m in ["detective.open", "detective.approveFix", "plugins.invoke", "monitor.checkRun"] {
+            assert_eq!(policy_for(m).unwrap().rate_class, RateClass::Expensive, "{m}");
+        }
+        for m in ["environments.update", "environments.delete"] {
+            let p = policy_for(m).unwrap();
+            assert_eq!((p.min_role, p.step_up), (Role::Admin, StepUp::Always), "{m}");
+        }
+        let ingest = policy_for("monitor.ingest").unwrap();
+        assert_eq!(ingest.rate_class, RateClass::Write);
+        assert!(!ingest.local_only);
+        let reads = [
+            "plugins.list",
+            "plugins.get",
+            "plugins.logs",
+            "marketplace.sources",
+            "marketplace.search",
+            "marketplace.get",
+            "marketplace.keys",
+            "dashboards.list",
+            "dashboards.get",
+            "widgets.list",
+            "widgets.bundle",
+            "environments.list",
+            "deploy.adapters",
+            "deploy.plan",
+            "deploy.list",
+            "deploy.get",
+            "deploy.logs",
+            "monitor.overview",
+            "monitor.metrics",
+            "monitor.checksList",
+            "monitor.logSources",
+            "monitor.logs",
+            "monitor.alerts",
+            "detective.list",
+            "detective.get",
+        ];
+        for m in reads {
+            let p = policy_for(m).unwrap();
+            assert_eq!((p.min_role, p.rate_class), (Role::Viewer, RateClass::Read), "{m}");
+            assert!(!p.local_only, "{m}");
+        }
+        for m in ["dashboards.save", "dashboards.delete", "environments.create", "monitor.checkUpsert"] {
+            assert_eq!(policy_for(m).unwrap().min_role, Role::Operator, "{m}");
         }
     }
 

@@ -175,6 +175,14 @@ define_id!(/// Merge Manager proposal id (§16).
     MergeProposalId, "mergeProposal");
 define_id!(/// Language server session id (one supervised language server process per editor client).
     LspSessionId, "lsp");
+define_id!(/// Dashboard (Dashboard Builder, Phase 7) id.
+    DashboardId, "dashboard");
+define_id!(/// Infrastructure health check (Phase 7) id.
+    HealthCheckId, "healthCheck");
+define_id!(/// Monitoring alert (Phase 7) id.
+    AlertId, "alert");
+define_id!(/// Bug Detective incident (Phase 7) id.
+    IncidentId, "incident");
 define_id!(/// Claude Code chat session id (one official `claude` CLI process per chat tab of the Claude Code panel).
     ClaudeSessionId, "claude");
 

@@ -24,6 +24,7 @@ import {
   useLogTailFeed,
   worstLevel,
 } from "./health";
+import { InfraMonitor } from "./infra";
 import "./monitoring.css";
 import { ratio, seriesStats, type TelemetryPoint, useTelemetryFeed, useTelemetryStore, windowed } from "./telemetry";
 
@@ -401,6 +402,7 @@ export default function MonitoringPanel(_props: PanelProps) {
         )}
         <ProcessTable rows={h?.processes ?? []} coreRow={coreRow} />
         <LogTail />
+        <InfraMonitor />
       </div>
     </div>
   );

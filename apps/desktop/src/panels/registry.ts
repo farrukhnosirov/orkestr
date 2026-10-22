@@ -7,6 +7,7 @@ import {
   Activity,
   Bot,
   BrainCircuit,
+  Bug,
   Code2,
   Coins,
   Database,
@@ -15,6 +16,7 @@ import {
   GitBranch,
   Globe,
   LayoutDashboard,
+  LayoutGrid,
   ListTodo,
   Network,
   Puzzle,
@@ -24,14 +26,17 @@ import {
   Sparkles,
   Sparkle,
   SquareTerminal,
+  Store,
 } from "lucide-react";
 
 import AgentsPanel from "./Agents";
 import ArchitecturePanel from "./Architecture";
 import BrowserPanel from "./Browser";
+import BugDetectivePanel from "./BugDetective";
 import ClaudeCodePanel from "./ClaudeCode";
 import CodePanel from "./Code";
 import CostsPanel from "./Costs";
+import DashboardsPanel from "./Dashboards";
 import DatabasePanel from "./Database";
 import DeploymentsPanel from "./Deployments";
 import ExtensionsPanel from "./Extensions";
@@ -39,6 +44,7 @@ import FilesPanel from "./Files";
 import GitPanel from "./Git";
 import LogsPanel from "./Logs";
 import ManagerPanel from "./Manager";
+import MarketplacePanel from "./Marketplace";
 import MemoryPanel from "./Memory";
 import MissionControlPanel from "./MissionControl";
 import MonitoringPanel from "./Monitoring";
@@ -81,7 +87,7 @@ export const PANELS: readonly PanelDefinition[] = [
   panel("browser", Globe, PLANNED_PHASE.browser, BrowserPanel),
   panel("database", Database, PLANNED_PHASE.database, DatabasePanel),
   panel("logs", ScrollText, 0, LogsPanel),
-  panel("deployments", Rocket, PLANNED_PHASE.deployments, DeploymentsPanel),
+  panel("deployments", Rocket, 0, DeploymentsPanel),
   panel("memory", BrainCircuit, 0, MemoryPanel),
   panel("costs", Coins, 0, CostsPanel),
   // mission-control (Phase 3)
@@ -95,6 +101,10 @@ export const PANELS: readonly PanelDefinition[] = [
   panel("claudeCode", Sparkle, 0, ClaudeCodePanel),
   // multi-node (Phase 6): enrolled nodes, jobs, model distribution
   panel("nodes", Server, 0, NodesPanel),
+  // ecosystem (Phase 7): marketplace (WP2), dashboards (WP3), Bug Detective (WP6)
+  panel("marketplace", Store, 0, MarketplacePanel),
+  panel("dashboards", LayoutGrid, 0, DashboardsPanel),
+  panel("bugDetective", Bug, 0, BugDetectivePanel),
 ];
 
 const BY_ID = new Map(PANELS.map((p) => [p.id, p]));

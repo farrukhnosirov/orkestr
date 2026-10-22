@@ -20,6 +20,7 @@ pub mod checks;
 pub mod claude_code;
 pub mod claude_engine;
 pub mod config;
+pub mod dashboards_store;
 pub mod discovery;
 pub mod error;
 pub mod gates;
@@ -29,6 +30,7 @@ pub mod layouts_store;
 pub mod logging;
 pub mod migrations;
 pub mod nodes;
+pub mod plugin_tools;
 pub mod recovery;
 pub mod redact;
 pub mod remote;
@@ -428,6 +430,40 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
         Arc::clone(&remote),
         &orkestr_node::EnvSource::process(),
     ));
+    // Ecosystem (Phase 7, ADR-0034 / 0040 / 0041 / 0042): constructed idle;
+    // nothing runs until the owning work packages start their loops.
+    let plugins = Arc::new(orkestr_plugins::PluginService::new(orkestr_plugins::PluginDeps {
+        db: db.clone(),
+        events: events.clone(),
+        security: Arc::clone(&security),
+        data_dir: paths.data_dir.join("plugins"),
+    }));
+    let marketplace = Arc::new(orkestr_marketplace::Marketplace::new(orkestr_marketplace::MarketplaceDeps {
+        db: db.clone(),
+        events: events.clone(),
+        security: Arc::clone(&security),
+        plugins: Arc::clone(&plugins),
+        data_dir: paths.data_dir.join("marketplace"),
+    }));
+    let deploy = Arc::new(orkestr_deploy::DeployService::new(orkestr_deploy::DeployDeps {
+        db: db.clone(),
+        events: events.clone(),
+        security: Arc::clone(&security),
+        objects: Arc::clone(&objects),
+        data_dir: paths.data_dir.join("deploy"),
+    }));
+    let monitor = Arc::new(orkestr_monitor::MonitorService::new(orkestr_monitor::MonitorDeps {
+        db: db.clone(),
+        events: events.clone(),
+        nodes: Arc::clone(&nodes),
+        data_dir: paths.data_dir.join("monitor"),
+    }));
+    let detective = Arc::new(orkestr_detective::Detective::new(orkestr_detective::DetectiveDeps {
+        db: db.clone(),
+        events: events.clone(),
+        security: Arc::clone(&security),
+        data_dir: paths.data_dir.join("detective"),
+    }));
     let services = Arc::new(Services {
         version: VERSION.to_owned(),
         started_at: chrono::Utc::now(),
@@ -468,6 +504,11 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
         claude,
         remote,
         node_hub,
+        plugins,
+        marketplace,
+        deploy,
+        monitor,
+        detective,
         sync: sync_engine.clone().map(|e| Arc::new(e) as Arc<dyn orkestr_sync::SyncEngine>),
     });
     logging::attach_event_bus(services.events.clone());
