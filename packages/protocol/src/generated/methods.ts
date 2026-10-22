@@ -89,6 +89,30 @@ import type { ClaudeTranscriptResult } from "./ClaudeTranscriptResult";
 import type { ClaudeUsageParams } from "./ClaudeUsageParams";
 import type { CloneParams } from "./CloneParams";
 import type { CloneResult } from "./CloneResult";
+import type { CodexInstallParams } from "./CodexInstallParams";
+import type { CodexInstallResult } from "./CodexInstallResult";
+import type { CodexLimits } from "./CodexLimits";
+import type { CodexLimitsParams } from "./CodexLimitsParams";
+import type { CodexLoginParams } from "./CodexLoginParams";
+import type { CodexLoginState } from "./CodexLoginState";
+import type { CodexModelsParams } from "./CodexModelsParams";
+import type { CodexModelsResult } from "./CodexModelsResult";
+import type { CodexOpenInTerminalParams } from "./CodexOpenInTerminalParams";
+import type { CodexRespondApprovalParams } from "./CodexRespondApprovalParams";
+import type { CodexSendParams } from "./CodexSendParams";
+import type { CodexSessionInfo } from "./CodexSessionInfo";
+import type { CodexSessionParams } from "./CodexSessionParams";
+import type { CodexSetOptionsParams } from "./CodexSetOptionsParams";
+import type { CodexStartParams } from "./CodexStartParams";
+import type { CodexStatus } from "./CodexStatus";
+import type { CodexStatusParams } from "./CodexStatusParams";
+import type { CodexTemplatesParams } from "./CodexTemplatesParams";
+import type { CodexTemplatesResult } from "./CodexTemplatesResult";
+import type { CodexTerminalResult } from "./CodexTerminalResult";
+import type { CodexThreadsParams } from "./CodexThreadsParams";
+import type { CodexThreadsResult } from "./CodexThreadsResult";
+import type { CodexTranscriptParams } from "./CodexTranscriptParams";
+import type { CodexTranscriptResult } from "./CodexTranscriptResult";
 import type { CommitParams } from "./CommitParams";
 import type { CommitResult } from "./CommitResult";
 import type { ConsensusResult } from "./ConsensusResult";
@@ -173,6 +197,9 @@ import type { EffectiveRulesResult } from "./EffectiveRulesResult";
 import type { EmergencyStatusResult } from "./EmergencyStatusResult";
 import type { EmergencyStopResult } from "./EmergencyStopResult";
 import type { Empty } from "./Empty";
+import type { EnginesConfig } from "./EnginesConfig";
+import type { EnginesStatus } from "./EnginesStatus";
+import type { EnginesStatusParams } from "./EnginesStatusParams";
 import type { EnrollNodeParams } from "./EnrollNodeParams";
 import type { EnrollNodeResult } from "./EnrollNodeResult";
 import type { EntryDetailsResult } from "./EntryDetailsResult";
@@ -931,6 +958,26 @@ export type Methods = {
   "claudeCode.setChatMeta": [ClaudeSetChatMetaParams, ClaudeChatMeta];
   "claudeCode.openInTerminal": [ClaudeOpenInTerminalParams, ClaudeLoginResult];
   "claudeCode.rewind": [ClaudeRewindParams, ClaudeRewindResult];
+  "codex.status": [CodexStatusParams, CodexStatus];
+  "codex.install": [CodexInstallParams, CodexInstallResult];
+  "codex.login": [CodexLoginParams, CodexLoginState];
+  "codex.loginCancel": [Empty, CodexStatus];
+  "codex.logout": [Empty, CodexStatus];
+  "codex.openInTerminal": [CodexOpenInTerminalParams, CodexTerminalResult];
+  "codex.limits": [CodexLimitsParams, CodexLimits];
+  "codex.models": [CodexModelsParams, CodexModelsResult];
+  "codex.threads": [CodexThreadsParams, CodexThreadsResult];
+  "codex.transcript": [CodexTranscriptParams, CodexTranscriptResult];
+  "codex.start": [CodexStartParams, CodexSessionInfo];
+  "codex.send": [CodexSendParams, CodexSessionInfo];
+  "codex.interrupt": [CodexSessionParams, CodexSessionInfo];
+  "codex.stop": [CodexSessionParams, CodexSessionInfo];
+  "codex.compact": [CodexSessionParams, CodexSessionInfo];
+  "codex.setOptions": [CodexSetOptionsParams, CodexSessionInfo];
+  "codex.respondApproval": [CodexRespondApprovalParams, CodexSessionInfo];
+  "codex.templates": [CodexTemplatesParams, CodexTemplatesResult];
+  "engines.status": [EnginesStatusParams, EnginesStatus];
+  "engines.setConfig": [EnginesConfig, EnginesStatus];
   "remote.enable": [RemoteEnableParams, RemoteStatus];
   "remote.disable": [Empty, RemoteStatus];
   "remote.status": [Empty, RemoteStatus];
@@ -1364,6 +1411,26 @@ export const METHOD_NAMES = [
   "claudeCode.setChatMeta",
   "claudeCode.openInTerminal",
   "claudeCode.rewind",
+  "codex.status",
+  "codex.install",
+  "codex.login",
+  "codex.loginCancel",
+  "codex.logout",
+  "codex.openInTerminal",
+  "codex.limits",
+  "codex.models",
+  "codex.threads",
+  "codex.transcript",
+  "codex.start",
+  "codex.send",
+  "codex.interrupt",
+  "codex.stop",
+  "codex.compact",
+  "codex.setOptions",
+  "codex.respondApproval",
+  "codex.templates",
+  "engines.status",
+  "engines.setConfig",
   "remote.enable",
   "remote.disable",
   "remote.status",
@@ -1575,6 +1642,9 @@ export const EVENT_KINDS = [
   "IncidentOpened",
   "IncidentStageChanged",
   "DashboardChanged",
+  "CodexEvent",
+  "CodexStatus",
+  "CodexAccount",
 ] as const;
 
 /** UI config schema version (see orkestr-protocol ui_config). */

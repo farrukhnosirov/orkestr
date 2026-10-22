@@ -1,7 +1,7 @@
 //! Subscription topics (contract §4).
 //!
 //! Topics: `global`, `project:<id>`, `task:<id>`, `agent:<id>`,
-//! `terminal:<id>`, `node:<id>`, `lsp:<sessionId>`, `claude:<sessionId>`, plus the wildcard `*` (every event; intended
+//! `terminal:<id>`, `node:<id>`, `lsp:<sessionId>`, `claude:<sessionId>`, `codex:<sessionId>`, plus the wildcard `*` (every event; intended
 //! for the Logs panel and diagnostics).
 //!
 //! Routing rules ([`event_topics`]):
@@ -60,6 +60,12 @@ pub fn node(id: impl std::fmt::Display) -> String {
     format!("node:{id}")
 }
 
+/// `codex:<sessionId>` — one Codex chat session (ADR-0047).
+#[must_use]
+pub fn codex(id: impl std::fmt::Display) -> String {
+    format!("codex:{id}")
+}
+
 /// Validates a topic string sent by a client.
 #[must_use]
 pub fn is_valid(topic: &str) -> bool {
@@ -69,7 +75,7 @@ pub fn is_valid(topic: &str) -> bool {
     let Some((prefix, id)) = topic.split_once(':') else {
         return false;
     };
-    matches!(prefix, "project" | "task" | "agent" | "terminal" | "node" | "lsp" | "claude")
+    matches!(prefix, "project" | "task" | "agent" | "terminal" | "node" | "lsp" | "claude" | "codex")
         && uuid::Uuid::parse_str(id).is_ok()
 }
 
@@ -97,6 +103,14 @@ pub fn event_topics(event: &Event) -> Vec<String> {
     }
     if let EventKind::ClaudeCodeStatus(p) = &event.kind {
         topics.push(claude(p.session.session_id));
+    }
+    // Codex chat items likewise (ADR-0047).
+    if let EventKind::CodexEvent(p) = &event.kind {
+        topics.push(codex(p.session_id));
+        return topics;
+    }
+    if let EventKind::CodexStatus(p) = &event.kind {
+        topics.push(codex(p.session.session_id));
     }
     if matches!(
         event.kind,
