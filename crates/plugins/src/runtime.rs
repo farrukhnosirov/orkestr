@@ -180,10 +180,16 @@ impl WasmSandbox {
         if !has(abi::EXPORT_CALL, &|t| func_sig(t, &[ValType::I32, ValType::I32], &[ValType::I64])) {
             return Err(PluginError::Package("ABI v1: missing export `orkestr_call(i32, i32) -> i64`".into()));
         }
+        for name in [abi::EXPORT_ON_EVENT, abi::EXPORT_DEPLOY] {
+            let present = module.exports().any(|e| e.name() == name);
+            if present && !has(name, &|t| func_sig(t, &[ValType::I32, ValType::I32], &[ValType::I64])) {
+                return Err(PluginError::Package(format!("ABI v1: export `{name}` must be `(i32, i32) -> i64`")));
+            }
+        }
         Ok(module)
     }
 
-    /// Runs one call on a blocking thread (see [`Self::call_blocking`]).
+    /// Runs one call of `orkestr_call` on a blocking thread (see [`Self::call_blocking`]).
     ///
     /// # Errors
     /// See [`Self::call_blocking`].
@@ -196,11 +202,32 @@ impl WasmSandbox {
         host: Arc<dyn HostApi>,
         ctl: CallControl,
     ) -> Result<CallOutput, PluginError> {
+        self.call_export(module, abi::EXPORT_CALL, plugin, input, limits, host, ctl).await
+    }
+
+    /// Runs one call of the guest export `export` (`orkestr_call`,
+    /// `orkestr_on_event`, `orkestr_deploy`) on a blocking thread.
+    ///
+    /// # Errors
+    /// See [`Self::call_blocking`]; a missing export traps.
+    #[allow(clippy::too_many_arguments)]
+    pub async fn call_export(
+        &self,
+        module: Module,
+        export: &'static str,
+        plugin: PluginId,
+        input: Vec<u8>,
+        limits: PluginLimits,
+        host: Arc<dyn HostApi>,
+        ctl: CallControl,
+    ) -> Result<CallOutput, PluginError> {
         let sb = self.clone();
         let handle = tokio::runtime::Handle::current();
-        tokio::task::spawn_blocking(move || sb.call_blocking(&module, plugin, &input, limits, host, handle, ctl))
-            .await
-            .map_err(|e| PluginError::Internal(format!("plugin call thread failed: {e}")))?
+        tokio::task::spawn_blocking(move || {
+            sb.call_blocking_export(&module, export, plugin, &input, limits, host, handle, ctl)
+        })
+        .await
+        .map_err(|e| PluginError::Internal(format!("plugin call thread failed: {e}")))?
     }
 
     /// Instantiates `module` in a fresh store and calls `orkestr_call` with
@@ -210,10 +237,29 @@ impl WasmSandbox {
     /// # Errors
     /// [`PluginError::Killed`], [`PluginError::Cancelled`] or
     /// [`PluginError::Trap`] (fuel, timeout, memory cap, guest trap, bad ABI use).
-    #[allow(clippy::too_many_arguments, clippy::needless_pass_by_value)]
+    #[allow(clippy::too_many_arguments)]
     pub fn call_blocking(
         &self,
         module: &Module,
+        plugin: PluginId,
+        input: &[u8],
+        limits: PluginLimits,
+        host: Arc<dyn HostApi>,
+        handle: tokio::runtime::Handle,
+        ctl: CallControl,
+    ) -> Result<CallOutput, PluginError> {
+        self.call_blocking_export(module, abi::EXPORT_CALL, plugin, input, limits, host, handle, ctl)
+    }
+
+    /// [`Self::call_blocking`] for any guest export.
+    ///
+    /// # Errors
+    /// See [`Self::call_blocking`].
+    #[allow(clippy::too_many_arguments, clippy::needless_pass_by_value)]
+    pub fn call_blocking_export(
+        &self,
+        module: &Module,
+        export: &str,
         plugin: PluginId,
         input: &[u8],
         limits: PluginLimits,
@@ -252,7 +298,7 @@ impl WasmSandbox {
                 Ok(wasmtime::UpdateDeadline::Continue(1))
             }
         });
-        let result = run(&self.engine, &mut store, module, input);
+        let result = run(&self.engine, &mut store, module, export, input);
         let fuel_used = limits.fuel_per_call.saturating_sub(store.get_fuel().unwrap_or(0));
         let classify = |e: PluginError| -> PluginError {
             if ctl.killed.load(Ordering::Relaxed) {
@@ -294,7 +340,13 @@ impl From<wasmtime::Error> for RunError {
     }
 }
 
-fn run(engine: &Engine, store: &mut Store<State>, module: &Module, input: &[u8]) -> Result<Vec<u8>, RunError> {
+fn run(
+    engine: &Engine,
+    store: &mut Store<State>,
+    module: &Module,
+    export: &str,
+    input: &[u8],
+) -> Result<Vec<u8>, RunError> {
     let mut linker: Linker<State> = Linker::new(engine);
     linker.func_wrap(abi::IMPORT_MODULE, abi::IMPORT_HOST_CALL, host_call)?;
     let instance = linker.instantiate(&mut *store, module)?;
@@ -302,7 +354,7 @@ fn run(engine: &Engine, store: &mut Store<State>, module: &Module, input: &[u8])
         .get_memory(&mut *store, "memory")
         .ok_or_else(|| RunError::Plugin(PluginError::Trap("no exported memory".into())))?;
     let alloc = instance.get_typed_func::<i32, i32>(&mut *store, abi::EXPORT_ALLOC)?;
-    let call = instance.get_typed_func::<(i32, i32), i64>(&mut *store, abi::EXPORT_CALL)?;
+    let call = instance.get_typed_func::<(i32, i32), i64>(&mut *store, export)?;
     let len =
         i32::try_from(input.len()).map_err(|_| RunError::Plugin(PluginError::Invalid("input too large".into())))?;
     let ptr = alloc.call(&mut *store, len)?;
@@ -370,6 +422,12 @@ fn host_call(mut caller: Caller<'_, State>, ptr: i32, len: i32) -> wasmtime::Res
     let p = alloc.call(&mut caller, out_len)?;
     memory.write(&mut caller, p.cast_unsigned() as usize, &out)?;
     Ok(abi::pack(p.cast_unsigned(), out_len.cast_unsigned()))
+}
+
+/// Whether `module` exports a function named `name`.
+#[must_use]
+pub fn has_export(module: &Module, name: &str) -> bool {
+    module.exports().any(|e| e.name() == name && matches!(e.ty(), ExternType::Func(_)))
 }
 
 /// Parses the guest's JSON result envelope: `{"ok": value}` в†’ `Ok(value)`,

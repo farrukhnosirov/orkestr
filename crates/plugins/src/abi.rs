@@ -6,6 +6,15 @@ pub const ABI_VERSION: u32 = orkestr_domain::PLUGIN_ABI_VERSION;
 pub const EXPORT_ALLOC: &str = "orkestr_alloc";
 /// Guest export: `orkestr_call(ptr: i32, len: i32) -> i64` (`ptr << 32 | len` of the JSON result).
 pub const EXPORT_CALL: &str = "orkestr_call";
+/// Optional guest export (ABI v1, additive): `orkestr_on_event(ptr: i32, len: i32) -> i64`.
+/// Receives `{"event": <redacted Event envelope>}` for each `subscribes` kind
+/// the plugin was granted (`Read` scope `event/<Kind>`). Required when the
+/// manifest declares `subscribes`.
+pub const EXPORT_ON_EVENT: &str = "orkestr_on_event";
+/// Optional guest export (ABI v1, additive): `orkestr_deploy(ptr: i32, len: i32) -> i64`.
+/// Receives `{"op": "availability"|"plan"|"deploy"|"rollback", "provider", "request"}`.
+/// Required when the manifest declares `deployProviders`.
+pub const EXPORT_DEPLOY: &str = "orkestr_deploy";
 /// Host import module.
 pub const IMPORT_MODULE: &str = "orkestr";
 /// Host import: `host_call(ptr: i32, len: i32) -> i64` (`ptr << 32 | len` of the JSON reply).

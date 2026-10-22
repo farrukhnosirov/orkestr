@@ -76,8 +76,8 @@ stoppable at once, independently of providers (contract §6).
    `plugin_<package slug>__<tool>`; both the agent's permission check and the
    plugin grant check apply. Declarative: `AgentTemplate`, `Widget`, `Mcp`
    (config stored only; launching needs a Terminal grant).
-   `DeploymentProvider` and `PlatformIntegration` are accepted in manifests,
-   but their runtime paths are not wired (see Consequences).
+   `DeploymentProvider` (§13) and `PlatformIntegration` (§12: event
+   subscriber + tools) are code kinds.
 9. **Plugin events.** `EmitEvent` does not get a dedicated event kind: it is
    published as a `Log` event with target `plugin:<packageId>` (no
    `PluginEvent` kind). Lifecycle events: `PluginInstalled`,
@@ -120,6 +120,51 @@ stoppable at once, independently of providers (contract §6).
     natively) and the widgets of enabled plugins (rendered in the iframe).
     Per-instance config is validated against the widget's `configSchema`
     (a JSON-schema subset; unsupported keywords are rejected).
+12. **Event subscriptions (`subscribes`).** ABI v1 gains the **optional**
+    export `orkestr_on_event(ptr, len) -> i64` (same encoding as
+    `orkestr_call`; older plugins are unaffected). A manifest with
+    `subscribes` must be a code plugin exporting it (checked at install).
+    Only non-sensitive kinds may be listed
+    (`orkestr_plugins::events::SUBSCRIBABLE`: project / task / agent
+    lifecycle, builds, tests, reviews, approvals, provider status, budget,
+    snapshots, deployments, health checks, alerts, incidents, merge,
+    pipelines, dashboards; never terminal / LSP / chat streams, remote
+    sessions, devices, settings, plugin lifecycle or `Log`). Delivery needs
+    the grant **`Read` with scope `event/<Kind>`**, requested in
+    `permissions` like any grant; without it (or when denied) the event is
+    not delivered and counted as `denied`. The host subscribes to the bus
+    once (`PluginService::start_event_delivery`, wired at boot); the bus side
+    only pushes into a **bounded per-plugin queue (64, drop-oldest, counted
+    as `dropped`)** and never waits on plugin code. One worker per plugin
+    drains it, calling `orkestr_on_event` with `{"event": <envelope>}` (the
+    flat event envelope, passed through `redact_json`) under the manifest
+    limits (fuel + timeout per delivery, kill-switch registered, traps count
+    towards quarantine). Disable, kill, quarantine and safe mode clear the
+    queue and stop delivery. Each drained batch writes one audit summary
+    `plugins.events.deliver {delivered, failed, denied, dropped}` and warn
+    lines in `plugins.logs` for denials / drops.
+13. **Deployment providers (`deployProviders`).** Kind
+    `DeploymentProvider` and `deployProviders` go together (ids
+    `[a-z][a-z0-9_-]*`); the module must export the **optional**
+    `orkestr_deploy(ptr, len) -> i64`. While the plugin is `Enabled` (and
+    safe mode is off) each provider is registered into `DeployService`
+    (`register_adapter`) as `orkestr_plugins::deploy::PluginDeployAdapter`:
+    adapter id `plugin:<packageId>/<provider>`, target
+    `DeploymentTarget::Plugin("<packageId>/<provider>")`, verification
+    `plugin`. Disable, kill, quarantine, uninstall and safe mode unregister it
+    (`DeployService::unregister_adapter`). The guest gets
+    `{"op": "availability"|"plan"|"deploy"|"rollback", "provider",
+    "request", "target"?}`; `request` has ids, environment, settings,
+    version, `sourceDir` and `secretNames` — credential **names only**;
+    values are read with `SecretGet`, which needs a `Secrets` grant per
+    name. Results: availability = `AdapterAvailability`
+    (`{"state":"Ready"}`); plan = `{steps, warnings, requests}`; deploy /
+    rollback = `{url?, version?, providerRef?}`. `Log` host calls during
+    deploy / rollback stream into the deployment log (redacted with the
+    deployment's secrets and the global redactor); `deploy.cancel` and the
+    emergency stop interrupt the guest through the epoch callback (a cancel
+    is not a trap). Plans and deployments still go through the Dangerous
+    Action Guard and approvals of `DeployService`.
 
 ## Fallback (not taken)
 
@@ -133,7 +178,11 @@ fallback is not used.
 
 - Fixtures: `cargo run -p orkestr-plugins --example make-fixtures -- <out>`
   writes `hello-tool.orkp`, `hello-widget.orkp` (widget bound to
-  `projects.list`), `evil-loop` (traps at 500 ms), `evil-memory` (16 MiB cap),
+  `projects.list`), `hello-subscriber.orkp` (PlatformIntegration + Tool:
+  counts `TaskCreated` in its KV store, tool `count`; grant `Read`
+  `event/TaskCreated`), `hello-deployer.orkp` (DeploymentProvider `hello`:
+  logs three steps, reads the granted `HELLO_DEPLOY_TOKEN` and logs it to
+  show redaction, reports `https://hello-deployer.example/`), `evil-loop` (traps at 500 ms), `evil-memory` (16 MiB cap),
   `evil-network`, `evil-tampered`, `evil-unsigned`, `evil-traversal`,
   `dev-publisher.pub` and `fixtures.json`. Start the core with
   `ORKESTR_PLUGINS_TRUSTED_KEYS=<dev-publisher.pub>` to trust them.
@@ -145,8 +194,7 @@ fallback is not used.
 ## Consequences
 
 - One more heavy dependency, confined to `crates/plugins`.
-- Not wired in Phase 7: the `DeploymentProvider` runtime path (a plugin
-  `DeployAdapter`; `DeployService::register_adapter` exists) and the
-  `PlatformIntegration` path (`subscribes` events are not delivered).
+- `DeploymentProvider` and `PlatformIntegration` runtime paths are wired
+  (§12, §13); `PlatformIntegration` has no periodic tick (events + tools only).
 - Deferred (RR-G14, `unimplementedFeature`): JS/QuickJS plugins, `Provider`
   and `Panel` kinds, plugin auto-update and widget network access.

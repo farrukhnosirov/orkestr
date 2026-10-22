@@ -646,6 +646,33 @@ try {
     const re = await ensureHello();
     const ok2 = await soft(call("plugins.invoke", { pluginId: ctx.helloId, tool: "hello", input: { name: "again" } }));
     check("E2", "safe mode off + re-enable → hello-tool works again", re.plugin.state === "Enabled" && text(ok2?.output).includes("again"), `${re.plugin.state}; ${text(ok2?.output)}`);
+
+    // event subscription (PlatformIntegration `subscribes`, ADR-0034 §12)
+    const subInst = await call("plugins.install", { path: fixture("hello-subscriber.orkp") });
+    const subId = subInst.plugin.plugin.id;
+    const subPend = subInst.pendingGrants ?? [];
+    check("E2", "hello-subscriber (subscribes TaskCreated) asks for the Read grant event/TaskCreated", subPend.some((g) => g.capability === "Read" && g.scope === "event/TaskCreated"), text(subPend));
+    const decide = (allow) => subPend.map((g) => ({ capability: g.capability, scope: g.scope, allow }));
+    const count = async () => (await soft(call("plugins.invoke", { pluginId: subId, tool: "count", input: {} })))?.output ?? null;
+    const newTask = (title) => call("tasks.create", { projectId: ctx.project.id, title });
+    const deniedInfo = (await call("plugins.grant", { pluginId: subId, decisions: decide(false), enable: true })).plugin;
+    await newTask("p7 subscriber: grant denied");
+    const deniedLog = await waitFor(async () => ((await call("plugins.logs", { pluginId: subId, limit: 100 })).lines ?? []).find((l) => /not delivered/.test(l.message)), T(10_000), "subscriber denial log").catch(() => null);
+    const c0 = await count();
+    check("E2", "grant denied → enabled but TaskCreated not delivered (count null, denial logged)", deniedInfo.plugin.state === "Enabled" && c0 === null && !!deniedLog, `${deniedInfo.plugin.state}; count ${text(c0)}; ${deniedLog?.message ?? "no denial log"}`);
+    await call("plugins.grant", { pluginId: subId, decisions: decide(true), enable: false });
+    await newTask("p7 subscriber: one");
+    await newTask("p7 subscriber: two");
+    const c2 = await waitFor(async () => ((await count()) === 2 ? 2 : null), T(15_000), "subscriber count 2").catch(() => null);
+    const evAudit = (await auditActions()).filter((a) => a.action === "plugins.events.deliver");
+    check("E2", "grant allowed → each TaskCreated reaches orkestr_on_event (KV count 2); delivery audited", c2 === 2 && evAudit.length > 0, `count ${text(await count())}; audit ${evAudit.length} (${evAudit.at(-1)?.details ?? ""})`);
+    await call("plugins.disable", { pluginId: subId });
+    await newTask("p7 subscriber: while disabled");
+    await sleep(T(1000));
+    await call("plugins.enable", { pluginId: subId });
+    const c3 = await count();
+    check("E2", "disabled plugin gets no events (count stays 2 after re-enable)", c3 === 2, `count ${text(c3)}`);
+    await call("plugins.disable", { pluginId: subId });
   });
 
   // ════════════════════════════════════════════════════════════════════════
@@ -887,6 +914,35 @@ try {
     check("E5", "rollback restores the previous version (v2 → v1)", d2.status === "Succeeded" && /version two/.test(v2page.body) && rbd.status === "Succeeded" && rbd.version === "v1" && /version one/.test(v1page.body), `v2 ${d2.status}; rollback ${rbd.status} → ${rbd.version}; page ${v1page.body.trim()}`);
     const hist = (await call("deploy.list", { projectId: ctx.project.id, environmentId: siteEnv.environment.id })).deployments;
     check("E5", "deploy.list history (newest first)", hist.length >= 3 && hist[0].id === rbd.id, hist.map((d) => `${d.version}:${d.status}`).join(", "));
+
+    // plugin DeploymentProvider (hello-deployer, ADR-0034 §13)
+    const PD_ID = "plugin:orkestr-dev.hello-deployer/hello";
+    const PD_TARGET = { Plugin: "orkestr-dev.hello-deployer/hello" };
+    const adapterIds = async () => (await call("deploy.adapters", {})).adapters.map((a) => a.id);
+    const pdInst = await call("plugins.install", { path: fixture("hello-deployer.orkp") });
+    const pdId = pdInst.plugin.plugin.id;
+    const beforeEnable = await adapterIds();
+    const pdInfo = await installAndEnable({}, "orkestr-dev.hello-deployer");
+    const pdAdapter = await waitFor(async () => (await call("deploy.adapters", {})).adapters.find((a) => a.id === PD_ID && a.availability.state === "Ready"), T(10_000), "plugin adapter Ready").catch(() => null);
+    check("E5", "enabled DeploymentProvider plugin → deploy.adapters lists plugin:orkestr-dev.hello-deployer/hello (Ready)", !beforeEnable.includes(PD_ID) && pdInfo.plugin.state === "Enabled" && !!pdAdapter && text(pdAdapter.target) === text(PD_TARGET), `${pdInfo.plugin.state}; ${text(pdAdapter)}`);
+    const pdToken = `hd-${crypto.randomBytes(8).toString("hex")}`;
+    const pdRef = (await call("secrets.set", { name: "HELLO_DEPLOY_TOKEN", scope: { scope: "Project", projectId: ctx.project.id }, value: pdToken })).secret;
+    const pdEnv = await createEnv("plugin-deployer", "Dev", PD_TARGET, { site: "demo" }, { secretRefs: [pdRef.id] });
+    const pdPlan = (await call("deploy.plan", { environmentId: pdEnv.environment.id, version: "pd1" })).plan;
+    const pd1 = await waitDeploy((await deployStart(pdEnv.environment.id, "pd1")).deployment.id);
+    const pdLogs = await deployLogs(pd1.id);
+    check("E5", "plugin provider: plan (3 steps) + deploy → Succeeded at https://hello-deployer.example/, steps streamed to deploy.logs", pdPlan.adapterId === PD_ID && pdPlan.steps.length === 3 && pd1.status === "Succeeded" && pd1.url === "https://hello-deployer.example/" && /step 1\/3/.test(pdLogs) && /step 3\/3/.test(pdLogs), `${pd1.status} ${pd1.url}; plan ${pdPlan.steps.length} steps; logs ${pdLogs.split("\n").length} lines`);
+    check("E5", "plugin provider reads the granted secret via SecretGet; the deploy log shows it redacted", /using token \[REDACTED\]/.test(pdLogs) && !pdLogs.includes(pdToken) && !text(pdPlan).includes(pdToken), pdLogs.split("\n").find((l) => /using token/.test(l)) ?? "no token line");
+    const pd2 = await waitDeploy((await deployStart(pdEnv.environment.id, "pd2")).deployment.id);
+    const pdRb = await call("deploy.rollback", { environmentId: pdEnv.environment.id });
+    if (pdRb.approvalId) await call("approvals.resolve", { approvalId: pdRb.approvalId, decision: "Approve", note: "phase 7 acceptance" });
+    const pdRbd = await waitDeploy(pdRb.deployment.id);
+    check("E5", "plugin provider rollback (pd2 → pd1) through DeployService", pd2.status === "Succeeded" && pdRbd.status === "Succeeded" && pdRbd.version === "pd1" && /rolling back/.test(await deployLogs(pdRbd.id)), `pd2 ${pd2.status}; rollback ${pdRbd.status} → ${pdRbd.version}`);
+    await call("plugins.disable", { pluginId: pdId });
+    const afterDisable = await adapterIds();
+    await call("plugins.uninstall", { pluginId: pdId });
+    const afterUninstall = await adapterIds();
+    check("E5", "disable / uninstall unregister the plugin adapter", !afterDisable.includes(PD_ID) && !afterUninstall.includes(PD_ID), `after disable ${afterDisable.includes(PD_ID)}, after uninstall ${afterUninstall.includes(PD_ID)}`);
   });
 
   // ════════════════════════════════════════════════════════════════════════

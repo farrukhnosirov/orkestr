@@ -195,6 +195,16 @@ impl DeployService {
         extra.push(adapter);
     }
 
+    /// Removes an extra adapter registered with [`Self::register_adapter`]
+    /// (plugin disabled, killed or uninstalled). Built-ins are never removed.
+    /// Returns whether one was removed.
+    pub fn unregister_adapter(&self, target: &DeploymentTarget) -> bool {
+        let mut extra = self.inner.extra.write();
+        let before = extra.len();
+        extra.retain(|a| &a.target() != target);
+        extra.len() != before
+    }
+
     /// Registered adapters (extras override built-ins with the same target).
     #[must_use]
     pub fn adapters(&self) -> Vec<Arc<dyn DeployAdapter>> {

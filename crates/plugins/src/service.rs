@@ -9,16 +9,17 @@
 
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
+use std::sync::{Arc, Weak};
 use std::time::Instant;
 
 use base64::Engine as _;
+use orkestr_deploy::DeployService;
 use orkestr_domain::{
-    now, AuditOutcome, Capability, PermissionRequest, Plugin, PluginId, PluginKind, PluginState, ProjectId, ToolDecl,
-    WidgetDecl,
+    now, AuditOutcome, Capability, DeploymentTarget, PermissionRequest, Plugin, PluginId, PluginKind, PluginState,
+    ProjectId, ToolDecl, WidgetDecl,
 };
-use orkestr_events::EventBus;
+use orkestr_events::{EventBus, Received};
 use orkestr_protocol::event::EventKind;
 use orkestr_protocol::methods::plugins::{
     GrantPluginParams, InstallPluginParams, InstallPluginResult, InvokePluginParams, InvokePluginResult,
@@ -32,7 +33,9 @@ use parking_lot::{Mutex, RwLock};
 use serde_json::{json, Value};
 use tokio_util::sync::CancellationToken;
 
-use crate::host::{GrantedHost, HostEnv, RpcReader};
+use crate::deploy::PluginDeployAdapter;
+use crate::events::{EventQueue, EventStats};
+use crate::host::{GrantedHost, HostApi, HostEnv, RpcReader};
 use crate::package::{self, Trust};
 use crate::runtime::{CallControl, WasmSandbox};
 use crate::signing::TrustStore;
@@ -84,6 +87,15 @@ pub struct PluginWidget {
     pub widget: WidgetDecl,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Delivery {
+    Delivered,
+    Denied,
+    Failed,
+    /// Plugin no longer runnable (disabled, killed, safe mode, uninstalled).
+    Stop,
+}
+
 struct Running {
     plugin: PluginId,
     ctl: CallControl,
@@ -103,6 +115,12 @@ pub struct PluginService {
     safe_mode: AtomicBool,
     loaded: tokio::sync::OnceCell<()>,
     op: tokio::sync::Mutex<()>,
+    self_ref: std::sync::OnceLock<Weak<PluginService>>,
+    event_queues: Mutex<HashMap<PluginId, EventQueue>>,
+    event_capacity: AtomicUsize,
+    events_started: AtomicBool,
+    deploy: RwLock<Option<DeployService>>,
+    deploy_adapters: Mutex<HashMap<DeploymentTarget, Arc<PluginDeployAdapter>>>,
 }
 
 impl std::fmt::Debug for PluginService {
@@ -155,6 +173,12 @@ impl PluginService {
             safe_mode: AtomicBool::new(false),
             loaded: tokio::sync::OnceCell::new(),
             op: tokio::sync::Mutex::new(()),
+            self_ref: std::sync::OnceLock::new(),
+            event_queues: Mutex::new(HashMap::new()),
+            event_capacity: AtomicUsize::new(crate::events::DEFAULT_QUEUE_CAPACITY),
+            events_started: AtomicBool::new(false),
+            deploy: RwLock::new(None),
+            deploy_adapters: Mutex::new(HashMap::new()),
             deps,
         }
     }
@@ -245,6 +269,10 @@ impl PluginService {
             reason,
         }))
         .await;
+        if state != PluginState::Enabled {
+            self.clear_events(Some(p.plugin.id));
+        }
+        self.sync_deploy();
         Ok(p)
     }
 
@@ -333,9 +361,20 @@ impl PluginService {
         if let Some(wasm) = pkg.wasm() {
             let sb = self.sandbox()?;
             let wasm = wasm.to_vec();
-            tokio::task::spawn_blocking(move || sb.compile(&wasm))
+            let module = tokio::task::spawn_blocking(move || sb.compile(&wasm))
                 .await
                 .map_err(|e| PluginError::Internal(e.to_string()))??;
+            let needs = [
+                (!pkg.manifest.subscribes.is_empty(), crate::abi::EXPORT_ON_EVENT, "subscribes"),
+                (!pkg.manifest.deploy_providers.is_empty(), crate::abi::EXPORT_DEPLOY, "deployProviders"),
+            ];
+            for (needed, export, field) in needs {
+                if needed && !crate::runtime::has_export(&module, export) {
+                    return Err(PluginError::Package(format!(
+                        "ABI v1: `{field}` needs the export `{export}(i32, i32) -> i64`"
+                    )));
+                }
+            }
         }
         let _guard = self.op.lock().await;
         let existing = self.plugins.read().values().find(|p| p.plugin.package_id == pkg.manifest.id).cloned();
@@ -419,6 +458,7 @@ impl PluginService {
             trap_count: 0,
         };
         self.save(stored.clone()).await?;
+        self.sync_deploy();
         let trust_label = match &trust {
             Trust::Trusted(_) => "trusted",
             Trust::UntrustedDev(_) => "untrusted (dev mode)",
@@ -509,6 +549,8 @@ impl PluginService {
         self.plugins.write().remove(&id);
         self.host.directory.write().remove(&id);
         self.modules.lock().remove(&id);
+        self.event_queues.lock().remove(&id);
+        self.sync_deploy();
         let dir = self.package_dir(id);
         if dir.exists() {
             if let Err(e) = tokio::fs::remove_dir_all(&dir).await {
@@ -606,7 +648,9 @@ impl PluginService {
         if enabled {
             self.interrupt(None);
             self.modules.lock().clear();
+            self.clear_events(None);
         }
+        self.sync_deploy();
         self.audit("plugins.setSafeMode", "*", AuditOutcome::Executed, json!({ "enabled": enabled })).await;
         Ok(enabled)
     }
@@ -629,21 +673,54 @@ impl PluginService {
         cancel: CancellationToken,
     ) -> R<InvokePluginResult> {
         self.init().await?;
-        if self.safe_mode() {
-            return Err(PluginError::SafeMode);
-        }
-        let p = self.cached(params.plugin_id)?;
-        match p.plugin.state {
-            PluginState::Enabled => {}
-            PluginState::Killed => return Err(PluginError::Killed),
-            s => return Err(PluginError::Conflict(format!("plugin {} is {s:?}", p.plugin.package_id))),
-        }
+        let p = self.runnable(params.plugin_id)?;
         if !p.manifest.tools.iter().any(|t| t.name == params.tool) {
             return Err(PluginError::NotFound(format!("tool `{}` of {}", params.tool, p.plugin.package_id)));
         }
+        let input = json!({ "tool": params.tool, "input": params.input });
+        let host = Arc::new(GrantedHost::new(Arc::clone(&self.host), params.project_id));
+        let label = format!("tool `{}`", params.tool);
+        self.run_export(params.plugin_id, crate::abi::EXPORT_CALL, input, host, cancel, &label).await
+    }
+
+    /// The plugin if it may run code now (not safe mode, `Enabled`).
+    fn runnable(&self, id: PluginId) -> R<StoredPlugin> {
+        if self.safe_mode() {
+            return Err(PluginError::SafeMode);
+        }
+        let p = self.cached(id)?;
+        match p.plugin.state {
+            PluginState::Enabled => Ok(p),
+            PluginState::Killed => Err(PluginError::Killed),
+            s => Err(PluginError::Conflict(format!("plugin {} is {s:?}", p.plugin.package_id))),
+        }
+    }
+
+    /// State of an installed plugin.
+    #[must_use]
+    pub fn plugin_state(&self, id: PluginId) -> Option<PluginState> {
+        self.plugins.read().get(&id).map(|p| p.plugin.state)
+    }
+
+    /// Runs the guest export `export` of an enabled code plugin with `input`
+    /// (JSON) under its limits: registered for the kill switch, traps counted
+    /// for quarantine, result envelope parsed. `label` names the call in logs.
+    pub(crate) async fn run_export(
+        &self,
+        id: PluginId,
+        export: &'static str,
+        input: Value,
+        host: Arc<dyn HostApi>,
+        cancel: CancellationToken,
+        label: &str,
+    ) -> R<InvokePluginResult> {
+        self.init().await?;
+        let p = self.runnable(id)?;
         let module = self.module(&p).await?;
-        let input = serde_json::to_vec(&json!({ "tool": params.tool, "input": params.input }))
-            .map_err(|e| PluginError::Invalid(e.to_string()))?;
+        if !crate::runtime::has_export(&module, export) {
+            return Err(PluginError::Invalid(format!("{} does not export `{export}`", p.plugin.package_id)));
+        }
+        let input = serde_json::to_vec(&input).map_err(|e| PluginError::Invalid(e.to_string()))?;
         let ctl = CallControl { killed: Arc::default(), cancel };
         let call_id = self.next_call.fetch_add(1, Ordering::Relaxed);
         self.running.lock().insert(call_id, Running { plugin: p.plugin.id, ctl: ctl.clone() });
@@ -651,9 +728,9 @@ impl PluginService {
         if self.cached(p.plugin.id).is_ok_and(|q| q.plugin.state != PluginState::Enabled) || self.safe_mode() {
             ctl.killed.store(true, Ordering::SeqCst);
         }
-        let host = Arc::new(GrantedHost::new(Arc::clone(&self.host), params.project_id));
         let started = Instant::now();
-        let result = self.sandbox()?.call(module, p.plugin.id, input, p.manifest.limits, host, ctl).await;
+        let result =
+            self.sandbox()?.call_export(module, export, p.plugin.id, input, p.manifest.limits, host, ctl).await;
         self.running.lock().remove(&call_id);
         match result {
             Ok(out) => {
@@ -672,17 +749,266 @@ impl PluginService {
                 })
             }
             Err(PluginError::Trap(msg)) => {
-                self.record_trap(p.plugin.id, &params.tool, &msg, started).await;
+                self.record_trap(p.plugin.id, label, &msg, started).await;
                 Err(PluginError::Trap(msg))
             }
             Err(e) => Err(e),
         }
     }
 
-    async fn record_trap(&self, id: PluginId, tool: &str, msg: &str, started: Instant) {
+    // ------------------------------------------------------------ events (subscribes)
+
+    fn bind(self: &Arc<Self>) {
+        let _ = self.self_ref.set(Arc::downgrade(self));
+    }
+
+    /// Starts delivering bus events to subscribed plugins (idempotent; call at
+    /// boot). See [`crate::events`].
+    pub fn start_event_delivery(self: &Arc<Self>) {
+        self.bind();
+        if self.events_started.swap(true, Ordering::SeqCst) {
+            return;
+        }
+        let mut sub = self.deps.events.subscribe_all();
+        let weak = Arc::downgrade(self);
+        tokio::spawn(async move {
+            while let Some(r) = sub.recv().await {
+                let Some(this) = weak.upgrade() else { break };
+                match r {
+                    Received::Event(ev) => this.enqueue_event(ev),
+                    Received::Lagged(n) => {
+                        tracing::warn!(missed = n, "plugin event delivery lagged behind the event bus");
+                        let mut q = this.event_queues.lock();
+                        for e in q.values_mut() {
+                            e.stats.dropped += n;
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    /// Per-plugin queue capacity (default [`crate::events::DEFAULT_QUEUE_CAPACITY`]).
+    pub fn set_event_queue_capacity(&self, capacity: usize) {
+        self.event_capacity.store(capacity.max(1), Ordering::SeqCst);
+    }
+
+    /// Delivery counters of a plugin.
+    #[must_use]
+    pub fn event_stats(&self, id: PluginId) -> EventStats {
+        self.event_queues.lock().get(&id).map(EventQueue::snapshot).unwrap_or_default()
+    }
+
+    fn clear_events(&self, id: Option<PluginId>) {
+        let mut q = self.event_queues.lock();
+        for (pid, e) in q.iter_mut() {
+            if id.is_none_or(|i| i == *pid) {
+                e.clear();
+            }
+        }
+    }
+
+    /// Bus side: never waits on plugin code (push + maybe spawn a worker).
+    fn enqueue_event(&self, ev: Arc<orkestr_protocol::Event>) {
+        if self.safe_mode() {
+            return;
+        }
+        let kind = ev.kind_name();
+        if !crate::events::subscribable(kind) {
+            return;
+        }
+        let targets: Vec<PluginId> = self
+            .plugins
+            .read()
+            .values()
+            .filter(|p| {
+                p.plugin.state == PluginState::Enabled
+                    && p.manifest.entry.is_some()
+                    && p.manifest.subscribes.iter().any(|k| k == kind)
+            })
+            .map(|p| p.plugin.id)
+            .collect();
+        if targets.is_empty() {
+            return;
+        }
+        let cap = self.event_capacity.load(Ordering::SeqCst);
+        let Some(weak) = self.self_ref.get().cloned() else { return };
+        let mut queues = self.event_queues.lock();
+        for id in targets {
+            let q = queues.entry(id).or_default();
+            q.push(Arc::clone(&ev), cap);
+            if !q.worker {
+                q.worker = true;
+                tokio::spawn(Self::event_worker(weak.clone(), id));
+            }
+        }
+    }
+
+    async fn event_worker(weak: Weak<Self>, id: PluginId) {
+        let mut batch = EventStats::default();
+        let dropped_at_start = weak.upgrade().map_or(0, |s| s.event_stats(id).dropped);
+        loop {
+            let Some(this) = weak.upgrade() else { return };
+            let next = {
+                let mut queues = this.event_queues.lock();
+                let Some(q) = queues.get_mut(&id) else { return };
+                let n = q.items.pop_front();
+                if n.is_none() {
+                    q.worker = false;
+                }
+                n
+            };
+            let Some(ev) = next else {
+                this.event_batch_done(id, batch, dropped_at_start).await;
+                return;
+            };
+            let outcome = this.deliver_event(id, &ev).await;
+            {
+                let mut queues = this.event_queues.lock();
+                let Some(q) = queues.get_mut(&id) else { return };
+                match outcome {
+                    Delivery::Delivered => q.stats.delivered += 1,
+                    Delivery::Denied => q.stats.denied += 1,
+                    Delivery::Failed => q.stats.failed += 1,
+                    Delivery::Stop => q.clear(),
+                }
+            }
+            match outcome {
+                Delivery::Delivered => batch.delivered += 1,
+                Delivery::Denied => batch.denied += 1,
+                Delivery::Failed => batch.failed += 1,
+                Delivery::Stop => {}
+            }
+        }
+    }
+
+    async fn event_batch_done(&self, id: PluginId, batch: EventStats, dropped_at_start: u64) {
+        let dropped = self.event_stats(id).dropped.saturating_sub(dropped_at_start);
+        if batch.delivered + batch.failed + batch.denied + dropped == 0 {
+            return;
+        }
+        let Ok(p) = self.cached(id) else { return };
+        if batch.denied > 0 {
+            let _ = self
+                .store
+                .log(
+                    id,
+                    "warn",
+                    &format!("{} event(s) not delivered: the `event/<Kind>` Read grant is missing", batch.denied),
+                )
+                .await;
+        }
+        if dropped > 0 {
+            let _ = self.store.log(id, "warn", &format!("{dropped} event(s) dropped: delivery queue full")).await;
+        }
+        self.audit(
+            "plugins.events.deliver",
+            &p.plugin.package_id,
+            if batch.failed > 0 { AuditOutcome::Failed } else { AuditOutcome::Executed },
+            json!({ "pluginId": id, "delivered": batch.delivered, "failed": batch.failed, "denied": batch.denied, "dropped": dropped }),
+        )
+        .await;
+    }
+
+    async fn deliver_event(&self, id: PluginId, ev: &orkestr_protocol::Event) -> Delivery {
+        let Ok(p) = self.runnable(id) else { return Delivery::Stop };
+        let kind = ev.kind_name();
+        let grants = match crate::grants::GrantSet::load(&self.deps.security, &id).await {
+            Ok(g) => g,
+            Err(e) => {
+                tracing::warn!(error = %e, "plugin grants unavailable");
+                return Delivery::Failed;
+            }
+        };
+        if !grants.allows(Capability::Read, &crate::events::event_scope(kind)) {
+            return Delivery::Denied;
+        }
+        let envelope = serde_json::to_value(ev).unwrap_or(Value::Null);
+        let input = json!({ "event": orkestr_security::redact::redact_json(&envelope) });
+        let host = Arc::new(GrantedHost::new(Arc::clone(&self.host), ev.project_id));
+        let label = format!("event `{kind}`");
+        match self.run_export(id, crate::abi::EXPORT_ON_EVENT, input, host, CancellationToken::new(), &label).await {
+            Ok(_) => Delivery::Delivered,
+            Err(PluginError::Killed | PluginError::SafeMode | PluginError::Conflict(_) | PluginError::NotFound(_)) => {
+                Delivery::Stop
+            }
+            Err(e) => {
+                tracing::debug!(plugin = %p.plugin.package_id, error = %e, "plugin event delivery failed");
+                Delivery::Failed
+            }
+        }
+    }
+
+    // ------------------------------------------------------------ deployment providers
+
+    /// Connects the deployment service: every `deployProviders` entry of an
+    /// enabled plugin is registered as a [`PluginDeployAdapter`] (and kept in
+    /// sync with enable / disable / kill / uninstall / safe mode).
+    ///
+    /// # Errors
+    /// Plugin state could not be loaded.
+    pub async fn attach_deploy(self: &Arc<Self>, deploy: DeployService) -> R<()> {
+        self.bind();
+        *self.deploy.write() = Some(deploy);
+        self.init().await?;
+        self.sync_deploy();
+        Ok(())
+    }
+
+    /// Adapters this host registered (for tests / diagnostics).
+    #[must_use]
+    pub fn deploy_targets(&self) -> Vec<DeploymentTarget> {
+        let mut v: Vec<DeploymentTarget> = self.deploy_adapters.lock().keys().cloned().collect();
+        v.sort_by_key(|t| format!("{t:?}"));
+        v
+    }
+
+    fn sync_deploy(&self) {
+        let Some(deploy) = self.deploy.read().clone() else { return };
+        let Some(weak) = self.self_ref.get().cloned() else { return };
+        let safe = self.safe_mode();
+        let desired: Vec<(PluginId, String, String)> = self
+            .plugins
+            .read()
+            .values()
+            .filter(|p| {
+                !safe
+                    && p.plugin.state == PluginState::Enabled
+                    && p.manifest.entry.is_some()
+                    && p.manifest.kinds.contains(&PluginKind::DeploymentProvider)
+            })
+            .flat_map(|p| {
+                p.manifest.deploy_providers.iter().map(|d| (p.plugin.id, p.plugin.package_id.clone(), d.clone()))
+            })
+            .collect();
+        let mut current = self.deploy_adapters.lock();
+        let wanted: Vec<DeploymentTarget> =
+            desired.iter().map(|(_, pkg, prov)| crate::deploy::target_of(pkg, prov)).collect();
+        current.retain(|t, a| {
+            let keep = wanted.contains(t) && desired.iter().any(|(id, ..)| *id == a.plugin_id());
+            if !keep {
+                deploy.unregister_adapter(t);
+            }
+            keep
+        });
+        for (id, pkg, prov) in desired {
+            let target = crate::deploy::target_of(&pkg, &prov);
+            if current.contains_key(&target) {
+                continue;
+            }
+            let a = Arc::new(PluginDeployAdapter::new(weak.clone(), id, &pkg, &prov));
+            deploy.register_adapter(Arc::clone(&a) as Arc<dyn orkestr_deploy::DeployAdapter>);
+            current.insert(target, Arc::clone(&a));
+            if let Ok(h) = tokio::runtime::Handle::try_current() {
+                h.spawn(async move { a.refresh_availability().await });
+            }
+        }
+    }
+
+    async fn record_trap(&self, id: PluginId, label: &str, msg: &str, started: Instant) {
         let _ = self
             .store
-            .log(id, "error", &format!("tool `{tool}` trapped after {} ms: {msg}", started.elapsed().as_millis()))
+            .log(id, "error", &format!("{label} trapped after {} ms: {msg}", started.elapsed().as_millis()))
             .await;
         let _guard = self.op.lock().await;
         let Ok(mut q) = self.cached(id) else { return };

@@ -27,7 +27,9 @@ live in development or CI. Docker may or may not be installed.
    with a `LogSink` and a `CancellationToken`, plus defaults
    `required_secret`, `verification`, `settings_schema`, `commands`,
    `release`, `rollback_to`. `DeployService::register_adapter` accepts more
-   (intended for plugin `DeploymentProvider`s, target `Plugin(id)`).
+   and `unregister_adapter` removes it: enabled plugin `DeploymentProvider`s
+   register as `plugin:<packageId>/<provider>` with target
+   `Plugin("<packageId>/<provider>")` (ADR-0034 §13).
 4. **Adapters in Phase 7.**
    - `StaticSite` — publishes to a served directory (own HTTP server per
      environment, optional SPA fallback, health path); restored after a core
@@ -71,4 +73,4 @@ live in development or CI. Docker may or may not be installed.
 - Cloud adapters may drift from the real APIs; they are labelled
   request-shape verified until run against real accounts.
 - Deferred: AWS, GCP, Azure and Cloudflare adapters; live cloud runs; deploys
-  inside a container sandbox; plugin deployment providers at runtime.
+  inside a container sandbox. (Plugin deployment providers are wired: ADR-0034 §13.)

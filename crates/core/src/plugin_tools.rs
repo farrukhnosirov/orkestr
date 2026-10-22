@@ -111,13 +111,19 @@ impl RpcReader for CoreRpcReader {
 }
 
 /// Wires the plugin host into the core (call once at boot, after the router
-/// is built): agent tools, RPC reader, plugin state load (safe mode honoured).
+/// is built): agent tools, RPC reader, plugin state load (safe mode honoured),
+/// plugin deployment providers and event delivery (`subscribes`).
 pub async fn wire(services: &Arc<Services>, router: Arc<RpcRouter>) {
     services.plugins.set_rpc_reader(Arc::new(CoreRpcReader { services: Arc::downgrade(services), router }));
     services.agents.set_external_tools(Arc::new(PluginTools::new(Arc::clone(&services.plugins))));
     if let Err(e) = services.plugins.init().await {
         tracing::error!(error = %e, "plugin host state could not be loaded");
     }
+    // `DeploymentProvider` plugins → deploy adapters; `subscribes` → event delivery.
+    if let Err(e) = services.plugins.attach_deploy(services.deploy.as_ref().clone()).await {
+        tracing::error!(error = %e, "plugin deployment providers could not be registered");
+    }
+    services.plugins.start_event_delivery();
 }
 
 #[cfg(test)]
