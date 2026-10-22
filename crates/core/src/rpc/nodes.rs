@@ -3,12 +3,22 @@
 
 use std::sync::Arc;
 
+use orkestr_domain::Actor;
 use orkestr_protocol::methods::nodes::{
-    self as m, ListNodesResult, NodeInfo, NodeInfoParams, NodeResourcesResult, PowerStatusView,
+    self as m, DrainNodeParams, EnrollNodeParams, ListNodesResult, NodeIdParams, NodeInfo, NodeInfoParams,
+    NodeResourcesResult, NodeSnapshotResult, PowerStatusView, SetNodePolicyParams,
 };
 use orkestr_protocol::RpcError;
 
-use super::{stub, RpcContext, RpcRouter};
+use super::{Principal, RpcContext, RpcRouter};
+use crate::nodes::rpc_error;
+
+fn actor(ctx: &RpcContext) -> Actor {
+    match &ctx.principal {
+        Principal::Local => Actor::System,
+        Principal::Remote(rp) => Actor::RemoteDevice(rp.device_id),
+    }
+}
 
 /// Samples older than this are refreshed on `nodes.resources`.
 const STALE_AFTER: chrono::TimeDelta = chrono::TimeDelta::seconds(5);
@@ -17,16 +27,31 @@ const STALE_AFTER: chrono::TimeDelta = chrono::TimeDelta::seconds(5);
 pub fn register(router: &mut RpcRouter) {
     router
         .method::<m::List, _, _>(|ctx: RpcContext, _| async move {
-            Ok(ListNodesResult { nodes: vec![ctx.services.nodes.local_node()], snapshots: Vec::new() })
+            let snapshots = ctx.services.node_hub.snapshots().await.map_err(rpc_error)?;
+            let nodes = snapshots.iter().map(|s| s.node.clone()).collect();
+            Ok(ListNodesResult { nodes, snapshots })
         })
         .method::<m::Info, _, _>(info)
         .method::<m::Resources, _, _>(|ctx: RpcContext, _| resources(ctx))
         .method::<m::Power, _, _>(|ctx: RpcContext, _| power(ctx));
-    // Phase 6 (WP-A replaces the stubs)
-    stub::<m::Enroll>(router);
-    stub::<m::Revoke>(router);
-    stub::<m::Drain>(router);
-    stub::<m::SetPolicy>(router);
+    // Phase 6: coordinator view
+    router
+        .method::<m::Enroll, _, _>(|ctx: RpcContext, p: EnrollNodeParams| async move {
+            let a = actor(&ctx);
+            ctx.services.node_hub.enroll(&ctx.services, a, p).await
+        })
+        .method::<m::Revoke, _, _>(|ctx: RpcContext, p: NodeIdParams| async move {
+            let node = ctx.services.node_hub.mark_revoked(&ctx.services, p.node_id, "nodes.revoke").await?;
+            Ok::<_, RpcError>(NodeSnapshotResult { node })
+        })
+        .method::<m::Drain, _, _>(|ctx: RpcContext, p: DrainNodeParams| async move {
+            let node = ctx.services.node_hub.set_draining(&ctx.services, p.node_id, p.drain).await?;
+            Ok::<_, RpcError>(NodeSnapshotResult { node })
+        })
+        .method::<m::SetPolicy, _, _>(|ctx: RpcContext, p: SetNodePolicyParams| async move {
+            let node = ctx.services.node_hub.set_policy(p).await?;
+            Ok::<_, RpcError>(NodeSnapshotResult { node })
+        });
 }
 
 async fn info(ctx: RpcContext, p: NodeInfoParams) -> Result<NodeInfo, RpcError> {

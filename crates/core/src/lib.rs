@@ -421,6 +421,13 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
             None
         }
     };
+    let remote = Arc::new(remote::RemoteService::new());
+    let node_hub = Arc::new(nodes::NodeHub::new(
+        db.clone(),
+        Arc::clone(&nodes),
+        Arc::clone(&remote),
+        &orkestr_node::EnvSource::process(),
+    ));
     let services = Arc::new(Services {
         version: VERSION.to_owned(),
         started_at: chrono::Utc::now(),
@@ -459,7 +466,8 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
         extensions,
         lsp,
         claude,
-        remote: Arc::new(remote::RemoteService::new()),
+        remote,
+        node_hub,
         sync: sync_engine.clone().map(|e| Arc::new(e) as Arc<dyn orkestr_sync::SyncEngine>),
     });
     logging::attach_event_bus(services.events.clone());
@@ -535,6 +543,8 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
     ) {
         tracing::error!(error = %e, "remote access unavailable: cannot load the core identity key");
     }
+    // Multi-node (Phase 6): pull heartbeats to enrolled workers.
+    nodes::heartbeat::spawn(Arc::clone(&services), shutdown.clone());
     // Web Push (Phase 4, ADR-0036): event → push loop (stops on shutdown).
     remote::push::spawn_loop(&services, shutdown.clone());
     let app = server::app(app_state);

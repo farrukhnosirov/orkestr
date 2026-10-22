@@ -96,6 +96,8 @@ pub struct Services {
     pub claude: crate::claude_code::ClaudeCodeService,
     /// Remote access via the gateway (Phase 4; skeleton until wired).
     pub remote: Arc<crate::remote::RemoteService>,
+    /// Multi-node registry, links, enrollment, worker state (Phase 6).
+    pub node_hub: Arc<crate::nodes::NodeHub>,
     /// Encrypted sync engine (Phase 4); `None` until the sync package wires it.
     pub sync: Option<Arc<dyn orkestr_sync::SyncEngine>>,
 }

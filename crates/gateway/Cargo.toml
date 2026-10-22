@@ -54,6 +54,8 @@ rsa = { version = "0.9", features = ["sha2"] }
 
 [dev-dependencies]
 orkestr-core.workspace = true
+orkestr-events.workspace = true
+orkestr-node.workspace = true
 tempfile.workspace = true
 tokio-tungstenite.workspace = true
 aes-gcm.workspace = true

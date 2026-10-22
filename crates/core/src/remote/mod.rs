@@ -30,8 +30,9 @@ use orkestr_events::EventBus;
 use orkestr_protocol::event::EventKind;
 use orkestr_protocol::methods::remote::{
     tunnel::ToGateway, DeviceApproveParams, DeviceAuthorizedPayload, DeviceInfo, DeviceList, DevicePairingStart,
-    DeviceRevokedPayload, PendingPairing, RemoteEnableParams, RemoteSessionPayload, RemoteStatus,
+    DevicePairingStartParams, DeviceRevokedPayload, PendingPairing, RemoteEnableParams, RemoteSessionPayload, RemoteStatus,
 };
+use orkestr_protocol::policy::Role;
 use orkestr_protocol::{NewEvent, RpcError};
 use orkestr_security::audit::{AuditLog, NewAudit};
 use orkestr_security::webauthn::{self, AssertionJson, RegistrationJson};
@@ -86,6 +87,10 @@ struct Pairing {
     created: Instant,
     attempts: u32,
     claim: Option<Claim>,
+    /// `kind: "node"` pairing (Phase 6): only a coordinator core may claim it.
+    node: bool,
+    /// Trust level offered to the coordinator at `startPairing`.
+    trust_level: Option<orkestr_domain::TrustLevel>,
 }
 
 #[derive(Clone)]
@@ -434,6 +439,19 @@ impl RemoteService {
     /// # Errors
     /// Remote access is not enrolled at a gateway.
     pub fn start_pairing(&self) -> Result<DevicePairingStart, RpcError> {
+        self.start_pairing_with(&DevicePairingStartParams::default())
+    }
+
+    /// `devices.startPairing` with params (`kind: "node"` + trust level, Phase 6).
+    ///
+    /// # Errors
+    /// Remote access is not enrolled at a gateway; unknown kind.
+    pub fn start_pairing_with(&self, p: &DevicePairingStartParams) -> Result<DevicePairingStart, RpcError> {
+        let node = match p.kind.as_deref() {
+            None | Some("device") => false,
+            Some("node") => true,
+            Some(other) => return Err(RpcError::bad_request(format!("unknown pairing kind `{other}`"))),
+        };
         self.att()?;
         let (core_id, gateway_url) = {
             let s = self.state.lock();
@@ -457,7 +475,14 @@ impl RemoteService {
         pairings.retain(|_, p| p.created.elapsed() < PAIRING_TTL);
         pairings.insert(
             pairing_id.clone(),
-            Pairing { code: code.clone(), created: Instant::now(), attempts: 0, claim: None },
+            Pairing {
+                code: code.clone(),
+                created: Instant::now(),
+                attempts: 0,
+                claim: None,
+                node,
+                trust_level: if node { p.trust_level } else { None },
+            },
         );
         Ok(DevicePairingStart { pairing_id, code, expires_at, core_id, gateway_url, core_key_fingerprint: fp, qr })
     }
@@ -492,6 +517,9 @@ impl RemoteService {
             }
             if p.claim.is_some() {
                 return nack("already_claimed");
+            }
+            if p.node && platform != pairing::NODE_PLATFORM {
+                return nack("node_pairing_requires_a_core");
             }
             if pairing::verify_code_mac(&p.code, &device_pub, pairing_id, &mac) {
                 let claim = Claim {
@@ -560,9 +588,12 @@ impl RemoteService {
             let Some(claim) = pairing.claim.clone() else {
                 return Err(RpcError::conflict("no device has claimed this pairing yet"));
             };
+            let offered = pairing.trust_level;
             pairings.remove(&p.pairing_id);
-            claim
+            (claim, offered)
         };
+        let (claim, offered_trust) = claim;
+        let is_node = claim.platform == pairing::NODE_PLATFORM;
         let record = DeviceRecord {
             device_id: claim.device_id,
             name: claim.name,
@@ -576,17 +607,32 @@ impl RemoteService {
             revoked: false,
             step_up: None,
             step_up_kind: StepUpKind::default(),
+            coordinator: false,
+            trust_level: None,
+        };
+        let record = if is_node {
+            // A coordinator core (Phase 6): worker-side node methods only
+            // (`authz` confines coordinators), never a terminal.
+            DeviceRecord {
+                role: Role::Operator,
+                remote_terminal: false,
+                coordinator: true,
+                trust_level: Some(p.trust_level.or(offered_trust).unwrap_or_default()),
+                ..record
+            }
+        } else {
+            record
         };
         self.state.lock().devices.push(record.clone());
         self.persist();
         let device_id = record.device_id.to_string();
-        let msg = pairing::completion_message(&p.pairing_id, &device_id, &claim.device_pub, p.role);
+        let msg = pairing::completion_message(&p.pairing_id, &device_id, &claim.device_pub, record.role);
         let sig: p256::ecdsa::Signature = p256::ecdsa::signature::Signer::sign(&a.cik, &msg);
         self.send_ctl(&ToGateway::PairingResult {
             pairing_id: p.pairing_id.clone(),
             status: "approved".into(),
             device_id: device_id.clone(),
-            role: Some(p.role),
+            role: Some(record.role),
             sig: Some(e2e::b64(&sig.to_bytes())),
         });
         self.send_ctl(&ToGateway::DeviceAuthorized {
@@ -601,7 +647,10 @@ impl RemoteService {
             "devices.approve",
             record.device_id.to_string(),
             AuditOutcome::Approved,
-            serde_json::json!({ "role": p.role, "remoteTerminal": p.remote_terminal }),
+            serde_json::json!({
+                "role": record.role, "remoteTerminal": record.remote_terminal,
+                "coordinator": record.coordinator, "trustLevel": record.trust_level,
+            }),
         )
         .await;
         self.emit(EventKind::DeviceAuthorized(DeviceAuthorizedPayload { device: info.clone() })).await;
@@ -625,6 +674,7 @@ impl RemoteService {
                     platform: c.platform.clone(),
                     sas: c.sas.clone(),
                     claimed_at: c.at,
+                    kind: (c.platform == pairing::NODE_PLATFORM).then(|| "node".to_owned()),
                 })
             })
             .collect();
