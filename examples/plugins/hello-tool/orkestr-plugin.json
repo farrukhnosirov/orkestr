@@ -1,0 +1,19 @@
+{
+  "id": "orkestr-examples.hello-tool",
+  "name": "Hello Tool (Rust)",
+  "version": "1.0.0",
+  "publisher": "Orkestr Examples",
+  "description": "Echoes its input, logs and counts calls in its KV store.",
+  "abi": 1,
+  "kinds": ["Tool"],
+  "entry": "plugin.wasm",
+  "permissions": [],
+  "tools": [
+    {
+      "name": "hello",
+      "description": "Greets a name and echoes the input.",
+      "inputSchema": { "type": "object", "properties": { "name": { "type": "string" } } }
+    }
+  ],
+  "limits": { "memoryMb": 32, "fuelPerCall": 100000000, "timeoutMs": 2000 }
+}
