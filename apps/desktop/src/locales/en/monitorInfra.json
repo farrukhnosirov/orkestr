@@ -1,6 +1,111 @@
 {
-  "stub": {
-    "title": "Infrastructure",
-    "description": "Health checks, log sources and alerts. Being built in this phase."
+  "title": "Infrastructure",
+  "tabs": {
+    "label": "Infrastructure sections",
+    "overview": "Overview",
+    "checks": "Health checks",
+    "alerts": "Alerts",
+    "logs": "Logs"
+  },
+  "overview": {
+    "empty": "No metrics yet. The first sample arrives within a few seconds.",
+    "local": "This machine",
+    "offline": "Offline",
+    "cpu": "CPU",
+    "mem": "Memory",
+    "disk": "Disk",
+    "gpu": "GPU",
+    "trend": "{{metric}} trend on {{node}}",
+    "summary": "{{checks}} checks, {{alerts}} open alerts, {{sources}} log sources",
+    "memValue": "{{used}} of {{total}}"
+  },
+  "checks": {
+    "add": "Add check",
+    "empty": "No health checks. Add an HTTP or TCP check to watch a service.",
+    "run": "Run now",
+    "refresh": "Refresh",
+    "edit": "Edit",
+    "delete": "Delete",
+    "deleteConfirm": "Delete check “{{name}}”?",
+    "state": {
+      "Up": "Up",
+      "Down": "Down",
+      "Unknown": "Unknown"
+    },
+    "disabled": "Paused",
+    "since": "since {{time}}",
+    "latency": "{{ms}} ms",
+    "uptime": "{{ratio}} of recent runs passed",
+    "history": "Recent runs",
+    "runOk": "Passed at {{time}}",
+    "runFail": "Failed at {{time}}: {{error}}",
+    "lastError": "Last error: {{error}}"
+  },
+  "form": {
+    "titleNew": "New health check",
+    "titleEdit": "Edit health check",
+    "name": "Name",
+    "kind": "Probe",
+    "http": "HTTP",
+    "tcp": "TCP",
+    "url": "URL",
+    "method": "Method",
+    "expectStatus": "Expected status",
+    "expectStatusHint": "Empty: any 2xx or 3xx",
+    "contains": "Body contains",
+    "host": "Host",
+    "port": "Port",
+    "interval": "Interval, s",
+    "timeout": "Timeout, ms",
+    "threshold": "Failures before down",
+    "thresholdHint": "Also the number of successes needed to recover",
+    "enabled": "Enabled",
+    "save": "Save",
+    "cancel": "Cancel",
+    "error": {
+      "name": "Enter a name.",
+      "url": "Enter an http:// or https:// URL.",
+      "host": "Enter a host.",
+      "port": "Port must be 1–65535.",
+      "status": "Status must be 100–599.",
+      "numbers": "Interval, timeout and threshold must be positive whole numbers."
+    }
+  },
+  "alerts": {
+    "empty": "No alerts.",
+    "showResolved": "Show resolved",
+    "ack": "Acknowledge",
+    "count": "×{{count}}",
+    "opened": "Opened {{time}}",
+    "state": {
+      "Open": "Open",
+      "Acknowledged": "Acknowledged",
+      "Resolved": "Resolved"
+    },
+    "severity": {
+      "Info": "Info",
+      "Warning": "Warning",
+      "Critical": "Critical"
+    }
+  },
+  "logs": {
+    "source": "Source",
+    "allSources": "All sources",
+    "level": "Minimum level",
+    "anyLevel": "Any level",
+    "search": "Filter text",
+    "live": "Live tail",
+    "pause": "Pause",
+    "empty": "No log lines match.",
+    "noSources": "No log sources yet. Lines arrive from tailed files, deployments and the monitor.ingest webhook.",
+    "truncated": "Showing the newest lines only.",
+    "redactedNote": "Secrets are redacted before lines are stored.",
+    "levels": {
+      "trace": "Trace",
+      "debug": "Debug",
+      "info": "Info",
+      "warn": "Warn",
+      "error": "Error"
+    }
   }
 }
