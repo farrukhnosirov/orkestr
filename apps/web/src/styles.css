@@ -17,6 +17,7 @@ body {
 .web-sep { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--ok-color-border); }
 .web-error { color: var(--ok-color-danger); }
 .web-muted { color: var(--ok-color-text-muted); }
+.web-token { font-family: var(--ok-font-mono, monospace); word-break: break-all; user-select: all; }
 .web-field { display: flex; flex-direction: column; gap: 4px; font-size: var(--ok-font-size-sm); }
 .web-field textarea,
 .web-editor {

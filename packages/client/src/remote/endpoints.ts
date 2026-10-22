@@ -23,6 +23,7 @@ export const GATEWAY_PATHS = {
   totpLogin: "/v1/auth/totp/login",
   logout: "/v1/auth/logout",
   cores: "/v1/cores",
+  enrollmentToken: "/v1/cores/enrollment-token",
   pushVapid: "/v1/push/vapid",
   pairingClaim: (pairingId: string) => `/v1/pairings/${encodeURIComponent(pairingId)}/claim`,
   pairing: (pairingId: string) => `/v1/pairings/${encodeURIComponent(pairingId)}`,

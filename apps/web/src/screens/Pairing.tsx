@@ -15,7 +15,8 @@ function platformName(): string {
 /** Pairing: paste the desktop's pairing payload, compare SAS, wait for approval. */
 export function Pairing({ onPaired }: { onPaired: (rec: DeviceRecord) => void }) {
   const { t } = useTranslation();
-  const { pair, store } = useDeps();
+  const { pair, store, gateway } = useDeps();
+  const [enrollToken, setEnrollToken] = useState<string | null>(null);
   const [payload, setPayload] = useState("");
   const [name, setName] = useState(() => (platformName() === "web" ? "Browser" : platformName()));
   const [session, setSession] = useState<PairingSession | null>(null);
@@ -71,6 +72,30 @@ export function Pairing({ onPaired }: { onPaired: (rec: DeviceRecord) => void })
               {t("pairing.submit")}
             </Button>
           </form>
+        )}
+        {!session && (
+          <section className="web-stack" aria-label={t("pairing.enroll.title")}>
+            <h3>{t("pairing.enroll.title")}</h3>
+            <p className="web-muted">{t("pairing.enroll.intro")}</p>
+            <Button
+              onClick={() =>
+                void gateway.enrollmentToken().then(
+                  (r) => setEnrollToken(r.token),
+                  () => setError(t("pairing.enroll.failed")),
+                )
+              }
+            >
+              {t("pairing.enroll.create")}
+            </Button>
+            {enrollToken && (
+              <>
+                <output className="web-token" aria-label={t("pairing.enroll.token")}>
+                  {enrollToken}
+                </output>
+                <p className="web-muted">{t("pairing.enroll.hint")}</p>
+              </>
+            )}
+          </section>
         )}
         {error && (
           <p role="alert" className="web-error">

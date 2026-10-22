@@ -43,6 +43,7 @@ function fakeGateway(state: Partial<AuthState> = {}): GatewayApi {
     }),
     logout: vi.fn(async () => {}),
     vapidKey: vi.fn(async () => null),
+    enrollmentToken: vi.fn(async () => ({ token: "enroll-123", expiresAt: "2026-10-22T10:00:00Z" })),
   };
 }
 
@@ -146,6 +147,14 @@ describe("pairing", () => {
     expect(pair).toHaveBeenCalledWith(expect.objectContaining({ pairingId: "p1", code: "ABCD1234", coreId: "core-1" }));
     await act(async () => approve(device));
     expect(onPaired).toHaveBeenCalledWith(device);
+  });
+
+  it("creates a one-time enrollment token for connecting a computer", async () => {
+    const d = deps();
+    renderWith(d, <Pairing onPaired={() => {}} />);
+    fireEvent.click(screen.getByRole("button", { name: "Create enrollment token" }));
+    expect((await screen.findByLabelText("Enrollment token")).textContent).toBe("enroll-123");
+    expect(d.gateway.enrollmentToken).toHaveBeenCalledOnce();
   });
 
   it("rejects text that is not a pairing payload", async () => {

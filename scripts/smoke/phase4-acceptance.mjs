@@ -427,15 +427,21 @@ try {
 
   // ════════════════════════════════════════════════════════════════════════
   section("D2. remote.enable → tunnel");
-  const enroll = (await gwFetch("/v1/cores/enrollment-token", { token, method: "POST" })).json;
-  await A.rpc.call("remote.enable", { gatewayUrl: base, enrollmentToken: enroll.token });
+  // The one-time enrollment token comes from the web UI (Pairing screen).
+  await edge.clickButton("Create enrollment token");
+  const enrollToken = await waitFor(
+    () => edge.eval(`document.querySelector('output[aria-label="Enrollment token"]')?.textContent ?? ''`),
+    10_000,
+    "enrollment token in the web UI",
+  );
+  await A.rpc.call("remote.enable", { gatewayUrl: base, enrollmentToken: enrollToken });
   const rs = await waitFor(async () => {
     const s = await A.rpc.call("remote.status");
     return s.connected ? s : null;
   }, 20_000, "tunnel connected");
   const coreId = rs.coreId;
   const cores = (await gwFetch("/v1/cores", { token })).json.cores;
-  check("D", "remote.enable → tunnel connected, core enrolled", cores.some((c) => c.coreId === coreId && c.online), coreId);
+  check("D", "enrollment token from the web UI → remote.enable → tunnel connected, core enrolled", cores.some((c) => c.coreId === coreId && c.online), coreId);
   const vapid = (await gwFetch("/v1/push/vapid")).json?.publicKey;
   const coreVapid = (await soft(A.rpc.call("push.vapidKey")))?.publicKey;
   check("D", "gateway VAPID key delivered to the core in the tunnel welcome", !!vapid && coreVapid === vapid);
@@ -545,13 +551,20 @@ try {
     "ApprovalRequested",
   );
   const approval = asked.payload.approval;
-  const push = await waitFor(() => pushes.find((p) => p.path === "/push/operator"), 20_000, "push delivery").catch(() => null);
-  let pushed = null;
-  try {
-    pushed = push && decryptPush(push.body, ua, authSecret);
-  } catch (e) {
-    pushed = { error: e.message };
-  }
+  // Several triggers may fire (e.g. the task is also blocked): find the approval one.
+  const tryDecrypt = (p) => {
+    try {
+      return decryptPush(p.body, ua, authSecret);
+    } catch (e) {
+      return { error: e.message };
+    }
+  };
+  const push = await waitFor(
+    () => pushes.find((p) => p.path === "/push/operator" && tryDecrypt(p).category === "approval"),
+    20_000,
+    "approval push delivery",
+  ).catch(() => pushes.find((p) => p.path === "/push/operator") ?? null);
+  const pushed = push && tryDecrypt(push);
   check(
     "D",
     "ApprovalRequested → Web Push via gateway (VAPID), RFC 8291 payload decrypts, category approval",
@@ -617,8 +630,12 @@ try {
     soft(Promise.resolve(s.close()));
   }
   check("D", "revoke closes the session and refuses the next handshake", !!afterRevoke && refused === "revoked", `${afterRevoke?.code ?? devClosed}, ${refused}`);
-  const subs = JSON.parse(readFileSync(join(A.home, "push", "subscriptions.json"), "utf8"));
-  check("D", "revoked device's push subscriptions dropped", !subs.some((s) => s.endpoint.endsWith("/push/operator")));
+  const dropped = await waitFor(
+    () => !JSON.parse(readFileSync(join(A.home, "push", "subscriptions.json"), "utf8")).some((s) => s.endpoint.endsWith("/push/operator")),
+    10_000,
+    "push subscriptions dropped",
+  ).catch(() => false);
+  check("D", "revoked device's push subscriptions dropped", dropped);
   await A.rpc.call("remote.disable");
   const offline = await waitFor(async () => !(await gwFetch("/v1/cores", { token })).json.cores.find((c) => c.coreId === coreId)?.online, 10_000, "core offline").catch(() => false);
   await sleep(3000);

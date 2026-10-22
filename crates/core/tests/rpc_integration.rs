@@ -209,6 +209,9 @@ async fn second_core_on_same_data_dir_is_refused_and_restart_resumes_seq() {
 
     let core2 = orkestr_core::start(CoreConfig::with_data_dir(dir.path())).await.unwrap();
     assert_eq!(core2.services.events.last_seq(), last, "seq resumes from the persisted log");
+    // Internal loops (e.g. Web Push) tail the log: no live listener, so the
+    // node heartbeat stays idle until a client subscribes.
+    assert_eq!(core2.services.events.subscriber_count(), 0, "internal loops never count as live listeners");
     assert!(!core2.services.recovered_from_crash);
     let projects = core2.services.projects.list(false).await.unwrap();
     assert_eq!(projects.len(), 1);

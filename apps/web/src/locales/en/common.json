@@ -40,6 +40,14 @@
       "expired": "The pairing offer expired. Start a new one on the desktop.",
       "bad_signature": "The approval is not signed by your core. Pairing was stopped.",
       "aborted": "Pairing was cancelled."
+    },
+    "enroll": {
+      "title": "Connect a computer first",
+      "intro": "A computer must be connected to this gateway before you can pair. Create a one-time enrollment token and enter it on the computer under Settings → Remote & Sync → Remote access.",
+      "create": "Create enrollment token",
+      "token": "Enrollment token",
+      "hint": "Valid once and for a short time. Keep it secret.",
+      "failed": "Could not create an enrollment token."
     }
   },
   "tabs": {
@@ -50,14 +58,23 @@
     "editor": "Editor",
     "settings": "Device"
   },
-  "projects": { "empty": "No projects yet." },
-  "tasks": { "empty": "No tasks." },
+  "projects": {
+    "empty": "No projects yet."
+  },
+  "tasks": {
+    "empty": "No tasks."
+  },
   "approvals": {
     "empty": "Nothing is waiting for your approval.",
     "approve": "Approve",
     "reject": "Reject"
   },
-  "risk": { "Low": "Low risk", "Medium": "Medium risk", "High": "High risk", "Critical": "Critical" },
+  "risk": {
+    "Low": "Low risk",
+    "Medium": "Medium risk",
+    "High": "High risk",
+    "Critical": "Critical"
+  },
   "taskStatus": {
     "Planned": "Planned",
     "Ready": "Ready",

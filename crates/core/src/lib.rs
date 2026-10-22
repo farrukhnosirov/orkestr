@@ -534,9 +534,8 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
     ) {
         tracing::error!(error = %e, "remote access unavailable: cannot load the core identity key");
     }
-    // Web Push (Phase 4, ADR-0036): start the event → push loop now so triggers
-    // fire before the first `push.*` call.
-    let _push = remote::push::service(&services);
+    // Web Push (Phase 4, ADR-0036): event → push loop (stops on shutdown).
+    remote::push::spawn_loop(&services, shutdown.clone());
     let app = server::app(app_state);
     let server_shutdown = shutdown.clone();
     let server = tokio::spawn(async move {

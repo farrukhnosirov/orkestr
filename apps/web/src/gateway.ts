@@ -34,6 +34,8 @@ export interface GatewayApi {
   totpLogin(code: string): Promise<LoginResult>;
   logout(): Promise<void>;
   vapidKey(): Promise<string | null>;
+  /** One-time token that connects a computer (core) to this account. */
+  enrollmentToken(): Promise<{ token: string; expiresAt: string }>;
 }
 
 /** Default gateway: the origin that served the app (or `VITE_GATEWAY_URL` in dev). */
@@ -85,6 +87,10 @@ export class HttpGateway implements GatewayApi {
 
   async logout() {
     await this.req(GATEWAY_PATHS.logout, {});
+  }
+
+  enrollmentToken() {
+    return this.req<{ token: string; expiresAt: string }>(GATEWAY_PATHS.enrollmentToken, {});
   }
 
   async vapidKey() {

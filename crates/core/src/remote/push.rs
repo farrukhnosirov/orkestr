@@ -10,7 +10,6 @@
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, OnceLock};
 
 use aes_gcm::aead::{Aead, KeyInit};
@@ -267,7 +266,6 @@ pub struct PushService {
     path: PathBuf,
     subs: Mutex<Vec<StoredSubscription>>,
     vapid_public_key: Mutex<Option<String>>,
-    started: AtomicBool,
 }
 
 impl PushService {
@@ -280,7 +278,7 @@ impl PushService {
             .ok()
             .map(|s| s.trim().to_owned())
             .filter(|s| !s.is_empty());
-        Self { path, subs: Mutex::new(subs), vapid_public_key: Mutex::new(vapid), started: AtomicBool::new(false) }
+        Self { path, subs: Mutex::new(subs), vapid_public_key: Mutex::new(vapid) }
     }
 
     fn persist(&self, subs: &[StoredSubscription]) -> Result<(), RpcError> {
@@ -420,48 +418,96 @@ impl PushService {
 
 static REGISTRY: OnceLock<Mutex<HashMap<PathBuf, Arc<PushService>>>> = OnceLock::new();
 
-/// The push service for these services (one per data dir), starting the
-/// event → push loop on first use. Integration: call once at core startup so
-/// triggers fire before the first `push.*` call.
+/// The push service for these services (one per data dir).
 #[must_use]
 pub fn service(services: &Arc<crate::services::Services>) -> Arc<PushService> {
     let dir = services.paths.data_dir.clone();
-    let svc = {
-        let mut map = REGISTRY.get_or_init(Default::default).lock();
-        Arc::clone(map.entry(dir.clone()).or_insert_with(|| Arc::new(PushService::open(&dir))))
-    };
-    if !svc.started.swap(true, Ordering::SeqCst) {
-        if let Ok(handle) = tokio::runtime::Handle::try_current() {
-            let services = Arc::clone(services);
-            let push = Arc::clone(&svc);
-            handle.spawn(run_loop(services, push));
-        } else {
-            svc.started.store(false, Ordering::SeqCst);
-        }
-    }
-    svc
+    let mut map = REGISTRY.get_or_init(Default::default).lock();
+    Arc::clone(map.entry(dir.clone()).or_insert_with(|| Arc::new(PushService::open(&dir))))
 }
 
-async fn run_loop(services: Arc<crate::services::Services>, push: Arc<PushService>) {
-    let mut sub = services.events.subscribe_all();
-    while let Some(rx) = sub.recv().await {
-        let orkestr_events::Received::Event(ev) = rx else { continue };
-        if let EventKind::DeviceRevoked(p) = &ev.kind {
-            if let Err(e) = push.remove_device(p.device_id) {
-                tracing::warn!(error = %e.message, "failed to drop push subscriptions of a revoked device");
-            }
+/// Starts the event → push loop (core startup). It stops on `shutdown`, so a
+/// restarted core in the same process gets a fresh loop and the old
+/// `Services` are released.
+pub fn spawn_loop(services: &Arc<crate::services::Services>, shutdown: tokio_util::sync::CancellationToken) {
+    let push = service(services);
+    tokio::spawn(run_loop(Arc::clone(services), push, shutdown));
+}
+
+/// How often the push loop tails the event log.
+const TAIL_POLL: std::time::Duration = std::time::Duration::from_millis(500);
+/// Events read per page while tailing.
+const TAIL_PAGE: u32 = 500;
+
+/// Tails the persisted event log (like the architecture auto-refresh) instead
+/// of holding a live bus subscription: a permanent subscriber would make the
+/// core believe a client is listening (the node heartbeat then never idles).
+/// Every trigger and `DeviceRevoked` event is persisted.
+async fn run_loop(
+    services: Arc<crate::services::Services>,
+    push: Arc<PushService>,
+    shutdown: tokio_util::sync::CancellationToken,
+) {
+    let bus = services.events.clone();
+    let mut cursor = bus.last_seq();
+    loop {
+        tokio::select! {
+            () = shutdown.cancelled() => break,
+            () = tokio::time::sleep(TAIL_POLL) => {}
+        }
+        let last = bus.last_seq();
+        if last <= cursor {
             continue;
         }
-        let Some(trigger) = trigger_for(&ev) else { continue };
         if push.list().is_empty() {
+            // Nothing to deliver and nothing to drop.
+            cursor = last;
             continue;
         }
-        let payload = payload_for(&ev, &trigger);
-        if let Err(e) =
-            push.dispatch(&services.remote, &payload, trigger.urgency, trigger.collapse_key.as_deref(), None).await
-        {
-            tracing::debug!(error = %e.message, category = trigger.category, "push not delivered");
+        let mut from = cursor + 1;
+        loop {
+            let page = match bus
+                .replay(&orkestr_events::ReplayQuery {
+                    from_seq: from,
+                    to_seq: Some(last),
+                    limit: TAIL_PAGE,
+                    topics: None,
+                    newest_first: false,
+                })
+                .await
+            {
+                Ok(p) => p,
+                Err(e) => {
+                    tracing::warn!(error = %e, "push: cannot read the event log");
+                    break;
+                }
+            };
+            for ev in &page.events {
+                from = ev.seq + 1;
+                handle_event(&services, &push, ev).await;
+            }
+            if !page.has_more || page.events.is_empty() {
+                break;
+            }
         }
+        // Ephemeral events are never stored: everything up to `last` is done.
+        cursor = last;
+    }
+}
+
+async fn handle_event(services: &Arc<crate::services::Services>, push: &PushService, ev: &Event) {
+    if let EventKind::DeviceRevoked(p) = &ev.kind {
+        if let Err(e) = push.remove_device(p.device_id) {
+            tracing::warn!(error = %e.message, "failed to drop push subscriptions of a revoked device");
+        }
+        return;
+    }
+    let Some(trigger) = trigger_for(ev) else { return };
+    let payload = payload_for(ev, &trigger);
+    if let Err(e) =
+        push.dispatch(&services.remote, &payload, trigger.urgency, trigger.collapse_key.as_deref(), None).await
+    {
+        tracing::debug!(error = %e.message, category = trigger.category, "push not delivered");
     }
 }
 

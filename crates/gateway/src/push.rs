@@ -188,7 +188,11 @@ pub async fn vapid_handler() -> axum::response::Response {
 /// # Errors
 /// [`PushError::NotConfigured`] before [`init`]; otherwise see [`PushSender::deliver`].
 pub async fn deliver(msg: &PushDelivery) -> Result<(), PushError> {
-    SENDER.get().ok_or(PushError::NotConfigured)?.deliver(msg).await
+    deliver_with(SENDER.get(), msg).await
+}
+
+async fn deliver_with(sender: Option<&PushSender>, msg: &PushDelivery) -> Result<(), PushError> {
+    sender.ok_or(PushError::NotConfigured)?.deliver(msg).await
 }
 
 #[cfg(test)]
@@ -280,6 +284,7 @@ mod tests {
         assert!(matches!(sender.deliver(&msg).await, Err(PushError::Gone(410))));
         msg.endpoint = "http://push.example.org/x".into();
         assert!(matches!(sender.deliver(&msg).await, Err(PushError::BadEndpoint(_))));
-        assert!(matches!(deliver(&msg).await, Err(PushError::NotConfigured)));
+        // (the process-wide sender may be configured by other tests in this binary)
+        assert!(matches!(deliver_with(None, &msg).await, Err(PushError::NotConfigured)));
     }
 }
