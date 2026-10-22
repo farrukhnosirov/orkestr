@@ -45,10 +45,14 @@ pub struct NodeMetricsSnapshot {
 #[serde(tag = "type", rename_all_fields = "camelCase")]
 #[ts(export)]
 pub enum CheckProbe {
-    /// HTTP(S) GET.
+    /// HTTP(S) request.
     Http {
         /// URL.
         url: String,
+        /// Method (`GET` default, `HEAD`, `POST`, ...).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[ts(optional)]
+        method: Option<String>,
         /// Expected status (default: any 2xx/3xx).
         #[serde(default, skip_serializing_if = "Option::is_none")]
         #[ts(optional)]
@@ -133,6 +137,28 @@ pub struct HealthCheckStatus {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub last_error: Option<String>,
+    /// Recent runs (oldest first, bounded).
+    #[serde(default)]
+    pub history: Vec<CheckRunSample>,
+}
+
+/// One health check run.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct CheckRunSample {
+    /// Run time.
+    pub ts: Timestamp,
+    /// Probe succeeded.
+    pub ok: bool,
+    /// Latency.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub latency_ms: Option<u32>,
+    /// Error (redacted).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub error: Option<String>,
 }
 
 /// `monitor.overview` params.
@@ -177,6 +203,11 @@ pub struct MetricsParams {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub since: Option<Timestamp>,
+    /// Bucket width in seconds; points inside a bucket are averaged
+    /// (default: raw samples).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub resolution_secs: Option<u32>,
 }
 
 /// One point.
@@ -413,6 +444,10 @@ pub struct IngestLine {
     pub level: Option<LogLevel>,
     /// Text.
     pub message: String,
+    /// Structured attributes (appended to the stored line as `key=value`;
+    /// values of sensitive keys are redacted).
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub attrs: std::collections::BTreeMap<String, String>,
 }
 
 /// `monitor.ingest` params (webhook: local or token-authenticated).

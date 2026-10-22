@@ -24,9 +24,11 @@ chrono.workspace = true
 parking_lot.workspace = true
 orkestr-node.workspace = true
 reqwest.workspace = true
+rusqlite.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
+orkestr-platform.workspace = true
 
 [lints]
 workspace = true

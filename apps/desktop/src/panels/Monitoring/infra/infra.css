@@ -1,0 +1,187 @@
+/* Infrastructure monitor (ADR-0042). Builds on monitoring.css tokens. */
+.infra-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ok-space-2);
+}
+
+.infra-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-2);
+  min-width: 0;
+}
+
+.infra-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ok-space-2);
+  min-width: 0;
+}
+
+.infra-spacer {
+  flex: 1;
+}
+
+.infra-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.infra-wrap {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  min-width: 0;
+}
+
+.infra-nodes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: var(--ok-space-2);
+}
+
+.infra-node {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-1);
+  padding: var(--ok-space-2);
+  border: 1px solid var(--ok-color-border);
+  border-radius: var(--ok-radius-md);
+  background: var(--ok-color-surface-sunken);
+}
+
+.infra-node--offline {
+  opacity: 0.6;
+}
+
+.infra-metric {
+  display: grid;
+  grid-template-columns: 4.5rem 1fr 3.5rem;
+  align-items: center;
+  gap: var(--ok-space-2);
+  font-size: var(--ok-font-size-sm);
+}
+
+.infra-metric__label {
+  color: var(--ok-color-text-muted);
+}
+
+.infra-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-2);
+}
+
+.infra-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-1);
+  padding: var(--ok-space-2);
+  border: 1px solid var(--ok-color-border);
+  border-radius: var(--ok-radius-md);
+  background: var(--ok-color-surface-sunken);
+  font-size: var(--ok-font-size-sm);
+}
+
+.infra-item--muted {
+  opacity: 0.7;
+}
+
+.infra-history {
+  display: flex;
+  gap: 2px;
+  height: 14px;
+  align-items: stretch;
+}
+
+.infra-history__bar {
+  width: 5px;
+  border-radius: 1px;
+}
+
+.infra-history__bar--ok {
+  background: var(--ok-color-success);
+}
+
+.infra-history__bar--fail {
+  background: var(--ok-color-danger);
+}
+
+.infra-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-2);
+  padding: var(--ok-space-3);
+  border: 1px solid var(--ok-color-border);
+  border-radius: var(--ok-radius-md);
+}
+
+.infra-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--ok-space-2);
+  align-items: end;
+}
+
+.infra-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-1);
+  font-size: var(--ok-font-size-sm);
+  color: var(--ok-color-text-muted);
+}
+
+.infra-select {
+  background: var(--ok-color-surface-sunken);
+  color: var(--ok-color-text);
+  border: 1px solid var(--ok-color-border);
+  border-radius: var(--ok-radius-sm);
+  padding: var(--ok-space-1) var(--ok-space-2);
+  font: inherit;
+  font-size: var(--ok-font-size-sm);
+}
+
+.infra-select:focus-visible {
+  outline: 2px solid var(--ok-color-accent);
+  outline-offset: 1px;
+}
+
+.infra-check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ok-space-1);
+  font-size: var(--ok-font-size-sm);
+}
+
+.infra-filters {
+  align-items: flex-end;
+}
+
+.infra-log {
+  max-height: 360px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--ok-font-size-xs, 12px);
+}
+
+.infra-log__line {
+  display: grid;
+  grid-template-columns: 5rem 4.5rem 8rem 1fr;
+  align-items: start;
+  gap: var(--ok-space-2);
+}
+
+.infra-log__src {
+  display: block;
+}
