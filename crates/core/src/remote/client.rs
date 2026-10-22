@@ -313,13 +313,17 @@ impl E2eClient {
             }
             let (finish, session) =
                 hs.finish(&frame, device_key, &core_key).map_err(|e| ClientError::Refused(e.to_string()))?;
-            ws.send(Message::Binary(finish.to_bytes().into())).await.map_err(|e| ClientError::Transport(e.to_string()))?;
+            ws.send(Message::Binary(finish.to_bytes().into()))
+                .await
+                .map_err(|e| ClientError::Transport(e.to_string()))?;
             Ok::<_, ClientError>((ws, session))
         };
-        let (ws, session) = tokio::time::timeout(CONNECT_TIMEOUT, handshake).await.map_err(|_| ClientError::Timeout)??;
+        let (ws, session) =
+            tokio::time::timeout(CONNECT_TIMEOUT, handshake).await.map_err(|_| ClientError::Timeout)??;
         let client = Self::spawn(ws, session);
         // `auth` is answered like any request (the token is ignored on remote sessions).
-        let res = client.round_trip("auth", |id| json!({"type": "auth", "id": id, "token": "e2e"}), CONNECT_TIMEOUT).await?;
+        let res =
+            client.round_trip("auth", |id| json!({"type": "auth", "id": id, "token": "e2e"}), CONNECT_TIMEOUT).await?;
         if !res.ok {
             return Err(res.error.map_or(ClientError::Closed, ClientError::Rpc));
         }
@@ -443,12 +447,8 @@ impl E2eClient {
     /// # Errors
     /// Closed session, timeout.
     pub async fn call_raw(&self, method: &str, params: Value) -> Result<ResFrame, ClientError> {
-        self.round_trip(
-            "c",
-            |id| json!({"type": "req", "id": id, "method": method, "params": params}),
-            self.timeout,
-        )
-        .await
+        self.round_trip("c", |id| json!({"type": "req", "id": id, "method": method, "params": params}), self.timeout)
+            .await
     }
 
     /// Typed call.
@@ -466,9 +466,7 @@ impl E2eClient {
     /// # Errors
     /// The core refused a topic, closed session, timeout.
     pub async fn subscribe(&self, topics: &[&str]) -> Result<(), ClientError> {
-        let res = self
-            .round_trip("s", |id| json!({"type": "sub", "id": id, "topics": topics}), self.timeout)
-            .await?;
+        let res = self.round_trip("s", |id| json!({"type": "sub", "id": id, "topics": topics}), self.timeout).await?;
         if res.ok {
             Ok(())
         } else {

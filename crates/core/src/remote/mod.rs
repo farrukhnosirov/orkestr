@@ -30,7 +30,8 @@ use orkestr_events::EventBus;
 use orkestr_protocol::event::EventKind;
 use orkestr_protocol::methods::remote::{
     tunnel::ToGateway, DeviceApproveParams, DeviceAuthorizedPayload, DeviceInfo, DeviceList, DevicePairingStart,
-    DevicePairingStartParams, DeviceRevokedPayload, PendingPairing, RemoteEnableParams, RemoteSessionPayload, RemoteStatus,
+    DevicePairingStartParams, DeviceRevokedPayload, PendingPairing, RemoteEnableParams, RemoteSessionPayload,
+    RemoteStatus,
 };
 use orkestr_protocol::policy::Role;
 use orkestr_protocol::{NewEvent, RpcError};

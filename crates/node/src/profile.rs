@@ -100,8 +100,7 @@ pub fn apply_profile(mut node: Node, profile: &NodeProfile) -> Node {
         node.resources.memory_used_bytes = node.resources.memory_used_bytes.min(m);
     }
     if let Some(gpus) = &profile.gpus {
-        node.resources.gpus =
-            gpus.iter().map(|g| GpuInfo { name: g.name.clone(), vram_bytes: g.vram_bytes }).collect();
+        node.resources.gpus = gpus.iter().map(|g| GpuInfo { name: g.name.clone(), vram_bytes: g.vram_bytes }).collect();
     }
     if let Some(tools) = &profile.tools {
         node.tools.clone_from(tools);

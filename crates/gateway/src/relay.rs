@@ -320,7 +320,8 @@ struct Caller {
 }
 
 fn caller(st: &GatewayState, headers: &HeaderMap, query_token: Option<&str>) -> Result<Caller, ApiError> {
-    let token = auth::bearer(headers, query_token).ok_or_else(|| ApiError::new(StatusCode::UNAUTHORIZED, "sign in first"))?;
+    let token =
+        auth::bearer(headers, query_token).ok_or_else(|| ApiError::new(StatusCode::UNAUTHORIZED, "sign in first"))?;
     if let Some(account) = st.store.session(&token) {
         return Ok(Caller { account, core: None });
     }

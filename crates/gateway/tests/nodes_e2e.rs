@@ -91,7 +91,11 @@ async fn session_token(http: &reqwest::Client, base: &str) -> String {
     fin["token"].as_str().expect("session token").to_owned()
 }
 
-async fn enrolled_core(http: &reqwest::Client, base: &str, token: &str) -> (orkestr_core::CoreHandle, Local, String, tempfile::TempDir) {
+async fn enrolled_core(
+    http: &reqwest::Client,
+    base: &str,
+    token: &str,
+) -> (orkestr_core::CoreHandle, Local, String, tempfile::TempDir) {
     let enroll: Value = http
         .post(format!("{base}/v1/cores/enrollment-token"))
         .bearer_auth(token)
@@ -149,7 +153,8 @@ async fn node_enrollment_heartbeat_revoke_end_to_end() {
     let code = offer["code"].as_str().unwrap().to_owned();
 
     // wrong code → a real error, no enrollment
-    let bad = c.call("nodes.enroll", json!({"coreId": worker_core_id, "pairingId": pairing_id, "code": "WRONGCOD"})).await;
+    let bad =
+        c.call("nodes.enroll", json!({"coreId": worker_core_id, "pairingId": pairing_id, "code": "WRONGCOD"})).await;
     assert_eq!(bad["ok"], false, "{bad}");
     assert_eq!(bad["error"]["code"], "forbidden", "{bad}");
 
@@ -163,7 +168,8 @@ async fn node_enrollment_heartbeat_revoke_end_to_end() {
     assert_eq!(p["sas"], coord_sas.as_str(), "SAS equal on both sides");
     assert_eq!(p["kind"], "node");
     // the SAS must be confirmed
-    let r = w.call("devices.approve", json!({"pairingId": pairing_id, "sasConfirmed": false, "role": "operator"})).await;
+    let r =
+        w.call("devices.approve", json!({"pairingId": pairing_id, "sasConfirmed": false, "role": "operator"})).await;
     assert_eq!(r["ok"], false, "{r}");
 
     // enroll concurrently with the worker's approval
@@ -253,7 +259,8 @@ async fn node_enrollment_heartbeat_revoke_end_to_end() {
     // policy: never above what the worker granted
     let r = c.call("nodes.setPolicy", json!({"nodeId": node_id, "trustLevel": "trusted"})).await;
     assert_eq!(r["error"]["code"], "bad_request", "{r}");
-    let r = c.ok("nodes.setPolicy", json!({"nodeId": node_id, "trustLevel": "restricted", "maxConcurrentJobs": 1})).await;
+    let r =
+        c.ok("nodes.setPolicy", json!({"nodeId": node_id, "trustLevel": "restricted", "maxConcurrentJobs": 1})).await;
     assert_eq!(r["node"]["trustLevel"], "restricted");
     assert_eq!(r["node"]["slots"]["max"], 1);
 

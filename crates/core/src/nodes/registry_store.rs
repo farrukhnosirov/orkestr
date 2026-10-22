@@ -315,9 +315,13 @@ mod tests {
             revoked_at: None,
             sig: "s".into(),
         };
-        r.put_stored(StoredEnrollment { enrollment: enr.clone(), device_id: "d1".into(), max_concurrent_jobs: Some(1) })
-            .await
-            .unwrap();
+        r.put_stored(StoredEnrollment {
+            enrollment: enr.clone(),
+            device_id: "d1".into(),
+            max_concurrent_jobs: Some(1),
+        })
+        .await
+        .unwrap();
         assert_eq!(r.enrollment(id).await.unwrap(), Some(enr.clone()));
         assert_eq!(r.stored(id).await.unwrap().unwrap().device_id, "d1");
         let snap = NodeSnapshot {

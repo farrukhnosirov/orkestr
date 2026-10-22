@@ -48,7 +48,8 @@ impl HealthConfig {
     #[must_use]
     pub fn from_env(env: &EnvSource) -> Self {
         let ms = |k: &str| env.get(k).and_then(|v| v.trim().parse::<u64>().ok()).filter(|v| *v > 0);
-        let mut cfg = ms(HEARTBEAT_ENV).map_or_else(Self::default, |hb| Self::from_heartbeat(Duration::from_millis(hb)));
+        let mut cfg =
+            ms(HEARTBEAT_ENV).map_or_else(Self::default, |hb| Self::from_heartbeat(Duration::from_millis(hb)));
         if let Some(ttl) = ms(LEASE_TTL_ENV) {
             cfg.lease_ttl = Duration::from_millis(ttl);
         }
@@ -144,6 +145,9 @@ mod tests {
         assert_eq!(cfg.heartbeat, Duration::from_millis(500));
         assert_eq!(cfg.lease_ttl, Duration::from_secs(3));
         assert_eq!(HealthConfig::from_env(&EnvSource::from_pairs([(HEARTBEAT_ENV, "x")])), HealthConfig::default());
-        assert_eq!(HealthConfig::from_env(&EnvSource::from_pairs(Vec::<(String, String)>::new())), HealthConfig::default());
+        assert_eq!(
+            HealthConfig::from_env(&EnvSource::from_pairs(Vec::<(String, String)>::new())),
+            HealthConfig::default()
+        );
     }
 }

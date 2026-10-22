@@ -94,8 +94,10 @@ pub fn check_static(rp: &RemotePrincipal, method: &str, params: &Value) -> Resul
             .with_data(serde_json::json!({ "coordinatorOnly": true })));
     }
     if rp.coordinator && !policy.coordinator_only && !COORDINATOR_ALSO.contains(&method) {
-        return Err(RpcError::forbidden(format!("a coordinator core may only call worker-side node methods, not `{method}`"))
-            .with_data(serde_json::json!({ "coordinatorOnly": true })));
+        return Err(RpcError::forbidden(format!(
+            "a coordinator core may only call worker-side node methods, not `{method}`"
+        ))
+        .with_data(serde_json::json!({ "coordinatorOnly": true })));
     }
     if rp.role < policy.min_role {
         return Err(RpcError::forbidden(format!("`{method}` requires role {:?}", policy.min_role))

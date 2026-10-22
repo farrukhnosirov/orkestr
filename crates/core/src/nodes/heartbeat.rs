@@ -120,9 +120,9 @@ async fn sweep(services: &Arc<Services>) {
     let now = chrono::Utc::now();
     let enrolled = hub.registry().all_stored().await.unwrap_or_default();
     for s in snaps {
-        let since = s.last_heartbeat_at.or_else(|| {
-            enrolled.iter().find(|e| e.enrollment.node_id == s.node.id).map(|e| e.enrollment.enrolled_at)
-        });
+        let since = s
+            .last_heartbeat_at
+            .or_else(|| enrolled.iter().find(|e| e.enrollment.node_id == s.node.id).map(|e| e.enrollment.enrolled_at));
         let silence = since.map_or(Duration::MAX, |t| (now - t).to_std().unwrap_or_default());
         let next = next_health(s.status, silence, &hub.health());
         if next != s.status {

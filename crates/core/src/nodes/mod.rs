@@ -45,8 +45,7 @@ use orkestr_node::{NodeConnector, NodeError, NodeLink, NodeMonitor};
 use orkestr_protocol::event::{EventKind, NodeOfflinePayload, NodeStatusPayload};
 use orkestr_protocol::methods::nodes::{
     self as m, EnrollNodeParams, EnrollNodeResult, LeaseRenewal, LeaseState, NodeEnrollment, NodeHeartbeatParams,
-    NodeHeartbeatResult, NodeHelloParams, NodeHelloResult, NodeProfile, NodeRegisteredPayload, NodeSlots,
-    NodeSnapshot,
+    NodeHeartbeatResult, NodeHelloParams, NodeHelloResult, NodeProfile, NodeRegisteredPayload, NodeSlots, NodeSnapshot,
 };
 use orkestr_protocol::{Event, NewEvent, RpcError};
 use orkestr_security::audit::NewAudit;
@@ -159,7 +158,12 @@ impl NodeHub {
     /// Reads `ORKESTR_NODE_PROFILE`, `ORKESTR_NODE_HEARTBEAT_MS`,
     /// `ORKESTR_NODE_LEASE_TTL_MS` from `env`.
     #[must_use]
-    pub fn new(db: orkestr_storage::Db, monitor: Arc<NodeMonitor>, remote: Arc<RemoteService>, env: &EnvSource) -> Self {
+    pub fn new(
+        db: orkestr_storage::Db,
+        monitor: Arc<NodeMonitor>,
+        remote: Arc<RemoteService>,
+        env: &EnvSource,
+    ) -> Self {
         let registry = Arc::new(SqlNodeRegistry::new(db));
         let connector: Arc<dyn NodeConnector> =
             Arc::new(GatewayConnector::new(Arc::clone(&remote), Arc::clone(&registry)));
@@ -335,7 +339,11 @@ impl NodeHub {
     }
 
     /// Worker side of `node.heartbeat`.
-    pub async fn worker_heartbeat(&self, coordinator: Option<DeviceId>, p: &NodeHeartbeatParams) -> NodeHeartbeatResult {
+    pub async fn worker_heartbeat(
+        &self,
+        coordinator: Option<DeviceId>,
+        p: &NodeHeartbeatParams,
+    ) -> NodeHeartbeatResult {
         let host = self.worker.read().clone();
         let leases = match host {
             Some(h) => h.heartbeat(coordinator, p).await,
@@ -540,7 +548,12 @@ impl NodeHub {
     /// # Errors
     /// Remote access not enrolled, wrong code (`forbidden`), unknown pairing /
     /// core (`not_found`), pending approval (`conflict`), transport failures.
-    pub async fn enroll(&self, services: &Services, actor: Actor, p: EnrollNodeParams) -> Result<EnrollNodeResult, RpcError> {
+    pub async fn enroll(
+        &self,
+        services: &Services,
+        actor: Actor,
+        p: EnrollNodeParams,
+    ) -> Result<EnrollNodeResult, RpcError> {
         let (gateway, token) = self
             .remote
             .sync_credentials()
@@ -572,9 +585,16 @@ impl NodeHub {
                 let claimed = match claimed {
                     Ok(c) => c,
                     Err(e) => {
-                        self.audit(services, actor, "nodes.enroll", &p.core_id, AuditOutcome::Denied, serde_json::json!({
-                            "pairingId": p.pairing_id, "reason": e.message,
-                        }))
+                        self.audit(
+                            services,
+                            actor,
+                            "nodes.enroll",
+                            &p.core_id,
+                            AuditOutcome::Denied,
+                            serde_json::json!({
+                                "pairingId": p.pairing_id, "reason": e.message,
+                            }),
+                        )
                         .await;
                         return Err(e);
                     }
@@ -611,9 +631,10 @@ impl NodeHub {
         self.pending.lock().remove(&p.pairing_id);
         // connect + hello
         let gc = GatewayConnector::new(Arc::clone(&self.remote), Arc::clone(&self.registry));
-        let client = gc.open(&p.core_id, &claimed.device_id, &claimed.core_public_key).await.map_err(|e| {
-            RpcError::conflict(format!("approved, but the worker core is unreachable: {e}"))
-        })?;
+        let client = gc
+            .open(&p.core_id, &claimed.device_id, &claimed.core_public_key)
+            .await
+            .map_err(|e| RpcError::conflict(format!("approved, but the worker core is unreachable: {e}")))?;
         let hello: NodeHelloResult = client
             .call_typed::<m::Hello>(&NodeHelloParams {
                 coordinator_node_id: self.monitor.node_id(),
@@ -639,8 +660,11 @@ impl NodeHub {
             revoked_at: None,
             sig: String::new(),
         })?;
-        let stored =
-            StoredEnrollment { enrollment: enrollment.clone(), device_id: claimed.device_id.clone(), max_concurrent_jobs: None };
+        let stored = StoredEnrollment {
+            enrollment: enrollment.clone(),
+            device_id: claimed.device_id.clone(),
+            max_concurrent_jobs: None,
+        };
         self.registry.put_stored(stored.clone()).await.map_err(internal)?;
         // a re-enrollment starts from a clean snapshot
         if let Ok(Some(mut old)) = self.registry.get(node_id).await {
@@ -654,9 +678,16 @@ impl NodeHub {
             self.registry.put_snapshot(snap.clone()).await.map_err(internal)?;
         }
         self.insert_link(Arc::new(E2eLink::new(node_id, client)));
-        self.audit(services, actor, "nodes.enroll", &node_id.to_string(), AuditOutcome::Allowed, serde_json::json!({
-            "coreId": p.core_id, "trustLevel": enrollment.trust_level, "deviceId": claimed.device_id,
-        }))
+        self.audit(
+            services,
+            actor,
+            "nodes.enroll",
+            &node_id.to_string(),
+            AuditOutcome::Allowed,
+            serde_json::json!({
+                "coreId": p.core_id, "trustLevel": enrollment.trust_level, "deviceId": claimed.device_id,
+            }),
+        )
         .await;
         let _ = services
             .events
@@ -670,7 +701,8 @@ impl NodeHub {
     /// # Errors
     /// Unknown node, storage failure.
     pub async fn mark_revoked(&self, services: &Services, id: NodeId, reason: &str) -> Result<NodeSnapshot, RpcError> {
-        let mut stored = self.registry.stored(id).await.map_err(internal)?.ok_or_else(|| rpc_error(NodeError::NotFound(id)))?;
+        let mut stored =
+            self.registry.stored(id).await.map_err(internal)?.ok_or_else(|| rpc_error(NodeError::NotFound(id)))?;
         if stored.enrollment.revoked_at.is_none() {
             stored.enrollment.revoked_at = Some(chrono::Utc::now());
             stored.enrollment = self.sign(stored.enrollment)?;
@@ -682,9 +714,16 @@ impl NodeHub {
         if let Some(from) = before.filter(|f| *f != NodeStatus::Revoked) {
             self.health_changed(services, id, from, NodeStatus::Revoked).await;
         }
-        self.audit(services, Actor::System, "nodes.revoked", &id.to_string(), AuditOutcome::Allowed, serde_json::json!({
-            "reason": reason,
-        }))
+        self.audit(
+            services,
+            Actor::System,
+            "nodes.revoked",
+            &id.to_string(),
+            AuditOutcome::Allowed,
+            serde_json::json!({
+                "reason": reason,
+            }),
+        )
         .await;
         Ok(snap)
     }
@@ -713,7 +752,8 @@ impl NodeHub {
     /// Unknown node; trust above what the worker granted.
     pub async fn set_policy(&self, p: m::SetNodePolicyParams) -> Result<NodeSnapshot, RpcError> {
         let id = p.node_id;
-        let mut stored = self.registry.stored(id).await.map_err(internal)?.ok_or_else(|| rpc_error(NodeError::NotFound(id)))?;
+        let mut stored =
+            self.registry.stored(id).await.map_err(internal)?.ok_or_else(|| rpc_error(NodeError::NotFound(id)))?;
         if let Some(t) = p.trust_level {
             if t > stored.enrollment.trust_level {
                 return Err(RpcError::bad_request(format!(

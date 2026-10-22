@@ -2,6 +2,7 @@
 import type { DeviceId } from "./DeviceId";
 import type { ProjectId } from "./ProjectId";
 import type { Role } from "./Role";
+import type { TrustLevel } from "./TrustLevel";
 
 /**
  * A paired device.
@@ -50,4 +51,9 @@ stepUpRegistered: boolean,
 /**
  * Step-up credential kind (`webauthn` | `native`) when registered.
  */
-stepUpKind?: string, };
+stepUpKind?: string, 
+/**
+ * Trust level granted when this "device" is a coordinator core that
+ * enrolled this core as a worker node (Phase 6); absent for devices.
+ */
+trustLevel?: TrustLevel, };
