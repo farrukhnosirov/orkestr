@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Source | §61 (roadmap), §63 (acceptance scenarios), §66 (order of work), §58 (quality gates), `../requirements-review.md` (re-phasing decisions) |
-| Scope | Phase 0–3 broken down into milestones with exit criteria; Phase 4 and Phase 5 status in the table below. Phase 6–7 as an outline |
+| Scope | Phase 0–3 broken down into milestones with exit criteria; Phase 4, 5 and 6 status in the table below. Phase 7 as an outline |
 | Rule | A milestone is **done** only when every exit criterion is demonstrated: automated test, recorded demo, or measured number in a report. Stubs for later phases must return the explicit unimplemented-feature error (RR-G14; as built `bad_request` with `data.unimplementedFeature`) and be marked in `feature-traceability.md`. |
 
 **Definition of Done for every milestone** (§58, §60):
@@ -16,6 +16,14 @@
 - No secrets in logs. This is checked by the redaction test fixture.
 
 ## Final state of Phases 0–3 (2026-10-07, after the audit)
+
+**Phase 6 (Multi-node)**: a coordinator core places jobs on enrolled
+worker cores through the gateway (E2E, pull heartbeat, leases with fencing),
+migrates them with checkpoints, distributes local models, and shows it all
+in the desktop Nodes panel (ADR-0033, ADR-0039). Acceptance:
+<!-- P6-ACCEPTANCE -->TBD<!-- /P6-ACCEPTANCE --> (`scripts/smoke/phase6-acceptance.mjs`;
+details and the deferred list in `feature-traceability.md` → "Phase 6
+acceptance check").
 
 **Phase 5 (Mobile) closed on 2026-10-22** for Android:
 `apps/mobile` (Expo SDK 58 / React Native 0.88) runs on the Android emulator
@@ -51,6 +59,7 @@ verification on `main`:
 | 3 Visual OS | **Delivered for Windows** (64/64; G and H pass) | Themes + editor, layouts + editor, Robot Designer, HUD, voice notifications, voice per agent, performance modes, sound engine | Mission Control and task graph (performance not measured), robots (CPU/RAM budget, Wayland), voice (no local Whisper, no real microphone), wake word (SP-15 budgets), AI-UI (no contrast rejection or `--safe-ui`), docking / multi-monitor (restore on a second monitor not verified), autostart after a reboot | macOS and Linux packages |
 | 4 Remote & Sync | **Complete for the self-hosted MVP** (40/40, 2026-10-22: scenarios D and C) | Self-hosted gateway (passkeys + TOTP, CIK-signed tunnel, pairing with codeMac + SAS, `e2e-v1`, roles + MethodPolicy, step-up, revoke, kill switch, rate limits, audit); web client (sign-in, pairing, projects, tasks, approvals with step-up, remote terminal, editor, en/ru); encrypted working-tree sync with Seamless Continue, conflict copies and an offline outbox; Web Push (RFC 8291 + VAPID); desktop Remote & Sync settings | Web editor is a textarea; sync covers the working tree + `records:` only (no events / snapshots / artifacts streams, no 3-way merge); Web Push verified with a local mock endpoint only | Deferred with reasons in ADR-0030/0031/0036: mTLS/CA (replaced by the CIK-signed tunnel), TLS/ACME (run behind a TLS proxy), device-code flow, admin-device approval, DPoP; PostgreSQL/S3 and multi-instance; HPKE conformance, recovery key, key rotation; PWA signature/SRI; container image. Phase 4b (not started): M4.5/M4.6, OTLP, Visual Browser Agent (#17) |
 | 5 Mobile | **Complete for Android** (scenario E; acceptance: see `feature-traceability.md`) | `apps/mobile` Expo/RN dev build: TOTP login, cores list, QR / deep-link pairing with SAS, monitoring, Emergency Stop + remote kill switch, approvals with biometric step-up (`orkestr-native-v1`, ADR-0038), Manager chat, voice through core `voice.transcribe` + shared intent parser, quick review (tasks, diff, logs), devices + revoke, settings, en/ru; `nobleCrypto` provider behind the `RemoteCrypto` seam; native push FCM HTTP v1 + APNs with AES-256-GCM payloads (ADR-0037); local notifications while connected | Editor is a textarea; keys are SecureStore-wrapped software keys (not hardware non-exportable); FCM/APNs verified with mock servers only; lock-screen alert always generic | Deferred with reasons in ADR-0032/0037/0038: iOS build (needs macOS + Xcode), real FCM/APNs delivery, passkey login on mobile, on-device STT and wake word, background decryption (detailed lock screen, approve from notification), hardware non-exportable keys, DPoP, admin-device approval; multi-node is Phase 6 |
+| 6 Multi-node | **Complete for the simulated cluster** (scenario F; acceptance: see `feature-traceability.md`) | Node enrollment via `kind: "node"` pairing with SAS + trust levels (restricted / standard / trusted), revoke, drain, policy; registry with health Online / Suspect / Offline / Draining / Revoked; gateway-relayed core-to-core E2E with the P-256 CIK; pull heartbeat + leases with epochs and fencing; deterministic scheduler with stored explanations; `command` and `agentTask` jobs (Mock / Ollama); checkpoints (git bundle, dirty tree, handoff, agent state, side-effect log) as content-addressed blobs; planned + unplanned migration; side effects → `needs_user_decision`; coordinator-signed policy snapshots; local model store + `models.distribute` + Ollama adapter; emergency stop on all nodes; desktop Nodes panel (en/ru) | macOS node is profile-simulated (`ORKESTR_NODE_PROFILE` + fake `xcodebuild`); GPU node simulated in acceptance (real `nvidia-smi` detection informational) | Deferred with reasons in ADR-0033/0039: HPKE per-job secrets, preemption, `service` jobs, LAN mTLS, coordinator failover, portable Claude Code / Codex sessions, mobile / web node UI, sync chunk store for checkpoints |
 
 The delivered level of every §68 item is in `feature-traceability.md`. As
 of the final audit, 41 items are Full, 22 Partial, 16 architecture-only and

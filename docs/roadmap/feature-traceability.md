@@ -184,9 +184,9 @@ Section D counts are computed from these delivered columns.
 | iOS | §2 | 5 | client, protocol, (apps/mobile) | — | Arch | Arch | Arch | Shared protocol and client. **P5: code shared with Android, APNs sender in the gateway (mock-verified); the app was never built or run** — needs macOS + Xcode |
 | Secure remote access | §35–36 | 4 | core (session/auth), security, (gateway) | Settings | Arch | Arch | Arch | Opaque token → `Session{actor, deviceId, scopes}` from P1 (RR-P1). **P4 delivered Partial** (ADR-0030): self-hosted `orkestr-gateway`, passkeys (ES256, attestation none) + TOTP, CIK-signed tunnel, pairing (codeMac + SAS), `e2e-v1`, roles + MethodPolicy (fail closed), step-up with replay protection, revoke, kill switch, per-device rate limits, audit on gateway and core. Deferred: mTLS/CA, ACME/TLS (gateway refuses a non-loopback bind without `--behind-tls-proxy`), device-code flow, admin-device approval, DPoP refresh |
 | Headless AI Node | §12, §38 | 4 | core (`orkestrd`), node | — | Partial | Partial | Partial | **The P2 hand off to the daemon is not built** (M2.7); manual `orkestrd` (P1) and autostart (P3) remain. P1: manual `orkestrd`. P2: handoff. P3: autostart. P4: node behind the gateway |
-| Multi-computer cluster | §38 | 6 | node, orchestrator | Nodes | Arch | Arch | Arch | `nodeId` on events and entities from P1 (RR-P4) |
-| Resource-aware scheduling | §11, §38 | 6 | task-engine, node | Tasks, MissionControl | Arch | Full | Full | Full for the local node in P2. Cross-node in P6 |
-| Task migration / checkpointing | §39 | 6 | task-engine, agent-runtime, snapshots | Tasks | Partial | Partial | Partial | P1: checkpoint and handoff record used for crash recovery (ADR-0022). P6: migration between nodes |
+| Multi-computer cluster | §38 | 6 | node, orchestrator | Nodes | Arch | Arch | Arch | `nodeId` on events and entities from P1 (RR-P4). **P6 (as built):** enrollment by `kind: "node"` pairing with SAS + trust levels, node registry (Online/Suspect/Offline/Draining/Revoked), pull heartbeat, gateway-relayed core-to-core E2E, revoke, emergency stop on all nodes, desktop Nodes panel (ADR-0033) |
+| Resource-aware scheduling | §11, §38 | 6 | task-engine, node | Tasks, MissionControl | Arch | Full | Full | Full for the local node in P2. **P6:** deterministic cross-node filter + score (os, arch, tools, GPU/VRAM, local models, trust, allowed projects, availability) with explanations stored on the task; `wait` / `infeasible` (task Blocked) |
+| Task migration / checkpointing | §39 | 6 | task-engine, agent-runtime, snapshots | Tasks | Partial | Partial | Partial | P1: checkpoint and handoff record used for crash recovery (ADR-0022). **P6:** leases with epochs + fencing; checkpoints (git bundle, dirty tree, handoff, `AgentStateCheckpoint`, side-effect log) as content-addressed blobs; planned (`jobs.migrate`, drain) and unplanned (lease expiry) migration; side effects → `needs_user_decision`. Portable Claude Code / Codex session state deferred (handoff only) |
 | Cloud Workspace | §40 | 4 | sync, storage | Settings | Arch | Arch | Arch | `SyncBackend` trait, syncable flags (ADR-0019). **P4 delivered Partial** (ADR-0031): end-to-end encrypted working-tree sync (FastCDC, zstd + XChaCha20, keyed chunk ids, Ed25519-signed manifests/refs, version vectors + anti-rollback) through the gateway; `workspace:` + `records:` streams. Deferred: events/snapshots/artifacts/worktree streams, recovery key, key rotation, PostgreSQL/S3 stores |
 | Local Cache | §40 | 4 | storage, sync | — | Arch | Arch | Arch | The local DB and object store are the cache when cloud mode arrives |
 | Continuous Sync | §42 | 4 | sync, snapshots, storage | Settings | Arch | Arch | Arch | `rev`/`origin_device_id` columns, content-addressed objects (ADR-0019). **P4 delivered Partial:** sync on demand (`sync.now`) + outbox retry loop; conflict copies with resolve (keep local / remote / both). Not built: 3-way text merge, continuous file-watch push |
@@ -295,6 +295,44 @@ Deferred with reasons (ADR-0032/0037/0038):
 | Biometric on the emulator | Step-up needs an enrolled fingerprint; `adb emu finger touch` may require enrolling it manually in the emulator settings first |
 | DPoP, admin-device approval of new devices | Carried over from Phase 4 (ADR-0030); `devices.approve` stays local-only |
 | Multi-node | Phase 6; `nodes.list` returns the local node |
+
+## Phase 6 acceptance check
+
+`scripts/smoke/phase6-acceptance.mjs`: one temp gateway and three headless
+`orkestrd` cores, each with its own `ORKESTR_HOME` and tunnel — `win`
+(coordinator, real profile; its gateway traffic goes through a recording TCP
+proxy), `mac` (`fixtures/node-mac.json`: macOS / arm64, `xcodebuild` shimmed
+by `fixtures/fake-xcodebuild.mjs`) and `gpu` (`fixtures/node-gpu.json`:
+Linux / x86_64, RTX 4090 24 GB, CUDA). Heartbeat 500 ms, lease TTL 3 s,
+condition waits only. Report: `acceptance.json`.
+
+<!-- P6-ACCEPTANCE -->TBD<!-- /P6-ACCEPTANCE -->
+
+| Check | What is checked |
+|---|---|
+| C1 — setup | Gateway + account (passkey + TOTP); 3 cores tunneled and online; real GPU detection on the coordinator (informational) |
+| C2 — registry | Wrong pairing code rejected; mac and gpu enrolled via `kind: "node"` pairing with the same SAS on both sides; signed enrollment pins the worker CIK; `nodes.list` shows 3 nodes with the profile resources and trust levels; `NodeRegistered`; relay capture has no plaintext |
+| C3 — scenario F | "Build macOS app" (`requirements.os = MacOs`) placed on mac with a stored explanation; `JobAssigned`; the shim runs on the worker and streams `JobProgress`; the `.app.zip` artifact comes back as a blob whose SHA-256 matches; task `Completed` with owner = mac |
+| C4 — routing | GPU ≥ 16 GB → gpu; impossible VRAM → `infeasible` with per-node explanation and task `Blocked`; draining node excluded; restricted node refuses AgentTask; trust cannot exceed the worker's grant |
+| C5 — cross-node agent | AgentTask (mock provider) on gpu edits its worktree; the change lands in the coordinator's repository |
+| C6 — migration | Planned gpu → mac: `JobCheckpointed` + `JobMigrated` (epoch + 1), resumes from the handoff without repeating steps; unplanned: gpu killed → lease expiry → `Interrupted` → `Recovering` → `Running` elsewhere; restarted gpu's stale epoch rejected; non-idempotent side effect → `failed(needs_user_decision)` + `ApprovalRequested` |
+| C7 — models | Mock model imported on the coordinator, distributed to gpu, layers digest-verified on disk; tampered blob rejected; listed on gpu; a job requiring the model is routed there |
+| C8 — security | Emergency stop cancels jobs on all nodes; revoked node refused at the next heartbeat and its job cancelled; audit has offer / accept / complete / migrate with `nodeId`; relay capture still has no plaintext |
+| C9 — deferred | Secrets to a remote node, critical-job preemption and `service` jobs answer `unimplementedFeature` (or are infeasible / wait with a named reason) |
+
+Deferred with reasons (ADR-0033 / ADR-0039; RR-G14 `unimplementedFeature`):
+
+| Item | Reason |
+|---|---|
+| HPKE per-job secret delivery | Jobs with `needs.secrets` are infeasible on remote nodes until per-job sealed delivery exists |
+| Critical-job preemption | The scheduler waits for capacity; no running job is preempted |
+| `service` jobs | Long-running services need health checks and a restart policy; only `command` and `agentTask` run |
+| Direct LAN mTLS | All core-to-core traffic is relayed through the gateway (E2E) |
+| Coordinator failover, lease reconciliation after a coordinator crash | Jobs are only marked `Interrupted` on restart |
+| Portable Claude Code / Codex session state | Migration hands off through the handoff record only |
+| Mobile / web node UI | Nodes are managed in the desktop Nodes panel |
+| Real macOS node | Acceptance simulates macOS with a node profile and a fake `xcodebuild` |
+| Checkpoints through the sync chunk store | Direct blob transfer between cores instead |
 
 ## D. Summary
 
