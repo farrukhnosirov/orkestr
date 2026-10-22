@@ -30,6 +30,7 @@ pub mod parse;
 pub mod runner;
 pub mod service;
 pub mod store;
+pub mod transfer;
 
 pub use cli::{DiffRequest, GitCli, RepoInfo, RepoLocks};
 pub use error::{VcsError, VcsResult};
