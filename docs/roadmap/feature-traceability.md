@@ -306,7 +306,7 @@ by `fixtures/fake-xcodebuild.mjs`) and `gpu` (`fixtures/node-gpu.json`:
 Linux / x86_64, RTX 4090 24 GB, CUDA). Heartbeat 500 ms, lease TTL 3 s,
 condition waits only. Report: `acceptance.json`.
 
-<!-- P6-ACCEPTANCE -->TBD<!-- /P6-ACCEPTANCE -->
+<!-- P6-ACCEPTANCE -->**47/47 checks passed on 2026-10-22** (C1–C9; gateway + coordinator `win` + simulated `mac` / `gpu` workers, 500 ms heartbeat, 3 s lease TTL). Regression on the same commit: `cargo test --workspace` 2449 passed / 0 failed, clippy `-D warnings` and fmt clean, npm typecheck / test (1067 + 166) / build, mobile tsc + jest 32/32, Phase 1 45/45, Phase 2 46/46 (`--no-shots`), Phase 4 40/40, Phase 5 Node lane 44/44.<!-- /P6-ACCEPTANCE -->
 
 | Check | What is checked |
 |---|---|

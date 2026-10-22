@@ -6,7 +6,11 @@ specialised agents, models, tools and compute nodes. The product spec is in
 [`docs/spec/MASTER_SPEC.md`](docs/spec/MASTER_SPEC.md). The rules every
 contributor follows are in [`docs/ENGINEERING_CONTRACT.md`](docs/ENGINEERING_CONTRACT.md).
 
-> Status: **Phases 0–5 complete on Windows** (Phase 5 for Android). Phase 5
+> Status: **Phases 0–6 complete on Windows** (Phase 5 for Android). Phase 6
+> (Multi-node: worker enrollment with SAS, scheduler, cross-node jobs with
+> leases / checkpoints / migration, model distribution, Nodes panel) passed
+> its acceptance run 47/47 on 2026-10-22 with simulated macOS / GPU workers —
+> see [Multiple computers](#multiple-computers-phase-6). Phase 5
 > (Mobile: Expo/React Native app, native push, biometric step-up) closed on
 > 2026-10-22 — acceptance <!-- P5-ACCEPTANCE --> Node lane 44/44 / Android lane 11/11 (emulator orkestr_pixel, incl. fingerprint step-up) <!-- /P5-ACCEPTANCE -->; see [Mobile app (Android)](#mobile-app-android).
 > iOS is not built (needs macOS) and real FCM/APNs delivery was verified with

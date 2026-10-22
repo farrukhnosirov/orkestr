@@ -21,7 +21,7 @@
 worker cores through the gateway (E2E, pull heartbeat, leases with fencing),
 migrates them with checkpoints, distributes local models, and shows it all
 in the desktop Nodes panel (ADR-0033, ADR-0039). Acceptance:
-<!-- P6-ACCEPTANCE -->TBD<!-- /P6-ACCEPTANCE --> (`scripts/smoke/phase6-acceptance.mjs`;
+<!-- P6-ACCEPTANCE -->47/47 checks on 2026-10-22<!-- /P6-ACCEPTANCE --> (`scripts/smoke/phase6-acceptance.mjs`;
 details and the deferred list in `feature-traceability.md` → "Phase 6
 acceptance check").
 

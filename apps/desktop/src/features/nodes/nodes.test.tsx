@@ -68,7 +68,7 @@ const job: JobView = {
     requirements: { os: "MacOs", tools: ["xcodebuild"], localModels: [], labels: {} },
     estimate: { cpuCores: 1, memMb: 512, vramMb: 0, diskMb: 100, durationS: 60 },
     needs: { network: false, secrets: [] },
-    priority: "Medium",
+    priority: "Normal",
     affinity: { preferred: [], forbidden: [], stickyToCache: false },
   } as JobView["spec"],
   state: "running",
