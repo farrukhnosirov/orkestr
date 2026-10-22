@@ -1,6 +1,7 @@
 # ADR-0037 — Native push: FCM HTTP v1 and APNs with end-to-end encrypted payloads
 
-Status: accepted, implemented Phase 5 (WP-A)
+Status: accepted, implemented Phase 5 (core + gateway + mobile client;
+verified against mock FCM/APNs only)
 
 ## Context
 
@@ -75,6 +76,23 @@ The gateway is untrusted for content (ADR-0030).
   but not yet reported back to the core; the registration stays until the
   device re-registers, unregisters, or is revoked (revocation drops all its
   registrations).
+
+## Client side (Phase 5, `apps/mobile`)
+
+- After pairing, the app asks `expo-notifications` for the device push token
+  (`getDevicePushTokenAsync`; FCM on Android, APNs on iOS), generates the
+  32-byte key, keeps it in SecureStore and calls `push.registerNative` with
+  the categories and lock-screen choice from Settings. Without
+  `google-services.json` (emulator, CI) there is no token; registration is
+  skipped and only local notifications are used.
+- `@orkestr/client` `decryptNativePush` (`packages/client/src/remote/nativePush.ts`)
+  opens `p` with the vector shared with the core
+  (`packages/client/src/remote/testdata`, byte-identical to the Rust one).
+  The app accepts either the envelope `{p}` or a bare `{n, c}`; tapping a
+  notification decrypts and routes to the approval
+  (`routeForNotification`).
+- Lock-screen privacy `detailed` is stored and sent, but the alert is still
+  generic until background decryption exists (see Consequences).
 
 ## Consequences
 

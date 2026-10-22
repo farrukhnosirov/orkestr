@@ -19,6 +19,18 @@ from this document: CIK is P-256 (no X.509/mTLS), record AAD is the counter
 only, the remote client's `auth` frame is accepted and its token ignored,
 PostgreSQL deferred. Mobile/native push stays P5.
 
+**Phase 5 status (2026-10-22):** mobile half implemented — Android app
+`apps/mobile` (Expo/React Native, ADR-0032; verified on the emulator, iOS
+unbuilt), native push via FCM HTTP v1 and APNs with AES-256-GCM payloads and
+a generic visible alert (ADR-0037; verified against mock FCM/APNs only), and
+a biometric-gated native step-up credential `orkestr-native-v1` verified in
+Core with the existing WebAuthn verifier (ADR-0038). Deviations from §12 P5:
+device and step-up keys are SecureStore-wrapped software keys, not
+non-exportable Keystore/Secure Enclave keys; lock-screen alerts are always
+generic and approve-from-notification opens the app (no background
+decryption); passkey login on mobile, DPoP and admin-device approval are
+deferred.
+
 Binding: `docs/ENGINEERING_CONTRACT.md` (C§N). Threat analysis: `docs/security/threat-model.md`
 (TB9, TB11; requirements SR-60..66, SR-77..79).
 

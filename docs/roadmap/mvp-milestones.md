@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Source | §61 (roadmap), §63 (acceptance scenarios), §66 (order of work), §58 (quality gates), `../requirements-review.md` (re-phasing decisions) |
-| Scope | Phase 0–3 broken down into milestones with exit criteria; Phase 4 status in the table below. Phase 5–7 as an outline |
+| Scope | Phase 0–3 broken down into milestones with exit criteria; Phase 4 and Phase 5 status in the table below. Phase 6–7 as an outline |
 | Rule | A milestone is **done** only when every exit criterion is demonstrated: automated test, recorded demo, or measured number in a report. Stubs for later phases must return the explicit unimplemented-feature error (RR-G14; as built `bad_request` with `data.unimplementedFeature`) and be marked in `feature-traceability.md`. |
 
 **Definition of Done for every milestone** (§58, §60):
@@ -16,6 +16,14 @@
 - No secrets in logs. This is checked by the redaction test fixture.
 
 ## Final state of Phases 0–3 (2026-10-07, after the audit)
+
+**Phase 5 (Mobile) closed on 2026-10-22** for Android:
+`apps/mobile` (Expo SDK 58 / React Native 0.88) runs on the Android emulator
+and covers scenario E (mobile approval with biometric step-up and native
+push). Acceptance: <!-- P5-ACCEPTANCE --> Node lane: TBD / Android lane: TBD
+<!-- /P5-ACCEPTANCE --> (`scripts/smoke/phase5-acceptance.mjs`,
+`scripts/smoke/phase5-android.mjs`; details and the deferred list in
+`feature-traceability.md` → "Phase 5 acceptance check").
 
 **Phase 4 (Remote & Sync) closed on 2026-10-22** for the self-hosted MVP:
 `scripts/smoke/phase4-acceptance.mjs` passes 40/40 (scenario D — secure remote
@@ -42,6 +50,7 @@ verification on `main`:
 | 2 Multi-agent quality | **Acceptance passed with Mock providers** (47/47) | Teams and hierarchy, scheduler, quality pipeline + Self-Healing, reviews, consensus, adversarial review, Merge Manager, AI PM, architecture map, Decision Log, Replay, benchmarks, global search, project privacy | Merge Manager (no revert proposals), Knowledge Base (no PDF or URL ingestion); the M2.1, M2.5 and M2.6 numeric evals were not run; real providers not exercised | **M2.7**: MCP Hub, Environment Manager, LSP bridge, `orkestrd` hand-off; Browser agent (deferred to Phase 4) |
 | 3 Visual OS | **Delivered for Windows** (64/64; G and H pass) | Themes + editor, layouts + editor, Robot Designer, HUD, voice notifications, voice per agent, performance modes, sound engine | Mission Control and task graph (performance not measured), robots (CPU/RAM budget, Wayland), voice (no local Whisper, no real microphone), wake word (SP-15 budgets), AI-UI (no contrast rejection or `--safe-ui`), docking / multi-monitor (restore on a second monitor not verified), autostart after a reboot | macOS and Linux packages |
 | 4 Remote & Sync | **Complete for the self-hosted MVP** (40/40, 2026-10-22: scenarios D and C) | Self-hosted gateway (passkeys + TOTP, CIK-signed tunnel, pairing with codeMac + SAS, `e2e-v1`, roles + MethodPolicy, step-up, revoke, kill switch, rate limits, audit); web client (sign-in, pairing, projects, tasks, approvals with step-up, remote terminal, editor, en/ru); encrypted working-tree sync with Seamless Continue, conflict copies and an offline outbox; Web Push (RFC 8291 + VAPID); desktop Remote & Sync settings | Web editor is a textarea; sync covers the working tree + `records:` only (no events / snapshots / artifacts streams, no 3-way merge); Web Push verified with a local mock endpoint only | Deferred with reasons in ADR-0030/0031/0036: mTLS/CA (replaced by the CIK-signed tunnel), TLS/ACME (run behind a TLS proxy), device-code flow, admin-device approval, DPoP; PostgreSQL/S3 and multi-instance; HPKE conformance, recovery key, key rotation; PWA signature/SRI; container image. Phase 4b (not started): M4.5/M4.6, OTLP, Visual Browser Agent (#17) |
+| 5 Mobile | **Complete for Android** (scenario E; acceptance: see `feature-traceability.md`) | `apps/mobile` Expo/RN dev build: TOTP login, cores list, QR / deep-link pairing with SAS, monitoring, Emergency Stop + remote kill switch, approvals with biometric step-up (`orkestr-native-v1`, ADR-0038), Manager chat, voice through core `voice.transcribe` + shared intent parser, quick review (tasks, diff, logs), devices + revoke, settings, en/ru; `nobleCrypto` provider behind the `RemoteCrypto` seam; native push FCM HTTP v1 + APNs with AES-256-GCM payloads (ADR-0037); local notifications while connected | Editor is a textarea; keys are SecureStore-wrapped software keys (not hardware non-exportable); FCM/APNs verified with mock servers only; lock-screen alert always generic | Deferred with reasons in ADR-0032/0037/0038: iOS build (needs macOS + Xcode), real FCM/APNs delivery, passkey login on mobile, on-device STT and wake word, background decryption (detailed lock screen, approve from notification), hardware non-exportable keys, DPoP, admin-device approval; multi-node is Phase 6 |
 
 The delivered level of every §68 item is in `feature-traceability.md`. As
 of the final audit, 41 items are Full, 22 Partial, 16 architecture-only and
@@ -608,6 +617,6 @@ showed a phantom horizontal scrollbar.
 | Phase | Theme | Key milestones (outline) | Acceptance (§63) | Main ADRs/spikes |
 |---|---|---|---|---|
 | **4 Remote & Sync** | Web client, secure gateway/relay, MFA/passkeys, device auth and revoke, remote terminal, push channel, cloud/self-hosted storage (Postgres + S3/MinIO), continuous encrypted sync, cross-device continuation, deployments and environments in full, OTLP observability | M4.1 Gateway + device auth · M4.2 Web client (reuses `@orkestr/client`/`ui`) · M4.3 SyncBackend cloud and self-hosted · M4.4 Snapshot/file sync · M4.5 Deployment agents + Infrastructure monitor · M4.6 Bug Detective | C, D, I (offline queue) | ADR-0030, ADR-0031, SP-19, SP-20 |
-| **5 Mobile** | React Native Command Center: Manager chat, voice, approvals, push (§37), quick diff, logs, node status, emergency stop, light editing | M5.1 RN shell + client reuse · M5.2 Approvals + push · M5.3 Voice + quick review | E | ADR-0032 |
+| **5 Mobile** — delivered for Android 2026-10-22 (see the status table above) | React Native Command Center: Manager chat, voice, approvals, push (§37), quick diff, logs, node status, emergency stop, light editing | M5.1 RN shell + client reuse · M5.2 Approvals + push · M5.3 Voice + quick review | E | ADR-0032, ADR-0037, ADR-0038 |
 | **6 Multi-node** | Node registry, resource-aware cross-node scheduling, OS-requirement routing (macOS builds → Mac node), task checkpoint and migration | M6.1 Node protocol · M6.2 Cross-node scheduler · M6.3 Migration | F | ADR-0033, SP-21 |
 | **7 Ecosystem** | Agent Marketplace, Plugin SDK, Widget SDK, Dashboard Builder, MCP Hub marketplace, deployment providers, Computer Control | M7.1 Plugin sandbox + SDK · M7.2 Marketplace · M7.3 Widgets/Dashboard · M7.4 Computer Control | — | ADR-0034, ADR-0035, SP-22 |

@@ -1,6 +1,7 @@
 # ADR-0038 — Native biometric step-up credential
 
-Status: accepted, implemented Phase 5 (WP-A core side)
+Status: accepted, implemented Phase 5 (core verifier + `@orkestr/client`
+assertion builder + mobile key handling)
 
 ## Context
 
@@ -54,6 +55,25 @@ self-hosted gateways usually cannot provide.
    authenticators). The phone persists it in SecureStore.
 5. If the biometric prompt is denied the call is not retried and the
    approval stays pending (client side, WP-C).
+
+## Client side (Phase 5)
+
+- `packages/client/src/remote/nativeStepUp.ts`: `nativeStepUpRegistration`
+  and `nativeStepUpAssertion` (P1363 signature from the signer, converted
+  with `p1363ToDer`); its test reproduces
+  `native-stepup-vector.json` byte for byte.
+- `apps/mobile/src/core/keys.ts` (`StepUpKeys`): right after pairing the app
+  generates the step-up key, stores it behind the biometric gate
+  (`requireAuthentication: true`; `expo-local-authentication` only checks
+  enrollment), registers it, and keeps `{credentialId, publicKey, counter}`
+  in SecureStore. Each step-up reads the key through the OS prompt,
+  increments and persists the counter, then signs. If no biometric is
+  enrolled the registration fails visibly (`stepUpError`) and dangerous
+  actions stay unavailable from that phone.
+- `resolveWithStepUp` / `callWithStepUp` call the method, and only on
+  `forbidden` + `data.stepUpRequired` ask the gate exactly once; a denied
+  prompt (`BiometricDeniedError`) is not retried and the approval stays
+  pending.
 
 ## Consequences
 

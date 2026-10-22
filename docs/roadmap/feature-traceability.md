@@ -180,8 +180,8 @@ Section D counts are computed from these delivered columns.
 | Performance Mode | §31 | 3 | ui, apps/desktop, core::voice | Settings, TitleBar | Partial | Partial | Full | P1: Balanced and Performance. P3: Ultra Visual and Battery Saver wired to robots and wake word |
 | Windows-first + macOS/Linux | §2, §46, §47 | 3 | platform, all | — | Partial | Partial | Partial | **Planned P3 Full; delivered Partial:** Windows only, no macOS / Linux packages. P1/P2: Windows shipped, macOS/Linux compile and test in CI (RR-C9). P3: macOS and Linux packages pass the demo script |
 | Web Client | §2, §35 | 4 | client, protocol, ui, (apps/web) | — | Arch | Arch | Arch | Protocol prerequisites RR-P1…P10 in P1. **P4 delivered Partial** (ADR-0036): `apps/web` — passkey/TOTP sign-in, pairing with SAS, projects, tasks, approvals with WebAuthn step-up, remote terminal (xterm), textarea editor, Web Push opt-in, en/ru; `@orkestr/client` RemoteTransport (`e2e-v1` in WebCrypto, non-extractable device key in IndexedDB). Not built: PWA signature/SRI (R-08), the remaining desktop panels |
-| Android | §2 | 5 | client, protocol, (apps/mobile) | — | Arch | Arch | Arch | Shared protocol and client |
-| iOS | §2 | 5 | client, protocol, (apps/mobile) | — | Arch | Arch | Arch | Shared protocol and client |
+| Android | §2 | 5 | client, protocol, (apps/mobile) | — | Arch | Arch | Arch | Shared protocol and client. **P5 delivered Partial** (ADR-0032/0037/0038): `apps/mobile` Expo/React Native dev build, verified on the Android emulator — TOTP login, cores list, QR / deep-link pairing with SAS, monitoring + Emergency Stop + remote kill switch, approvals with biometric step-up (`orkestr-native-v1`), Manager chat + voice (core `voice.transcribe` + shared intent parser), quick review, textarea editor, devices + revoke, settings, en/ru; native push FCM HTTP v1 / APNs (mock-verified) + local notifications while connected. Not built: passkey login on mobile, on-device STT / wake word, detailed lock-screen text and approve-from-notification, non-exportable hardware keys |
+| iOS | §2 | 5 | client, protocol, (apps/mobile) | — | Arch | Arch | Arch | Shared protocol and client. **P5: code shared with Android, APNs sender in the gateway (mock-verified); the app was never built or run** — needs macOS + Xcode |
 | Secure remote access | §35–36 | 4 | core (session/auth), security, (gateway) | Settings | Arch | Arch | Arch | Opaque token → `Session{actor, deviceId, scopes}` from P1 (RR-P1). **P4 delivered Partial** (ADR-0030): self-hosted `orkestr-gateway`, passkeys (ES256, attestation none) + TOTP, CIK-signed tunnel, pairing (codeMac + SAS), `e2e-v1`, roles + MethodPolicy (fail closed), step-up with replay protection, revoke, kill switch, per-device rate limits, audit on gateway and core. Deferred: mTLS/CA, ACME/TLS (gateway refuses a non-loopback bind without `--behind-tls-proxy`), device-code flow, admin-device approval, DPoP refresh |
 | Headless AI Node | §12, §38 | 4 | core (`orkestrd`), node | — | Partial | Partial | Partial | **The P2 hand off to the daemon is not built** (M2.7); manual `orkestrd` (P1) and autostart (P3) remain. P1: manual `orkestrd`. P2: handoff. P3: autostart. P4: node behind the gateway |
 | Multi-computer cluster | §38 | 6 | node, orchestrator | Nodes | Arch | Arch | Arch | `nodeId` on events and entities from P1 (RR-P4) |
@@ -257,7 +257,44 @@ Mozilla autopush — the gateway POSTs to whatever endpoint the browser gives;
 only a local mock was used) and the web app on a phone.
 
 Phase 4b (not started): M4.5/M4.6, OTLP export, the Visual Browser Agent
-(#17), native mobile push (Phase 5).
+(#17). Native mobile push shipped in Phase 5 (below).
+
+## Phase 5 acceptance check (2026-10-22)
+
+`scripts/smoke/phase5-acceptance.mjs` (Node lane: temp gateway + headless
+`orkestrd`, the pure-TS mobile core `apps/mobile/src/core` bundled with
+in-memory adapters, `crypto.subtle` poisoned to prove the noble provider,
+mock FCM (HTTP) and mock APNs (h2c)) and `scripts/smoke/phase5-android.mjs`
+(Android lane: the debug APK on the `orkestr_pixel` emulator, driven through
+adb + uiautomator).
+
+<!-- P5-ACCEPTANCE -->
+**Node lane: TBD / Android lane: TBD** (filled in by the acceptance run).
+<!-- /P5-ACCEPTANCE -->
+
+| Area | What is checked |
+|---|---|
+| E1 — login and pairing | TOTP login → bearer; `/v1/cores` shows the core online; QR from `devices.startPairing` parsed; SAS equal; approved as admin; `projects.list` over E2E |
+| E2 — native push | `push.registerNative` (FCM) `deliverable: true`; dangerous `ApprovalRequested` → mock FCM gets an RS256 JWT exchange, Bearer, high priority, generic notification, payload decrypts to the approval + eventId; same via mock APNs (ES256 JWT, headers) |
+| E3 — biometric step-up | `approvals.resolve` → `forbidden {stepUpRequired}`; biometric gate called exactly once; native assertion resolves Approved; replay, stale counter, other device's origin and a denied gate are rejected (approval stays pending) |
+| Roles | Operator resolves a non-dangerous approval without step-up; viewer cannot resolve but can `emergency.stopAll` |
+| Manager / voice | `manager.chat` (mock provider) replies; "stop all agents" → intent → `emergency.stopAll`; `voice.transcribe` returns text or a named configuration error, never fake success |
+| Monitoring / nodes | `dashboard.snapshot`, `nodes.list`, `nodes.resources`, `emergency.status`; second core paired → two records; `devices.revoke` with step-up; `remote.disable` from the phone drops the tunnel without redial; audit entries; DND suppresses low-priority push but not approvals |
+| Android lane | APK install, deep-link pairing, TOTP in the UI, local approval of the pairing, approval raised → Orkestr local notification, approve in the app, screenshots in `docs/screenshots/phase5` |
+
+Deferred with reasons (ADR-0032/0037/0038):
+
+| Item | Reason |
+|---|---|
+| iOS build and run | Needs macOS + Xcode; the code is shared and the APNs sender exists, but nothing was built on this Windows host |
+| Real FCM / APNs delivery | Needs the operator's Firebase project / Apple key; only mock servers were used (the request shapes, JWTs and payload encryption are tested) |
+| Passkey login on mobile | Needs Digital Asset Links / Associated Domains bound to the gateway domain; the button is disabled with the unimplemented message (TOTP works) |
+| On-device STT, mobile wake word | Transcription goes through the core's `voice.transcribe`; on-device engines and a wake-word budget are not built |
+| Detailed lock-screen text, approve from the notification | Need background decryption (FCM data handler / Notification Service Extension); the alert is generic and a tap opens the app |
+| Non-exportable hardware keys | Keys are SecureStore-wrapped software keys decrypted into JS memory while signing; a native Keystore/Secure Enclave module is a stretch goal |
+| Biometric on the emulator | Step-up needs an enrolled fingerprint; `adb emu finger touch` may require enrolling it manually in the emulator settings first |
+| DPoP, admin-device approval of new devices | Carried over from Phase 4 (ADR-0030); `devices.approve` stays local-only |
+| Multi-node | Phase 6; `nodes.list` returns the local node |
 
 ## D. Summary
 

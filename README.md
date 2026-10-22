@@ -6,7 +6,12 @@ specialised agents, models, tools and compute nodes. The product spec is in
 [`docs/spec/MASTER_SPEC.md`](docs/spec/MASTER_SPEC.md). The rules every
 contributor follows are in [`docs/ENGINEERING_CONTRACT.md`](docs/ENGINEERING_CONTRACT.md).
 
-> Status: **Phases 0–4 complete on Windows.** Phase 4 (Remote & Sync:
+> Status: **Phases 0–5 complete on Windows** (Phase 5 for Android). Phase 5
+> (Mobile: Expo/React Native app, native push, biometric step-up) closed on
+> 2026-10-22 — acceptance <!-- P5-ACCEPTANCE --> Node lane: TBD / Android
+> lane: TBD <!-- /P5-ACCEPTANCE -->; see [Mobile app (Android)](#mobile-app-android).
+> iOS is not built (needs macOS) and real FCM/APNs delivery was verified with
+> mock servers only. Phase 4 (Remote & Sync:
 > self-hosted gateway, web client, end-to-end encrypted sync, Web Push) passed
 > its acceptance run 40/40 on 2026-10-22 — see
 > [Remote access and sync](#remote-access-and-sync-phase-4). Phases 0–3 were
@@ -314,6 +319,109 @@ It starts a gateway, two headless cores, headless Edge with a virtual
 passkey authenticator (driving the built web app) and a mock push endpoint,
 and runs scenarios D (secure remote access) and C (encrypted sync).
 
+## Mobile app (Android)
+
+`apps/mobile` is an Expo SDK 58 / React Native 0.88 (React 19) app built as a
+dev build (ADR-0032). It is a standalone npm project outside the root
+workspaces: run `npm install`, `npm run typecheck` and `npm test` inside
+`apps/mobile`. It talks to your computer through the same gateway and
+`e2e-v1` channel as the web client: login with TOTP, pairing with SAS,
+monitoring, Emergency Stop and the remote kill switch, approvals with a
+biometric step-up (ADR-0038), Manager chat and voice, quick review (tasks,
+diff, logs), a light editor, devices, settings (en/ru) and push (ADR-0037).
+
+### Toolchain (Windows, no Android Studio)
+
+- JDK 21 (Eclipse Temurin); set `JAVA_HOME`.
+- Android SDK command-line tools in `%LOCALAPPDATA%\Android\Sdk` (set
+  `ANDROID_HOME`; add `platform-tools`, `emulator` and
+  `cmdline-tools\latest\bin` to `PATH`), then with `sdkmanager`:
+  `platforms;android-36`, `platforms;android-37.0`, `build-tools;36.0.0`,
+  `build-tools;37.0.0`, `ndk;27.1.12297006`, `cmake;3.22.1`,
+  `platform-tools`, `emulator`, `system-images;android-36;google_apis;x86_64`.
+- Long paths: enable Windows long paths (`LongPathsEnabled=1`) and replace
+  `%ANDROID_HOME%\cmake\3.22.1\bin\ninja.exe` with ninja 1.12.1 (the bundled
+  one breaks on long paths in the New Architecture native build). Build from
+  the repository path itself; a `subst` drive breaks React Native codegen.
+- Emulator: an AVD named `orkestr_pixel` (Pixel 7, android-36, x86_64), e.g.
+  `avdmanager create avd -n orkestr_pixel -k "system-images;android-36;google_apis;x86_64" -d pixel_7`.
+
+### Build
+
+```powershell
+cd apps/mobile
+npm install
+npx expo prebuild -p android          # generates apps/mobile/android (gitignored)
+cd android
+.\gradlew.bat assembleDebug -PreactNativeArchitectures=x86_64
+# → apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+The first build takes 15–25 minutes (Gradle and native caches); later builds
+take a few minutes.
+
+### Run on the emulator
+
+```powershell
+emulator -avd orkestr_pixel
+adb install -r apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk
+cd apps/mobile; npx expo start --dev-client   # Metro serves the JS bundle
+adb reverse tcp:8081 tcp:8081                  # Metro
+adb reverse tcp:18787 tcp:18787                # a local gateway on port 18787
+```
+
+The debug build allows cleartext HTTP, so the app can reach a gateway on your
+computer as `http://10.0.2.2:<port>` or, after `adb reverse`, as
+`http://127.0.0.1:<port>`. If Metro serves a stale bundle, restart it.
+
+### Pair the phone with your computer
+
+1. Run the gateway and connect your core as in
+   [Remote access and sync](#remote-access-and-sync-phase-4). Add a TOTP
+   authenticator for the owner account (`POST /v1/auth/totp/setup` and
+   `/confirm`): the app signs in with the gateway URL and a TOTP code
+   (passkey sign-in on mobile is not built yet).
+2. Desktop: **Settings → Remote & Sync → Pair a new device** shows the
+   pairing text (`orkestr-pair:{…}`). On the phone open **Pair** and paste
+   it, scan a QR code that encodes it, or open a deep link
+   `orkestr://pair?offer=<urlencoded text>` (on the emulator:
+   `adb shell am start -a android.intent.action.VIEW -d "orkestr://pair?offer=…"`).
+3. Compare the 6-digit SAS on both screens, then approve the device on the
+   desktop with a role.
+4. Right after pairing the app registers a biometric-gated step-up key.
+   Without an enrolled fingerprint or face (on the emulator: enroll one in
+   Settings, then `adb emu finger touch 1`) dangerous actions such as
+   approving a high-risk command are not available from the phone.
+
+### Push notifications
+
+While the app is connected it shows local notifications for approvals and
+other events; this works without Firebase. For push while the app is closed:
+
+- Android: put your Firebase `google-services.json` into `apps/mobile`
+  (picked up by `app.config.js`), rebuild, and start the gateway with
+  `--fcm-service-account <service-account.json>` (`--fcm-endpoint <URL>`
+  overrides the API base, for mocks).
+- iOS: `--apns-key <AuthKey.p8> --apns-key-id <ID> --apns-team-id <ID> --apns-topic dev.orkestr.mobile`
+  (`--apns-endpoint <URL>` for a sandbox or mock).
+
+Payloads are encrypted end to end (AES-256-GCM); FCM/APNs only see a generic
+"Orkestr — Action needed" alert. Real FCM/APNs delivery has only been tested
+against mock servers.
+
+### iOS
+
+The code is shared, but the iOS app has not been built or run: it needs macOS
+with Xcode (`npx expo prebuild -p ios`, then build in Xcode).
+
+### Phase 5 acceptance
+
+See `scripts/smoke`: `phase5-acceptance.mjs` (Node lane: gateway, headless
+core, the mobile core with in-memory adapters, mock FCM/APNs) and
+`phase5-android.mjs` (Android lane on the `orkestr_pixel` emulator, uses
+`scripts/android-e2e.mjs`). Results and the deferred list are in
+[`docs/roadmap/feature-traceability.md`](docs/roadmap/feature-traceability.md).
+
 ## Troubleshooting
 
 - **`npm run tauri dev` fails because port 1420 is unavailable.** Windows may
@@ -349,6 +457,7 @@ and runs scenarios D (secure remote access) and C (encrypted sync).
 | `packages/protocol` | `@orkestr/protocol`: generated TS types and helpers. |
 | `packages/client` | `@orkestr/client`: typed WebSocket client with reconnect and replay. |
 | `packages/ui` | `@orkestr/ui`: `--ok-*` tokens, theme engine, primitives. |
+| `apps/mobile` | Expo / React Native Android app (standalone npm project, not in the root workspaces). |
 | `apps/desktop` | Tauri 2 shell (windows, tray, robots, HUD) and the React UI (panels, features, i18n en/ru). |
 | `scripts/smoke` | End-to-end smoke, acceptance and screenshot scripts. |
 | `docs/` | Spec, contract, ADRs, architecture, roadmap, audit report, screenshots. |
