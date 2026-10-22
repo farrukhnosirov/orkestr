@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use orkestr_domain::{Deployment, DeploymentId, DeploymentTarget, Environment, ProjectId};
+use orkestr_domain::{Deployment, DeploymentId, DeploymentTarget, Environment, EnvironmentId, ProjectId};
 use orkestr_protocol::methods::deploy::{AdapterAvailability, DeployPlan};
 use tokio_util::sync::CancellationToken;
 
@@ -55,6 +55,15 @@ pub struct DeployOutcome {
     pub provider_ref: Option<String>,
 }
 
+/// The deployment being restored by a rollback (with the provider's id of it).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RollbackTarget {
+    /// The earlier successful deployment whose version is restored.
+    pub deployment: Deployment,
+    /// Provider deployment id of that deployment (cloud adapters), if any.
+    pub provider_ref: Option<String>,
+}
+
 /// Line sink for deployment logs (the service redacts and stores lines).
 #[derive(Clone)]
 pub struct LogSink(Arc<dyn Fn(&str) + Send + Sync>);
@@ -101,7 +110,37 @@ pub trait DeployAdapter: Send + Sync {
         log: LogSink,
         cancel: CancellationToken,
     ) -> Result<DeployOutcome, DeployError>;
-    /// Restores `version`.
+    /// Name of the vault secret this adapter needs (`VERCEL_TOKEN`, ...).
+    fn required_secret(&self) -> Option<&str> {
+        None
+    }
+    /// `live` (exercised end to end here) or `requestShape` (fake API only).
+    fn verification(&self) -> &str {
+        "live"
+    }
+    /// JSON schema of the adapter settings.
+    fn settings_schema(&self) -> serde_json::Value {
+        serde_json::json!({ "type": "object" })
+    }
+    /// Releases local resources of an environment (servers, processes) when it is deleted.
+    fn release(&self, _environment: EnvironmentId) {}
+    /// Shell commands this request would run (classified by the Dangerous Action Guard).
+    fn commands(&self, _req: &DeployRequest) -> Vec<String> {
+        Vec::new()
+    }
+    /// Restores `target`'s version with the full request context (settings,
+    /// credentials; `req.version` is the version restored). Defaults to
+    /// [`DeployAdapter::rollback`].
+    async fn rollback_to(
+        &self,
+        req: &DeployRequest,
+        target: &RollbackTarget,
+        log: LogSink,
+        cancel: CancellationToken,
+    ) -> Result<DeployOutcome, DeployError> {
+        self.rollback(&target.deployment, &req.version, log, cancel).await
+    }
+    /// Restores `version` (plugin providers; built-ins implement [`DeployAdapter::rollback_to`]).
     async fn rollback(
         &self,
         dep: &Deployment,
