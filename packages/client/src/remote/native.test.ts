@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 // Native step-up assertion + native push decryption (ADR-0037/0038), under
 // both providers. TODO(integration): add checks against the Rust vectors
 // crates/core/src/remote/testdata/native-{push,stepup}-vector.json (WP-A).
@@ -157,5 +158,54 @@ describe("providers interoperate", () => {
     const a = await n.generateSigner();
     const b = await n.generateSigner();
     expect(() => n.signerFromRaw({ d: a.raw!.d, pub: b.raw!.pub })).toThrow(/does not match/);
+  });
+});
+
+// Rust vectors (WP-A): copy crates/core/src/remote/testdata/native-{push,stepup}-vector.json
+// verbatim into ./testdata; these suites activate automatically once the files exist
+// (and are non-empty).
+const rustVectors = import.meta.glob<Record<string, unknown>>("./testdata/native-*-vector.json", {
+  eager: true,
+  import: "default",
+});
+const pushVector = rustVectors["./testdata/native-push-vector.json"] as
+  | { key: string; nonce: string; aad: string; plaintext: string; payload: PushPayload; body: { n: string; c: string } }
+  | undefined;
+const stepUpVector = rustVectors["./testdata/native-stepup-vector.json"] as
+  | {
+      privateKey: string; publicKey: string; deviceId: string; credentialId: string; rpId: string; origin: string;
+      challenge: string; counter: number; registration: Record<string, string>; clientDataJSONText: string;
+      authenticatorData: string; clientDataJSON: string; signature: string; signatureRaw: string;
+    }
+  | undefined;
+
+describe.each(PROVIDERS)("Rust native vectors [%s]", (name, provider) => {
+  useProvider(provider);
+
+  it.skipIf(!pushVector?.key)("decrypts native-push-vector.json and re-encrypts it byte-exactly", async () => {
+    const v = pushVector!;
+    expect(v.aad).toBe(NATIVE_PUSH_AAD);
+    expect(await decryptNativePush(B(v.key), v.body)).toEqual(v.payload);
+    expect(JSON.stringify(v.payload)).toBe(v.plaintext);
+    expect(await encryptNativePush(B(v.key), v.payload, B(v.nonce))).toEqual(v.body);
+  });
+
+  it.skipIf(!stepUpVector?.privateKey)("reproduces native-stepup-vector.json", async () => {
+    const v = stepUpVector!;
+    expect(NATIVE_STEPUP_RP_ID).toBe(v.rpId);
+    expect(nativeStepUpOrigin(v.deviceId)).toBe(v.origin);
+    const signer = remoteCrypto().signerFromRaw({ d: v.privateKey, pub: v.publicKey });
+    expect(nativeStepUpRegistration(signer, "software", v.credentialId)).toEqual(v.registration);
+    const a = await nativeStepUpAssertion({
+      challenge: v.challenge, deviceId: v.deviceId, credentialId: v.credentialId, counter: v.counter, signer,
+    });
+    expect(a.authenticatorData).toBe(v.authenticatorData);
+    expect(a.clientDataJSON).toBe(v.clientDataJSON);
+    expect(fromUtf8(B(a.clientDataJSON))).toBe(v.clientDataJSONText);
+    expect(b64uEncode(p1363ToDer(B(v.signatureRaw)))).toBe(v.signature);
+    // RFC 6979 + low-S: noble reproduces the Rust signature; WebCrypto signs randomly.
+    if (name === "noble") expect(a.signature).toBe(v.signature);
+    const msg = concat(B(a.authenticatorData), await remoteCrypto().sha256(B(a.clientDataJSON)));
+    expect(p256.verify(B(a.signature), msg, B(v.publicKey), { format: "der", lowS: false })).toBe(true);
   });
 });
