@@ -42,15 +42,37 @@ pub fn register(router: &mut RpcRouter) {
             p256dh: p.p256dh,
             auth: p.auth,
             categories: p.categories,
+            transport: m::PushTransport::WebPush,
+            key: None,
+            lock_screen: m::PushLockScreen::Generic,
         })?;
         Ok(m::PushSubscription { id })
+    });
+    // Native FCM/APNs registration (ADR-0037): the payload key stays in the core.
+    router.method::<m::RegisterNative, _, _>(|ctx: RpcContext, p: m::PushRegisterNativeParams| async move {
+        let svc = push::service(&ctx.services);
+        let mut id = [0u8; 12];
+        OsRng.fill_bytes(&mut id);
+        let transport = p.transport;
+        let id = svc.register_native(StoredSubscription {
+            id: URL_SAFE_NO_PAD.encode(id),
+            device_id: caller(&ctx),
+            endpoint: p.token,
+            p256dh: String::new(),
+            auth: String::new(),
+            categories: p.categories,
+            transport,
+            key: Some(p.key),
+            lock_screen: p.lock_screen,
+        })?;
+        let name = push::transport_name(transport);
+        let deliverable = ctx.services.remote.native_push_transports().iter().any(|t| t == name);
+        Ok(m::PushNativeRegistration { id, deliverable })
     });
     router.method::<m::Unsubscribe, _, _>(|ctx: RpcContext, p: m::PushUnsubscribeParams| async move {
         push::service(&ctx.services).unsubscribe(&p.endpoint, caller(&ctx))?;
         Ok(Empty {})
     });
-    // Native (FCM/APNs) registrations land in Phase 5 WP-A (ADR-0037).
-    super::stub::<m::RegisterNative>(router);
     router.method::<m::Test, _, _>(|ctx: RpcContext, _p: Empty| async move {
         let svc = push::service(&ctx.services);
         let payload = m::PushPayload {

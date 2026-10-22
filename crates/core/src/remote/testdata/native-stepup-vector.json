@@ -1,0 +1,22 @@
+{
+  "authenticatorData": "RtsOZ99HLa1vvHZx-_8uWEfwWFYqzg2c769uOfAaS5YFAAAABw",
+  "challenge": "ws5CQR69lolwsYuSEHL4YnWh7TjRZk_z94K-kFZHniY",
+  "clientDataJSON": "eyJ0eXBlIjoid2ViYXV0aG4uZ2V0IiwiY2hhbGxlbmdlIjoid3M1Q1FSNjlsb2x3c1l1U0VITDRZbldoN1RqUlprX3o5NEsta0ZaSG5pWSIsIm9yaWdpbiI6Im9ya2VzdHItbmF0aXZlOjAxOTJmNWQ0LTAwMDAtNzAwMC04MDAwLTAwMDAwMDAwYTAwMSIsImNyb3NzT3JpZ2luIjpmYWxzZX0",
+  "clientDataJSONText": "{\"type\":\"webauthn.get\",\"challenge\":\"ws5CQR69lolwsYuSEHL4YnWh7TjRZk_z94K-kFZHniY\",\"origin\":\"orkestr-native:0192f5d4-0000-7000-8000-00000000a001\",\"crossOrigin\":false}",
+  "counter": 7,
+  "credentialId": "iciFxLf-0QCNIStb7X2aow",
+  "description": "orkestr-native-v1 step-up assertion (ADR-0038). Signature: ECDSA P-256/SHA-256 (RFC 6979 deterministic, low-S) over authenticatorData || SHA-256(clientDataJSON), DER-encoded (signatureRaw = r||s, also accepted). All binary fields base64url without padding.",
+  "deviceId": "0192f5d4-0000-7000-8000-00000000a001",
+  "origin": "orkestr-native:0192f5d4-0000-7000-8000-00000000a001",
+  "privateKey": "RPdXHvb_P76uYkLQXutFr7BsoOZH9Q9-NgMigN5hANA",
+  "publicKey": "BD11NTHxqxs-YqPMIPj_PeqDIJATcEJxBKKXUB5ewQkBjuipIosh8jNyooh33NMm9ciL3glBh314vhJGKAvZqzg",
+  "registration": {
+    "credentialId": "iciFxLf-0QCNIStb7X2aow",
+    "keyStorage": "software",
+    "publicKey": "BD11NTHxqxs-YqPMIPj_PeqDIJATcEJxBKKXUB5ewQkBjuipIosh8jNyooh33NMm9ciL3glBh314vhJGKAvZqzg",
+    "type": "orkestr-native-v1"
+  },
+  "rpId": "orkestr-native-stepup",
+  "signature": "MEUCIQDDlBL0zGQIsoIGlRn13JOC9o2GXbbfY9ZpkEvVs9sDBQIgQN_j6GuPXMiUE7SmKXE5pzIWIIw9D9nJ-1LFVFlTGXY",
+  "signatureRaw": "w5QS9MxkCLKCBpUZ9dyTgvaNhl2232PWaZBL1bPbAwVA3-Poa49cyJQTtKYpcTmnMhYgjD0P2cn7UsVUWVMZdg"
+}

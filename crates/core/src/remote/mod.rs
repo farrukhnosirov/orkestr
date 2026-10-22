@@ -10,6 +10,7 @@
 
 pub mod authz;
 pub mod e2e;
+pub mod native_stepup;
 pub mod pairing;
 pub mod push;
 pub mod store;
@@ -42,6 +43,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::rpc::Principal;
 use authz::RateLimiter;
+pub use store::StepUpKind;
 use store::{DeviceRecord, RemoteState, Store};
 
 /// A Web Push message, already encrypted in the core (RFC 8291 `aes128gcm`),
@@ -50,10 +52,13 @@ use store::{DeviceRecord, RemoteState, Store};
 pub struct PushRequest {
     /// Target devices (subscriptions owned by these devices).
     pub device_ids: Vec<DeviceId>,
-    /// Push service endpoint.
+    /// Push service endpoint (FCM/APNs: the device token).
     pub endpoint: String,
-    /// RFC 8291 `aes128gcm` body.
+    /// Web Push: RFC 8291 `aes128gcm` body. FCM/APNs: the native envelope
+    /// JSON `{"k": category, "p": {"n", "c"}}` (ADR-0037).
     pub body: Vec<u8>,
+    /// Delivery transport.
+    pub transport: orkestr_protocol::methods::push::PushTransport,
     /// `Topic` header (collapse key).
     pub collapse_key: Option<String>,
     /// `Urgency` header (`very-low` | `low` | `normal` | `high`).
@@ -569,6 +574,7 @@ impl RemoteService {
             last_seen_at: None,
             revoked: false,
             step_up: None,
+            step_up_kind: StepUpKind::default(),
         };
         self.state.lock().devices.push(record.clone());
         self.persist();
@@ -681,13 +687,23 @@ impl RemoteService {
     /// # Errors
     /// Invalid registration or unknown device.
     pub async fn register_step_up(&self, device_id: DeviceId, credential: &serde_json::Value) -> Result<(), RpcError> {
-        let rp = self.state.lock().rp.clone().ok_or_else(|| RpcError::conflict("gateway relying party unknown"))?;
-        let reg: RegistrationJson = serde_json::from_value(credential.clone())
-            .map_err(|e| RpcError::bad_request(format!("credential: {e}")))?;
-        let cd = webauthn::unb64(&reg.response.client_data_json).map_err(|e| RpcError::bad_request(e.to_string()))?;
-        let ao = webauthn::unb64(&reg.response.attestation_object).map_err(|e| RpcError::bad_request(e.to_string()))?;
-        let cred =
-            webauthn::verify_registration(&rp, None, &cd, &ao).map_err(|e| RpcError::bad_request(e.to_string()))?;
+        let (cred, kind, details) = if native_stepup::is_native(credential) {
+            let reg = native_stepup::parse_registration(credential)?;
+            let details = serde_json::json!({ "kind": "native", "keyStorage": reg.key_storage });
+            (reg.credential, StepUpKind::Native, details)
+        } else {
+            let rp =
+                self.state.lock().rp.clone().ok_or_else(|| RpcError::conflict("gateway relying party unknown"))?;
+            let reg: RegistrationJson = serde_json::from_value(credential.clone())
+                .map_err(|e| RpcError::bad_request(format!("credential: {e}")))?;
+            let cd =
+                webauthn::unb64(&reg.response.client_data_json).map_err(|e| RpcError::bad_request(e.to_string()))?;
+            let ao =
+                webauthn::unb64(&reg.response.attestation_object).map_err(|e| RpcError::bad_request(e.to_string()))?;
+            let cred =
+                webauthn::verify_registration(&rp, None, &cd, &ao).map_err(|e| RpcError::bad_request(e.to_string()))?;
+            (cred, StepUpKind::WebAuthn, serde_json::json!({ "kind": "webauthn" }))
+        };
         {
             let mut s = self.state.lock();
             let d = s
@@ -696,6 +712,7 @@ impl RemoteService {
                 .find(|d| d.device_id == device_id && !d.revoked)
                 .ok_or_else(|| RpcError::not_found("device not found"))?;
             d.step_up = Some(cred);
+            d.step_up_kind = kind;
         }
         self.persist();
         self.audit(
@@ -703,7 +720,7 @@ impl RemoteService {
             "devices.registerStepUp",
             device_id.to_string(),
             AuditOutcome::Allowed,
-            serde_json::Value::Null,
+            details,
         )
         .await;
         Ok(())
@@ -752,9 +769,17 @@ impl RemoteService {
             return Err("challenge does not match this call".into());
         }
         let mut s = self.state.lock();
-        let rp = s.rp.clone().ok_or("gateway relying party unknown")?;
+        let gateway_rp = s.rp.clone();
         let d = s.devices.iter_mut().find(|d| d.device_id == device && !d.revoked).ok_or("device not found")?;
+        let rp = match d.step_up_kind {
+            StepUpKind::WebAuthn => gateway_rp.ok_or("gateway relying party unknown")?,
+            StepUpKind::Native => native_stepup::relying_party(device),
+        };
+        let kind = d.step_up_kind;
         let cred = d.step_up.as_mut().ok_or("no step-up credential registered (devices.registerStepUp)")?;
+        if kind == StepUpKind::Native {
+            native_stepup::check_counter(&a, cred.sign_count)?;
+        }
         let count = webauthn::verify_assertion_json(&rp, &challenge, cred, &a).map_err(|e| e.to_string())?;
         cred.sign_count = count;
         drop(s);
@@ -778,9 +803,15 @@ impl RemoteService {
             body: e2e::b64(&req.body),
             collapse_key: req.collapse_key,
             urgency: req.urgency,
-            transport: orkestr_protocol::methods::push::PushTransport::WebPush,
+            transport: req.transport,
         });
         Ok(())
+    }
+
+    /// Native push transports announced by the gateway (`fcm`, `apns`).
+    #[must_use]
+    pub fn native_push_transports(&self) -> Vec<String> {
+        self.state.lock().native_push.clone()
     }
 
     // ------------------------------------------------------------------ helpers for tunnel.rs
