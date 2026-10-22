@@ -6,7 +6,7 @@
  * a manual report form, and per incident: stage timeline, hypothesis card
  * with confidence, reproduction / fix test output, evidence viewer, the diff
  * of the fix branch, and the two human gates (approve fix, approve merge)
- * plus cancel. Everything goes through `detective.*` RPC; areas a core does
+ * plus cancel, and the detective settings (`settings.tsx`). Everything goes through `detective.*` RPC; areas a core does
  * not implement yet (`unimplementedFeature`) degrade to a notice.
  */
 import type {
@@ -40,6 +40,7 @@ import {
   triggerLabel,
   usd,
 } from "./model";
+import { DetectiveSettingsForm } from "./settings";
 import "./detective.css";
 
 const POLL_MS = 5000;
@@ -78,6 +79,7 @@ function Detective({ projectId }: { projectId: string }) {
   const [off, setOff] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [reporting, setReporting] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const lastActive = useRef(new Map<string, IncidentStage>());
 
   const refresh = useCallback(async () => {
@@ -183,6 +185,15 @@ function Detective({ projectId }: { projectId: string }) {
           >
             {t("report.open")}
           </Button>
+          <Button
+            size="sm"
+            variant={settingsOpen ? "secondary" : "ghost"}
+            aria-expanded={settingsOpen}
+            onClick={() => setSettingsOpen((v) => !v)}
+            data-testid="detective-settings-toggle"
+          >
+            {t("settings.open")}
+          </Button>
           <Button size="sm" onClick={() => void refresh()}>
             {t("refresh")}
           </Button>
@@ -192,6 +203,9 @@ function Detective({ projectId }: { projectId: string }) {
         <div className="bd-error" role="alert">
           {error}
         </div>
+      )}
+      {settingsOpen && (
+        <DetectiveSettingsForm onClose={() => setSettingsOpen(false)} />
       )}
       {reporting && (
         <ReportForm

@@ -14,6 +14,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const calls: { method: string; params: Record<string, unknown> }[] = [];
 let incidents: Incident[] = [];
+let settings = { autoOpenOnAlert: false, defaultBudgetUsd: 2, maxFixAttempts: 2 };
 
 const alert: Alert = {
   id: "al-1234567890",
@@ -104,6 +105,11 @@ vi.mock("../../core/client", () => ({
             incident({ stage: "Cancelled", error: "cancelled by the user" }),
           ];
           return Promise.resolve({ incident: incidents[0] });
+        case "detective.settings":
+          return Promise.resolve(settings);
+        case "detective.setSettings":
+          settings = params as unknown as typeof settings;
+          return Promise.resolve(settings);
         case "vcs.diff":
           return Promise.resolve({
             files: [
@@ -130,7 +136,14 @@ vi.mock("../../core/client", () => ({
 
 import { i18n } from "../../i18n";
 import BugDetectivePanel from "./index";
-import { confidencePct, inferStop, sortIncidents, timeline } from "./model";
+import {
+  confidencePct,
+  draftToSettings,
+  inferStop,
+  settingsToDraft,
+  sortIncidents,
+  timeline,
+} from "./model";
 
 beforeEach(async () => {
   calls.length = 0;
@@ -285,10 +298,45 @@ describe("BugDetective panel", () => {
     );
   });
 
+  it("edits and saves the detective settings", async () => {
+    settings = { autoOpenOnAlert: false, defaultBudgetUsd: 2, maxFixAttempts: 2 };
+    render(<BugDetectivePanel projectId="p1" />);
+    fireEvent.click(await screen.findByTestId("detective-settings-toggle"));
+    const auto = (await screen.findByTestId("settings-auto-open")) as HTMLInputElement;
+    expect(auto.checked).toBe(false);
+    fireEvent.click(auto);
+    fireEvent.change(screen.getByTestId("settings-budget"), { target: { value: "0" } });
+    fireEvent.click(screen.getByTestId("settings-save"));
+    expect(await screen.findByText("Enter an amount above 0 and up to 1000.")).toBeTruthy();
+    expect(calls.some((c) => c.method === "detective.setSettings")).toBe(false);
+    fireEvent.change(screen.getByTestId("settings-budget"), { target: { value: "7.5" } });
+    fireEvent.change(screen.getByTestId("settings-attempts"), { target: { value: "4" } });
+    fireEvent.click(screen.getByTestId("settings-save"));
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === "detective.setSettings")?.params).toEqual({
+        autoOpenOnAlert: true,
+        defaultBudgetUsd: 7.5,
+        maxFixAttempts: 4,
+      }),
+    );
+    expect(await screen.findByText("Settings saved.")).toBeTruthy();
+  });
+
   it("is localized in Russian", async () => {
     await i18n.changeLanguage("ru");
     render(<BugDetectivePanel projectId="p1" />);
     expect(await screen.findByText("Одобрить исправление")).toBeTruthy();
     expect(screen.getByText("Гипотеза о причине")).toBeTruthy();
+  });
+});
+
+describe("detective settings helpers", () => {
+  it("validates the budget and attempts like the core", () => {
+    const d = settingsToDraft({ autoOpenOnAlert: true, defaultBudgetUsd: 2, maxFixAttempts: 2 });
+    expect(draftToSettings(d)).toEqual({ settings: { autoOpenOnAlert: true, defaultBudgetUsd: 2, maxFixAttempts: 2 } });
+    expect(draftToSettings({ ...d, defaultBudgetUsd: "1000" })).toHaveProperty("settings");
+    expect(draftToSettings({ ...d, defaultBudgetUsd: "2,5" })).toEqual({ settings: { autoOpenOnAlert: true, defaultBudgetUsd: 2.5, maxFixAttempts: 2 } });
+    for (const b of ["", "0", "-1", "1000.01", "abc"]) expect(draftToSettings({ ...d, defaultBudgetUsd: b })).toEqual({ error: "budget" });
+    for (const n of [0, 6, 2.5]) expect(draftToSettings({ ...d, maxFixAttempts: n })).toEqual({ error: "attempts" });
   });
 });

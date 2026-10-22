@@ -1552,11 +1552,16 @@ features answer `unimplementedFeature` (RR-G14).
 | `monitor.checkUpsert` / `monitor.checkDelete` / `monitor.ackAlert` | W | `HealthCheckChanged`, `AlertRaised`, `AlertResolved` (ADR-0042) |
 | `monitor.checkRun` | X | run a check now |
 | `monitor.ingest` | W (Write rate class; local or token) | push log lines (`attrs` redacted) |
+| `monitor.rules` | R | alert rules (`CheckDown` / `MetricThreshold` / `LogRate`); defaults seeded once |
+| `monitor.ruleUpsert` / `monitor.ruleDelete` | W | validated rule (`{rule}` → `{rule}`); deleting defaults is permanent (`monitor_meta.rules_seeded`) |
+| `monitor.sourceAdd` / `monitor.sourceRemove` | L | tail a file: absolute, existing, readable regular file; unique name; only `File` sources are removable |
 | `detective.list` / `detective.get` | R | `Incident` with stage, evidence, hypothesis, fix branch, spend |
 | `detective.open` | X | from `alertId` / log line / test run / manual; budget USD `(0, 1000]`; `IncidentOpened` |
 | `detective.approveFix` | X | gate 1 (also answerable in Approvals); `IncidentStageChanged` |
 | `detective.approveMerge` | D | gate 2: merge `detective/<id>` |
 | `detective.cancel` | E | any stage |
+| `detective.settings` | R | `{autoOpenOnAlert, defaultBudgetUsd, maxFixAttempts}` |
+| `detective.setSettings` | L | budget `(0, 1000]`, attempts `1..=5`; returns the stored settings |
 
 Emergency Stop All also kills plugins, cancels deployments and cancels
 detective runs.

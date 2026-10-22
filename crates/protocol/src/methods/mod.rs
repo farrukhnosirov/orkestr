@@ -588,12 +588,19 @@ pub fn registry() -> Vec<MethodDescriptor> {
         MethodDescriptor::of::<monitor::Ingest>(),
         MethodDescriptor::of::<monitor::Alerts>(),
         MethodDescriptor::of::<monitor::AckAlert>(),
+        MethodDescriptor::of::<monitor::Rules>(),
+        MethodDescriptor::of::<monitor::RuleUpsert>(),
+        MethodDescriptor::of::<monitor::RuleDelete>(),
+        MethodDescriptor::of::<monitor::SourceAdd>(),
+        MethodDescriptor::of::<monitor::SourceRemove>(),
         MethodDescriptor::of::<detective::Open>(),
         MethodDescriptor::of::<detective::List>(),
         MethodDescriptor::of::<detective::Get>(),
         MethodDescriptor::of::<detective::ApproveFix>(),
         MethodDescriptor::of::<detective::ApproveMerge>(),
         MethodDescriptor::of::<detective::Cancel>(),
+        MethodDescriptor::of::<detective::Settings>(),
+        MethodDescriptor::of::<detective::SetSettings>(),
     ]
 }
 

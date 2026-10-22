@@ -23,69 +23,69 @@ use orkestr_protocol::event::{EventKind, LogLevel};
 use orkestr_protocol::methods::monitor::{Alert, AlertPayload, AlertSeverity, AlertSource, AlertState, LogLine};
 use orkestr_protocol::NewEvent;
 use parking_lot::Mutex;
-use serde::{Deserialize, Serialize};
 
 use crate::logs::redact_line;
 use crate::store::MonitorStore;
 use crate::MonitorError;
 
-/// What a rule watches.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "type", rename_all_fields = "camelCase")]
-pub enum RuleKind {
-    /// A check (or any check when `check_id` is `None`) is down.
-    CheckDown {
-        /// Check filter.
-        #[serde(default)]
-        check_id: Option<orkestr_domain::HealthCheckId>,
-    },
-    /// Metric above a threshold.
-    MetricThreshold {
-        /// `cpu`, `mem`, `disk`, `gpuN` (percent).
-        metric: String,
-        /// Node filter (`None` = every node).
-        #[serde(default)]
-        node_id: Option<NodeId>,
-        /// Threshold (percent).
-        above: f64,
-        /// Consecutive samples.
-        samples: u32,
-    },
-    /// Error-rate / pattern on log lines.
-    LogRate {
-        /// Source filter (`None` = every source).
-        #[serde(default)]
-        source_id: Option<String>,
-        /// Minimum level (lines without a level only match through `pattern`).
-        #[serde(default)]
-        min_level: Option<LogLevel>,
-        /// Case-insensitive substring.
-        #[serde(default)]
-        pattern: Option<String>,
-        /// Lines within the window.
-        count: u32,
-        /// Window.
-        window_secs: u32,
-    },
+/// Alert rules are wire types (`monitor.rules`, `monitor.ruleUpsert`); the
+/// JSON shape stored in `monitor_alert_rules` is unchanged.
+pub use orkestr_protocol::methods::monitor::{AlertRule, AlertRuleKind as RuleKind};
+
+/// Largest `LogRate` window (one day).
+pub const MAX_WINDOW_SECS: u32 = 86_400;
+/// Largest `LogRate` count.
+pub const MAX_LOG_COUNT: u32 = 100_000;
+/// Largest `MetricThreshold` sample run.
+pub const MAX_SAMPLES: u32 = 1000;
+
+fn valid_metric(m: &str) -> bool {
+    matches!(m, "cpu" | "mem" | "disk")
+        || m.strip_prefix("gpu").is_some_and(|n| !n.is_empty() && n.len() <= 2 && n.bytes().all(|b| b.is_ascii_digit()))
 }
 
-/// An alert rule.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AlertRule {
-    /// Stable id (part of the dedup key).
-    pub id: String,
-    /// Title prefix.
-    pub name: String,
-    /// Severity.
-    pub severity: AlertSeverity,
-    /// Enabled.
-    pub enabled: bool,
-    /// Project scope (`None` = any).
-    #[serde(default)]
-    pub project_id: Option<ProjectId>,
-    /// Condition.
-    pub kind: RuleKind,
+/// Validates a rule (id charset, name, kind-specific thresholds and windows).
+pub fn validate_rule(rule: &AlertRule) -> Result<(), MonitorError> {
+    let bad = |m: &str| Err(MonitorError::Invalid(m.to_owned()));
+    let id_ok = !rule.id.is_empty()
+        && rule.id.len() <= 64
+        && rule.id.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'));
+    if !id_ok {
+        return bad("rule id must be 1..64 of [A-Za-z0-9._-]");
+    }
+    let name = rule.name.trim();
+    if name.is_empty() || name.chars().count() > 120 {
+        return bad("rule name must be 1..=120 characters");
+    }
+    match &rule.kind {
+        RuleKind::CheckDown { .. } => {}
+        RuleKind::MetricThreshold { metric, above, samples, .. } => {
+            if !valid_metric(metric) {
+                return bad("metric must be cpu, mem, disk or gpuN");
+            }
+            if !(above.is_finite() && (0.0..100.0).contains(above)) {
+                return bad("threshold (above) must be within [0, 100) percent");
+            }
+            if !(1..=MAX_SAMPLES).contains(samples) {
+                return bad("samples must be within 1..=1000");
+            }
+        }
+        RuleKind::LogRate { source_id, pattern, count, window_secs, .. } => {
+            if !(1..=MAX_LOG_COUNT).contains(count) {
+                return bad("count must be within 1..=100000");
+            }
+            if !(1..=MAX_WINDOW_SECS).contains(window_secs) {
+                return bad("windowSecs must be within 1..=86400");
+            }
+            if pattern.as_deref().is_some_and(|p| p.trim().is_empty() || p.chars().count() > 200) {
+                return bad("pattern must be 1..=200 characters when set");
+            }
+            if source_id.as_deref().is_some_and(|s| s.is_empty() || s.len() > 200) {
+                return bad("sourceId must be 1..=200 characters when set");
+            }
+        }
+    }
+    Ok(())
 }
 
 /// Rules seeded on first start (editable through [`crate::MonitorService::upsert_rule`]).

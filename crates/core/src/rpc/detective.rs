@@ -75,6 +75,13 @@ pub fn register(router: &mut RpcRouter) {
             let by = ctx.services.security.user();
             let incident = ctx.services.detective.cancel(p.incident_id, p.note, by).await?;
             Ok(IncidentResult { incident })
+        })
+        .method::<m::Settings, _, _>(|ctx: RpcContext, _p: orkestr_protocol::methods::Empty| async move {
+            Ok(ctx.services.detective.settings().await?)
+        })
+        .method::<m::SetSettings, _, _>(|ctx: RpcContext, p: m::DetectiveSettings| async move {
+            install(&ctx.services).await;
+            Ok(ctx.services.detective.set_settings(p).await?)
         });
 }
 

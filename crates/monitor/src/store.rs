@@ -56,8 +56,23 @@ pub const MONITOR_0001: Migration = Migration {
            DROP TABLE IF EXISTS monitor_checks;",
 };
 
+/// Key/value flags. `rules_seeded` records that the default alert rules were
+/// written once, so deleting every rule never brings them back. Databases that
+/// already hold rules are marked seeded by the migration itself.
+pub const MONITOR_0002: Migration = Migration {
+    id: "monitor_0002_meta",
+    owner: "monitor",
+    up: "CREATE TABLE monitor_meta (
+            key    TEXT PRIMARY KEY NOT NULL,
+            value  TEXT NOT NULL
+         );
+         INSERT INTO monitor_meta (key, value)
+            SELECT 'rules_seeded', '1' WHERE EXISTS (SELECT 1 FROM monitor_alert_rules);",
+    down: "DROP TABLE IF EXISTS monitor_meta;",
+};
+
 /// Migrations owned by this crate (owner `monitor`).
-pub const MIGRATIONS: &[Migration] = &[MONITOR_0001];
+pub const MIGRATIONS: &[Migration] = &[MONITOR_0001, MONITOR_0002];
 
 /// [`MIGRATIONS`] as a vector.
 #[must_use]
@@ -204,6 +219,46 @@ impl MonitorStore {
             .iter()
             .filter_map(|s| from_json(s))
             .collect())
+    }
+
+    /// Whether the default rules were seeded already.
+    pub async fn rules_seeded(&self) -> Result<bool, MonitorError> {
+        let v = self
+            .db
+            .call(|c| {
+                Ok(c.query_row("SELECT value FROM monitor_meta WHERE key = 'rules_seeded'", [], |r| {
+                    r.get::<_, String>(0)
+                })
+                .optional()?)
+            })
+            .await?;
+        Ok(v.as_deref() == Some("1"))
+    }
+
+    /// Writes `rules` and the `rules_seeded` flag in one transaction.
+    pub async fn seed_rules(&self, rules: &[AlertRule]) -> Result<(), MonitorError> {
+        let now = orkestr_domain::now().to_rfc3339();
+        let rows = rules.iter().map(|r| Ok((r.id.clone(), to_json(r)?))).collect::<Result<Vec<_>, MonitorError>>()?;
+        self.db
+            .call(move |c| {
+                let tx = c.transaction()?;
+                for (id, spec) in &rows {
+                    tx.execute(
+                        "INSERT INTO monitor_alert_rules (id, spec, updated_at) VALUES (?1, ?2, ?3)
+                         ON CONFLICT(id) DO NOTHING",
+                        rusqlite::params![id, spec, now],
+                    )?;
+                }
+                tx.execute(
+                    "INSERT INTO monitor_meta (key, value) VALUES ('rules_seeded', '1')
+                     ON CONFLICT(key) DO UPDATE SET value = '1'",
+                    [],
+                )?;
+                tx.commit()?;
+                Ok(())
+            })
+            .await?;
+        Ok(())
     }
 
     /// Inserts or replaces a rule.

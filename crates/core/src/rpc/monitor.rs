@@ -6,8 +6,8 @@
 
 use orkestr_monitor::MonitorService;
 use orkestr_protocol::methods::monitor::{
-    self as m, AlertResult, AlertsResult, ChecksListResult, HealthCheckResult, IngestResult, LogSourcesResult,
-    MetricsResult,
+    self as m, AlertResult, AlertRuleResult, AlertRulesResult, AlertsResult, ChecksListResult, HealthCheckResult,
+    IngestResult, LogSourceResult, LogSourcesResult, MetricsResult,
 };
 use orkestr_protocol::methods::Empty;
 use orkestr_protocol::RpcError;
@@ -57,5 +57,26 @@ pub fn register(router: &mut RpcRouter) {
         })
         .method::<m::AckAlert, _, _>(|ctx: RpcContext, p| async move {
             Ok(AlertResult { alert: svc(&ctx).await?.ack_alert(p.alert_id).await? })
+        })
+        .method::<m::Rules, _, _>(|ctx: RpcContext, _p: Empty| async move {
+            Ok(AlertRulesResult { rules: svc(&ctx).await?.rules().await? })
+        })
+        .method::<m::RuleUpsert, _, _>(|ctx: RpcContext, p: m::UpsertRuleParams| async move {
+            Ok(AlertRuleResult { rule: svc(&ctx).await?.upsert_rule(p.rule).await? })
+        })
+        .method::<m::RuleDelete, _, _>(|ctx: RpcContext, p: m::RuleIdParams| async move {
+            svc(&ctx).await?.delete_rule(&p.rule_id).await?;
+            Ok(Empty {})
+        })
+        .method::<m::SourceAdd, _, _>(|ctx: RpcContext, p: m::AddFileSourceParams| async move {
+            let s = svc(&ctx).await?;
+            let path = std::path::PathBuf::from(p.path.trim());
+            Ok(LogSourceResult {
+                source: s.add_file_source(p.name.as_deref().unwrap_or(""), path, p.project_id).await?,
+            })
+        })
+        .method::<m::SourceRemove, _, _>(|ctx: RpcContext, p: m::LogSourceIdParams| async move {
+            svc(&ctx).await?.remove_source(&p.source_id).await?;
+            Ok(Empty {})
         });
 }
