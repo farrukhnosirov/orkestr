@@ -31,10 +31,11 @@ use windows::Win32::UI::Accessibility::{
 };
 use windows::Win32::UI::HiDpi::{SetProcessDpiAwarenessContext, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2};
 use windows::Win32::UI::Input::KeyboardAndMouse::{
-    MapVirtualKeyW, SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, INPUT_MOUSE, KEYBDINPUT, KEYBD_EVENT_FLAGS,
-    KEYEVENTF_EXTENDEDKEY, KEYEVENTF_KEYUP, KEYEVENTF_UNICODE, MAPVK_VK_TO_VSC, MOUSEEVENTF_HWHEEL,
-    MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP, MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_MIDDLEUP, MOUSEEVENTF_RIGHTDOWN,
-    MOUSEEVENTF_RIGHTUP, MOUSEEVENTF_WHEEL, MOUSEINPUT, MOUSE_EVENT_FLAGS, VIRTUAL_KEY,
+    GetKeyState, GetKeyboardLayout, MapVirtualKeyW, SendInput, VkKeyScanExW, INPUT, INPUT_0, INPUT_KEYBOARD,
+    INPUT_MOUSE, KEYBDINPUT, KEYBD_EVENT_FLAGS, KEYEVENTF_EXTENDEDKEY, KEYEVENTF_KEYUP, KEYEVENTF_UNICODE,
+    MAPVK_VK_TO_VSC, MOUSEEVENTF_HWHEEL, MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP, MOUSEEVENTF_MIDDLEDOWN,
+    MOUSEEVENTF_MIDDLEUP, MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP, MOUSEEVENTF_WHEEL, MOUSEINPUT, MOUSE_EVENT_FLAGS,
+    VIRTUAL_KEY,
 };
 use windows::Win32::UI::Shell::ShellExecuteW;
 use windows::Win32::UI::WindowsAndMessaging::{
@@ -685,33 +686,53 @@ impl ComputerBackend for WindowsBackend {
     }
 
     fn type_text(&self, text: &str) -> ComputerResult<()> {
-        let mut batch: Vec<INPUT> = Vec::new();
+        // Characters the foreground keyboard layout has a key for are typed
+        // as real key strokes (with Shift); everything else as VK_PACKET.
+        // One character per SendInput call with a pause: WinUI text boxes
+        // (Windows 11 Notepad) mangle bursts of VK_PACKET input.
+        // SAFETY: plain queries.
+        let layout = unsafe { GetKeyboardLayout(GetWindowThreadProcessId(GetForegroundWindow(), None)) };
+        // Caps Lock would invert letters typed as key strokes: send those as VK_PACKET.
+        // SAFETY: plain query.
+        let caps = unsafe { GetKeyState(0x14) } & 1 != 0;
         for ch in text.chars() {
-            match ch {
-                '\n' => {
-                    batch.push(key_input(0x0D, false, false));
-                    batch.push(key_input(0x0D, false, true));
-                }
-                '\r' => {}
-                '\t' => {
-                    batch.push(key_input(0x09, false, false));
-                    batch.push(key_input(0x09, false, true));
-                }
+            let batch: Vec<INPUT> = match ch {
+                '\r' => continue,
+                '\n' => vec![key_input(0x0D, false, false), key_input(0x0D, false, true)],
+                '\t' => vec![key_input(0x09, false, false), key_input(0x09, false, true)],
                 c => {
                     let mut buf = [0u16; 2];
-                    for unit in c.encode_utf16(&mut buf).iter() {
-                        batch.push(unicode_input(*unit, false));
-                        batch.push(unicode_input(*unit, true));
+                    let units = c.encode_utf16(&mut buf);
+                    // SAFETY: pure lookup.
+                    let scan = if units.len() == 1 && !(caps && c.is_alphabetic()) {
+                        unsafe { VkKeyScanExW(units[0], layout) }
+                    } else {
+                        -1
+                    };
+                    #[allow(clippy::cast_sign_loss)]
+                    let (vk, mods) = ((scan & 0xFF) as u16, ((scan >> 8) & 0xFF) as u8);
+                    if scan != -1 && mods <= 1 && vk != 0 {
+                        let mut v = Vec::new();
+                        if mods == 1 {
+                            v.push(key_input(0x10, false, false));
+                        }
+                        v.push(key_input(vk, false, false));
+                        v.push(key_input(vk, false, true));
+                        if mods == 1 {
+                            v.push(key_input(0x10, false, true));
+                        }
+                        v
+                    } else {
+                        let mut v: Vec<INPUT> = units.iter().map(|u| unicode_input(*u, false)).collect();
+                        v.extend(units.iter().map(|u| unicode_input(*u, true)));
+                        v
                     }
                 }
-            }
-            if batch.len() >= 64 {
-                send(&batch)?;
-                batch.clear();
-                std::thread::sleep(Duration::from_millis(8));
-            }
+            };
+            send(&batch)?;
+            std::thread::sleep(Duration::from_millis(if ch == '\n' { 60 } else { 8 }));
         }
-        send(&batch)
+        Ok(())
     }
 
     fn scroll(&self, direction: ScrollDirection, amount: u32, unit: ScrollUnit) -> ComputerResult<()> {

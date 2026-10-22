@@ -1,7 +1,7 @@
 {
-  "_comment": "Known apps: key → names (en/ru, used for phrases and fuzzy resolution), launch target (exe on PATH / App Paths, URI, .msc, or a Start-menu name resolved at runtime) and process names (window focus / close). Source table of scripts/gen-assistant-catalogue.mjs and of the runtime resolver (apps.rs).",
+  "_comment": "Known apps (tabs: true = a tabbed editor that keeps its session; \"close without saving\" closes the active tab with Don't save first): key → names (en/ru, used for phrases and fuzzy resolution), launch target (exe on PATH / App Paths, URI, .msc, or a Start-menu name resolved at runtime) and process names (window focus / close). Source table of scripts/gen-assistant-catalogue.mjs and of the runtime resolver (apps.rs).",
   "apps": [
-    { "key": "notepad", "en": ["notepad"], "ru": ["блокнот"], "launch": "notepad.exe", "processes": ["notepad"], "group": "system" },
+    { "key": "notepad", "en": ["notepad"], "ru": ["блокнот"], "launch": "notepad.exe", "processes": ["notepad"], "group": "system", "tabs": true },
     { "key": "calculator", "en": ["calculator", "calc"], "ru": ["калькулятор"], "launch": "calc.exe", "processes": ["calculatorapp", "calculator", "calc"], "group": "system" },
     { "key": "paint", "en": ["paint", "ms paint"], "ru": ["паинт", "пейнт", "рисовалку"], "launch": "mspaint.exe", "processes": ["mspaint"], "group": "system" },
     { "key": "explorer", "en": ["file explorer", "explorer"], "ru": ["проводник"], "launch": "explorer.exe", "processes": ["explorer"], "group": "system", "noKill": true },

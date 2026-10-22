@@ -34,6 +34,10 @@ pub struct KnownApp {
     /// Never kill (shell processes).
     #[serde(default)]
     pub no_kill: bool,
+    /// Tabbed editor that restores its session (Windows 11 Notepad): "close
+    /// without saving" discards the active tab, never kills the process.
+    #[serde(default)]
+    pub tabs: bool,
 }
 
 impl KnownApp {

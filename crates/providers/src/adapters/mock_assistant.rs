@@ -3,7 +3,8 @@
 //! assistant planner"; the Mock answers with a deterministic plan built from
 //! the action vocabulary so the offline demo / acceptance runs reach
 //! approve → run → remember. Note-like tasks open Notepad and type the text
-//! (corrections are appended); anything else becomes a web search. Clearly a
+//! in a new document (Ctrl+N — never into a restored tab; corrections are
+//! appended); anything else becomes a web search. Clearly a
 //! Mock answer ("Mock (offline demo)" in the explanation).
 
 use serde_json::json;
@@ -56,6 +57,8 @@ pub fn script(req: &ChatRequest) -> Option<MockScript> {
             "steps": [
                 {"type": "Launch", "target": "notepad"},
                 {"type": "Wait", "ms": 1500},
+                {"type": "Keys", "combo": "ctrl+n"},
+                {"type": "Wait", "ms": 600},
                 {"type": "TypeText", "text": text}
             ]
         })
@@ -90,7 +93,7 @@ mod tests {
     fn note_tasks_open_notepad_and_corrections_append() {
         let v = text(script(&req("Language: ru\nTask: запиши в блокнот список покупок\nCorrection: и яйца\n")));
         assert_eq!(v["steps"][0]["target"], "notepad");
-        assert_eq!(v["steps"][2]["text"], "список покупок, и яйца");
+        assert_eq!(v["steps"][4]["text"], "список покупок, и яйца");
         let v = text(script(&req("Task: what is the weather in Paris\n")));
         assert_eq!(v["steps"][0]["type"], "WebSearch");
     }

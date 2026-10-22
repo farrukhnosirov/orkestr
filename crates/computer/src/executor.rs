@@ -115,6 +115,8 @@ fn num(v: Option<&SlotNum>, default: u32) -> ComputerResult<u32> {
 struct Runner<'a> {
     env: &'a ExecEnv,
     confirmed: bool,
+    /// More top-level steps follow the current one.
+    more_after: bool,
     steps: Vec<StepReport>,
     effects: Vec<ClientEffect>,
     index: u32,
@@ -206,7 +208,7 @@ impl Runner<'_> {
             if self.env.cancel.is_cancelled() {
                 return Err(ComputerError::Stopped);
             }
-            let more = i + 1 < steps.len();
+            let more = i + 1 < steps.len() || self.more_after;
             if let ComputerAction::If { condition, then, otherwise } = s {
                 let cond = self.eval(condition).await;
                 let r = cond
@@ -256,7 +258,8 @@ impl Runner<'_> {
         match s {
             A::Launch { target } => {
                 let resolved = apps::launch_target(target, &self.env.installed);
-                let before = if more { self.user_window().await?.map(|w| w.handle) } else { None };
+                let before: Vec<String> =
+                    if more { self.windows().await?.into_iter().map(|w| w.handle).collect() } else { Vec::new() };
                 let t = resolved.clone();
                 self.call(move |b| b.shell_open(&t, None)).await?;
                 if more {
@@ -561,21 +564,41 @@ impl Runner<'_> {
         }
     }
 
-    /// After a launch: wait (≤ 5 s) until a new window of another app is in
-    /// front, so the next keys go to it.
-    async fn wait_new_foreground(&self, before: Option<String>) -> ComputerResult<()> {
+    /// After a launch: wait (≤ 8 s) for the new app window and bring it to
+    /// the front, so the next keys go to it (never to whatever had focus).
+    async fn wait_new_foreground(&self, before: Vec<String>) -> ComputerResult<()> {
         let started = Instant::now();
-        while started.elapsed() < Duration::from_secs(5) {
+        // the recording backend never opens windows: don't wait for one
+        let limit = if self.env.backend.name() == "mock" { Duration::ZERO } else { Duration::from_secs(8) };
+        while started.elapsed() < limit {
             self.sleep(150).await?;
             let ws = self.windows().await?;
-            if let Some(a) = ws.iter().find(|w| w.active) {
-                if !self.is_own(a) && Some(&a.handle) != before.as_ref() {
-                    self.sleep(350).await?;
-                    return Ok(());
+            let fresh = ws.iter().find(|w| !self.is_own(w) && !before.contains(&w.handle));
+            if let Some(w) = fresh {
+                if !w.active {
+                    let h = w.handle.clone();
+                    let _ = self.call(move |b| b.window_op(Some(&h), WindowOp::Focus)).await;
                 }
+                self.sleep(400).await?;
+                return Ok(());
             }
         }
         Ok(())
+    }
+
+    /// Answers a "Save changes?" prompt with "Don't save" (in the window or
+    /// its foreground dialog). True when a button was clicked.
+    async fn click_dont_save(&self, handle: &str) -> bool {
+        for label in ["Don't save", "Don’t save", "Не сохранять", "Don't Save", "No", "Нет"] {
+            let h = handle.to_owned();
+            if self.call(move |b| b.click_element(Some(&h), label)).await.is_ok() {
+                return true;
+            }
+            if self.call(move |b| b.click_element(None, label)).await.is_ok() {
+                return true;
+            }
+        }
+        false
     }
 
     async fn close_app(&mut self, app: &str, discard: bool) -> ComputerResult<StepOut> {
@@ -592,9 +615,32 @@ impl Runner<'_> {
                 return Ok(StepOut::Confirm(vec![unsaved_reason(self.index, &w.title)]));
             }
         }
-        let no_kill = apps::find_known_app(app).is_some_and(|a| a.no_kill);
+        let known = apps::find_known_app(app);
+        let tabbed = known.is_some_and(|a| a.tabs);
+        let no_kill = known.is_some_and(|a| a.no_kill || a.tabs);
         let mut closed = 0usize;
         for w in &targets {
+            if discard && tabbed {
+                // Tabbed editors keep unsaved tabs in their session when the
+                // window closes: close the active tab and answer "Don't save".
+                let h = w.handle.clone();
+                self.call(move |b| b.window_op(Some(&h), WindowOp::Focus)).await?;
+                self.call(|b| b.press(&["ctrl".to_owned(), "w".to_owned()])).await?;
+                for _ in 0..8 {
+                    self.sleep(300).await?;
+                    if !self.windows().await?.iter().any(|x| x.handle == w.handle) {
+                        break;
+                    }
+                    if self.click_dont_save(&w.handle).await {
+                        self.sleep(300).await?;
+                        break;
+                    }
+                }
+                if !self.windows().await?.iter().any(|x| x.handle == w.handle) {
+                    closed += 1;
+                    continue;
+                }
+            }
             let h = w.handle.clone();
             self.call(move |b| b.window_op(Some(&h), WindowOp::Close)).await?;
             if !discard {
@@ -611,15 +657,7 @@ impl Runner<'_> {
                     gone = true;
                     break;
                 }
-                for label in ["Don't save", "Don’t save", "Не сохранять", "Don't Save", "No", "Нет"] {
-                    let h = w.handle.clone();
-                    if self.call(move |b| b.click_element(Some(&h), label)).await.is_ok() {
-                        break;
-                    }
-                    if self.call(move |b| b.click_element(None, label)).await.is_ok() {
-                        break;
-                    }
-                }
+                self.click_dont_save(&w.handle).await;
             }
             if !gone && !no_kill && !self.env.own_pids.contains(&w.pid) {
                 let pid = w.pid;
@@ -659,11 +697,12 @@ fn clone_err(e: &ComputerError) -> ComputerError {
 /// Runs resolved steps. `confirmed` skips runtime confirmations.
 pub async fn execute(env: &ExecEnv, steps: &[ComputerAction], confirmed: bool) -> ExecResult {
     let started = Instant::now();
-    let mut r = Runner { env, confirmed, steps: Vec::new(), effects: Vec::new(), index: 0 };
+    let mut r = Runner { env, confirmed, more_after: false, steps: Vec::new(), effects: Vec::new(), index: 0 };
     // top level one by one so a runtime confirmation can resume there
     let mut outcome = Some(RunOutcome::Succeeded);
     let mut confirm = None;
     for (i, s) in steps.iter().enumerate() {
+        r.more_after = i + 1 < steps.len();
         match r.run_list(std::slice::from_ref(s)).await {
             Ok(Flow::Next) => {
                 // let the target app catch up between top-level steps that use input

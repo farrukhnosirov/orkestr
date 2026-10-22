@@ -17,9 +17,9 @@ use orkestr_events::EventBus;
 use orkestr_protocol::event::EventKind;
 use orkestr_protocol::methods::computer::{
     AssistantCommand, CatalogueParams, CatalogueResult, CategoryCount, CommandMatch, CommandResult, CommandSet,
-    CommandSetSummary, CommandSummary, ComputerAction, ComputerCommandPayload, ComputerStatus, ExportSetResult,
-    HandleResult, HistoryEntry, LocalizedText, PendingConfirmation, PlanProposal, ProcessInfo, RiskReason, RunOutcome,
-    ComputerRunReport, SafetyLevel, StopResult, WindowInfo,
+    CommandSetSummary, CommandSummary, ComputerAction, ComputerCommandPayload, ComputerRunReport, ComputerStatus,
+    ExportSetResult, HandleResult, HistoryEntry, LocalizedText, PendingConfirmation, PlanProposal, ProcessInfo,
+    RiskReason, RunOutcome, SafetyLevel, StopResult, WindowInfo,
 };
 use orkestr_protocol::NewEvent;
 use orkestr_security::{ApprovalDecision, ApprovalRequest, NewAudit, Security, SecurityError};

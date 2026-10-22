@@ -1,0 +1,289 @@
+{
+  "at": "2026-10-22T21:12:08.446Z",
+  "passed": 47,
+  "failed": 0,
+  "checks": [
+    {
+      "area": "A1",
+      "name": "computer.status: Windows backend available, catalogue ≥ 1000",
+      "ok": true,
+      "detail": "{\"available\":true,\"backend\":\"windows\",\"catalogueCommands\":1035,\"enabledSets\":14,\"indexedApps\":0,\"pending\":0,\"running\":0,\"userCommands\":0}"
+    },
+    {
+      "area": "A1",
+      "name": "local matcher: \"открой блокнот\" → app.notepad.open (µs)",
+      "ok": true,
+      "detail": "app.notepad.open 1 in 30916 µs"
+    },
+    {
+      "area": "A2",
+      "name": "\"открой блокнот\" executed",
+      "ok": true,
+      "detail": "Succeeded: Открыть блокнот [Launch]"
+    },
+    {
+      "area": "A2",
+      "name": "Notepad window appeared",
+      "ok": true,
+      "detail": "Notepad"
+    },
+    {
+      "area": "A2",
+      "name": "\"переключись на блокнот\" → Notepad in front",
+      "ok": true,
+      "detail": "Succeeded: Переключиться на блокнот [FocusApp]"
+    },
+    {
+      "area": "A2",
+      "name": "\"новый документ\" → a fresh tab (Ctrl+N) for the test text",
+      "ok": true,
+      "detail": "Succeeded: Создать [Keys]"
+    },
+    {
+      "area": "A2",
+      "name": "\"напечатай …\" executed (Unicode SendInput)",
+      "ok": true,
+      "detail": "Succeeded: Напечатать текст [TypeText]"
+    },
+    {
+      "area": "A2",
+      "name": "select all + copy + clipboard read back the typed text",
+      "ok": true,
+      "detail": "\"Привет от ассистента Orkestr 123\""
+    },
+    {
+      "area": "A2",
+      "name": "computer.execute types 60 lines",
+      "ok": true,
+      "detail": "Succeeded: type 60 lines [Keys, TypeText]"
+    },
+    {
+      "area": "A2",
+      "name": "\"прокрути вверх\" executed",
+      "ok": true,
+      "detail": "Succeeded: Прокрутить вверх [Scroll]"
+    },
+    {
+      "area": "A2",
+      "name": "\"scroll down 3\" executed",
+      "ok": true,
+      "detail": "Succeeded: Scroll down N [Scroll]"
+    },
+    {
+      "area": "A2",
+      "name": "\"страница вверх\" executed",
+      "ok": true,
+      "detail": "Succeeded: Страница вверх [Scroll]"
+    },
+    {
+      "area": "A2",
+      "name": "\"прокрути в самый верх\" executed",
+      "ok": true,
+      "detail": "Succeeded: В самый верх [Scroll]"
+    },
+    {
+      "area": "A3",
+      "name": "\"open calculator\" executed",
+      "ok": true,
+      "detail": "Succeeded: Open calculator [Launch]"
+    },
+    {
+      "area": "A3",
+      "name": "\"переключись на блокнот\" → Notepad active",
+      "ok": true,
+      "detail": "Succeeded: Переключиться на блокнот [FocusApp] active=Notepad.exe"
+    },
+    {
+      "area": "A3",
+      "name": "\"switch to calculator\" → Calculator active",
+      "ok": true,
+      "detail": "Succeeded: Switch to calculator [FocusApp] active=CalculatorApp.exe"
+    },
+    {
+      "area": "A3",
+      "name": "\"закрой калькулятор\" executed",
+      "ok": true,
+      "detail": "Succeeded: Закрыть калькулятор [CloseApp]"
+    },
+    {
+      "area": "A3",
+      "name": "Calculator closed",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "area": "A4",
+      "name": "\"закрой блокнот без сохранения\" → NeedsConfirmation (closeDiscard) + approval",
+      "ok": true,
+      "detail": "NeedsConfirmation: closeDiscard"
+    },
+    {
+      "area": "A4",
+      "name": "the confirmation is in the approvals inbox (ComputerControl)",
+      "ok": true,
+      "detail": "1 pending"
+    },
+    {
+      "area": "A4",
+      "name": "computer.confirm(approve) closes it",
+      "ok": true,
+      "detail": "Succeeded: Закрыть приложение без сохранения [CloseApp]"
+    },
+    {
+      "area": "A4",
+      "name": "no Notepad window left",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "area": "A4",
+      "name": "audit has computer.run rows (approved + executed)",
+      "ok": true,
+      "detail": "19 rows"
+    },
+    {
+      "area": "A5",
+      "name": "\"открой настройки экрана\" → ms-settings:display",
+      "ok": true,
+      "detail": "Succeeded: Настройки: экрана [OpenSettings]"
+    },
+    {
+      "area": "A5",
+      "name": "Settings window appeared",
+      "ok": true,
+      "detail": "Настройки"
+    },
+    {
+      "area": "A5",
+      "name": "\"close windows settings\" executed",
+      "ok": true,
+      "detail": "Succeeded: Close windows settings [CloseApp]"
+    },
+    {
+      "area": "A5",
+      "name": "Settings closed",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "area": "A6",
+      "name": "unknown command → Proposed plan from the Mock provider",
+      "ok": true,
+      "detail": "Proposed: Mock (offline demo): open Notepad and type “список покупок молоко хлеб”."
+    },
+    {
+      "area": "A6",
+      "name": "plan uses the action vocabulary (Launch → Wait → Ctrl+N → Wait → TypeText)",
+      "ok": true,
+      "detail": "[{\"target\":\"notepad\",\"type\":\"Launch\"},{\"ms\":1500,\"type\":\"Wait\"},{\"combo\":\"ctrl+n\",\"type\":\"Keys\"},{\"ms\":600,\"type\":\"Wait\"},{\"text\":\"список покупок молоко хлеб\",\"type\":\"TypeText\"}]"
+    },
+    {
+      "area": "A6",
+      "name": "correction → re-planned with the correction",
+      "ok": true,
+      "detail": "список покупок молоко хлеб, яйца"
+    },
+    {
+      "area": "A6",
+      "name": "approve → plan runs",
+      "ok": true,
+      "detail": "Succeeded: запиши в блокнот список покупок молоко хлеб [Launch, Wait, Keys, Wait, TypeText]"
+    },
+    {
+      "area": "A6",
+      "name": "\"запомни это как список покупок\" → Remembered in my-commands",
+      "ok": true,
+      "detail": "{\"command\":{\"category\":\"custom\",\"id\":\"user.625a0ebd24a6\",\"phrases\":[\"список покупок\"],\"safety\":\"Safe\",\"steps\":[{\"target\":\"notepad\",\"type\":\"Launch\"},{\"ms\":1500,\"type\":\"Wait\"},{\"combo\":\"ctrl+n\",\"type\":\""
+    },
+    {
+      "area": "A6",
+      "name": "\"закрой блокнот без сохранения\" → NeedsConfirmation (closeDiscard) + approval",
+      "ok": true,
+      "detail": "NeedsConfirmation: closeDiscard"
+    },
+    {
+      "area": "A6",
+      "name": "the confirmation is in the approvals inbox (ComputerControl)",
+      "ok": true,
+      "detail": "1 pending"
+    },
+    {
+      "area": "A6",
+      "name": "computer.confirm(approve) closes it",
+      "ok": true,
+      "detail": "Succeeded: Закрыть приложение без сохранения [CloseApp]"
+    },
+    {
+      "area": "A6",
+      "name": "no Notepad window left",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "area": "A6",
+      "name": "\"список покупок\" runs the remembered command",
+      "ok": true,
+      "detail": "Succeeded: список покупок [Launch, Wait, Keys, Wait, TypeText]"
+    },
+    {
+      "area": "A6",
+      "name": "\"закрой блокнот без сохранения\" → NeedsConfirmation (closeDiscard) + approval",
+      "ok": true,
+      "detail": "NeedsConfirmation: closeDiscard"
+    },
+    {
+      "area": "A6",
+      "name": "the confirmation is in the approvals inbox (ComputerControl)",
+      "ok": true,
+      "detail": "1 pending"
+    },
+    {
+      "area": "A6",
+      "name": "computer.confirm(approve) closes it",
+      "ok": true,
+      "detail": "Succeeded: Закрыть приложение без сохранения [CloseApp]"
+    },
+    {
+      "area": "A6",
+      "name": "no Notepad window left",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "area": "A6",
+      "name": "user set listed with the command",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "area": "A7",
+      "name": "killing explorer is forbidden",
+      "ok": true,
+      "detail": "forbidden: forbidden: refusing to kill the system process `explorer`"
+    },
+    {
+      "area": "A7",
+      "name": "shutdown asks first (Dangerous)",
+      "ok": true,
+      "detail": "NeedsConfirmation: power"
+    },
+    {
+      "area": "A7",
+      "name": "computer.stop cancels the pending shutdown",
+      "ok": true,
+      "detail": "{\"pendingCancelled\":1,\"runsStopped\":0,\"timersCancelled\":0}"
+    },
+    {
+      "area": "A7",
+      "name": "no pending approval left",
+      "ok": true,
+      "detail": "0"
+    },
+    {
+      "area": "A7",
+      "name": "ComputerCommand events published",
+      "ok": true,
+      "detail": "30 events"
+    }
+  ]
+}
