@@ -10,7 +10,7 @@ use async_trait::async_trait;
 use orkestr_domain::{now, DeploymentStatus};
 use orkestr_protocol::event::LogLevel;
 use orkestr_protocol::methods::detective::{Evidence, EvidenceKind, Incident, IncidentTrigger};
-use orkestr_protocol::methods::monitor::{AlertSource, LogQuery};
+use orkestr_protocol::methods::monitor::AlertSource;
 
 use crate::evidence::{EvidenceBudget, EvidenceCollector};
 use crate::ports::{DeploymentsReader, MonitorReader, QualityReader, VcsOps};
@@ -75,10 +75,6 @@ pub fn fit(mut items: Vec<Evidence>, budget: &EvidenceBudget) -> Vec<Evidence> {
     out
 }
 
-fn since(budget: &EvidenceBudget) -> orkestr_domain::Timestamp {
-    now() - chrono::Duration::from_std(budget.window).unwrap_or_else(|_| chrono::Duration::hours(1))
-}
-
 /// The triggering alert and other open alerts of the project.
 pub struct AlertCollector(pub Arc<dyn MonitorReader>);
 
@@ -119,8 +115,25 @@ impl EvidenceCollector for AlertCollector {
     }
 }
 
-/// Log lines in the window (the trigger's source first).
+/// Log lines around the incident (the trigger's source first, then
+/// warnings and errors of the project).
 pub struct LogsCollector(pub Arc<dyn MonitorReader>);
+
+fn render_lines(lines: &[&orkestr_protocol::methods::monitor::LogLine]) -> String {
+    lines
+        .iter()
+        .map(|l| {
+            let lvl = l.level.map(|v| format!("{v:?}")).unwrap_or_default();
+            format!(
+                "{} {lvl:<5} [{}] {}
+",
+                l.ts.format("%H:%M:%S"),
+                l.source_id,
+                l.message
+            )
+        })
+        .collect()
+}
 
 #[async_trait]
 impl EvidenceCollector for LogsCollector {
@@ -128,45 +141,47 @@ impl EvidenceCollector for LogsCollector {
         EvidenceKind::Logs
     }
     async fn collect(&self, inc: &Incident, budget: &EvidenceBudget) -> Result<Vec<Evidence>, DetectiveError> {
-        let mut sources: Vec<Option<String>> = Vec::new();
+        let mut at = inc.created_at;
+        let mut source: Option<String> = None;
         match &inc.trigger {
-            IncidentTrigger::LogError { source_id, .. } => sources.push(Some(source_id.clone())),
+            IncidentTrigger::LogError { source_id, .. } => source = Some(source_id.clone()),
             IncidentTrigger::Alert { alert_id } => {
                 if let Some(a) = self.0.alert(*alert_id).await? {
+                    at = a.opened_at;
                     if let AlertSource::Log { source_id } = a.source {
-                        sources.push(Some(source_id));
+                        source = Some(source_id);
                     }
                 }
             }
             _ => {}
         }
-        sources.push(None);
+        let after = std::time::Duration::from_secs(300);
+        let lines = self.0.logs_around(at, budget.window, after, Some(inc.project_id), None, 1000).await?;
         let mut out = Vec::new();
-        for source in sources {
-            let q = LogQuery {
-                source_id: source.clone(),
-                project_id: Some(inc.project_id),
-                contains: None,
-                min_level: if source.is_some() { None } else { Some(LogLevel::Warn) },
-                since: Some(since(budget)),
-                limit: Some(200),
-            };
-            let lines = self.0.logs(&q).await?;
-            if lines.is_empty() {
-                continue;
+        if let Some(src) = &source {
+            let mine: Vec<_> = lines.iter().filter(|l| &l.source_id == src).collect();
+            let mine = &mine[mine.len().saturating_sub(200)..];
+            if !mine.is_empty() {
+                out.push(item(
+                    EvidenceKind::Logs,
+                    format!("Logs of {src} ({} lines)", mine.len()),
+                    &cap_tail(&render_lines(mine), budget.max_bytes / 2),
+                    Some(src.clone()),
+                ));
             }
-            let text: String = lines
-                .iter()
-                .map(|l| {
-                    let lvl = l.level.map(|v| format!("{v:?}")).unwrap_or_default();
-                    format!("{} {lvl:<5} [{}] {}\n", l.ts.format("%H:%M:%S"), l.source_id, l.message)
-                })
-                .collect();
-            let title = match &source {
-                Some(s) => format!("Logs of {s} ({} lines)", lines.len()),
-                None => format!("Warnings and errors ({} lines)", lines.len()),
-            };
-            out.push(item(EvidenceKind::Logs, title, &cap_tail(&text, budget.max_bytes / 2), source));
+        }
+        let others: Vec<_> = lines
+            .iter()
+            .filter(|l| source.as_ref() != Some(&l.source_id) && l.level.is_some_and(|v| v >= LogLevel::Warn))
+            .collect();
+        let others = &others[others.len().saturating_sub(200)..];
+        if !others.is_empty() {
+            out.push(item(
+                EvidenceKind::Logs,
+                format!("Warnings and errors ({} lines)", others.len()),
+                &cap_tail(&render_lines(others), budget.max_bytes / 2),
+                None,
+            ));
         }
         Ok(fit(out, budget))
     }
@@ -181,7 +196,7 @@ impl EvidenceCollector for MetricsCollector {
         EvidenceKind::Metrics
     }
     async fn collect(&self, _inc: &Incident, budget: &EvidenceBudget) -> Result<Vec<Evidence>, DetectiveError> {
-        let series = self.0.metrics(since(budget)).await?;
+        let series = self.0.recent_metrics(budget.window).await?;
         let mut text = String::new();
         for s in series.iter().filter(|s| !s.points.is_empty()) {
             let vals: Vec<f64> = s.points.iter().map(|p| p.value).collect();

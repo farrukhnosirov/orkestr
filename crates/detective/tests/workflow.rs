@@ -20,10 +20,10 @@ use orkestr_domain::{
     EnvironmentId, IncidentId, NodeId, ProjectId, Timestamp,
 };
 use orkestr_events::{EventBus, Received};
-use orkestr_protocol::event::{EventKind, NewEvent};
+use orkestr_protocol::event::{EventKind, LogLevel, NewEvent};
 use orkestr_protocol::methods::detective::{EvidenceKind, IncidentRun, IncidentTrigger, OpenIncidentParams};
 use orkestr_protocol::methods::monitor::{
-    Alert, AlertPayload, AlertSeverity, AlertSource, AlertState, LogLine, LogQuery, MetricPoint, MetricSeries,
+    Alert, AlertPayload, AlertSeverity, AlertSource, AlertState, LogLine, MetricPoint, MetricSeries,
 };
 use orkestr_security::Security;
 use orkestr_storage::Db;
@@ -99,22 +99,28 @@ impl MonitorReader for Fakes {
     async fn active_alerts(&self, _p: ProjectId) -> Result<Vec<Alert>, DetectiveError> {
         Ok(vec![self.alert.clone()])
     }
-    async fn logs(&self, q: &LogQuery) -> Result<Vec<LogLine>, DetectiveError> {
+    async fn logs_around(
+        &self,
+        _at: Timestamp,
+        _before: Duration,
+        _after: Duration,
+        _project: Option<ProjectId>,
+        _min: Option<LogLevel>,
+        _limit: u32,
+    ) -> Result<Vec<LogLine>, DetectiveError> {
         if self.blocked(Block::Collect) {
             let _a = Active::enter(&self.active);
             std::future::pending::<()>().await;
         }
         let line = |m: &str| LogLine { ts: now(), source_id: "api".into(), level: None, message: m.into() };
-        Ok(match q.source_id.as_deref() {
-            Some("api") => vec![
-                line("GET /div?a=1&b=0"),
-                line("thread 'main' panicked at src/calc.rs:2:5:"),
-                line("attempt to divide by zero"),
-            ],
-            _ => vec![],
-        })
+        Ok(vec![
+            line("GET /div?a=1&b=0"),
+            line("thread 'main' panicked at src/calc.rs:2:5:"),
+            line("attempt to divide by zero"),
+        ])
     }
-    async fn metrics(&self, since: Timestamp) -> Result<Vec<MetricSeries>, DetectiveError> {
+    async fn recent_metrics(&self, window: Duration) -> Result<Vec<MetricSeries>, DetectiveError> {
+        let since = now() - chrono::Duration::from_std(window).unwrap();
         Ok(vec![MetricSeries {
             node_id: NodeId::new(),
             metric: "cpu".into(),

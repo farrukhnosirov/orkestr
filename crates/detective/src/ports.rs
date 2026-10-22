@@ -6,31 +6,45 @@
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::time::Duration;
 
 use async_trait::async_trait;
 use orkestr_domain::IncidentId;
 use orkestr_domain::{AgentId, AlertId, Deployment, DeploymentId, ProjectId, Timestamp};
+use orkestr_protocol::event::LogLevel;
 use orkestr_protocol::methods::detective::{Hypothesis, IncidentRun};
-use orkestr_protocol::methods::monitor::{Alert, LogLine, LogQuery, MetricSeries};
+use orkestr_protocol::methods::monitor::{Alert, LogLine, MetricSeries};
 use tokio_util::sync::CancellationToken;
 
 use crate::DetectiveError;
 
-/// Read access to the infrastructure monitor (WP5). Implemented by the
-/// integrator over `MonitorService` (or the `monitor.*` RPC area).
+/// Read access to the infrastructure monitor (WP5). Shaped after
+/// `orkestr_monitor::MonitorService` (`alert`, `active_alerts`,
+/// `logs_around`, `recent_metrics`) so the integrator's adapter is a thin
+/// pass-through (`NotFound` → `None`).
 #[async_trait]
 pub trait MonitorReader: Send + Sync {
-    /// One alert.
+    /// One alert (`None` when unknown).
     async fn alert(&self, id: AlertId) -> Result<Option<Alert>, DetectiveError>;
     /// Open (unresolved) alerts of the project.
     async fn active_alerts(&self, project_id: ProjectId) -> Result<Vec<Alert>, DetectiveError>;
-    /// Redacted log lines (oldest first).
-    async fn logs(&self, query: &LogQuery) -> Result<Vec<LogLine>, DetectiveError>;
-    /// Metric series since `since` (local node).
-    async fn metrics(&self, since: Timestamp) -> Result<Vec<MetricSeries>, DetectiveError>;
+    /// Redacted log lines in `[at - before, at + after]` (oldest first).
+    async fn logs_around(
+        &self,
+        at: Timestamp,
+        before: Duration,
+        after: Duration,
+        project_id: Option<ProjectId>,
+        min_level: Option<LogLevel>,
+        limit: u32,
+    ) -> Result<Vec<LogLine>, DetectiveError>;
+    /// Metric series of the local node over the last `window`.
+    async fn recent_metrics(&self, window: Duration) -> Result<Vec<MetricSeries>, DetectiveError>;
 }
 
-/// Read access to deployments (WP4).
+/// Read access to deployments (WP4). Thin adapter over
+/// `orkestr_deploy::DeployService`: `recent` = `list(project, None, Some(limit))`,
+/// `logs` = tail of `logs(id, 0).lines`.
 #[async_trait]
 pub trait DeploymentsReader: Send + Sync {
     /// Deployments of the project, newest first.
