@@ -24,9 +24,12 @@ chrono.workspace = true
 parking_lot.workspace = true
 orkestr-monitor.workspace = true
 orkestr-deploy.workspace = true
+orkestr-vcs.workspace = true
+futures.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
+orkestr-platform.workspace = true
 
 [lints]
 workspace = true
