@@ -631,9 +631,10 @@ mod tests {
     }
 
     /// The native dialog plugin is reachable only for opening (Browse…,
-    /// File → Open) and only from the main and detached panel windows.
+    /// File → Open) and saving (File → Save As…), and only from the main and
+    /// detached panel windows (no message / ask dialogs).
     #[test]
-    fn dialog_plugin_grants_open_only_to_main_and_panels() {
+    fn dialog_plugin_grants_open_and_save_only_to_main_and_panels() {
         fn dialog(capability: &str) -> Vec<String> {
             let v: serde_json::Value = serde_json::from_str(capability).unwrap();
             v["permissions"]
@@ -645,7 +646,7 @@ mod tests {
                 .map(str::to_owned)
                 .collect()
         }
-        let open = vec!["dialog:allow-open".to_owned()];
+        let open = vec!["dialog:allow-open".to_owned(), "dialog:allow-save".to_owned()];
         assert_eq!(dialog(include_str!("../capabilities/default.json")), open);
         assert_eq!(dialog(include_str!("../capabilities/panels.json")), open);
         assert!(dialog(include_str!("../capabilities/robots.json")).is_empty());
