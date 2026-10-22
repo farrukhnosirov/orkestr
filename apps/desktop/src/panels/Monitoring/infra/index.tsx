@@ -99,7 +99,11 @@ function NodeCard({ node, tick }: { node: NodeMetricsSnapshot; tick: number }) {
   const { t } = useT("monitorInfra");
   const fmt = useFormat();
   const params: MetricsParams & { resolutionSecs?: number } = { nodeId: node.nodeId, metrics: ["cpu", "mem", "disk"], resolutionSecs: 15 };
-  const series = useRpcQuery<MetricSeries[]>(`monitor.metrics:${node.nodeId}:${tick}`, async (c) => (await c.call("monitor.metrics", params)).series);
+  const series = useRpcQuery<MetricSeries[]>(`monitor.metrics:${node.nodeId}`, async (c) => (await c.call("monitor.metrics", params)).series);
+  const reloadSeries = series.reload;
+  useEffect(() => {
+    if (tick > 0) reloadSeries();
+  }, [tick, reloadSeries]);
   const p = snapshotPercents(node);
   const rows: Array<{ key: "cpu" | "mem" | "disk"; value: number; detail?: string }> = [
     { key: "cpu", value: p.cpu },
@@ -417,6 +421,11 @@ function Logs() {
   const [sourceId, setSourceId] = useState("");
   const [minLevel, setMinLevel] = useState<LogLevel | "">("");
   const [text, setText] = useState("");
+  const [filter, setFilter] = useState("");
+  useEffect(() => {
+    const id = setTimeout(() => setFilter(text.trim()), 300);
+    return () => clearTimeout(id);
+  }, [text]);
   const [live, setLive] = useState(true);
   const [lines, setLines] = useState<LogLine[]>([]);
   const [truncated, setTruncated] = useState(false);
@@ -430,7 +439,7 @@ function Logs() {
     const base = {
       ...(sourceId ? { sourceId } : {}),
       ...(minLevel ? { minLevel } : {}),
-      ...(text.trim() ? { contains: text.trim() } : {}),
+      ...(filter ? { contains: filter } : {}),
     };
     const poll = async (first: boolean) => {
       const c = maybeClient();
@@ -457,7 +466,7 @@ function Logs() {
       cancelled = true;
       if (timer) clearTimeout(timer);
     };
-  }, [sourceId, minLevel, text, live]);
+  }, [sourceId, minLevel, filter, live]);
 
   return (
     <div className="infra-stack">
