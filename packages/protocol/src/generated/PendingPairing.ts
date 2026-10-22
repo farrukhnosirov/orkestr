@@ -28,4 +28,9 @@ sas: string,
 /**
  * When the claim arrived.
  */
-claimedAt: string, };
+claimedAt: string, 
+/**
+ * `"node"` when a coordinator core claims the pairing to enroll this core
+ * as a worker node (Phase 6); absent for ordinary devices.
+ */
+kind?: string, };

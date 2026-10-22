@@ -27,8 +27,8 @@ pub fn register(router: &mut RpcRouter) {
         let revoked = ctx.services.remote.revoke_all_sessions(actor(&ctx)).await;
         Ok::<_, RpcError>(m::RemoteRevokeAllResult { revoked })
     });
-    router.method::<m::DevicesStartPairing, _, _>(|ctx: RpcContext, _: Empty| async move {
-        ctx.services.remote.start_pairing()
+    router.method::<m::DevicesStartPairing, _, _>(|ctx: RpcContext, p: m::DevicePairingStartParams| async move {
+        ctx.services.remote.start_pairing_with(&p)
     });
     router.method::<m::DevicesApprove, _, _>(|ctx: RpcContext, p| async move { ctx.services.remote.approve(p).await });
     router.method::<m::DevicesList, _, _>(|ctx: RpcContext, _: Empty| async move {

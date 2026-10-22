@@ -543,6 +543,9 @@ pub struct NodeHelloResult {
     pub labels: BTreeMap<String, String>,
     /// Node protocol version (1).
     pub protocol_version: u32,
+    /// Digests of locally installed model manifests (model store, Phase 6).
+    #[serde(default)]
+    pub model_digests: Vec<Digest>,
 }
 
 /// Lease renewal carried by a heartbeat.
@@ -588,6 +591,9 @@ pub struct NodeHeartbeatResult {
     pub slots: NodeSlots,
     /// Leases held by the worker.
     pub leases: Vec<LeaseState>,
+    /// Digests of locally installed model manifests (model store, Phase 6).
+    #[serde(default)]
+    pub model_digests: Vec<Digest>,
 }
 
 /// `NodeRegistered` event payload.

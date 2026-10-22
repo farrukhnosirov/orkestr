@@ -70,6 +70,7 @@ aes-gcm.workspace = true
 rand_core06.workspace = true
 hmac.workspace = true
 tokio-tungstenite.workspace = true
+reqwest.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

@@ -5,7 +5,7 @@
 
 use std::path::{Path, PathBuf};
 
-use orkestr_domain::{DeviceId, ProjectId, Timestamp};
+use orkestr_domain::{DeviceId, ProjectId, Timestamp, TrustLevel};
 use orkestr_protocol::methods::remote::DeviceInfo;
 use orkestr_protocol::policy::Role;
 use orkestr_security::webauthn::{Credential, RelyingParty};
@@ -45,6 +45,13 @@ pub struct DeviceRecord {
     /// Kind of [`Self::step_up`] (WebAuthn passkey or native `orkestr-native-v1`).
     #[serde(default)]
     pub step_up_kind: StepUpKind,
+    /// The peer is a coordinator core that enrolled this core as a worker
+    /// node (`kind: "node"` pairing, Phase 6).
+    #[serde(default)]
+    pub coordinator: bool,
+    /// Trust level granted to the coordinator (Phase 6).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trust_level: Option<TrustLevel>,
 }
 
 /// Kind of step-up credential (ADR-0038).
@@ -86,6 +93,7 @@ impl DeviceRecord {
             platform: self.platform.clone(),
             step_up_registered: self.step_up.is_some(),
             step_up_kind: self.step_up.as_ref().map(|_| self.step_up_kind.as_str().to_owned()),
+            trust_level: if self.coordinator { self.trust_level } else { None },
         }
     }
 }

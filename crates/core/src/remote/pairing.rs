@@ -12,6 +12,10 @@ use orkestr_protocol::policy::Role;
 use rand_core06::RngCore;
 use sha2::{Digest, Sha256};
 
+/// `platform` a coordinator core reports when it claims a pairing to enroll
+/// the pairing core as a worker node (`kind: "node"`, Phase 6).
+pub const NODE_PLATFORM: &str = "orkestr-node";
+
 /// Code alphabet (Crockford base32 without ambiguous characters).
 const ALPHABET: &[u8; 32] = b"0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 

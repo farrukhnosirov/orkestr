@@ -63,6 +63,22 @@ pub struct RemoteRevokeAllResult {
     pub revoked: u32,
 }
 
+/// Params of `devices.startPairing` (all optional; `{}` pairs a device).
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct DevicePairingStartParams {
+    /// `"node"`: a coordinator core will claim this pairing to enroll this
+    /// core as a worker node (Phase 6). Absent for ordinary devices.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub kind: Option<String>,
+    /// Trust level offered to the coordinator (`kind: "node"`; the approval may override it).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub trust_level: Option<orkestr_domain::TrustLevel>,
+}
+
 /// Result of `devices.startPairing`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
@@ -105,6 +121,11 @@ pub struct PendingPairing {
     pub sas: String,
     /// When the claim arrived.
     pub claimed_at: Timestamp,
+    /// `"node"` when a coordinator core claims the pairing to enroll this core
+    /// as a worker node (Phase 6); absent for ordinary devices.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub kind: Option<String>,
 }
 
 /// A WebAuthn assertion used for step-up (all fields base64url).
@@ -173,6 +194,11 @@ pub struct DeviceApproveParams {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub project_ids: Option<Vec<ProjectId>>,
+    /// Trust level granted to a coordinator (`kind: "node"` pairings, Phase 6;
+    /// default `restricted`). Ignored for ordinary devices.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub trust_level: Option<orkestr_domain::TrustLevel>,
 }
 
 /// A paired device.
@@ -210,6 +236,11 @@ pub struct DeviceInfo {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub step_up_kind: Option<String>,
+    /// Trust level granted when this "device" is a coordinator core that
+    /// enrolled this core as a worker node (Phase 6); absent for devices.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub trust_level: Option<orkestr_domain::TrustLevel>,
 }
 
 /// Result of `devices.list`.
@@ -260,7 +291,7 @@ method!(
 );
 method!(
     /// `devices.startPairing` (local only).
-    DevicesStartPairing, "devices.startPairing", Empty, DevicePairingStart
+    DevicesStartPairing, "devices.startPairing", DevicePairingStartParams, DevicePairingStart
 );
 method!(
     /// `devices.approve` (local only).

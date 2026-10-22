@@ -310,7 +310,49 @@ pub struct ConnectQuery {
     token: Option<String>,
 }
 
-/// `GET /v1/connect?coreId=…[&token=…]` (client WS; session cookie / bearer / token).
+/// Who authenticated a client request: a user session, or a core token of the
+/// same account (core-to-core node links, ADR-0033).
+#[derive(Debug, Clone)]
+struct Caller {
+    account: String,
+    /// Source core when authenticated with a core bearer token.
+    core: Option<String>,
+}
+
+fn caller(st: &GatewayState, headers: &HeaderMap, query_token: Option<&str>) -> Result<Caller, ApiError> {
+    let token =
+        auth::bearer(headers, query_token).ok_or_else(|| ApiError::new(StatusCode::UNAUTHORIZED, "sign in first"))?;
+    if let Some(account) = st.store.session(&token) {
+        return Ok(Caller { account, core: None });
+    }
+    if let Some((core, account)) = st.store.core_by_token(&token) {
+        return Ok(Caller { account, core: Some(core) });
+    }
+    Err(ApiError::new(StatusCode::UNAUTHORIZED, "sign in first"))
+}
+
+/// Extra checks for a core-token caller targeting `target`: never itself,
+/// rate-limited per source core, audited.
+fn core_to_core(st: &GatewayState, c: &Caller, target: &str, ip: &str, action: &str) -> Result<(), ApiError> {
+    let Some(source) = &c.core else { return Ok(()) };
+    if source == target {
+        return Err(ApiError::bad("a core cannot connect to itself"));
+    }
+    if let Err(d) = st.windows.hit(&format!("core2core:{source}"), 120, Duration::from_secs(60)) {
+        st.store.audit(
+            Some(&c.account),
+            "relay.coreRateLimited",
+            Some(ip),
+            &json!({ "sourceCoreId": source, "coreId": target, "action": action }),
+        );
+        return Err(ApiError::too_many(d));
+    }
+    st.store.audit(Some(&c.account), action, Some(ip), &json!({ "sourceCoreId": source, "coreId": target }));
+    Ok(())
+}
+
+/// `GET /v1/connect?coreId=…[&token=…]` (client WS; session cookie / bearer /
+/// token, or a core bearer token of the same account — Phase 6 node links).
 pub async fn connect(
     State(st): State<GatewayState>,
     ClientIp(ip): ClientIp,
@@ -318,18 +360,20 @@ pub async fn connect(
     Query(q): Query<ConnectQuery>,
     ws: WebSocketUpgrade,
 ) -> Result<Response, ApiError> {
-    let account = auth::bearer(&headers, q.token.as_deref())
-        .and_then(|t| st.store.session(&t))
-        .ok_or_else(|| ApiError::new(StatusCode::UNAUTHORIZED, "sign in first"))?;
+    let c = caller(&st, &headers, q.token.as_deref())?;
     match st.store.core(&q.core_id) {
-        Some(c) if c.account_id == account => {}
+        Some(core) if core.account_id == c.account => {}
         _ => return Err(ApiError::new(StatusCode::NOT_FOUND, "unknown core")),
     }
     if !st.relay.is_online(&q.core_id) {
         return Err(ApiError::new(StatusCode::SERVICE_UNAVAILABLE, "core offline"));
     }
-    st.windows.hit(&format!("connect:{account}"), 30, Duration::from_secs(60)).map_err(ApiError::too_many)?;
+    core_to_core(&st, &c, &q.core_id, &ip, "relay.coreConnect")?;
+    if c.core.is_none() {
+        st.windows.hit(&format!("connect:{}", c.account), 30, Duration::from_secs(60)).map_err(ApiError::too_many)?;
+    }
     let core_id = q.core_id;
+    let account = c.account;
     Ok(ws
         .max_message_size(MAX_MESSAGE)
         .on_upgrade(move |socket| run_client(st, socket, core_id, account, ip))
@@ -396,7 +440,8 @@ pub struct ClaimBody {
     code_mac: String,
 }
 
-/// `POST /v1/pairings/{pairingId}/claim` (session).
+/// `POST /v1/pairings/{pairingId}/claim` (session, or a core token of the
+/// same account: a coordinator enrolling a worker node, Phase 6).
 pub async fn claim(
     State(st): State<GatewayState>,
     ClientIp(ip): ClientIp,
@@ -404,13 +449,15 @@ pub async fn claim(
     Path(pairing_id): Path<String>,
     Json(b): Json<ClaimBody>,
 ) -> Result<Json<Value>, ApiError> {
-    let account = auth::require(&st, &headers)?;
+    let c = caller(&st, &headers, None)?;
+    let account = c.account.clone();
     st.windows.hit(&format!("claim-pairing:{pairing_id}"), 5, Duration::from_secs(600)).map_err(ApiError::too_many)?;
     st.windows.hit(&format!("claim-acct:{account}"), 20, Duration::from_secs(3600)).map_err(ApiError::too_many)?;
     let core = match st.store.core(&b.core_id) {
         Some(c) if c.account_id == account => c,
         _ => return Err(ApiError::new(StatusCode::NOT_FOUND, "unknown core")),
     };
+    core_to_core(&st, &c, &core.core_id, &ip, "pairing.coreClaim")?;
     let (tx, rx) = oneshot::channel();
     st.relay.acks.lock().insert(pairing_id.clone(), tx);
     let sent = st.relay.send_ctl(
@@ -447,13 +494,13 @@ pub async fn claim(
     ))
 }
 
-/// `GET /v1/pairings/{pairingId}` (session).
+/// `GET /v1/pairings/{pairingId}` (session or same-account core token).
 pub async fn pairing_status(
     State(st): State<GatewayState>,
     headers: HeaderMap,
     Path(pairing_id): Path<String>,
 ) -> Result<Json<Value>, ApiError> {
-    let account = auth::require(&st, &headers)?;
+    let account = caller(&st, &headers, None)?.account;
     let Some((acc, core_id, status, result)) = st.store.pairing(&pairing_id) else {
         return Err(ApiError::new(StatusCode::NOT_FOUND, "unknown pairing"));
     };

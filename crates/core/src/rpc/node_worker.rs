@@ -1,14 +1,39 @@
 //! Worker-side `node.hello` / `node.heartbeat` handlers (Phase 6, called by the
 //! coordinator; policy: coordinator principals only). **Owner: WP-A.**
 //!
-//! Step 0 registers stubs; WP-A replaces `stub::<M>` with real handlers here.
+//! Remote callers reach these only as a coordinator principal (`authz`
+//! enforces `coordinatorOnly`); local calls (tests, `LoopbackLink` with
+//! `Principal::Local`) are treated as a fully trusted coordinator.
 
-use orkestr_protocol::methods::nodes as m;
+use orkestr_domain::TrustLevel;
+use orkestr_protocol::methods::nodes::{self as m, NodeHeartbeatParams, NodeHelloParams};
+use orkestr_protocol::RpcError;
 
-use super::{stub, RpcRouter};
+use super::{Principal, RpcContext, RpcRouter};
 
 /// Registers the area.
 pub fn register(router: &mut RpcRouter) {
-    stub::<m::Hello>(router);
-    stub::<m::Heartbeat>(router);
+    router
+        .method::<m::Hello, _, _>(|ctx: RpcContext, p: NodeHelloParams| async move {
+            if p.protocol_version != crate::nodes::NODE_PROTOCOL_VERSION {
+                return Err(RpcError::bad_request(format!(
+                    "node protocol {} is not supported (this core speaks {})",
+                    p.protocol_version,
+                    crate::nodes::NODE_PROTOCOL_VERSION
+                )));
+            }
+            let trust = match &ctx.principal {
+                Principal::Remote(rp) => rp.trust_level.unwrap_or_default(),
+                Principal::Local => TrustLevel::Trusted,
+            };
+            tracing::debug!(coordinator = %p.coordinator_node_id, ?trust, "node.hello");
+            Ok::<_, RpcError>(ctx.services.node_hub.hello(trust).await)
+        })
+        .method::<m::Heartbeat, _, _>(|ctx: RpcContext, p: NodeHeartbeatParams| async move {
+            let coordinator = match &ctx.principal {
+                Principal::Remote(rp) => Some(rp.device_id),
+                Principal::Local => None,
+            };
+            Ok::<_, RpcError>(ctx.services.node_hub.worker_heartbeat(coordinator, &p).await)
+        });
 }

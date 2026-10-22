@@ -73,6 +73,10 @@ impl RateLimiter {
     }
 }
 
+/// Non-worker methods a coordinator principal may also call (read-only node
+/// info; stopping work is always allowed).
+const COORDINATOR_ALSO: &[&str] = &["nodes.info", "nodes.resources", "emergency.stopAll"];
+
 /// Outcome of the static checks (no I/O).
 ///
 /// # Errors
@@ -88,6 +92,12 @@ pub fn check_static(rp: &RemotePrincipal, method: &str, params: &Value) -> Resul
     if policy.coordinator_only && !rp.coordinator {
         return Err(RpcError::forbidden(format!("`{method}` is only callable by a coordinator node"))
             .with_data(serde_json::json!({ "coordinatorOnly": true })));
+    }
+    if rp.coordinator && !policy.coordinator_only && !COORDINATOR_ALSO.contains(&method) {
+        return Err(RpcError::forbidden(format!(
+            "a coordinator core may only call worker-side node methods, not `{method}`"
+        ))
+        .with_data(serde_json::json!({ "coordinatorOnly": true })));
     }
     if rp.role < policy.min_role {
         return Err(RpcError::forbidden(format!("`{method}` requires role {:?}", policy.min_role))
@@ -264,6 +274,22 @@ mod tests {
         let mut t = rp(Role::Operator);
         t.remote_terminal = true;
         assert!(!denied(&t, "terminal.open"));
+    }
+
+    #[test]
+    fn coordinator_principal_is_confined_to_worker_methods() {
+        let device = rp(Role::Operator);
+        let mut coord = rp(Role::Operator);
+        coord.coordinator = true;
+        coord.trust_level = Some(orkestr_domain::TrustLevel::Standard);
+        for m in ["node.hello", "node.heartbeat", "jobs.offer", "node.blobPut"] {
+            assert!(denied(&device, m), "device must not call {m}");
+            assert!(!denied(&coord, m), "coordinator may call {m}");
+        }
+        assert!(!denied(&coord, "nodes.info"));
+        for m in ["projects.list", "tasks.create", "files.write", "terminal.open", "devices.list"] {
+            assert!(denied(&coord, m), "coordinator must not call {m}");
+        }
     }
 
     #[test]

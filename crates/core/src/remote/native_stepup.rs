@@ -251,6 +251,8 @@ mod tests {
             revoked: false,
             step_up: None,
             step_up_kind: StepUpKind::default(),
+            coordinator: false,
+            trust_level: None,
         });
         Dev { id, key, cred_id: vec![9, 8, 7, id.as_uuid().as_bytes()[15]] }
     }

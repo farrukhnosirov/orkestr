@@ -135,6 +135,7 @@ import type { DeviceInfo } from "./DeviceInfo";
 import type { DeviceInfoResult } from "./DeviceInfoResult";
 import type { DeviceList } from "./DeviceList";
 import type { DevicePairingStart } from "./DevicePairingStart";
+import type { DevicePairingStartParams } from "./DevicePairingStartParams";
 import type { DeviceRegisterStepUpParams } from "./DeviceRegisterStepUpParams";
 import type { DeviceRevokeParams } from "./DeviceRevokeParams";
 import type { DiffParams } from "./DiffParams";
@@ -844,7 +845,7 @@ export type Methods = {
   "remote.disable": [Empty, RemoteStatus];
   "remote.status": [Empty, RemoteStatus];
   "remote.revokeAllSessions": [Empty, RemoteRevokeAllResult];
-  "devices.startPairing": [Empty, DevicePairingStart];
+  "devices.startPairing": [DevicePairingStartParams, DevicePairingStart];
   "devices.approve": [DeviceApproveParams, DeviceInfo];
   "devices.list": [Empty, DeviceList];
   "devices.revoke": [DeviceRevokeParams, Empty];

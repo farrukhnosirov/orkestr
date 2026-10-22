@@ -6,6 +6,7 @@
 use std::time::Duration;
 
 use futures::{SinkExt, StreamExt};
+use orkestr_core::remote::client::{ClientError, E2eClient, GatewayHttp};
 use orkestr_core::remote::{e2e, native_stepup, pairing};
 use orkestr_gateway::{relay::Relay, spawn, GatewayConfig};
 use orkestr_security::webauthn::{testing::SoftAuthenticator, RelyingParty};
@@ -66,12 +67,7 @@ impl Local {
 
 // ---------------------------------------------------------------- device client
 
-struct Device {
-    session: e2e::Session,
-    ws: Ws,
-    n: u32,
-}
-
+/// The device side is the shared Rust client (`orkestr_core::remote::client`).
 async fn device_connect(
     gw: &str,
     token: &str,
@@ -79,59 +75,16 @@ async fn device_connect(
     device_id: &str,
     dk: &SigningKey,
     core_pub: &[u8],
-) -> Result<Device, String> {
-    let url = format!("ws://{gw}/v1/connect?coreId={core_id}&token={token}");
-    let (mut ws, _) = tokio_tungstenite::connect_async(url).await.map_err(|e| e.to_string())?;
-    let now = u64::try_from(chrono::Utc::now().timestamp_millis()).unwrap();
-    let (hs, hello) = e2e::DeviceHandshake::start(core_id, device_id, now);
-    ws.send(Message::Text(String::from_utf8(hello.to_bytes()).unwrap().into())).await.unwrap();
-    let server_hello = recv_bin(&mut ws).await.ok_or("closed before serverHello")?;
-    let frame = e2e::HandshakeFrame::from_bytes(&server_hello).map_err(|e| e.to_string())?;
-    if let e2e::HandshakeFrame::Error { code } = &frame {
-        return Err(code.clone());
-    }
-    let core_key = p256::ecdsa::VerifyingKey::from_sec1_bytes(core_pub).unwrap();
-    let (finish, session) = hs.finish(&frame, dk, &core_key).map_err(|e| e.to_string())?;
-    ws.send(Message::Binary(finish.to_bytes().into())).await.unwrap();
-    Ok(Device { session, ws, n: 0 })
+) -> Result<E2eClient, String> {
+    E2eClient::connect(&format!("http://{gw}"), token, core_id, device_id, dk, core_pub).await.map_err(|e| match e {
+        ClientError::Refused(code) => code,
+        other => other.to_string(),
+    })
 }
 
-async fn recv_bin(ws: &mut Ws) -> Option<Vec<u8>> {
-    loop {
-        match tokio::time::timeout(Duration::from_secs(15), ws.next()).await.ok()?? {
-            Ok(Message::Binary(b)) => return Some(b.to_vec()),
-            Ok(Message::Text(t)) => return Some(t.as_str().as_bytes().to_vec()),
-            Ok(Message::Close(_)) | Err(_) => return None,
-            Ok(_) => {}
-        }
-    }
-}
-
-impl Device {
-    async fn send(&mut self, v: &Value) {
-        let rec = self.session.sealer.seal(v.to_string().as_bytes()).unwrap();
-        self.ws.send(Message::Binary(rec.into())).await.unwrap();
-    }
-
-    async fn next_res(&mut self) -> Option<Value> {
-        loop {
-            let rec = recv_bin(&mut self.ws).await?;
-            let pt = self.session.opener.open(&rec).ok()?;
-            let v: Value = serde_json::from_slice(&pt).unwrap();
-            if v["type"] == "res" {
-                return Some(v);
-            }
-        }
-    }
-
-    async fn call(&mut self, method: &str, params: Value) -> Value {
-        self.n += 1;
-        let id = format!("d{}", self.n);
-        self.send(&json!({"type":"req","id":id,"method":method,"params":params})).await;
-        let res = self.next_res().await.expect("response");
-        assert_eq!(res["id"], id.as_str());
-        res
-    }
+/// Raw response frame of a call as JSON (`ok`, `result`, `error`).
+async fn call(dev: &E2eClient, method: &str, params: Value) -> Value {
+    serde_json::to_value(dev.call_raw(method, params).await.expect("response")).unwrap()
 }
 
 // ---------------------------------------------------------------- the scenario
@@ -257,23 +210,25 @@ async fn remote_access_end_to_end() {
     let pairing_id = offer["pairingId"].as_str().unwrap();
     let dk = SigningKey::random(&mut rand_core06::OsRng);
     let dk_pub = e2e::public_raw(&p256::PublicKey::from(dk.verifying_key()));
-    let mac = pairing::code_mac(offer["code"].as_str().unwrap(), &dk_pub, pairing_id);
-    let claim = http
-        .post(format!("{base}/v1/pairings/{pairing_id}/claim"))
-        .bearer_auth(&token)
-        .json(&json!({"coreId": core_id, "devicePubKey": e2e::b64(&dk_pub), "deviceName": "test phone", "platform": "test", "codeMac": e2e::b64(&mac)}))
-        .send()
+    let gw_http = GatewayHttp::new(&base, &token);
+    let claimed = gw_http
+        .claim(&core_id, pairing_id, offer["code"].as_str().unwrap(), &dk, "test phone", "test")
         .await
-        .unwrap();
-    assert_eq!(claim.status(), 200);
-    let claim: Value = claim.json().await.unwrap();
-    let device_id = claim["deviceId"].as_str().unwrap().to_owned();
-    let core_pub = e2e::unb64(claim["corePublicKey"].as_str().unwrap()).unwrap();
+        .expect("claim accepted");
+    let device_id = claimed.device_id.clone();
+    let core_pub = claimed.core_public_key.clone();
     assert_eq!(pairing::fingerprint(&core_pub), offer["coreKeyFingerprint"].as_str().unwrap(), "pinned core key");
-    let device_sas = pairing::sas(&core_pub, &dk_pub, pairing_id);
+    let device_sas = claimed.sas.clone();
+    assert_eq!(device_sas, pairing::sas(&core_pub, &dk_pub, pairing_id));
     let list = local.ok("devices.list", json!({})).await;
     assert_eq!(list["pending"][0]["sas"], device_sas.as_str());
+    assert_eq!(gw_http.approval(pairing_id, &claimed, &dk).await, Ok(None), "pending before approval");
     local.ok("devices.approve", json!({"pairingId": pairing_id, "sasConfirmed": true, "role": "operator"})).await;
+    assert_eq!(
+        gw_http.approval(pairing_id, &claimed, &dk).await,
+        Ok(Some(orkestr_protocol::policy::Role::Operator)),
+        "completion signature verified by the client"
+    );
     let pst: Value = http
         .get(format!("{base}/v1/pairings/{pairing_id}"))
         .bearer_auth(&token)
@@ -293,10 +248,8 @@ async fn remote_access_end_to_end() {
     .unwrap();
 
     // 4. E2E RPC through the relay.
-    let mut dev = device_connect(&gw_addr, &token, &core_id, &device_id, &dk, &core_pub).await.unwrap();
-    dev.send(&json!({"type":"auth","id":"a","token":"ignored-on-remote"})).await;
-    assert_eq!(dev.next_res().await.unwrap()["ok"], true);
-    let res = dev.call("projects.list", json!({})).await;
+    let dev = device_connect(&gw_addr, &token, &core_id, &device_id, &dk, &core_pub).await.unwrap();
+    let res = call(&dev, "projects.list", json!({})).await;
     assert_eq!(res["ok"], true, "{res}");
     // the relay saw only ciphertext + handshake JSON
     {
@@ -304,7 +257,7 @@ async fn remote_access_end_to_end() {
         assert!(!cap.is_empty());
         for b in cap.iter() {
             let s = String::from_utf8_lossy(b);
-            assert!(!s.contains("projects.list") && !s.contains("ignored-on-remote"), "plaintext leaked: {s}");
+            assert!(!s.contains("projects.list") && !s.contains("\"auth\""), "plaintext leaked: {s}");
         }
     }
 
@@ -316,8 +269,7 @@ async fn remote_access_end_to_end() {
     assert_eq!(key["publicKey"], vapid["publicKey"]);
     let ua = p256::SecretKey::random(&mut rand_core06::OsRng);
     let endpoint = "http://127.0.0.1:9/push/revoked-device";
-    let r = dev
-        .call(
+    let r = call(&dev,
             "push.subscribe",
             json!({"endpoint": endpoint, "p256dh": e2e::b64(&e2e::public_raw(&ua.public_key())), "auth": e2e::b64(&[7u8; 16])}),
         )
@@ -329,14 +281,14 @@ async fn remote_access_end_to_end() {
     // 4c. Native push (ADR-0037): FCM registration over E2E, `push.test`
     // reaches the mock FCM with a generic alert and an AES-256-GCM payload.
     let push_key = [42u8; 32];
-    let r = dev
-        .call(
-            "push.registerNative",
-            json!({"transport": "fcm", "token": "fcm-tok-1", "key": e2e::b64(&push_key), "lockScreen": "generic"}),
-        )
-        .await;
+    let r = call(
+        &dev,
+        "push.registerNative",
+        json!({"transport": "fcm", "token": "fcm-tok-1", "key": e2e::b64(&push_key), "lockScreen": "generic"}),
+    )
+    .await;
     assert_eq!(r["result"]["deliverable"], true, "{r}");
-    let r = dev.call("push.test", json!({})).await;
+    let r = call(&dev, "push.test", json!({})).await;
     assert!(r["result"]["sent"].as_u64().unwrap() >= 1, "{r}");
     let mut fcm_msg = None;
     for _ in 0..100 {
@@ -363,53 +315,53 @@ async fn remote_access_end_to_end() {
 
     // 5. Policy: local-only and admin-only are forbidden for an operator.
     for m in ["remote.enable", "devices.startPairing", "secrets.list"] {
-        let r = dev.call(m, json!({})).await;
+        let r = call(&dev, m, json!({})).await;
         assert_eq!(r["error"]["code"], "forbidden", "{m}: {r}");
     }
-    let r = dev.call("devices.revoke", json!({"deviceId": device_id})).await;
+    let r = call(&dev, "devices.revoke", json!({"deviceId": device_id})).await;
     assert_eq!(r["error"]["code"], "forbidden");
-    let r = dev.call("terminal.open", json!({})).await;
+    let r = call(&dev, "terminal.open", json!({})).await;
     assert_eq!(r["error"]["code"], "forbidden", "terminal needs remoteTerminal: {r}");
 
     // 6. Step-up: register a core-held credential, then a dangerous call.
     let mut stepup = SoftAuthenticator::new(rp.clone());
-    let r = dev.call("devices.registerStepUp", json!({"credential": stepup.register(b"in-e2e")})).await;
+    let r = call(&dev, "devices.registerStepUp", json!({"credential": stepup.register(b"in-e2e")})).await;
     assert_eq!(r["ok"], true, "{r}");
     let params = json!({"projectId": "00000000-0000-0000-0000-000000000000", "paths": ["x"]});
-    let r = dev.call("vcs.discard", params.clone()).await;
+    let r = call(&dev, "vcs.discard", params.clone()).await;
     assert_eq!(r["error"]["data"]["stepUpRequired"], true, "{r}");
     let challenge = e2e::unb64(r["error"]["data"]["challenge"].as_str().unwrap()).unwrap();
     let assertion = stepup.assert(&challenge);
     let mut with = params.clone();
     with["stepUp"] = serde_json::to_value(&assertion).unwrap();
-    let r = dev.call("vcs.discard", with.clone()).await;
+    let r = call(&dev, "vcs.discard", with.clone()).await;
     assert_ne!(r["error"]["code"], "forbidden", "step-up accepted, handler ran: {r}");
-    let r = dev.call("vcs.discard", with).await;
+    let r = call(&dev, "vcs.discard", with).await;
     assert_eq!(r["error"]["code"], "forbidden", "replayed assertion rejected: {r}");
 
     // 6b. Native biometric step-up credential (ADR-0038) replaces it.
     let native_key = SigningKey::random(&mut rand_core06::OsRng);
     let reg = json!({"type": "orkestr-native-v1", "credentialId": "bmF0aXZl",
         "publicKey": e2e::b64(native_key.verifying_key().to_encoded_point(false).as_bytes()), "keyStorage": "software"});
-    let r = dev.call("devices.registerStepUp", json!({"credential": reg})).await;
+    let r = call(&dev, "devices.registerStepUp", json!({"credential": reg})).await;
     assert_eq!(r["ok"], true, "{r}");
     let devs = local.ok("devices.list", json!({})).await;
     assert_eq!(devs["devices"][0]["stepUpKind"], "native", "{devs}");
     let dev_id = orkestr_domain::DeviceId::parse(&device_id).unwrap();
     for (counter, accepted) in [(1u32, true), (1, false)] {
-        let r = dev.call("vcs.discard", params.clone()).await;
+        let r = call(&dev, "vcs.discard", params.clone()).await;
         let challenge = e2e::unb64(r["error"]["data"]["challenge"].as_str().unwrap()).unwrap();
         let a = native_stepup::build_assertion(&native_key, dev_id, b"native", &challenge, counter);
         let mut with = params.clone();
         with["stepUp"] = serde_json::to_value(&a).unwrap();
-        let r = dev.call("vcs.discard", with).await;
+        let r = call(&dev, "vcs.discard", with).await;
         assert_eq!(r["error"]["code"] != "forbidden", accepted, "native step-up counter {counter}: {r}");
     }
 
     // 7. Rate limit (Read: 50 burst).
     let mut limited = false;
     for _ in 0..60 {
-        let r = dev.call("remote.status", json!({})).await;
+        let r = call(&dev, "remote.status", json!({})).await;
         if r["error"]["code"] == "rate_limited" {
             assert!(r["error"]["data"]["retryAfterMs"].as_u64().unwrap() > 0);
             limited = true;
@@ -420,7 +372,10 @@ async fn remote_access_end_to_end() {
 
     // 8. Revoke ⇒ stream closed, handshake refused.
     local.ok("devices.revoke", json!({"deviceId": device_id})).await;
-    assert!(dev.next_res().await.is_none(), "revoked session must be closed");
+    assert!(
+        tokio::time::timeout(Duration::from_secs(15), dev.closed()).await.is_ok(),
+        "revoked session must be closed"
+    );
     let err = device_connect(&gw_addr, &token, &core_id, &device_id, &dk, &core_pub).await.err();
     assert_eq!(err.as_deref(), Some("revoked"));
     // ... and its push subscriptions are dropped.

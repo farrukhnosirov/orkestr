@@ -294,6 +294,7 @@ export * from "./DeviceInfoResult";
 export * from "./DeviceKind";
 export * from "./DeviceList";
 export * from "./DevicePairingStart";
+export * from "./DevicePairingStartParams";
 export * from "./DeviceRegisterStepUpParams";
 export * from "./DeviceRevokeParams";
 export * from "./DeviceRevokedPayload";

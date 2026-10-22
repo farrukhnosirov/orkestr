@@ -342,6 +342,21 @@ impl Store {
             .flatten()
     }
 
+    /// `(core_id, account_id)` of a core token (core-to-core relay, Phase 6).
+    #[must_use]
+    pub fn core_by_token(&self, token: &str) -> Option<(String, String)> {
+        self.conn
+            .lock()
+            .query_row(
+                "SELECT core_id, account_id FROM cores WHERE core_token_hash=?1",
+                params![token_hash(token)],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .optional()
+            .ok()
+            .flatten()
+    }
+
     // ------------------------------------------------------------ devices mirror / pairings
 
     /// Upserts a mirrored device.
