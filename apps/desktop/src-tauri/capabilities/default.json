@@ -23,6 +23,7 @@
     "dialog:allow-open",
     "dialog:allow-save",
     "allow-core-connection",
+    "allow-widget-document",
     "allow-shell-set-prefs",
     "allow-shell-quit",
     "allow-set-ui-language",

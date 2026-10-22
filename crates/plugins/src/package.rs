@@ -232,6 +232,11 @@ pub fn validate_manifest(m: &PluginManifest, files: &BTreeMap<String, Vec<u8>>) 
     let code = m.kinds.iter().any(|k| is_code_kind(*k));
     match (&m.entry, code) {
         (Some(e), _) => {
+            let lower = e.to_ascii_lowercase();
+            if [".js", ".mjs", ".cjs", ".ts"].iter().any(|x| lower.ends_with(x)) {
+                // JS / QuickJS plugins are deferred (RR-G14): only wasm runs.
+                return Err(PluginError::Unimplemented("JavaScript (QuickJS) plugins"));
+            }
             let Some(bytes) = files.get(e) else { return bad(format!("entry `{e}` is not in the package")) };
             if !e.ends_with(".wasm") || !bytes.starts_with(b"\0asm") {
                 return bad(format!("entry `{e}` is not a wasm module"));
@@ -507,6 +512,10 @@ mod tests {
         let mut m = manifest();
         m.kinds = vec![PluginKind::Panel];
         assert!(matches!(build(&m, &payload(), None), Err(PluginError::Unimplemented(_))));
+        let mut m = manifest();
+        m.entry = Some("plugin.js".into());
+        let js = BTreeMap::from([("plugin.js".to_owned(), b"export function call() {}".to_vec())]);
+        assert!(matches!(build(&m, &js, None), Err(PluginError::Unimplemented(f)) if f.contains("JavaScript")));
         let mut m = manifest();
         m.permissions.push(orkestr_domain::PermissionRequest {
             capability: Capability::Network,

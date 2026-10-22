@@ -15,7 +15,8 @@
 //!   short reply.
 //! * `mock-echo` — echoes the last user message.
 //! * `mock-tool-roundtrip` — calls the first declared tool once with
-//!   schema-valid arguments, then finishes.
+//!   schema-valid arguments (a plugin tool `plugin_*` when one is offered),
+//!   then finishes.
 //! * `mock-slow` — like smart, slow stream.
 //! * `mock-rate-limit` / `mock-quota` / `mock-server-error` — fail with the
 //!   corresponding classified error (fallback demos/tests).
@@ -1032,7 +1033,10 @@ pub fn script(req: &ChatRequest) -> MockScript {
         return MockScript::Text(if user.is_empty() { "(empty)".into() } else { user });
     }
     if model == "mock-tool-roundtrip" {
-        if let (false, Some(tool)) = (after_tool, req.tools.first()) {
+        // Plugin tools (Phase 7) come after the built-ins: prefer them so the
+        // round trip exercises the plugin host.
+        let tool = req.tools.iter().find(|t| t.name.starts_with("plugin_")).or_else(|| req.tools.first());
+        if let (false, Some(tool)) = (after_tool, tool) {
             return MockScript::Tool { name: tool.name.clone(), arguments: tool_args(tool, &user) };
         }
         return MockScript::Text("Tool round-trip complete.".into());
@@ -1040,6 +1044,10 @@ pub fn script(req: &ChatRequest) -> MockScript {
     // mock-smart / mock-slow / anything else.
     // Phase 2 review / adversarial / consensus prompts (role markers).
     if let Some(s) = super::mock_review::script(req) {
+        return s;
+    }
+    // Bug Detective hypothesis (Phase 7, system-prompt marker).
+    if let Some(s) = super::mock_detective::script(req) {
         return s;
     }
     // Extension scripts keyed by a system-prompt marker (Phase 2 areas).
@@ -1496,6 +1504,18 @@ Fix the failing test.
 
     fn tool(name: &str, schema: Value) -> ToolSpec {
         ToolSpec { name: name.into(), description: "d".into(), parameters: schema }
+    }
+
+    #[test]
+    fn tool_roundtrip_prefers_plugin_tools() {
+        let mut r = ChatRequest::new("mock-tool-roundtrip", vec![ChatMessage::user("go")]);
+        r.tools = vec![
+            tool("submit_result", json!({"type":"object"})),
+            tool("plugin_hello__hello", json!({"type":"object"})),
+        ];
+        assert!(matches!(script(&r), MockScript::Tool { name, .. } if name == "plugin_hello__hello"));
+        r.tools.truncate(1);
+        assert!(matches!(script(&r), MockScript::Tool { name, .. } if name == "submit_result"));
     }
 
     #[test]

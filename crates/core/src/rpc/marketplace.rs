@@ -4,11 +4,22 @@
 //! installed through the existing templates import, plugins and widget
 //! packages through `plugins.install` (pending grants go back to the
 //! permission prompt).
+//!
+//! Trust is unified with the plugin host (ADR-0040): when a plugin package
+//! comes from the marketplace and its inner `signature.json` signer is a
+//! publisher key the marketplace trusts (official or explicitly trusted),
+//! that key is pinned in the plugin trust store (source `marketplace`) so the
+//! plugin host accepts it; any other signer is left to the plugin host
+//! (refused unless dev mode). `marketplace.untrustKey` removes such a
+//! marketplace-sourced plugin trust again.
 
 use async_trait::async_trait;
-use orkestr_marketplace::{Installers, MarketplaceError, TemplateSink};
+use std::sync::Arc;
+
+use orkestr_marketplace::{Installers, Marketplace, MarketplaceError, PluginSink, TemplateSink};
+use orkestr_plugins::PluginService;
 use orkestr_protocol::methods::marketplace::{
-    self as m, AddSourceParams, GetEntryParams, InstallEntryParams, InstalledResult, KeyIdParams, KeyResult,
+    self as m, AddSourceParams, GetEntryParams, InstallEntryParams, InstalledResult, KeyIdParams, KeyResult, KeyTrust,
     KeysResult, MarketplaceSearchParams, MarketplaceSearchResult, PublishPackageParams, PublishPackageResult,
     RefreshSourcesParams, SourceIdParams, SourceResult, SourcesResult, TrustKeyParams, UninstallEntryParams,
 };
@@ -43,6 +54,65 @@ impl TemplateSink for CoreTemplates {
     }
 }
 
+/// Source tag of plugin trust entries created by marketplace installs.
+const MARKETPLACE_TRUST_SOURCE: &str = "marketplace";
+
+/// Plugin installs from the marketplace: pins the package signer in the
+/// plugin trust store when the marketplace trusts that publisher key.
+struct MarketplacePlugins {
+    plugins: Arc<PluginService>,
+    marketplace: Arc<Marketplace>,
+}
+
+impl MarketplacePlugins {
+    async fn pin_signer(&self, bytes: &[u8]) -> Result<(), MarketplaceError> {
+        let pkg = orkestr_plugins::package::parse(bytes).map_err(|e| MarketplaceError::Invalid(e.to_string()))?;
+        let Some(sig) = pkg.signature.as_ref() else {
+            // Unsigned: the plugin host decides (refused unless dev mode).
+            return Ok(());
+        };
+        let store = self.plugins.trust_store();
+        if store.get(&sig.key_id).await.ok().flatten().is_some() {
+            return Ok(());
+        }
+        let (keys, _) = self.marketplace.keys().await?;
+        // Pin only keys the marketplace trusts; anything else is left to the
+        // plugin host (refused unless dev mode).
+        let trusted = keys.into_iter().find(|k| {
+            k.key_id == sig.key_id
+                && k.public_key == sig.public_key
+                && matches!(k.trust, KeyTrust::Official | KeyTrust::Trusted)
+        });
+        if let Some(key) = trusted {
+            store
+                .trust(&key.public_key, &key.publisher, MARKETPLACE_TRUST_SOURCE)
+                .await
+                .map_err(|e| MarketplaceError::Internal(e.to_string()))?;
+        }
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl PluginSink for MarketplacePlugins {
+    async fn install(
+        &self,
+        bytes: &[u8],
+        source: String,
+    ) -> Result<orkestr_protocol::methods::plugins::InstallPluginResult, MarketplaceError> {
+        self.pin_signer(bytes).await?;
+        PluginSink::install(self.plugins.as_ref(), bytes, source).await
+    }
+
+    async fn uninstall(&self, plugin_id: &str) -> Result<(), MarketplaceError> {
+        PluginSink::uninstall(self.plugins.as_ref(), plugin_id).await
+    }
+}
+
+fn plugin_sink(services: &crate::services::Services) -> MarketplacePlugins {
+    MarketplacePlugins { plugins: Arc::clone(&services.plugins), marketplace: Arc::clone(&services.marketplace) }
+}
+
 /// Registers the area.
 pub fn register(router: &mut RpcRouter) {
     router
@@ -67,7 +137,8 @@ pub fn register(router: &mut RpcRouter) {
         })
         .method::<m::Install, _, _>(|ctx: RpcContext, p: InstallEntryParams| async move {
             let templates = CoreTemplates(ctx.services.agents.clone());
-            let to = Installers { templates: &templates, plugins: ctx.services.plugins.as_ref() };
+            let plugins = plugin_sink(&ctx.services);
+            let to = Installers { templates: &templates, plugins: &plugins };
             Ok(ctx.services.marketplace.install(p, to).await?)
         })
         .method::<m::Installed, _, _>(|ctx: RpcContext, _: Empty| async move {
@@ -75,7 +146,8 @@ pub fn register(router: &mut RpcRouter) {
         })
         .method::<m::Uninstall, _, _>(|ctx: RpcContext, p: UninstallEntryParams| async move {
             let templates = CoreTemplates(ctx.services.agents.clone());
-            let to = Installers { templates: &templates, plugins: ctx.services.plugins.as_ref() };
+            let plugins = plugin_sink(&ctx.services);
+            let to = Installers { templates: &templates, plugins: &plugins };
             ctx.services.marketplace.uninstall(&p.id, to).await?;
             Ok(Empty {})
         })
@@ -90,6 +162,15 @@ pub fn register(router: &mut RpcRouter) {
             Ok(KeyResult { key: ctx.services.marketplace.trust_key(&p.key_id, &p.fingerprint).await? })
         })
         .method::<m::UntrustKey, _, _>(|ctx: RpcContext, p: KeyIdParams| async move {
-            Ok(KeyResult { key: ctx.services.marketplace.untrust_key(&p.key_id).await? })
+            let key = ctx.services.marketplace.untrust_key(&p.key_id).await?;
+            let store = ctx.services.plugins.trust_store();
+            if let Ok(Some(k)) = store.get(&p.key_id).await {
+                if k.source == MARKETPLACE_TRUST_SOURCE && !k.builtin {
+                    if let Err(e) = store.untrust(&p.key_id).await {
+                        tracing::warn!(error = %e, "could not remove the marketplace key from the plugin trust store");
+                    }
+                }
+            }
+            Ok(KeyResult { key })
         });
 }

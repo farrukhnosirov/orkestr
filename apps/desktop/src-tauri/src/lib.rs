@@ -30,6 +30,7 @@ mod app_commands;
 mod hud;
 pub mod stop_all;
 pub mod vscode_window;
+mod widget_scheme;
 pub mod windows;
 
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -416,6 +417,12 @@ pub fn run() {
         })
         .manage(robots::RobotsState::default())
         .manage(vscode_window::VsCodeWindowState::default())
+        // Plugin widget documents (ADR-0034): one-time URLs with the widget CSP.
+        .manage(widget_scheme::WidgetDocs::default())
+        .register_uri_scheme_protocol(widget_scheme::SCHEME, |ctx, request| {
+            use tauri::Manager;
+            widget_scheme::serve(&ctx.app_handle().state::<widget_scheme::WidgetDocs>(), &request)
+        })
         .setup(move |app| {
             let tray_ok = match build_tray(app) {
                 Ok(()) => true,
@@ -514,7 +521,8 @@ pub fn run() {
             vscode_window::vscode_window_close,
             vscode_window::vscode_window_reload,
             vscode_window::vscode_window_is_open,
-            vscode_window::vscode_open_external
+            vscode_window::vscode_open_external,
+            widget_scheme::widget_document
         ]);
 
     let app = match builder.build(tauri::generate_context!()) {
@@ -616,7 +624,10 @@ mod tests {
             include_str!("../capabilities/hud.json"),
             &["core_connection", "hud_show", "hud_hide", "hud_toggle", "hud_collapse", "hud_expand"],
         );
-        expect(include_str!("../capabilities/panels.json"), &["core_connection", "window_redock_panel"]);
+        expect(
+            include_str!("../capabilities/panels.json"),
+            &["core_connection", "window_redock_panel", "widget_document"],
+        );
         // The handler list and the declared list must not drift apart.
         let src = include_str!("lib.rs");
         let marker = "generate_handler![\n";

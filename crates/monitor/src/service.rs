@@ -107,6 +107,9 @@ struct Inner {
     file_tails: Mutex<HashMap<String, CancellationToken>>,
     node_source: RwLock<Option<Arc<dyn NodeMetricsSource>>>,
     deploy_feed: RwLock<Option<Arc<dyn DeploymentLogFeed>>>,
+    /// Serialises deployment polls (loop + on-demand RPC refresh) so lines
+    /// are never read twice from the same offset.
+    deploy_poll_lock: tokio::sync::Mutex<()>,
     deploy_cursors: Mutex<HashMap<DeploymentId, DeployCursor>>,
     signal_tx: mpsc::UnboundedSender<Vec<Signal>>,
     signal_rx: Mutex<Option<mpsc::UnboundedReceiver<Vec<Signal>>>>,
@@ -162,6 +165,7 @@ impl MonitorService {
                 file_tails: Mutex::new(HashMap::new()),
                 node_source: RwLock::new(None),
                 deploy_feed: RwLock::new(None),
+                deploy_poll_lock: tokio::sync::Mutex::new(()),
                 deploy_cursors: Mutex::new(HashMap::new()),
                 signal_tx,
                 signal_rx: Mutex::new(Some(signal_rx)),
@@ -692,7 +696,17 @@ impl MonitorService {
     /// `monitor.logs`.
     pub async fn logs(&self, q: &LogQuery) -> Result<LogsResult, MonitorError> {
         self.init().await?;
+        if q.source_id.as_deref().is_none_or(|id| id.starts_with("deploy:")) {
+            self.refresh_deployment_sources().await;
+        }
         self.query_lines(q, None)
+    }
+
+    /// Registers sources for recent deployments and pulls their new lines now
+    /// (the background loop does it every few seconds; RPC reads call this so
+    /// a deployment that just started is visible immediately).
+    pub async fn refresh_deployment_sources(&self) {
+        self.poll_deployments(true).await;
     }
 
     /// Evidence: redacted lines within `[at - before, at + after]` (oldest first).
@@ -761,6 +775,7 @@ impl MonitorService {
 
     async fn poll_deployments(&self, refresh: bool) {
         let Some(feed) = self.inner.deploy_feed.read().clone() else { return };
+        let _poll = self.inner.deploy_poll_lock.lock().await;
         if refresh {
             for d in feed.recent(MAX_DEPLOYMENTS).await {
                 let id = format!("deploy:{}", d.deployment_id);

@@ -34,4 +34,5 @@ pub const APP_COMMANDS: &[&str] = &[
     "vscode_window_reload",
     "vscode_window_is_open",
     "vscode_open_external",
+    "widget_document",
 ];

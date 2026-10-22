@@ -169,3 +169,71 @@ async fn marketplace_end_to_end() {
     }
     assert!(seen, "MarketplaceUpdated published");
 }
+
+/// Trust is shared with the plugin host: a widget plugin signed by a
+/// third-party marketplace key installs (without dev mode) only after
+/// `marketplace.trustKey`, its widget is served by `widgets.bundle` with the
+/// widget CSP, and `marketplace.untrustKey` removes the plugin-host trust.
+#[tokio::test]
+async fn marketplace_plugin_trust_reaches_the_plugin_host() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut cfg = CoreConfig::with_data_dir(dir.path());
+    cfg.secret_backend = SecretBackendChoice::VaultFileKey;
+    let core = orkestr_core::start(cfg).await.unwrap();
+    let mut c = Client::connect(&core).await;
+
+    let key = KeyPair::generate();
+    let plugin_key = orkestr_plugins::signing::PublisherKeyPair::from_seed_b64(&key.seed_b64()).unwrap();
+    assert_eq!(plugin_key.key_id(), key.key_id(), "one key id format for both trust stores");
+    let fixture = orkestr_plugins::fixtures::all(&plugin_key)
+        .unwrap()
+        .into_iter()
+        .find(|f| f.file == "hello-widget.orkp")
+        .unwrap();
+    let reg_dir = dir.path().join("widgets-registry");
+    std::fs::create_dir_all(reg_dir.join("packages")).unwrap();
+    std::fs::write(reg_dir.join("packages/w.orkp"), &fixture.bytes).unwrap();
+    let sha256 = sha256_hex(&fixture.bytes);
+    let mut doc = IndexDocument::empty("widgets");
+    doc.keys.push(IndexKey { key_id: key.key_id(), publisher: "acme".into(), public_key: key.public_key() });
+    doc.entries.push(IndexEntry {
+        id: fixture.package_id.clone(),
+        kind: PackageKind::Widget,
+        name: "Hello Widget".into(),
+        version: "0.1.0".into(),
+        publisher: "acme".into(),
+        description: String::new(),
+        tags: vec![],
+        permissions: vec![],
+        key_id: key.key_id(),
+        signature: key.sign(&package_message(&sha256).unwrap()),
+        sha256,
+        url: "packages/w.orkp".into(),
+        revoked: false,
+    });
+    write_index(&reg_dir, &doc, &key).await.unwrap();
+    c.ok("marketplace.addSource", json!({"kind": "Directory", "location": reg_dir.to_string_lossy()})).await;
+
+    let e = c.err("marketplace.install", json!({"id": fixture.package_id})).await;
+    assert_eq!(e["code"], "forbidden", "{e}");
+    let fp = c.ok("marketplace.get", json!({"id": fixture.package_id})).await["key"]["fingerprint"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    c.ok("marketplace.trustKey", json!({"keyId": key.key_id(), "fingerprint": fp})).await;
+    let res = c.ok("marketplace.install", json!({"id": fixture.package_id})).await;
+    let plugin_id = res["plugin"]["plugin"]["id"].as_str().expect("plugin installed").to_owned();
+    let trusted = core.services.plugins.trust_store().get(&key.key_id()).await.unwrap().expect("pinned");
+    assert_eq!(trusted.source, "marketplace");
+
+    c.ok("plugins.enable", json!({"pluginId": plugin_id})).await;
+    let widget_id = format!("{}/hello-widget", fixture.package_id);
+    let list = c.ok("widgets.list", json!({})).await;
+    assert!(list["widgets"].as_array().unwrap().iter().any(|w| w["id"] == widget_id.as_str()), "{list}");
+    let bundle = c.ok("widgets.bundle", json!({"widgetId": widget_id})).await;
+    assert!(bundle["html"].as_str().unwrap().contains("<"), "{bundle}");
+    assert_eq!(bundle["csp"], orkestr_core::rpc::widgets::WIDGET_CSP);
+
+    c.ok("marketplace.untrustKey", json!({"keyId": key.key_id()})).await;
+    assert!(core.services.plugins.trust_store().get(&key.key_id()).await.unwrap().is_none());
+}

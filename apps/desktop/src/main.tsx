@@ -12,6 +12,7 @@ import { HudApp } from "./features/hud/HudApp";
 import { isHudWindow } from "./features/hud/hudWindow";
 import "./i18n";
 import { installLanguageEffects } from "./lib/language";
+import { installWidgetDocumentLoader } from "./lib/tauri";
 import { ownActiveProject } from "./store/app";
 
 installLanguageEffects();
@@ -24,6 +25,8 @@ const detached = parseDetachedRoute(window.location.hash);
 const hud = !detached && isHudWindow();
 // Only the main shell persists the active project; the other windows follow it.
 if (!detached && !hud) ownActiveProject();
+// Plugin widgets (dashboards) render in the main shell and detached panels.
+if (!hud) installWidgetDocumentLoader();
 
 createRoot(root).render(
   <StrictMode>

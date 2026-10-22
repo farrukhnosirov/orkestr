@@ -19,6 +19,7 @@
     "dialog:allow-open",
     "dialog:allow-save",
     "allow-core-connection",
+    "allow-widget-document",
     "allow-window-redock-panel"
   ]
 }

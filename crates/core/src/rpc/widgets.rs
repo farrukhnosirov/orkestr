@@ -9,16 +9,15 @@
 //!   in the desktop bridge: every bound method must be Read-class and not
 //!   `local_only` per [`policy_for`]; event kinds must be known.
 //!
-//! Plugin widgets come from a [`PluginWidgetSource`]. The default source reads
-//! enabled plugins from `Services.plugins` (`PluginService::list`) and cannot
-//! read bundle HTML until the plugin host exposes it — the integrator wires
-//! the real source with [`set_plugin_widget_source`] (see the WP3 report).
+//! Plugin widgets come from a [`PluginWidgetSource`]. The default source is
+//! the plugin host (`PluginService::widgets` / `widget_html`); tests may
+//! override it with [`set_plugin_widget_source`].
 
 use std::collections::HashMap;
 use std::sync::{Arc, OnceLock};
 
 use async_trait::async_trait;
-use orkestr_domain::{DataBinding, PluginId, PluginKind, PluginState, WidgetDecl, WidgetSize};
+use orkestr_domain::{DataBinding, PluginId, WidgetDecl, WidgetSize};
 use orkestr_protocol::event::EventKind;
 use orkestr_protocol::methods::widgets::{
     self as m, ListWidgetsResult, WidgetBundleParams, WidgetBundleResult, WidgetDescriptor, WidgetSource,
@@ -65,36 +64,29 @@ pub trait PluginWidgetSource: Send + Sync {
     async fn html(&self, widget: &PluginWidget) -> Result<String, RpcError>;
 }
 
-/// Default source over `Services.plugins`: lists enabled plugins of kind
-/// `Widget`; bundle HTML needs the plugin host's package reader (not wired).
+/// Default source over `Services.plugins` (the plugin host): widgets of
+/// enabled `Widget` plugins and their entry HTML read from the verified,
+/// extracted package (refused in safe mode).
 struct ServicePluginWidgets(Arc<orkestr_plugins::PluginService>);
 
 #[async_trait]
 impl PluginWidgetSource for ServicePluginWidgets {
     async fn widgets(&self) -> Result<Vec<PluginWidget>, RpcError> {
-        let plugins = match self.0.list().await {
-            Ok(p) => p,
+        let widgets = match self.0.widgets().await {
+            Ok(w) => w,
             Err(e) => {
                 tracing::debug!(error = %e, "plugin widgets unavailable");
                 return Ok(Vec::new());
             }
         };
-        Ok(plugins
+        Ok(widgets
             .into_iter()
-            .filter(|p| p.plugin.state == PluginState::Enabled && p.manifest.kinds.contains(&PluginKind::Widget))
-            .flat_map(|p| {
-                let (plugin_id, package_id) = (p.plugin.id, p.manifest.id.clone());
-                p.manifest.widgets.into_iter().map(move |decl| PluginWidget {
-                    plugin_id,
-                    package_id: package_id.clone(),
-                    decl,
-                })
-            })
+            .map(|w| PluginWidget { plugin_id: w.plugin_id, package_id: w.package_id, decl: w.widget })
             .collect())
     }
 
-    async fn html(&self, _widget: &PluginWidget) -> Result<String, RpcError> {
-        Err(RpcError::unimplemented_feature("widgets.bundle (plugin package reader not wired)"))
+    async fn html(&self, widget: &PluginWidget) -> Result<String, RpcError> {
+        Ok(self.0.widget_html(&widget.plugin_id.to_string(), &widget.decl.id).await?)
     }
 }
 

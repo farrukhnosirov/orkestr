@@ -22,6 +22,7 @@ pub mod claude_engine;
 pub mod config;
 pub mod dashboards_store;
 pub mod discovery;
+pub mod ecosystem;
 pub mod error;
 pub mod gates;
 pub mod housekeeping;
@@ -117,6 +118,9 @@ impl CoreHandle {
         self.services.lsp.shutdown(std::time::Duration::from_secs(5)).await;
         // Claude Code chat sessions (kill their process trees).
         self.services.claude.manager.shutdown(std::time::Duration::from_secs(5)).await;
+        // Phase 7: detective runs become resumable/failed, monitor loops stop.
+        self.services.detective.shutdown().await;
+        self.services.monitor.shutdown();
         if let Some(server) = self.server.take() {
             if tokio::time::timeout(std::time::Duration::from_secs(5), server).await.is_err() {
                 tracing::warn!("RPC server did not stop within 5s");
@@ -431,7 +435,7 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
         &orkestr_node::EnvSource::process(),
     ));
     // Ecosystem (Phase 7, ADR-0034 / 0040 / 0041 / 0042): constructed idle;
-    // nothing runs until the owning work packages start their loops.
+    // `ecosystem::wire` starts them once the RPC router exists.
     let plugins = Arc::new(orkestr_plugins::PluginService::new(orkestr_plugins::PluginDeps {
         db: db.clone(),
         events: events.clone(),
@@ -544,7 +548,6 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
             }
         });
     }
-    services.providers.spawn_health_loop(shutdown.clone());
     if let Some(engine) = sync_engine {
         // Offline queue (§8): retry pending uploads / failed rounds.
         let stop = shutdown.clone();
@@ -590,6 +593,10 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
     nodes::heartbeat::spawn(Arc::clone(&services), shutdown.clone());
     // Web Push (Phase 4, ADR-0036): event → push loop (stops on shutdown).
     remote::push::spawn_loop(&services, shutdown.clone());
+    // Ecosystem (Phase 7): plugin tools, infra monitor, Bug Detective.
+    ecosystem::wire(&services, Arc::clone(&router)).await;
+    // Provider health probes start once the (awaited) wiring above is done.
+    services.providers.spawn_health_loop(shutdown.clone());
     let app = server::app(app_state);
     let server_shutdown = shutdown.clone();
     let server = tokio::spawn(async move {

@@ -247,7 +247,10 @@ fn explicit(method: &str) -> Option<MethodPolicy> {
         | "marketplace.publish"
         | "marketplace.trustKey"
         | "marketplace.addSource"
-        | "marketplace.install" => MethodPolicy::local(),
+        | "marketplace.removeSource"
+        | "marketplace.untrustKey"
+        | "marketplace.install"
+        | "marketplace.uninstall" => MethodPolicy::local(),
         "plugins.disable" | "plugins.killAll" | "deploy.cancel" | "detective.cancel" => MethodPolicy::emergency(),
         "deploy.start" | "deploy.rollback" | "detective.approveMerge" => MethodPolicy::dangerous(),
         "detective.open" | "detective.approveFix" | "plugins.invoke" | "monitor.checkRun" => MethodPolicy::expensive(),
@@ -257,6 +260,7 @@ fn explicit(method: &str) -> Option<MethodPolicy> {
         // reads whose verbs are not in READ_VERBS (widget data bindings need Read class)
         "marketplace.sources"
         | "marketplace.keys"
+        | "marketplace.installed"
         | "widgets.bundle"
         | "deploy.adapters"
         | "deploy.plan"
@@ -464,7 +468,10 @@ mod tests {
             "marketplace.publish",
             "marketplace.trustKey",
             "marketplace.addSource",
+            "marketplace.removeSource",
+            "marketplace.untrustKey",
             "marketplace.install",
+            "marketplace.uninstall",
         ];
         for m in local {
             assert!(policy_for(m).unwrap().local_only, "{m} must be local-only");
@@ -495,6 +502,7 @@ mod tests {
             "marketplace.search",
             "marketplace.get",
             "marketplace.keys",
+            "marketplace.installed",
             "dashboards.list",
             "dashboards.get",
             "widgets.list",

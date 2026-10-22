@@ -212,10 +212,10 @@ impl DeployService {
     }
 
     fn adapter_for(&self, target: &DeploymentTarget) -> Result<Arc<dyn DeployAdapter>, DeployError> {
-        self.adapters()
-            .into_iter()
-            .find(|a| &a.target() == target)
-            .ok_or_else(|| DeployError::Unavailable(format!("no deployment adapter for {target:?}")))
+        self.adapters().into_iter().find(|a| &a.target() == target).ok_or_else(|| match deferred_target(target) {
+            Some(feature) => DeployError::Unimplemented(feature),
+            None => DeployError::Unavailable(format!("no deployment adapter for {target:?}")),
+        })
     }
 
     /// Startup recovery (once): interrupted runs become `Failed`, pending
@@ -1180,5 +1180,33 @@ impl DeployService {
     #[must_use]
     pub fn local_process(&self) -> &crate::adapters::LocalProcessAdapter {
         &self.inner.builtin.local_process
+    }
+}
+
+/// Cloud targets deferred to a later phase (RR-G14): `unimplementedFeature`
+/// instead of a generic "no adapter" error.
+fn deferred_target(target: &DeploymentTarget) -> Option<&'static str> {
+    match target {
+        DeploymentTarget::Aws => Some("deploy adapter Aws (deferred, RR-G14)"),
+        DeploymentTarget::Gcp => Some("deploy adapter Gcp (deferred, RR-G14)"),
+        DeploymentTarget::Azure => Some("deploy adapter Azure (deferred, RR-G14)"),
+        DeploymentTarget::Cloudflare => Some("deploy adapter Cloudflare (deferred, RR-G14)"),
+        _ => None,
+    }
+}
+
+#[cfg(test)]
+mod deferred_tests {
+    use super::*;
+
+    #[test]
+    fn deferred_cloud_targets_are_unimplemented_features() {
+        for t in [DeploymentTarget::Aws, DeploymentTarget::Gcp, DeploymentTarget::Azure, DeploymentTarget::Cloudflare] {
+            assert!(deferred_target(&t).is_some(), "{t:?}");
+        }
+        assert!(deferred_target(&DeploymentTarget::Ssh).is_none());
+        let e: orkestr_protocol::RpcError =
+            DeployError::Unimplemented(deferred_target(&DeploymentTarget::Aws).unwrap()).into();
+        assert!(e.data.as_ref().and_then(|d| d.get("unimplementedFeature")).is_some(), "{e:?}");
     }
 }

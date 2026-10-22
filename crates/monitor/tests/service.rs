@@ -237,3 +237,23 @@ async fn wait_lines(svc: &MonitorService, id: &str, n: usize) {
     }
     panic!("source {id} never reached {n} lines");
 }
+
+/// A deployment that appears after the loop's last refresh is visible (with
+/// its lines, exactly once) as soon as `monitor.logs` / `logSources` ask.
+#[tokio::test]
+async fn deployment_sources_refresh_on_demand() {
+    let fx = fixture().await;
+    fx.svc.start().await.unwrap();
+    // The loop's first (refresh) poll ran without a feed.
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    let dep = DeploymentId::new();
+    fx.svc.set_deployment_logs(Arc::new(FakeDeploy { dep }));
+    let id = format!("deploy:{dep}");
+    let q = LogQuery { source_id: Some(id.clone()), ..LogQuery::default() };
+    let (first, ()) = tokio::join!(fx.svc.logs(&q), fx.svc.refresh_deployment_sources());
+    first.unwrap();
+    let lines = fx.svc.logs(&LogQuery { source_id: Some(id.clone()), ..LogQuery::default() }).await.unwrap().lines;
+    assert_eq!(lines.len(), 3, "registered and read once: {lines:?}");
+    assert!(fx.svc.log_sources(None).iter().any(|s| s.id == id));
+    fx.svc.shutdown();
+}

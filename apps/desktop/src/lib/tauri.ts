@@ -8,6 +8,7 @@ import { open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialo
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
+import { buildWidgetDocument, setWidgetDocumentLoader } from "../features/dashboards/frame";
 import { t } from "../i18n";
 
 export interface CoreConnection {
@@ -41,6 +42,17 @@ export function isMainWindow(): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * Inside the app, plugin widget documents are served from the shell's
+ * `orkestr-widget` scheme (one-time URL, widget CSP as response header,
+ * ADR-0034): a `srcdoc` frame would inherit the app CSP and block the
+ * widget's inline scripts. Browsers / tests keep `srcdoc`.
+ */
+export function installWidgetDocumentLoader(): void {
+  if (!isTauri()) return;
+  setWidgetDocumentLoader(({ html, csp }) => invoke<string>("widget_document", { html: buildWidgetDocument(html, csp) }));
 }
 
 /** Asks the shell for the core's `{url, token}` (waits until the core is ready). */

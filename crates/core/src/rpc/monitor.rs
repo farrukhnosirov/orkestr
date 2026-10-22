@@ -44,7 +44,9 @@ pub fn register(router: &mut RpcRouter) {
             Ok(HealthCheckResult { check: svc(&ctx).await?.run_check(p.check_id).await? })
         })
         .method::<m::LogSources, _, _>(|ctx: RpcContext, p| async move {
-            Ok(LogSourcesResult { sources: svc(&ctx).await?.log_sources(p.project_id) })
+            let monitor = svc(&ctx).await?;
+            monitor.refresh_deployment_sources().await;
+            Ok(LogSourcesResult { sources: monitor.log_sources(p.project_id) })
         })
         .method::<m::Logs, _, _>(|ctx: RpcContext, p| async move { Ok(svc(&ctx).await?.logs(&p).await?) })
         .method::<m::Ingest, _, _>(|ctx: RpcContext, p| async move {
