@@ -20,7 +20,7 @@
 **Phase 5 (Mobile) closed on 2026-10-22** for Android:
 `apps/mobile` (Expo SDK 58 / React Native 0.88) runs on the Android emulator
 and covers scenario E (mobile approval with biometric step-up and native
-push). Acceptance: <!-- P5-ACCEPTANCE --> Node lane: TBD / Android lane: TBD
+push). Acceptance: <!-- P5-ACCEPTANCE --> Node lane 44/44 / Android lane 11/11 (emulator orkestr_pixel, incl. fingerprint step-up)
 <!-- /P5-ACCEPTANCE --> (`scripts/smoke/phase5-acceptance.mjs`,
 `scripts/smoke/phase5-android.mjs`; details and the deferred list in
 `feature-traceability.md` → "Phase 5 acceptance check").

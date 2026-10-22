@@ -269,7 +269,7 @@ mock FCM (HTTP) and mock APNs (h2c)) and `scripts/smoke/phase5-android.mjs`
 adb + uiautomator).
 
 <!-- P5-ACCEPTANCE -->
-**Node lane: TBD / Android lane: TBD** (filled in by the acceptance run).
+**Node lane 44/44 / Android lane 11/11 (emulator orkestr_pixel, incl. fingerprint step-up)** (filled in by the acceptance run).
 <!-- /P5-ACCEPTANCE -->
 
 | Area | What is checked |

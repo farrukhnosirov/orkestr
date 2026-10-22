@@ -16,5 +16,14 @@ export * from "./voice/executor";
 
 // Re-exported so a single bundle of this module shares the crypto provider
 // singleton with the client code it embeds (acceptance script, tests).
-export { OrkestrClient, nobleCrypto, remoteCrypto, setRemoteCrypto, webCrypto } from "@orkestr/client";
+export {
+  OrkestrClient,
+  b64uDecode,
+  b64uEncode,
+  nativeStepUpAssertion,
+  nobleCrypto,
+  remoteCrypto,
+  setRemoteCrypto,
+  webCrypto,
+} from "@orkestr/client";
 export type { DeviceRecord, PairingOffer, PairingSession, RawSocketFactory, StepUp } from "@orkestr/client";

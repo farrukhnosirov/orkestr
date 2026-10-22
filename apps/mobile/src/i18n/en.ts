@@ -50,6 +50,8 @@ export const en = {
     waiting: "Approve this phone on the computer (code {{sas}}).",
     done: "Paired.",
     stepUpMissing: "Biometric confirmation is not set up: dangerous actions from this phone will be refused.",
+    showDetails: "Show technical details",
+    hideDetails: "Hide technical details",
   },
   home: {
     emergencyStop: "EMERGENCY STOP",
@@ -157,7 +159,11 @@ export const en = {
     stepUpOn: "Biometric confirmation is set up for dangerous actions.",
     setupStepUp: "Set up biometric confirmation",
     unpair: "Unpair this computer",
-    unpairConfirm: "Keys for this computer are deleted from the phone. Revoke the device on the computer too.",
+    unpairConfirm: "Keys for this computer are deleted from the phone. Only an admin device can revoke itself, so revoke this phone on the computer too (Settings → Remote access).",
+    unpairConfirmAdmin: "This phone revokes itself on the computer (biometric confirmation), then deletes its keys for it.",
+    unpairedTitle: "Unpaired on this phone",
+    unpairNotAdmin: "The keys were deleted from this phone. Its role cannot revoke devices, so the computer still lists it: revoke it there (Settings → Remote access).",
+    unpairRevokeFailed: "The keys were deleted from this phone, but the computer did not confirm the revocation ({{error}}). Revoke it on the computer.",
     logout: "Sign out",
   },
   errors: {

@@ -18,10 +18,14 @@ export default function SettingsScreen({ navigation, route }: ScreenProps<"Setti
   const [error, setError] = useState<string | null>(null);
   const [confirmUnpair, setConfirmUnpair] = useState(false);
   const [hasStepUp, setHasStepUp] = useState<boolean | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [unpairing, setUnpairing] = useState(false);
+  const [unpairNote, setUnpairNote] = useState<string | null>(null);
 
   useEffect(() => {
     void core.push.prefs().then(setPrefs);
     if (coreId) void core.stepUpKeys.meta(coreId).then((m) => setHasStepUp(m !== null));
+    if (coreId) void core.store.get(coreId).then((r) => setIsAdmin(r?.role === "admin"));
   }, [core, coreId]);
 
   const update = async (p: PushPrefs) => {
@@ -95,7 +99,7 @@ export default function SettingsScreen({ navigation, route }: ScreenProps<"Setti
           <Body>{hasStepUp ? t("settings.stepUpOn") : t("pairing.stepUpMissing")}</Body>
           {hasStepUp === false ? <Button label={t("settings.setupStepUp")} onPress={() => void setupStepUp()} disabled={!client} testID="settings-setup-stepup" /> : null}
           <View style={{ height: 8 }} />
-          <Button label={t("settings.unpair")} variant="danger" onPress={() => setConfirmUnpair(true)} testID="settings-unpair" />
+          <Button label={t("settings.unpair")} variant="danger" onPress={() => setConfirmUnpair(true)} busy={unpairing} testID="settings-unpair" />
         </Card>
       ) : null}
 
@@ -113,14 +117,33 @@ export default function SettingsScreen({ navigation, route }: ScreenProps<"Setti
         testID="unpair-confirm"
         danger
         title={t("settings.unpair")}
-        message={t("settings.unpairConfirm")}
+        message={t(isAdmin ? "settings.unpairConfirmAdmin" : "settings.unpairConfirm")}
         confirmLabel={t("settings.unpair")}
         cancelLabel={t("common.cancel")}
         onCancel={() => setConfirmUnpair(false)}
         onConfirm={() => {
           setConfirmUnpair(false);
-          if (coreId) void core.unpair(coreId).then(() => navigation.reset({ index: 0, routes: [{ name: "Cores" }] }));
+          if (!coreId) return;
+          setUnpairing(true);
+          void core
+            .unpair(coreId, { revoke: true })
+            .then((r) => {
+              setUnpairing(false);
+              if (r.revoked) navigation.reset({ index: 0, routes: [{ name: "Cores" }] });
+              else setUnpairNote(r.reason === "not_admin" ? t("settings.unpairNotAdmin") : t("settings.unpairRevokeFailed", { error: r.error ?? "" }));
+            })
+            .catch(() => setUnpairing(false));
         }}
+      />
+      <ConfirmDialog
+        visible={unpairNote !== null}
+        testID="unpair-note"
+        title={t("settings.unpairedTitle")}
+        message={unpairNote ?? ""}
+        confirmLabel={t("common.confirm")}
+        cancelLabel={t("common.back")}
+        onCancel={() => navigation.reset({ index: 0, routes: [{ name: "Cores" }] })}
+        onConfirm={() => navigation.reset({ index: 0, routes: [{ name: "Cores" }] })}
       />
     </Screen>
   );

@@ -43,9 +43,9 @@ summarises them: **Built** = implemented as decided (with listed deviations),
 | [0030](0030-remote-gateway-e2e.md) | Remote access: self-hosted gateway, `e2e-v1`, MethodPolicy enforcement | Accepted | 4 | — | R-08 | Implemented (Phase 4; mTLS/ACME/device-code deferred) |
 | [0031](0031-encrypted-sync-engine.md) | Encrypted sync engine and where it deviates from `sync-protocol.md` | Accepted | 4 | — | — | Implemented (Phase 4; HPKE conformance, recovery key, rotation deferred) |
 | [0036](0036-web-client-and-web-push.md) | Web client over the E2E channel, and Web Push | Accepted | 4 | — | R-08 | Implemented (Phase 4; PWA signature/SRI deferred) |
-| [0032](0032-mobile-stack.md) | Mobile stack: Expo/React Native, pure-JS crypto provider, key storage, voice | Accepted | 5 | — | — | Not started (Phase 5 step 0 skeleton) |
-| [0037](0037-native-push.md) | Native push: FCM HTTP v1 and APNs with E2E-encrypted payloads | Accepted | 5 | — | R-08 | Not started (Phase 5 step 0 skeleton) |
-| [0038](0038-native-biometric-step-up.md) | Native biometric step-up credential (`orkestr-native-v1`) | Accepted | 5 | — | R-08 | Not started (Phase 5 step 0 skeleton) |
+| [0032](0032-mobile-stack.md) | Mobile stack: Expo/React Native, pure-JS crypto provider, key storage, voice | Accepted | 5 | — | — | Implemented (Phase 5; see the ADR's "as built" notes) |
+| [0037](0037-native-push.md) | Native push: FCM HTTP v1 and APNs with E2E-encrypted payloads | Accepted | 5 | — | R-08 | Implemented (Phase 5; see the ADR's "as built" notes) |
+| [0038](0038-native-biometric-step-up.md) | Native biometric step-up credential (`orkestr-native-v1`) | Accepted | 5 | — | R-08 | Implemented (Phase 5; see the ADR's "as built" notes) |
 
 ## Planned ADRs (to be written when their phase starts)
 

@@ -13,7 +13,7 @@
 
 **Состояние:** ветка `main`. Фазы **0–5 выполнены** (фаза 5 — для Android).
 Приёмка: фаза 1 — 45/45, фаза 2 — 47/47, фаза 3 — 64/64, фаза 4 — 40/40,
-фаза 5 — <!-- P5-ACCEPTANCE --> см. отчёт приёмки <!-- /P5-ACCEPTANCE -->
+фаза 5 — <!-- P5-ACCEPTANCE --> Node-лейн 44/44, Android-лейн 11/11 (эмулятор orkestr_pixel, включая шаг-ап отпечатком) <!-- /P5-ACCEPTANCE -->
 (`docs/roadmap/feature-traceability.md` → «Phase 5 acceptance check»).
 Фазы **6–7 не начаты**.
 

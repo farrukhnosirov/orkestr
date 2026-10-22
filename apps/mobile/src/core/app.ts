@@ -13,7 +13,7 @@ import {
   type Notifier,
   type SecureKV,
 } from "./adapters";
-import { type StepUpProvider } from "./approvals";
+import { type StepUpProvider, callWithStepUp } from "./approvals";
 import { ConnectionManager } from "./connection";
 import { type FetchLike, GatewaySession } from "./gatewaySession";
 import { type KeyStorage, SecureKVKeyStore, StepUpKeys } from "./keys";
@@ -32,6 +32,11 @@ export interface MobileCoreOptions {
   /** Text of the biometric prompt. */
   stepUpPrompt?: string;
 }
+
+/** Outcome of `MobileCore.unpair`: whether the core revoked this device too. */
+export type UnpairResult =
+  | { revoked: true }
+  | { revoked: false; reason: "skipped" | "not_admin" | "failed"; error?: string };
 
 export class MobileCore {
   readonly store: SecureKVKeyStore;
@@ -102,11 +107,56 @@ export class MobileCore {
     };
   }
 
-  /** Forgets a core locally (keys, push key, connection). */
-  async unpair(coreId: string): Promise<void> {
+  /**
+   * Unpairs a core. With `revoke`, an admin phone first revokes its own
+   * device on the core (`devices.revoke`, biometric step-up); other roles
+   * cannot (admin-only method), so the result says the computer must revoke
+   * it. The local keys are always forgotten.
+   */
+  async unpair(coreId: string, opts: { revoke?: boolean } = {}): Promise<UnpairResult> {
+    let result: UnpairResult = { revoked: false, reason: "skipped" };
+    const rec = await this.store.get(coreId);
+    if (opts.revoke && rec) {
+      if (rec.role !== "admin") {
+        result = { revoked: false, reason: "not_admin" };
+      } else {
+        try {
+          const client = await this.connections.get(coreId);
+          await callWithStepUp(client, "devices.revoke", { deviceId: rec.deviceId }, this.stepUp(coreId));
+          result = { revoked: true };
+        } catch (e) {
+          const code = (e as { code?: unknown }).code;
+          // Revoking itself closes this very session, usually before the
+          // response is flushed: confirm by reconnecting (refused if revoked).
+          if (code === "disconnected" && (await this.refused(coreId))) {
+            result = { revoked: true };
+          } else {
+            result = { revoked: false, reason: "failed", error: typeof code === "string" ? code : e instanceof Error ? e.message : String(e) };
+          }
+        }
+      }
+    }
     await this.connections.disconnect(coreId);
     await this.stepUpKeys.remove(coreId);
     await this.store.delete(coreId);
+    return result;
+  }
+
+  /** True when a fresh connection to `coreId` is refused by the core. */
+  private async refused(coreId: string): Promise<boolean> {
+    await this.connections.disconnect(coreId);
+    const attempt = this.connections.get(coreId).then((c) => c.call("remote.status", {}));
+    const timeout = new Promise<"timeout">((r) => setTimeout(() => r("timeout"), 8000));
+    try {
+      await Promise.race([attempt, timeout]); // answered (or hung): not refused
+      return false;
+    } catch (e) {
+      const code = (e as { code?: unknown }).code;
+      return code === "unauthorized" || code === "forbidden" || code === "revoked";
+    } finally {
+      void attempt.catch(() => undefined);
+      await this.connections.disconnect(coreId);
+    }
   }
 }
 

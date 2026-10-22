@@ -2,7 +2,7 @@ import type { PairingOffer, PairingSession } from "@orkestr/client";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 
 import { parsePairingInput } from "../core";
 import type { ScreenProps } from "../navigation/types";
@@ -33,6 +33,7 @@ export default function PairingScreen({ navigation, route }: ScreenProps<"Pairin
   const [phase, setPhase] = useState<Phase>({ k: "input" });
   const [error, setError] = useState<string | null>(null);
   const [detail, setDetail] = useState<string | null>(null);
+  const [showDetail, setShowDetail] = useState(false);
   const abort = useRef<AbortController | null>(null);
 
   useEffect(() => () => abort.current?.abort(), []);
@@ -53,6 +54,7 @@ export default function PairingScreen({ navigation, route }: ScreenProps<"Pairin
       if (__DEV__) console.warn("pairing claim failed", e);
       setError(errorCode(e));
       setDetail(e instanceof Error ? e.message : String(e));
+      setShowDetail(false);
       setPhase({ k: "input" });
     }
   };
@@ -83,7 +85,12 @@ export default function PairingScreen({ navigation, route }: ScreenProps<"Pairin
     <Screen testID="screen-pairing">
       <H1>{t("pairing.title")}</H1>
       <ErrorText testID="pairing-error">{error ? t(`errors.${error}`, { defaultValue: t("errors.internal") }) : null}</ErrorText>
-      {error && detail ? <Muted testID="pairing-error-detail">{detail}</Muted> : null}
+      {error && detail ? (
+        <Pressable accessibilityRole="button" onPress={() => setShowDetail((x) => !x)} testID="pairing-error-toggle">
+          <Muted>{showDetail ? t("pairing.hideDetails") : t("pairing.showDetails")}</Muted>
+        </Pressable>
+      ) : null}
+      {error && detail && showDetail ? <Muted testID="pairing-error-detail">{detail}</Muted> : null}
 
       {phase.k === "input" || phase.k === "claiming" ? (
         <Card>

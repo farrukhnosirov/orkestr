@@ -7,6 +7,7 @@ import { makeDeps, renderScreen } from "../test/renderScreen";
 import { ApprovalDetailScreen, ApprovalsScreen } from "./ApprovalsScreen";
 import HomeScreen from "./HomeScreen";
 import PairingScreen from "./PairingScreen";
+import SettingsScreen from "./SettingsScreen";
 
 beforeAll(() => setRemoteCrypto(nobleCrypto()));
 
@@ -139,6 +140,44 @@ describe("Pairing", () => {
     await fireEvent.press(screen.getByTestId("pairing-submit"));
     expect(await screen.findByTestId("pairing-error")).toHaveTextContent(/not a pairing code/);
     expect(pair).not.toHaveBeenCalled();
+  });
+
+  it("shows the localized error; the raw error only behind 'details'", async () => {
+    const { core, deps } = makeDeps(null);
+    jest.spyOn(core, "pair").mockRejectedValue(Object.assign(new Error("TypeError: Network request failed (raw)"), { code: "unavailable" }));
+    await renderScreen(PairingScreen, {}, deps);
+    await fireEvent.changeText(screen.getByTestId("pairing-input"), `orkestr://pair?offer=${encodeURIComponent(offer)}`);
+    await fireEvent.press(screen.getByTestId("pairing-submit"));
+    const err = await screen.findByTestId("pairing-error");
+    expect(err).not.toHaveTextContent(/raw/);
+    expect(screen.queryByTestId("pairing-error-detail")).toBeNull();
+    await fireEvent.press(screen.getByTestId("pairing-error-toggle"));
+    expect(await screen.findByTestId("pairing-error-detail")).toHaveTextContent(/raw/);
+  });
+});
+
+describe("Settings unpair", () => {
+  async function unpairAs(role: string) {
+    const client = fakeClient({});
+    const { core, deps } = makeDeps(client);
+    await core.store.put({ id: "c", coreId: "c", deviceId: "dev-1", gatewayUrl: "g", corePubKey: "k", deviceName: "n", pairedAt: 1, role });
+    const unpair = jest.spyOn(core, "unpair").mockResolvedValue(role === "admin" ? { revoked: true } : { revoked: false, reason: "not_admin" });
+    const { navigation } = await renderScreen(SettingsScreen, { params: { coreId: "c" } }, deps);
+    await fireEvent.press(await screen.findByTestId("settings-unpair"));
+    await fireEvent.press(await screen.findByTestId("unpair-confirm-confirm"));
+    await waitFor(() => expect(unpair).toHaveBeenCalledWith("c", { revoke: true }));
+    return navigation;
+  }
+
+  it("admin phone revokes itself and returns to the cores list", async () => {
+    const navigation = await unpairAs("admin");
+    await waitFor(() => expect(navigation.reset).toHaveBeenCalled());
+  });
+
+  it("other roles: explains that the computer must revoke the phone", async () => {
+    const navigation = await unpairAs("operator");
+    expect(await screen.findByTestId("unpair-note")).toHaveTextContent(/revoke it there/);
+    expect(navigation.reset).not.toHaveBeenCalled();
   });
 });
 

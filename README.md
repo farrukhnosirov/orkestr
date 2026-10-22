@@ -8,8 +8,7 @@ contributor follows are in [`docs/ENGINEERING_CONTRACT.md`](docs/ENGINEERING_CON
 
 > Status: **Phases 0–5 complete on Windows** (Phase 5 for Android). Phase 5
 > (Mobile: Expo/React Native app, native push, biometric step-up) closed on
-> 2026-10-22 — acceptance <!-- P5-ACCEPTANCE --> Node lane: TBD / Android
-> lane: TBD <!-- /P5-ACCEPTANCE -->; see [Mobile app (Android)](#mobile-app-android).
+> 2026-10-22 — acceptance <!-- P5-ACCEPTANCE --> Node lane 44/44 / Android lane 11/11 (emulator orkestr_pixel, incl. fingerprint step-up) <!-- /P5-ACCEPTANCE -->; see [Mobile app (Android)](#mobile-app-android).
 > iOS is not built (needs macOS) and real FCM/APNs delivery was verified with
 > mock servers only. Phase 4 (Remote & Sync:
 > self-hosted gateway, web client, end-to-end encrypted sync, Web Push) passed
