@@ -93,11 +93,6 @@ impl CoordinatorJobs {
             .map(|e| format!("{} ({:?}): {}", e.action, e.kind, e.detail))
             .collect();
         let Some(view) = self.get(job) else { return };
-        self.update(job, |e| {
-            e.view.state = JobState::Failed;
-            e.view.detail = Some(NEEDS_USER_DECISION.to_owned());
-        })
-        .await;
         self.task_to(job, TaskStatus::Failed, TaskActor::SystemRecovery, NEEDS_USER_DECISION).await;
         let mut req = ApprovalRequest::new(
             Capability::Deploy,
@@ -114,6 +109,11 @@ impl CoordinatorJobs {
         if let Err(e) = self.services.security.approvals.request(req).await {
             tracing::warn!(job_id = %job, error = %e, "approval request for resume failed");
         }
+        self.update(job, |e| {
+            e.view.state = JobState::Failed;
+            e.view.detail = Some(NEEDS_USER_DECISION.to_owned());
+        })
+        .await;
         self.audit(
             "jobs.needsUserDecision",
             job,
@@ -145,8 +145,13 @@ impl CoordinatorJobs {
         let resume = Some((cp, from, "planned".to_owned()));
         let r = match target {
             Some(t) => {
-                self.update(job, |e| e.view.placement = None).await;
-                self.dispatch(job, t, vec![format!("migration target {t} chosen by the user")], resume).await
+                let placement = orkestr_protocol::methods::jobs::Placement::Place {
+                    node_id: t,
+                    score: 1.0,
+                    explanation: vec![format!("migrate(target={t}): chosen by the user")],
+                };
+                self.update(job, |e| e.view.placement = Some(placement)).await;
+                self.dispatch(job, t, resume).await
             }
             None => self.place_and_dispatch(job, vec![from], resume).await,
         };

@@ -92,6 +92,11 @@ impl LeaseBook {
         next
     }
 
+    /// Records an epoch issued elsewhere (e.g. `jobs.submit` assigned epoch 1).
+    pub fn observe_epoch(&self, job: JobId, epoch: LeaseEpoch) {
+        self.epochs.lock().entry(job).and_modify(|e| *e = (*e).max(epoch)).or_insert(epoch);
+    }
+
     /// Grants (or replaces) the lease of `job`.
     pub fn grant(&self, job: JobId, lease: Lease) {
         self.epochs.lock().entry(job).and_modify(|e| *e = (*e).max(lease.epoch)).or_insert(lease.epoch);
