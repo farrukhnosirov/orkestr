@@ -48,5 +48,13 @@
   },
   "plugins": {
     "copyPackageId": "Копировать ID пакета"
+  },
+  "editor": {
+    "goToDefinition": "Перейти к определению",
+    "goToReferences": "Найти ссылки",
+    "renameSymbol": "Переименовать символ",
+    "changeAll": "Изменить все вхождения",
+    "formatDocument": "Форматировать документ",
+    "commandPalette": "Палитра команд редактора"
   }
 }

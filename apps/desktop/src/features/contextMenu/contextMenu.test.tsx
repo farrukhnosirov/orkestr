@@ -292,3 +292,28 @@ describe("per-context item sets", () => {
     expect(taskRowMenu(task, tt, () => {}).flatMap((e) => (e.kind !== "separator" && "id" in e && e.id ? [e.id] : []))).toEqual(["task.open", "task.ask", "task.copyTitle", "task.copyId"]);
   });
 });
+
+describe("code editor menu", () => {
+  it("routes Monaco into the Orkestr menu (selection-dependent items, read-only)", async () => {
+    const { editorMenu } = await import("../../panels/Code/EditorHost");
+    const fake = (selected: boolean, readOnly: boolean) =>
+      ({
+        getModel: () => ({ getValueInRange: () => "code" }),
+        getSelection: () => ({ isEmpty: () => !selected, startLineNumber: 1, endLineNumber: 2 }),
+        getRawOptions: () => ({ readOnly }),
+        getAction: () => null,
+        trigger: () => {},
+        focus: () => {},
+      }) as never;
+    const cb = { onSave() {}, onQuickOpen() {}, onSearch() {}, onAskManager: vi.fn(), onAskClaude() {}, onCursor() {} };
+    const ids = (entries: MenuEntry[]) => normalizeEntries(entries).flatMap((e) => (e.kind !== "separator" && "id" in e ? [e.id] : []));
+    expect(ids(editorMenu(fake(false, false), cb))).not.toContain("ed.askManager");
+    const withSel = editorMenu(fake(true, true), cb);
+    expect(ids(withSel)).toEqual(expect.arrayContaining(["ed.askManager", "ed.def", "ed.copy", "ed.palette"]));
+    const byId = (id: string) => withSel.find((e) => "id" in e && e.id === id) as { disabled?: boolean; onSelect: () => void };
+    expect(byId("ed.paste").disabled).toBe(true);
+    expect(byId("ed.copy").disabled).toBe(false);
+    byId("ed.askManager").onSelect();
+    expect(cb.onAskManager).toHaveBeenCalledWith("code", 1, 2);
+  });
+});

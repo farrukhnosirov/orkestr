@@ -3,8 +3,7 @@
 // Launches the custom-protocol desktop build as an isolated second instance
 // (own ORKESTR_HOME + WebView2 profile), then right-clicks with real CDP mouse
 // events in a text field, the Monaco editor, the terminal, the file tree, the
-// task list and on selected text; checks that the Orkestr menu (or Monaco's
-// own themed menu in the editor) opens and that the browser menu was
+// task list and on selected text; checks that the Orkestr menu opens and that the browser menu was
 // cancelled; screenshots (en + ru) → docs/screenshots/context-menu/.
 //
 // Usage (repo root, Windows):
@@ -23,12 +22,12 @@ const repo = resolve(here, "..", "..");
 const outDir = join(repo, "docs", "screenshots", "context-menu");
 const targetDir = process.env.CARGO_TARGET_DIR ?? join(repo, "target");
 const exe = process.env.ORKESTR_SMOKE_EXE ?? join(targetDir, "debug", "orkestr-desktop.exe");
-const cdpPort = Number(process.env.ORKESTR_SMOKE_CDP_PORT ?? 9371);
+const cdpPort = Number(process.env.ORKESTR_SMOKE_CDP_PORT ?? 9383);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const J = JSON.stringify;
 mkdirSync(outDir, { recursive: true });
 const loc = (lang, ns) => JSON.parse(readFileSync(join(repo, "apps", "desktop", "src", "locales", lang, `${ns}.json`), "utf8"));
-const L = { en: { shell: loc("en", "shell"), cm: loc("en", "contextMenu") }, ru: { shell: loc("ru", "shell"), cm: loc("ru", "contextMenu") } };
+const L = Object.fromEntries(["en", "ru"].map((l) => [l, { shell: loc(l, "shell"), cm: loc(l, "contextMenu"), term: loc(l, "terminal") }]));
 
 const checks = [];
 const check = (id, label, ok, detail = "") => {
@@ -172,11 +171,12 @@ const center = (cdp, selector, text = null) =>
     return { x: Math.round(r.x + Math.min(r.width / 2, 80)), y: Math.round(r.y + Math.min(r.height / 2, 14)) };
   })()`);
 
-// Records whether the native menu was cancelled (a listener added last sees the final state).
-const PROBE = `(() => { if (!window.__ctxProbe) { window.__ctxProbe = []; window.addEventListener("contextmenu", (e) => window.__ctxProbe.push(e.defaultPrevented)); } window.__ctxProbe.length = 0; return true; })()`;
+// Records the contextmenu events (capture phase: components may stop propagation);
+// defaultPrevented is read after dispatch = whether the native menu was cancelled.
+const PROBE = `(() => { if (!window.__ctxProbe) { window.__ctxProbe = []; window.addEventListener("contextmenu", (e) => window.__ctxProbe.push(e), true); } window.__ctxProbe.length = 0; return true; })()`;
 const menuState = (cdp) =>
   cdp.eval(`({
-    prevented: window.__ctxProbe.length > 0 && window.__ctxProbe.every(Boolean),
+    prevented: window.__ctxProbe.length > 0 && window.__ctxProbe.every((e) => e.defaultPrevented),
     orkestr: [...document.querySelectorAll(".ok-ctxmenu .ok-ctxmenu__label")].map((n) => n.textContent),
     monaco: !!document.querySelector(".monaco-menu-container, .context-view .monaco-menu") || [...document.querySelectorAll(".shadow-root-host")].some((h) => h.shadowRoot?.querySelector(".monaco-menu")),
   })`);
@@ -186,7 +186,11 @@ const closeMenu = async (cdp) => {
 };
 
 async function scenario(cdp, lang, id, label, at, expect, shot) {
-  if (!at) return check(id, `${label} (${lang})`, false, "target not found");
+  if (!at) {
+    const dbg = await cdp.eval(`({ tabs: [...document.querySelectorAll('.dv-tab')].map((t) => t.textContent.trim()).join("|"), tree: document.querySelectorAll('[role=tree] [role=treeitem]').length, term: document.querySelectorAll('.term-view').length, dialog: !!document.querySelector('[role=dialog]') })`).catch(() => null);
+    await capture(cdp, `dbg-${id}-${lang}`, "debug");
+    return check(id, `${label} (${lang})`, false, `target not found ${J(dbg)}`);
+  }
   await cdp.eval(PROBE);
   await cdp.rightClick(at.x, at.y);
   await sleep(700);
@@ -225,7 +229,7 @@ try {
     // 1. Text field (command palette input is always there; use the Manager composer).
     await openPanel(cdp, lang, "manager");
     const field = await cdp.eval(`(() => {
-      const el = [...document.querySelectorAll("textarea, input[type=text], input:not([type])")].find((e) => e.getClientRects().length && !e.readOnly && !e.disabled);
+      const el = [...document.querySelectorAll("textarea:not(.xterm-helper-textarea)")].find((e) => e.getClientRects().length && !e.readOnly && !e.disabled);
       if (!el) return null;
       el.focus();
       const proto = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
@@ -236,13 +240,14 @@ try {
       return { x: Math.round(r.x + 30), y: Math.round(r.y + Math.min(r.height / 2, 14)) };
     })()`);
     await scenario(cdp, lang, "INPUT", "text field → Undo/Redo/Cut/Copy/Paste/Select all", field, (s) => [cm.edit.undo, cm.edit.cut, cm.edit.paste, cm.edit.selectAll].every((l) => s.orkestr.includes(l)), "01-input");
+    await cdp.eval(`(() => { const el = document.activeElement; if (el instanceof HTMLTextAreaElement) { Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value").set.call(el, ""); el.dispatchEvent(new Event("input", { bubbles: true })); el.blur(); } return true; })()`);
 
     // 2. File tree.
     await openPanel(cdp, lang, "files");
     await waitFor(() => center(cdp, "[role=treeitem]", "README.md"), 10_000, "file tree").catch(() => null);
     await scenario(cdp, lang, "LIST", "file tree row → file menu", await center(cdp, "[role=treeitem]", "README.md"), (s) => s.orkestr.length >= 5, "02-file-tree");
 
-    // 3. Monaco editor: Monaco's own (themed) menu, never the browser one.
+    // 3. Monaco editor: Monaco's own menu is off; the Code panel contributes Orkestr items.
     const row = await center(cdp, "[role=treeitem]", "main.ts").catch(() => null);
     if (!row) {
       const src = await center(cdp, "[role=treeitem]", "src");
@@ -253,10 +258,14 @@ try {
     if (mainTs) await cdp.leftClick(mainTs.x, mainTs.y);
     await waitFor(() => center(cdp, ".monaco-editor .view-lines"), 15_000, "editor").catch(() => null);
     await sleep(1200);
-    await scenario(cdp, lang, "EDITOR", "Monaco editor → Monaco's themed menu, no Orkestr/Edge menu", await center(cdp, ".monaco-editor .view-lines"), (s) => s.monaco && s.orkestr.length === 0, "03-editor");
+    await scenario(cdp, lang, "EDITOR", "Monaco editor → Orkestr editor menu (Monaco's own menu off)", await center(cdp, ".monaco-editor .view-lines"), (s) => !s.monaco && s.orkestr.includes(cm.editor.goToDefinition) && s.orkestr.includes(cm.edit.paste), "03-editor");
 
     // 4. Terminal.
     await openPanel(cdp, lang, "terminal");
+    if (!(await center(cdp, ".term-view:not([hidden]) .term-view__host"))) {
+      const btn = await center(cdp, ".term-panel button", L[lang].term.new);
+      if (btn) await cdp.leftClick(btn.x, btn.y);
+    }
     await waitFor(() => center(cdp, ".term-view:not([hidden]) .term-view__host"), 15_000, "terminal").catch(() => null);
     await sleep(1500);
     await scenario(cdp, lang, "TERMINAL", "terminal → Copy/Paste/Select all/Clear", await center(cdp, ".term-view:not([hidden]) .term-view__host"), (s) => [cm.terminal.paste, cm.terminal.clear].every((l) => s.orkestr.includes(l)), "04-terminal");

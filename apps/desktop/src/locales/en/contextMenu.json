@@ -48,5 +48,13 @@
   },
   "plugins": {
     "copyPackageId": "Copy package ID"
+  },
+  "editor": {
+    "goToDefinition": "Go to Definition",
+    "goToReferences": "Go to References",
+    "renameSymbol": "Rename Symbol",
+    "changeAll": "Change All Occurrences",
+    "formatDocument": "Format Document",
+    "commandPalette": "Command Palette"
   }
 }

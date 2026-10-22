@@ -76,8 +76,11 @@ Implemented for the shell (`apps/desktop/src/components/Workspace.tsx`). **dockv
   for text fields (Undo, Redo, Cut, Copy, Paste, Paste as plain text, Select all),
   selected text (Copy, Search in Orkestr, Ask Manager about selection), links
   and images. Components that draw their own menu call `preventDefault()`
-  and the listener leaves the event alone. Monaco keeps its built-in menu,
-  which is already themed from the `--ok-*` tokens. Iframes keep their own menus.
+  and the listener leaves the event alone. Monaco's built-in menu is switched
+  off (`contextmenu: false`) and the Code panel contributes its own items
+  (Ask Manager/Claude, Go to Definition/References, Rename, Format, clipboard,
+  editor Command Palette) that run Monaco actions. Iframes (plugin widgets)
+  keep their own menus.
 * WAI-ARIA menu pattern (roles `menu`/`menuitem[checkbox|radio]`,
   `aria-activedescendant`, arrows/Home/End/Enter/Esc/Tab, type-ahead in any
   script, submenus with →/←). A menu opened on a text field leaves keyboard
