@@ -32,6 +32,7 @@ export default function PairingScreen({ navigation, route }: ScreenProps<"Pairin
   const [scan, setScan] = useState(false);
   const [phase, setPhase] = useState<Phase>({ k: "input" });
   const [error, setError] = useState<string | null>(null);
+  const [detail, setDetail] = useState<string | null>(null);
   const abort = useRef<AbortController | null>(null);
 
   useEffect(() => () => abort.current?.abort(), []);
@@ -49,14 +50,19 @@ export default function PairingScreen({ navigation, route }: ScreenProps<"Pairin
       const session = await core.pair(offer);
       setPhase({ k: "sas", session, offer });
     } catch (e) {
+      if (__DEV__) console.warn("pairing claim failed", e);
       setError(errorCode(e));
+      setDetail(e instanceof Error ? e.message : String(e));
       setPhase({ k: "input" });
     }
   };
 
   // Deep link `orkestr://pair?offer=…` opens this screen with the offer filled in.
   useEffect(() => {
-    if (route.params?.offer) void claim(route.params.offer);
+    if (route.params?.offer) {
+      setText(route.params.offer);
+      void claim(route.params.offer);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [route.params?.offer]);
 
@@ -77,6 +83,7 @@ export default function PairingScreen({ navigation, route }: ScreenProps<"Pairin
     <Screen testID="screen-pairing">
       <H1>{t("pairing.title")}</H1>
       <ErrorText testID="pairing-error">{error ? t(`errors.${error}`, { defaultValue: t("errors.internal") }) : null}</ErrorText>
+      {error && detail ? <Muted testID="pairing-error-detail">{detail}</Muted> : null}
 
       {phase.k === "input" || phase.k === "claiming" ? (
         <Card>

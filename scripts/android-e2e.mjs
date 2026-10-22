@@ -26,7 +26,10 @@ export const PACKAGE = "dev.orkestr.mobile";
 
 function adbPath() {
   if (process.env.ADB) return process.env.ADB;
-  const home = process.env.ANDROID_HOME || process.env.ANDROID_SDK_ROOT;
+  const home =
+    process.env.ANDROID_HOME ||
+    process.env.ANDROID_SDK_ROOT ||
+    (process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, "Android", "Sdk") : path.join(process.env.HOME ?? "", "Android", "Sdk"));
   if (home) {
     const p = path.join(home, "platform-tools", process.platform === "win32" ? "adb.exe" : "adb");
     if (existsSync(p)) return p;
@@ -57,7 +60,7 @@ export function reverse(ports) {
   for (const p of String(ports).split(",")) adb(["reverse", `tcp:${p}`, `tcp:${p}`]);
 }
 export function isRunning() {
-  return adb(["shell", "pidof", PACKAGE], { allowFail: true }).trim() !== "";
+  return String(adb(["shell", "pidof", PACKAGE], { allowFail: true }) ?? "").trim() !== "";
 }
 
 const attr = (s, name) => {

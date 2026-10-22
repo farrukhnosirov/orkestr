@@ -28,7 +28,7 @@ export default function LoginScreen({ navigation }: ScreenProps<"Login">) {
   };
 
   return (
-    <Screen testID="screen-login">
+    <Screen testID="screen-login" top>
       <H1>{t("login.title")}</H1>
       <Muted>{t("login.subtitle")}</Muted>
       <View style={{ height: 16 }} />

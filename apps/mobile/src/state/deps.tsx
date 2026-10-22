@@ -31,6 +31,9 @@ export function useDeps(): Deps {
 
 /** Error code of an RPC/gateway/local failure, for `t("errors.<code>")`. */
 export function errorCode(e: unknown): string {
+  // fetch() network failures (gateway down / unreachable), whatever code the fetch impl attaches.
+  const msg = (e as { message?: unknown } | null)?.message;
+  if (typeof msg === "string" && /network request failed|fetch failed|failed to connect|ECONNREFUSED/i.test(msg)) return "unavailable";
   const c = (e as { code?: unknown } | null)?.code;
   return typeof c === "string" ? c : "internal";
 }

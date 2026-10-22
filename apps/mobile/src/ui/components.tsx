@@ -1,21 +1,23 @@
 /** Small dark UI kit for the mobile screens. Every interactive element takes a `testID`. */
 import type { ReactNode } from "react";
 import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, type TextInputProps, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { colors, radius, space } from "./theme";
 
-export function Screen({ children, testID, scroll = true }: { children: ReactNode; testID: string; scroll?: boolean }) {
+export function Screen({ children, testID, scroll = true, top = false }: { children: ReactNode; testID: string; scroll?: boolean; top?: boolean }) {
+  const insets = useSafeAreaInsets();
+  const pad = { paddingTop: top ? insets.top + space.lg : space.lg, paddingBottom: insets.bottom + space.xl * 2 };
   return (
-    <SafeAreaView style={s.screen} edges={["bottom", "left", "right"]} testID={testID}>
+    <View style={[s.screen, { paddingLeft: insets.left, paddingRight: insets.right }]} testID={testID}>
       {scroll ? (
-        <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={[s.content, pad]} keyboardShouldPersistTaps="handled">
           {children}
         </ScrollView>
       ) : (
-        <View style={[s.content, { flex: 1 }]}>{children}</View>
+        <View style={[s.content, pad, { flex: 1 }]}>{children}</View>
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 
