@@ -204,7 +204,10 @@ mod tests {
         let reg = parse_registration(&v["registration"]).unwrap();
         let a = AssertionJson::from_value(&v).unwrap();
         let challenge = webauthn::unb64(v["challenge"].as_str().unwrap()).unwrap();
-        assert_eq!(webauthn::verify_assertion_json(&relying_party(device), &challenge, &reg.credential, &a).unwrap(), 7);
+        assert_eq!(
+            webauthn::verify_assertion_json(&relying_party(device), &challenge, &reg.credential, &a).unwrap(),
+            7
+        );
         let mut raw = a.clone();
         raw.signature = v["signatureRaw"].as_str().unwrap().to_owned();
         assert!(webauthn::verify_assertion_json(&relying_party(device), &challenge, &reg.credential, &raw).is_ok());

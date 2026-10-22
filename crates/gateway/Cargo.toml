@@ -1,6 +1,6 @@
 [package]
 name = "orkestr-gateway"
-description = "Orkestr self-hosted gateway / control plane: accounts (passkey + TOTP), device registry, core enrollment, E2E tunnel relay, sync store, Web Push delivery (Phase 4)."
+description = "Orkestr self-hosted gateway / control plane: accounts (passkey + TOTP), device registry, core enrollment, E2E tunnel relay, sync store, Web Push + native FCM/APNs delivery."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -49,11 +49,16 @@ sha1.workspace = true
 hkdf.workspace = true
 ciborium.workspace = true
 parking_lot.workspace = true
+# FCM HTTP v1 service-account JWT (RS256), Phase 5 / ADR-0037.
+rsa = { version = "0.9", features = ["sha2"] }
 
 [dev-dependencies]
 orkestr-core.workspace = true
 tempfile.workspace = true
 tokio-tungstenite.workspace = true
+aes-gcm.workspace = true
+# h2c mock APNs server in tests.
+axum = { workspace = true, features = ["http2"] }
 
 [lints]
 workspace = true

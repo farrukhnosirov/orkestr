@@ -405,8 +405,9 @@ impl PushService {
         sub.p256dh.clear();
         sub.auth.clear();
         let (t, ep, dev) = (sub.transport, sub.endpoint.clone(), sub.device_id);
-        let same =
-            move |s: &StoredSubscription| s.transport == t && (s.endpoint == ep || (dev.is_some() && s.device_id == dev));
+        let same = move |s: &StoredSubscription| {
+            s.transport == t && (s.endpoint == ep || (dev.is_some() && s.device_id == dev))
+        };
         let mut subs = self.subs.lock();
         if let Some(old) = subs.iter().find(|s| same(s)) {
             sub.id.clone_from(&old.id);
@@ -837,10 +838,10 @@ mod tests {
         assert_eq!(std::str::from_utf8(&pt).unwrap(), v["plaintext"].as_str().unwrap());
         // Wrong AAD fails.
         assert!(cipher
-            .decrypt(Nonce::from_slice(&d(v["body"]["n"].as_str().unwrap())), aes_gcm::aead::Payload {
-                msg: &ct,
-                aad: b"other"
-            })
+            .decrypt(
+                Nonce::from_slice(&d(v["body"]["n"].as_str().unwrap())),
+                aes_gcm::aead::Payload { msg: &ct, aad: b"other" }
+            )
             .is_err());
         // Random nonces differ.
         let a = encrypt_native(&key, b"x").unwrap();

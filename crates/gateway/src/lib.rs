@@ -19,6 +19,7 @@
 pub mod auth;
 pub mod limits;
 pub mod push;
+pub mod push_native;
 pub mod relay;
 pub mod store;
 
@@ -59,6 +60,12 @@ pub struct GatewayConfig {
     pub rp_id: String,
     /// Allowed WebAuthn origins (default `http://localhost:<port>`).
     pub origins: Vec<String>,
+    /// FCM service-account JSON (enables `fcm` native push).
+    pub fcm_service_account: Option<PathBuf>,
+    /// FCM API base.
+    pub fcm_endpoint: String,
+    /// APNs token key + ids (enables `apns` native push).
+    pub apns: Option<push_native::ApnsConfig>,
 }
 
 /// Command-line error.
@@ -72,10 +79,38 @@ pub enum ConfigError {
         "refusing to bind non-loopback address {0} without --behind-tls-proxy (the gateway does not terminate TLS)"
     )]
     NonLoopback(SocketAddr),
+    /// `--help` / `-h`: print [`HELP`] and exit successfully.
+    #[error("{HELP}")]
+    Help,
 }
 
 /// Usage text.
-pub const USAGE: &str = "usage: orkestr-gateway --data-dir <DIR> [--bind <ADDR:PORT>] [--web-dist <DIR>] [--behind-tls-proxy] [--rp-id <ID>] [--origin <URL>]...";
+pub const USAGE: &str = "usage: orkestr-gateway --data-dir <DIR> [--bind <ADDR:PORT>] [--web-dist <DIR>] [--behind-tls-proxy] [--rp-id <ID>] [--origin <URL>]... [--fcm-service-account <FILE>] [--fcm-endpoint <URL>] [--apns-key <FILE> --apns-key-id <ID> --apns-team-id <ID> --apns-topic <BUNDLE>] [--apns-endpoint <URL>] (see --help)";
+
+/// `--help` text.
+pub const HELP: &str =
+    "orkestr-gateway - self-hosted Orkestr gateway (accounts, device registry, E2E relay, sync, push)
+
+usage: orkestr-gateway --data-dir <DIR> [options]
+
+  --data-dir <DIR>               SQLite database, sync store, VAPID key (required)
+  --bind <ADDR:PORT>             listen address (default 127.0.0.1:8787; non-loopback needs --behind-tls-proxy)
+  --web-dist <DIR>               serve the built web client from DIR
+  --behind-tls-proxy             TLS is terminated by a reverse proxy (Secure cookies, X-Forwarded-For)
+  --rp-id <ID>                   WebAuthn relying-party id (default localhost)
+  --origin <URL>                 allowed WebAuthn origin (repeatable; default http://localhost:<port>)
+
+native push (ADR-0037; payloads stay end-to-end encrypted, the visible alert is generic):
+  --fcm-service-account <FILE>   Firebase service-account JSON; enables FCM HTTP v1 delivery
+  --fcm-endpoint <URL>           FCM API base (default https://fcm.googleapis.com; for mocks)
+  --apns-key <FILE>              APNs token-signing key (.p8, PKCS#8 PEM); enables APNs delivery
+  --apns-key-id <ID>             key id (JWT kid)                       [required with --apns-key]
+  --apns-team-id <ID>            Apple team id (JWT iss)                [required with --apns-key]
+  --apns-topic <BUNDLE>          app bundle id (apns-topic)             [required with --apns-key]
+  --apns-endpoint <URL>          APNs API base (default https://api.push.apple.com;
+                                 https://api.sandbox.push.apple.com for development builds;
+                                 http:// = HTTP/2 prior knowledge, for mocks)
+  -h, --help                     print this help";
 
 impl GatewayConfig {
     /// Parses arguments (without the program name).
@@ -89,6 +124,10 @@ impl GatewayConfig {
         let mut behind_tls_proxy = false;
         let mut rp_id = "localhost".to_owned();
         let mut origins = Vec::new();
+        let mut fcm_service_account = None;
+        let mut fcm_endpoint = push_native::DEFAULT_FCM_ENDPOINT.to_owned();
+        let (mut apns_key, mut apns_key_id, mut apns_team_id, mut apns_topic) = (None, None, None, None);
+        let mut apns_endpoint = push_native::DEFAULT_APNS_ENDPOINT.to_owned();
         let mut it = args.into_iter();
         while let Some(arg) = it.next() {
             let mut value =
@@ -100,6 +139,14 @@ impl GatewayConfig {
                 "--behind-tls-proxy" => behind_tls_proxy = true,
                 "--rp-id" => rp_id = value("--rp-id")?,
                 "--origin" => origins.push(value("--origin")?.trim_end_matches('/').to_owned()),
+                "--fcm-service-account" => fcm_service_account = Some(PathBuf::from(value("--fcm-service-account")?)),
+                "--fcm-endpoint" => fcm_endpoint = value("--fcm-endpoint")?,
+                "--apns-key" => apns_key = Some(PathBuf::from(value("--apns-key")?)),
+                "--apns-key-id" => apns_key_id = Some(value("--apns-key-id")?),
+                "--apns-team-id" => apns_team_id = Some(value("--apns-team-id")?),
+                "--apns-topic" => apns_topic = Some(value("--apns-topic")?),
+                "--apns-endpoint" => apns_endpoint = value("--apns-endpoint")?,
+                "-h" | "--help" => return Err(ConfigError::Help),
                 other => return Err(ConfigError::Usage(format!("unknown argument `{other}`\n{USAGE}"))),
             }
         }
@@ -109,7 +156,18 @@ impl GatewayConfig {
         if !bind.ip().is_loopback() && !behind_tls_proxy {
             return Err(ConfigError::NonLoopback(bind));
         }
-        Ok(Self { data_dir, bind, web_dist, behind_tls_proxy, rp_id, origins })
+        let apns = match (apns_key, apns_key_id, apns_team_id, apns_topic) {
+            (None, None, None, None) => None,
+            (Some(key_path), Some(key_id), Some(team_id), Some(topic)) => {
+                Some(push_native::ApnsConfig { key_path, key_id, team_id, topic, endpoint: apns_endpoint })
+            }
+            _ => {
+                return Err(ConfigError::Usage(format!(
+                    "--apns-key, --apns-key-id, --apns-team-id and --apns-topic must be given together\n{USAGE}"
+                )))
+            }
+        };
+        Ok(Self { data_dir, bind, web_dist, behind_tls_proxy, rp_id, origins, fcm_service_account, fcm_endpoint, apns })
     }
 }
 
@@ -215,6 +273,8 @@ pub struct GatewayInner {
     pub lockout: limits::Lockout,
     /// Tunnels.
     pub relay: relay::Relay,
+    /// Native push senders (FCM / APNs).
+    pub native: push_native::NativeSenders,
 }
 
 impl std::ops::Deref for GatewayState {
@@ -237,6 +297,7 @@ impl GatewayState {
     /// Database failure.
     pub fn open(cfg: &GatewayConfig, port: u16, relay: relay::Relay) -> anyhow::Result<Self> {
         let store = Arc::new(store::Store::open(&cfg.data_dir)?);
+        let native = native_senders(cfg)?;
         let origins =
             if cfg.origins.is_empty() { vec![format!("http://localhost:{port}")] } else { cfg.origins.clone() };
         Ok(Self(Arc::new(GatewayInner {
@@ -248,8 +309,27 @@ impl GatewayState {
             windows: limits::Windows::default(),
             lockout: limits::Lockout::default(),
             relay,
+            native,
         })))
     }
+}
+
+/// Loads the configured native push senders (fails fast on bad key files).
+///
+/// # Errors
+/// Unreadable / invalid service account or APNs key.
+pub fn native_senders(cfg: &GatewayConfig) -> anyhow::Result<push_native::NativeSenders> {
+    let fcm = cfg
+        .fcm_service_account
+        .as_deref()
+        .map(|p| push_native::FcmSender::from_file(p, &cfg.fcm_endpoint).map(Arc::new))
+        .transpose()?;
+    let apns = cfg.apns.as_ref().map(|c| push_native::ApnsSender::from_config(c).map(Arc::new)).transpose()?;
+    let senders = push_native::NativeSenders { fcm, apns };
+    if !senders.transports().is_empty() {
+        tracing::info!(transports = ?senders.transports(), "native push enabled");
+    }
+    Ok(senders)
 }
 
 /// VAPID `sub` claim (RFC 8292): contact for push services.
@@ -363,6 +443,47 @@ mod tests {
         assert!(matches!(err, ConfigError::NonLoopback(_)));
         let ok = GatewayConfig::from_args(args(&["--data-dir", "d", "--bind", "0.0.0.0:8787", "--behind-tls-proxy"]));
         assert!(ok.is_ok());
+    }
+
+    #[test]
+    fn native_push_flags() {
+        assert_eq!(GatewayConfig::from_args(args(&["--help"])), Err(ConfigError::Help));
+        for flag in ["--fcm-service-account", "--apns-key", "--apns-endpoint", "--fcm-endpoint"] {
+            assert!(HELP.contains(flag), "{flag} documented");
+        }
+        let cfg = GatewayConfig::from_args(args(&["--data-dir", "d"])).unwrap();
+        assert_eq!(
+            (cfg.fcm_service_account, cfg.apns, cfg.fcm_endpoint.as_str()),
+            (None, None, push_native::DEFAULT_FCM_ENDPOINT)
+        );
+        let cfg = GatewayConfig::from_args(args(&[
+            "--data-dir",
+            "d",
+            "--fcm-service-account",
+            "sa.json",
+            "--fcm-endpoint",
+            "http://127.0.0.1:9",
+            "--apns-key",
+            "k.p8",
+            "--apns-key-id",
+            "K",
+            "--apns-team-id",
+            "T",
+            "--apns-topic",
+            "dev.orkestr.mobile",
+            "--apns-endpoint",
+            "http://127.0.0.1:10",
+        ]))
+        .unwrap();
+        assert_eq!(cfg.fcm_service_account.as_deref(), Some(std::path::Path::new("sa.json")));
+        assert_eq!(cfg.fcm_endpoint, "http://127.0.0.1:9");
+        let apns = cfg.apns.unwrap();
+        assert_eq!(
+            (apns.key_id.as_str(), apns.team_id.as_str(), apns.endpoint.as_str()),
+            ("K", "T", "http://127.0.0.1:10")
+        );
+        let partial = GatewayConfig::from_args(args(&["--data-dir", "d", "--apns-key", "k.p8"]));
+        assert!(matches!(partial, Err(ConfigError::Usage(_))));
     }
 
     #[test]

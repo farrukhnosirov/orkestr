@@ -6,7 +6,7 @@
 use std::time::Duration;
 
 use futures::{SinkExt, StreamExt};
-use orkestr_core::remote::{e2e, pairing};
+use orkestr_core::remote::{e2e, native_stepup, pairing};
 use orkestr_gateway::{relay::Relay, spawn, GatewayConfig};
 use orkestr_security::webauthn::{testing::SoftAuthenticator, RelyingParty};
 use p256::ecdsa::SigningKey;
@@ -136,15 +136,55 @@ impl Device {
 
 // ---------------------------------------------------------------- the scenario
 
+type FcmSeen = std::sync::Arc<parking_lot::Mutex<Vec<Value>>>;
+
+/// Mock FCM: OAuth token endpoint + `messages:send`.
+async fn fcm_mock() -> (String, FcmSeen) {
+    use axum::routing::post;
+    let seen: FcmSeen = FcmSeen::default();
+    let s = std::sync::Arc::clone(&seen);
+    let app = axum::Router::new()
+        .route("/token", post(|| async { axum::Json(json!({"access_token": "at", "expires_in": 3600})) }))
+        .route(
+            "/v1/projects/{pid}/messages:send",
+            post(move |axum::Json(v): axum::Json<Value>| {
+                let s = std::sync::Arc::clone(&s);
+                async move {
+                    s.lock().push(v);
+                    axum::Json(json!({"name": "m"}))
+                }
+            }),
+        );
+    let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = l.local_addr().unwrap();
+    tokio::spawn(async move { axum::serve(l, app).await.unwrap() });
+    (format!("http://{addr}"), seen)
+}
+
+fn service_account(base: &str) -> String {
+    use rsa::pkcs8::{EncodePrivateKey as _, LineEnding};
+    let key = rsa::RsaPrivateKey::new(&mut rand_core06::OsRng, 1024).unwrap();
+    json!({"project_id": "demo", "client_email": "push@demo", "token_uri": format!("{base}/token"),
+        "private_key": key.to_pkcs8_pem(LineEnding::LF).unwrap().to_string()})
+    .to_string()
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 #[allow(clippy::too_many_lines)]
 async fn remote_access_end_to_end() {
     let gw_dir = tempfile::tempdir().unwrap();
+    let (fcm_base, fcm_seen) = fcm_mock().await;
+    let sa_path = gw_dir.path().join("fcm-sa.json");
+    std::fs::write(&sa_path, service_account(&fcm_base)).unwrap();
     let cfg = GatewayConfig::from_args([
         "--data-dir".to_owned(),
         gw_dir.path().display().to_string(),
         "--bind".into(),
         "127.0.0.1:0".into(),
+        "--fcm-service-account".into(),
+        sa_path.display().to_string(),
+        "--fcm-endpoint".into(),
+        fcm_base.clone(),
     ])
     .unwrap();
     let gw = spawn(cfg, Relay::with_capture()).await.unwrap();
@@ -286,6 +326,41 @@ async fn remote_access_end_to_end() {
     let subs_file = core_dir.path().join("push").join("subscriptions.json");
     assert!(std::fs::read_to_string(&subs_file).unwrap().contains(endpoint));
 
+    // 4c. Native push (ADR-0037): FCM registration over E2E, `push.test`
+    // reaches the mock FCM with a generic alert and an AES-256-GCM payload.
+    let push_key = [42u8; 32];
+    let r = dev
+        .call(
+            "push.registerNative",
+            json!({"transport": "fcm", "token": "fcm-tok-1", "key": e2e::b64(&push_key), "lockScreen": "generic"}),
+        )
+        .await;
+    assert_eq!(r["result"]["deliverable"], true, "{r}");
+    let r = dev.call("push.test", json!({})).await;
+    assert!(r["result"]["sent"].as_u64().unwrap() >= 1, "{r}");
+    let mut fcm_msg = None;
+    for _ in 0..100 {
+        if let Some(m) = fcm_seen.lock().iter().find(|m| m["message"]["token"] == "fcm-tok-1") {
+            fcm_msg = Some(m.clone());
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    let m = fcm_msg.expect("FCM mock received the push");
+    assert_eq!(m["message"]["notification"]["body"], "Action needed");
+    assert_eq!(m["message"]["data"]["k"], "test");
+    let p: Value = serde_json::from_str(m["message"]["data"]["p"].as_str().unwrap()).unwrap();
+    let plain = {
+        use aes_gcm::aead::{Aead, KeyInit, Payload};
+        let c = aes_gcm::Aes256Gcm::new_from_slice(&push_key).unwrap();
+        let n = e2e::unb64(p["n"].as_str().unwrap()).unwrap();
+        let ct = e2e::unb64(p["c"].as_str().unwrap()).unwrap();
+        c.decrypt(aes_gcm::Nonce::from_slice(&n), Payload { msg: &ct, aad: b"orkestr-push-v1" }).unwrap()
+    };
+    let plain: Value = serde_json::from_slice(&plain).unwrap();
+    assert_eq!(plain["category"], "test");
+    assert_eq!(plain["body"], "Test notification");
+
     // 5. Policy: local-only and admin-only are forbidden for an operator.
     for m in ["remote.enable", "devices.startPairing", "secrets.list"] {
         let r = dev.call(m, json!({})).await;
@@ -311,6 +386,25 @@ async fn remote_access_end_to_end() {
     assert_ne!(r["error"]["code"], "forbidden", "step-up accepted, handler ran: {r}");
     let r = dev.call("vcs.discard", with).await;
     assert_eq!(r["error"]["code"], "forbidden", "replayed assertion rejected: {r}");
+
+    // 6b. Native biometric step-up credential (ADR-0038) replaces it.
+    let native_key = SigningKey::random(&mut rand_core06::OsRng);
+    let reg = json!({"type": "orkestr-native-v1", "credentialId": "bmF0aXZl",
+        "publicKey": e2e::b64(native_key.verifying_key().to_encoded_point(false).as_bytes()), "keyStorage": "software"});
+    let r = dev.call("devices.registerStepUp", json!({"credential": reg})).await;
+    assert_eq!(r["ok"], true, "{r}");
+    let devs = local.ok("devices.list", json!({})).await;
+    assert_eq!(devs["devices"][0]["stepUpKind"], "native", "{devs}");
+    let dev_id = orkestr_domain::DeviceId::parse(&device_id).unwrap();
+    for (counter, accepted) in [(1u32, true), (1, false)] {
+        let r = dev.call("vcs.discard", params.clone()).await;
+        let challenge = e2e::unb64(r["error"]["data"]["challenge"].as_str().unwrap()).unwrap();
+        let a = native_stepup::build_assertion(&native_key, dev_id, b"native", &challenge, counter);
+        let mut with = params.clone();
+        with["stepUp"] = serde_json::to_value(&a).unwrap();
+        let r = dev.call("vcs.discard", with).await;
+        assert_eq!(r["error"]["code"] != "forbidden", accepted, "native step-up counter {counter}: {r}");
+    }
 
     // 7. Rate limit (Read: 50 burst).
     let mut limited = false;

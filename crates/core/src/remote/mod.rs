@@ -692,8 +692,7 @@ impl RemoteService {
             let details = serde_json::json!({ "kind": "native", "keyStorage": reg.key_storage });
             (reg.credential, StepUpKind::Native, details)
         } else {
-            let rp =
-                self.state.lock().rp.clone().ok_or_else(|| RpcError::conflict("gateway relying party unknown"))?;
+            let rp = self.state.lock().rp.clone().ok_or_else(|| RpcError::conflict("gateway relying party unknown"))?;
             let reg: RegistrationJson = serde_json::from_value(credential.clone())
                 .map_err(|e| RpcError::bad_request(format!("credential: {e}")))?;
             let cd =
