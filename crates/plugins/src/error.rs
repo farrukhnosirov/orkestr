@@ -60,6 +60,12 @@ impl From<PluginError> for RpcError {
             PluginError::Denied(m) => RpcError::forbidden(m),
             PluginError::Conflict(m) => RpcError::conflict(m),
             PluginError::Unimplemented(f) => RpcError::unimplemented_feature(f),
+            e @ (PluginError::Package(_) | PluginError::Signature(_) | PluginError::Abi(_) | PluginError::Trap(_)) => {
+                RpcError::bad_request(e.to_string())
+            }
+            e @ (PluginError::Killed | PluginError::SafeMode | PluginError::Cancelled) => {
+                RpcError::conflict(e.to_string())
+            }
             other => RpcError::internal(other.to_string()),
         }
     }

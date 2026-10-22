@@ -38,7 +38,11 @@ use crate::deps::RuntimeDeps;
 use crate::handoff::{self, HandoffInput, Progress};
 use crate::state::check_transition;
 use crate::store::AgentStore;
+use crate::tools::external::{ExternalToolDecl, ToolCallCtx, EXTERNAL_TOOL_PREFIX};
 use crate::tools::{self, descriptor, one_line, truncate_middle, ToolClass, ToolEnv, ToolOutput};
+
+/// Outer wall-clock cap of one plugin tool call (the plugin host enforces the plugin's own limits).
+const EXTERNAL_TOOL_TIMEOUT: Duration = Duration::from_secs(120);
 
 /// Why a run was asked to stop (absent ⇒ emergency stop).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -811,11 +815,88 @@ impl Run {
     // ------------------------------------------------------------------
 
     fn tool_specs(&self) -> Vec<ToolSpec> {
-        self.tools
+        let mut specs: Vec<ToolSpec> = self
+            .tools
             .iter()
             .filter_map(|n| descriptor(n))
             .map(|d| ToolSpec { name: d.name.into(), description: d.description.into(), parameters: d.input_schema })
-            .collect()
+            .collect();
+        // Plugin tools (Phase 7, ADR-0034): enabled `Tool` plugins of this project.
+        for d in self.external_tools() {
+            if !specs.iter().any(|s| s.name == d.name) {
+                specs.push(ToolSpec { name: d.name, description: d.description, parameters: d.input_schema });
+            }
+        }
+        specs
+    }
+
+    /// External (plugin) tools currently offered to this agent.
+    fn external_tools(&self) -> Vec<ExternalToolDecl> {
+        self.deps.config.external_tools.get().map(|e| e.list(&self.agent.project_id)).unwrap_or_default()
+    }
+
+    /// Executes an external (plugin) tool call: schema validation, the agent's
+    /// own permission check for the declared capability, then the plugin host
+    /// (which enforces the plugin's grants).
+    async fn execute_external(
+        &mut self,
+        decl: ExternalToolDecl,
+        args: &Value,
+        mut call: ToolCall,
+        started: Instant,
+    ) -> ToolExec {
+        let name = decl.name.clone();
+        if let Some(cap) = decl.capability {
+            call.capability = cap;
+        }
+        if let Err(e) = tools::schema::validate(&decl.input_schema, args) {
+            let msg = format!("invalid arguments: {e}");
+            self.finish_call(&mut call, ToolCallStatus::Failed, &msg, Some(&msg), started).await;
+            return ToolExec::Result { content: msg, is_error: true };
+        }
+        if let Some(cap) = decl.capability {
+            let resource = orkestr_security::Resource::Other { value: name.clone() };
+            if let Some(exec) = self.authorize(cap, &resource, &name, &mut call, started).await {
+                return exec;
+            }
+        }
+        let Some(ext) = self.deps.config.external_tools.get() else {
+            let msg = format!("tool `{name}` is no longer available");
+            self.finish_call(&mut call, ToolCallStatus::Failed, &msg, Some(&msg), started).await;
+            return ToolExec::Result { content: msg, is_error: true };
+        };
+        self.class_state(ToolClass::Inspect, &name).await;
+        let cancel = self.control.cancel.child_token();
+        let ctx = ToolCallCtx {
+            project_id: self.agent.project_id,
+            agent_id: self.agent.id,
+            task_id: Some(self.task.id),
+            cancel: cancel.clone(),
+        };
+        let result = tokio::select! {
+            r = ext.call(&name, args.clone(), ctx) => Some(r),
+            () = self.control.cancel.cancelled() => None,
+            () = tokio::time::sleep(EXTERNAL_TOOL_TIMEOUT) => Some(Err(format!("tool timed out after {}s", EXTERNAL_TOOL_TIMEOUT.as_secs()))),
+        };
+        cancel.cancel();
+        let exec = match result {
+            None => {
+                self.finish_call(&mut call, ToolCallStatus::Cancelled, "cancelled", None, started).await;
+                return ToolExec::Cancelled;
+            }
+            Some(Ok(v)) => {
+                let content = serde_json::to_string_pretty(&v).unwrap_or_else(|_| v.to_string());
+                let summary = format!("{name}: {}", one_line(&content, 120));
+                self.finish_call(&mut call, ToolCallStatus::Succeeded, &summary, Some(&content), started).await;
+                ToolExec::Result { content: self.result_text(&content), is_error: false }
+            }
+            Some(Err(e)) => {
+                self.finish_call(&mut call, ToolCallStatus::Failed, &e, Some(&e), started).await;
+                ToolExec::Result { content: format!("error: {e}"), is_error: true }
+            }
+        };
+        self.set_state(AgentState::Thinking, None).await;
+        exec
     }
 
     #[allow(clippy::too_many_lines)]
@@ -1180,6 +1261,71 @@ impl Run {
         }
     }
 
+    /// Agent permission check of one tool call (Allow / Deny / Ask with
+    /// approval). `Some` = stop with this result; `None` = proceed.
+    async fn authorize(
+        &mut self,
+        cap: Capability,
+        resource: &orkestr_security::Resource,
+        name: &str,
+        call: &mut ToolCall,
+        started: Instant,
+    ) -> Option<ToolExec> {
+        let decision = self.deps.security.engine.check(&Actor::Agent(self.agent.id), cap, resource, &self.check_ctx());
+        match decision {
+            Decision::Allow => {}
+            Decision::Deny(r) => {
+                let msg = format!("denied: {}", r.message);
+                self.finish_call(call, ToolCallStatus::Denied, &msg, Some(&msg), started).await;
+                self.progress.lock().step(format!("{name} denied"));
+                return Some(ToolExec::Result { content: msg, is_error: true });
+            }
+            Decision::Ask(r) => {
+                let mut req = ApprovalRequest::new(
+                    cap,
+                    format!("{} wants to {name} {}", self.agent.name, one_line(&resource.summary(), 120)),
+                    r.message.clone(),
+                    r.risk,
+                );
+                req.project_id = Some(self.agent.project_id);
+                req.task_id = Some(self.task.id);
+                req.agent_id = Some(self.agent.id);
+                req.tool_call_id = Some(call.id);
+                req.command_preview = Some(truncate_middle(&call.input.to_string(), 4_000));
+                req.danger = r.danger;
+                let approval = match self.deps.security.approvals.request(req).await {
+                    Ok(a) => a,
+                    Err(e) => {
+                        let msg = format!("approval could not be requested: {e}");
+                        self.finish_call(call, ToolCallStatus::Denied, &msg, Some(&msg), started).await;
+                        return Some(ToolExec::Result { content: msg, is_error: true });
+                    }
+                };
+                match self.await_approval(approval.id, call, format!("Waiting for approval: {name}")).await {
+                    ApprovalOutcome::Approved(_) => {}
+                    ApprovalOutcome::Cancelled => {
+                        self.finish_call(call, ToolCallStatus::Cancelled, "cancelled", None, started).await;
+                        return Some(ToolExec::Cancelled);
+                    }
+                    ApprovalOutcome::Rejected(note) => {
+                        let msg = format!(
+                            "the user rejected this action{}",
+                            note.map(|n| format!(": {n}")).unwrap_or_default()
+                        );
+                        self.finish_call(call, ToolCallStatus::Denied, &msg, Some(&msg), started).await;
+                        return Some(ToolExec::Result { content: msg, is_error: true });
+                    }
+                    ApprovalOutcome::Expired => {
+                        let msg = "the approval expired without a decision".to_owned();
+                        self.finish_call(call, ToolCallStatus::Denied, &msg, Some(&msg), started).await;
+                        return Some(ToolExec::Result { content: msg, is_error: true });
+                    }
+                }
+            }
+        }
+        None
+    }
+
     /// Executes one model tool call (validation → permission → execution).
     #[allow(clippy::too_many_lines)]
     async fn execute_call(&mut self, part: &ToolCallPart, id: ToolCallId) -> ToolExec {
@@ -1205,6 +1351,11 @@ impl Run {
         }
         self.publish(EventKind::ToolCallStarted(ToolCallStartedPayload { tool_call: call.clone() })).await;
 
+        if desc.is_none() && name.starts_with(EXTERNAL_TOOL_PREFIX) {
+            if let Some(decl) = self.external_tools().into_iter().find(|d| d.name == name) {
+                return self.execute_external(decl, &part.arguments, call, started).await;
+            }
+        }
         let Some(desc) = desc.filter(|_| self.tools.iter().any(|t| t == name)) else {
             let msg = format!("tool `{name}` is not available to this agent. Available: {}", self.tools.join(", "));
             self.finish_call(&mut call, ToolCallStatus::Denied, &msg, Some(&msg), started).await;
@@ -1245,60 +1396,8 @@ impl Run {
             }
             Ok(None) => {}
             Ok(Some((cap, resource))) => {
-                let decision =
-                    self.deps.security.engine.check(&Actor::Agent(self.agent.id), cap, &resource, &self.check_ctx());
-                match decision {
-                    Decision::Allow => {}
-                    Decision::Deny(r) => {
-                        let msg = format!("denied: {}", r.message);
-                        self.finish_call(&mut call, ToolCallStatus::Denied, &msg, Some(&msg), started).await;
-                        self.progress.lock().step(format!("{name} denied"));
-                        return ToolExec::Result { content: msg, is_error: true };
-                    }
-                    Decision::Ask(r) => {
-                        let mut req = ApprovalRequest::new(
-                            cap,
-                            format!("{} wants to {name} {}", self.agent.name, one_line(&resource.summary(), 120)),
-                            r.message.clone(),
-                            r.risk,
-                        );
-                        req.project_id = Some(self.agent.project_id);
-                        req.task_id = Some(self.task.id);
-                        req.agent_id = Some(self.agent.id);
-                        req.tool_call_id = Some(call.id);
-                        req.command_preview = Some(truncate_middle(&call.input.to_string(), 4_000));
-                        req.danger = r.danger;
-                        let approval = match self.deps.security.approvals.request(req).await {
-                            Ok(a) => a,
-                            Err(e) => {
-                                let msg = format!("approval could not be requested: {e}");
-                                self.finish_call(&mut call, ToolCallStatus::Denied, &msg, Some(&msg), started).await;
-                                return ToolExec::Result { content: msg, is_error: true };
-                            }
-                        };
-                        match self.await_approval(approval.id, &mut call, format!("Waiting for approval: {name}")).await
-                        {
-                            ApprovalOutcome::Approved(_) => {}
-                            ApprovalOutcome::Cancelled => {
-                                self.finish_call(&mut call, ToolCallStatus::Cancelled, "cancelled", None, started)
-                                    .await;
-                                return ToolExec::Cancelled;
-                            }
-                            ApprovalOutcome::Rejected(note) => {
-                                let msg = format!(
-                                    "the user rejected this action{}",
-                                    note.map(|n| format!(": {n}")).unwrap_or_default()
-                                );
-                                self.finish_call(&mut call, ToolCallStatus::Denied, &msg, Some(&msg), started).await;
-                                return ToolExec::Result { content: msg, is_error: true };
-                            }
-                            ApprovalOutcome::Expired => {
-                                let msg = "the approval expired without a decision".to_owned();
-                                self.finish_call(&mut call, ToolCallStatus::Denied, &msg, Some(&msg), started).await;
-                                return ToolExec::Result { content: msg, is_error: true };
-                            }
-                        }
-                    }
+                if let Some(exec) = self.authorize(cap, &resource, name, &mut call, started).await {
+                    return exec;
                 }
             }
         }
