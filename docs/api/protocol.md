@@ -575,7 +575,7 @@ Behaviour:
 
 ---
 
-## 8. Method catalogue (Phases 1–3)
+## 8. Method catalogue (Phases 1–7)
 
 Columns: **Ph** = phase the method ships in. **Pol** = policy (§5.2, planned).
 **Emits** = durable events (event-model §7). Shapes are TypeScript sketches of
@@ -1512,6 +1512,54 @@ reserved lists are placeholders and carry no wire contract yet).
 | `settings.get`, `settings.update` | same | — |
 | `ui.getConfig` | same | — |
 | `ui.setConfig` | `ui.applyPatch` | keep both: `ui.setConfig` replaces the whole validated config of one scope, `ui.applyPatch` applies an RFC 6902 patch (both listed in §8.23) |
+
+### 8.28 Phase 7 (Ecosystem): `plugins`, `marketplace`, `dashboards`, `widgets`, `environments`, `deploy`, `monitor`, `detective`
+
+Types are in `orkestr_protocol::methods::{plugins, marketplace, dashboards,
+widgets, deploy, monitor, detective}`. Policy: R = Read class, W = default
+write, L = `local_only` (refused for remote callers), E = emergency class
+(always allowed, rate-exempt), D = dangerous (Dangerous Action Guard /
+approval), X = expensive, A⇧ = admin + step-up for remote callers. Deferred
+features answer `unimplementedFeature` (RR-G14).
+
+| Method | Pol | Notes / emits |
+|---|---|---|
+| `plugins.list` / `plugins.get` / `plugins.logs` | R | `PluginInfo` (state, grants, trap count); host-call log lines |
+| `plugins.install` | L | `.orkp` (base64 or path) → `{plugin, pendingGrants}`; `PluginInstalled` (ADR-0034) |
+| `plugins.grant` | L | decisions for pending requests → permission rules `plugin:<id>/<scope>` |
+| `plugins.enable` / `plugins.setSafeMode` | L | `PluginStateChanged` |
+| `plugins.disable` / `plugins.killAll` | E | `PluginStateChanged{reason}`; killAll interrupts in-flight calls |
+| `plugins.uninstall` | W | removes the package and its grants |
+| `plugins.invoke` | X | call a plugin tool directly; denials → `PluginCallDenied` |
+| `marketplace.sources` / `keys` / `installed` / `search` / `get` | R | `search` by text, kind, tags |
+| `marketplace.addSource` / `removeSource` | L | `Official` / `Directory` / `Http` (optional token → vault); registry key pinned on add |
+| `marketplace.refresh` | W | `MarketplaceUpdated`; a bad index sets the source's `lastError` |
+| `marketplace.install` / `uninstall` | L | plugins → `pendingGrants`; templates → `templates.import` (ADR-0040) |
+| `marketplace.trustKey` / `untrustKey` | L | publisher key trust (TOFU) |
+| `marketplace.publish` | L | `{path, kind, sourceId, publisher?}`; vault publisher key |
+| `dashboards.list` / `dashboards.get` | R | global and per-project |
+| `dashboards.save` / `dashboards.delete` | W | `expectedVersion` conflict; layout + config validated; `DashboardChanged` |
+| `widgets.list` | R | 13 built-ins + enabled plugin widgets with valid bindings |
+| `widgets.bundle` | R | `{widgetId, html, csp, sha256}` (≤ 512 KB) |
+| `environments.list` | R | `EnvironmentRecord {environment, target, adapterSettings, …}` |
+| `environments.create` | W | — |
+| `environments.update` / `environments.delete` | A⇧ | — |
+| `deploy.adapters` / `deploy.plan` | R | availability (`Ready` / `NeedsCredential` / `Unavailable`), redacted request previews |
+| `deploy.start` / `deploy.rollback` | D | protected env → `AwaitingApproval` + `ApprovalRequested`; `DeploymentStarted`, `DeploymentProgress` (ephemeral), `DeploymentFinished` (ADR-0041) |
+| `deploy.cancel` | E | — |
+| `deploy.list` / `deploy.get` / `deploy.logs` | R | logs paged by offset, redacted |
+| `monitor.overview` / `monitor.metrics` / `monitor.checksList` / `monitor.logSources` / `monitor.logs` / `monitor.alerts` | R | `metrics {node?, metrics, since, resolutionSecs?}`; checks with `history` |
+| `monitor.checkUpsert` / `monitor.checkDelete` / `monitor.ackAlert` | W | `HealthCheckChanged`, `AlertRaised`, `AlertResolved` (ADR-0042) |
+| `monitor.checkRun` | X | run a check now |
+| `monitor.ingest` | W (Write rate class; local or token) | push log lines (`attrs` redacted) |
+| `detective.list` / `detective.get` | R | `Incident` with stage, evidence, hypothesis, fix branch, spend |
+| `detective.open` | X | from `alertId` / log line / test run / manual; budget USD `(0, 1000]`; `IncidentOpened` |
+| `detective.approveFix` | X | gate 1 (also answerable in Approvals); `IncidentStageChanged` |
+| `detective.approveMerge` | D | gate 2: merge `detective/<id>` |
+| `detective.cancel` | E | any stage |
+
+Emergency Stop All also kills plugins, cancels deployments and cancels
+detective runs.
 
 ---
 

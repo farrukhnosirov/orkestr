@@ -6,7 +6,12 @@ specialised agents, models, tools and compute nodes. The product spec is in
 [`docs/spec/MASTER_SPEC.md`](docs/spec/MASTER_SPEC.md). The rules every
 contributor follows are in [`docs/ENGINEERING_CONTRACT.md`](docs/ENGINEERING_CONTRACT.md).
 
-> Status: **Phases 0–6 complete on Windows** (Phase 5 for Android). Phase 6
+> Status: **Phases 0–7 complete on Windows** (Phase 5 for Android). Phase 7
+> (Ecosystem: signed plugins in a wasmtime sandbox, marketplace registries,
+> widgets and dashboards, deployments, infrastructure monitor, Bug Detective)
+> passed its acceptance run <!-- P7-ACCEPTANCE -->TBD<!-- /P7-ACCEPTANCE --> —
+> see [Ecosystem](#ecosystem-phase-7). Cloud deploy adapters (Vercel, Netlify,
+> Fly, Kubernetes) are verified against a fake API only. Phase 6
 > (Multi-node: worker enrollment with SAS, scheduler, cross-node jobs with
 > leases / checkpoints / migration, model distribution, Nodes panel) passed
 > its acceptance run 47/47 on 2026-10-22 with simulated macOS / GPU workers —
@@ -74,6 +79,16 @@ contributor follows are in [`docs/ENGINEERING_CONTRACT.md`](docs/ENGINEERING_CON
 - A sound engine.
 - Four performance modes, from Ultra Visual to Battery Saver.
 - **AI-editable UI**: the Manager proposes a theme or layout patch, and you preview it, keep it or undo it.
+
+**Phase 4–6: remote, mobile, multi-node** — see the sections below.
+
+**Phase 7: ecosystem**
+- **Plugins**: signed `.orkp` packages, a WebAssembly sandbox (wasmtime) with fuel, time and memory limits, permission prompts, a kill switch and safe mode; plugin tools are available to agents.
+- **Marketplace**: the official catalogue, folders and your own gateway as registries, with publisher keys you trust explicitly and revocation.
+- **Widgets and dashboards**: sandboxed widgets (no network) on per-project and global dashboards.
+- **Deployments**: environments, static sites and local processes (Docker when installed), Vercel / Netlify / Fly / Kubernetes adapters, approvals for production, logs and rollback.
+- **Infrastructure monitor**: node metrics, health checks, logs and alerts.
+- **Bug Detective**: from an alert to a tested, reviewed fix on its own branch, with two approvals and a budget.
 
 **Not built yet:**
 - the MCP Hub, the Environment Manager, the Monaco LSP bridge and the hand-off to `orkestrd` (M2.7);
@@ -507,6 +522,153 @@ deferred features) and writes `acceptance.json`. Ports: `ORKESTR_GW_PORT`
 list are in
 [`docs/roadmap/feature-traceability.md`](docs/roadmap/feature-traceability.md).
 
+## Ecosystem (Phase 7)
+
+Plugins, a marketplace, widgets and dashboards, deployments, an
+infrastructure monitor and the Bug Detective. Design and deviations:
+ADR-0034 (plugin and widget sandbox), ADR-0040 (marketplace), ADR-0041
+(deployments) and ADR-0042 (monitor and Bug Detective) in
+[`docs/adr/`](docs/adr/).
+
+### Install a plugin
+
+Open **Marketplace** → *Browse*, pick a plugin and click *Install*. Orkestr
+checks the signature, then shows what the plugin asks for (network hosts,
+secrets, read access). Nothing runs until you have decided every request and
+the plugin is enabled (*Save and enable*). *Installed* lists what you
+installed and uninstalls it. **Emergency Stop** kills every plugin at once
+(also `plugins.killAll`); `plugins.disable` stops one; **safe mode**
+(`plugins.setSafeMode`, persisted) starts Orkestr without loading any plugin
+code. These three have no buttons yet.
+
+Plugins are WebAssembly modules with limits on CPU (fuel), time (5 s per call
+by default) and memory (64 MB). A plugin that crashes three times in a row is
+quarantined. Agents see plugin tools as `plugin_<package>__<tool>`; both the
+agent's permissions and the plugin's grants apply.
+
+Only signed packages from trusted publisher keys install. To trust keys at
+startup, set `ORKESTR_PLUGINS_TRUSTED_KEYS` (comma-separated base64 public
+keys). For plugin development only, `ORKESTR_PLUGINS_DEV=1` also accepts
+unsigned or untrusted packages (a tampered package is always refused).
+
+### Build a plugin (Rust SDK)
+
+```powershell
+rustup target add wasm32-unknown-unknown
+cd examples\plugins\hello-tool
+cargo build --release --target wasm32-unknown-unknown
+```
+
+The plugin implements one function with the `orkestr_plugin!` macro from
+`crates/plugin-sdk` and calls the host through `host::*` (log, HTTP fetch to
+granted hosts, KV, read-only RPC, granted secrets). Copy
+`target\wasm32-unknown-unknown\release\hello_tool.wasm` as `plugin.wasm` next
+to `orkestr-plugin.json` and pack and sign it with
+`orkestr_plugins::package::build` — there is no packaging CLI yet;
+`crates/plugins/examples/make-fixtures.rs` shows the calls. The fixtures used
+by the tests and the acceptance script:
+
+```powershell
+cargo run -p orkestr-plugins --example make-fixtures -- $env:TEMP\orkestr-fixtures
+# hello-tool.orkp, hello-widget.orkp, evil-*.orkp, dev-publisher.pub, fixtures.json
+$env:ORKESTR_PLUGINS_TRUSTED_KEYS = Get-Content -Raw $env:TEMP\orkestr-fixtures\dev-publisher.pub
+.\target\debug\orkestrd.exe
+```
+
+### Marketplace sources
+
+**Marketplace** → *Sources*:
+
+- **Official** — the catalogue bundled with Orkestr, verified with a key
+  built into the app.
+- **Folder** — a local directory with `index.json` + `index.sig`.
+- **Gateway registry** — your `orkestr-gateway` serves a registry at
+  `http(s)://<gateway>/registry` (data in `<gateway data dir>/registry`).
+  Add it with the gateway URL and a token.
+
+The first time you add a folder or gateway, Orkestr pins its registry key;
+a later index signed by another key is refused. Publisher keys show a
+fingerprint in *Keys*: an unknown publisher must be trusted before its
+packages install, and an update signed by a different key than the installed
+version is refused. Revoked packages and keys cannot be installed.
+
+**Publishing** (RPC only, no button yet): `marketplace.publish` signs a `.orkp`
+or an agent template JSON with your publisher key — created on the first
+publish, kept in the vault as `MARKETPLACE_PUBLISHER_KEY` and shown in
+*Keys* — and adds it to
+a folder registry or uploads it to a gateway registry. On the gateway,
+`POST /registry/revoke` with `{id, version?}` or `{keyId}` revokes a package
+or a whole key.
+
+### Widgets and dashboards
+
+**Dashboards** holds global dashboards and one set per project. Click
+*Edit*, add widgets from the palette (13 built-in tiles plus widgets from
+enabled plugins), drag and resize them on the 12-column grid and fill in
+their settings. Plugin widgets run in a sandboxed frame without network
+access; they can only read the data their manifest declares (read-only
+methods and events). Writing a widget: `packages/widget-sdk/README.md`.
+
+### Deployments
+
+**Deployments** → *Environments*: create an environment (Dev, Test, Staging
+or Production) and choose a target:
+
+| Target | What it does | Needs |
+|---|---|---|
+| Static site | Publishes a build folder and serves it on a local port | — |
+| Local process | Starts a command and waits for a health URL | the command (e.g. `node`) |
+| Docker | Builds and runs a container | `docker` on PATH, otherwise shown as unavailable |
+| Vercel / Netlify / Fly / Kubernetes | Calls the provider API | a token in the vault |
+
+Tokens live only in the vault (Settings → Secrets) under `VERCEL_TOKEN`,
+`NETLIFY_AUTH_TOKEN`, `FLY_API_TOKEN` or `KUBE_TOKEN`; the adapter shows
+*Needs credential* until it is there, and tokens never appear in logs.
+*Plan* previews what will be sent. Production deploys and rollbacks wait for
+your approval (Approvals inbox). Each deployment has a live log and a
+history; *Rollback* returns to the previous successful version.
+
+The cloud adapters were verified against a fake API
+(`scripts/smoke/fixtures/fake-cloud-api.mjs`), not against real accounts.
+To point them at another endpoint, set `ORKESTR_VERCEL_API`,
+`ORKESTR_NETLIFY_API`, `ORKESTR_FLY_API` or `ORKESTR_KUBERNETES_API`. Deploy
+commands do not run in a container sandbox.
+
+### Infrastructure monitor
+
+**Monitoring** → *Infrastructure* shows CPU, memory and disk for this
+computer and enrolled nodes, health checks (HTTP or TCP; add them here),
+alerts (acknowledge them) and live logs from files, deployments and
+`monitor.ingest`. Logs are kept in memory only (10 000 lines per source) and
+secrets are masked. Default alerts: a check is down, CPU / memory / disk
+above 95 %, a burst of errors in the logs.
+
+### Bug Detective
+
+**Bug Detective** → *Report a bug* (or *Investigate* on an open alert) starts an
+incident with a budget (2 USD by default). The detective collects evidence
+(logs, metrics, deployments, recent commits and diff, failing tests, code at
+the stack-trace lines), asks the model for a root-cause hypothesis and runs
+the reproduction. Then it waits for **your first approval** before an agent
+writes a fix on branch `detective/<id>` in its own worktree; tests and a
+review follow. Nothing is merged until **your second approval**. You can
+cancel at any stage.
+
+### Phase 7 acceptance
+
+```powershell
+cargo build -p orkestr-core -p orkestr-gateway --bins
+node scripts/smoke/phase7-acceptance.mjs [--out <dir>] [--only E2,E5]
+```
+
+It starts a temp core, a gateway with a registry, the Mock provider, a
+fixture project and the fake cloud API, runs checks E1–E9 (plugins,
+marketplace, widgets and dashboards, deployments, monitor, Bug Detective,
+security, deferred features) and writes `acceptance.json`. Results and the
+deferred list are in
+[`docs/roadmap/feature-traceability.md`](docs/roadmap/feature-traceability.md)
+→ "Phase 7 acceptance check".
+
 ## Troubleshooting
 
 - **`npm run tauri dev` fails because port 1420 is unavailable.** Windows may
@@ -539,8 +701,12 @@ list are in
 | `crates/quality` | Quality runner: build/test/lint detection, execution and output parsers. |
 | `crates/insight` | Architecture map and Execution Replay. |
 | `crates/sync` | `SyncBackend` seam; Local-only until Phase 4. |
+| `crates/{plugins,plugin-sdk}` | Plugin host (signed `.orkp`, trust store, wasmtime sandbox, host API, grants) and the Rust guest SDK. |
+| `crates/marketplace` | Signed registries (official / folder / HTTP), key trust, install, publish. |
+| `crates/{deploy,monitor,detective}` | Environments + deploy adapters; metrics, checks, logs, alerts; Bug Detective. |
 | `packages/protocol` | `@orkestr/protocol`: generated TS types and helpers. |
 | `packages/client` | `@orkestr/client`: typed WebSocket client with reconnect and replay. |
+| `packages/widget-sdk` | `@orkestr/widget-sdk`: postMessage bridge for sandboxed dashboard widgets. |
 | `packages/ui` | `@orkestr/ui`: `--ok-*` tokens, theme engine, primitives. |
 | `apps/mobile` | Expo / React Native Android app (standalone npm project, not in the root workspaces). |
 | `apps/desktop` | Tauri 2 shell (windows, tray, robots, HUD) and the React UI (panels, features, i18n en/ru). |

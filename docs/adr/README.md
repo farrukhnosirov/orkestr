@@ -46,10 +46,10 @@ summarises them: **Built** = implemented as decided (with listed deviations),
 | [0032](0032-mobile-stack.md) | Mobile stack: Expo/React Native, pure-JS crypto provider, key storage, voice | Accepted | 5 | — | — | Implemented (Phase 5; see the ADR's "as built" notes) |
 | [0037](0037-native-push.md) | Native push: FCM HTTP v1 and APNs with E2E-encrypted payloads | Accepted | 5 | — | R-08 | Implemented (Phase 5; see the ADR's "as built" notes) |
 | [0038](0038-native-biometric-step-up.md) | Native biometric step-up credential (`orkestr-native-v1`) | Accepted | 5 | — | R-08 | Implemented (Phase 5; see the ADR's "as built" notes) |
-| [0034](0034-plugin-and-widget-sandbox.md) | Plugin & widget sandbox: signed `.orkp`, wasmtime ABI v1 (fuel, epoch, memory caps), grants, kill switch, safe mode; widget iframe + CSP | Accepted | 7 | — | — | In progress (Phase 7) |
-| [0040](0040-marketplace-registry-and-package-signing.md) | Marketplace: static signed registries (official / directory / gateway HTTP), publisher key TOFU + pinning + revocation | Accepted | 7 | — | — | In progress (Phase 7) |
-| [0041](0041-environments-and-deployment-adapters.md) | Environments and `DeployAdapter`s: local targets live, cloud adapters request-shape verified, guarded production deploys | Accepted | 7 | — | — | In progress (Phase 7) |
-| [0042](0042-infrastructure-monitor-and-bug-detective.md) | Infrastructure monitor (metrics, checks, logs, alerts) and the Bug Detective workflow with two human gates | Accepted | 7 | — | — | In progress (Phase 7) |
+| [0034](0034-plugin-and-widget-sandbox.md) | Plugin & widget sandbox: signed `.orkp`, wasmtime ABI v1 (fuel, epoch, memory caps), grants, kill switch, safe mode; widget iframe + CSP | Accepted | 7 | — | — | Implemented (Phase 7; see the ADR's "as built" notes) |
+| [0040](0040-marketplace-registry-and-package-signing.md) | Marketplace: static signed registries (official / directory / gateway HTTP), publisher key TOFU + pinning + revocation | Accepted | 7 | — | — | Implemented (Phase 7; see the ADR's "as built" notes) |
+| [0041](0041-environments-and-deployment-adapters.md) | Environments and `DeployAdapter`s: local targets live, cloud adapters request-shape verified, guarded production deploys | Accepted | 7 | — | — | Implemented (Phase 7; see the ADR's "as built" notes) |
+| [0042](0042-infrastructure-monitor-and-bug-detective.md) | Infrastructure monitor (metrics, checks, logs, alerts) and the Bug Detective workflow with two human gates | Accepted | 7 | — | — | Implemented (Phase 7; see the ADR's "as built" notes) |
 
 ## Planned ADRs (to be written when their phase starts)
 
@@ -68,11 +68,11 @@ summarises them: **Built** = implemented as decided (with listed deviations),
 | [ADR-0032](0032-mobile-stack.md) | Mobile stack (React Native) & push (§2, §37) — written, Accepted (push split into ADR-0037, step-up ADR-0038) | 5 |
 | [ADR-0033](0033-node-protocol-task-migration.md) | Node protocol & task migration (§38–39): gateway + e2e-v1 core-to-core, P-256 CIK, pull heartbeat, leases/fencing, blob checkpoints — Implemented (Phase 6) | 6 |
 | [ADR-0039](0039-local-model-distribution.md) | Local model distribution: content-addressed store, chunked verified transfer, Ollama adapter — Implemented (Phase 6) | 6 |
-| [ADR-0034](0034-plugin-and-widget-sandbox.md) | Plugin/Widget sandbox (§48) — written, Accepted | 7 |
+| [ADR-0034](0034-plugin-and-widget-sandbox.md) | Plugin/Widget sandbox (§48) — Implemented (Phase 7) | 7 |
 | ADR-0035 | Computer Control adapters (§18) — deferred (not in Phase 7) | 7+ |
-| [ADR-0040](0040-marketplace-registry-and-package-signing.md) | Marketplace registry & package signing (§6, §48) — written, Accepted | 7 |
-| [ADR-0041](0041-environments-and-deployment-adapters.md) | Environments & deployment adapters (§26) — written, Accepted | 7 |
-| [ADR-0042](0042-infrastructure-monitor-and-bug-detective.md) | Infrastructure monitor & Bug Detective (§27) — written, Accepted | 7 |
+| [ADR-0040](0040-marketplace-registry-and-package-signing.md) | Marketplace registry & package signing (§6, §48) — Implemented (Phase 7) | 7 |
+| [ADR-0041](0041-environments-and-deployment-adapters.md) | Environments & deployment adapters (§26) — Implemented (Phase 7) | 7 |
+| [ADR-0042](0042-infrastructure-monitor-and-bug-detective.md) | Infrastructure monitor & Bug Detective (§27) — Implemented (Phase 7) | 7 |
 
 ## Decision map
 

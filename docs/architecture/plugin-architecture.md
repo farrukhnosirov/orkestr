@@ -5,6 +5,14 @@ Builder), §6 Agent Marketplace, §19 MCP Hub, §29 AI-editable UI, §32 Mission
 §68 inventory items (Agent Marketplace, MCP Hub, Plugin SDK, Widget SDK, Dashboard Builder).
 Threat analysis: `docs/security/threat-model.md` TB8 (SR-51..55, SR-41).
 
+**As built (Phase 7):** the decisions that won are in ADR-0034 (plugin and
+widget sandbox: signed `.orkp`, wasmtime 50 ABI v1, grants as permission
+rules, kill switch, safe mode, widget iframe + CSP + `orkestr-widget` scheme,
+dashboards) and ADR-0040 (marketplace registries and signing). Where this
+document differs from those ADRs (for example the WASI / component-model
+sketch, JS plugins, `Provider` / `Panel` kinds, auto-update), the ADRs win;
+the differing parts are deferred.
+
 **Implementation status (2026-10-02):** design only (Phase 7; MCP P2). The
 domain declares `Plugin`, `PluginKind { Provider, Tool, Mcp, Panel, Widget,
 AgentTemplate, DeploymentProvider, PlatformIntegration }`, `McpServer` and
