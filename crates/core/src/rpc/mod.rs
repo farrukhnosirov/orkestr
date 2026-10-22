@@ -19,11 +19,15 @@ pub mod emergency;
 pub mod events;
 pub mod extensions;
 pub mod files;
+pub mod jobs_ctl;
+pub mod jobs_ui;
 pub mod layouts;
 pub mod lsp;
 pub mod manager;
 pub mod memory;
 pub mod merge;
+pub mod models;
+pub mod node_worker;
 pub mod nodes;
 pub mod permissions;
 pub mod pipeline;
@@ -75,6 +79,11 @@ pub struct RemotePrincipal {
     pub remote_terminal: bool,
     /// Project restriction (empty = all projects).
     pub project_ids: Vec<ProjectId>,
+    /// The peer is a coordinator core that enrolled this core as a worker node
+    /// (Phase 6): may call the coordinator-only `node.*` / `jobs.offer|drain` methods.
+    pub coordinator: bool,
+    /// Trust level this worker granted the coordinator (Phase 6); `None` for devices.
+    pub trust_level: Option<orkestr_domain::TrustLevel>,
 }
 
 /// Who is calling. Local callers (desktop, CLI over loopback) are not
@@ -263,6 +272,12 @@ pub fn build_router() -> RpcRouter {
     router.register(claude_engine::register);
     // remote access, sync, Web Push (Phase 4)
     router.register(remote::register).register(sync::register).register(push::register);
+    // multi-node (Phase 6): one registration per work-package file
+    router
+        .register(node_worker::register)
+        .register(jobs_ui::register)
+        .register(jobs_ctl::register)
+        .register(models::register);
     router
 }
 

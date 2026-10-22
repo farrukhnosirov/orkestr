@@ -382,6 +382,23 @@ export function describeEvent(event: Event): string {
       return t("events:deviceAuthorized", { name: event.payload.device.name });
     case "DeviceRevoked":
       return t("events:deviceRevoked", { device: short(event.payload.deviceId) });
+    // Phase 6: multi-node.
+    case "NodeRegistered":
+      return t("events:nodeRegistered", { name: event.payload.node.node.name });
+    case "JobAssigned":
+      return t("events:jobAssigned", { job: short(event.payload.jobId), node: short(event.payload.nodeId) });
+    case "JobProgress":
+      return t("events:jobProgress", { job: short(event.payload.jobId), count: event.payload.items.length });
+    case "JobCheckpointed":
+      return t("events:jobCheckpointed", { job: short(event.payload.checkpoint.jobId) });
+    case "JobMigrated":
+      return t("events:jobMigrated", {
+        job: short(event.payload.jobId),
+        from: short(event.payload.fromNodeId),
+        to: short(event.payload.toNodeId),
+      });
+    case "ModelDistributed":
+      return t("events:modelDistributed", { model: event.payload.modelRef, node: short(event.payload.nodeId) });
   }
 }
 

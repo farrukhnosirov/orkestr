@@ -63,7 +63,10 @@
       "Online": "в сети",
       "Busy": "занят",
       "Degraded": "работает с перебоями",
-      "Offline": "не в сети"
+      "Offline": "не в сети",
+      "Suspect": "не отвечает",
+      "Draining": "выводится из работы",
+      "Revoked": "отозван"
     },
     "deploymentStatus": {
       "Pending": "ожидает",

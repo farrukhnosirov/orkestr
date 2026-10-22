@@ -22,6 +22,8 @@ pub fn bucket_params(class: RateClass) -> Option<(f64, f64)> {
         RateClass::Expensive => Some((5.0, 1.0)),
         RateClass::Auth => Some((5.0, 0.2)),
         RateClass::Emergency => None,
+        // node protocol: heartbeats + 512 KiB blob chunks from a coordinator (Phase 6)
+        RateClass::Node => Some((400.0, 200.0)),
     }
 }
 
@@ -82,6 +84,10 @@ pub fn check_static(rp: &RemotePrincipal, method: &str, params: &Value) -> Resul
     if policy.local_only {
         return Err(RpcError::forbidden(format!("`{method}` is local-only"))
             .with_data(serde_json::json!({ "localOnly": true })));
+    }
+    if policy.coordinator_only && !rp.coordinator {
+        return Err(RpcError::forbidden(format!("`{method}` is only callable by a coordinator node"))
+            .with_data(serde_json::json!({ "coordinatorOnly": true })));
     }
     if rp.role < policy.min_role {
         return Err(RpcError::forbidden(format!("`{method}` requires role {:?}", policy.min_role))
@@ -209,7 +215,14 @@ mod tests {
     use orkestr_domain::ProjectId;
 
     fn rp(role: Role) -> RemotePrincipal {
-        RemotePrincipal { device_id: DeviceId::new(), role, remote_terminal: false, project_ids: vec![] }
+        RemotePrincipal {
+            device_id: DeviceId::new(),
+            role,
+            remote_terminal: false,
+            project_ids: vec![],
+            coordinator: false,
+            trust_level: None,
+        }
     }
 
     fn denied(rp: &RemotePrincipal, m: &str) -> bool {

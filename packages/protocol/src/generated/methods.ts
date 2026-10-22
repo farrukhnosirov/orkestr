@@ -26,11 +26,18 @@ import type { ArchRefreshResult } from "./ArchRefreshResult";
 import type { AssignTeamParams } from "./AssignTeamParams";
 import type { BenchmarkRecordsParams } from "./BenchmarkRecordsParams";
 import type { BenchmarkRecordsResult } from "./BenchmarkRecordsResult";
+import type { BlobGetParams } from "./BlobGetParams";
+import type { BlobGetResult } from "./BlobGetResult";
+import type { BlobHasParams } from "./BlobHasParams";
+import type { BlobHasResult } from "./BlobHasResult";
+import type { BlobPutParams } from "./BlobPutParams";
+import type { BlobPutResult } from "./BlobPutResult";
 import type { BranchResult } from "./BranchResult";
 import type { BranchesResult } from "./BranchesResult";
 import type { BudgetIdParams } from "./BudgetIdParams";
 import type { BudgetListResult } from "./BudgetListResult";
 import type { BudgetResult } from "./BudgetResult";
+import type { CancelJobParams } from "./CancelJobParams";
 import type { CancelRunResult } from "./CancelRunResult";
 import type { CheckBudgetParams } from "./CheckBudgetParams";
 import type { CheckBudgetResult } from "./CheckBudgetResult";
@@ -134,12 +141,18 @@ import type { DiffParams } from "./DiffParams";
 import type { DiffResult } from "./DiffResult";
 import type { DiscardParams } from "./DiscardParams";
 import type { DiscardResult } from "./DiscardResult";
+import type { DistributeModelParams } from "./DistributeModelParams";
+import type { DistributeModelResult } from "./DistributeModelResult";
+import type { DrainJobResult } from "./DrainJobResult";
+import type { DrainNodeParams } from "./DrainNodeParams";
 import type { EditorPrefs } from "./EditorPrefs";
 import type { EffectiveRulesParams } from "./EffectiveRulesParams";
 import type { EffectiveRulesResult } from "./EffectiveRulesResult";
 import type { EmergencyStatusResult } from "./EmergencyStatusResult";
 import type { EmergencyStopResult } from "./EmergencyStopResult";
 import type { Empty } from "./Empty";
+import type { EnrollNodeParams } from "./EnrollNodeParams";
+import type { EnrollNodeResult } from "./EnrollNodeResult";
 import type { EvaluateParams } from "./EvaluateParams";
 import type { ExecLineParams } from "./ExecLineParams";
 import type { ExportTemplateResult } from "./ExportTemplateResult";
@@ -162,12 +175,17 @@ import type { GetPipelineResult } from "./GetPipelineResult";
 import type { GetReviewParams } from "./GetReviewParams";
 import type { GetUiConfigParams } from "./GetUiConfigParams";
 import type { HealthResult } from "./HealthResult";
+import type { ImportModelParams } from "./ImportModelParams";
 import type { ImportTemplateParams } from "./ImportTemplateParams";
 import type { ImportTemplateResult } from "./ImportTemplateResult";
 import type { InitParams } from "./InitParams";
 import type { InstallExtensionParams } from "./InstallExtensionParams";
 import type { InstallVsixParams } from "./InstallVsixParams";
 import type { InstalledExtensionResult } from "./InstalledExtensionResult";
+import type { JobIdParams } from "./JobIdParams";
+import type { JobOffer } from "./JobOffer";
+import type { JobOfferResult } from "./JobOfferResult";
+import type { JobResult } from "./JobResult";
 import type { KnowledgeIdParams } from "./KnowledgeIdParams";
 import type { KnowledgeListResult } from "./KnowledgeListResult";
 import type { KnowledgeSourceResult } from "./KnowledgeSourceResult";
@@ -188,8 +206,11 @@ import type { ListDecisionsParams } from "./ListDecisionsParams";
 import type { ListExtensionsResult } from "./ListExtensionsResult";
 import type { ListFilesParams } from "./ListFilesParams";
 import type { ListFilesResult } from "./ListFilesResult";
+import type { ListJobsParams } from "./ListJobsParams";
+import type { ListJobsResult } from "./ListJobsResult";
 import type { ListKnowledgeParams } from "./ListKnowledgeParams";
 import type { ListMemoryParams } from "./ListMemoryParams";
+import type { ListModelsResult } from "./ListModelsResult";
 import type { ListNodesResult } from "./ListNodesResult";
 import type { ListPipelinesParams } from "./ListPipelinesParams";
 import type { ListPipelinesResult } from "./ListPipelinesResult";
@@ -265,13 +286,22 @@ import type { MergeReorderParams } from "./MergeReorderParams";
 import type { MergeResolveConflictParams } from "./MergeResolveConflictParams";
 import type { MergeResult } from "./MergeResult";
 import type { MergeSetPolicyParams } from "./MergeSetPolicyParams";
+import type { MigrateJobParams } from "./MigrateJobParams";
 import type { MkdirParams } from "./MkdirParams";
 import type { ModeResult } from "./ModeResult";
 import type { ModelBenchmarksParams } from "./ModelBenchmarksParams";
 import type { ModelBenchmarksResult } from "./ModelBenchmarksResult";
+import type { ModelInstallParams } from "./ModelInstallParams";
+import type { ModelResult } from "./ModelResult";
+import type { NodeHeartbeatParams } from "./NodeHeartbeatParams";
+import type { NodeHeartbeatResult } from "./NodeHeartbeatResult";
+import type { NodeHelloParams } from "./NodeHelloParams";
+import type { NodeHelloResult } from "./NodeHelloResult";
+import type { NodeIdParams } from "./NodeIdParams";
 import type { NodeInfo } from "./NodeInfo";
 import type { NodeInfoParams } from "./NodeInfoParams";
 import type { NodeResourcesResult } from "./NodeResourcesResult";
+import type { NodeSnapshotResult } from "./NodeSnapshotResult";
 import type { OpenExternalParams } from "./OpenExternalParams";
 import type { OpenExternalResult } from "./OpenExternalResult";
 import type { OpenTerminalParams } from "./OpenTerminalParams";
@@ -380,6 +410,7 @@ import type { SetCredentialParams } from "./SetCredentialParams";
 import type { SetExtensionEnabledParams } from "./SetExtensionEnabledParams";
 import type { SetGatesParams } from "./SetGatesParams";
 import type { SetModeParams } from "./SetModeParams";
+import type { SetNodePolicyParams } from "./SetNodePolicyParams";
 import type { SetPipelineConfigParams } from "./SetPipelineConfigParams";
 import type { SetProfileParams } from "./SetProfileParams";
 import type { SetRobotsConfigParams } from "./SetRobotsConfigParams";
@@ -409,6 +440,7 @@ import type { SpawnAgentResult } from "./SpawnAgentResult";
 import type { StartPipelineParams } from "./StartPipelineParams";
 import type { StopAgentParams } from "./StopAgentParams";
 import type { StopProjectParams } from "./StopProjectParams";
+import type { SubmitJobParams } from "./SubmitJobParams";
 import type { SyncConfigureParams } from "./SyncConfigureParams";
 import type { SyncConflictList } from "./SyncConflictList";
 import type { SyncContinueParams } from "./SyncContinueParams";
@@ -478,6 +510,8 @@ import type { VsCodeTasksResult } from "./VsCodeTasksResult";
 import type { VsCodeUninstallParams } from "./VsCodeUninstallParams";
 import type { WatchFilesParams } from "./WatchFilesParams";
 import type { WatchFilesResult } from "./WatchFilesResult";
+import type { WorkerCancelResult } from "./WorkerCancelResult";
+import type { WorkerJobParams } from "./WorkerJobParams";
 import type { WorktreeResult } from "./WorktreeResult";
 import type { WorktreesResult } from "./WorktreesResult";
 import type { WriteFileParams } from "./WriteFileParams";
@@ -828,6 +862,27 @@ export type Methods = {
   "push.unsubscribe": [PushUnsubscribeParams, Empty];
   "push.test": [Empty, PushTestResult];
   "push.registerNative": [PushRegisterNativeParams, PushNativeRegistration];
+  "nodes.enroll": [EnrollNodeParams, EnrollNodeResult];
+  "nodes.revoke": [NodeIdParams, NodeSnapshotResult];
+  "nodes.drain": [DrainNodeParams, NodeSnapshotResult];
+  "nodes.setPolicy": [SetNodePolicyParams, NodeSnapshotResult];
+  "node.hello": [NodeHelloParams, NodeHelloResult];
+  "node.heartbeat": [NodeHeartbeatParams, NodeHeartbeatResult];
+  "jobs.submit": [SubmitJobParams, JobResult];
+  "jobs.list": [ListJobsParams, ListJobsResult];
+  "jobs.get": [JobIdParams, JobResult];
+  "jobs.migrate": [MigrateJobParams, JobResult];
+  "jobs.cancel": [CancelJobParams, JobResult];
+  "jobs.offer": [JobOffer, JobOfferResult];
+  "jobs.drain": [WorkerJobParams, DrainJobResult];
+  "node.jobCancel": [WorkerJobParams, WorkerCancelResult];
+  "models.list": [Empty, ListModelsResult];
+  "models.import": [ImportModelParams, ModelResult];
+  "models.distribute": [DistributeModelParams, DistributeModelResult];
+  "node.blobHas": [BlobHasParams, BlobHasResult];
+  "node.blobPut": [BlobPutParams, BlobPutResult];
+  "node.blobGet": [BlobGetParams, BlobGetResult];
+  "node.modelInstall": [ModelInstallParams, ModelResult];
 };
 
 /** All implemented method names. */
@@ -1174,6 +1229,27 @@ export const METHOD_NAMES = [
   "push.unsubscribe",
   "push.test",
   "push.registerNative",
+  "nodes.enroll",
+  "nodes.revoke",
+  "nodes.drain",
+  "nodes.setPolicy",
+  "node.hello",
+  "node.heartbeat",
+  "jobs.submit",
+  "jobs.list",
+  "jobs.get",
+  "jobs.migrate",
+  "jobs.cancel",
+  "jobs.offer",
+  "jobs.drain",
+  "node.jobCancel",
+  "models.list",
+  "models.import",
+  "models.distribute",
+  "node.blobHas",
+  "node.blobPut",
+  "node.blobGet",
+  "node.modelInstall",
 ] as const;
 
 /** Wire protocol version (see orkestr-protocol PROTOCOL_VERSION). */
@@ -1258,6 +1334,12 @@ export const EVENT_KINDS = [
   "RemoteSessionRevoked",
   "DeviceAuthorized",
   "DeviceRevoked",
+  "NodeRegistered",
+  "JobAssigned",
+  "JobProgress",
+  "JobCheckpointed",
+  "JobMigrated",
+  "ModelDistributed",
 ] as const;
 
 /** UI config schema version (see orkestr-protocol ui_config). */

@@ -19,6 +19,8 @@
 #![warn(missing_docs)]
 
 pub mod dag;
+pub mod jobs;
+pub mod node_scheduler;
 pub mod queue;
 pub mod scheduler;
 pub mod service;
@@ -115,6 +117,12 @@ impl From<serde_json::Error> for TaskError {
 #[must_use]
 pub fn task_migrations() -> Vec<orkestr_storage::Migration> {
     store::MIGRATIONS.to_vec()
+}
+
+/// Remote job table migrations (Phase 6; appended at the end of the core list).
+#[must_use]
+pub fn job_migrations() -> Vec<orkestr_storage::Migration> {
+    jobs::JOB_MIGRATIONS.to_vec()
 }
 
 /// Whether a task may become `Ready` given the statuses of its dependencies.

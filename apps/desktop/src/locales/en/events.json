@@ -100,5 +100,12 @@
   "remoteSessionOpened": "Remote session opened from device {{device}}",
   "remoteSessionRevoked": "Remote session of device {{device}} closed",
   "deviceAuthorized": "Device “{{name}}” authorized",
-  "deviceRevoked": "Device {{device}} revoked"
+  "deviceRevoked": "Device {{device}} revoked",
+  "nodeRegistered": "Node “{{name}}” enrolled",
+  "jobAssigned": "Job {{job}} assigned to node {{node}}",
+  "jobProgress_one": "Job {{job}}: {{count}} progress update",
+  "jobProgress_other": "Job {{job}}: {{count}} progress updates",
+  "jobCheckpointed": "Job {{job}} checkpointed",
+  "jobMigrated": "Job {{job}} migrated from {{from}} to {{to}}",
+  "modelDistributed": "Model {{model}} distributed to node {{node}}"
 }

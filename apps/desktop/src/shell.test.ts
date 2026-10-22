@@ -42,6 +42,8 @@ describe("panel registry", () => {
       "Extensions",
       // Claude Code chat (official CLI)
       "Claude Code",
+      // multi-node (Phase 6)
+      "Nodes",
     ];
     expect(PANELS.map((p) => p.title).sort()).toEqual([...expected].sort());
     expect(new Set(PANELS.map((p) => p.id)).size).toBe(PANELS.length);

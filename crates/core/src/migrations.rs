@@ -48,6 +48,9 @@ pub fn all() -> Vec<Migration> {
     all.extend_from_slice(crate::rpc::robots::ROBOTS_MIGRATIONS);
     // VS Code extensions + language-server trust (ADR-0025)
     all.extend(orkestr_extensions::extensions_migrations());
+    // multi-node (Phase 6): node registry + enrollments (WP-A), remote jobs (WP-B)
+    all.extend_from_slice(crate::nodes::registry_store::NODE_MIGRATIONS);
+    all.extend(orkestr_task_engine::job_migrations());
     all
 }
 

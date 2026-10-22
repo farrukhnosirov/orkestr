@@ -30,11 +30,13 @@ pub mod emergency;
 pub mod events;
 pub mod extensions;
 pub mod files;
+pub mod jobs;
 pub mod layouts;
 pub mod lsp;
 pub mod manager;
 pub mod memory;
 pub mod merge;
+pub mod models;
 pub mod nodes;
 pub mod permissions;
 pub mod pipeline;
@@ -503,6 +505,28 @@ pub fn registry() -> Vec<MethodDescriptor> {
         MethodDescriptor::of::<push::Unsubscribe>(),
         MethodDescriptor::of::<push::Test>(),
         MethodDescriptor::of::<push::RegisterNative>(),
+        // multi-node (Phase 6, ADR-0033 / ADR-0039)
+        MethodDescriptor::of::<nodes::Enroll>(),
+        MethodDescriptor::of::<nodes::Revoke>(),
+        MethodDescriptor::of::<nodes::Drain>(),
+        MethodDescriptor::of::<nodes::SetPolicy>(),
+        MethodDescriptor::of::<nodes::Hello>(),
+        MethodDescriptor::of::<nodes::Heartbeat>(),
+        MethodDescriptor::of::<jobs::Submit>(),
+        MethodDescriptor::of::<jobs::List>(),
+        MethodDescriptor::of::<jobs::Get>(),
+        MethodDescriptor::of::<jobs::Migrate>(),
+        MethodDescriptor::of::<jobs::Cancel>(),
+        MethodDescriptor::of::<jobs::Offer>(),
+        MethodDescriptor::of::<jobs::Drain>(),
+        MethodDescriptor::of::<jobs::JobCancel>(),
+        MethodDescriptor::of::<models::List>(),
+        MethodDescriptor::of::<models::Import>(),
+        MethodDescriptor::of::<models::Distribute>(),
+        MethodDescriptor::of::<models::BlobHas>(),
+        MethodDescriptor::of::<models::BlobPut>(),
+        MethodDescriptor::of::<models::BlobGet>(),
+        MethodDescriptor::of::<models::ModelInstall>(),
     ]
 }
 

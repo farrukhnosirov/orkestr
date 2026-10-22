@@ -1097,6 +1097,18 @@ event_kinds! {
     DeviceAuthorized(crate::methods::remote::DeviceAuthorizedPayload),
     /// A device was revoked. Appended.
     DeviceRevoked(crate::methods::remote::DeviceRevokedPayload),
+    /// A worker node was enrolled (Phase 6, ADR-0033). Appended.
+    NodeRegistered(crate::methods::nodes::NodeRegisteredPayload),
+    /// A job was placed on a node under a new lease epoch (Phase 6). Appended.
+    JobAssigned(crate::methods::jobs::JobAssignedPayload),
+    /// Progress of a remote job (worker → coordinator, fenced by epoch; Phase 6). Appended.
+    JobProgress(crate::methods::jobs::JobProgressPayload),
+    /// A job checkpoint was taken (Phase 6). Appended.
+    JobCheckpointed(crate::methods::jobs::JobCheckpointedPayload),
+    /// A job moved to another node (planned or after lease expiry; Phase 6). Appended.
+    JobMigrated(crate::methods::jobs::JobMigratedPayload),
+    /// A model was distributed to a node and verified (Phase 6, ADR-0039). Appended.
+    ModelDistributed(crate::methods::models::ModelDistributedPayload),
 }
 
 // ---------------------------------------------------------------------------
@@ -1237,6 +1249,25 @@ impl NewEvent {
             }
             EventKind::NodeStatus(n) => self.node_id = Some(n.node.id),
             EventKind::NodeOffline(n) => self.node_id = Some(n.node_id),
+            EventKind::NodeRegistered(n) => self.node_id = Some(n.node.node.id),
+            EventKind::JobAssigned(j) => {
+                self.project_id = Some(j.project_id);
+                self.task_id = Some(j.task_id);
+                self.node_id = Some(j.node_id);
+            }
+            EventKind::JobProgress(j) => {
+                self.task_id = Some(j.task_id);
+                self.node_id = Some(j.node_id);
+            }
+            EventKind::JobCheckpointed(j) => {
+                self.task_id = Some(j.checkpoint.task_id);
+                self.node_id = Some(j.checkpoint.node_id);
+            }
+            EventKind::JobMigrated(j) => {
+                self.task_id = Some(j.task_id);
+                self.node_id = Some(j.to_node_id);
+            }
+            EventKind::ModelDistributed(m) => self.node_id = Some(m.node_id),
             EventKind::DeploymentFinished(d) => {
                 self.project_id = Some(d.deployment.project_id);
                 self.task_id = d.deployment.task_id;

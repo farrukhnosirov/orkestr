@@ -336,6 +336,9 @@ async fn handshake(svc: &RemoteService, sid: u32, inbound: &mut mpsc::Receiver<V
         role: record.role,
         remote_terminal: record.remote_terminal,
         project_ids: record.project_ids.unwrap_or_default(),
+        // Phase 6 (WP-A): set from the pairing record when the device is a coordinator core
+        coordinator: false,
+        trust_level: None,
     });
     Ok((session, principal))
 }

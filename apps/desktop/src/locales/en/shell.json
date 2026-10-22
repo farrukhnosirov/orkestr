@@ -188,6 +188,10 @@
     "claudeCode": {
       "title": "Claude Code",
       "description": "Chat with Claude Code (the official CLI) about the project, with inline permissions"
+    },
+    "nodes": {
+      "title": "Nodes",
+      "description": "Enrolled computers, remote jobs and model distribution"
     }
   },
   "phasePlaceholder": {

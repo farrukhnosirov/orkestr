@@ -20,6 +20,7 @@ import {
   Puzzle,
   Rocket,
   ScrollText,
+  Server,
   Sparkles,
   Sparkle,
   SquareTerminal,
@@ -41,6 +42,7 @@ import ManagerPanel from "./Manager";
 import MemoryPanel from "./Memory";
 import MissionControlPanel from "./MissionControl";
 import MonitoringPanel from "./Monitoring";
+import NodesPanel from "./Nodes";
 import TasksPanel from "./Tasks";
 import TerminalPanel from "./Terminal";
 import VsCodePanel from "./VsCode";
@@ -91,6 +93,8 @@ export const PANELS: readonly PanelDefinition[] = [
   panel("extensions", Puzzle, 0, ExtensionsPanel),
   // Claude Code chat (official `claude` CLI, stream-json)
   panel("claudeCode", Sparkle, 0, ClaudeCodePanel),
+  // multi-node (Phase 6): enrolled nodes, jobs, model distribution
+  panel("nodes", Server, 0, NodesPanel),
 ];
 
 const BY_ID = new Map(PANELS.map((p) => [p.id, p]));

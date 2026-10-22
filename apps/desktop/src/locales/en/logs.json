@@ -63,7 +63,10 @@
       "Online": "online",
       "Busy": "busy",
       "Degraded": "degraded",
-      "Offline": "offline"
+      "Offline": "offline",
+      "Suspect": "not responding",
+      "Draining": "draining",
+      "Revoked": "revoked"
     },
     "deploymentStatus": {
       "Pending": "pending",

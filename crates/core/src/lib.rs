@@ -28,6 +28,7 @@ pub mod integration;
 pub mod layouts_store;
 pub mod logging;
 pub mod migrations;
+pub mod nodes;
 pub mod recovery;
 pub mod redact;
 pub mod remote;

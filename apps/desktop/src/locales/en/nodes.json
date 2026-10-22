@@ -1,0 +1,7 @@
+{
+  "title": "Nodes",
+  "empty": {
+    "title": "No other nodes yet",
+    "description": "Enroll another computer running Orkestr to run builds, tests and agents on it."
+  }
+}

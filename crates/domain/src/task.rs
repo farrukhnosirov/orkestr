@@ -6,6 +6,7 @@ use ts_rs::TS;
 
 use crate::common::{ArtifactRef, Budget, ModelRef, Timestamp, UsageSummary, WorktreeRef};
 use crate::ids::{AgentId, ApprovalId, ExecutionId, ProjectId, TaskId};
+use crate::node::ExecutorRef;
 
 /// The 12 task states (contract §5).
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
@@ -205,6 +206,10 @@ pub struct Task {
     /// When the task last entered `Ready` (queue FIFO + aging, §11).
     #[serde(default)]
     pub ready_since: Option<Timestamp>,
+    /// Executor currently owning the task (Phase 6, node-protocol.md §10);
+    /// `None` = the local core. Stored in the task document (no column).
+    #[serde(default)]
+    pub owner: Option<ExecutorRef>,
 }
 
 impl Task {
@@ -242,6 +247,7 @@ impl Task {
             version: 0,
             estimate_minutes: None,
             ready_since: None,
+            owner: None,
         }
     }
 }

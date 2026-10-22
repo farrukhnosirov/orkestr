@@ -22,4 +22,9 @@ stepUp: StepUp,
 /**
  * Rate-limit bucket.
  */
-rateClass: RateClass, };
+rateClass: RateClass, 
+/**
+ * Worker-side node protocol method: only a paired **coordinator** principal
+ * may call it (Phase 6, ADR-0033); the handler also checks the job's trust need.
+ */
+coordinatorOnly: boolean, };

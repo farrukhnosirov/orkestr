@@ -9,7 +9,11 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use orkestr_domain::{Arch, Node, NodeId, OsKind, Timestamp};
+use std::collections::BTreeMap;
+
+use orkestr_domain::{
+    Arch, CheckpointId, Digest, JobId, LeaseEpoch, Node, NodeId, NodeStatus, OsKind, Timestamp, TrustLevel,
+};
 
 use super::method;
 
@@ -213,6 +217,10 @@ pub struct ResourceSample {
 pub struct ListNodesResult {
     /// Known nodes (Phase 1: the local node only).
     pub nodes: Vec<Node>,
+    /// Coordinator view of every node incl. health, trust, slots and leases
+    /// (Phase 6; the local node first). Empty from pre-Phase-6 cores.
+    #[serde(default)]
+    pub snapshots: Vec<NodeSnapshot>,
 }
 
 /// Params of `nodes.info`.
@@ -269,4 +277,349 @@ pub struct PowerStatusView {
 method!(
     /// `nodes.power` — power / battery state of the local node (Phase 3).
     Power, "nodes.power", super::Empty, PowerStatusView
+);
+
+// ---------------------------------------------------------------------------
+// Phase 6: multi-node (node-protocol.md, ADR-0033)
+// ---------------------------------------------------------------------------
+
+/// Job slots of a node.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct NodeSlots {
+    /// Maximum concurrent jobs.
+    pub max: u32,
+    /// Jobs running now.
+    pub used: u32,
+}
+
+/// Phase of a job lease as reported by the worker.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub enum LeasePhase {
+    /// Accepted, materializing inputs.
+    Starting,
+    /// Executing.
+    Running,
+    /// Running to the next safe point for a checkpoint (drain).
+    Draining,
+    /// Finished (result pending pickup).
+    Finished,
+    /// Failed on the worker.
+    Failed,
+    /// Cancelled.
+    Cancelled,
+}
+
+/// One job lease held by a node (heartbeat payload, `NodeSnapshot.leases`).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct LeaseState {
+    /// Job.
+    pub job_id: JobId,
+    /// Fencing epoch.
+    pub epoch: LeaseEpoch,
+    /// Phase.
+    pub phase: LeasePhase,
+    /// Progress 0..=1 when known.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub progress: Option<f32>,
+    /// Latest checkpoint, when any.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub last_checkpoint: Option<CheckpointId>,
+    /// Lease valid until (coordinator clock).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub lease_until: Option<Timestamp>,
+}
+
+/// Simulated / overridden node profile (`ORKESTR_NODE_PROFILE` JSON, Phase 6).
+/// Every field is optional: unset fields keep the detected value.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase", default)]
+#[ts(export)]
+pub struct NodeProfile {
+    /// Display name.
+    #[ts(optional)]
+    pub name: Option<String>,
+    /// OS family.
+    #[ts(optional)]
+    pub os: Option<OsKind>,
+    /// Architecture.
+    #[ts(optional)]
+    pub arch: Option<Arch>,
+    /// Logical CPU cores.
+    #[ts(optional)]
+    pub cpu_cores: Option<u32>,
+    /// Total memory bytes.
+    #[ts(optional)]
+    pub memory_total_bytes: Option<u64>,
+    /// GPUs.
+    #[ts(optional)]
+    pub gpus: Option<Vec<GpuDevice>>,
+    /// Tools on PATH (replaces detection).
+    #[ts(optional)]
+    pub tools: Option<Vec<String>>,
+    /// Free labels.
+    #[ts(optional)]
+    pub labels: Option<BTreeMap<String, String>>,
+    /// Local models (replaces detection).
+    #[ts(optional)]
+    pub models: Option<Vec<String>>,
+    /// Tool shims: tool name → command line run instead (`xcodebuild` →
+    /// `node scripts/smoke/fixtures/fake-xcodebuild.mjs`).
+    #[ts(optional)]
+    pub tool_shims: Option<BTreeMap<String, String>>,
+    /// Maximum concurrent jobs.
+    #[ts(optional)]
+    pub max_concurrent_jobs: Option<u32>,
+}
+
+/// Signed enrollment record of a worker, stored on the coordinator.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct NodeEnrollment {
+    /// Node id (the worker core's node id).
+    pub node_id: NodeId,
+    /// Worker core id at the gateway (`/v1/connect` target).
+    pub core_id: String,
+    /// Display name.
+    pub name: String,
+    /// Worker core identity key (P-256 CIK, SPKI base64url) pinned at pairing.
+    pub public_key: String,
+    /// Trust level granted on the worker.
+    pub trust_level: TrustLevel,
+    /// Allowed projects (`[]` = none, `["*"]` = all).
+    pub allowed_projects: Vec<String>,
+    /// When enrolled.
+    pub enrolled_at: Timestamp,
+    /// When revoked.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub revoked_at: Option<Timestamp>,
+    /// Coordinator signature (CIK, base64url) over the canonical record without `sig`.
+    pub sig: String,
+}
+
+/// Coordinator view of one node (`nodes.list`, scheduler input).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct NodeSnapshot {
+    /// The node (descriptor + latest resources).
+    pub node: Node,
+    /// Health (Online/Suspect/Offline/Draining/Revoked …).
+    pub status: NodeStatus,
+    /// Trust level (the local node is `trusted`).
+    pub trust_level: TrustLevel,
+    /// Allowed projects (`["*"]` = all).
+    pub allowed_projects: Vec<String>,
+    /// Job slots.
+    pub slots: NodeSlots,
+    /// Leases held.
+    pub leases: Vec<LeaseState>,
+    /// Last heartbeat.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub last_heartbeat_at: Option<Timestamp>,
+    /// True for the coordinator itself.
+    pub is_coordinator: bool,
+    /// Free labels (profile).
+    #[serde(default)]
+    pub labels: BTreeMap<String, String>,
+    /// Digests of locally installed model manifests (model store).
+    #[serde(default)]
+    pub model_digests: Vec<Digest>,
+}
+
+/// Params of `nodes.enroll` (coordinator side; the worker created a `kind: "node"` pairing).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct EnrollNodeParams {
+    /// Worker core id at the gateway.
+    pub core_id: String,
+    /// Pairing id shown on the worker.
+    pub pairing_id: String,
+    /// One-time pairing code shown on the worker.
+    pub code: String,
+    /// Display name override.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub name: Option<String>,
+}
+
+/// Result of `nodes.enroll`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct EnrollNodeResult {
+    /// The new enrollment (trust level as granted on the worker).
+    pub enrollment: NodeEnrollment,
+    /// Short authentication string to compare with the worker's screen.
+    pub sas: String,
+}
+
+/// Params of `nodes.revoke`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct NodeIdParams {
+    /// Node.
+    pub node_id: NodeId,
+}
+
+/// Params of `nodes.drain`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct DrainNodeParams {
+    /// Node.
+    pub node_id: NodeId,
+    /// `true` drains (migrates jobs away, no new placements); `false` returns it to Online.
+    pub drain: bool,
+}
+
+/// Params of `nodes.setPolicy` (unset fields unchanged).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct SetNodePolicyParams {
+    /// Node.
+    pub node_id: NodeId,
+    /// New trust level (never above what the worker granted).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub trust_level: Option<TrustLevel>,
+    /// Allowed projects (`["*"]` = all).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub allowed_projects: Option<Vec<String>>,
+    /// Maximum concurrent jobs.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub max_concurrent_jobs: Option<u32>,
+}
+
+/// Result of node mutations (`nodes.revoke`, `nodes.drain`, `nodes.setPolicy`).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct NodeSnapshotResult {
+    /// The node after the change.
+    pub node: NodeSnapshot,
+}
+
+/// Params of worker-side `node.hello` (coordinator → worker after connecting).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct NodeHelloParams {
+    /// Coordinator node id.
+    pub coordinator_node_id: NodeId,
+    /// Node protocol version (1).
+    pub protocol_version: u32,
+}
+
+/// Result of `node.hello`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct NodeHelloResult {
+    /// Worker node descriptor (profile overrides applied).
+    pub node: Node,
+    /// Trust level the worker granted the coordinator pairing.
+    pub trust_level: TrustLevel,
+    /// Job slots.
+    pub slots: NodeSlots,
+    /// Labels.
+    #[serde(default)]
+    pub labels: BTreeMap<String, String>,
+    /// Node protocol version (1).
+    pub protocol_version: u32,
+}
+
+/// Lease renewal carried by a heartbeat.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct LeaseRenewal {
+    /// Job.
+    pub job_id: JobId,
+    /// Current epoch on the coordinator.
+    pub epoch: LeaseEpoch,
+    /// New lease end.
+    pub lease_until: Timestamp,
+}
+
+/// Params of worker-side `node.heartbeat` (pull model: the coordinator polls every 5 s).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct NodeHeartbeatParams {
+    /// Sequence number.
+    pub seq: u64,
+    /// Leases renewed in this round trip.
+    #[serde(default)]
+    pub renew: Vec<LeaseRenewal>,
+    /// Jobs the coordinator no longer recognises (stale epoch / reassigned / revoked).
+    #[serde(default)]
+    pub revoke: Vec<JobId>,
+}
+
+/// Result of `node.heartbeat`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct NodeHeartbeatResult {
+    /// Worker node with the latest resources.
+    pub node: Node,
+    /// Latest detailed sample.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub sample: Option<ResourceSample>,
+    /// Slots.
+    pub slots: NodeSlots,
+    /// Leases held by the worker.
+    pub leases: Vec<LeaseState>,
+}
+
+/// `NodeRegistered` event payload.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct NodeRegisteredPayload {
+    /// The enrolled node.
+    pub node: Box<NodeSnapshot>,
+}
+
+method!(
+    /// `nodes.enroll` — enroll a worker core via its `kind: "node"` pairing (Phase 6).
+    Enroll, "nodes.enroll", EnrollNodeParams, EnrollNodeResult
+);
+method!(
+    /// `nodes.revoke` — revoke a node's enrollment; its jobs are cancelled (Phase 6).
+    Revoke, "nodes.revoke", NodeIdParams, NodeSnapshotResult
+);
+method!(
+    /// `nodes.drain` — stop placing jobs on a node and migrate its jobs away (Phase 6).
+    Drain, "nodes.drain", DrainNodeParams, NodeSnapshotResult
+);
+method!(
+    /// `nodes.setPolicy` — trust level / allowed projects / slots (Phase 6).
+    SetPolicy, "nodes.setPolicy", SetNodePolicyParams, NodeSnapshotResult
+);
+method!(
+    /// Worker side `node.hello` (called by the coordinator after connecting).
+    Hello, "node.hello", NodeHelloParams, NodeHelloResult
+);
+method!(
+    /// Worker side `node.heartbeat` (pull: sample + slots + leases; renews leases).
+    Heartbeat, "node.heartbeat", NodeHeartbeatParams, NodeHeartbeatResult
 );

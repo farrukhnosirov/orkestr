@@ -11,27 +11,47 @@
 //! * [`NodeMonitor`] — caches the inventory and the latest sample; the core
 //!   drives it every 2 s and streams `NodeStatus` events.
 //!
-//! The [`NodeRegistry`] interface is fixed for Phase 6 (remote nodes,
-//! heartbeats, scheduling by requirements, task migration).
+//! Phase 6 (multi-node, ADR-0033 / ADR-0039) adds the coordinator/worker
+//! seams; each module is owned by one work package:
+//!
+//! * [`registry`] — node registry trait + health state machine (WP-A);
+//! * [`profile`] — `ORKESTR_NODE_PROFILE` simulated profiles (WP-A);
+//! * [`link`] — [`link::NodeLink`] / [`link::NodeConnector`]: coordinator → one worker (WP-A);
+//! * [`scheduling`] — [`scheduling::NodeScheduler`] trait (impl in task-engine, WP-B);
+//! * [`exec`] — [`exec::JobExecutor`] worker-side job execution (WP-C);
+//! * [`blobs`] — [`blobs::BlobStore`] + [`blobs::push_blob`] (WP-D);
+//! * [`models`] — local model store manifests (WP-D), [`ollama`] adapter.
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod blobs;
+pub mod exec;
 pub mod inventory;
+pub mod link;
+pub mod models;
 pub mod ollama;
+pub mod profile;
+pub mod registry;
 pub mod runtimes;
 pub mod sampler;
+pub mod scheduling;
 
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
-use async_trait::async_trait;
 use orkestr_domain::{GpuInfo, Node, NodeId, NodeResources, NodeStatus, Timestamp};
 use orkestr_platform::PlatformAdapter;
 use orkestr_protocol::methods::nodes::{NodeInfo, ResourceSample};
 use parking_lot::{Mutex, RwLock};
 
+pub use blobs::{push_blob, BlobError, BlobStore};
+pub use exec::{JobControl, JobError, JobExecutor};
 pub use inventory::{detect_node_info, DetectOptions};
+pub use link::{NodeConnector, NodeLink};
+pub use profile::{load_profile, EnvSource};
+pub use registry::NodeRegistry;
 pub use sampler::ResourceSampler;
+pub use scheduling::NodeScheduler;
 
 /// Errors.
 #[derive(Debug, thiserror::Error)]
@@ -42,15 +62,18 @@ pub enum NodeError {
     /// Explicit stub marker.
     #[error("unimplemented-feature: {0}")]
     Unimplemented(&'static str),
-}
-
-/// Registry of known nodes.
-#[async_trait]
-pub trait NodeRegistry: Send + Sync {
-    /// All nodes.
-    async fn list(&self) -> Result<Vec<Node>, NodeError>;
-    /// Records a heartbeat.
-    async fn heartbeat(&self, node: Node) -> Result<(), NodeError>;
+    /// The node's enrollment is revoked.
+    #[error("node {0} is revoked")]
+    Revoked(NodeId),
+    /// Transport failure (gateway, tunnel, handshake).
+    #[error("node transport: {0}")]
+    Transport(String),
+    /// The remote core answered with an RPC error.
+    #[error(transparent)]
+    Rpc(#[from] orkestr_protocol::RpcError),
+    /// Storage / internal failure.
+    #[error("node internal: {0}")]
+    Internal(String),
 }
 
 /// Tools probed on PATH to describe a node quickly (without running them).

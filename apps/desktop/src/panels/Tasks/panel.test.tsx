@@ -40,6 +40,7 @@ function task(id: string, title: string, patch: Partial<Task> = {}): Task {
     version: 0,
     estimateMinutes: null,
     readySince: null,
+    owner: null,
     ...patch,
   };
 }

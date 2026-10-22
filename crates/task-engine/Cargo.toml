@@ -12,6 +12,7 @@ orkestr-domain.workspace = true
 orkestr-protocol.workspace = true
 orkestr-events.workspace = true
 orkestr-storage.workspace = true
+orkestr-node.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 chrono.workspace = true

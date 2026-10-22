@@ -3618,14 +3618,21 @@ name = "orkestr-node"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "base64 0.22.1",
+ "chrono",
+ "hex",
  "orkestr-domain",
  "orkestr-platform",
  "orkestr-protocol",
  "parking_lot",
+ "serde",
  "serde_json",
+ "sha2",
  "sysinfo",
  "tempfile",
  "thiserror 2.0.21",
+ "tokio",
+ "tokio-util",
  "tracing",
 ]
 
@@ -3858,6 +3865,7 @@ dependencies = [
  "chrono",
  "orkestr-domain",
  "orkestr-events",
+ "orkestr-node",
  "orkestr-protocol",
  "orkestr-storage",
  "serde",

@@ -5,6 +5,7 @@ import type { ApprovalId } from "./ApprovalId";
 import type { ArtifactRef } from "./ArtifactRef";
 import type { Budget } from "./Budget";
 import type { ExecutionId } from "./ExecutionId";
+import type { ExecutorRef } from "./ExecutorRef";
 import type { ModelRef } from "./ModelRef";
 import type { ProjectId } from "./ProjectId";
 import type { ReviewState } from "./ReviewState";
@@ -139,4 +140,9 @@ estimateMinutes: number | null,
 /**
  * When the task last entered `Ready` (queue FIFO + aging, §11).
  */
-readySince: string | null, };
+readySince: string | null, 
+/**
+ * Executor currently owning the task (Phase 6, node-protocol.md §10);
+ * `None` = the local core. Stored in the task document (no column).
+ */
+owner: ExecutorRef | null, };

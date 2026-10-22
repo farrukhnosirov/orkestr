@@ -11,6 +11,7 @@
 //!   (`ProjectCreated/Updated/Deleted`, so project lists stay fresh), are also
 //!   published on `global` — except node heartbeats (`NodeStatus` with a
 //!   node id), which only go to `node:<id>`;
+//! * job events (Phase 6) are also published on `jobs`;
 //! * `*` matches everything.
 
 use crate::event::{Event, EventKind};
@@ -19,6 +20,9 @@ use crate::event::{Event, EventKind};
 pub const ALL: &str = "*";
 /// System-wide events.
 pub const GLOBAL: &str = "global";
+/// Remote job events (`JobAssigned`, `JobProgress`, `JobCheckpointed`,
+/// `JobMigrated`; Phase 6). A coordinator subscribes to it on each worker.
+pub const JOBS: &str = "jobs";
 
 /// `project:<id>`.
 #[must_use]
@@ -59,7 +63,7 @@ pub fn node(id: impl std::fmt::Display) -> String {
 /// Validates a topic string sent by a client.
 #[must_use]
 pub fn is_valid(topic: &str) -> bool {
-    if topic == ALL || topic == GLOBAL {
+    if topic == ALL || topic == GLOBAL || topic == JOBS {
         return true;
     }
     let Some((prefix, id)) = topic.split_once(':') else {
@@ -93,6 +97,15 @@ pub fn event_topics(event: &Event) -> Vec<String> {
     }
     if let EventKind::ClaudeCodeStatus(p) = &event.kind {
         topics.push(claude(p.session.session_id));
+    }
+    if matches!(
+        event.kind,
+        EventKind::JobAssigned(_)
+            | EventKind::JobProgress(_)
+            | EventKind::JobCheckpointed(_)
+            | EventKind::JobMigrated(_)
+    ) {
+        topics.push(JOBS.to_owned());
     }
     let lifecycle = matches!(
         event.kind,

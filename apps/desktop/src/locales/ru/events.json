@@ -116,5 +116,14 @@
   "remoteSessionOpened": "Открыт удалённый сеанс с устройства {{device}}",
   "remoteSessionRevoked": "Удалённый сеанс устройства {{device}} закрыт",
   "deviceAuthorized": "Устройство «{{name}}» авторизовано",
-  "deviceRevoked": "Устройство {{device}} отозвано"
+  "deviceRevoked": "Устройство {{device}} отозвано",
+  "nodeRegistered": "Узел «{{name}}» подключён",
+  "jobAssigned": "Задание {{job}} назначено узлу {{node}}",
+  "jobProgress_one": "Задание {{job}}: {{count}} обновление",
+  "jobProgress_few": "Задание {{job}}: {{count}} обновления",
+  "jobProgress_many": "Задание {{job}}: {{count}} обновлений",
+  "jobProgress_other": "Задание {{job}}: {{count}} обновления",
+  "jobCheckpointed": "Создана контрольная точка задания {{job}}",
+  "jobMigrated": "Задание {{job}} перенесено с {{from}} на {{to}}",
+  "modelDistributed": "Модель {{model}} передана узлу {{node}}"
 }

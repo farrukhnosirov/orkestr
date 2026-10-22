@@ -3,4 +3,4 @@
 /**
  * Availability of a node.
  */
-export type NodeStatus = "Online" | "Busy" | "Degraded" | "Offline";
+export type NodeStatus = "Online" | "Busy" | "Degraded" | "Offline" | "Suspect" | "Draining" | "Revoked";

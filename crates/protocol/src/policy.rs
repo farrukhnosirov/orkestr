@@ -62,6 +62,9 @@ pub enum RateClass {
     Auth,
     /// Emergency controls: never throttled below a usable floor.
     Emergency,
+    /// Node protocol traffic from a coordinator (heartbeats, job control, blob
+    /// chunks; Phase 6): high budget, coordinator principals only.
+    Node,
 }
 
 /// Access policy of one method.
@@ -77,11 +80,15 @@ pub struct MethodPolicy {
     pub step_up: StepUp,
     /// Rate-limit bucket.
     pub rate_class: RateClass,
+    /// Worker-side node protocol method: only a paired **coordinator** principal
+    /// may call it (Phase 6, ADR-0033); the handler also checks the job's trust need.
+    #[serde(default)]
+    pub coordinator_only: bool,
 }
 
 impl MethodPolicy {
     const fn new(min_role: Role, step_up: StepUp, rate_class: RateClass) -> Self {
-        Self { min_role, local_only: false, step_up, rate_class }
+        Self { min_role, local_only: false, step_up, rate_class, coordinator_only: false }
     }
     const fn read() -> Self {
         Self::new(Role::Viewer, StepUp::Never, RateClass::Read)
@@ -103,7 +110,23 @@ impl MethodPolicy {
         Self::new(Role::Viewer, StepUp::Never, RateClass::Emergency)
     }
     const fn local() -> Self {
-        Self { min_role: Role::Admin, local_only: true, step_up: StepUp::Always, rate_class: RateClass::Write }
+        Self {
+            min_role: Role::Admin,
+            local_only: true,
+            step_up: StepUp::Always,
+            rate_class: RateClass::Write,
+            coordinator_only: false,
+        }
+    }
+    /// Worker side of the node protocol (called by the coordinator core).
+    const fn worker() -> Self {
+        Self {
+            min_role: Role::Operator,
+            local_only: false,
+            step_up: StepUp::Never,
+            rate_class: RateClass::Node,
+            coordinator_only: true,
+        }
     }
 }
 
@@ -210,6 +233,12 @@ fn explicit(method: &str) -> Option<MethodPolicy> {
             MethodPolicy::new(Role::Viewer, StepUp::Never, RateClass::Write)
         }
         "push.test" => MethodPolicy::write(),
+        // --- multi-node (Phase 6) -------------------------------------------------------------
+        "nodes.enroll" | "nodes.revoke" => MethodPolicy::admin_step_up(),
+        "nodes.drain" | "nodes.setPolicy" | "jobs.submit" | "jobs.migrate" | "jobs.cancel" => MethodPolicy::write(),
+        "models.import" | "models.distribute" => MethodPolicy::expensive(),
+        "node.hello" | "node.heartbeat" | "jobs.offer" | "jobs.drain" | "node.jobCancel" | "node.blobHas"
+        | "node.blobPut" | "node.blobGet" | "node.modelInstall" => MethodPolicy::worker(),
         // --- emergency ----------------------------------------------------------------------
         "emergency.status" => MethodPolicy::read(),
         // the audit log reveals every resource name: admins only
@@ -280,6 +309,8 @@ fn area_default(area: &str, verb: &str) -> MethodPolicy {
         "secrets" | "vscode" | "extensions" | "lsp" | "claudeEngine" => MethodPolicy::local(),
         // emergency stop controls
         "emergency" => MethodPolicy::emergency(),
+        // worker side of the node protocol (Phase 6)
+        "node" => MethodPolicy::worker(),
         _ if READ_VERBS.contains(&verb) => MethodPolicy::read(),
         _ => MethodPolicy::write(),
     }
@@ -349,6 +380,52 @@ mod tests {
         assert!(!native.local_only);
         let revoke = policy_for("devices.revoke").unwrap();
         assert_eq!((revoke.min_role, revoke.step_up), (Role::Admin, StepUp::Always));
+    }
+
+    #[test]
+    fn phase6_methods_follow_the_plan() {
+        let worker = [
+            "node.hello",
+            "node.heartbeat",
+            "jobs.offer",
+            "jobs.drain",
+            "node.jobCancel",
+            "node.blobHas",
+            "node.blobPut",
+            "node.blobGet",
+            "node.modelInstall",
+        ];
+        for m in worker {
+            let p = policy_for(m).unwrap();
+            assert!(p.coordinator_only, "{m} must be coordinator-only");
+            assert!(!p.local_only, "{m}");
+            assert_eq!(p.rate_class, RateClass::Node, "{m}");
+        }
+        for m in ["nodes.enroll", "nodes.revoke"] {
+            let p = policy_for(m).unwrap();
+            assert_eq!((p.min_role, p.step_up), (Role::Admin, StepUp::Always), "{m}");
+        }
+        let ui = [
+            "nodes.drain",
+            "nodes.setPolicy",
+            "jobs.submit",
+            "jobs.migrate",
+            "jobs.cancel",
+            "models.import",
+            "models.distribute",
+        ];
+        for m in ui {
+            let p = policy_for(m).unwrap();
+            assert_eq!(p.min_role, Role::Operator, "{m}");
+            assert!(!p.coordinator_only && !p.local_only, "{m}");
+        }
+        for m in ["nodes.list", "jobs.list", "jobs.get", "models.list"] {
+            assert_eq!(policy_for(m).unwrap().min_role, Role::Viewer, "{m}");
+        }
+        // no other method is coordinator-only
+        for m in crate::methods::registry() {
+            assert_eq!(policy_for(m.name).unwrap().coordinator_only, worker.contains(&m.name), "{}", m.name);
+        }
     }
 
     #[test]

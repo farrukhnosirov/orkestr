@@ -1,4 +1,5 @@
-//! `nodes.*` handlers (local node, Phase 1).
+//! `nodes.*` handlers (local node, Phase 1; Phase 6 coordinator view,
+//! `nodes.enroll|revoke|drain|setPolicy` — **owner: WP-A**).
 
 use std::sync::Arc;
 
@@ -7,7 +8,7 @@ use orkestr_protocol::methods::nodes::{
 };
 use orkestr_protocol::RpcError;
 
-use super::{RpcContext, RpcRouter};
+use super::{stub, RpcContext, RpcRouter};
 
 /// Samples older than this are refreshed on `nodes.resources`.
 const STALE_AFTER: chrono::TimeDelta = chrono::TimeDelta::seconds(5);
@@ -16,11 +17,16 @@ const STALE_AFTER: chrono::TimeDelta = chrono::TimeDelta::seconds(5);
 pub fn register(router: &mut RpcRouter) {
     router
         .method::<m::List, _, _>(|ctx: RpcContext, _| async move {
-            Ok(ListNodesResult { nodes: vec![ctx.services.nodes.local_node()] })
+            Ok(ListNodesResult { nodes: vec![ctx.services.nodes.local_node()], snapshots: Vec::new() })
         })
         .method::<m::Info, _, _>(info)
         .method::<m::Resources, _, _>(|ctx: RpcContext, _| resources(ctx))
         .method::<m::Power, _, _>(|ctx: RpcContext, _| power(ctx));
+    // Phase 6 (WP-A replaces the stubs)
+    stub::<m::Enroll>(router);
+    stub::<m::Revoke>(router);
+    stub::<m::Drain>(router);
+    stub::<m::SetPolicy>(router);
 }
 
 async fn info(ctx: RpcContext, p: NodeInfoParams) -> Result<NodeInfo, RpcError> {

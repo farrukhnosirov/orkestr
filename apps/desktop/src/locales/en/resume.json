@@ -183,6 +183,18 @@
     "DeviceAuthorized_one": "{{count}} device authorized",
     "DeviceAuthorized_other": "{{count}} devices authorized",
     "DeviceRevoked_one": "{{count}} device revoked",
-    "DeviceRevoked_other": "{{count}} devices revoked"
+    "DeviceRevoked_other": "{{count}} devices revoked",
+    "NodeRegistered_one": "{{count}} node enrolled",
+    "NodeRegistered_other": "{{count}} nodes enrolled",
+    "JobAssigned_one": "{{count}} job assigned",
+    "JobAssigned_other": "{{count}} jobs assigned",
+    "JobProgress_one": "{{count}} job progress update",
+    "JobProgress_other": "{{count}} job progress updates",
+    "JobCheckpointed_one": "{{count}} job checkpoint",
+    "JobCheckpointed_other": "{{count}} job checkpoints",
+    "JobMigrated_one": "{{count}} job migrated",
+    "JobMigrated_other": "{{count}} jobs migrated",
+    "ModelDistributed_one": "{{count}} model distributed",
+    "ModelDistributed_other": "{{count}} models distributed"
   }
 }

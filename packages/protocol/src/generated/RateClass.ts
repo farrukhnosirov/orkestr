@@ -3,4 +3,4 @@
 /**
  * Rate-limit bucket.
  */
-export type RateClass = "read" | "write" | "expensive" | "auth" | "emergency";
+export type RateClass = "read" | "write" | "expensive" | "auth" | "emergency" | "node";

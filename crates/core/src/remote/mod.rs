@@ -9,6 +9,7 @@
 //! * [`store`] — `remote/state.json` + `remote/cik.key`.
 
 pub mod authz;
+pub mod client;
 pub mod e2e;
 pub mod native_stepup;
 pub mod pairing;

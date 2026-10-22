@@ -153,6 +153,10 @@ define_id!(/// Event id (each published event gets one in addition to its `seq`)
     EventId, "event");
 define_id!(/// Correlation id linking events/logs that belong to one user request (§50).
     CorrelationId, "correlation");
+define_id!(/// Remote job (one placement of a task on a node, Phase 6) id.
+    JobId, "job");
+define_id!(/// Job checkpoint (node-protocol §7.1) id.
+    CheckpointId, "checkpoint");
 define_id!(/// Terminal session id.
     TerminalId, "terminal");
 define_id!(/// RPC client session id.
