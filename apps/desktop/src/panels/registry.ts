@@ -55,17 +55,39 @@ import VsCodePanel from "./VsCode";
 import { t } from "../i18n";
 import type shellEn from "../locales/en/shell.json";
 import { PLANNED_PHASE } from "./plannedPhases";
-import type { PanelComponent, PanelDefinition, PanelIcon } from "./types";
+import type { PanelCategory, PanelComponent, PanelDefinition, PanelIcon } from "./types";
 
 type PanelKey = keyof (typeof shellEn)["panels"];
 
-/** Registry entry whose title/description are localized getters (re-read on every render). */
-function panel(id: PanelKey, icon: PanelIcon, phase: number, component: PanelComponent): PanelDefinition {
+/** Splits a localized comma-separated tag list. */
+export function splitTags(text: string): string[] {
+  return text
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Registry entry whose texts are localized getters (re-read on every render).
+ * `summary` / `details` / `tags` feed the Window Library; the guard test
+ * (`panels/library.test.ts`) requires them, a category and previews for every panel.
+ */
+function panel(id: PanelKey, icon: PanelIcon, phase: number, component: PanelComponent, category: PanelCategory): PanelDefinition {
   return {
     id,
     icon,
     phase,
     component,
+    category,
+    get summary() {
+      return t(`windowLibrary:panels.${id}.summary`);
+    },
+    get details() {
+      return t(`windowLibrary:panels.${id}.details`);
+    },
+    get tags() {
+      return splitTags(t(`windowLibrary:panels.${id}.tags`));
+    },
     get title() {
       return t(`shell:panels.${id}.title`);
     },
@@ -76,35 +98,35 @@ function panel(id: PanelKey, icon: PanelIcon, phase: number, component: PanelCom
 }
 
 export const PANELS: readonly PanelDefinition[] = [
-  panel("manager", Sparkles, 0, ManagerPanel),
-  panel("code", FileCode, 0, CodePanel),
-  panel("files", FolderTree, 0, FilesPanel),
-  panel("terminal", SquareTerminal, 0, TerminalPanel),
-  panel("git", GitBranch, 0, GitPanel),
-  panel("agents", Bot, 0, AgentsPanel),
-  panel("tasks", ListTodo, 0, TasksPanel),
-  panel("architecture", Network, 0, ArchitecturePanel),
-  panel("browser", Globe, PLANNED_PHASE.browser, BrowserPanel),
-  panel("database", Database, PLANNED_PHASE.database, DatabasePanel),
-  panel("logs", ScrollText, 0, LogsPanel),
-  panel("deployments", Rocket, 0, DeploymentsPanel),
-  panel("memory", BrainCircuit, 0, MemoryPanel),
-  panel("costs", Coins, 0, CostsPanel),
+  panel("manager", Sparkles, 0, ManagerPanel, "work"),
+  panel("code", FileCode, 0, CodePanel, "code"),
+  panel("files", FolderTree, 0, FilesPanel, "code"),
+  panel("terminal", SquareTerminal, 0, TerminalPanel, "code"),
+  panel("git", GitBranch, 0, GitPanel, "code"),
+  panel("agents", Bot, 0, AgentsPanel, "ai"),
+  panel("tasks", ListTodo, 0, TasksPanel, "work"),
+  panel("architecture", Network, 0, ArchitecturePanel, "quality"),
+  panel("browser", Globe, PLANNED_PHASE.browser, BrowserPanel, "ai"),
+  panel("database", Database, PLANNED_PHASE.database, DatabasePanel, "ops"),
+  panel("logs", ScrollText, 0, LogsPanel, "monitoring"),
+  panel("deployments", Rocket, 0, DeploymentsPanel, "ops"),
+  panel("memory", BrainCircuit, 0, MemoryPanel, "ai"),
+  panel("costs", Coins, 0, CostsPanel, "monitoring"),
   // mission-control (Phase 3)
-  panel("missionControl", LayoutDashboard, 0, MissionControlPanel),
-  panel("monitoring", Activity, 0, MonitoringPanel),
+  panel("missionControl", LayoutDashboard, 0, MissionControlPanel, "work"),
+  panel("monitoring", Activity, 0, MonitoringPanel, "monitoring"),
   // Embedded VS Code (VSCodium REH web server + Open VSX extensions).
-  panel("vscode", Code2, 0, VsCodePanel),
+  panel("vscode", Code2, 0, VsCodePanel, "code"),
   // VS Code extensions for the native editor (ADR-0025)
-  panel("extensions", Puzzle, 0, ExtensionsPanel),
+  panel("extensions", Puzzle, 0, ExtensionsPanel, "ecosystem"),
   // Claude Code chat (official `claude` CLI, stream-json)
-  panel("claudeCode", Sparkle, 0, ClaudeCodePanel),
+  panel("claudeCode", Sparkle, 0, ClaudeCodePanel, "ai"),
   // multi-node (Phase 6): enrolled nodes, jobs, model distribution
-  panel("nodes", Server, 0, NodesPanel),
+  panel("nodes", Server, 0, NodesPanel, "ops"),
   // ecosystem (Phase 7): marketplace (WP2), dashboards (WP3), Bug Detective (WP6)
-  panel("marketplace", Store, 0, MarketplacePanel),
-  panel("dashboards", LayoutGrid, 0, DashboardsPanel),
-  panel("bugDetective", Bug, 0, BugDetectivePanel),
+  panel("marketplace", Store, 0, MarketplacePanel, "ecosystem"),
+  panel("dashboards", LayoutGrid, 0, DashboardsPanel, "work"),
+  panel("bugDetective", Bug, 0, BugDetectivePanel, "quality"),
 ];
 
 const BY_ID = new Map(PANELS.map((p) => [p.id, p]));

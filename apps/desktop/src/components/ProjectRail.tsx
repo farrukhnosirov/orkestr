@@ -9,6 +9,7 @@ import { useSecurityStore } from "../features/security/store";
 import { RailPins } from "../features/vscode/PinnedCommands";
 import { openExtensions, openVsCodePanel } from "../features/vscode/quickAccess";
 import { openClaudePanel } from "../features/claudeCode/bridge";
+import { RailLibraryButton, RailPanelPins } from "../features/windowLibrary";
 import { useT } from "../i18n";
 import { ContextMenu } from "../panels/Files/ContextMenu";
 import { useAppStore } from "../store/app";
@@ -107,6 +108,7 @@ export function ProjectRail() {
       </div>
       <div className="rail__footer">
         <RailPins />
+        <RailPanelPins />
         <Tooltip content={t("rail.newProject")} side="right">
           <button type="button" className="rail__add" aria-label={t("rail.createProject")} onClick={() => setCreateOpen(true)}>
             <Plus size={18} />
@@ -115,6 +117,7 @@ export function ProjectRail() {
         <IconButton label={t("rail.vscode")} icon={<Code2 size={16} />} onClick={openVsCodePanel} tooltip="right" />
         <IconButton label={t("rail.extensions")} icon={<Blocks size={16} />} onClick={openExtensions} tooltip="right" />
         <IconButton label={t("rail.claudeCode")} icon={<Sparkle size={16} />} onClick={openClaudePanel} tooltip="right" />
+        <RailLibraryButton />
         <IconButton label={t("rail.palette")} icon={<Command size={16} />} onClick={() => setPaletteOpen(true)} tooltip="right" />
       </div>
       {menu && (

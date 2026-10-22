@@ -2,6 +2,7 @@ import { clsx } from "clsx";
 import { useCallback, useEffect, useState } from "react";
 
 import { CommandPalette } from "./components/CommandPalette";
+import { WindowLibrary } from "./features/windowLibrary";
 import { LauncherConfirmDialog, LauncherToast } from "./features/vscode/ExtensionLauncher";
 import { ConnectionScreen } from "./components/ConnectionScreen";
 import { CreateProjectDialog } from "./components/CreateProjectDialog";
@@ -139,6 +140,7 @@ export function App() {
           <LayoutDialogs />
           <WorkbenchDialogs />
           <MissionControlOverlay />
+          <WindowLibrary />
           <RobotHost />
           <VoiceHud />
         </>

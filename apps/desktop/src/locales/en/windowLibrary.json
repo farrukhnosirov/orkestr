@@ -1,0 +1,214 @@
+{
+  "title": "Window Library",
+  "subtitle": "Every panel and window of Orkestr: pick one and open it where you need it",
+  "open": "Open Window Library",
+  "close": "Close the Window Library",
+  "searchPlaceholder": "Search windows and panels…",
+  "searchLabel": "Search the Window Library",
+  "categoriesLabel": "Categories",
+  "gridLabel": "Windows",
+  "count_one": "{{count}} window",
+  "count_other": "{{count}} windows",
+  "empty": "Nothing matches “{{query}}”",
+  "emptyHint": "Try another word in English or Russian, or clear the filters",
+  "clearSearch": "Clear search",
+  "noPreview": "No preview yet",
+  "previewAlt": "Preview of {{title}}",
+  "openNow": "Open",
+  "openNowTitle": "This window is open right now",
+  "comingInPhase": "Arrives in Phase {{phase}}",
+  "categories": {
+    "all": "All",
+    "favorites": "Favorites",
+    "recent": "Recently opened",
+    "work": "Work",
+    "ai": "Agents & AI",
+    "code": "Code",
+    "quality": "Quality",
+    "ops": "Ops & Deploy",
+    "monitoring": "Monitoring",
+    "ecosystem": "Ecosystem",
+    "system": "System & Settings"
+  },
+  "actions": {
+    "openHere": "Open here",
+    "openWindow": "Open in a new window",
+    "pin": "Pin to sidebar",
+    "unpin": "Unpin from sidebar",
+    "addToLayout": "Add to layout",
+    "favorite": "Add to favorites",
+    "unfavorite": "Remove from favorites",
+    "more": "More actions for {{title}}"
+  },
+  "detail": {
+    "category": "Category",
+    "shortcut": "Shortcut",
+    "tags": "Tags",
+    "status": "Status",
+    "statusOpen": "Open in the workspace",
+    "statusWindow": "Open in its own window",
+    "statusClosed": "Not open",
+    "kind": "Kind",
+    "kindPanel": "Dockable panel",
+    "kindWindow": "Dialog window"
+  },
+  "keys": {
+    "navigate": "navigate",
+    "open": "open",
+    "newWindow": "new window",
+    "favorite": "favorite",
+    "close": "close",
+    "category": "category"
+  },
+  "rail": {
+    "label": "Pinned panels",
+    "open": "Open {{title}}",
+    "library": "Window Library"
+  },
+  "command": {
+    "open": "Open Window Library",
+    "group": "Windows"
+  },
+  "toast": {
+    "pinned": "{{title}} pinned to the sidebar",
+    "addedToLayout": "{{title}} added to the layout",
+    "layoutLocked": "The layout is locked: unlock it to add panels"
+  },
+  "panels": {
+    "manager": {
+      "summary": "Talk to the AI Manager: describe a goal, get a plan, approve it and watch the agents run it.",
+      "details": "The main entry point of Orkestr. The AI Manager turns your request into a plan of tasks, asks for approval in the selected approval mode, starts agents and reports progress, costs and results right in the chat.",
+      "tags": "chat, plan, goals, AI"
+    },
+    "code": {
+      "summary": "Monaco editor with tabs, diffs, project search and quick open.",
+      "details": "A fast native code editor for the active project: multiple tabs, syntax highlighting, inline diffs of agent changes, Ctrl+P quick open, Ctrl+Shift+F project search and Save / Save all.",
+      "tags": "editor, monaco, files, diff"
+    },
+    "files": {
+      "summary": "Project file tree with create, rename, move and delete.",
+      "details": "Browse the project folder, open files in the editor, create files and folders, rename, drag to move and delete with confirmation. Shows changed files and respects the project ignore rules.",
+      "tags": "explorer, tree, folders"
+    },
+    "terminal": {
+      "summary": "Real PTY terminals in the project folder, several sessions at once.",
+      "details": "Full terminal sessions (PowerShell, cmd, bash) running in the project folder. Open several tabs, split them, and see the commands agents run. Ctrl+` toggles the terminal.",
+      "tags": "shell, console, powershell, command line"
+    },
+    "git": {
+      "summary": "Status, changes, commits, branches, worktrees and snapshots.",
+      "details": "Everything about version control: staged and unstaged changes with diffs, commit, branches and worktrees used by agents, history, and snapshots you can roll back to.",
+      "tags": "vcs, commit, branch, snapshot, rollback"
+    },
+    "agents": {
+      "summary": "Agent templates and running agents: start, pause and inspect them.",
+      "details": "See every agent of the project with its state, model and current task. Create agents from templates, adjust their tools and limits, pause, resume or stop them.",
+      "tags": "agents, templates, models, AI"
+    },
+    "tasks": {
+      "summary": "Task board and dependency graph of the current work.",
+      "details": "A kanban board and a DAG view of all tasks: statuses, assignees, dependencies and review results. Create tasks by hand or let the AI Manager plan them.",
+      "tags": "kanban, board, DAG, todo"
+    },
+    "architecture": {
+      "summary": "Map of the project architecture and its decision log.",
+      "details": "An interactive map of modules and dependencies built from the code, plus the architecture decision log, so agents and people share the same picture of the system.",
+      "tags": "map, modules, decisions, ADR"
+    },
+    "browser": {
+      "summary": "Browser agent that clicks through web apps for you.",
+      "details": "A visual browser driven by an agent: opens pages, fills forms and checks the UI of your app. Not available yet: it arrives in a later phase.",
+      "tags": "web, automation, UI testing"
+    },
+    "database": {
+      "summary": "Explore database schemas and run queries.",
+      "details": "Connect to the project databases, browse tables and schemas and run queries with results in a grid. Not available yet: it arrives in a later phase.",
+      "tags": "SQL, tables, queries"
+    },
+    "logs": {
+      "summary": "Live stream of every event in the core, with filters.",
+      "details": "The event journal of Orkestr in real time: agent steps, tool calls, approvals, errors and system messages. Filter by level, source and text, and pause the stream.",
+      "tags": "events, journal, errors, debug"
+    },
+    "deployments": {
+      "summary": "Environments, deployment pipelines and their history.",
+      "details": "Configure environments, deploy with approval, follow pipeline steps live, and roll back a failed release. Secrets stay in the vault.",
+      "tags": "deploy, release, pipeline, environments"
+    },
+    "memory": {
+      "summary": "Project memory and knowledge base the agents learn from.",
+      "details": "Facts, decisions, conventions and documents the agents remember about the project. Search, edit and pin entries so every agent follows the same rules.",
+      "tags": "knowledge, facts, notes, context"
+    },
+    "costs": {
+      "summary": "Token usage and spending, budgets and limits per provider.",
+      "details": "How much each provider, model, agent and task costs, with daily and monthly charts. Set budgets and limits so the AI stops before it overspends.",
+      "tags": "money, budget, tokens, usage"
+    },
+    "missionControl": {
+      "summary": "One-screen overview of agents, runs, spend and alerts.",
+      "details": "The operations dashboard of all projects: active agents and runs, pending approvals, spending, alerts and quick actions, laid out as a configurable wall of widgets.",
+      "tags": "overview, dashboard, status, alerts"
+    },
+    "monitoring": {
+      "summary": "CPU, memory, GPU and processes of this computer and the core.",
+      "details": "Live resource charts of the node, heavy processes, core health checks and alert rules, so you see at once when something slows the work down.",
+      "tags": "resources, CPU, RAM, GPU, health"
+    },
+    "vscode": {
+      "summary": "Full VS Code (VSCodium) on the project folder, with Open VSX extensions.",
+      "details": "A complete VS Code workbench running inside Orkestr: its own editor, debugger, extensions from Open VSX and settings, opened on the active project folder.",
+      "tags": "VS Code, VSCodium, IDE, debugger"
+    },
+    "extensions": {
+      "summary": "Install VS Code extensions: themes, icons, grammars, language servers.",
+      "details": "Search Open VSX and install extensions for the native editor and VS Code: color themes, icon packs, language grammars and language servers, with updates and removal.",
+      "tags": "Open VSX, plugins, themes, languages"
+    },
+    "claudeCode": {
+      "summary": "Chat with Claude Code (the official CLI) about the project.",
+      "details": "Run the official Claude Code CLI on your subscription inside Orkestr: chat, see tool calls and file edits as they happen, and answer permission requests right in the chat.",
+      "tags": "Claude, CLI, chat, Anthropic"
+    },
+    "nodes": {
+      "summary": "Connected computers, remote jobs and model distribution.",
+      "details": "Enroll other computers as nodes, run jobs on them, see their resources and spread local models between them to share the load.",
+      "tags": "cluster, remote, machines, models"
+    },
+    "marketplace": {
+      "summary": "Plugins, widgets and agent templates from signed registries.",
+      "details": "Browse, install and manage signed plugins, dashboard widgets and agent templates. Review the permissions a plugin asks for, and publish your own packages.",
+      "tags": "plugins, widgets, store, publish"
+    },
+    "dashboards": {
+      "summary": "Build your own dashboards from built-in and plugin widgets.",
+      "details": "Compose dashboards from widgets: agents, costs, tasks, monitoring charts and plugin widgets. Arrange them on a grid and switch between several dashboards.",
+      "tags": "widgets, charts, custom"
+    },
+    "bugDetective": {
+      "summary": "Investigate incidents: evidence, root cause and approved fixes.",
+      "details": "Collects logs, traces and recent changes around a failure, explains the most likely root cause and proposes a fix that is applied only after your approval.",
+      "tags": "bugs, incidents, root cause, debugging"
+    }
+  },
+  "windows": {
+    "settings": {
+      "title": "Settings",
+      "summary": "Language, providers, voice, security, performance and every other option.",
+      "details": "All settings of Orkestr in one place: general, appearance, AI providers and API keys, voice, security and approvals, performance mode, updates and more.",
+      "tags": "options, preferences, configuration"
+    },
+    "themeEditor": {
+      "title": "Theme Editor",
+      "summary": "Design your own theme with a live preview and contrast check.",
+      "details": "Change colors, background, blur, glow and spacing of the interface with a live preview of the whole app and an automatic WCAG contrast check.",
+      "tags": "appearance, colors, theme, design"
+    },
+    "layoutEditor": {
+      "title": "Layout Editor",
+      "summary": "Arrange panels, layouts and monitors.",
+      "details": "Choose which panels each layout shows, assign them to monitors or separate windows, and save, rename, export or import layouts.",
+      "tags": "layout, monitors, windows, presets"
+    }
+  }
+}

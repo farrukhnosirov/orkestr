@@ -1,5 +1,5 @@
 import { Kbd } from "@orkestr/ui";
-import { Copy, Minus, PictureInPicture2, Search, Settings, Square, X } from "lucide-react";
+import { Copy, LibraryBig, Minus, PictureInPicture2, Search, Settings, Square, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { LayoutSwitcher } from "../features/layout/LayoutSwitcher";
@@ -10,6 +10,7 @@ import { EmergencyStopButton } from "../features/security/EmergencyStop";
 import { useSettingsStore } from "../features/settings/settingsStore";
 import { FileMenu } from "../features/workbench/FileMenu";
 import { MicIndicator } from "../features/voice";
+import { openWindowLibrary, WINDOW_LIBRARY_SHORTCUT } from "../features/windowLibrary";
 import { useT } from "../i18n";
 import { isTauri, windowControls } from "../lib/tauri";
 import { useActiveProject, useAppStore } from "../store/app";
@@ -24,6 +25,7 @@ export function TitleBar() {
   const native = isTauri();
   const { t } = useT("shell");
   const { t: tHud } = useT("hud");
+  const { t: tLib } = useT("windowLibrary");
 
   useEffect(() => {
     if (!native) return;
@@ -76,6 +78,17 @@ export function TitleBar() {
           <Kbd>Ctrl</Kbd>
           <Kbd>K</Kbd>
         </span>
+      </button>
+
+      {/* Window Library (Wave 8): gallery of every panel and window */}
+      <button
+        type="button"
+        className="titlebar__ctl titlebar__library"
+        aria-label={tLib("open")}
+        title={`${tLib("title")} (${WINDOW_LIBRARY_SHORTCUT})`}
+        onClick={openWindowLibrary}
+      >
+        <LibraryBig size={15} />
       </button>
 
       {/* layout-multimonitor (Phase 3): layout presets / editor */}
