@@ -126,5 +126,16 @@
     "show": "Show the orb",
     "hide": "Hide the orb",
     "hub": "Toggle the Agent Hub"
+  },
+  "voice": {
+    "title": "Voice assistant",
+    "listening": "Listening…",
+    "transcribing": "Recognizing…",
+    "thinking": "Thinking…",
+    "speaking": "Answering",
+    "micOn": "Microphone on",
+    "close": "Close",
+    "yes": "Yes",
+    "no": "No"
   }
 }

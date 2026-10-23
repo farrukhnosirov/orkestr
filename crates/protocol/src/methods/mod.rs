@@ -423,6 +423,7 @@ pub fn registry() -> Vec<MethodDescriptor> {
         MethodDescriptor::of::<voice::Transcribe>(),
         MethodDescriptor::of::<voice::Synthesize>(),
         MethodDescriptor::of::<voice::RecordCommand>(),
+        MethodDescriptor::of::<voice::Phrase>(),
         MethodDescriptor::of::<voice::ListEngines>(),
         MethodDescriptor::of::<voice::SetEngineKey>(),
         MethodDescriptor::of::<voice::ListModels>(),

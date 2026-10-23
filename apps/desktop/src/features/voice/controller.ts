@@ -30,7 +30,7 @@ import { routeUtterance } from "../assistant/voiceRoute";
 import { isBusy, type MachineEvent, nextPhase } from "./pipeline/machine";
 import { speakable } from "./pipeline/summary";
 import { type MicPurpose, useVoiceStore } from "./store";
-import { SttError, type SttSession, startStt, webSpeechAvailable } from "./stt/engines";
+import { engineNeedsPcm, SttError, type SttSession, startStt, webSpeechAvailable } from "./stt/engines";
 import { speak, speechLang, stopSpeaking } from "./tts/speaker";
 import { segmentFrames } from "./wake/segmenter";
 import { loadTemplates as loadWakeTemplates, WakeSpotter } from "./wake/spotter";
@@ -51,6 +51,8 @@ export function setVoiceDeps(d: VoiceDeps | null): void {
 // ---------------------------------------------------------------------------
 
 let mic: MicCapture | null = null;
+/** Messages received from the microphone worklet (debug: proves the loop runs in the background). */
+let micTicks = 0;
 let micOpening: Promise<MicCapture> | null = null;
 let offLevel: (() => void) | null = null;
 
@@ -76,6 +78,7 @@ async function openMic(purpose: MicPurpose): Promise<MicCapture> {
           micOpening = null;
           let smoothed = 0;
           offLevel = m.subscribe((msg) => {
+            micTicks += 1;
             if (msg.type === "level") {
               // dBFS → 0..1 (−60 dB .. −10 dB), fast attack / slow release.
               const v = Math.min(1, Math.max(0, (msg.db + 60) / 50));
@@ -158,6 +161,7 @@ function scheduleDismiss(ms: number): void {
   dismissTimer = window.setTimeout(() => {
     const s = useVoiceStore.getState();
     if (s.phase === "result" || s.phase === "error") {
+      pending = null; // an offered follow-up expires with the reply
       emit({ type: "dismiss" });
       if (!s.hudOpen) s.setRuntime({ transcript: "", reply: null });
     }
@@ -188,6 +192,8 @@ export async function startListening(source: VoiceCommandSource): Promise<void> 
     // No recognition: open the HUD for a typed command.
     s.setHudOpen(true);
     s.setRuntime({ source: "Typed" });
+    // Say why there is no listening (instead of a generic "unavailable").
+    if (c.sttEngine === "Disabled" && source !== "Typed") s.setRuntime({ reply: { text: t("voice:errors.sttDisabled"), tone: "info", outcome: "ok" } });
     return;
   }
   if (!emit({ type: "listen" })) return;
@@ -196,7 +202,7 @@ export async function startListening(source: VoiceCommandSource): Promise<void> 
   const gen = ++startGen;
   starting = true;
   try {
-    const needPcm = c.sttEngine === "OpenAiWhisper";
+    const needPcm = engineNeedsPcm(c.sttEngine);
     const m = needPcm ? await openMic("command") : null;
     if (gen !== startGen) {
       // Released (or cancelled) before the microphone was ready: record nothing.
@@ -228,6 +234,10 @@ function sttErrorText(e: SttError): string {
       return t("voice:errors.noSpeech");
     case "unsupported":
       return t("voice:errors.sttUnsupported");
+    case "disabled":
+      return t("voice:errors.sttDisabled");
+    case "noModel":
+      return t("voice:errors.sttNoModel");
     default:
       return t("voice:errors.sttFailed");
   }
@@ -337,9 +347,23 @@ export function installVoiceDebugHook(): () => void {
     ...(w.__orkestrDebug ?? {}),
     voice: {
       simulateTranscript,
+      /** Same path as a detected wake word (sound + command capture). */
+      simulateWake: () => onWake(),
+      cancel: () => cancelVoice(),
       state: () => {
         const s = useVoiceStore.getState();
-        return { enabled: !!s.config?.enabled, phase: s.phase, transcript: s.transcript, reply: s.reply, speaking: s.speaking, hudOpen: s.hudOpen };
+        return {
+          enabled: !!s.config?.enabled,
+          phase: s.phase,
+          transcript: s.transcript,
+          reply: s.reply,
+          speaking: s.speaking,
+          hudOpen: s.hudOpen,
+          wakeStatus: s.wakeStatus,
+          mic: [...s.mic],
+          micTicks,
+          hidden: document.hidden,
+        };
       },
     },
   };
@@ -456,7 +480,9 @@ function finish(intent: Intent, r: CommandResult, source: VoiceCommandSource): v
   void say(r.reply);
   void record(s.transcript, intent, r.outcome, source, r.projectId);
   if (r.managerReply) watchManagerReply(r.managerReply.projectId, r.managerReply.messageId);
-  scheduleDismiss(r.managerReply ? 60_000 : 9000);
+  // An offered next step ("Show the errors?"): a spoken "yes" runs it.
+  if (r.followUp) pending = r.followUp;
+  scheduleDismiss(r.managerReply ? 60_000 : r.followUp ? 15_000 : 9000);
 }
 
 /** Speaks a reply with the active TTS engine (when spoken replies are on). */
@@ -591,8 +617,10 @@ async function startWake(gen: number, cpuBudgetPct: number): Promise<void> {
       const hit = spotter.detect(segmentFrames(msg), Date.now(), msg.early);
       if (hit) onWake();
     });
+    const releaseKeepAlive = holdKeepAlive();
     wakeOff = () => {
       unsub();
+      releaseKeepAlive();
       releaseMic("wake");
     };
     s.setRuntime({ wakeStatus: "listening" });
@@ -606,6 +634,23 @@ async function startWake(gen: number, cpuBudgetPct: number): Promise<void> {
   } finally {
     if (current()) wakeStarting = null;
   }
+}
+
+/**
+ * Holds a Web Lock while the wake listener runs: Chromium never freezes a
+ * page that holds one, so the listener keeps working while the window is
+ * minimized or hidden to the tray (with the WebView2 throttling switches of
+ * `webview_policy.rs`). Returns the release function.
+ */
+function holdKeepAlive(): () => void {
+  let release: (() => void) | null = null;
+  try {
+    const locks = (navigator as Navigator & { locks?: LockManager }).locks;
+    void locks?.request("orkestr.voice.wake", () => new Promise<void>((resolve) => (release = resolve))).catch(() => undefined);
+  } catch {
+    /* no Web Locks: nothing to hold */
+  }
+  return () => release?.();
 }
 
 function stopWake(): void {

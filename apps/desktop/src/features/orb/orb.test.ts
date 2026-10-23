@@ -3,7 +3,7 @@ import type { AgentInstance, ClaudeSessionInfo } from "@orkestr/protocol";
 import { describe, expect, it } from "vitest";
 
 import { PAUSED_ACTIVITY } from "../../lib/coreText";
-import { isStateMessage } from "./channel";
+import { IDLE_MAIN_STATE, isStateMessage, voicePopupWanted } from "./channel";
 import {
   agentItem,
   agentStatus,
@@ -231,5 +231,15 @@ describe("hub items", () => {
     expect(moveSelection(["a", "b", "c"], "b", 1)).toBe("c");
     expect(moveSelection(["a", "b", "c"], "c", 1)).toBe("c");
     expect(moveSelection([], "a", 1)).toBeNull();
+  });
+});
+
+describe("voice popup next to the orb", () => {
+  const v = (phase: string) => ({ ...IDLE_MAIN_STATE.voice, enabled: true, phase });
+  it("opens for a command while Orkestr is in the background, stays until it is done", () => {
+    expect(voicePopupWanted(v("listening"), false, false)).toBe(true);
+    expect(voicePopupWanted(v("listening"), true, false)).toBe(false);
+    expect(voicePopupWanted(v("result"), true, true)).toBe(true);
+    expect(voicePopupWanted(v("idle"), false, true)).toBe(false);
   });
 });

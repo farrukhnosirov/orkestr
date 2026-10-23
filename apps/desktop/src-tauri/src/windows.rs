@@ -390,6 +390,7 @@ pub async fn window_open_panel(
         let title = req.title.clone().unwrap_or_else(|| "Orkestr".to_owned());
         let w = WebviewWindowBuilder::new(&app, &label, WebviewUrl::App(url.into()))
             .title(title.chars().take(120).collect::<String>())
+            .additional_browser_args(crate::webview_policy::BROWSER_ARGS)
             .decorations(false)
             .transparent(true)
             .shadow(true)

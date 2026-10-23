@@ -537,6 +537,9 @@ pub struct VoiceConfig {
     pub push_to_talk_hotkey: String,
     /// Speak short replies to voice commands.
     pub spoken_replies: bool,
+    /// Phrase status replies naturally through the Manager's AI model
+    /// (`voice.phrase`), falling back to local templates.
+    pub natural_replies: bool,
     /// System (`speechSynthesis`) voice name for the assistant (`None` = best match for the language).
     pub system_voice: Option<String>,
     /// OpenAI TTS voice for the assistant.
@@ -592,6 +595,7 @@ impl Default for VoiceConfig {
             input_device_id: None,
             push_to_talk_hotkey: "Ctrl+Space".into(),
             spoken_replies: true,
+            natural_replies: true,
             system_voice: None,
             cloud_voice: "alloy".into(),
             rate_pct: 100,
@@ -939,6 +943,32 @@ pub struct TranscribeParams {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub engine: Option<SttEngine>,
+}
+
+/// Params of `voice.phrase`: structured facts → a natural spoken reply.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct PhraseReplyParams {
+    /// Facts to phrase (plain text, ≤ 2000 chars).
+    pub facts: String,
+    /// Reply language (`ru`, `en`, …).
+    pub lang: String,
+    /// Server-side time limit, ms (default 3000, max 10000).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub timeout_ms: Option<u32>,
+}
+
+/// Result of `voice.phrase`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct PhraseReplyResult {
+    /// One or two conversational sentences.
+    pub text: String,
+    /// Model that phrased it.
+    pub model: String,
 }
 
 /// Result of `voice.transcribe`.
@@ -1296,6 +1326,10 @@ method!(
 method!(
     /// `voice.synthesize`.
     Synthesize, "voice.synthesize", SynthesizeParams, SynthesizeResult
+);
+method!(
+    /// `voice.phrase`: phrases reply facts naturally with the Manager's model.
+    Phrase, "voice.phrase", PhraseReplyParams, PhraseReplyResult
 );
 method!(
     /// `voice.recordCommand`.

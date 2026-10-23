@@ -416,6 +416,8 @@ import type { OpenExternalResult } from "./OpenExternalResult";
 import type { OpenIncidentParams } from "./OpenIncidentParams";
 import type { OpenTerminalParams } from "./OpenTerminalParams";
 import type { PathsParams } from "./PathsParams";
+import type { PhraseReplyParams } from "./PhraseReplyParams";
+import type { PhraseReplyResult } from "./PhraseReplyResult";
 import type { PipelineConfig } from "./PipelineConfig";
 import type { PipelineConfigParams } from "./PipelineConfigParams";
 import type { PlanIdParams } from "./PlanIdParams";
@@ -931,6 +933,7 @@ export type Methods = {
   "voice.transcribe": [TranscribeParams, TranscribeResult];
   "voice.synthesize": [SynthesizeParams, SynthesizeResult];
   "voice.recordCommand": [RecordVoiceCommandParams, Empty];
+  "voice.phrase": [PhraseReplyParams, PhraseReplyResult];
   "voice.listEngines": [ListVoiceEnginesParams, VoiceEnginesResult];
   "voice.setEngineKey": [SetVoiceEngineKeyParams, VoiceEnginesResult];
   "voice.listModels": [Empty, VoiceModelsResult];
@@ -1417,6 +1420,7 @@ export const METHOD_NAMES = [
   "voice.transcribe",
   "voice.synthesize",
   "voice.recordCommand",
+  "voice.phrase",
   "voice.listEngines",
   "voice.setEngineKey",
   "voice.listModels",

@@ -161,6 +161,7 @@ pub async fn vscode_window_open(
     let nav_app = app.clone();
     let window = WebviewWindowBuilder::new(&app, VSCODE_WINDOW, WebviewUrl::External(parsed))
         .title(&title)
+        .additional_browser_args(crate::webview_policy::BROWSER_ARGS)
         .inner_size(1360.0, 860.0)
         .min_inner_size(640.0, 420.0)
         .center()

@@ -55,6 +55,11 @@ pushToTalkHotkey: string,
  */
 spokenReplies: boolean, 
 /**
+ * Phrase status replies naturally through the Manager's AI model
+ * (`voice.phrase`), falling back to local templates.
+ */
+naturalReplies: boolean, 
+/**
  * System (`speechSynthesis`) voice name for the assistant (`None` = best match for the language).
  */
 systemVoice: string | null, 

@@ -13,6 +13,14 @@ use tauri::{Runtime, Webview};
 
 use crate::vscode_window::VSCODE_WINDOW;
 
+/// WebView2 browser arguments of every Orkestr window (they share one
+/// browser process, so all windows must pass the same arguments). wry's
+/// defaults (`msWebOOUI,msPdfOOUI,msSmartScreenProtection` off) plus: no
+/// background throttling, renderer backgrounding or occlusion tracking, so
+/// the wake-word listener and voice pipeline in the main window keep running
+/// while it is minimized, hidden to the tray or covered by other windows.
+pub const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection,CalculateNativeWinOcclusion --disable-background-timer-throttling --disable-renderer-backgrounding --disable-backgrounding-occluded-windows";
+
 /// Whether the policy applies to the web view with this label.
 pub fn applies_to(label: &str) -> bool {
     label != VSCODE_WINDOW

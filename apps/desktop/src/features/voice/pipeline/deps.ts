@@ -5,6 +5,7 @@
 import { topic } from "@orkestr/protocol";
 
 import { getClient, openProject } from "../../../core/client";
+import { currentLanguage } from "../../../i18n";
 import { workspaceActions } from "../../../components/workspaceActions";
 import { useAppStore } from "../../../store/app";
 import { stopAllAi } from "../../commands/coreCommands";
@@ -13,7 +14,9 @@ import { useSecurityStore } from "../../security/store";
 import { useSettingsStore } from "../../settings/settingsStore";
 import { startRun } from "../../quality/store";
 import { buildErrorsOf, fetchReviews, fetchRuns, openReviewCount, qualityFactsOf } from "../../quality/signals";
+import { useVoiceStore } from "../store";
 import type { BuildError, VoiceDeps } from "./executor";
+import { PHRASE_TIMEOUT_MS } from "./natural";
 import { EMPTY_QUALITY, type QualitySnapshot } from "./summary";
 
 /** Recent `BuildFailed` events of a project, newest first (Phase 1 event log). */
@@ -69,6 +72,12 @@ export function realVoiceDeps(): VoiceDeps {
   return {
     activeProjectId: () => useAppStore.getState().activeProjectId,
     projectName: (id) => useAppStore.getState().projects.find((p) => p.id === id)?.name ?? null,
+    projectCount: () => useAppStore.getState().projects.length,
+    phrase: async (facts) => {
+      if (useVoiceStore.getState().config?.naturalReplies === false) throw new Error("natural replies are off");
+      const r = await getClient().call("voice.phrase", { facts, lang: currentLanguage(), timeoutMs: PHRASE_TIMEOUT_MS }, { timeoutMs: PHRASE_TIMEOUT_MS + 500 });
+      return r.text;
+    },
     listTasks: async (projectId) => (await getClient().call("tasks.list", { projectId })).tasks,
     listAgents: async (projectId) => (await getClient().call("agents.list", projectId ? { projectId } : {})).agents,
     pendingApprovals: () => useSecurityStore.getState().pending,

@@ -37,7 +37,7 @@ export interface SttSession {
 
 export class SttError extends Error {
   constructor(
-    readonly code: "unsupported" | "denied" | "network" | "noSpeech" | "failed",
+    readonly code: "unsupported" | "denied" | "network" | "noSpeech" | "failed" | "disabled" | "noModel",
     message: string,
   ) {
     super(message);
@@ -191,8 +191,14 @@ function whisperSession(mic: MicCapture, lang: string, autoEnd: boolean): SttSes
       const client = maybeClient();
       if (!client) throw new SttError("network", "not connected");
       const audioBase64 = toBase64(encodeWav(pcm, SAMPLE_RATE));
-      const r = await client.call("voice.transcribe", { audioBase64, mimeType: "audio/wav", language: lang.split("-")[0] ?? lang }, { timeoutMs: 60_000 });
-      return r.text.trim();
+      try {
+        const r = await client.call("voice.transcribe", { audioBase64, mimeType: "audio/wav", language: lang.split("-")[0] ?? lang }, { timeoutMs: 60_000 });
+        return r.text.trim();
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        if (/not installed/i.test(msg)) throw new SttError("noModel", msg);
+        throw e;
+      }
     },
     cancel: () => {
       autoEndCb = () => {};
@@ -202,10 +208,19 @@ function whisperSession(mic: MicCapture, lang: string, autoEnd: boolean): SttSes
   };
 }
 
+/**
+ * Whether an engine records PCM from our microphone capture. Every engine
+ * except the webview's own `WebSpeech` (and `Disabled`) transcribes WAV in the
+ * core (whisper.cpp, Vosk, sherpa-onnx, Windows speech, cloud engines).
+ */
+export function engineNeedsPcm(engine: SttEngine): boolean {
+  return engine !== "WebSpeech" && engine !== "Disabled";
+}
+
 export interface StartSttOptions {
   engine: SttEngine;
   lang: string;
-  /** Needed for Whisper (PCM source). */
+  /** PCM source, needed for every core engine (see `engineNeedsPcm`). */
   mic: MicCapture | null;
   /** End on silence (wake word) instead of on key release (push-to-talk). */
   autoEnd: boolean;
@@ -217,7 +232,7 @@ export function startStt(o: StartSttOptions): SttSession {
     case "WebSpeech":
       return webSpeechSession(o.lang, !o.autoEnd);
     case "Disabled":
-      throw new SttError("unsupported", "speech recognition is disabled");
+      throw new SttError("disabled", "speech recognition is disabled");
     default:
       if (!o.mic) throw new SttError("unsupported", "microphone not open");
       return whisperSession(o.mic, o.lang, o.autoEnd);

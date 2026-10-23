@@ -119,59 +119,81 @@ impl PlanModel for CoreModel {
         cancel: CancellationToken,
     ) -> ComputerResult<(String, String)> {
         let s = self.0.upgrade().ok_or_else(|| ComputerError::Planner("core is shutting down".into()))?;
-        let mut chain = Vec::new();
-        if let Some(m) = s.providers.manager_config().await.ok().and_then(|c| c.model) {
-            chain.push(m);
+        match manager_complete(&s, system, user, 1_500, false, cancel.clone()).await {
+            Ok(r) => Ok(r),
+            Err(_) if cancel.is_cancelled() => Err(ComputerError::Stopped),
+            Err(e) => Err(ComputerError::Planner(e)),
         }
-        let routed = s
-            .providers
-            .route(&RouteRequest {
-                purpose: Some("Manager".into()),
-                required: RequiredCapabilities::default(),
-                preferred: chain.first().cloned(),
-                fallback_chain: Vec::new(),
-                policy: AiPolicy::default(),
-                max_cost_usd: None,
-                est_input_tokens: 3_000,
-                max_output_tokens: 1_500,
-                exclude: Vec::new(),
-            })
-            .await
-            .unwrap_or_default();
-        for r in routed {
-            if !chain.contains(&r) {
-                chain.push(r);
-            }
-        }
-        let head = chain
-            .first()
-            .cloned()
-            .ok_or_else(|| ComputerError::Planner("no chat model is available (connect a provider)".into()))?;
-        let mut chat = ChatRequest::new(head.model.clone(), vec![ChatMessage::user(user)]);
-        chat.system = Some(system);
-        chat.max_output_tokens = Some(1_500);
-        let mut stream = s.providers.chat(chain, chat, None, cancel.clone());
-        let (mut text, mut model) = (String::new(), head);
-        while let Some(ev) = stream.next().await {
-            match ev {
-                ChatEvent::TextDelta(t) => text.push_str(&t),
-                ChatEvent::Switched { to, .. } => {
-                    text.clear();
-                    model = to;
-                }
-                ChatEvent::Done { .. } => return Ok((text, model.model)),
-                ChatEvent::Error(e) => {
-                    return Err(if cancel.is_cancelled() {
-                        ComputerError::Stopped
-                    } else {
-                        ComputerError::Planner(format!("model call failed: {e}"))
-                    })
-                }
-                ChatEvent::Usage(_) | ChatEvent::ToolCall { .. } => {}
-            }
-        }
-        Err(ComputerError::Planner("the model stream ended unexpectedly".into()))
     }
+}
+
+/// One-shot completion with the AI Manager's model (then routing). With
+/// `real_only`, the offline Mock provider is skipped (its canned answers are
+/// not useful outside the planner).
+///
+/// # Errors
+/// No model available, or the model call failed (message).
+pub(crate) async fn manager_complete(
+    s: &Services,
+    system: String,
+    user: String,
+    max_output_tokens: u32,
+    real_only: bool,
+    cancel: CancellationToken,
+) -> Result<(String, String), String> {
+    let mut chain = Vec::new();
+    if let Some(m) = s.providers.manager_config().await.ok().and_then(|c| c.model) {
+        chain.push(m);
+    }
+    let routed = s
+        .providers
+        .route(&RouteRequest {
+            purpose: Some("Manager".into()),
+            required: RequiredCapabilities::default(),
+            preferred: chain.first().cloned(),
+            fallback_chain: Vec::new(),
+            policy: AiPolicy::default(),
+            max_cost_usd: None,
+            est_input_tokens: 3_000,
+            max_output_tokens: u64::from(max_output_tokens),
+            exclude: Vec::new(),
+        })
+        .await
+        .unwrap_or_default();
+    for r in routed {
+        if !chain.contains(&r) {
+            chain.push(r);
+        }
+    }
+    if real_only {
+        let mock: Vec<_> = s
+            .providers
+            .list()
+            .into_iter()
+            .filter(|v| v.provider.kind == orkestr_domain::ProviderKind::Mock)
+            .map(|v| v.provider.id)
+            .collect();
+        chain.retain(|m| !mock.contains(&m.provider_id));
+    }
+    let head = chain.first().cloned().ok_or_else(|| "no chat model is available (connect a provider)".to_owned())?;
+    let mut chat = ChatRequest::new(head.model.clone(), vec![ChatMessage::user(user)]);
+    chat.system = Some(system);
+    chat.max_output_tokens = Some(max_output_tokens);
+    let mut stream = s.providers.chat(chain, chat, None, cancel.clone());
+    let (mut text, mut model) = (String::new(), head);
+    while let Some(ev) = stream.next().await {
+        match ev {
+            ChatEvent::TextDelta(t) => text.push_str(&t),
+            ChatEvent::Switched { to, .. } => {
+                text.clear();
+                model = to;
+            }
+            ChatEvent::Done { .. } => return Ok((text, model.model)),
+            ChatEvent::Error(e) => return Err(format!("model call failed: {e}")),
+            ChatEvent::Usage(_) | ChatEvent::ToolCall { .. } => {}
+        }
+    }
+    Err("the model stream ended unexpectedly".into())
 }
 
 /// Wires the planner model and starts indexing Start-menu apps.

@@ -24,6 +24,7 @@ const CONFIG = {
   inputDeviceId: null,
   pushToTalkHotkey: "Ctrl+Space",
   spokenReplies: false,
+  naturalReplies: false,
   systemVoice: null,
   cloudVoice: "alloy",
   ratePct: 100,
@@ -86,7 +87,7 @@ describe("simulated transcript (acceptance seam)", () => {
     const s = useVoiceStore.getState();
     expect(s.source).toBe("PushToTalk");
     expect(s.transcript).toBe("Jarvis, что происходит со Schoolify?");
-    expect(s.reply?.text).toMatch(/^Schoolify/);
+    expect(s.reply?.text).toMatch(/^In Schoolify, /);
   });
 
   it("exposes the hook only behind the local debug flag", () => {

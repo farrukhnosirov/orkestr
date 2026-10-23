@@ -104,6 +104,9 @@ export function VoiceSection(_props: SettingsSectionProps) {
         <SettingRow title={t("settings.general.spokenReplies")} description={t("settings.general.spokenRepliesDesc")}>
           <Switch label={t("settings.general.spokenReplies")} checked={config.spokenReplies} onChange={(v) => up((c) => ({ ...c, spokenReplies: v }))} />
         </SettingRow>
+        <SettingRow title={t("settings.general.naturalReplies")} description={t("settings.general.naturalRepliesDesc")}>
+          <Switch label={t("settings.general.naturalReplies")} checked={config.naturalReplies} onChange={(v) => up((c) => ({ ...c, naturalReplies: v }))} />
+        </SettingRow>
       </SettingGroup>
 
       <SettingGroup title={t("settings.groups.microphone")}>

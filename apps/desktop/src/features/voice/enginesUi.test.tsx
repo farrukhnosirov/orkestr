@@ -32,6 +32,7 @@ const CONFIG = {
   inputDeviceId: null,
   pushToTalkHotkey: "Ctrl+Space",
   spokenReplies: true,
+  naturalReplies: false,
   systemVoice: null,
   cloudVoice: "alloy",
   ratePct: 100,

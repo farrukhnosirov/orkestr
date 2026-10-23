@@ -21,7 +21,7 @@ import { initSecurityLive, useSecurityStore } from "../security/store";
 import { useSettingsStore } from "../settings/settingsStore";
 import { activeTheme, useThemeStore } from "../theme/themeStore";
 import { useThemeEngine } from "../theme/ThemeRuntime";
-import { useOrbMainState } from "./channel";
+import { useOrbMainState, voicePopupWanted } from "./channel";
 import { hubActions, useHubData } from "./hubData";
 import { type HubItem, groupByProject, hubCounts } from "./hubModel";
 import {
@@ -41,13 +41,16 @@ import {
 import { OrbHub } from "./OrbHub";
 import { type OrbMenuAction, OrbMenu } from "./OrbMenu";
 import { OrbSphere } from "./OrbSphere";
+import { OrbVoicePopup } from "./OrbVoicePopup";
 import { ORB_EVENTS, type OrbLayout, type OrbMoved, orbShell, savePosition } from "./shell";
 import "./orb.css";
 
 /** Size of the orb menu area (logical px). */
 const MENU_SIZE = { width: 232, height: 300 } as const;
+/** Size of the voice popup area (logical px). */
+const VOICE_SIZE = { width: 300, height: 168 } as const;
 
-type Panel = "none" | "hub" | "menu";
+type Panel = "none" | "hub" | "menu" | "voice";
 
 /** Settings (language, theme, chosen performance mode) for the orb window. */
 function useOrbSettings(ready: boolean): PerformanceMode {
@@ -214,12 +217,27 @@ export function OrbApp() {
     if (errs.length) setAcknowledged((prev) => new Set([...prev, ...errs.map((i) => i.id)]));
   }, [panel, hub.items, acknowledged]);
 
+  // Background voice command: the popup opens next to the orb and closes when it is done.
+  const voiceState = main.state.voice;
+  const appActive = main.state.appActive;
+  useEffect(() => {
+    const want = voicePopupWanted(voiceState, appActive, panel === "voice");
+    if (want && panel === "none") setPanel("voice");
+    else if (!want && panel === "voice") setPanel("none");
+  }, [voiceState, appActive, panel]);
+
   // Window area for the open panel (the shell grows the window next to the sphere).
   const openPanel = useCallback((next: Panel) => setPanel(next), []);
   const close = useCallback(() => setPanel("none"), []);
   useEffect(() => {
     const dims: readonly [number, number] | null =
-      panel === "hub" ? [HUB_SIZE.width, HUB_SIZE.height] : panel === "menu" ? [MENU_SIZE.width, MENU_SIZE.height] : null;
+      panel === "hub"
+        ? [HUB_SIZE.width, HUB_SIZE.height]
+        : panel === "menu"
+          ? [MENU_SIZE.width, MENU_SIZE.height]
+          : panel === "voice"
+            ? [VOICE_SIZE.width, VOICE_SIZE.height]
+            : null;
     if (!orbShell.available()) {
       setLayout(previewLayout(panel, box));
       return undefined;
@@ -249,7 +267,7 @@ export function OrbApp() {
 
   // Clicking elsewhere (the window loses focus) closes the hub / menu.
   useEffect(() => {
-    if (panel === "none") return undefined;
+    if (panel === "none" || panel === "voice") return undefined;
     const onBlur = () => close();
     window.addEventListener("blur", onBlur);
     return () => window.removeEventListener("blur", onBlur);
@@ -275,8 +293,10 @@ export function OrbApp() {
   }, [panel, layout]);
   useEffect(() => {
     const shape = orbHitShape({ x: layout.orbX, y: layout.orbY }, size, [panelBox]);
+    // Orb switched off (popup only): the hidden sphere takes no clicks.
+    if (!prefs.enabled) shape.circles = [];
     orbShell.setShape(shape).catch((e: unknown) => console.warn("orb_set_shape", e));
-  }, [layout.orbX, layout.orbY, size, panelBox]);
+  }, [layout.orbX, layout.orbY, size, panelBox, prefs.enabled]);
 
   // Escape anywhere closes; the hub handles its own keys first.
   useEffect(() => {
@@ -341,7 +361,7 @@ export function OrbApp() {
     <div className={clsx("orb-root", `orb-root--${mood}`, `orb-root--${motion}`)}>
       <div
         ref={sphereRef}
-        className={clsx("orb", hovered && "orb--hover", dragging && "orb--drag", panel === "hub" && "orb--open")}
+        className={clsx("orb", hovered && "orb--hover", dragging && "orb--drag", panel === "hub" && "orb--open", !prefs.enabled && "orb--ghost")}
         style={{ left: layout.orbX, top: layout.orbY, width: box, height: box }}
         role="button"
         tabIndex={0}
@@ -409,6 +429,18 @@ export function OrbApp() {
             onClose={() => {
               close();
               sphereRef.current?.focus({ preventScroll: true });
+            }}
+          />
+        </div>
+      )}
+      {panel === "voice" && (
+        <div ref={panelRef} className={clsx("orb-panel", `orb-panel--${layout.side}`)} style={{ ...panelStyle, width: VOICE_SIZE.width, height: VOICE_SIZE.height }}>
+          <OrbVoicePopup
+            voice={voiceState}
+            onAction={main.voiceAction}
+            onOpenMain={() => {
+              main.voiceAction("cancel");
+              void orbShell.toMain("open-main");
             }}
           />
         </div>

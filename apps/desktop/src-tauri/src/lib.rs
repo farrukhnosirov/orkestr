@@ -447,7 +447,9 @@ pub fn run() {
             // The main window is created here (`create: false` in tauri.conf.json)
             // so it gets the popup / permission handlers of the embedded VS Code
             // frame (ADR-0043): links open in the system browser, paste works.
-            if let Some(config) = app.config().app.windows.iter().find(|w| w.label == MAIN_WINDOW).cloned() {
+            if let Some(mut config) = app.config().app.windows.iter().find(|w| w.label == MAIN_WINDOW).cloned() {
+                // Same browser arguments in every window (one WebView2 environment).
+                config.additional_browser_args = Some(webview_policy::BROWSER_ARGS.to_owned());
                 tauri::WebviewWindowBuilder::from_config(app.handle(), &config)?
                     .on_new_window(|target, _features| vscode_window::app_new_window(&target))
                     .on_permission_request(|_webview, kind| vscode_window::app_permission(&kind))

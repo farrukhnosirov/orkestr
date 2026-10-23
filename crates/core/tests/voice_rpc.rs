@@ -262,3 +262,17 @@ async fn voice_config_consent_cloud_speech_and_command_log() {
     });
     assert!(found, "VoiceCommand event persisted");
 }
+
+#[tokio::test]
+async fn phrase_needs_facts_and_a_real_model() {
+    let dir = tempfile::tempdir().unwrap();
+    let core = orkestr_core::start(CoreConfig::for_tests(dir.path().join("data"))).await.unwrap();
+    let mut c = Client::connect(&core).await;
+    assert_eq!(c.err_code("voice.phrase", json!({"facts": "  ", "lang": "ru"})).await, "bad_request");
+    // Only the offline Mock (or nothing) is configured: the client falls back to its templates.
+    assert_eq!(
+        c.err_code("voice.phrase", json!({"facts": "Tasks in progress: 0", "lang": "ru", "timeoutMs": 1000})).await,
+        "conflict"
+    );
+    core.shutdown().await;
+}

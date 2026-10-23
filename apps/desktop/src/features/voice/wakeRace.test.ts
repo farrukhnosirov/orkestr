@@ -53,6 +53,7 @@ const BASE = {
   inputDeviceId: null,
   pushToTalkHotkey: "Ctrl+Space",
   spokenReplies: false,
+  naturalReplies: false,
   systemVoice: null,
   cloudVoice: "alloy",
   ratePct: 100,

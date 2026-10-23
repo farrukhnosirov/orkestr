@@ -26,7 +26,7 @@ use orkestr_protocol::methods::voice::{
     SetVoiceEngineKeyParams, SttConsent, SttEngine, SynthesizeParams, SynthesizeResult, TranscribeParams,
     TranscribeResult, TtsConsent, TtsEngine, VoiceCloudProvider, VoiceConfig, VoiceConfigResult, VoiceConsentScope,
     VoiceEngineStatus, VoiceEnginesResult, VoiceKeyId, VoiceModelsResult, VoicePackageParams, VoiceVerifyResult,
-    MAX_SYNTHESIZE_CHARS, MAX_TRANSCRIBE_BYTES,
+    MAX_SYNTHESIZE_CHARS, MAX_TRANSCRIBE_BYTES, PhraseReplyParams, PhraseReplyResult,
 };
 use orkestr_protocol::methods::Empty;
 use orkestr_protocol::{NewEvent, RpcError};
@@ -55,6 +55,7 @@ pub fn register(router: &mut RpcRouter) {
         .method::<m::Transcribe, _, _>(transcribe)
         .method::<m::Synthesize, _, _>(synthesize)
         .method::<m::RecordCommand, _, _>(record_command)
+        .method::<m::Phrase, _, _>(phrase)
         .method::<m::ListEngines, _, _>(list_engines)
         .method::<m::SetEngineKey, _, _>(set_engine_key)
         .method::<m::ListModels, _, _>(|ctx: RpcContext, _: Empty| list_models(ctx))
@@ -472,6 +473,36 @@ async fn transcribe(ctx: RpcContext, p: TranscribeParams) -> Result<TranscribeRe
         }
     }
     Err(first_err.unwrap_or_else(|| RpcError::internal("speech recognition failed")))
+}
+
+const PHRASE_SYSTEM: &str = "You are Orkestr, a friendly voice assistant that oversees AI coding agents. Turn the facts you are given into a short spoken reply. Rules: answer in the requested language; 1-2 conversational sentences; no IDs, slugs, file paths, markdown, lists or emoji; mention the project only if the facts say to, and then by its human name; round numbers; put what needs attention last and, if useful, offer one next step as a short question. Reply with the spoken text only.";
+
+/// `voice.phrase`: facts → a natural spoken sentence via the Manager's model.
+async fn phrase(ctx: RpcContext, p: PhraseReplyParams) -> Result<PhraseReplyResult, RpcError> {
+    let facts = p.facts.trim();
+    if facts.is_empty() || facts.chars().count() > 2_000 {
+        return Err(RpcError::bad_request("facts must be 1..2000 characters"));
+    }
+    let lang = if p.lang.trim().is_empty() { "en" } else { p.lang.trim() };
+    let user = format!("Language: {lang}
+Facts:
+{facts}");
+    let limit = std::time::Duration::from_millis(u64::from(p.timeout_ms.unwrap_or(3_000).clamp(500, 10_000)));
+    let cancel = tokio_util::sync::CancellationToken::new();
+    let call = super::computer::manager_complete(&ctx.services, PHRASE_SYSTEM.to_owned(), user, 160, true, cancel.clone());
+    let (text, model) = match tokio::time::timeout(limit, call).await {
+        Ok(Ok(r)) => r,
+        Ok(Err(e)) => return Err(RpcError::conflict(e)),
+        Err(_) => {
+            cancel.cancel();
+            return Err(RpcError::conflict("the model did not answer in time"));
+        }
+    };
+    let text = text.trim().trim_matches('"').trim().to_owned();
+    if text.is_empty() || text.chars().count() > 600 || text.contains("```") || text.starts_with('{') {
+        return Err(RpcError::conflict("the model returned an unusable reply"));
+    }
+    Ok(PhraseReplyResult { text, model })
 }
 
 async fn synthesize(ctx: RpcContext, p: SynthesizeParams) -> Result<SynthesizeResult, RpcError> {

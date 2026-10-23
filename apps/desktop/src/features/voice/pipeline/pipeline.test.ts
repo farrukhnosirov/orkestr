@@ -123,9 +123,9 @@ describe("executor", () => {
     const r = await executeIntent(intent, deps);
     expect(r.outcome).toBe("ok");
     expect(r.projectId).toBe("p1");
-    expect(r.reply.startsWith("Schoolify:")).toBe(true);
-    expect(r.reply).toContain("1 task in progress");
-    expect(r.reply).toContain("1 task failed");
+    expect(r.reply.startsWith("In Schoolify, ")).toBe(true);
+    expect(r.reply).toContain("one task in progress");
+    expect(r.reply).toContain("one task failed");
     expect(r.tone).toBe("warn");
   });
 

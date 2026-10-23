@@ -16,7 +16,7 @@ import { useAiUiStore, useUiPrefs } from "../aiui/aiuiStore";
 import { useClaudeStore } from "../claudeCode/store";
 import { useSecurityStore } from "../security/store";
 import { useSettingsStore } from "../settings/settingsStore";
-import { startListening, stopListening } from "../voice/controller";
+import { answerConfirmation, cancelVoice, startListening, stopListening } from "../voice/controller";
 import { useVoiceStore } from "../voice/store";
 import { type OrbMainState, isStateMessage, openChannel, safePost } from "./channel";
 import { orbBoxSize, orbPrefsOf } from "./model";
@@ -46,7 +46,16 @@ export async function focusAgent(agentId: string, projectId: unknown): Promise<v
 function mainState(): OrbMainState {
   const v = useVoiceStore.getState();
   return {
-    voice: { enabled: !!v.config?.enabled, phase: v.phase, speaking: v.speaking, level: Math.round(v.level * 10) / 10 },
+    voice: {
+      enabled: !!v.config?.enabled,
+      phase: v.phase,
+      speaking: v.speaking,
+      level: Math.round(v.level * 10) / 10,
+      micOpen: v.mic.includes("command"),
+      transcript: v.transcript,
+      reply: v.reply ? { text: v.reply.text, tone: v.reply.tone } : null,
+      confirmText: v.confirmText,
+    },
     appActive: typeof document !== "undefined" && document.hasFocus() && !document.hidden,
   };
 }
@@ -57,7 +66,11 @@ export function OrbHost() {
   const prefs = orbPrefsOf(useUiPrefs().orb);
   const box = orbBoxSize(prefs.size);
   const ready = connected && loaded;
-  const show = prefs.enabled;
+  // A voice command while Orkestr is in the background shows its popup next
+  // to the orb — even with the orb switched off (popup only, no sphere).
+  const voiceBusy = useVoiceStore((s) => s.phase !== "idle");
+  const backgroundVoice = voiceBusy && !(typeof document !== "undefined" && document.hasFocus() && !document.hidden);
+  const show = prefs.enabled || backgroundVoice;
 
   // Window lifecycle. Nothing happens until the preferences are known: a
   // reloading main window must not close (and re-create) a visible orb.
@@ -108,6 +121,10 @@ export function OrbHost() {
       if (m.type === "hello") {
         last = "";
         publish();
+      } else if (m.type === "voice") {
+        const action = (m as { action?: unknown }).action;
+        if (action === "yes" || action === "no") void answerConfirmation(action === "yes");
+        else if (action === "cancel") cancelVoice();
       } else if (m.type === "ptt") {
         if (m.down === true) void startListening("PushToTalk").catch((err: unknown) => console.warn("orb push-to-talk", err));
         else void stopListening().catch(() => undefined);

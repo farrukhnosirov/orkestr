@@ -10,6 +10,7 @@ import type { AgentInstance, AgentState, Approval, Task } from "@orkestr/protoco
 import { t } from "../../../i18n";
 import { agentActivity, agentName, approvalSummary } from "../../../lib/coreText";
 import type { Intent, PanelTarget, ProjectRef } from "../intent/parser";
+import { factsForModel, humanProjectName, naturalStatus, offersErrors, phraseNaturally } from "./natural";
 import { EMPTY_QUALITY, projectFacts, type QualitySnapshot, summaryParts, type SummaryPart } from "./summary";
 
 export interface BuildError {
@@ -42,6 +43,13 @@ export interface VoiceDeps {
    * the request goes to the Manager, which plans and runs the QA work.
    */
   runQa?: (projectId: string) => Promise<void>;
+  /** Number of open projects (a status reply names the project only when there are several). */
+  projectCount?: () => number;
+  /**
+   * Natural AI phrasing of reply facts (`voice.phrase`), when enabled and a
+   * model is available; rejects otherwise (the templates are used).
+   */
+  phrase?: (facts: string) => Promise<string>;
 }
 
 export type CommandOutcome = "ok" | "failed" | "needsConfirmation" | "sentToManager" | "cancelled" | "notUnderstood";
@@ -54,6 +62,8 @@ export interface CommandResult {
   projectId: string | null;
   /** Manager reply to wait for (spoken when it arrives). */
   managerReply?: { projectId: string; messageId: string };
+  /** Offered next step: a spoken "yes" runs it (e.g. show the build errors). */
+  followUp?: Intent;
 }
 
 const result = (outcome: CommandOutcome, reply: string, tone: ReplyTone, projectId: string | null = null): CommandResult => ({
@@ -178,9 +188,13 @@ async function projectStatus(project: ProjectRef, deps: VoiceDeps): Promise<Comm
   const approvals = deps.pendingApprovals().filter((a) => a.status === "Pending" && a.projectId === project.id).length;
   const facts = projectFacts(tasks, agents, approvals, new Date(), quality);
   const parts = summaryParts(facts);
-  const body = parts.map(summarySentence).join(" ");
   const urgent = parts.some((p) => p.id === "failed" || p.id === "buildFailed" || p.id === "testsFailed" || p.id === "approvals");
-  return result("ok", t("voice:reply.statusOf", { name: project.name, body }), urgent ? "warn" : "info", project.id);
+  // Name the project only when it matters: several projects, or it was asked about by name.
+  const mention = project.via === "spoken" || (deps.projectCount?.() ?? 1) > 1 ? humanProjectName(project.name) : null;
+  const template = naturalStatus(facts, { project: mention });
+  const reply = await phraseNaturally(deps.phrase, factsForModel(facts, mention), template);
+  const r = result("ok", reply, urgent ? "warn" : "info", project.id);
+  return offersErrors(facts) ? { ...r, followUp: { kind: "showBuildErrors", project } } : r;
 }
 
 /** Runs an intent (after confirmation, when one was needed). */

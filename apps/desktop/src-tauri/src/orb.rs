@@ -337,6 +337,7 @@ fn build(app: &AppHandle, box_size: f64) -> Result<WebviewWindow, String> {
     // `#/orb` keeps the URL distinct from the main window (DevTools targets, smoke scripts).
     WebviewWindowBuilder::new(app, ORB_WINDOW, WebviewUrl::App("index.html#/orb".into()))
         .title("Orkestr")
+        .additional_browser_args(crate::webview_policy::BROWSER_ARGS)
         .transparent(true)
         .decorations(false)
         .shadow(false)

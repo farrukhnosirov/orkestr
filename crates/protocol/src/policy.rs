@@ -336,6 +336,7 @@ fn explicit(method: &str) -> Option<MethodPolicy> {
         | "voice.transcribe"
         | "voice.synthesize"
         | "voice.recordCommand"
+        | "voice.phrase"
         | "memory.knowledgeReindex"
         | "architecture.refresh"
         | "pm.draft"

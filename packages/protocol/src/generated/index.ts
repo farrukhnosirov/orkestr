@@ -887,6 +887,8 @@ export * from "./PermissionRequest";
 export * from "./PermissionRule";
 export * from "./PermissionRuleRecord";
 export * from "./PermissionScope";
+export * from "./PhraseReplyParams";
+export * from "./PhraseReplyResult";
 export * from "./PipelineConfig";
 export * from "./PipelineConfigParams";
 export * from "./PipelineKindOverride";

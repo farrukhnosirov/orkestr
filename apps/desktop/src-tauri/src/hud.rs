@@ -83,6 +83,7 @@ fn ensure(app: &AppHandle) -> tauri::Result<WebviewWindow> {
     }
     WebviewWindowBuilder::new(app, HUD_WINDOW, WebviewUrl::App("index.html".into()))
         .title("Orkestr HUD")
+        .additional_browser_args(crate::webview_policy::BROWSER_ARGS)
         .inner_size(HUD_SIZE.0, HUD_SIZE.1)
         .min_inner_size(360.0, 96.0)
         .decorations(false)

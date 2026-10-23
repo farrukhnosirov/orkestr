@@ -18,7 +18,18 @@ export interface OrbVoiceState {
   speaking: boolean;
   /** Microphone input level 0..1. */
   level: number;
+  /** The microphone is open (privacy indicator). */
+  micOpen?: boolean;
+  /** What was heard (voice popup next to the orb). */
+  transcript?: string;
+  /** The reply shown / spoken. */
+  reply?: { text: string; tone: string } | null;
+  /** A pending yes/no question. */
+  confirmText?: string | null;
 }
+
+/** Orb popup → main window: answers / closes the voice command. */
+export type OrbVoiceAction = "yes" | "no" | "cancel";
 
 export interface OrbMainState {
   voice: OrbVoiceState;
@@ -29,7 +40,8 @@ export interface OrbMainState {
 export type OrbMessage =
   | { type: "state"; state: OrbMainState }
   | { type: "hello" }
-  | { type: "ptt"; down: boolean };
+  | { type: "ptt"; down: boolean }
+  | { type: "voice"; action: OrbVoiceAction };
 
 export const IDLE_MAIN_STATE: OrbMainState = {
   voice: { enabled: false, phase: "idle", speaking: false, level: 0 },
@@ -64,7 +76,7 @@ export function isStateMessage(m: unknown): m is { type: "state"; state: OrbMain
  * Orb window: the main window's state, live (`IDLE_MAIN_STATE` until it
  * answers), and a push-to-talk sender.
  */
-export function useOrbMainState(): { state: OrbMainState; ptt: (down: boolean) => void } {
+export function useOrbMainState(): { state: OrbMainState; ptt: (down: boolean) => void; voiceAction: (action: OrbVoiceAction) => void } {
   const [state, setState] = useState<OrbMainState>(IDLE_MAIN_STATE);
   const chRef = useRef<BroadcastChannel | null>(null);
   useEffect(() => {
@@ -82,5 +94,17 @@ export function useOrbMainState(): { state: OrbMainState; ptt: (down: boolean) =
     };
   }, []);
   const ptt = (down: boolean) => safePost(chRef.current, { type: "ptt", down });
-  return { state, ptt };
+  const voiceAction = (action: OrbVoiceAction) => safePost(chRef.current, { type: "voice", action });
+  return { state, ptt, voiceAction };
+}
+
+/**
+ * Whether the voice popup should be open next to the orb: a voice command is
+ * in progress while no Orkestr window has the focus (main window minimized,
+ * hidden to the tray or in the background). Once open it stays open until
+ * the command finishes (phase back to idle).
+ */
+export function voicePopupWanted(voice: OrbVoiceState, appActive: boolean, open: boolean): boolean {
+  if (voice.phase === "idle") return false;
+  return open || !appActive;
 }
