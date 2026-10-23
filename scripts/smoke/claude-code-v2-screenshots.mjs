@@ -194,6 +194,7 @@ try {
   const env = {
     ...process.env,
     ORKESTR_HOME: home,
+    CODEX_HOME: join(base, "codex-home"), // never the real ChatGPT account
     ORKESTR_SECRET_BACKEND: "vault-file",
     ORKESTR_ALLOW_SECOND_INSTANCE: "1",
     WEBVIEW2_USER_DATA_FOLDER: join(base, "webview2"),

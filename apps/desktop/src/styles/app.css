@@ -157,11 +157,19 @@ body {
   pointer-events: none;
 }
 
+/* The brand gives way first (the project name ellipsizes) and never paints
+   under its neighbours. */
 .titlebar__brand {
   display: flex;
+  flex: 0 1 auto;
   align-items: center;
   gap: var(--ok-space-2);
   min-width: 0;
+  overflow: hidden;
+}
+
+.titlebar__brand > .ok-logo {
+  flex-shrink: 0;
 }
 
 .titlebar__wordmark {
@@ -188,7 +196,7 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-width: 72px;
+  min-width: 56px;
   max-width: 260px;
   color: var(--ok-color-text);
   font-weight: var(--ok-font-weight-medium);
@@ -210,15 +218,20 @@ body {
   flex-shrink: 0;
 }
 
+/* The search box sits in the flex flow (never absolutely centred: the bar
+   holds the mode switch, File menu, library, layout, approvals / emergency
+   stop, engines and window controls, and a centred box overlapped them —
+   e.g. its Ctrl K chip over the red «Стоп» button). Auto margins centre it
+   in the free space between the left and right groups; it shrinks first. */
 .titlebar__search {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
   display: inline-flex;
   align-items: center;
   gap: var(--ok-space-2);
-  width: min(440px, 40vw);
+  /* Shrinks well before the brand (project name) does. */
+  flex: 0 8 440px;
+  min-width: 120px;
   height: 26px;
+  margin-inline: auto;
   padding: 0 6px 0 10px;
   border-radius: var(--ok-radius-md);
   border: 1px solid var(--ok-color-border);
@@ -247,21 +260,6 @@ body {
   text-align: left;
 }
 
-/* Narrow windows (down to the 960 px minimum): the centred search box would
-   overlap the approvals / emergency-stop group (longer in Russian), so it
-   joins the flex flow and shrinks instead. */
-@media (max-width: 1240px) {
-  .titlebar__search {
-    position: static;
-    transform: none;
-    /* Shrinks before the project name in the brand group. */
-    flex: 1 4 auto;
-    width: auto;
-    min-width: 120px;
-    max-width: 440px;
-  }
-}
-
 /* Too narrow for a readable placeholder: icon + shortcut only (no "П…" stub). */
 @media (max-width: 1100px) {
   .titlebar__search {
@@ -279,14 +277,42 @@ body {
   gap: 3px;
 }
 
+/* Drag area only: the free space goes to the search box's auto margins. */
 .titlebar__spacer {
-  flex: 1;
+  flex: 0 0 0;
   align-self: stretch;
 }
 
 .titlebar__controls {
   display: flex;
+  flex: none;
+  align-items: center;
   align-self: stretch;
+}
+
+.titlebar__controls > .titlebar__ctl {
+  align-self: stretch;
+}
+
+/* Narrow windows: the mode switch, engines and layout name collapse to icons
+   (their names stay in the tooltips). */
+@media (max-width: 1280px) {
+  /* The logo stays; the wordmark would be cut to «Orke…». */
+  .titlebar__wordmark,
+  .titlebar__sep {
+    display: none;
+  }
+
+  .titlebar .as-mode__btn > span,
+  .titlebar .eng-chip__name {
+    display: none;
+  }
+}
+
+@media (max-width: 1100px) {
+  .titlebar .lyt-switcher__name {
+    display: none;
+  }
 }
 
 .titlebar__ctl {
@@ -501,7 +527,9 @@ body {
 
 .dockview-theme-nebula {
   height: 100%;
-  color-scheme: dark;
+  /* Follow the theme (light themes set color-scheme: light on the root);
+     a fixed «dark» drew black native checkboxes / selects in light themes. */
+  color-scheme: inherit;
   /* structural defaults (mirrors dockview's built-in dark theme) */
   --dv-edge-dock-indicator-color: var(--ok-color-accent);
   --dv-floating-border: 1px solid var(--ok-color-border-strong);
@@ -878,6 +906,11 @@ body {
 }
 
 /* ── Overlays: palette & dialogs ───────────────────────── */
+/* A dialog focused as a whole (Overlay's modal focus) shows no ring. */
+.overlay [tabindex="-1"]:focus {
+  outline: none;
+}
+
 .overlay {
   position: fixed;
   inset: 0;
@@ -1098,8 +1131,11 @@ body {
   padding: var(--ok-space-2) var(--ok-space-5) var(--ok-space-4);
 }
 
+/* Wraps instead of overflowing the dialog when the actions are long
+   (e.g. the Russian emergency-stop buttons). */
 .dialog__footer {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
   gap: var(--ok-space-2);
   padding: var(--ok-space-3) var(--ok-space-5) var(--ok-space-5);

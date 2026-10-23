@@ -37,6 +37,8 @@ const exe = process.env.ORKESTR_SMOKE_EXE ?? join(repo, "target", "debug", "orke
 const cdpPort = 9334;
 const WIDTH = Number(arg("--width", "960"));
 const HEIGHT = Number(arg("--height", "600"));
+// `--theme <id>` (e.g. solar-light) applies a theme before the captures.
+const THEME = arg("--theme", "");
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 mkdirSync(outDir, { recursive: true });
 
@@ -66,6 +68,10 @@ const child = spawn(exe, [], {
     ...process.env,
     ORKESTR_HOME: home,
     ORKESTR_SECRET_BACKEND: "vault-file",
+    // No personal data in the captures: own Codex home + WebView2 profile.
+    CODEX_HOME: join(base, "codex-home"),
+    ORKESTR_ALLOW_SECOND_INSTANCE: "1",
+    WEBVIEW2_USER_DATA_FOLDER: join(base, "webview2"),
     WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${cdpPort}`,
   },
   stdio: ["ignore", "pipe", "pipe"],
@@ -261,6 +267,31 @@ async function step(label, fn) {
   }
 }
 
+/** The main window's DevTools target (not the orb, HUD or a detached panel:
+ *  the orb's target can be listed before its `#/orb` URL commits, so the
+ *  Tauri window label is checked in the page itself). */
+async function findMainTarget(port) {
+  const list = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
+  for (const t of list.filter((t) => t.type === "page" && !t.url.startsWith("devtools") && !t.url.includes("#/"))) {
+    const c = new Cdp(t.webSocketDebuggerUrl);
+    try {
+      await c.open();
+      // Tauri's own window label is authoritative (the URL hash may not be set yet).
+      const label = await c.eval("window.__TAURI_INTERNALS__?.metadata?.currentWindow?.label ?? null");
+      if (label === "main") return t;
+    } catch {
+      /* not ready */
+    } finally {
+      try {
+        c.ws.close();
+      } catch {
+        /* closed */
+      }
+    }
+  }
+  return null;
+}
+
 let exitCode = 0;
 try {
   const info = await waitFor(() => JSON.parse(readFileSync(join(home, "core.json"), "utf8")), 120_000, "core.json");
@@ -270,6 +301,7 @@ try {
   await rpc.sub(["*"]);
 
   await rpc.call("settings.update", { patch: { profileName: "Анна", onboardingCompleted: true, language: "ru" } });
+  if (THEME) await rpc.call("settings.update", { patch: { themeId: THEME } });
   const providers = (await rpc.call("providers.list")).providers.map((p) => p.provider ?? p);
   const mock = providers.find((p) => p.kind === "Mock");
   const smart = { providerId: mock.id, model: "mock-smart" };
@@ -321,13 +353,7 @@ try {
   rpc.close();
   console.log("seeded");
 
-  const target = await waitFor(async () => {
-    const list = await (await fetch(`http://127.0.0.1:${cdpPort}/json/list`)).json();
-    // The main window — not a floating robot (robot.html), the HUD or a detached panel (#/…).
-    return list.find(
-      (t) => t.type === "page" && /tauri\.localhost|127\.0\.0\.1:1420/.test(t.url) &&!t.url.includes("robot.html") && !t.url.includes("#/") && !/hud/i.test(t.url),
-    );
-  }, 60_000, "webview DevTools target (is Vite running on :1420, or is this a custom-protocol build?)");
+  const target = await waitFor(() => findMainTarget(cdpPort), 60_000, "webview DevTools target (is Vite running on :1420, or is this a custom-protocol build?)");
   const cdp = new Cdp(target.webSocketDebuggerUrl);
   await cdp.open();
   await cdp.send("Emulation.setDeviceMetricsOverride", { width: WIDTH, height: HEIGHT, deviceScaleFactor: 1, mobile: false });
@@ -485,21 +511,33 @@ try {
   await step("settings", async () => {
     await palette(cdp, "Открыть настройки");
     await sleep(500);
-    const sections = [
-      ["Общие", "37-settings-general"],
-      ["Система", "38-settings-system"],
-      ["AI-провайдеры", "39-settings-providers"],
-      ["AI-менеджер", "40-settings-manager"],
-      ["Безопасность и разрешения", "41-settings-permissions"],
-      ["Хранилище секретов", "42-settings-secrets"],
-      ["О программе", "43-settings-about"],
-    ];
+    // Every section in the nav (features add their own: voice, updates, orb, assistant, …).
+    const titles = await cdp.eval("[...document.querySelectorAll('.settings-nav__item')].map((b) => b.textContent.trim()).filter(Boolean)");
+    const sections = titles.map((title, i) => [title, `37-settings-${String(i + 1).padStart(2, "0")}`]);
     for (const [title, name] of sections) {
-      await clickText(cdp, "[role=tab], nav button, .settings__nav button", title, true);
-      await sleep(title === "Система" ? 3500 : 900);
+      await clickText(cdp, ".settings-nav__item", title, true);
+      await sleep(title === "Система" ? 3500 : 1200);
       await capture(cdp, name, `Настройки → ${title}`);
     }
     await escape(cdp);
+  });
+  await step("wave8", async () => {
+    await palette(cdp, "Открыть библиотеку окон");
+    await sleep(900);
+    await capture(cdp, "60-window-library", "Библиотека окон");
+    await escape(cdp);
+    await palette(cdp, "Открыть панель: Codex");
+    await sleep(2500);
+    await capture(cdp, "61-codex-signed-out", "Codex: вход не выполнен");
+    await cdp.eval(`(() => { const el = [...document.querySelectorAll('.dv-tab')][0]; if (!el) return false; const r = el.getBoundingClientRect(); el.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2, clientX: r.x + 10, clientY: r.y + 10 })); return true; })()`);
+    await sleep(600);
+    await capture(cdp, "62-context-menu", "Контекстное меню Orkestr");
+    await escape(cdp);
+    await palette(cdp, "Перейти в режим ассистента");
+    await sleep(1500);
+    await capture(cdp, "63-assistant-mode", "Режим ассистента");
+    await palette(cdp, "Перейти в режим оркестра");
+    await sleep(1200);
   });
   await step("onboarding", async () => {
     await palette(cdp, "Запустить мастер настройки");

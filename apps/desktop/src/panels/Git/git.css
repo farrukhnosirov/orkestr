@@ -458,15 +458,18 @@
 }
 
 /* ── forms ─────────────────────────────────────────────── */
+/* In a narrow list column the field keeps a usable width and the button
+   wraps under it (was squeezed to «Название с…»). */
 .git-form {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   gap: var(--ok-space-2);
   padding: var(--ok-space-3);
 }
 
 .git-form .ok-field {
-  flex: 1;
+  flex: 1 1 160px;
   min-width: 0;
 }
 

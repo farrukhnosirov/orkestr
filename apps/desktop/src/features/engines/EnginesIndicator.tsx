@@ -74,11 +74,11 @@ export function EnginesIndicator() {
         data-testid="engines-indicator-claude"
       >
         <span className={clsx("eng-dot", `eng-dot--${engineTone(claude)}`)} aria-hidden="true" />
-        {claudeName}
+        <span className="eng-chip__name">{claudeName}</span>
       </button>
       <button type="button" className="eng-chip" title={codexTip} aria-label={codexTip} onClick={() => openCodexPanel()} data-testid="engines-indicator-codex">
         <span className={clsx("eng-dot", `eng-dot--${engineTone(codex)}`)} aria-hidden="true" />
-        {codexName}
+        <span className="eng-chip__name">{codexName}</span>
       </button>
     </div>
   );

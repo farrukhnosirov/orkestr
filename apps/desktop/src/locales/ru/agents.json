@@ -214,7 +214,7 @@
     "timeLimit": "Лимит времени (мин)",
     "qualityGates": "Критерии качества",
     "preferredModel": "Предпочитаемая модель",
-    "avatar": "ID робота / аватара",
+    "avatar": "ID аватара",
     "avatarPlaceholder": "orbit-backend",
     "voice": "Голос (провайдер:голос)",
     "voicePlaceholder": "system:default",

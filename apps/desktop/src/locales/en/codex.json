@@ -70,7 +70,8 @@
     "authRequired": "Codex needs you to sign in with ChatGPT.",
     "usageLimit": "The ChatGPT plan limit is reached. Codex continues after the limit resets.",
     "usageLimitPct": "The ChatGPT plan limit is almost used up ({{percent}}).",
-    "retrying": "Codex retries automatically."
+    "retrying": "Codex retries automatically.",
+    "appServer": "Codex could not start. Check the installation and press «Check again»."
   },
   "noProject": {
     "title": "No project open",

@@ -208,7 +208,7 @@
     "timeLimit": "Time limit (min)",
     "qualityGates": "Quality gates",
     "preferredModel": "Preferred model",
-    "avatar": "Robot / avatar ID",
+    "avatar": "Avatar ID",
     "avatarPlaceholder": "orbit-backend",
     "voice": "Voice (provider:voice)",
     "voicePlaceholder": "system:default",

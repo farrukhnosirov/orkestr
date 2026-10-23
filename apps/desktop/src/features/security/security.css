@@ -576,8 +576,20 @@
 .sec-vault-head {
   display: flex !important;
   flex-direction: row !important;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--ok-space-3) !important;
+}
+
+/* The status badge and the lock button keep their size; the text gives way
+   (the badge was cut to «Разблок…»). */
+.sec-vault-head > * {
+  flex-shrink: 0;
+}
+
+.sec-vault-head > div:nth-child(2) {
+  flex: 1 1 200px;
+  min-width: 0;
 }
 
 .sec-push {

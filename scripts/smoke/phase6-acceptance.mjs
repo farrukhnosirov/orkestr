@@ -180,6 +180,7 @@ async function startCore(name, { profile = null } = {}) {
   rmSync(join(home, "core.json"), { force: true });
   const env = {
     ORKESTR_HOME: home,
+    CODEX_HOME: join(base, "codex-home"), // never the real ChatGPT account
     ORKESTR_SECRET_BACKEND: "vault-file",
     ORKESTR_NODE_HEARTBEAT_MS: String(HEARTBEAT_MS),
     ORKESTR_NODE_LEASE_TTL_MS: String(LEASE_TTL_MS),

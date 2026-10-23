@@ -50,6 +50,7 @@ const child = spawn(exe, [], {
   env: {
     ...process.env,
     ORKESTR_HOME: home,
+    CODEX_HOME: join(base, "codex-home"), // never the real ChatGPT account
     ORKESTR_SECRET_BACKEND: "vault-file",
     WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${cdpPort}`,
   },

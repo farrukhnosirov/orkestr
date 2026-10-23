@@ -426,3 +426,11 @@ export function contextShare(t: CxTokens | null): number | null {
   if (!t || !t.contextWindow) return null;
   return Math.min(1, Math.max(0, t.last.inputTokens / t.contextWindow));
 }
+
+/**
+ * i18n key (`codex:` namespace) for a known technical core error — the
+ * app-server failing to start / ending — or `null` to show the text as is.
+ */
+export function codexErrorKey(error: string): "errors.appServer" | null {
+  return /codex app-server/i.test(error) ? "errors.appServer" : null;
+}

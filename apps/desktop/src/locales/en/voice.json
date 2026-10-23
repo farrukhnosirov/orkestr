@@ -345,7 +345,7 @@
       "noKey": "{{name}} (no key)"
     },
     "agents": {
-      "desc": "Each agent can speak in its own voice in notifications and robot speech bubbles.",
+      "desc": "Each agent can speak in its own voice in notifications and replies.",
       "empty": "No agent templates",
       "assistantVoice": "Assistant voice",
       "engine": "Engine",

@@ -52,6 +52,7 @@ const child = spawn(exe, [], {
   env: {
     ...process.env,
     ORKESTR_HOME: home,
+    CODEX_HOME: join(base, "codex-home"), // never the real ChatGPT account
     ORKESTR_SECRET_BACKEND: "vault-file",
     // Debug builds: run next to an already running Orkestr (own ORKESTR_HOME).
     ORKESTR_ALLOW_SECOND_INSTANCE: "1",

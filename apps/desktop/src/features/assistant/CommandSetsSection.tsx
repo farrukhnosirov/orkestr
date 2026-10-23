@@ -93,7 +93,7 @@ export function CommandSetsSection() {
     <div className="as-sets">
       <SettingGroup title={t("settings.status")}>
         <SettingRow
-          title={status?.available ? t("settings.available", { backend: status.backend }) : t("settings.unavailable")}
+          title={status?.available ? t("settings.available", { backend: backendName(status.backend) }) : t("settings.unavailable")}
           description={
             status
               ? t("settings.counts", { catalogue: status.catalogueCommands, user: status.userCommands, sets: status.enabledSets, apps: status.indexedApps })
@@ -457,4 +457,10 @@ function CatalogueBrowser() {
       </div>
     </SettingGroup>
   );
+}
+
+/** Display name of a computer-control backend id (`windows` → `Windows`). */
+function backendName(id: string): string {
+  const known: Record<string, string> = { windows: "Windows", macos: "macOS", linux: "Linux" };
+  return known[id] ?? id;
 }

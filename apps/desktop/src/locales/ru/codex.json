@@ -70,7 +70,8 @@
     "authRequired": "Codex просит войти через ChatGPT.",
     "usageLimit": "Лимит тарифа ChatGPT исчерпан. Codex продолжит работу после сброса лимита.",
     "usageLimitPct": "Лимит тарифа ChatGPT почти исчерпан ({{percent}}).",
-    "retrying": "Codex повторит попытку сам."
+    "retrying": "Codex повторит попытку сам.",
+    "appServer": "Codex не запустился. Проверьте установку и нажмите «Проверить снова»."
   },
   "noProject": {
     "title": "Проект не открыт",

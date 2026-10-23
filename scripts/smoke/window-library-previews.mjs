@@ -272,6 +272,31 @@ async function libraryShot(cdp, name) {
   console.log(`screenshot ${name}.png`);
 }
 
+/** The main window's DevTools target (not the orb, HUD or a detached panel:
+ *  the orb's target can be listed before its `#/orb` URL commits, so the
+ *  Tauri window label is checked in the page itself). */
+async function findMainTarget(port) {
+  const list = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
+  for (const t of list.filter((t) => t.type === "page" && !t.url.startsWith("devtools") && !t.url.includes("#/"))) {
+    const c = new Cdp(t.webSocketDebuggerUrl);
+    try {
+      await c.open();
+      // Tauri's own window label is authoritative (the URL hash may not be set yet).
+      const label = await c.eval("window.__TAURI_INTERNALS__?.metadata?.currentWindow?.label ?? null");
+      if (label === "main") return t;
+    } catch {
+      /* not ready */
+    } finally {
+      try {
+        c.ws.close();
+      } catch {
+        /* closed */
+      }
+    }
+  }
+  return null;
+}
+
 let exitCode = 0;
 try {
   const info = await waitFor(() => JSON.parse(readFileSync(join(home, "core.json"), "utf8")), 90_000, "core.json");
@@ -281,10 +306,7 @@ try {
   await rpc.call("settings.update", { patch: { profileName: "Demo", onboardingCompleted: true, performanceMode: "Performance", language: "en" } });
   await rpc.call("projects.create", { name: "hello-app", rootPath: repoDir, approvalMode: "SemiAuto" });
 
-  const target = await waitFor(async () => {
-    const list = await (await fetch(`http://127.0.0.1:${cdpPort}/json/list`)).json();
-    return list.find((t) => t.type === "page" && !t.url.startsWith("devtools") && !t.url.includes("#/"));
-  }, 60_000, "webview DevTools target");
+  const target = await waitFor(() => findMainTarget(cdpPort), 60_000, "webview DevTools target");
   const cdp = new Cdp(target.webSocketDebuggerUrl);
   await cdp.open();
   await cdp.send("Emulation.setDeviceMetricsOverride", { ...VIEW, deviceScaleFactor: 1, mobile: false });

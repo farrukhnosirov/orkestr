@@ -17,6 +17,7 @@ import { useState } from "react";
 import { workspaceActions } from "../../components/workspaceActions";
 import { useT } from "../../i18n";
 import { useTerminalUi } from "../../panels/Terminal/store";
+import { codexErrorKey } from "./model";
 import { useCodexStore } from "./store";
 import "./codexSetup.css";
 
@@ -202,7 +203,7 @@ export function CodexSignIn({ projectId, compact = false }: { projectId: string 
           {login.error ? t("signIn.failedWith", { error: login.error }) : t("signIn.failed")}
         </p>
       )}
-      {error && !pending && <p className="cx-setup__warn">{error}</p>}
+      {error && !pending && <p className="cx-setup__warn">{codexErrorKey(error) ? t("errors.appServer") : error}</p>}
     </div>
   );
 }

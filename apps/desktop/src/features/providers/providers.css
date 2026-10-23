@@ -220,13 +220,32 @@
   line-height: var(--ok-line-height);
 }
 
+/* A <button role="switch">: reset the native button look (it showed as a
+   grey bar across the parallel-engines card). */
 .pv-switch {
   display: inline-flex;
+  align-self: flex-start;
   align-items: center;
   gap: var(--ok-space-2);
+  padding: 0;
+  border: 0;
+  border-radius: var(--ok-radius-sm);
+  background: transparent;
   color: var(--ok-color-text-muted);
+  font: inherit;
   font-size: var(--ok-font-size-sm);
+  text-align: left;
   cursor: pointer;
+}
+
+.pv-switch:focus-visible {
+  outline: none;
+  box-shadow: var(--ok-focus-ring);
+}
+
+.pv-switch:disabled {
+  cursor: default;
+  opacity: 0.6;
 }
 
 .pv-switch__track {
@@ -427,14 +446,21 @@
   min-width: 0;
 }
 
+/* Sticky, so it is opaque: the scrolled content (e.g. the Claude Code card
+   in the onboarding wizard) must not show through under «Сохранить». */
 .pv-savebar {
   position: sticky;
+  z-index: 1;
   bottom: 0;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
   gap: var(--ok-space-3);
-  padding: var(--ok-space-3) 0 0;
+  padding: var(--ok-space-3) 0;
+  border-top: 1px solid var(--ok-color-border);
+  /* surface tokens are translucent: layer them over the opaque base */
+  background: linear-gradient(var(--ok-color-surface-strong), var(--ok-color-surface-strong)), var(--ok-color-bg);
 }
 
 .pv-savebar__msg {

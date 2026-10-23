@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import { buildCodexChatList, groupCodexChats, searchCodexChats } from "./chatList";
 import { parseCodexSlash } from "./commands";
 import {
+  codexErrorKey,
   applyCodexAll,
   applyCodexEvent,
   emptyCodexChat,
@@ -258,5 +259,13 @@ describe("slash commands", () => {
     expect(parseCodexSlash("/STATUS")).toEqual({ command: "status", arg: "" });
     expect(parseCodexSlash("/review")).toBeNull();
     expect(parseCodexSlash("fix /new things")).toBeNull();
+  });
+});
+
+describe("codexErrorKey", () => {
+  it("maps app-server failures to a localized message", () => {
+    expect(codexErrorKey("server error: the Codex app-server ended")).toBe("errors.appServer");
+    expect(codexErrorKey("the Codex app-server is not running")).toBe("errors.appServer");
+    expect(codexErrorKey("network down")).toBeNull();
   });
 });

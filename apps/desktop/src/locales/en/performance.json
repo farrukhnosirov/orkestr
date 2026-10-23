@@ -3,11 +3,11 @@
   "modes": {
     "UltraVisual": {
       "name": "Ultra Visual",
-      "description": "Every effect: strong glass and glow, animated background, 3D robots at 60 fps."
+      "description": "Every effect: strong glass and glow, animated background, the orb at 60 fps."
     },
     "Balanced": {
       "name": "Balanced",
-      "description": "Glass, glow and smooth motion; 2D robots at 30 fps. The default."
+      "description": "Glass, glow and smooth motion; the orb at 30 fps. The default."
     },
     "Performance": {
       "name": "Performance",
@@ -56,7 +56,7 @@
     "glow": "Glow",
     "motion": "Motion",
     "background": "Animated background",
-    "robots": "Robots",
+    "robots": "Orb",
     "charts": "Chart refresh",
     "on": "On",
     "off": "Off",

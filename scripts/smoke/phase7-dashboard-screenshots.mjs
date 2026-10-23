@@ -134,6 +134,7 @@ const child = spawn(exe, [], {
   env: {
     ...process.env,
     ORKESTR_HOME: home,
+    CODEX_HOME: join(base, "codex-home"), // never the real ChatGPT account
     ORKESTR_SECRET_BACKEND: "vault-file",
     ORKESTR_PLUGINS_TRUSTED_KEYS: devPub,
     // Debug builds: run next to a running Orkestr (own home + own WebView2
@@ -394,6 +395,31 @@ async function openPlugins(cdp, lang) {
   }, 30_000, "plugins tab").catch(() => false);
 }
 
+/** The main window's DevTools target (not the orb, HUD or a detached panel:
+ *  the orb's target can be listed before its `#/orb` URL commits, so the
+ *  Tauri window label is checked in the page itself). */
+async function findMainTarget(port) {
+  const list = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
+  for (const t of list.filter((t) => t.type === "page" && !t.url.startsWith("devtools") && !t.url.includes("#/"))) {
+    const c = new Cdp(t.webSocketDebuggerUrl);
+    try {
+      await c.open();
+      // Tauri's own window label is authoritative (the URL hash may not be set yet).
+      const label = await c.eval("window.__TAURI_INTERNALS__?.metadata?.currentWindow?.label ?? null");
+      if (label === "main") return t;
+    } catch {
+      /* not ready */
+    } finally {
+      try {
+        c.ws.close();
+      } catch {
+        /* closed */
+      }
+    }
+  }
+  return null;
+}
+
 let exitCode = 0;
 let closedUserApp = false;
 let cdpRef = null;
@@ -417,10 +443,7 @@ try {
   const source = (await rpc.call("marketplace.addSource", { kind: "Directory", location: registry, name: "Team folder registry" })).source;
   console.log("seeded");
 
-  const target = await waitFor(async () => {
-    const list = await (await fetch(`http://127.0.0.1:${cdpPort}/json/list`)).json();
-    return list.find((t) => t.type === "page" && !t.url.startsWith("devtools") && !t.url.includes("#/"));
-  }, 60_000, "webview DevTools target");
+  const target = await waitFor(() => findMainTarget(cdpPort), 60_000, "webview DevTools target");
   const cdp = new Cdp(target.webSocketDebuggerUrl);
   await cdp.open();
   cdpRef = cdp;

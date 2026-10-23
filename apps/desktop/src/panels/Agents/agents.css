@@ -289,8 +289,10 @@
   min-height: 0;
 }
 
+/* Narrow panels: the actions wrap under the title instead of painting over it. */
 .agents-detail__head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--ok-space-3);
   padding: var(--ok-space-3);
@@ -298,19 +300,25 @@
 }
 
 .agents-detail__title {
-  flex: 1;
+  flex: 1 1 180px;
   min-width: 0;
 }
 
 .agents-detail__name {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  min-width: 0;
   gap: var(--ok-space-2);
 }
 
 .agents-detail__name h3 {
+  min-width: 0;
   margin: 0;
+  overflow: hidden;
   font-size: var(--ok-font-size-lg);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .agents-detail__sub {
@@ -322,6 +330,7 @@
 
 .agents-detail__actions {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--ok-space-2);
 }
 
