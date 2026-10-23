@@ -50,6 +50,7 @@ summarises them: **Built** = implemented as decided (with listed deviations),
 | [0040](0040-marketplace-registry-and-package-signing.md) | Marketplace: static signed registries (official / directory / gateway HTTP), publisher key TOFU + pinning + revocation | Accepted | 7 | — | — | Implemented (Phase 7; see the ADR's "as built" notes) |
 | [0041](0041-environments-and-deployment-adapters.md) | Environments and `DeployAdapter`s: local targets live, cloud adapters request-shape verified, guarded production deploys | Accepted | 7 | — | — | Implemented (Phase 7; see the ADR's "as built" notes) |
 | [0042](0042-infrastructure-monitor-and-bug-detective.md) | Infrastructure monitor (metrics, checks, logs, alerts) and the Bug Detective workflow with two human gates | Accepted | 7 | — | — | Implemented (Phase 7; see the ADR's "as built" notes) |
+| [0047](0047-codex-chatgpt-subscription-and-parallel-engines.md) | Codex (ChatGPT subscription) over `codex app-server`: bridged approvals, chat pool, panel, sign-in, limits; parallel engines routing | Accepted | wave 8 | 0012 (for Codex) | — | Implemented |
 
 ## Planned ADRs (to be written when their phase starts)
 
