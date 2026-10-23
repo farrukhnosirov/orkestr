@@ -13,6 +13,12 @@ export function isTerminalTarget(target: EventTarget | null): boolean {
   return typeof el?.closest === "function" && el.closest(".xterm") != null;
 }
 
+/** Whether the event comes from inside a Monaco editor (it owns many Ctrl+Shift chords). */
+export function isEditorTarget(target: EventTarget | null): boolean {
+  const el = target as { closest?: (sel: string) => unknown } | null;
+  return typeof el?.closest === "function" && el.closest(".monaco-editor") != null;
+}
+
 /**
  * The registry command a keydown should run, or null. While focus is in a
  * terminal only commands marked `inTerminal` are taken; every other key goes
@@ -20,9 +26,11 @@ export function isTerminalTarget(target: EventTarget | null): boolean {
  */
 export function shortcutCommand(e: ShortcutEvent, list: readonly AppCommand[], ctx: CommandContext): AppCommand | null {
   const inTerminal = isTerminalTarget(e.target);
+  const inEditor = isEditorTarget(e.target);
   for (const cmd of list) {
     if (!cmd.shortcut || !matchesShortcut(e, cmd.shortcut)) continue;
     if (inTerminal && !cmd.inTerminal) continue;
+    if (inEditor && cmd.inEditor === false) continue;
     if (cmd.enabled && !cmd.enabled(ctx)) continue;
     return cmd;
   }

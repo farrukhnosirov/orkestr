@@ -21,6 +21,7 @@ const list: AppCommand[] = [
   cmd("terminal.open", "Ctrl+`", { inTerminal: true }),
   cmd("ai.stopAll", "Ctrl+Shift+Backspace", { inTerminal: true }),
   cmd("disabled", "Ctrl+Shift+Q", { enabled: () => false }),
+  cmd("windowLibrary.open", "Ctrl+Shift+L", { inEditor: false }),
 ];
 
 function targets() {
@@ -69,6 +70,13 @@ describe("shortcutCommand", () => {
 
   it("disabled commands never fire", () => {
     expect(shortcutCommand(key("q", "KeyQ", document.body, { shiftKey: true }), list, ctx)).toBeNull();
+  });
+
+  it("inEditor: false leaves the chord to Monaco (Ctrl+Shift+L = select all occurrences)", () => {
+    const { editor, terminal } = targets();
+    expect(shortcutCommand(key("L", "KeyL", editor, { shiftKey: true }), list, ctx)).toBeNull();
+    expect(shortcutCommand(key("L", "KeyL", document.body, { shiftKey: true }), list, ctx)?.id).toBe("windowLibrary.open");
+    expect(shortcutCommand(key("L", "KeyL", terminal, { shiftKey: true }), list, ctx)).toBeNull();
   });
 
   it("isTerminalTarget tolerates non-element targets", () => {

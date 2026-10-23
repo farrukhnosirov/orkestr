@@ -66,6 +66,8 @@ consistently and add it to this table in the same change.
 | Reveal in file manager | — | Показать в проводнике | The OS file manager on every platform. |
 | Layout | раскладка | Сбросить раскладку | Preset «Разработка» (Coding). |
 | Panel | панель | Открыть панель | |
+| Window Library | библиотека окон | Открыть библиотеку окон | Gallery of panels and windows (Ctrl+Shift+L). |
+| Favorites | избранное | Добавить в избранное / Убрать из избранного | |
 | Command palette | палитра команд | — | |
 | Onboarding / Setup wizard | мастер настройки | Запустить мастер настройки | |
 | Do Not Disturb | «Не беспокоить» | Включить «Не беспокоить» | |

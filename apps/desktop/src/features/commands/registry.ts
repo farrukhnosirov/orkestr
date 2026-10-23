@@ -18,6 +18,7 @@ import { voiceCommands } from "../voice";
 import { WORKBENCH_COMMANDS } from "../workbench/commands";
 import { vscodeCommands } from "../vscode";
 import { claudeCodeCommands } from "../claudeCode/commands";
+import { windowLibraryCommands } from "../windowLibrary/commands";
 
 export interface CommandContext {
   projectId: string | null;
@@ -45,6 +46,11 @@ export interface AppCommand {
    * the terminal toggle, the emergency stop, F11 — opt in.
    */
   inTerminal?: boolean;
+  /**
+   * `false`: the shortcut does not fire while focus is in a Monaco editor,
+   * which keeps its own binding (e.g. Ctrl+Shift+L "select all occurrences").
+   */
+  inEditor?: boolean;
   /** Whether the command can run now. */
   enabled?: (ctx: CommandContext) => boolean;
   run: (ctx: CommandContext) => void | Promise<void>;
@@ -78,3 +84,5 @@ commands.push(...WORKBENCH_COMMANDS);
 commands.push(...vscodeCommands);
 // Claude Code panel
 commands.push(...claudeCodeCommands);
+// Window Library (Wave 8)
+commands.push(...windowLibraryCommands);

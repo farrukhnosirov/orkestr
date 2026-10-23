@@ -469,6 +469,25 @@ export function openPanel(panelId: string): void {
   addRegistryPanel(api, panelId, anchor ? { referencePanel: anchor.id, direction: "within" } : undefined);
 }
 
+/**
+ * Adds a panel to the current layout as a new split next to the active group
+ * (Window Library "Add to layout") and saves the layout. An already open
+ * panel is focused instead. Returns false when the layout is locked.
+ */
+export function addPanelToLayout(panelId: string): boolean {
+  if (store().locked) return false;
+  if (!api || api.getPanel(panelId) || store().popouts.some((w) => w.panelId === panelId)) {
+    openPanel(panelId);
+    return true;
+  }
+  if (api.hasMaximizedGroup()) api.exitMaximizedGroup();
+  const anchor = api.activePanel;
+  const added = addRegistryPanel(api, panelId, anchor ? { referencePanel: anchor.id, direction: "right" } : undefined);
+  added?.api.setActive();
+  scheduleSave();
+  return true;
+}
+
 /** Hides a panel (closes its tab or its window). */
 export async function hidePanel(panelId: string): Promise<void> {
   const popout = store().popouts.find((w) => w.panelId === panelId);
