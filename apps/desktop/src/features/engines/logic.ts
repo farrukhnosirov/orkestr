@@ -106,13 +106,13 @@ export function modeUses(mode: EnginesMode): { primary: boolean; roles: boolean 
  * i18n key (`engines:` namespace) for a known backend `EngineStatus.reason`,
  * or `null` to show the raw text (the core reports reasons in English).
  */
-export function engineReasonKey(reason: string): string | null {
+export function engineReasonKey(reason: string): "reason.claudeNotInstalled" | null {
   if (/^Claude Code is not installed/i.test(reason)) return "reason.claudeNotInstalled";
   return null;
 }
 
 /** The reason as shown to the user: localized when known, else the raw text. */
-export function engineReasonText(reason: string, t: (key: string) => string): string {
+export function engineReasonText(reason: string, t: (key: "reason.claudeNotInstalled") => string): string {
   const key = engineReasonKey(reason);
   return key ? t(key) : reason;
 }

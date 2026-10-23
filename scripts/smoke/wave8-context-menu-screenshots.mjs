@@ -211,7 +211,7 @@ try {
   const project = (await rpc.call("projects.create", { name: "demo-app", rootPath: proj, approvalMode: "SemiAuto" })).project;
   for (const title of ["Add login form validation", "Write release notes", "Fix flaky terminal test"]) await rpc.call("tasks.create", { projectId: project.id, title }).catch((e) => console.log("task:", e.message));
 
-  const target = await waitFor(async () => (await (await fetch(`http://127.0.0.1:${cdpPort}/json/list`)).json()).find((t) => t.type === "page" && !t.url.startsWith("devtools")), 60_000, "DevTools target");
+  const target = await waitFor(async () => (await (await fetch(`http://127.0.0.1:${cdpPort}/json/list`)).json()).find((t) => t.type === "page" && !t.url.startsWith("devtools") && !t.url.includes("#/")), 60_000, "DevTools target");
   const cdp = new Cdp(target.webSocketDebuggerUrl);
   await cdp.open();
   await cdp.send("Page.reload", { ignoreCache: true });

@@ -189,7 +189,7 @@ try {
 
   const target = await waitFor(async () => {
     const list = await (await fetch(`http://127.0.0.1:${cdpPort}/json/list`)).json();
-    return list.find((t) => t.type === "page" && !t.url.startsWith("devtools"));
+    return list.find((t) => t.type === "page" && !t.url.startsWith("devtools") && !t.url.includes("#/"));
   }, 60_000, "DevTools target");
   const cdp = new Cdp(target.webSocketDebuggerUrl);
   await cdp.open();

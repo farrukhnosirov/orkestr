@@ -130,7 +130,8 @@
     "Community": "Community",
     "Private": "Private",
     "Custom": "Custom",
-    "ClaudeCode": "Claude Code"
+    "ClaudeCode": "Claude Code",
+    "Codex": "Codex"
   },
   "spawnDialog": {
     "subtitle": "The agent runs in isolation with its own worktree, budget and stop button.",

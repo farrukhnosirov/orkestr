@@ -134,7 +134,8 @@
     "Community": "От сообщества",
     "Private": "Частный",
     "Custom": "Пользовательский",
-    "ClaudeCode": "Claude Code"
+    "ClaudeCode": "Claude Code",
+    "Codex": "Codex"
   },
   "spawnDialog": {
     "subtitle": "Агент работает изолированно: у него своя рабочая копия, бюджет и кнопка остановки.",

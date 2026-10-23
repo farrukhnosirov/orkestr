@@ -65,6 +65,8 @@ const child = spawn(exe, [], {
   env: {
     ...process.env,
     ORKESTR_HOME: home,
+    // Never capture the real ChatGPT / Codex account into the bundled previews.
+    CODEX_HOME: join(base, "codex-home"),
     ORKESTR_SECRET_BACKEND: "vault-file",
     ORKESTR_ALLOW_SECOND_INSTANCE: "1",
     WEBVIEW2_USER_DATA_FOLDER: join(base, "webview2"),
@@ -281,7 +283,7 @@ try {
 
   const target = await waitFor(async () => {
     const list = await (await fetch(`http://127.0.0.1:${cdpPort}/json/list`)).json();
-    return list.find((t) => t.type === "page" && !t.url.startsWith("devtools"));
+    return list.find((t) => t.type === "page" && !t.url.startsWith("devtools") && !t.url.includes("#/"));
   }, 60_000, "webview DevTools target");
   const cdp = new Cdp(target.webSocketDebuggerUrl);
   await cdp.open();
