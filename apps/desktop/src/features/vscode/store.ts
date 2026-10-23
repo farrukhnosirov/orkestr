@@ -22,6 +22,7 @@ import { create } from "zustand";
 import { maybeClient } from "../../core/client";
 import { t } from "../../i18n";
 import { describeError } from "../../i18n/errors";
+import { documentThemeColors, embedUrlFor } from "./embed";
 import { vscodeWindow } from "./windowControls";
 
 /** Heartbeat period (the core's idle grace period is ≥ 30 s). */
@@ -56,6 +57,16 @@ export interface VsCodeStore {
   extensionsError: string | null;
   /** Extension id being installed. */
   installingExtension: string | null;
+  /** Extension id (or `"*"` for update-all / VSIX) a management action runs for. */
+  managingExtension: string | null;
+  /** Frame URL of the embedded workbench (contains the token: memory only). */
+  embedUrl: string | null;
+  /** Project the embedded workbench shows. */
+  embedProjectId: string | null;
+  /** Bumped to reload the embedded workbench frame. */
+  embedKey: number;
+  /** The page cannot embed the workbench (e.g. a remote web client). */
+  embedUnsupported: boolean;
 
   load(): Promise<void>;
   showView(view: "main" | "extensions"): void;
@@ -75,6 +86,28 @@ export interface VsCodeStore {
   attach(): () => void;
   setWindowOpen(open: boolean): void;
   applyEvent(event: Event): void;
+  /** Starts (or reuses) the server and shows the workbench inside the panel. */
+  startEmbedded(projectId: string | null, reload?: boolean): Promise<boolean>;
+  /** Reloads the embedded workbench frame. */
+  reloadEmbedded(): void;
+  /** Stops and starts the server (applies enable/disable of extensions). */
+  restart(projectId: string | null): Promise<void>;
+  uninstallExtension(id: string): Promise<boolean>;
+  installVsix(path: string): Promise<boolean>;
+  updateExtensions(): Promise<boolean>;
+  setExtensionEnabled(id: string, enabled: boolean): Promise<boolean>;
+  /** Pushes the current Orkestr theme into the connected workbench (best effort). */
+  syncTheme(waitMs?: number): Promise<void>;
+}
+
+/** Window event: the embedded VS Code asked to give the keyboard back to Orkestr. */
+export const VSCODE_FOCUS_OUT_EVENT = "orkestr:vscode-focus-out";
+/** Window event: the embedded VS Code asked for Orkestr's command palette. */
+export const VSCODE_PALETTE_EVENT = "orkestr:vscode-palette";
+
+/** Host name of this page (the frame must be same-site with it). */
+function appHost(): string {
+  return typeof window === "undefined" ? "" : window.location.hostname;
 }
 
 function client(): OrkestrClient {
@@ -114,6 +147,25 @@ function ensureSubscribed(): void {
     .catch(() => undefined);
 }
 
+type SetState = (partial: Partial<VsCodeStore> | ((s: VsCodeStore) => Partial<VsCodeStore>)) => void;
+
+/** Runs one extension management call and stores the resulting list. */
+async function manage(
+  set: SetState,
+  id: string,
+  call: () => Promise<{ extensions: VsCodeExtension[] }>,
+): Promise<boolean> {
+  set({ managingExtension: id, extensionsError: null });
+  try {
+    const { extensions } = await call();
+    set({ extensions, managingExtension: null });
+    return true;
+  } catch (e) {
+    set({ extensionsError: describeError(e), managingExtension: null });
+    return false;
+  }
+}
+
 export const useVsCodeStore = create<VsCodeStore>((set, get) => ({
   status: null,
   progress: null,
@@ -132,6 +184,11 @@ export const useVsCodeStore = create<VsCodeStore>((set, get) => ({
   extensions: null,
   extensionsError: null,
   installingExtension: null,
+  managingExtension: null,
+  embedUrl: null,
+  embedProjectId: null,
+  embedKey: 0,
+  embedUnsupported: false,
 
   showView(view) {
     set((s) => ({ view, viewNonce: s.viewNonce + 1 }));
@@ -161,6 +218,72 @@ export const useVsCodeStore = create<VsCodeStore>((set, get) => ({
     } catch (e) {
       set({ extensionsError: describeError(e), installingExtension: null });
       return false;
+    }
+  },
+
+  async startEmbedded(projectId, reload = false) {
+    set({ busy: "start", error: null });
+    try {
+      const res = await client().call("vscode.start", projectId ? { projectId } : {});
+      const embedUrl = embedUrlFor(res.url, appHost());
+      set((s) => ({
+        status: res.status,
+        lastUrl: res.url,
+        lastOrigin: res.origin,
+        embedUrl,
+        embedProjectId: projectId,
+        embedUnsupported: embedUrl === null,
+        // Same URL again (e.g. after a crash restart): reload the frame on request.
+        embedKey: reload && s.embedUrl === embedUrl ? s.embedKey + 1 : s.embedKey,
+        busy: null,
+      }));
+      return embedUrl !== null;
+    } catch (e) {
+      set({ error: describeError(e), busy: null });
+      void get().loadLogs();
+      return false;
+    }
+  },
+
+  reloadEmbedded() {
+    set((s) => ({ embedKey: s.embedKey + 1 }));
+  },
+
+  async restart(projectId) {
+    await get().stop();
+    if (!get().error) await get().startEmbedded(projectId);
+    void get().loadExtensions();
+  },
+
+  async uninstallExtension(id) {
+    return manage(set, id, () => client().call("vscode.uninstallExtension", { id }, { timeoutMs: EXTENSION_LIST_TIMEOUT_MS * 3 }));
+  },
+
+  async installVsix(path) {
+    return manage(set, "*", () => client().call("vscode.installVsix", { path }, { timeoutMs: EXTENSION_INSTALL_TIMEOUT_MS }));
+  },
+
+  async updateExtensions() {
+    return manage(set, "*", () => client().call("vscode.updateExtensions", {}, { timeoutMs: EXTENSION_INSTALL_TIMEOUT_MS }));
+  },
+
+  async setExtensionEnabled(id, enabled) {
+    return manage(set, id, () =>
+      client().call("vscode.setExtensionEnabled", { id, enabled }, { timeoutMs: EXTENSION_LIST_TIMEOUT_MS }),
+    );
+  },
+
+  async syncTheme(waitMs = 0) {
+    const status = get().status;
+    if (!status?.config.syncTheme || !status.bridgeConnected) return;
+    const c = maybeClient();
+    if (!c) return;
+    const { light, colors } = documentThemeColors();
+    if (Object.keys(colors).length === 0) return;
+    try {
+      await c.call("vscode.syncTheme", { kind: light ? "light" : "dark", colors, waitMs }, { timeoutMs: 30_000 + waitMs });
+    } catch {
+      // Cosmetic: the next theme change or reconnect retries.
     }
   },
 
@@ -209,7 +332,7 @@ export const useVsCodeStore = create<VsCodeStore>((set, get) => ({
     try {
       await vscodeWindow.close().catch(() => undefined);
       const status = await client().call("vscode.uninstall", { purge });
-      set({ status, busy: null, lastUrl: null, lastOrigin: null, release: null });
+      set({ status, busy: null, lastUrl: null, lastOrigin: null, embedUrl: null, release: null });
     } catch (e) {
       set({ error: describeError(e), busy: null });
     }
@@ -233,7 +356,7 @@ export const useVsCodeStore = create<VsCodeStore>((set, get) => ({
     try {
       await vscodeWindow.close().catch(() => undefined);
       const status = await client().call("vscode.stop", {});
-      set({ status, busy: null, lastUrl: null, lastOrigin: null });
+      set({ status, busy: null, lastUrl: null, lastOrigin: null, embedUrl: null });
     } catch (e) {
       set({ error: describeError(e), busy: null });
     }
@@ -276,16 +399,25 @@ export const useVsCodeStore = create<VsCodeStore>((set, get) => ({
     if (event.kind === "VsCodeStatusChanged") {
       const status = event.payload.status;
       const running = status.state === "running" || status.state === "starting" || status.state === "restarting";
+      // Enable/disable from elsewhere (another window, an agent): refresh the list.
+      const before = get().status?.config.disabledExtensions.join(",");
+      if (get().extensions !== null && before !== undefined && before !== status.config.disabledExtensions.join(",")) {
+        void get().loadExtensions();
+      }
       set((s) => ({
         status,
         progress: status.state === "installing" ? s.progress : null,
         lastUrl: running ? s.lastUrl : null,
         lastOrigin: running ? s.lastOrigin : null,
+        embedUrl: running ? s.embedUrl : null,
       }));
       if (!running && get().windowOpen) void vscodeWindow.close().catch(() => undefined);
       if (status.state === "error") void get().loadLogs();
     } else if (event.kind === "VsCodeProgress") {
       set({ progress: event.payload.progress });
+    } else if (event.kind === "VsCodeBridgeSignal") {
+      const name = event.payload.signal === "showPalette" ? VSCODE_PALETTE_EVENT : VSCODE_FOCUS_OUT_EVENT;
+      if (typeof window !== "undefined") window.dispatchEvent(new Event(name));
     }
   },
 }));

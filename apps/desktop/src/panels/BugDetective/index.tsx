@@ -19,13 +19,14 @@ import type {
   IncidentStage,
 } from "@orkestr/protocol";
 import { topic } from "@orkestr/protocol";
-import { Badge, Button, EmptyState, Spinner } from "@orkestr/ui";
-import { Bug, Check, GitMerge, Search, X } from "lucide-react";
+import { Badge, Button, EmptyState, IconButton, Spinner } from "@orkestr/ui";
+import { Bug, Check, Code2, GitMerge, Search, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { getClient, maybeClient } from "../../core/client";
-import { useT } from "../../i18n";
+import { t as tr, useT } from "../../i18n";
 import { describeError } from "../../i18n/errors";
+import { openFileInVsCode } from "../../features/vscode/quickAccess";
 import type { PanelProps } from "../types";
 import {
   budgetPct,
@@ -543,6 +544,12 @@ function IncidentView({
                 {h.suspectedFiles.map((f) => (
                   <li key={f}>
                     <code>{f}</code>
+                    <IconButton
+                      size="sm"
+                      label={tr("vscode:openFile.action")}
+                      icon={<Code2 size={12} />}
+                      onClick={() => void openFileInVsCode({ projectId: inc.projectId, path: f })}
+                    />
                   </li>
                 ))}
               </ul>

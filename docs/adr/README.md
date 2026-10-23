@@ -54,6 +54,7 @@ summarises them: **Built** = implemented as decided (with listed deviations),
 | [0035](0035-computer-control.md) | Computer Control: personal computer assistant (`orkestr-computer`, Windows backend, 1035-command catalogue, user sets, AI plans, confirmations, Assistant mode) | Accepted | Wave 8 | — | — | Implemented (Wave 8; macOS/Linux backends `Unsupported`) |
 | [0046](0046-switchable-speech-engines.md) | Switchable STT/TTS engines (whisper.cpp, Vosk, sherpa-onnx, Windows speech, Piper, Silero, cloud services), voice model manager, engine keys in the secret vault | Accepted | Wave 8 | — | — | Implemented (wave 8) |
 | [0047](0047-codex-chatgpt-subscription-and-parallel-engines.md) | Codex (ChatGPT subscription) over `codex app-server`: bridged approvals, chat pool, panel, sign-in, limits; parallel engines routing | Accepted | wave 8 | 0012 (for Codex) | — | Implemented |
+| [0043](0043-vscode-workbench-embedded-in-orkestr.md) | VS Code workbench embedded in the Orkestr window (same-site `vscode.tauri.localhost` frame), theme sync, extension management, focus signals | Accepted | 8 | — | — | Implemented (Wave 8; see the ADR's "as built" notes) |
 
 ## Planned ADRs (to be written when their phase starts)
 
@@ -121,6 +122,7 @@ flowchart TB
   A17 --> A35
   A17 --> A46[0046 Switchable speech engines]
   A16 --> A45[0045 Floating orb + Agent Hub]
+  A25[0025 VS Code extensions] --> A43[0043 VS Code embedded in Orkestr]
   A18 --> A22[0022 Crash recovery]
   A20[0020 UUID v7] --> A18
 ```

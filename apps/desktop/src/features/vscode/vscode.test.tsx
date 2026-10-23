@@ -48,7 +48,7 @@ const status = (patch: Partial<VsCodeStatus> = {}): VsCodeStatus => ({
   progress: null,
   error: null,
   dataDir: "C:/data/vscode-server",
-  config: { autoStop: true, idleStopSecs: 120, autoRestart: true, pinnedCommands: [] },
+  config: { autoStop: true, idleStopSecs: 120, autoRestart: true, pinnedCommands: [], embed: true, syncTheme: true, disabledExtensions: [], workspaceTrust: false },
   bridgeConnected: false,
   ...patch,
 });
@@ -67,7 +67,7 @@ beforeEach(async () => {
   calls.length = 0;
   opened.length = 0;
   responses.clear();
-  useVsCodeStore.setState({ status: null, progress: null, release: null, releaseError: null, error: null, busy: null, logs: [], lastUrl: null });
+  useVsCodeStore.setState({ status: null, progress: null, release: null, releaseError: null, error: null, busy: null, logs: [], lastUrl: null, embedUrl: null });
   useAppStore.setState({
     connection: { ...useAppStore.getState().connection, state: "open" },
     projects: [{ id: "p1", name: "alpha", rootPath: "C:/code/alpha" } as never],
@@ -112,14 +112,20 @@ describe("VS Code panel", () => {
     expect(install?.params).toEqual({ accept: true, version: "1.135.06055" });
   });
 
-  it("starts the server for the project folder and opens the window", async () => {
-    responses.set("vscode.status", status({ state: "stopped", installed }));
+  it("starts the server for the project folder and opens the window (separate-window mode)", async () => {
+    const windowMode = { ...status().config, embed: false };
+    responses.set("vscode.status", status({ state: "stopped", installed, config: windowMode }));
     responses.set("vscode.keepAlive", {});
     responses.set("vscode.start", {
       url: "http://127.0.0.1:9900/?tkn=secret&folder=/c:/code/alpha",
       origin: "http://127.0.0.1:9900",
       folder: "/c:/code/alpha",
-      status: status({ state: "running", installed, running: { port: 9900, pid: 1, startedAt: "2026-10-07T00:00:00Z", restarts: 0 } }),
+      status: status({
+        state: "running",
+        installed,
+        config: windowMode,
+        running: { port: 9900, pid: 1, startedAt: "2026-10-07T00:00:00Z", restarts: 0 },
+      }),
     });
     render(<VsCodePanel projectId="p1" />);
     expect(await screen.findByText("Folder: C:/code/alpha")).toBeTruthy();
@@ -127,6 +133,7 @@ describe("VS Code panel", () => {
     await waitFor(() => expect(opened).toHaveLength(1));
     expect(calls.find((c) => c.method === "vscode.start")?.params).toEqual({ projectId: "p1" });
     expect(opened[0]?.title).toBe("VS Code — alpha");
+    fireEvent.click(screen.getByRole("tab", { name: "Log" }));
     expect(await screen.findByText("Server: 127.0.0.1:9900")).toBeTruthy();
     expect(calls.some((c) => c.method === "vscode.keepAlive")).toBe(true);
   });

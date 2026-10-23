@@ -25,6 +25,8 @@ export interface EditorCallbacks {
   /** "Ask Claude about selection" (Claude Code panel). */
   onAskClaude: (text: string, startLine: number, endLine: number) => void;
   onCursor: (line: number, column: number, selected: number) => void;
+  /** "Open in VS Code" at the cursor (the embedded VS Code, ADR-0043). */
+  onOpenInVsCode?: (line: number, column: number) => void;
 }
 
 function baseOptions(): Monaco.editor.IStandaloneEditorConstructionOptions {
@@ -74,6 +76,16 @@ function registerCommands(monaco: MonacoApi, editor: Monaco.editor.IStandaloneCo
       const sel = ed.getSelection();
       if (!model || !sel || sel.isEmpty()) return;
       cb.current.onAskManager(model.getValueInRange(sel), sel.startLineNumber, sel.endLineNumber);
+    },
+  });
+  editor.addAction({
+    id: "orkestr.openInVsCode",
+    label: t("vscode:openFile.action"),
+    contextMenuGroupId: "navigation",
+    contextMenuOrder: 0.8,
+    run: (ed) => {
+      const pos = ed.getPosition();
+      cb.current.onOpenInVsCode?.(pos?.lineNumber ?? 1, pos?.column ?? 1);
     },
   });
   editor.addAction({

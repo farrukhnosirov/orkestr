@@ -20,4 +20,25 @@ autoRestart: boolean,
 /**
  * Extension commands pinned to the left rail / Mission Control quick actions.
  */
-pinnedCommands: Array<string>, };
+pinnedCommands: Array<string>, 
+/**
+ * Show the VS Code workbench inside the Orkestr window (VS Code panel,
+ * ADR-0043); `false` = the separate VS Code window (ADR-0025 launcher).
+ */
+embed: boolean, 
+/**
+ * Keep VS Code's colors in sync with the Orkestr theme (bridge extension).
+ */
+syncTheme: boolean, 
+/**
+ * Extensions disabled from Orkestr (moved out of the extensions directory
+ * while the server is stopped; applied on the next start).
+ */
+disabledExtensions: Array<string>, 
+/**
+ * VS Code's Workspace Trust (Restricted Mode until a folder is trusted).
+ * Off by default (ADR-0043): Orkestr only opens folders the user
+ * registered as projects, and Restricted Mode disables most extensions.
+ * Applied on the next server start.
+ */
+workspaceTrust: boolean, };

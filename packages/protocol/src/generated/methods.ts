@@ -642,17 +642,21 @@ import type { VsCodeCommandsResult } from "./VsCodeCommandsResult";
 import type { VsCodeConfigPatch } from "./VsCodeConfigPatch";
 import type { VsCodeExecuteParams } from "./VsCodeExecuteParams";
 import type { VsCodeExecuteResult } from "./VsCodeExecuteResult";
+import type { VsCodeExtensionIdParams } from "./VsCodeExtensionIdParams";
 import type { VsCodeExtensionsResult } from "./VsCodeExtensionsResult";
 import type { VsCodeInstallExtensionParams } from "./VsCodeInstallExtensionParams";
 import type { VsCodeInstallParams } from "./VsCodeInstallParams";
+import type { VsCodeInstallVsixParams } from "./VsCodeInstallVsixParams";
 import type { VsCodeLogsResult } from "./VsCodeLogsResult";
 import type { VsCodeOpenFileParams } from "./VsCodeOpenFileParams";
 import type { VsCodeOpenViewParams } from "./VsCodeOpenViewParams";
 import type { VsCodeRelease } from "./VsCodeRelease";
 import type { VsCodeRunTaskParams } from "./VsCodeRunTaskParams";
+import type { VsCodeSetExtensionEnabledParams } from "./VsCodeSetExtensionEnabledParams";
 import type { VsCodeStartParams } from "./VsCodeStartParams";
 import type { VsCodeStartResult } from "./VsCodeStartResult";
 import type { VsCodeStatus } from "./VsCodeStatus";
+import type { VsCodeSyncThemeParams } from "./VsCodeSyncThemeParams";
 import type { VsCodeTasksParams } from "./VsCodeTasksParams";
 import type { VsCodeTasksResult } from "./VsCodeTasksResult";
 import type { VsCodeUninstallParams } from "./VsCodeUninstallParams";
@@ -952,6 +956,11 @@ export type Methods = {
   "vscode.openFile": [VsCodeOpenFileParams, VsCodeExecuteResult];
   "vscode.tasks": [VsCodeTasksParams, VsCodeTasksResult];
   "vscode.runTask": [VsCodeRunTaskParams, VsCodeExecuteResult];
+  "vscode.uninstallExtension": [VsCodeExtensionIdParams, VsCodeExtensionsResult];
+  "vscode.installVsix": [VsCodeInstallVsixParams, VsCodeExtensionsResult];
+  "vscode.updateExtensions": [Empty, VsCodeExtensionsResult];
+  "vscode.setExtensionEnabled": [VsCodeSetExtensionEnabledParams, VsCodeExtensionsResult];
+  "vscode.syncTheme": [VsCodeSyncThemeParams, Empty];
   "extensions.search": [SearchExtensionsParams, SearchExtensionsResult];
   "extensions.details": [MarketplaceRef, MarketplaceDetails];
   "extensions.icon": [ExtensionIconParams, ExtensionIconResult];
@@ -1433,6 +1442,11 @@ export const METHOD_NAMES = [
   "vscode.openFile",
   "vscode.tasks",
   "vscode.runTask",
+  "vscode.uninstallExtension",
+  "vscode.installVsix",
+  "vscode.updateExtensions",
+  "vscode.setExtensionEnabled",
+  "vscode.syncTheme",
   "extensions.search",
   "extensions.details",
   "extensions.icon",
@@ -1735,6 +1749,7 @@ export const EVENT_KINDS = [
   "CodexEvent",
   "CodexStatus",
   "CodexAccount",
+  "VsCodeBridgeSignal",
 ] as const;
 
 /** UI config schema version (see orkestr-protocol ui_config). */

@@ -13,6 +13,10 @@ use orkestr_protocol::methods::vscode::{
     VsCodeInstallParams, VsCodeLogsResult, VsCodeOpenFileParams, VsCodeOpenViewParams, VsCodeRunTaskParams,
     VsCodeStartParams, VsCodeTaskInfo, VsCodeTasksParams, VsCodeTasksResult, VsCodeUninstallParams,
 };
+use orkestr_protocol::methods::vscode::{
+    VsCodeExtensionIdParams, VsCodeInstallVsixParams, VsCodeSetExtensionEnabledParams, VsCodeSyncThemeParams,
+    VsCodeThemeKind,
+};
 use orkestr_protocol::methods::Empty;
 use orkestr_protocol::{NewEvent, RpcError, RpcErrorCode};
 use orkestr_security::NewAudit;
@@ -205,6 +209,40 @@ pub fn register(router: &mut RpcRouter) {
             )
             .await;
             Ok(VsCodeExtensionsResult { extensions })
+        })
+        .method::<m::UninstallExtension, _, _>(|ctx: RpcContext, p: VsCodeExtensionIdParams| async move {
+            let extensions = ctx.services.vscode.uninstall_extension(&p.id).await.map_err(host_to_rpc)?;
+            audit(&ctx, "vscode.uninstallExtension", p.id.trim().to_ascii_lowercase(), json!({})).await;
+            Ok::<_, RpcError>(VsCodeExtensionsResult { extensions })
+        })
+        .method::<m::InstallVsix, _, _>(|ctx: RpcContext, p: VsCodeInstallVsixParams| async move {
+            let path = std::path::PathBuf::from(p.path.trim());
+            let extensions = ctx.services.vscode.install_vsix(&path).await.map_err(host_to_rpc)?;
+            // A local package is unsigned extension code (TB8): audited like Open VSX installs.
+            audit(&ctx, "vscode.installExtension", path.display().to_string(), json!({ "registry": "vsix" })).await;
+            Ok::<_, RpcError>(VsCodeExtensionsResult { extensions })
+        })
+        .method::<m::UpdateExtensions, _, _>(|ctx: RpcContext, _: Empty| async move {
+            let extensions = ctx.services.vscode.update_extensions().await.map_err(host_to_rpc)?;
+            audit(&ctx, "vscode.updateExtensions", "open-vsx".into(), json!({ "count": extensions.len() })).await;
+            Ok::<_, RpcError>(VsCodeExtensionsResult { extensions })
+        })
+        .method::<m::SetExtensionEnabled, _, _>(|ctx: RpcContext, p: VsCodeSetExtensionEnabledParams| async move {
+            let extensions = ctx.services.vscode.set_extension_enabled(&p.id, p.enabled).await.map_err(host_to_rpc)?;
+            audit(
+                &ctx,
+                "vscode.setExtensionEnabled",
+                p.id.trim().to_ascii_lowercase(),
+                json!({ "enabled": p.enabled }),
+            )
+            .await;
+            Ok::<_, RpcError>(VsCodeExtensionsResult { extensions })
+        })
+        .method::<m::SyncTheme, _, _>(|ctx: RpcContext, p: VsCodeSyncThemeParams| async move {
+            // Cosmetic and frequent (every theme switch): not audited.
+            let light = p.kind == VsCodeThemeKind::Light;
+            ctx.services.vscode.sync_theme(light, &p.colors, wait_of(p.wait_ms)).await.map_err(host_to_rpc)?;
+            Ok::<_, RpcError>(Empty {})
         })
         .method::<m::Commands, _, _>(|ctx: RpcContext, p: VsCodeCommandsParams| async move {
             let extensions = ctx.services.vscode.catalog(p.locale.as_deref(), p.extension_id.as_deref()).await;

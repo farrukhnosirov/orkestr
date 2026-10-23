@@ -432,6 +432,8 @@ export function describeEvent(event: Event): string {
       return t("events:dashboardChanged", { id: short(event.payload.dashboardId) });
     case "ComputerCommand":
       return t("events:computerCommand", { title: event.payload.title, outcome: event.payload.outcome });
+    case "VsCodeBridgeSignal":
+      return t("events:vscodeBridgeSignal", { signal: event.payload.signal });
   }
 }
 

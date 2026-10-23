@@ -124,5 +124,6 @@
   "incidentOpened": "Incident opened: {{title}}",
   "incidentStageChanged": "Incident {{id}}: {{stage}}",
   "dashboardChanged": "Dashboard {{id}} changed",
-  "computerCommand": "Assistant: {{title}} — {{outcome}}"
+  "computerCommand": "Assistant: {{title}} — {{outcome}}",
+  "vscodeBridgeSignal": "VS Code asked Orkestr: {{signal}}"
 }

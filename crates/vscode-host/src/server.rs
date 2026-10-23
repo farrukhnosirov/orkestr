@@ -54,6 +54,17 @@ pub fn build_args(spec: &LaunchSpec) -> Vec<OsString> {
     args
 }
 
+/// Server flags for VS Code's Workspace Trust (ADR-0043): without trust the
+/// workbench starts every folder trusted (no Restricted Mode).
+#[must_use]
+pub fn trust_args(workspace_trust: bool) -> Vec<OsString> {
+    if workspace_trust {
+        Vec::new()
+    } else {
+        vec!["--disable-workspace-trust".into()]
+    }
+}
+
 /// A fresh connection token: 256 random bits, hex (the server accepts `[0-9A-Za-z-]`).
 #[must_use]
 pub fn generate_token() -> String {
@@ -166,6 +177,12 @@ mod tests {
         assert!(!all.iter().any(|a| a == "--without-connection-token"), "the token is never disabled");
         assert!(!all.iter().any(|a| a == "--connection-token"), "the token never appears on the command line");
         assert!(!all.iter().any(|a| a == "0.0.0.0" || a == "::" || a == "localhost"));
+    }
+
+    #[test]
+    fn workspace_trust_flag() {
+        assert_eq!(trust_args(false), vec![OsString::from("--disable-workspace-trust")]);
+        assert!(trust_args(true).is_empty());
     }
 
     #[test]

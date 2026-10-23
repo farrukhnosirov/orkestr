@@ -932,6 +932,7 @@ macro_rules! event_kinds {
                         | EventKind::CodexStatus(_)
                         | EventKind::CodexAccount(_)
                         | EventKind::DeploymentProgress(_)
+                        | EventKind::VsCodeBridgeSignal(_)
                 )
             }
 
@@ -1145,6 +1146,8 @@ event_kinds! {
     CodexStatus(crate::methods::codex::CodexStatusPayload),
     /// Codex sign-in progress / account change (ephemeral, global). Appended.
     CodexAccount(crate::methods::codex::CodexAccountPayload),
+    /// The embedded VS Code asked Orkestr for focus / its palette (ephemeral, ADR-0043). Appended.
+    VsCodeBridgeSignal(crate::methods::vscode::VsCodeBridgeSignalPayload),
 }
 
 // ---------------------------------------------------------------------------

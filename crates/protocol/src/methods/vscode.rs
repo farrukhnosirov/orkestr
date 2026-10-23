@@ -132,11 +132,33 @@ pub struct VsCodeConfig {
     pub auto_restart: bool,
     /// Extension commands pinned to the left rail / Mission Control quick actions.
     pub pinned_commands: Vec<String>,
+    /// Show the VS Code workbench inside the Orkestr window (VS Code panel,
+    /// ADR-0043); `false` = the separate VS Code window (ADR-0025 launcher).
+    pub embed: bool,
+    /// Keep VS Code's colors in sync with the Orkestr theme (bridge extension).
+    pub sync_theme: bool,
+    /// Extensions disabled from Orkestr (moved out of the extensions directory
+    /// while the server is stopped; applied on the next start).
+    pub disabled_extensions: Vec<String>,
+    /// VS Code's Workspace Trust (Restricted Mode until a folder is trusted).
+    /// Off by default (ADR-0043): Orkestr only opens folders the user
+    /// registered as projects, and Restricted Mode disables most extensions.
+    /// Applied on the next server start.
+    pub workspace_trust: bool,
 }
 
 impl Default for VsCodeConfig {
     fn default() -> Self {
-        Self { auto_stop: true, idle_stop_secs: 120, auto_restart: true, pinned_commands: Vec::new() }
+        Self {
+            auto_stop: true,
+            idle_stop_secs: 120,
+            auto_restart: true,
+            pinned_commands: Vec::new(),
+            embed: true,
+            sync_theme: true,
+            disabled_extensions: Vec::new(),
+            workspace_trust: false,
+        }
     }
 }
 
@@ -157,6 +179,15 @@ pub struct VsCodeConfigPatch {
     /// See [`VsCodeConfig::pinned_commands`] (replaces the list; ≤ 24 ids).
     #[ts(optional)]
     pub pinned_commands: Option<Vec<String>>,
+    /// See [`VsCodeConfig::embed`].
+    #[ts(optional)]
+    pub embed: Option<bool>,
+    /// See [`VsCodeConfig::sync_theme`].
+    #[ts(optional)]
+    pub sync_theme: Option<bool>,
+    /// See [`VsCodeConfig::workspace_trust`].
+    #[ts(optional)]
+    pub workspace_trust: Option<bool>,
 }
 
 /// Status of the VS Code integration.
@@ -275,6 +306,12 @@ pub struct VsCodeExtension {
     pub id: String,
     /// Installed version.
     pub version: Option<String>,
+    /// Disabled from Orkestr (`VsCodeConfig::disabled_extensions`).
+    #[serde(default)]
+    pub disabled: bool,
+    /// The enabled/disabled state changes on the next VS Code (re)start.
+    #[serde(default)]
+    pub restart_required: bool,
 }
 
 /// Result of `vscode.listExtensions` / `vscode.installExtension`.
@@ -620,9 +657,108 @@ method!(
     InstallExtension, "vscode.installExtension", VsCodeInstallExtensionParams, VsCodeExtensionsResult
 );
 
+/// Params of `vscode.uninstallExtension`.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct VsCodeExtensionIdParams {
+    /// Extension id `publisher.name`.
+    pub id: String,
+}
+
+/// Params of `vscode.installVsix`.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct VsCodeInstallVsixParams {
+    /// Absolute path of a local `.vsix` file.
+    pub path: String,
+}
+
+/// Params of `vscode.setExtensionEnabled`.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct VsCodeSetExtensionEnabledParams {
+    /// Extension id `publisher.name`.
+    pub id: String,
+    /// Desired state.
+    pub enabled: bool,
+}
+
+/// Color kind of an Orkestr theme pushed to VS Code.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub enum VsCodeThemeKind {
+    /// Dark theme (base `Default Dark Modern`).
+    #[default]
+    Dark,
+    /// Light theme (base `Default Light Modern`).
+    Light,
+}
+
+/// Params of `vscode.syncTheme`: the Orkestr theme as VS Code workbench colors.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct VsCodeSyncThemeParams {
+    /// Dark or light base theme.
+    pub kind: VsCodeThemeKind,
+    /// Workbench color id → `#rrggbb` / `#rrggbbaa` (≤ 400 entries).
+    pub colors: std::collections::BTreeMap<String, String>,
+    /// See [`VsCodeExecuteParams::wait_ms`].
+    #[serde(default)]
+    #[ts(optional)]
+    pub wait_ms: Option<u32>,
+}
+
+/// `VsCodeBridgeSignal` payload: the embedded VS Code asked Orkestr for
+/// something (a keybinding of the bridge extension).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct VsCodeBridgeSignalPayload {
+    /// `focusOrkestr` (return keyboard focus to Orkestr) or `showPalette`
+    /// (open Orkestr's command palette).
+    pub signal: String,
+}
+
+method!(
+    /// `vscode.uninstallExtension` — removes an extension from Orkestr's VS Code.
+    UninstallExtension, "vscode.uninstallExtension", VsCodeExtensionIdParams, VsCodeExtensionsResult
+);
+method!(
+    /// `vscode.installVsix` — installs a local `.vsix` package (server CLI).
+    InstallVsix, "vscode.installVsix", VsCodeInstallVsixParams, VsCodeExtensionsResult
+);
+method!(
+    /// `vscode.updateExtensions` — updates every installed extension from Open VSX.
+    UpdateExtensions, "vscode.updateExtensions", Empty, VsCodeExtensionsResult
+);
+method!(
+    /// `vscode.setExtensionEnabled` — enables / disables an extension (applied on the next server start).
+    SetExtensionEnabled, "vscode.setExtensionEnabled", VsCodeSetExtensionEnabledParams, VsCodeExtensionsResult
+);
+method!(
+    /// `vscode.syncTheme` — applies Orkestr's theme colors to the connected VS Code workbench.
+    SyncTheme, "vscode.syncTheme", VsCodeSyncThemeParams, Empty
+);
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn new_config_fields_default_on_for_old_files() {
+        let c: VsCodeConfig = serde_json::from_str(r#"{"autoStop":false}"#).unwrap();
+        assert!(c.embed, "the workbench opens inside Orkestr by default");
+        assert!(c.sync_theme);
+        assert!(c.disabled_extensions.is_empty());
+        assert!(!c.workspace_trust, "Orkestr projects open without Restricted Mode");
+        let e: VsCodeExtension = serde_json::from_str(r#"{"id":"a.b","version":"1.0.0"}"#).unwrap();
+        assert!(!e.disabled && !e.restart_required);
+    }
 
     #[test]
     fn config_defaults_are_safe() {

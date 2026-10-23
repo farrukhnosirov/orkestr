@@ -142,5 +142,6 @@
   "incidentOpened": "Открыт инцидент: {{title}}",
   "incidentStageChanged": "Инцидент {{id}}: {{stage}}",
   "dashboardChanged": "Дашборд {{id}} изменён",
-  "computerCommand": "Ассистент: {{title}} — {{outcome}}"
+  "computerCommand": "Ассистент: {{title}} — {{outcome}}",
+  "vscodeBridgeSignal": "VS Code обратился к Orkestr: {{signal}}"
 }

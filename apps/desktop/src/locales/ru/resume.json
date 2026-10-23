@@ -435,6 +435,10 @@
     "CodexAccount_one": "{{count}} изменение входа в Codex",
     "CodexAccount_few": "{{count}} изменения входа в Codex",
     "CodexAccount_many": "{{count}} изменений входа в Codex",
-    "CodexAccount_other": "{{count}} изменения входа в Codex"
+    "CodexAccount_other": "{{count}} изменения входа в Codex",
+    "VsCodeBridgeSignal_one": "{{count}} запрос от VS Code",
+    "VsCodeBridgeSignal_few": "{{count}} запроса от VS Code",
+    "VsCodeBridgeSignal_many": "{{count}} запросов от VS Code",
+    "VsCodeBridgeSignal_other": "{{count}} запроса от VS Code"
   }
 }

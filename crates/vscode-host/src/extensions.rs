@@ -67,7 +67,7 @@ pub fn parse_extension_list(stdout: &str) -> Vec<VsCodeExtension> {
                 Some((id, v)) => (id.to_owned(), Some(v.to_owned())),
                 None => (norm, None),
             };
-            Some(VsCodeExtension { id, version })
+            Some(VsCodeExtension { id, version, disabled: false, restart_required: false })
         })
         .collect();
     out.sort_by(|a, b| a.id.cmp(&b.id));

@@ -444,6 +444,15 @@ pub fn run() {
             widget_scheme::serve(&ctx.app_handle().state::<widget_scheme::WidgetDocs>(), &request)
         })
         .setup(move |app| {
+            // The main window is created here (`create: false` in tauri.conf.json)
+            // so it gets the popup / permission handlers of the embedded VS Code
+            // frame (ADR-0043): links open in the system browser, paste works.
+            if let Some(config) = app.config().app.windows.iter().find(|w| w.label == MAIN_WINDOW).cloned() {
+                tauri::WebviewWindowBuilder::from_config(app.handle(), &config)?
+                    .on_new_window(|target, _features| vscode_window::app_new_window(&target))
+                    .on_permission_request(|_webview, kind| vscode_window::app_permission(&kind))
+                    .build()?;
+            }
             let tray_ok = match build_tray(app) {
                 Ok(()) => true,
                 Err(e) => {
@@ -665,7 +674,16 @@ mod tests {
         );
         expect(
             include_str!("../capabilities/panels.json"),
-            &["core_connection", "window_redock_panel", "widget_document"],
+            &[
+                "core_connection",
+                "window_redock_panel",
+                "widget_document",
+                "vscode_window_open",
+                "vscode_window_close",
+                "vscode_window_reload",
+                "vscode_window_is_open",
+                "vscode_open_external",
+            ],
         );
         // The handler list and the declared list must not drift apart.
         let src = include_str!("lib.rs");

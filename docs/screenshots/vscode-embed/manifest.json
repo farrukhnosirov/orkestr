@@ -1,0 +1,159 @@
+{
+  "when": "2026-10-23T09:17:13.585Z",
+  "checks": [
+    {
+      "id": "V0",
+      "label": "the temporary home sees the installed VSCodium server",
+      "ok": true,
+      "detail": "stopped"
+    },
+    {
+      "id": "V2",
+      "label": "theme, language-server and webview extensions installed from Open VSX",
+      "ok": true,
+      "detail": "anthropic.claude-code, dracula-theme.theme-dracula, redhat.vscode-yaml"
+    },
+    {
+      "id": "V1a",
+      "label": "the panel shows VS Code in a frame on vscode.tauri.localhost",
+      "ok": true,
+      "detail": "http://vscode.tauri.localhost:13456/?tkn=…&folder=/c:/Users/User/AppData/Local/Temp/orkestr-vsx-YmISb7/demo-project"
+    },
+    {
+      "id": "V1b",
+      "label": "the real VS Code workbench renders inside the Orkestr window (explorer shows the project)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "id": "V1c",
+      "label": "the project folder is open in the workbench",
+      "ok": true,
+      "detail": "config.yaml,README.md,sample.pdf"
+    },
+    {
+      "id": "V1d",
+      "label": "the project opens trusted (no Restricted Mode), so every extension can run",
+      "ok": true,
+      "detail": "true"
+    },
+    {
+      "id": "V4",
+      "label": "Orkestr's theme colors reach the workbench (--vscode-sideBar-background = --ok-color-bg)",
+      "ok": true,
+      "detail": "side bar #04050d (first seen #fafafd), Orkestr bg #04050d"
+    },
+    {
+      "id": "V3a",
+      "label": "the YAML extension's language server reports diagnostics in the open file",
+      "ok": true,
+      "detail": "1 squiggles"
+    },
+    {
+      "id": "V7",
+      "label": "vscode.openFile (Open in VS Code) shows the file in the embedded workbench",
+      "ok": true,
+      "detail": "config.yaml"
+    },
+    {
+      "id": "V3b",
+      "label": "the Claude Code extension's webview runs inside the embedded workbench (webview host + service worker, extension document loaded, theme passed)",
+      "ok": true,
+      "detail": "1 ready webview(s), sw=true, doc={\"themed\":true,\"text\":\"\",\"html\":4419}"
+    },
+    {
+      "id": "V3c",
+      "label": "extension catalog lists the installed extensions; bridge connected",
+      "ok": true,
+      "detail": "anthropic.claude-code(33), dracula-theme.theme-dracula(0), redhat.vscode-yaml(0)"
+    },
+    {
+      "id": "V3d",
+      "label": "the Dracula theme extension applies (workbench repainted)",
+      "ok": true,
+      "detail": "#282a36; "
+    },
+    {
+      "id": "V5",
+      "label": "Ctrl+Alt+K inside the embedded VS Code opens Orkestr's command palette",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "id": "V6a",
+      "label": "the Extensions tab lists the installed extensions with their icons",
+      "ok": true,
+      "detail": "3 icons"
+    },
+    {
+      "id": "V6b",
+      "label": "disable + Restart VS Code moves the extension out; it is reported disabled",
+      "ok": true,
+      "detail": "{\"disabled\":true,\"id\":\"dracula-theme.theme-dracula\",\"restartRequired\":false,\"version\":\"2.25.1\"}"
+    },
+    {
+      "id": "V6c",
+      "label": "enable + restart brings it back",
+      "ok": true,
+      "detail": "{\"disabled\":false,\"id\":\"dracula-theme.theme-dracula\",\"restartRequired\":false,\"version\":\"2.25.1\"}"
+    },
+    {
+      "id": "V8",
+      "label": "the VS Code panel works detached into its own Orkestr window",
+      "ok": true,
+      "detail": ""
+    }
+  ],
+  "shots": [
+    {
+      "name": "01-workbench-in-orkestr",
+      "note": "VS Code workbench inside the Orkestr main window, Orkestr theme applied",
+      "errors": []
+    },
+    {
+      "name": "02-yaml-language-server",
+      "note": "redhat.vscode-yaml: language-server diagnostics in the embedded workbench",
+      "errors": []
+    },
+    {
+      "name": "03-claude-code-webview",
+      "note": "Claude Code (webview extension from Open VSX) inside the embedded workbench",
+      "errors": []
+    },
+    {
+      "name": "04-dracula-theme",
+      "note": "Dracula theme from Open VSX applied in the embedded workbench",
+      "errors": []
+    },
+    {
+      "name": "05-palette-from-vscode",
+      "note": "Orkestr command palette opened from inside VS Code (Ctrl+Alt+K)",
+      "errors": []
+    },
+    {
+      "name": "06-extensions-tab",
+      "note": "Extensions tab: installed VS Code extensions managed from Orkestr",
+      "errors": []
+    },
+    {
+      "name": "07-disable-restart-needed",
+      "note": "Disable while running → restart needed",
+      "errors": []
+    },
+    {
+      "name": "08-after-restart",
+      "note": "Workbench back after the restart",
+      "errors": []
+    },
+    {
+      "name": "09-detached-window",
+      "note": "VS Code panel detached into its own Orkestr window",
+      "errors": []
+    },
+    {
+      "name": "10-extensions-tab-ru",
+      "note": "Extensions tab in Russian",
+      "errors": []
+    }
+  ]
+}

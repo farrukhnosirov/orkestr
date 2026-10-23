@@ -397,6 +397,9 @@ pub async fn window_open_panel(
             .min_inner_size(f64::from(MIN_W), f64::from(MIN_H))
             .visible(false)
             .disable_drag_drop_handler()
+            // The embedded VS Code frame (ADR-0043): links → system browser, clipboard paste.
+            .on_new_window(|target, _features| crate::vscode_window::app_new_window(&target))
+            .on_permission_request(|_webview, kind| crate::vscode_window::app_permission(&kind))
             .build()
             .map_err(|e| e.to_string())?;
         if let Some(p) = &placement {

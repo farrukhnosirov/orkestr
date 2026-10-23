@@ -1,36 +1,36 @@
 /**
- * VS Code panel: installs (with consent), starts and controls the embedded
- * VS Code server (VSCodium REH web) and opens its UI in the VS Code window
- * on the active project's folder. States: not installed → installing →
- * stopped → starting → running (window + toolbar) / error (log + retry).
+ * VS Code panel (ADR-0043): installs (with consent), starts and shows the
+ * VS Code workbench (VSCodium REH web — every installed extension with the
+ * real extension host) **inside the Orkestr window** on the active project's
+ * folder, or, as an option, in the separate VS Code window (ADR-0025).
+ * Tabs: Workbench · Extensions (management) · Commands (launcher) · Log.
  *
- * All data flows through the core (`vscode.*`); the window itself is
- * managed by the shell (see `features/vscode/windowControls.ts`).
+ * Lifecycle: the server starts when the panel opens (heartbeat while it is
+ * mounted, idle auto-stop after it closes), the frame reloads after a crash
+ * restart, and the Orkestr theme is pushed into the workbench through the
+ * bridge extension. All data flows through the core (`vscode.*`); the frame
+ * URL carries the connection token and lives in memory only.
  */
 import type { VsCodeProgress, VsCodeStatus } from "@orkestr/protocol";
-import { Badge, Button, EmptyState, IconButton, Input, Spinner, type Tone } from "@orkestr/ui";
-import {
-  AlertTriangle,
-  Blocks,
-  Code2,
-  ExternalLink,
-  FolderOpen,
-  PackagePlus,
-  Play,
-  RefreshCw,
-  ScrollText,
-  Square,
-} from "lucide-react";
-import { type FormEvent, useEffect, useRef, useState } from "react";
+import { Badge, Button, EmptyState, IconButton, Spinner, Tabs, type Tone } from "@orkestr/ui";
+import { AlertTriangle, AppWindow, Code2, ExternalLink, FolderOpen, Play, RefreshCw, Square } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useFormat, useT } from "../../i18n";
 import { useAppStore } from "../../store/app";
+import { usePaletteStore } from "../../features/search/paletteStore";
+import { useThemeRevision } from "../../features/theme/useThemeRevision";
+import { EMBED_ALLOW, EMBED_SANDBOX } from "../../features/vscode/embed";
 import { ExtensionLauncher } from "../../features/vscode/ExtensionLauncher";
+import { ExtensionsManager } from "../../features/vscode/ExtensionsManager";
 import { InstallDialog } from "../../features/vscode/InstallDialog";
-import { useVsCodeStore } from "../../features/vscode/store";
+import { embedsVsCode } from "../../features/vscode/quickAccess";
+import { useVsCodeStore, VSCODE_FOCUS_OUT_EVENT, VSCODE_PALETTE_EVENT } from "../../features/vscode/store";
 import { vscodeWindow } from "../../features/vscode/windowControls";
 import "../../features/vscode/vscode.css";
 import type { PanelProps } from "../types";
+
+type Tab = "workbench" | "extensions" | "commands" | "log";
 
 const STATE_TONE: Record<VsCodeStatus["state"], Tone> = {
   notInstalled: "neutral",
@@ -96,140 +96,74 @@ function LogView() {
   );
 }
 
-/** Suggested Open VSX extensions (one click). */
-const SUGGESTED: readonly { id: string; labelKey: "extensions.claude" }[] = [
-  { id: "anthropic.claude-code", labelKey: "extensions.claude" },
-];
-
-/**
- * "Extensions" section: Open VSX extensions of Orkestr's VS Code (list +
- * install by id). Brought into view by Ctrl+Shift+X / "Install extension…".
- */
-function ExtensionsSection({ installed, windowOpen }: { installed: boolean; windowOpen: boolean }) {
+/** The workbench frame (kept mounted while the other tabs are shown). */
+function Workbench({
+  url,
+  reloadKey,
+  title,
+  onFocusOut,
+}: {
+  url: string;
+  reloadKey: number;
+  title: string;
+  onFocusOut: () => void;
+}) {
   const { t } = useT("vscode");
-  const extensions = useVsCodeStore((s) => s.extensions);
-  const error = useVsCodeStore((s) => s.extensionsError);
-  const installing = useVsCodeStore((s) => s.installingExtension);
-  const view = useVsCodeStore((s) => s.view);
-  const nonce = useVsCodeStore((s) => s.viewNonce);
-  const [id, setId] = useState("");
-  const [justInstalled, setJustInstalled] = useState(false);
-  const sectionRef = useRef<HTMLElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-
+  const frame = useRef<HTMLIFrameElement>(null);
+  const [loaded, setLoaded] = useState(false);
+  useEffect(() => setLoaded(false), [url, reloadKey]);
   useEffect(() => {
-    if (installed) void useVsCodeStore.getState().loadExtensions();
-  }, [installed]);
-  useEffect(() => {
-    if (view !== "extensions") return;
-    sectionRef.current?.scrollIntoView?.({ block: "start" });
-    inputRef.current?.focus();
-  }, [view, nonce]);
-
-  const install = async (value: string) => {
-    if (await useVsCodeStore.getState().installExtension(value)) {
-      setId("");
-      setJustInstalled(true);
-    }
-  };
-  const submit = (e: FormEvent) => {
-    e.preventDefault();
-    void install(id);
-  };
-  const has = (ext: string) => extensions?.some((x) => x.id === ext) ?? false;
-
+    // Ctrl+Alt+O / Ctrl+Alt+K inside VS Code (bridge keybindings) give the keyboard back.
+    const out = () => {
+      if (document.activeElement === frame.current) onFocusOut();
+    };
+    const palette = () => {
+      if (document.activeElement === frame.current) onFocusOut();
+      usePaletteStore.getState().openPalette("");
+    };
+    window.addEventListener(VSCODE_FOCUS_OUT_EVENT, out);
+    window.addEventListener(VSCODE_PALETTE_EVENT, palette);
+    return () => {
+      window.removeEventListener(VSCODE_FOCUS_OUT_EVENT, out);
+      window.removeEventListener(VSCODE_PALETTE_EVENT, palette);
+    };
+  }, [onFocusOut]);
   return (
-    <section className="vsc-card" ref={sectionRef} aria-labelledby="vsc-extensions-title">
-      <h4 id="vsc-extensions-title" className="vsc-row">
-        <Blocks size={14} aria-hidden="true" />
-        {t("extensions.title")}
-      </h4>
-      <p className="vsc-muted">{t("extensions.subtitle")}</p>
-      {!installed ? (
-        <p className="vsc-muted">{t("extensions.notInstalled")}</p>
-      ) : (
-        <>
-          <form className="vsc-row" onSubmit={submit}>
-            <Input
-              ref={inputRef}
-              aria-label={t("extensions.idLabel")}
-              placeholder={t("extensions.idPlaceholder")}
-              value={id}
-              maxLength={200}
-              spellCheck={false}
-              autoComplete="off"
-              onChange={(e) => setId(e.target.value)}
-              disabled={installing !== null}
-            />
-            <Button
-              type="submit"
-              variant="primary"
-              leftIcon={<PackagePlus size={14} />}
-              loading={installing !== null}
-              disabled={!id.trim()}
-            >
-              {t("extensions.install")}
-            </Button>
-          </form>
-          {installing && (
-            <p className="vsc-row vsc-muted" role="status">
-              <Spinner size={14} /> {t("extensions.installing", { id: installing })}
-            </p>
-          )}
-          {error && (
-            <div className="vsc-alert" role="alert">
-              <AlertTriangle size={14} aria-hidden="true" />
-              <span>{error}</span>
-            </div>
-          )}
-          {SUGGESTED.some((x) => !has(x.id)) && (
-            <div className="vsc-row">
-              <span className="vsc-muted">{t("extensions.suggested")}:</span>
-              {SUGGESTED.filter((x) => !has(x.id)).map((x) => (
-                <Button
-                  key={x.id}
-                  size="sm"
-                  variant="ghost"
-                  leftIcon={<PackagePlus size={14} />}
-                  disabled={installing !== null}
-                  onClick={() => void install(x.id)}
-                >
-                  {t(x.labelKey)}
-                </Button>
-              ))}
-            </div>
-          )}
-          <div className="vsc-row">
-            <strong>{t("extensions.installed")}</strong>
-            <span className="vsc-spacer" />
-            <IconButton
-              label={t("extensions.refresh")}
-              icon={<RefreshCw size={14} />}
-              tooltip="bottom"
-              onClick={() => void useVsCodeStore.getState().loadExtensions()}
-            />
-          </div>
-          {extensions === null ? (
-            <Spinner size={14} />
-          ) : extensions.length === 0 ? (
-            <p className="vsc-muted">{t("extensions.none")}</p>
-          ) : (
-            <ul className="vsc-extensions">
-              {extensions.map((x) => (
-                <li key={x.id}>
-                  <code>{x.id}</code>
-                  {x.version && <span className="vsc-muted">{x.version}</span>}
-                </li>
-              ))}
-            </ul>
-          )}
-          <ul className="vsc-hints">
-            {justInstalled && windowOpen && <li>{t("extensions.reloadHint")}</li>}
-            <li>{t("extensions.browseHint")}</li>
-          </ul>
-        </>
+    <div className="vsc-embed">
+      <iframe
+        key={reloadKey}
+        ref={frame}
+        className="vsc-embed__frame"
+        title={title}
+        src={url}
+        sandbox={EMBED_SANDBOX}
+        allow={EMBED_ALLOW}
+        referrerPolicy="no-referrer"
+        onLoad={() => setLoaded(true)}
+        data-testid="vscode-embed"
+      />
+      {!loaded && (
+        <div className="vsc-embed__loading" role="status">
+          <Spinner size={18} /> <span>{t("embed.loading")}</span>
+        </div>
       )}
-    </section>
+    </div>
+  );
+}
+
+function LogTab() {
+  const { t } = useT("vscode");
+  const running = useVsCodeStore((s) => s.status?.running ?? null);
+  return (
+    <>
+      {running && (
+        <p className="vsc-muted">
+          {t("run.port", { port: running.port })}
+          {running.restarts > 0 && ` · ${t("run.restarts", { count: running.restarts })}`}
+        </p>
+      )}
+      <LogView />
+    </>
   );
 }
 
@@ -241,20 +175,71 @@ export default function VsCodePanel({ projectId }: PanelProps) {
   const busy = useVsCodeStore((s) => s.busy);
   const windowOpen = useVsCodeStore((s) => s.windowOpen);
   const lastUrl = useVsCodeStore((s) => s.lastUrl);
+  const embedUrl = useVsCodeStore((s) => s.embedUrl);
+  const embedKey = useVsCodeStore((s) => s.embedKey);
+  const embedProjectId = useVsCodeStore((s) => s.embedProjectId);
+  const embedUnsupported = useVsCodeStore((s) => s.embedUnsupported);
+  const view = useVsCodeStore((s) => s.view);
+  const nonce = useVsCodeStore((s) => s.viewNonce);
   const connected = useAppStore((s) => s.connection.state === "open");
   const project = useAppStore((s) => s.projects.find((p) => p.id === projectId) ?? null);
+  const themeRev = useThemeRevision();
   const [installOpen, setInstallOpen] = useState(false);
-  const [showLogs, setShowLogs] = useState(false);
+  const [tab, setTab] = useState<Tab>(view === "extensions" ? "extensions" : "workbench");
+  /** Project the panel last auto-started VS Code for (`undefined` = none yet). */
+  const autoStarted = useRef<string | null | undefined>(undefined);
+  const lastStart = useRef<string | null>(null);
+  const headRef = useRef<HTMLElement>(null);
 
   useEffect(() => useVsCodeStore.getState().attach(), []);
   useEffect(() => {
     if (connected) void useVsCodeStore.getState().load();
   }, [connected]);
+  useEffect(() => {
+    if (nonce > 0) setTab(view === "extensions" ? "extensions" : "workbench");
+  }, [view, nonce]);
 
+  const state = status?.state ?? "stopped";
+  const running = state === "running";
+  const embed = status !== null && embedsVsCode();
+  const hasInstall = status?.installed != null;
   const folderProjectId = project?.rootPath ? project.id : null;
   const title = t("run.windowTitle", { name: project?.name ?? t("panel.label") });
-  const open = () => void useVsCodeStore.getState().open(folderProjectId, title);
-  const stop = () => void useVsCodeStore.getState().stop();
+  const startedAt = status?.running?.startedAt ?? null;
+
+  // Start when the panel opens and follow the active project — at most once
+  // per project and mount (a user Stop or a failed start is not retried).
+  useEffect(() => {
+    if (!embed || !hasInstall || busy || (state !== "stopped" && state !== "running")) return;
+    if (autoStarted.current === folderProjectId) return;
+    autoStarted.current = folderProjectId;
+    const store = useVsCodeStore.getState();
+    if (running && store.embedUrl !== null && store.embedProjectId === folderProjectId) return;
+    void store.startEmbedded(folderProjectId);
+  }, [embed, hasInstall, state, running, folderProjectId, busy]);
+
+  // A crash restart is a new server process: reload the frame.
+  useEffect(() => {
+    if (!startedAt) return;
+    const prev = lastStart.current;
+    lastStart.current = startedAt;
+    if (prev && prev !== startedAt && embed && useVsCodeStore.getState().embedUrl) {
+      void useVsCodeStore.getState().startEmbedded(embedProjectId, true);
+    }
+  }, [startedAt, embed, embedProjectId]);
+
+  // Orkestr theme → workbench colors (when the bridge connects and on every theme change).
+  const bridge = status?.bridgeConnected === true;
+  const syncTheme = status?.config.syncTheme ?? true;
+  useEffect(() => {
+    if (!bridge || !syncTheme) return;
+    const id = setTimeout(() => void useVsCodeStore.getState().syncTheme(), 250);
+    return () => clearTimeout(id);
+  }, [bridge, syncTheme, themeRev]);
+
+  const focusOut = useCallback(() => {
+    headRef.current?.querySelector<HTMLElement>("[role=tab][aria-selected=true]")?.focus();
+  }, []);
 
   if (!status) {
     return (
@@ -275,30 +260,60 @@ export default function VsCodePanel({ projectId }: PanelProps) {
     );
   }
 
-  const state = status.state;
-  const running = state === "running";
+  const openWindow = () => void useVsCodeStore.getState().open(folderProjectId, title);
+  const start = () => {
+    if (embed) void useVsCodeStore.getState().startEmbedded(folderProjectId);
+    else openWindow();
+  };
+  const stop = () => void useVsCodeStore.getState().stop();
   const folderLine = !project
     ? t("panel.noProject")
     : project.rootPath
       ? t("panel.project", { path: project.rootPath })
       : t("panel.projectNoFolder");
+  const showFrame = embed && embedUrl !== null && (running || state === "restarting");
+
+  const tabs = [
+    { id: "workbench" as const, label: t("tabs.workbench") },
+    { id: "extensions" as const, label: t("tabs.extensions") },
+    { id: "commands" as const, label: t("tabs.commands") },
+    { id: "log" as const, label: t("tabs.log") },
+  ];
 
   return (
     <div className="vsc-panel">
-      <header className="vsc-head">
+      <header className="vsc-head" ref={headRef}>
         <Code2 size={16} aria-hidden="true" />
         <h3>{t("panel.label")}</h3>
         <Badge tone={STATE_TONE[state]}>{t(`state.${state}`)}</Badge>
         {status.installed && <span className="vsc-muted">{status.installed.version}</span>}
+        <Tabs items={tabs} value={tab} onChange={setTab} aria-label={t("tabs.label")} className="vsc-tabs" />
         <span className="vsc-spacer" />
         {running && (
           <div className="vsc-toolbar">
+            {embed ? (
+              <IconButton
+                label={t("embed.reload")}
+                icon={<RefreshCw size={14} />}
+                tooltip="bottom"
+                disabled={!embedUrl}
+                onClick={() => useVsCodeStore.getState().reloadEmbedded()}
+              />
+            ) : (
+              <IconButton
+                label={t("run.reload")}
+                icon={<RefreshCw size={14} />}
+                tooltip="bottom"
+                disabled={!windowOpen}
+                onClick={() => void vscodeWindow.reload()}
+              />
+            )}
             <IconButton
-              label={t("run.reload")}
-              icon={<RefreshCw size={14} />}
+              label={t("embed.separateWindow")}
+              icon={<AppWindow size={14} />}
               tooltip="bottom"
-              disabled={!windowOpen}
-              onClick={() => void vscodeWindow.reload()}
+              disabled={busy === "start"}
+              onClick={openWindow}
             />
             <IconButton
               label={t("run.external")}
@@ -319,111 +334,131 @@ export default function VsCodePanel({ projectId }: PanelProps) {
         )}
       </header>
 
-      <div className="vsc-body">
-        {error && (
-          <div className="vsc-alert" role="alert">
-            <AlertTriangle size={14} aria-hidden="true" />
-            <span>{error}</span>
-          </div>
-        )}
-
-        {state === "notInstalled" && (
-          <section className="vsc-card">
-            <h4>{t("intro.title")}</h4>
-            <p>{t("intro.body")}</p>
-            <p className="vsc-muted">{t("settings.legal")}</p>
-            <Button variant="primary" leftIcon={<Code2 size={14} />} onClick={() => setInstallOpen(true)}>
-              {t("intro.install")}
-            </Button>
-          </section>
-        )}
-
-        {state === "installing" && (
-          <section className="vsc-card">
-            <h4>{t("state.installing")}</h4>
-            <ProgressView progress={progress} />
-          </section>
-        )}
-
-        {(state === "stopped" || running) && (
-          <section className="vsc-card">
-            <p className="vsc-row">
-              <FolderOpen size={14} aria-hidden="true" />
-              <span className="vsc-path" title={project?.rootPath ?? undefined}>
-                {folderLine}
-              </span>
-            </p>
-            {running && (
-              <>
-                <p className="vsc-muted">{windowOpen ? t("run.windowOpen") : t("run.windowClosed")}</p>
-                {status.running && (
-                  <p className="vsc-muted">
-                    {t("run.port", { port: status.running.port })}
-                    {status.running.restarts > 0 && ` · ${t("run.restarts", { count: status.running.restarts })}`}
-                  </p>
-                )}
-              </>
-            )}
-            <div className="vsc-actions">
-              <Button variant="primary" leftIcon={<Play size={14} />} loading={busy === "start"} onClick={open}>
-                {running && windowOpen ? t("run.focus") : t("run.open")}
-              </Button>
-            </div>
-            <ul className="vsc-hints">
-              <li>{t("run.why")}</li>
-              <li>{t("run.extensionsHint")}</li>
-              <li>{t("run.syncHint")}</li>
-            </ul>
-          </section>
-        )}
-
-        {(state === "starting" || state === "restarting" || state === "stopping") && (
-          <section className="vsc-card vsc-row">
-            <Spinner size={16} />
-            <span>
-              {state === "starting" ? t("run.starting") : state === "restarting" ? t("run.restarting") : t("run.stopping")}
-            </span>
-          </section>
-        )}
-
-        {state === "error" && (
-          <section className="vsc-card">
-            <h4>{t("failure.title")}</h4>
-            {status.error && <p className="vsc-error">{status.error}</p>}
-            <div className="vsc-actions">
-              {status.installed ? (
-                <Button variant="primary" leftIcon={<RefreshCw size={14} />} loading={busy === "start"} onClick={open}>
-                  {t("failure.retry")}
-                </Button>
-              ) : (
-                <Button variant="primary" leftIcon={<Code2 size={14} />} onClick={() => setInstallOpen(true)}>
-                  {t("intro.install")}
-                </Button>
+      <div className="vsc-stack">
+        <div className="vsc-tabpanel" hidden={tab !== "workbench"}>
+          {showFrame && embedUrl ? (
+            <Workbench url={embedUrl} reloadKey={embedKey} title={title} onFocusOut={focusOut} />
+          ) : (
+            <div className="vsc-body">
+              {error && (
+                <div className="vsc-alert" role="alert">
+                  <AlertTriangle size={14} aria-hidden="true" />
+                  <span>{error}</span>
+                </div>
               )}
-              <Button variant="ghost" leftIcon={<ScrollText size={14} />} onClick={() => setShowLogs((v) => !v)}>
-                {showLogs ? t("failure.hideLogs") : t("failure.showLogs")}
-              </Button>
+
+              {state === "notInstalled" && (
+                <section className="vsc-card">
+                  <h4>{t("intro.title")}</h4>
+                  <p>{t("intro.body")}</p>
+                  <p className="vsc-muted">{t("settings.legal")}</p>
+                  <Button variant="primary" leftIcon={<Code2 size={14} />} onClick={() => setInstallOpen(true)}>
+                    {t("intro.install")}
+                  </Button>
+                </section>
+              )}
+
+              {state === "installing" && (
+                <section className="vsc-card">
+                  <h4>{t("state.installing")}</h4>
+                  <ProgressView progress={progress} />
+                </section>
+              )}
+
+              {(state === "stopped" || running) && (
+                <section className="vsc-card">
+                  <p className="vsc-row">
+                    <FolderOpen size={14} aria-hidden="true" />
+                    <span className="vsc-path" title={project?.rootPath ?? undefined}>
+                      {folderLine}
+                    </span>
+                  </p>
+                  {running && !embed && (
+                    <p className="vsc-muted">{windowOpen ? t("run.windowOpen") : t("run.windowClosed")}</p>
+                  )}
+                  {embedUnsupported && <p className="vsc-muted">{t("embed.unsupported")}</p>}
+                  <div className="vsc-actions">
+                    <Button variant="primary" leftIcon={<Play size={14} />} loading={busy === "start"} onClick={start}>
+                      {embed ? t("embed.start") : running && windowOpen ? t("run.focus") : t("run.open")}
+                    </Button>
+                    {embed && (
+                      <Button variant="ghost" leftIcon={<AppWindow size={14} />} onClick={openWindow}>
+                        {t("embed.separateWindow")}
+                      </Button>
+                    )}
+                  </div>
+                  <ul className="vsc-hints">
+                    <li>{embed ? t("embed.why") : t("run.why")}</li>
+                    {embed && <li>{t("embed.keys")}</li>}
+                    <li>{t("run.syncHint")}</li>
+                  </ul>
+                </section>
+              )}
+
+              {(state === "starting" || state === "restarting" || state === "stopping") && (
+                <section className="vsc-card vsc-row" role="status">
+                  <Spinner size={16} />
+                  <span>
+                    {state === "starting"
+                      ? t("run.starting")
+                      : state === "restarting"
+                        ? t("run.restarting")
+                        : t("run.stopping")}
+                  </span>
+                </section>
+              )}
+
+              {state === "error" && (
+                <section className="vsc-card">
+                  <h4>{t("failure.title")}</h4>
+                  {status.error && <p className="vsc-error">{status.error}</p>}
+                  <div className="vsc-actions">
+                    {hasInstall ? (
+                      <Button variant="primary" leftIcon={<RefreshCw size={14} />} loading={busy === "start"} onClick={start}>
+                        {t("failure.retry")}
+                      </Button>
+                    ) : (
+                      <Button variant="primary" leftIcon={<Code2 size={14} />} onClick={() => setInstallOpen(true)}>
+                        {t("intro.install")}
+                      </Button>
+                    )}
+                    <Button variant="ghost" onClick={() => setTab("log")}>
+                      {t("failure.showLogs")}
+                    </Button>
+                  </div>
+                </section>
+              )}
             </div>
-            {showLogs && <LogView />}
-          </section>
-        )}
+          )}
+        </div>
 
-        {status.installed !== null && state !== "installing" && (
-          <section className="vsc-card vsc-card--wide">
-            <ExtensionLauncher />
-          </section>
-        )}
-
-        {state !== "installing" && <ExtensionsSection installed={status.installed !== null} windowOpen={windowOpen} />}
-
-        {state !== "error" && (running || state === "stopped") && (
-          <div className="vsc-actions">
-            <Button size="sm" variant="ghost" leftIcon={<ScrollText size={14} />} onClick={() => setShowLogs((v) => !v)}>
-              {showLogs ? t("failure.hideLogs") : t("failure.showLogs")}
-            </Button>
+        {tab === "extensions" && (
+          <div className="vsc-tabpanel">
+            <div className="vsc-body">
+              <ExtensionsManager projectId={folderProjectId} installed={hasInstall && state !== "installing"} />
+            </div>
           </div>
         )}
-        {state !== "error" && showLogs && <LogView />}
+        {tab === "commands" && (
+          <div className="vsc-tabpanel">
+            <div className="vsc-body">
+              {hasInstall ? (
+                <section className="vsc-card vsc-card--wide">
+                  <ExtensionLauncher />
+                </section>
+              ) : (
+                <p className="vsc-muted">{t("extensions.notInstalled")}</p>
+              )}
+            </div>
+          </div>
+        )}
+        {tab === "log" && (
+          <div className="vsc-tabpanel">
+            <div className="vsc-body">
+              <LogTab />
+            </div>
+          </div>
+        )}
       </div>
 
       {installOpen && <InstallDialog onClose={() => setInstallOpen(false)} />}

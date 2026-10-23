@@ -9,6 +9,7 @@ import {
   ChevronDown,
   ChevronRight,
   ChevronsDownUp,
+  Code2,
   Copy,
   ExternalLink,
   Eye,
@@ -29,6 +30,7 @@ import { type DragEvent, type KeyboardEvent, useCallback, useEffect, useLayoutEf
 
 import { getClient } from "../../core/client";
 import { openInEditor } from "../../features/files/actions";
+import { openFileInVsCode } from "../../features/vscode/quickAccess";
 import { ActionDialog } from "../../features/files/Dialog";
 import { useIconThemeSync } from "../../features/extensions/appearance";
 import { FileTypeIcon } from "../../features/extensions/FileTypeIcon";
@@ -37,7 +39,7 @@ import { basename, dirname, isWithin, joinPath } from "../../features/files/path
 import { RootFolderForm } from "../../features/files/RootFolderForm";
 import { errorInfo, useFileEvents } from "../../features/files/rpc";
 import { flattenTree, type TreeRow } from "../../features/files/tree";
-import { useT } from "../../i18n";
+import { t as tr, useT } from "../../i18n";
 import { describeError } from "../../i18n/errors";
 import { useActiveProject } from "../../store/app";
 import { useEditorStore } from "../../store/editor";
@@ -254,6 +256,13 @@ function FileExplorer({ projectId, rootPath }: { projectId: string; rootPath: st
     const items: MenuItem[] = [];
     if (entry?.kind === "file") {
       items.push({ type: "item", id: "open", label: t("menu.open"), icon: <SquareCode size={14} />, shortcut: "Enter", onSelect: () => openInEditor(entry.path) });
+      items.push({
+        type: "item",
+        id: "open-vscode",
+        label: tr("vscode:openFile.action"),
+        icon: <Code2 size={14} />,
+        onSelect: () => void openFileInVsCode({ projectId, path: entry.path }).then((err) => err && setNotice(err)),
+      });
       items.push({ type: "separator", id: "s0" });
     }
     items.push(

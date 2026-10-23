@@ -2,7 +2,7 @@
   "name": "orkestr-bridge",
   "displayName": "Orkestr Bridge",
   "description": "Lets Orkestr run commands of your VS Code extensions (loopback only, token-authenticated).",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "orkestr",
   "license": "MIT",
   "engines": {
@@ -18,6 +18,32 @@
     "*"
   ],
   "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "orkestr.showPalette",
+        "title": "Show Orkestr Command Palette",
+        "category": "Orkestr"
+      },
+      {
+        "command": "orkestr.focusOrkestr",
+        "title": "Return Keyboard Focus to Orkestr",
+        "category": "Orkestr"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "orkestr.showPalette",
+        "key": "ctrl+alt+k",
+        "mac": "cmd+alt+k"
+      },
+      {
+        "command": "orkestr.focusOrkestr",
+        "key": "ctrl+alt+o",
+        "mac": "cmd+alt+o"
+      }
+    ]
+  },
   "capabilities": {
     "untrustedWorkspaces": {
       "supported": true

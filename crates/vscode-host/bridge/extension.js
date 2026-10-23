@@ -12,7 +12,7 @@ const net = require("net");
 const fs = require("fs");
 const path = require("path");
 
-const VERSION = "0.1.0";
+const VERSION = "0.2.0";
 const RETRY_MS = 2000;
 const MAX_LINE = 4 * 1024 * 1024;
 const MAX_RESULT = 64 * 1024;
@@ -65,6 +65,63 @@ function revive(arg) {
   return arg;
 }
 
+/** Base themes Orkestr may be asked for (`Default Dark Modern` / `Default Light Modern`). */
+const BASE_THEMES = ["Default Dark Modern", "Default Light Modern"];
+/** Built-in default themes Orkestr may replace (never a theme the user installed). */
+const DEFAULT_THEMES = [
+  ...BASE_THEMES,
+  "Default Dark+",
+  "Default Light+",
+  "Dark Modern",
+  "Light Modern",
+  "Dark+",
+  "Light+",
+  "Dark 2026",
+  "Light 2026",
+];
+
+/**
+ * Theme id of the built-in "Modern" theme in this VS Code build (the ids
+ * changed over releases, e.g. `Default Dark Modern` → `Dark Modern`);
+ * color customizations are scoped by that exact id.
+ * @param {boolean} light
+ */
+function modernThemeId(light) {
+  const ext = vscode.extensions.getExtension("vscode.theme-defaults");
+  /** @type {Array<{id?: string, path?: string}>} */
+  const themes = ext?.packageJSON?.contributes?.themes ?? [];
+  const file = light ? "light_modern.json" : "dark_modern.json";
+  const found = themes.find((t) => typeof t.path === "string" && t.path.endsWith(file));
+  return typeof found?.id === "string" ? found.id : light ? "Default Light Modern" : "Default Dark Modern";
+}
+
+/** Orkestr's theme as colors scoped to a built-in base theme. @param {any} params */
+async function applyTheme(params) {
+  const requested = String(params?.theme ?? "");
+  if (!BASE_THEMES.includes(requested)) throw new Error(`unsupported base theme: ${requested}`);
+  const theme = modernThemeId(requested.includes("Light"));
+  const colors = params?.colors && typeof params.colors === "object" ? params.colors : {};
+  const cfg = vscode.workspace.getConfiguration();
+  const target = vscode.ConfigurationTarget.Global;
+  const inspected = cfg.inspect("workbench.colorCustomizations");
+  const current = inspected?.globalValue && typeof inspected.globalValue === "object" ? inspected.globalValue : {};
+  await cfg.update("workbench.colorCustomizations", { ...current, [`[${theme}]`]: colors }, target);
+  const selected = cfg.inspect("workbench.colorTheme")?.globalValue;
+  let switched = false;
+  if (selected === undefined || (typeof selected === "string" && DEFAULT_THEMES.includes(selected))) {
+    if (selected !== theme) {
+      await cfg.update("workbench.colorTheme", theme, target);
+      switched = true;
+    }
+  }
+  return { theme, switched, colors: Object.keys(colors).length };
+}
+
+/** @param {string} signal */
+function signal(signal) {
+  if (socket && !socket.destroyed) send(socket, { type: "signal", signal });
+}
+
 /** @param {string} method @param {any} params */
 async function handle(method, params) {
   switch (method) {
@@ -85,16 +142,19 @@ async function handle(method, params) {
       const line = Math.max(0, (Number(params.line) || 1) - 1);
       const col = Math.max(0, (Number(params.column) || 1) - 1);
       const pos = new vscode.Position(line, col);
-      await vscode.window.showTextDocument(vscode.Uri.file(params.path), {
-        selection: new vscode.Range(pos, pos),
-        preview: false,
-      });
+      // `vscode.open` picks the default editor of the file type (custom editors
+      // of extensions too, e.g. a PDF viewer); the selection applies to text.
+      // Without a line nothing is selected, so a custom editor stays the default.
+      const options = params.line ? { selection: new vscode.Range(pos, pos), preview: false } : { preview: false };
+      await vscode.commands.executeCommand("vscode.open", vscode.Uri.file(params.path), options);
       return null;
     }
     case "listTasks": {
       const tasks = await vscode.tasks.fetchTasks();
       return tasks.map((t) => ({ name: t.name, source: t.source, detail: t.detail ?? null }));
     }
+    case "applyTheme":
+      return await applyTheme(params);
     case "runTask": {
       const tasks = await vscode.tasks.fetchTasks();
       const task = tasks.find((t) => t.name === params?.name && (!params?.source || t.source === params.source));
@@ -179,6 +239,10 @@ function connect(context) {
 function activate(context) {
   stopped = false;
   connect(context);
+  context.subscriptions.push(
+    vscode.commands.registerCommand("orkestr.showPalette", () => signal("showPalette")),
+    vscode.commands.registerCommand("orkestr.focusOrkestr", () => signal("focusOrkestr")),
+  );
   context.subscriptions.push({
     dispose() {
       stopped = true;

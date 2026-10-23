@@ -19,4 +19,16 @@ autoRestart?: boolean,
 /**
  * See [`VsCodeConfig::pinned_commands`] (replaces the list; ≤ 24 ids).
  */
-pinnedCommands?: Array<string>, };
+pinnedCommands?: Array<string>, 
+/**
+ * See [`VsCodeConfig::embed`].
+ */
+embed?: boolean, 
+/**
+ * See [`VsCodeConfig::sync_theme`].
+ */
+syncTheme?: boolean, 
+/**
+ * See [`VsCodeConfig::workspace_trust`].
+ */
+workspaceTrust?: boolean, };

@@ -227,6 +227,8 @@
     "CodexStatus_one": "{{count}} Codex session change",
     "CodexStatus_other": "{{count}} Codex session changes",
     "CodexAccount_one": "{{count}} Codex sign-in change",
-    "CodexAccount_other": "{{count}} Codex sign-in changes"
+    "CodexAccount_other": "{{count}} Codex sign-in changes",
+    "VsCodeBridgeSignal_one": "{{count}} VS Code request",
+    "VsCodeBridgeSignal_other": "{{count}} VS Code requests"
   }
 }

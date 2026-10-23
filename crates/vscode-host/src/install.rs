@@ -53,6 +53,12 @@ impl Layout {
     pub fn extensions_dir(&self) -> PathBuf {
         self.root.join("extensions")
     }
+    /// Extensions disabled from Orkestr (moved here while the server is
+    /// stopped: the server deletes unlisted folders in its extensions dir).
+    #[must_use]
+    pub fn disabled_extensions_dir(&self) -> PathBuf {
+        self.root.join("disabled-extensions")
+    }
     /// Server data.
     #[must_use]
     pub fn server_data_dir(&self) -> PathBuf {

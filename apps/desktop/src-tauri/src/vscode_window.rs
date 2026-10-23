@@ -1,7 +1,14 @@
-//! The VS Code window: shows the embedded VS Code server's web UI
-//! (`orkestr-vscode-host`, started over RPC with `vscode.start`).
+//! The **separate** VS Code window: shows the embedded VS Code server's web
+//! UI (`orkestr-vscode-host`, started over RPC with `vscode.start`).
 //!
-//! **Why a dedicated window instead of an `<iframe>` in the panel:** the
+//! Since ADR-0043 the default is the workbench *inside* the VS Code panel: an
+//! `<iframe>` on `http://vscode.tauri.localhost:<port>` — same site as the
+//! app (`tauri.localhost`), resolved to the loopback by WebView2 itself — so
+//! the token cookie is first-party there too; the main CSP allows exactly
+//! that host in `frame-src` (tested below). This window stays as an option
+//! (`vscode.setConfig {embed: false}`, "Open in a separate window").
+//!
+//! **Original reasons for a dedicated window (ADR-0025):** the
 //! server swaps the `?tkn=` connection token for a `SameSite=Lax` cookie on
 //! the first request. Inside the main webview (`tauri.localhost`) an iframe
 //! on `127.0.0.1` is a cross-site frame, so the cookie is never sent with its
@@ -97,6 +104,34 @@ pub fn navigation_decision(origin: &str, target: &Url) -> NavDecision {
 fn open_external(url: &Url) {
     if let Err(e) = orkestr_platform::open_url(url.as_str()) {
         tracing::warn!(error = %e, "could not open a VS Code link in the system browser");
+    }
+}
+
+/// `window.open` from the main / detached panel windows — in practice from
+/// the embedded VS Code workbench frame (ADR-0043): web links open in the
+/// system browser, nothing ever creates a bare popup webview.
+pub fn app_new_window<R: tauri::Runtime>(target: &Url) -> NewWindowResponse<R> {
+    if matches!(target.scheme(), "http" | "https") && target.host_str().is_some_and(|h| !is_app_host(h)) {
+        open_external(target);
+    } else {
+        tracing::warn!(scheme = target.scheme(), "blocked a popup window");
+    }
+    NewWindowResponse::Deny
+}
+
+/// Hosts that belong to Orkestr itself (never handed to the system browser).
+fn is_app_host(host: &str) -> bool {
+    host == "tauri.localhost" || host.ends_with(".tauri.localhost")
+}
+
+/// Permissions of the main / detached panel windows: clipboard reading for
+/// the embedded VS Code (paste); everything else keeps WebView2's default
+/// (Orkestr's own microphone use for voice is unchanged).
+#[must_use]
+pub fn app_permission(kind: &PermissionKind) -> PermissionResponse {
+    match kind {
+        PermissionKind::ClipboardRead => PermissionResponse::Allow,
+        _ => PermissionResponse::Default,
     }
 }
 
@@ -234,5 +269,33 @@ mod tests {
         assert_eq!(d("file:///C:/Windows/win.ini"), NavDecision::Block);
         assert_eq!(d("vscode://settings"), NavDecision::Block);
         assert_eq!(navigation_decision("", &Url::parse("http://127.0.0.1:9900/").unwrap()), NavDecision::External);
+    }
+
+    #[test]
+    fn popups_of_app_windows_never_open_app_hosts_externally() {
+        assert!(is_app_host("tauri.localhost"));
+        assert!(is_app_host("vscode.tauri.localhost"));
+        assert!(!is_app_host("open-vsx.org"));
+        assert!(!is_app_host("tauri.localhost.evil.com"));
+        // Non-web schemes are blocked (and never opened).
+        let r = app_new_window::<tauri::Wry>(&Url::parse("file:///c:/windows/system32/calc.exe").unwrap());
+        assert!(matches!(r, NewWindowResponse::Deny));
+        assert!(matches!(app_permission(&PermissionKind::ClipboardRead), PermissionResponse::Allow));
+        assert!(matches!(app_permission(&PermissionKind::Microphone), PermissionResponse::Default));
+    }
+
+    #[test]
+    fn main_csp_frames_only_the_embedded_vscode_host() {
+        let conf: serde_json::Value = serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
+        let frame_src = conf["app"]["security"]["csp"]["frame-src"].as_str().unwrap();
+        let sources: Vec<&str> = frame_src.split_whitespace().collect();
+        assert!(sources.contains(&"http://vscode.tauri.localhost:*"), "{frame_src}");
+        // Never any local web server: no bare loopback / wildcard hosts.
+        for s in &sources {
+            assert!(
+                !s.contains("127.0.0.1") && !s.starts_with("http://localhost") && *s != "*" && *s != "http:",
+                "{s}"
+            );
+        }
     }
 }

@@ -65,7 +65,7 @@ const status = (patch: Partial<VsCodeStatus> = {}): VsCodeStatus => ({
   progress: null,
   error: null,
   dataDir: "C:/data/vscode-server",
-  config: { autoStop: true, idleStopSecs: 120, autoRestart: true, pinnedCommands: [] },
+  config: { autoStop: true, idleStopSecs: 120, autoRestart: true, pinnedCommands: [], embed: true, syncTheme: true, disabledExtensions: [], workspaceTrust: false },
   bridgeConnected: true,
   ...patch,
 });
@@ -195,13 +195,26 @@ describe("extension launcher cards", () => {
     expect(await screen.findByText("«Delete cache» ran in VS Code")).toBeTruthy();
   });
 
-  it("opens the VS Code window first when no window is connected", async () => {
+  it("opens the separate VS Code window first when no window is connected (window mode)", async () => {
+    const windowMode = { ...status().config, embed: false };
+    useVsCodeStore.setState({ status: status({ bridgeConnected: false, config: windowMode }) });
+    handlers.set("vscode.status", () => status({ bridgeConnected: false, config: windowMode }));
+    handlers.set("vscode.keepAlive", () => ({}));
+    handlers.set("vscode.start", () => ({ url: "http://127.0.0.1:1/?tkn=x", origin: "http://127.0.0.1:1", folder: null, status: status() }));
+    await useLauncherStore.getState().launch({ kind: "command", commandId: "rainbow-csv.Align", title: "Align columns" });
+    expect(opened).toHaveLength(1);
+    expect(calls.find((c) => c.method === "vscode.start")?.params).toEqual({ projectId: "p1" });
+    expect(calls.find((c) => c.method === "vscode.execute")?.params).toMatchObject({ waitMs: 60_000 });
+  });
+
+  it("starts VS Code inside the panel first when no window is connected", async () => {
     useVsCodeStore.setState({ status: status({ bridgeConnected: false }) });
     handlers.set("vscode.status", () => status({ bridgeConnected: false }));
     handlers.set("vscode.keepAlive", () => ({}));
     handlers.set("vscode.start", () => ({ url: "http://127.0.0.1:1/?tkn=x", origin: "http://127.0.0.1:1", folder: null, status: status() }));
     await useLauncherStore.getState().launch({ kind: "command", commandId: "rainbow-csv.Align", title: "Align columns" });
-    expect(opened).toHaveLength(1);
+    expect(opened).toHaveLength(0);
+    expect(useVsCodeStore.getState().embedUrl).toBe("http://localhost:1/?tkn=x");
     expect(calls.find((c) => c.method === "vscode.start")?.params).toEqual({ projectId: "p1" });
     expect(calls.find((c) => c.method === "vscode.execute")?.params).toMatchObject({ waitMs: 60_000 });
   });

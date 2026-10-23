@@ -113,7 +113,13 @@
     "security": "Безопасность",
     "securityBody": "Расширения VS Code — сторонний код, который работает с правами вашего пользователя вне правил доступа и подтверждений Orkestr. Сервер принимает подключения только на 127.0.0.1 со случайным токеном и останавливается командой «Остановить всю работу AI» и при выходе из Orkestr.",
     "legal": "Orkestr использует VSCodium (лицензия MIT) и каталог Open VSX. Microsoft Visual Studio Marketplace не используется.",
-    "targetValue": "Платформа: {{target}}"
+    "targetValue": "Платформа: {{target}}",
+    "embed": "Показывать VS Code внутри Orkestr",
+    "embedDesc": "Панель VS Code показывает полноценный редактор. Отключите, чтобы пользоваться отдельным окном VS Code.",
+    "syncTheme": "Подстраиваться под тему Orkestr",
+    "syncThemeDesc": "VS Code берёт цвета Orkestr (применяется, пока в VS Code выбрана одна из встроенных тем по умолчанию).",
+    "workspaceTrust": "Доверие к папкам (ограниченный режим)",
+    "workspaceTrustDesc": "Выключено: проекты Orkestr открываются доверенными, поэтому работают все расширения. Включено: VS Code спрашивает, доверять ли папке, и до этого отключает большинство расширений. Применяется после перезапуска VS Code."
   },
   "commands": {
     "open": "Открыть панель VS Code",
@@ -144,6 +150,51 @@
     "browseHint": "Чтобы просмотреть каталог, откройте VS Code и нажмите там Ctrl+Shift+X.",
     "notInstalled": "Сначала установите VS Code — расширения работают внутри него.",
     "suggested": "Рекомендуемые",
-    "claude": "Claude Code (Anthropic)"
+    "claude": "Claude Code (Anthropic)",
+    "rust": "rust-analyzer",
+    "python": "Python",
+    "gitlens": "GitLens"
+  },
+  "tabs": {
+    "label": "Разделы VS Code",
+    "workbench": "Редактор",
+    "extensions": "Расширения",
+    "commands": "Команды",
+    "log": "Журнал"
+  },
+  "embed": {
+    "loading": "Загрузка VS Code…",
+    "reload": "Перезагрузить VS Code",
+    "separateWindow": "Открыть в отдельном окне VS Code",
+    "start": "Запустить VS Code",
+    "why": "VS Code работает прямо здесь, внутри Orkestr: все установленные расширения работают с настоящим хостом расширений — языковые серверы, отладчики, веб-представления (Claude Code, GitLens…).",
+    "keys": "Пока клавиатура у VS Code, нажмите Ctrl+Alt+K, чтобы открыть палитру команд Orkestr, или Ctrl+Alt+O, чтобы вернуть фокус в Orkestr.",
+    "unsupported": "Эта страница не может показать VS Code внутри себя — используйте отдельное окно или браузер."
+  },
+  "manager": {
+    "title": "Установленные расширения ({{n}})",
+    "disabled": "Отключено",
+    "restartRequired": "Нужен перезапуск",
+    "openView": "Открыть «{{name}}»",
+    "settings": "Настройки расширения",
+    "enable": "Включить",
+    "disable": "Отключить",
+    "uninstall": "Удалить",
+    "uninstallTitle": "Удалить «{{name}}»?",
+    "uninstallBody": "Расширение будет удалено из VS Code в Orkestr. Его настройки останутся в VS Code.",
+    "cancel": "Отмена",
+    "updateAll": "Обновить все",
+    "vsix": "Установить из VSIX…",
+    "vsixPick": "Выберите пакет .vsix",
+    "vsixLabel": "Путь к файлу .vsix",
+    "vsixPlaceholder": "C:\\путь\\к\\расширению.vsix",
+    "restartHint": "Включение и отключение расширений вступает в силу после перезапуска VS Code.",
+    "appliesOnStart": "Изменение вступит в силу при следующем запуске VS Code.",
+    "restartNow": "Перезапустить VS Code",
+    "version": "v{{version}}"
+  },
+  "openFile": {
+    "action": "Открыть в VS Code",
+    "noFolder": "У проекта нет папки на диске."
   }
 }
