@@ -5,7 +5,7 @@
  * Business data comes from the core over RPC only; wake-word templates
  * (derived from the user's voice) stay on this device (`wake/spotter.ts`).
  */
-import type { SttEngine, VoiceCloudProvider, VoiceCommandSource, VoiceConfig, VoiceConsentScope } from "@orkestr/protocol";
+import type { SttEngine, TtsEngine, VoiceCloudProvider, VoiceCommandSource, VoiceConfig, VoiceConsentScope } from "@orkestr/protocol";
 import { create } from "zustand";
 
 import { maybeClient } from "../../core/client";
@@ -64,7 +64,7 @@ export interface VoiceState {
   load: () => Promise<void>;
   save: (next: VoiceConfig) => Promise<boolean>;
   patch: (fn: (c: VoiceConfig) => VoiceConfig) => Promise<boolean>;
-  setConsent: (scope: VoiceConsentScope, granted: boolean, engine?: SttEngine) => Promise<boolean>;
+  setConsent: (scope: VoiceConsentScope, granted: boolean, engine?: SttEngine, opts?: { ttsEngine?: TtsEngine; keepSelection?: boolean }) => Promise<boolean>;
   setHudOpen: (open: boolean) => void;
   setRuntime: (patch: Partial<Pick<VoiceState, "phase" | "source" | "transcript" | "reply" | "confirmText" | "speaking" | "level" | "wakeStatus" | "wakeError" | "wakeLoadPct">>) => void;
   micOn: (p: MicPurpose) => void;
@@ -127,12 +127,18 @@ export const useVoiceStore = create<VoiceState>()((set, get) => ({
     return c ? get().save(fn(c)) : false;
   },
 
-  setConsent: async (scope, granted, engine) => {
+  setConsent: async (scope, granted, engine, opts) => {
     const client = maybeClient();
     if (!client) return false;
     set({ saving: true, error: null });
     try {
-      const r = await client.call("voice.setConsent", { scope, granted, ...(engine ? { engine } : {}) });
+      const r = await client.call("voice.setConsent", {
+        scope,
+        granted,
+        ...(engine ? { engine } : {}),
+        ...(opts?.ttsEngine ? { ttsEngine: opts.ttsEngine } : {}),
+        ...(opts?.keepSelection ? { keepSelection: true } : {}),
+      });
       set({ config: r.config, cloudProviders: r.cloudProviders, saving: false });
       return true;
     } catch (e) {

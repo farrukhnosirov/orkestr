@@ -56,6 +56,8 @@ orkestr-detective = { path = "crates/detective" }
 orkestr-updater = { path = "crates/updater" }
 # Wave 8: computer assistant (ADR-0035)
 orkestr-computer = { path = "crates/computer" }
+# Wave 8 (speech engines, ADR-0046)
+orkestr-voice = { path = "crates/voice" }
 
 # --- async ---------------------------------------------------------------------
 tokio = { version = "1.47", features = ["full"] }

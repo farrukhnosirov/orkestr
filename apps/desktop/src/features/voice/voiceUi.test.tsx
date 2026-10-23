@@ -9,6 +9,7 @@ import { useVoiceStore } from "./store";
 import { MicIndicator } from "./ui/MicIndicator";
 import { VoiceHud } from "./ui/VoiceHud";
 import { executeIntent } from "./pipeline/executor";
+import { VOICE_ENGINE_DEFAULTS } from "./testConfig";
 
 const CONFIG: VoiceConfig = {
   enabled: true,
@@ -38,6 +39,7 @@ const CONFIG: VoiceConfig = {
   },
   sound: { enabled: true, volumePct: 55, preset: "Auto", muteInDnd: true },
   agentVoices: {},
+  ...VOICE_ENGINE_DEFAULTS,
 };
 
 beforeEach(async () => {

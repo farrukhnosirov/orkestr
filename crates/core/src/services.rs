@@ -110,6 +110,8 @@ pub struct Services {
     pub detective: Arc<orkestr_detective::Detective>,
     /// Computer assistant (ADR-0035): local-only voice / text control of this PC.
     pub computer: Arc<orkestr_computer::ComputerService>,
+    /// Speech engines + voice model manager (ADR-0046).
+    pub voice: Arc<orkestr_voice::VoiceService>,
     /// Encrypted sync engine (Phase 4); `None` until the sync package wires it.
     pub sync: Option<Arc<dyn orkestr_sync::SyncEngine>>,
 }

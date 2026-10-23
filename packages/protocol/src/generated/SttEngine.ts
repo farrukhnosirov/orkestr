@@ -2,5 +2,10 @@
 
 /**
  * Speech-to-text engine (after push-to-talk or the wake word).
+ *
+ * ADR-0046: engines run in the core (`orkestr-voice`) except `WebSpeech`,
+ * which lives in the webview. Local engines (`WhisperCpp`, `Vosk`,
+ * `SherpaOnnx`, `WindowsSpeech`) keep audio on the device and need no
+ * consent; cloud engines need a per-engine consent.
  */
-export type SttEngine = "Disabled" | "WebSpeech" | "OpenAiWhisper";
+export type SttEngine = "Disabled" | "WebSpeech" | "OpenAiWhisper" | "WhisperCpp" | "Vosk" | "SherpaOnnx" | "WindowsSpeech" | "Deepgram" | "AzureSpeech" | "GoogleCloud" | "YandexSpeechKit";

@@ -1,13 +1,17 @@
 /**
- * Text-to-speech (§33): the OS voices through `speechSynthesis` (default,
- * offline) or OpenAI TTS through `voice.synthesize` (opt-in, consent is
- * enforced by the core; only text is sent). One utterance at a time: a new
+ * Text-to-speech (§33, ADR-0046): the OS voices through `speechSynthesis`
+ * (default, offline) or any core engine through `voice.synthesize` — Piper,
+ * Windows OneCore, Silero (offline) or a cloud engine (opt-in, consent is
+ * enforced by the core; only text is sent). The core walks the configured
+ * per-language default and fallback chain; the system voice is the last
+ * resort here. One utterance at a time: a new
  * reply interrupts the previous one. Voice per agent maps a template's
  * `VoiceProfile` onto the same options.
  */
 import type { TtsEngine, VoiceConfig, VoiceProfile } from "@orkestr/protocol";
 
 import { maybeClient } from "../../../core/client";
+import { engineFromProvider, ttsIsCloud } from "../engineMeta";
 import { fromBase64 } from "../audio/wav";
 
 export interface SpeakOptions {
@@ -21,6 +25,10 @@ export interface SpeakOptions {
   style: string | null;
   ratePct: number;
   pitchPct: number;
+  /** Voice for a core engine other than OpenAI (Piper voice id, Windows voice, …). */
+  coreVoice?: string | null;
+  /** Ask the core for exactly `engine` (agent voices) instead of its chain. */
+  explicitEngine?: boolean;
 }
 
 /** UI language → speech locale. */
@@ -51,9 +59,15 @@ export function optionsFromConfig(c: VoiceConfig, uiLanguage: string): SpeakOpti
  */
 export function optionsForProfile(profile: VoiceProfile | null, base: SpeakOptions): SpeakOptions {
   if (!profile) return base;
-  const cloud = profile.provider === "openai" && base.engine === "OpenAi";
+  const wanted = engineFromProvider(profile.provider) ?? "System";
+  // A cloud voice of an agent is used only when that cloud engine is the selected one (consent).
+  const engine: TtsEngine = ttsIsCloud(wanted) && wanted !== base.engine ? "System" : wanted;
+  const cloud = engine === "OpenAi";
+  const core = engine !== "System" && engine !== "OpenAi";
   return {
-    engine: cloud ? "OpenAi" : "System",
+    engine,
+    explicitEngine: engine !== base.engine,
+    coreVoice: core && profile.voice ? profile.voice : (base.coreVoice ?? null),
     lang: profile.language && profile.language !== "auto" ? speechLang(profile.language, base.lang) : base.lang,
     systemVoice: !cloud && profile.voice ? profile.voice : base.systemVoice,
     cloudVoice: cloud && profile.voice ? profile.voice : base.cloudVoice,
@@ -155,10 +169,21 @@ async function speakSystem(text: string, o: SpeakOptions, seq: number): Promise<
   });
 }
 
-async function speakCloud(text: string, o: SpeakOptions, seq: number): Promise<void> {
+async function speakCore(text: string, o: SpeakOptions, seq: number): Promise<void> {
   const client = maybeClient();
   if (!client) throw new Error("not connected");
-  const r = await client.call("voice.synthesize", { text, voice: o.cloudVoice, ...(o.style ? { style: o.style } : {}) }, { timeoutMs: 30_000 });
+  const voice = o.engine === "OpenAi" ? o.cloudVoice : (o.coreVoice ?? null);
+  const r = await client.call(
+    "voice.synthesize",
+    {
+      text,
+      language: o.lang,
+      ...(voice ? { voice } : {}),
+      ...(o.explicitEngine ? { engine: o.engine } : {}),
+      ...(o.style ? { style: o.style } : {}),
+    },
+    { timeoutMs: 60_000 },
+  );
   if (seq !== speakSeq) return;
   const bytes = fromBase64(r.audioBase64);
   const url = URL.createObjectURL(new Blob([bytes.buffer as ArrayBuffer], { type: r.mimeType }));
@@ -186,12 +211,12 @@ export async function speak(text: string, o: SpeakOptions): Promise<void> {
   if (!clean) return;
   stopSpeaking();
   const seq = speakSeq;
-  if (o.engine === "OpenAi") {
+  if (o.engine !== "System") {
     try {
-      await speakCloud(clean, o, seq);
+      await speakCore(clean, o, seq);
       return;
     } catch (e) {
-      console.warn("cloud TTS failed, using the system voice", e);
+      console.warn("core TTS failed, using the system voice", e);
       if (seq !== speakSeq) return;
     }
   }

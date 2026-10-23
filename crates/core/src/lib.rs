@@ -528,6 +528,7 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
         monitor,
         detective,
         computer,
+        voice: Arc::new(orkestr_voice::VoiceService::new(paths.data_dir.join("voice"))),
         sync: sync_engine.clone().map(|e| Arc::new(e) as Arc<dyn orkestr_sync::SyncEngine>),
     });
     logging::attach_event_bus(services.events.clone());

@@ -40,6 +40,7 @@ vi.mock("./audio/mic", () => ({
 import { shutdownVoice, syncWakeListener } from "./controller";
 import { useVoiceStore } from "./store";
 import { TEMPLATES_KEY } from "./wake/spotter";
+import { VOICE_ENGINE_DEFAULTS } from "./testConfig";
 
 const BASE = {
   enabled: true,
@@ -69,6 +70,7 @@ const BASE = {
   },
   sound: { enabled: false, volumePct: 55, preset: "Auto", muteInDnd: true },
   agentVoices: {},
+  ...VOICE_ENGINE_DEFAULTS,
 } satisfies VoiceConfig;
 
 const OFF: VoiceConfig = { ...BASE, wake: { ...BASE.wake, enabled: false } };

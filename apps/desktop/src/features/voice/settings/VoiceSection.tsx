@@ -10,24 +10,24 @@ import { AlertTriangle, CloudUpload, Mic, Play, ShieldAlert, ShieldCheck, Square
 import { useEffect, useRef, useState } from "react";
 
 import { useFormat, useT } from "../../../i18n";
-import { Segmented, SettingGroup, SettingRow, Switch } from "../../settings/controls";
+import { SettingGroup, SettingRow, Switch } from "../../settings/controls";
 import type { SettingsSectionProps } from "../../settings/sections";
 import { assistantOptions } from "../agentVoices";
 import { acquireMic, micErrorText } from "../controller";
 import { useVoiceStore } from "../store";
+import { STT_ENGINES, TTS_ENGINES, sttConsented, sttNeedsConsent, ttsConsented, ttsIsCloud } from "../engineMeta";
 import { webSpeechAvailable } from "../stt/engines";
 import { optionsFromConfig, speak, speechLang, systemVoices, ttsSupported } from "../tts/speaker";
 import { LevelMeter } from "../ui/LevelMeter";
 import { AgentVoices } from "./AgentVoices";
+import { EnginesPanel } from "./EnginesPanel";
+import { ModelsPanel } from "./ModelsPanel";
 import { Notice, Select, Slider } from "./fields";
 import { CLOUD_VOICES, LANGUAGE_OPTIONS, PTT_HOTKEYS } from "./options";
 import { WakeEnrollment } from "./WakeEnrollment";
 import "../voice.css";
 
-const STT_ENGINES: readonly SttEngine[] = ["Disabled", "WebSpeech", "OpenAiWhisper"];
-const TTS_ENGINES: readonly TtsEngine[] = ["System", "OpenAi"];
-
-type Consent = { kind: "stt"; engine: SttEngine } | { kind: "tts" } | null;
+type Consent = { kind: "stt"; engine: SttEngine } | { kind: "tts"; engine: TtsEngine } | null;
 
 export function VoiceSection(_props: SettingsSectionProps) {
   const { t, i18n } = useT(["voice", "common", "settings"]);
@@ -56,7 +56,7 @@ export function VoiceSection(_props: SettingsSectionProps) {
 
   const pickStt = (engine: SttEngine) => {
     if (engine === config.sttEngine) return;
-    if (engine !== "Disabled" && config.sttConsent?.engine !== engine) {
+    if (sttNeedsConsent(engine) && !sttConsented(config, engine)) {
       setConsentAsk({ kind: "stt", engine });
       return;
     }
@@ -64,8 +64,8 @@ export function VoiceSection(_props: SettingsSectionProps) {
   };
   const pickTts = (engine: TtsEngine) => {
     if (engine === config.ttsEngine) return;
-    if (engine === "OpenAi" && !config.ttsConsentAt) {
-      setConsentAsk({ kind: "tts" });
+    if (ttsIsCloud(engine) && !ttsConsented(config, engine)) {
+      setConsentAsk({ kind: "tts", engine });
       return;
     }
     up((c) => ({ ...c, ttsEngine: engine }));
@@ -112,17 +112,13 @@ export function VoiceSection(_props: SettingsSectionProps) {
 
       <SettingGroup title={t("settings.groups.stt")}>
         <SettingRow title={t("settings.stt.engine")} description={t("settings.stt.engineDesc")} stacked>
-          <Segmented
+          <Select
             label={t("settings.stt.engine")}
             value={config.sttEngine}
-            options={STT_ENGINES.map((e) => ({
-              value: e,
-              label: t(`settings.stt.engines.${e}`),
-              disabled: e === "WebSpeech" && !webSpeech && config.sttEngine !== "WebSpeech",
-              title: e === "WebSpeech" && !webSpeech ? t("settings.stt.webSpeechMissing") : t(`settings.stt.engineHints.${e}`),
-            }))}
-            onChange={pickStt}
+            options={STT_ENGINES.filter((e) => e !== "WebSpeech" || webSpeech || config.sttEngine === "WebSpeech").map((e) => ({ value: e, label: t(`settings.stt.engines.${e}`) }))}
+            onChange={(v) => pickStt(v as SttEngine)}
           />
+          <div className="set-muted set-muted--small">{t(`settings.stt.engineHints.${config.sttEngine}`)}</div>
         </SettingRow>
         {consent?.kind === "stt" && (
           <Notice
@@ -147,7 +143,7 @@ export function VoiceSection(_props: SettingsSectionProps) {
               </>
             }
           >
-            {t(`settings.consent.sttText.${consent.engine === "WebSpeech" ? "WebSpeech" : "OpenAiWhisper"}`)}
+            {consent.engine === "WebSpeech" || consent.engine === "OpenAiWhisper" ? t(`settings.consent.sttText.${consent.engine}`) : t("settings.consent.sttText.Cloud", { engine: t(`settings.stt.engines.${consent.engine}`) })}
           </Notice>
         )}
         {config.sttConsent && (
@@ -172,18 +168,18 @@ export function VoiceSection(_props: SettingsSectionProps) {
 
       <SettingGroup title={t("settings.groups.tts")}>
         <SettingRow title={t("settings.tts.engine")} description={t("settings.tts.engineDesc")} stacked>
-          <Segmented
+          <Select
             label={t("settings.tts.engine")}
             value={config.ttsEngine}
-            options={TTS_ENGINES.map((e) => ({ value: e, label: t(`settings.tts.engines.${e}`), disabled: e === "System" && !ttsSupported() }))}
-            onChange={pickTts}
+            options={TTS_ENGINES.filter((e) => e !== "System" || ttsSupported() || config.ttsEngine === "System").map((e) => ({ value: e, label: t(`settings.tts.engines.${e}`) }))}
+            onChange={(v) => pickTts(v as TtsEngine)}
           />
         </SettingRow>
         {consent?.kind === "tts" && (
           <Notice
             tone="warning"
             icon={<CloudUpload size={16} />}
-            title={t("settings.consent.ttsTitle")}
+            title={consent.engine === "OpenAi" ? t("settings.consent.ttsTitle") : t("settings.consent.ttsTitleEngine", { engine: t(`settings.tts.engines.${consent.engine}`) })}
             actions={
               <>
                 <Button variant="ghost" onClick={() => setConsentAsk(null)}>
@@ -192,8 +188,9 @@ export function VoiceSection(_props: SettingsSectionProps) {
                 <Button
                   variant="primary"
                   onClick={() => {
+                    const engine = consent.engine;
                     setConsentAsk(null);
-                    void setConsent("CloudSpeech", true);
+                    void setConsent("CloudSpeech", true, undefined, { ttsEngine: engine });
                   }}
                 >
                   {t("settings.consent.allow")}
@@ -201,7 +198,7 @@ export function VoiceSection(_props: SettingsSectionProps) {
               </>
             }
           >
-            {t("settings.consent.ttsText")}
+            {consent.engine === "OpenAi" ? t("settings.consent.ttsText") : t("settings.consent.ttsTextEngine", { engine: t(`settings.tts.engines.${consent.engine}`) })}
           </Notice>
         )}
         {config.ttsConsentAt && (
@@ -212,6 +209,14 @@ export function VoiceSection(_props: SettingsSectionProps) {
           </SettingRow>
         )}
         <AssistantVoiceRows config={config} patch={up} uiLanguage={i18n.language} />
+      </SettingGroup>
+
+      <SettingGroup title={t("settings.groups.engines")}>
+        <EnginesPanel config={config} patch={up} />
+      </SettingGroup>
+
+      <SettingGroup title={t("settings.groups.models")}>
+        <ModelsPanel />
       </SettingGroup>
 
       {usesCloud && (
@@ -354,7 +359,7 @@ function AssistantVoiceRows({
             onChange={(v) => patch((c) => ({ ...c, systemVoice: v || null }))}
           />
         </SettingRow>
-      ) : (
+      ) : config.ttsEngine === "OpenAi" ? (
         <SettingRow title={t("settings.tts.cloudVoice")} description={t("settings.tts.cloudVoiceDesc")}>
           <Select
             label={t("settings.tts.cloudVoice")}
@@ -363,6 +368,8 @@ function AssistantVoiceRows({
             onChange={(v) => patch((c) => ({ ...c, cloudVoice: v }))}
           />
         </SettingRow>
+      ) : (
+        <div className="set-muted set-muted--small">{t("settings.tts.coreVoiceNote")}</div>
       )}
       <SettingRow title={t("settings.tts.rate")}>
         <Slider value={config.ratePct} min={50} max={200} step={5} label={t("settings.tts.rate")} format={(v) => fmt.percent(v / 100)} onCommit={(v) => patch((c) => ({ ...c, ratePct: v }))} />

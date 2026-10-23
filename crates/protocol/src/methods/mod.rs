@@ -422,6 +422,13 @@ pub fn registry() -> Vec<MethodDescriptor> {
         MethodDescriptor::of::<voice::Transcribe>(),
         MethodDescriptor::of::<voice::Synthesize>(),
         MethodDescriptor::of::<voice::RecordCommand>(),
+        MethodDescriptor::of::<voice::ListEngines>(),
+        MethodDescriptor::of::<voice::SetEngineKey>(),
+        MethodDescriptor::of::<voice::ListModels>(),
+        MethodDescriptor::of::<voice::DownloadModel>(),
+        MethodDescriptor::of::<voice::CancelDownload>(),
+        MethodDescriptor::of::<voice::RemoveModel>(),
+        MethodDescriptor::of::<voice::VerifyModel>(),
         // embedded VS Code (VSCodium REH web server)
         MethodDescriptor::of::<vscode::Status>(),
         MethodDescriptor::of::<vscode::CheckUpdate>(),

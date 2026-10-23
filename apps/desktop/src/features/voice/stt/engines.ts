@@ -6,8 +6,10 @@
  *
  * - `WebSpeech`: the webview's `SpeechRecognition` (WebView2/Chromium send
  *   audio to the browser vendor's service). Detected at runtime.
- * - `OpenAiWhisper`: 16 kHz PCM from the voice worklet → WAV →
- *   `voice.transcribe` (the user's OpenAI provider).
+ * - Core engines (ADR-0046: whisper.cpp, Vosk, sherpa-onnx, Windows speech
+ *   — offline; OpenAI, Deepgram, Azure, Google, Yandex — cloud, consent):
+ *   16 kHz PCM from the voice worklet → WAV → `voice.transcribe`; the core
+ *   picks the per-language engine and walks the fallback chain.
  * - `Disabled`: no recognition; the HUD takes typed commands.
  */
 import type { SttEngine } from "@orkestr/protocol";
@@ -214,10 +216,10 @@ export function startStt(o: StartSttOptions): SttSession {
   switch (o.engine) {
     case "WebSpeech":
       return webSpeechSession(o.lang, !o.autoEnd);
-    case "OpenAiWhisper":
-      if (!o.mic) throw new SttError("unsupported", "microphone not open");
-      return whisperSession(o.mic, o.lang, o.autoEnd);
     case "Disabled":
       throw new SttError("unsupported", "speech recognition is disabled");
+    default:
+      if (!o.mic) throw new SttError("unsupported", "microphone not open");
+      return whisperSession(o.mic, o.lang, o.autoEnd);
   }
 }

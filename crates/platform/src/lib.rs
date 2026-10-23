@@ -34,7 +34,8 @@
 //!   then calls fail with an explicit [`PlatformError::NotSupported`].
 //!
 //! The only `unsafe` in the workspace is the documented Win32 FFI call in
-//! [`power`] (`GetSystemPowerStatus`).
+//! [`power`] (`GetSystemPowerStatus`) and the run-time loaded Vosk C API in
+//! [`vosk`] (speech recognition, ADR-0046).
 #![deny(unsafe_code)]
 #![warn(missing_docs)]
 
@@ -54,6 +55,7 @@ pub mod process;
 pub mod resources;
 pub mod shell;
 pub mod signals;
+pub mod vosk;
 pub mod webview;
 
 use std::sync::Arc;

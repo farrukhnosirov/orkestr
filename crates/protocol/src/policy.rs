@@ -281,6 +281,11 @@ fn explicit(method: &str) -> Option<MethodPolicy> {
         "audit.list" => MethodPolicy::new(Role::Admin, StepUp::Never, RateClass::Read),
         "emergency.reset" => MethodPolicy::local(),
         // --- security-sensitive ---------------------------------------------------------------
+        // voice engine keys + host-wide model downloads stay local (ADR-0046)
+        "voice.setEngineKey" | "voice.downloadModel" | "voice.removeModel" | "voice.cancelDownload" => {
+            MethodPolicy::local()
+        }
+        "voice.listEngines" | "voice.listModels" | "voice.verifyModel" => MethodPolicy::read(),
         "providers.setCredential"
         | "providers.clearCredential"
         | "providers.create"
@@ -563,7 +568,15 @@ mod tests {
 
     #[test]
     fn credentials_are_local_only() {
-        for m in ["secrets.set", "secrets.list", "providers.setCredential", "providers.clearCredential"] {
+        for m in [
+            "secrets.set",
+            "secrets.list",
+            "providers.setCredential",
+            "providers.clearCredential",
+            "voice.setEngineKey",
+            "voice.downloadModel",
+            "voice.removeModel",
+        ] {
             assert!(policy_for(m).unwrap().local_only, "{m}");
         }
     }

@@ -27,7 +27,12 @@ use orkestr_domain::{ProjectId, ProviderId, Timestamp, VoiceProfile};
 use super::method;
 
 /// Speech-to-text engine (after push-to-talk or the wake word).
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+///
+/// ADR-0046: engines run in the core (`orkestr-voice`) except `WebSpeech`,
+/// which lives in the webview. Local engines (`WhisperCpp`, `Vosk`,
+/// `SherpaOnnx`, `WindowsSpeech`) keep audio on the device and need no
+/// consent; cloud engines need a per-engine consent.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, TS)]
 #[ts(export)]
 pub enum SttEngine {
     /// No speech recognition: the voice HUD accepts typed commands only.
@@ -36,27 +41,338 @@ pub enum SttEngine {
     /// The webview's Web Speech API (audio is processed by the browser/OS
     /// speech service, usually online). Needs consent.
     WebSpeech,
-    /// OpenAI Whisper / transcription API through the user's OpenAI provider. Needs consent.
+    /// OpenAI transcription (`whisper-1`, `gpt-4o-transcribe`, …) through the
+    /// voice API key or the user's OpenAI provider. Needs consent.
     OpenAiWhisper,
+    /// whisper.cpp (local, multilingual; ADR-0046).
+    WhisperCpp,
+    /// Vosk / Kaldi (local, small fast models).
+    Vosk,
+    /// sherpa-onnx (local; zipformer / GigaAM ONNX models).
+    SherpaOnnx,
+    /// Windows built-in speech recognition (`System.Speech`; local).
+    WindowsSpeech,
+    /// Deepgram (cloud). Needs consent and an API key.
+    Deepgram,
+    /// Azure AI Speech (cloud). Needs consent, an API key and a region.
+    AzureSpeech,
+    /// Google Cloud Speech-to-Text (cloud). Needs consent and an API key.
+    GoogleCloud,
+    /// Yandex SpeechKit (cloud). Needs consent and an API key.
+    YandexSpeechKit,
 }
 
 impl SttEngine {
+    /// Every engine, in display order.
+    pub const ALL: [SttEngine; 11] = [
+        SttEngine::Disabled,
+        SttEngine::WhisperCpp,
+        SttEngine::Vosk,
+        SttEngine::SherpaOnnx,
+        SttEngine::WindowsSpeech,
+        SttEngine::WebSpeech,
+        SttEngine::OpenAiWhisper,
+        SttEngine::Deepgram,
+        SttEngine::AzureSpeech,
+        SttEngine::GoogleCloud,
+        SttEngine::YandexSpeechKit,
+    ];
+
     /// Whether audio leaves the device with this engine (consent required).
     #[must_use]
     pub fn needs_consent(self) -> bool {
-        !matches!(self, SttEngine::Disabled)
+        !matches!(
+            self,
+            SttEngine::Disabled
+                | SttEngine::WhisperCpp
+                | SttEngine::Vosk
+                | SttEngine::SherpaOnnx
+                | SttEngine::WindowsSpeech
+        )
+    }
+
+    /// Whether the core runs this engine (`voice.transcribe`); `WebSpeech`
+    /// runs in the webview and `Disabled` runs nowhere.
+    #[must_use]
+    pub fn runs_in_core(self) -> bool {
+        !matches!(self, SttEngine::Disabled | SttEngine::WebSpeech)
+    }
+
+    /// The API key this engine needs, if any.
+    #[must_use]
+    pub fn key(self) -> Option<VoiceKeyId> {
+        match self {
+            SttEngine::OpenAiWhisper => Some(VoiceKeyId::OpenAi),
+            SttEngine::Deepgram => Some(VoiceKeyId::Deepgram),
+            SttEngine::AzureSpeech => Some(VoiceKeyId::AzureSpeech),
+            SttEngine::GoogleCloud => Some(VoiceKeyId::GoogleCloud),
+            SttEngine::YandexSpeechKit => Some(VoiceKeyId::YandexSpeechKit),
+            _ => None,
+        }
     }
 }
 
 /// Text-to-speech engine.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, TS)]
 #[ts(export)]
 pub enum TtsEngine {
-    /// The OS voices through `speechSynthesis` (offline).
+    /// The OS voices through the webview's `speechSynthesis` (offline).
     #[default]
     System,
-    /// OpenAI text-to-speech through the user's OpenAI provider (opt-in; sends text).
+    /// OpenAI text-to-speech (opt-in; sends text).
     OpenAi,
+    /// Piper (local neural voices; ADR-0046).
+    Piper,
+    /// Silero TTS (local; needs a Python + PyTorch runtime).
+    Silero,
+    /// Windows OneCore voices rendered by the core (`Windows.Media.SpeechSynthesis`).
+    WindowsOneCore,
+    /// Azure AI Speech neural voices (cloud).
+    AzureSpeech,
+    /// Google Cloud Text-to-Speech (cloud).
+    GoogleCloud,
+    /// Yandex SpeechKit (cloud).
+    YandexSpeechKit,
+    /// ElevenLabs (cloud).
+    ElevenLabs,
+}
+
+impl TtsEngine {
+    /// Every engine, in display order.
+    pub const ALL: [TtsEngine; 9] = [
+        TtsEngine::System,
+        TtsEngine::Piper,
+        TtsEngine::WindowsOneCore,
+        TtsEngine::Silero,
+        TtsEngine::OpenAi,
+        TtsEngine::AzureSpeech,
+        TtsEngine::GoogleCloud,
+        TtsEngine::YandexSpeechKit,
+        TtsEngine::ElevenLabs,
+    ];
+
+    /// Whether text leaves the device (consent required).
+    #[must_use]
+    pub fn is_cloud(self) -> bool {
+        matches!(
+            self,
+            TtsEngine::OpenAi
+                | TtsEngine::AzureSpeech
+                | TtsEngine::GoogleCloud
+                | TtsEngine::YandexSpeechKit
+                | TtsEngine::ElevenLabs
+        )
+    }
+
+    /// Whether the core renders audio for this engine (`voice.synthesize`);
+    /// `System` is played by the webview.
+    #[must_use]
+    pub fn runs_in_core(self) -> bool {
+        self != TtsEngine::System
+    }
+
+    /// The API key this engine needs, if any.
+    #[must_use]
+    pub fn key(self) -> Option<VoiceKeyId> {
+        match self {
+            TtsEngine::OpenAi => Some(VoiceKeyId::OpenAi),
+            TtsEngine::AzureSpeech => Some(VoiceKeyId::AzureSpeech),
+            TtsEngine::GoogleCloud => Some(VoiceKeyId::GoogleCloud),
+            TtsEngine::YandexSpeechKit => Some(VoiceKeyId::YandexSpeechKit),
+            TtsEngine::ElevenLabs => Some(VoiceKeyId::ElevenLabs),
+            _ => None,
+        }
+    }
+
+    /// The `VoiceProfile.provider` string of this engine.
+    #[must_use]
+    pub fn profile_provider(self) -> &'static str {
+        match self {
+            TtsEngine::System => "system",
+            TtsEngine::OpenAi => "openai",
+            TtsEngine::Piper => "piper",
+            TtsEngine::Silero => "silero",
+            TtsEngine::WindowsOneCore => "windows",
+            TtsEngine::AzureSpeech => "azure",
+            TtsEngine::GoogleCloud => "google",
+            TtsEngine::YandexSpeechKit => "yandex",
+            TtsEngine::ElevenLabs => "elevenlabs",
+        }
+    }
+
+    /// Parses a `VoiceProfile.provider` string.
+    #[must_use]
+    pub fn from_profile_provider(s: &str) -> Option<TtsEngine> {
+        TtsEngine::ALL.into_iter().find(|e| e.profile_provider() == s)
+    }
+}
+
+/// A paid engine's API key slot in the secret vault (ADR-0046). Keys are
+/// write-only over RPC: `voice.setEngineKey` stores or clears them, and
+/// `voice.listEngines` reports only whether one is configured.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub enum VoiceKeyId {
+    /// OpenAI (STT + TTS). Without it the user's OpenAI provider is used.
+    OpenAi,
+    /// Deepgram (STT).
+    Deepgram,
+    /// Azure AI Speech (STT + TTS).
+    AzureSpeech,
+    /// Google Cloud (STT + TTS).
+    GoogleCloud,
+    /// Yandex SpeechKit (STT + TTS).
+    YandexSpeechKit,
+    /// ElevenLabs (TTS).
+    ElevenLabs,
+}
+
+impl VoiceKeyId {
+    /// Every key slot.
+    pub const ALL: [VoiceKeyId; 6] = [
+        VoiceKeyId::OpenAi,
+        VoiceKeyId::Deepgram,
+        VoiceKeyId::AzureSpeech,
+        VoiceKeyId::GoogleCloud,
+        VoiceKeyId::YandexSpeechKit,
+        VoiceKeyId::ElevenLabs,
+    ];
+
+    /// Name of the global secret holding the key.
+    #[must_use]
+    pub fn secret_name(self) -> &'static str {
+        match self {
+            VoiceKeyId::OpenAi => "voice.openai.apiKey",
+            VoiceKeyId::Deepgram => "voice.deepgram.apiKey",
+            VoiceKeyId::AzureSpeech => "voice.azure.apiKey",
+            VoiceKeyId::GoogleCloud => "voice.google.apiKey",
+            VoiceKeyId::YandexSpeechKit => "voice.yandex.apiKey",
+            VoiceKeyId::ElevenLabs => "voice.elevenlabs.apiKey",
+        }
+    }
+}
+
+/// A consent for one cloud text-to-speech engine.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct TtsConsent {
+    /// Engine.
+    pub engine: TtsEngine,
+    /// When it was given.
+    pub granted_at: Timestamp,
+}
+
+/// Per-engine options (ADR-0046). Every field has a default; model and
+/// voice ids refer to packages of the voice catalog (`voice.listModels`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase", default)]
+#[ts(export)]
+pub struct VoiceEngineSettings {
+    /// whisper.cpp model package id.
+    pub whisper_model: String,
+    /// Run whisper.cpp on the GPU (needs the CUDA runtime package).
+    pub whisper_gpu: bool,
+    /// Vosk model package id.
+    pub vosk_model: String,
+    /// sherpa-onnx model package id.
+    pub sherpa_model: String,
+    /// Piper voice package id.
+    pub piper_voice: String,
+    /// Windows OneCore voice display name (`None` = best match for the language).
+    pub windows_voice: Option<String>,
+    /// Silero speaker (`xenia`, `aidar`, `baya`, `kseniya`, `eugene`).
+    pub silero_speaker: String,
+    /// OpenAI transcription model.
+    pub openai_stt_model: String,
+    /// OpenAI speech model.
+    pub openai_tts_model: String,
+    /// Deepgram model.
+    pub deepgram_model: String,
+    /// Azure region, e.g. `westeurope`.
+    pub azure_region: String,
+    /// Azure neural voice.
+    pub azure_voice: String,
+    /// Google voice name (empty = the service default for the language).
+    pub google_voice: String,
+    /// Yandex Cloud folder id (needed for user-account keys; optional for service-account API keys).
+    pub yandex_folder_id: String,
+    /// Yandex voice.
+    pub yandex_voice: String,
+    /// ElevenLabs voice id.
+    pub elevenlabs_voice: String,
+    /// ElevenLabs model.
+    pub elevenlabs_model: String,
+}
+
+impl Default for VoiceEngineSettings {
+    fn default() -> Self {
+        Self {
+            whisper_model: "whisper-base".into(),
+            whisper_gpu: false,
+            vosk_model: "vosk-small-ru".into(),
+            sherpa_model: "sherpa-zipformer-small-ru-int8".into(),
+            piper_voice: "piper-ru-irina".into(),
+            windows_voice: None,
+            silero_speaker: "xenia".into(),
+            openai_stt_model: "gpt-4o-transcribe".into(),
+            openai_tts_model: "gpt-4o-mini-tts".into(),
+            deepgram_model: "nova-2".into(),
+            azure_region: String::new(),
+            azure_voice: "ru-RU-SvetlanaNeural".into(),
+            google_voice: String::new(),
+            yandex_folder_id: String::new(),
+            yandex_voice: "alena".into(),
+            elevenlabs_voice: "21m00Tcm4TlvDq8ikWAM".into(),
+            elevenlabs_model: "eleven_multilingual_v2".into(),
+        }
+    }
+}
+
+/// Whether `s` is a short id (`[A-Za-z0-9._-]`, 1..=`max`).
+#[must_use]
+pub fn is_voice_id(s: &str, max: usize) -> bool {
+    !s.is_empty() && s.len() <= max && s.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'))
+}
+
+impl VoiceEngineSettings {
+    /// Validates every field.
+    pub fn validate(&self) -> Result<(), VoiceConfigError> {
+        let ids = [
+            ("engines.whisperModel", &self.whisper_model),
+            ("engines.voskModel", &self.vosk_model),
+            ("engines.sherpaModel", &self.sherpa_model),
+            ("engines.piperVoice", &self.piper_voice),
+            ("engines.sileroSpeaker", &self.silero_speaker),
+            ("engines.openaiSttModel", &self.openai_stt_model),
+            ("engines.openaiTtsModel", &self.openai_tts_model),
+            ("engines.deepgramModel", &self.deepgram_model),
+            ("engines.azureVoice", &self.azure_voice),
+            ("engines.yandexVoice", &self.yandex_voice),
+            ("engines.elevenlabsVoice", &self.elevenlabs_voice),
+            ("engines.elevenlabsModel", &self.elevenlabs_model),
+        ];
+        for (field, v) in ids {
+            if !is_voice_id(v, 64) {
+                return Err(invalid(field, "1..=64 chars of [A-Za-z0-9._-]"));
+            }
+        }
+        for (field, v) in
+            [("engines.googleVoice", &self.google_voice), ("engines.yandexFolderId", &self.yandex_folder_id)]
+        {
+            if !v.is_empty() && !is_voice_id(v, 64) {
+                return Err(invalid(field, "at most 64 chars of [A-Za-z0-9._-]"));
+            }
+        }
+        let r = &self.azure_region;
+        if !r.is_empty() && !(r.len() <= 32 && r.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit())) {
+            return Err(invalid("engines.azureRegion", "a region name like `westeurope`"));
+        }
+        if self.windows_voice.as_deref().is_some_and(|v| v.trim().is_empty() || !printable(v, 100)) {
+            return Err(invalid("engines.windowsVoice", "1..=100 printable characters"));
+        }
+        Ok(())
+    }
 }
 
 /// A recorded consent.
@@ -239,10 +555,29 @@ pub struct VoiceConfig {
     /// template's own `voice` (built-in templates are read-only, so the
     /// user's choice lives here). Phase 3, additive.
     pub agent_voices: BTreeMap<String, VoiceProfile>,
+    /// STT engines tried, in order, when the selected one fails (ADR-0046).
+    pub stt_fallback: Vec<SttEngine>,
+    /// TTS engines tried, in order, when the selected one fails. The client
+    /// falls back to the system voice last.
+    pub tts_fallback: Vec<TtsEngine>,
+    /// Per-language STT default: primary language subtag (`ru`) → engine.
+    pub stt_by_language: BTreeMap<String, SttEngine>,
+    /// Per-language TTS default: primary language subtag (`ru`) → engine.
+    pub tts_by_language: BTreeMap<String, TtsEngine>,
+    /// Consents for off-device STT engines (server-owned; `sttConsent` is the legacy single slot).
+    pub stt_consents: Vec<SttConsent>,
+    /// Consents for cloud TTS engines (server-owned; `ttsConsentAt` is the legacy OpenAI slot).
+    pub tts_consents: Vec<TtsConsent>,
+    /// Per-engine options.
+    pub engines: VoiceEngineSettings,
 }
 
 /// Max entries in `VoiceConfig::agent_voices`.
 pub const MAX_AGENT_VOICES: usize = 256;
+/// Max length of a fallback chain.
+pub const MAX_FALLBACK: usize = 8;
+/// Max entries of a per-language engine map.
+pub const MAX_LANGUAGE_DEFAULTS: usize = 16;
 
 impl Default for VoiceConfig {
     fn default() -> Self {
@@ -265,8 +600,21 @@ impl Default for VoiceConfig {
             notifications: VoiceNotificationConfig::default(),
             sound: SoundConfig::default(),
             agent_voices: BTreeMap::new(),
+            stt_fallback: Vec::new(),
+            tts_fallback: Vec::new(),
+            stt_by_language: BTreeMap::new(),
+            tts_by_language: BTreeMap::new(),
+            stt_consents: Vec::new(),
+            tts_consents: Vec::new(),
+            engines: VoiceEngineSettings::default(),
         }
     }
+}
+
+/// Primary language subtag of a BCP-47 tag (`ru-RU` → `ru`), lower-case.
+#[must_use]
+pub fn primary_language(tag: &str) -> String {
+    tag.split(['-', '_']).next().unwrap_or(tag).to_ascii_lowercase()
 }
 
 /// Validation failure of a voice config.
@@ -309,10 +657,11 @@ fn printable(s: &str, max: usize) -> bool {
     s.chars().count() <= max && !s.chars().any(char::is_control)
 }
 
-/// Validates a voice profile used for an agent (`provider` is `system` or `openai`).
+/// Validates a voice profile used for an agent (`provider` is a
+/// [`TtsEngine::profile_provider`] string: `system`, `openai`, `piper`, …).
 pub fn validate_profile(p: &VoiceProfile) -> Result<(), VoiceConfigError> {
-    if p.provider != "system" && p.provider != "openai" {
-        return Err(invalid("agentVoices.provider", "expected `system` or `openai`"));
+    if TtsEngine::from_profile_provider(&p.provider).is_none() {
+        return Err(invalid("agentVoices.provider", "expected an engine like `system`, `piper` or `openai`"));
     }
     if !printable(&p.voice, 200) {
         return Err(invalid("agentVoices.voice", "at most 200 printable characters"));
@@ -388,13 +737,110 @@ impl VoiceConfig {
             }
             validate_profile(p)?;
         }
-        Ok(())
+        if self.stt_fallback.len() > MAX_FALLBACK || self.tts_fallback.len() > MAX_FALLBACK {
+            return Err(invalid("sttFallback", format!("at most {MAX_FALLBACK} fallback engines")));
+        }
+        if self.stt_by_language.len() > MAX_LANGUAGE_DEFAULTS || self.tts_by_language.len() > MAX_LANGUAGE_DEFAULTS {
+            return Err(invalid("sttByLanguage", format!("at most {MAX_LANGUAGE_DEFAULTS} languages")));
+        }
+        for lang in self.stt_by_language.keys().chain(self.tts_by_language.keys()) {
+            if lang == "auto" || lang.contains('-') || !is_language(lang) || lang != &lang.to_ascii_lowercase() {
+                return Err(invalid("sttByLanguage", "keys are lower-case primary language subtags like `ru`"));
+            }
+        }
+        if self.stt_consents.len() > 32 || self.tts_consents.len() > 32 {
+            return Err(invalid("sttConsents", "too many consent records"));
+        }
+        self.engines.validate()
     }
 
-    /// Whether the selected STT engine has a matching consent.
+    /// Whether `engine` may receive audio (local engines always may).
+    #[must_use]
+    pub fn stt_engine_consented(&self, engine: SttEngine) -> bool {
+        !engine.needs_consent()
+            || self.stt_consent.as_ref().is_some_and(|c| c.engine == engine)
+            || self.stt_consents.iter().any(|c| c.engine == engine)
+    }
+
+    /// Whether `engine` may receive text (local engines always may; the
+    /// legacy `ttsConsentAt` slot covers OpenAI).
+    #[must_use]
+    pub fn tts_engine_consented(&self, engine: TtsEngine) -> bool {
+        !engine.is_cloud()
+            || (engine == TtsEngine::OpenAi && self.tts_consent_at.is_some())
+            || self.tts_consents.iter().any(|c| c.engine == engine)
+    }
+
+    /// Every STT engine the configuration can route audio to.
+    #[must_use]
+    pub fn stt_engines_in_use(&self) -> Vec<SttEngine> {
+        let mut v = vec![self.stt_engine];
+        v.extend(self.stt_by_language.values().copied());
+        v.extend(self.stt_fallback.iter().copied());
+        v.sort_unstable();
+        v.dedup();
+        v
+    }
+
+    /// Every TTS engine the configuration can route text to.
+    #[must_use]
+    pub fn tts_engines_in_use(&self) -> Vec<TtsEngine> {
+        let mut v = vec![self.tts_engine];
+        v.extend(self.tts_by_language.values().copied());
+        v.extend(self.tts_fallback.iter().copied());
+        v.sort_unstable();
+        v.dedup();
+        v
+    }
+
+    /// The STT engine for `language` (per-language default, else the selected one).
+    #[must_use]
+    pub fn stt_engine_for(&self, language: Option<&str>) -> SttEngine {
+        language.map(primary_language).and_then(|l| self.stt_by_language.get(&l).copied()).unwrap_or(self.stt_engine)
+    }
+
+    /// The TTS engine for `language` (per-language default, else the selected one).
+    #[must_use]
+    pub fn tts_engine_for(&self, language: Option<&str>) -> TtsEngine {
+        language.map(primary_language).and_then(|l| self.tts_by_language.get(&l).copied()).unwrap_or(self.tts_engine)
+    }
+
+    /// Engines the core tries for `language`, in order: the language
+    /// default (or the selected engine), then the fallback chain. Engines the
+    /// core cannot run (`Disabled`, `WebSpeech`) are skipped.
+    #[must_use]
+    pub fn stt_chain(&self, language: Option<&str>) -> Vec<SttEngine> {
+        let mut out: Vec<SttEngine> = Vec::new();
+        for e in std::iter::once(self.stt_engine_for(language)).chain(self.stt_fallback.iter().copied()) {
+            if e.runs_in_core() && !out.contains(&e) {
+                out.push(e);
+            }
+        }
+        out
+    }
+
+    /// Engines the core tries for `language` (see [`Self::stt_chain`]); `System` is skipped.
+    #[must_use]
+    pub fn tts_chain(&self, language: Option<&str>) -> Vec<TtsEngine> {
+        let mut out: Vec<TtsEngine> = Vec::new();
+        for e in std::iter::once(self.tts_engine_for(language)).chain(self.tts_fallback.iter().copied()) {
+            if e.runs_in_core() && !out.contains(&e) {
+                out.push(e);
+            }
+        }
+        out
+    }
+
+    /// Whether every STT engine in use (selected, per-language, fallback) has a matching consent.
     #[must_use]
     pub fn stt_consented(&self) -> bool {
-        !self.stt_engine.needs_consent() || self.stt_consent.as_ref().is_some_and(|c| c.engine == self.stt_engine)
+        self.stt_engines_in_use().into_iter().all(|e| self.stt_engine_consented(e))
+    }
+
+    /// Whether every TTS engine in use has a matching consent.
+    #[must_use]
+    pub fn tts_all_consented(&self) -> bool {
+        self.tts_engines_in_use().into_iter().all(|e| self.tts_engine_consented(e))
     }
 
     /// Whether cloud TTS is allowed.
@@ -460,6 +906,15 @@ pub struct SetVoiceConsentParams {
     pub engine: Option<SttEngine>,
     /// Grant (`true`) or revoke (`false`). Revoking switches back to a local engine.
     pub granted: bool,
+    /// Cloud TTS engine for `CloudSpeech` (default `OpenAi`). Additive (ADR-0046).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub tts_engine: Option<TtsEngine>,
+    /// Grant without selecting the engine as the primary one (for fallback
+    /// chains, per-language defaults and engine tests).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub keep_selection: Option<bool>,
 }
 
 /// Max decoded audio size for `voice.transcribe` (8 MiB ≈ 4 min of 16 kHz mono PCM).
@@ -480,6 +935,10 @@ pub struct TranscribeParams {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub language: Option<String>,
+    /// Use exactly this engine (engine test); default: the configured chain.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub engine: Option<SttEngine>,
 }
 
 /// Result of `voice.transcribe`.
@@ -491,6 +950,12 @@ pub struct TranscribeResult {
     pub text: String,
     /// Detected language when the service reports it.
     pub language: Option<String>,
+    /// Engine that produced the text.
+    #[serde(default)]
+    pub engine: Option<SttEngine>,
+    /// Wall time of the recognition in milliseconds.
+    #[serde(default)]
+    pub elapsed_ms: u64,
 }
 
 /// Params of `voice.synthesize` (cloud TTS; only with consent).
@@ -508,6 +973,14 @@ pub struct SynthesizeParams {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub style: Option<String>,
+    /// Use exactly this engine (engine test, agent voice); default: the configured chain.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub engine: Option<TtsEngine>,
+    /// Language of the text (BCP-47); default: the configured language.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub language: Option<String>,
 }
 
 /// Result of `voice.synthesize`.
@@ -517,8 +990,260 @@ pub struct SynthesizeParams {
 pub struct SynthesizeResult {
     /// Base64 audio.
     pub audio_base64: String,
-    /// MIME type (`audio/mpeg`).
+    /// MIME type (`audio/mpeg`, `audio/wav`).
     pub mime_type: String,
+    /// Engine that rendered the audio.
+    #[serde(default)]
+    pub engine: Option<TtsEngine>,
+}
+
+// --- engines + model manager (ADR-0046) ---------------------------------------
+
+/// Readiness of an engine on this machine.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub enum VoiceEngineStatus {
+    /// Usable now.
+    Ready,
+    /// A runtime or model package must be downloaded first.
+    NeedsDownload,
+    /// An API key (and, for some services, a region/folder) must be configured.
+    NeedsKey,
+    /// Not available on this machine (OS, missing language pack, missing runtime).
+    Unavailable,
+    /// Runs in the webview (WebSpeech, system voices); the core cannot check it.
+    Client,
+}
+
+/// How an engine integration was verified.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub enum VoiceEngineVerification {
+    /// End-to-end tests run against the real engine.
+    Tested,
+    /// Request/response shapes are covered by tests against a mock server;
+    /// no live call without a user key.
+    RequestShapeVerified,
+    /// Not verified on this machine (missing runtime or language pack).
+    Untested,
+}
+
+/// Coarse quality / speed grade for engine cards.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub enum VoiceGrade {
+    /// Low.
+    Low,
+    /// Medium.
+    Medium,
+    /// High.
+    High,
+    /// Highest.
+    VeryHigh,
+}
+
+/// A voice or model an engine can use.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct VoiceEngineOption {
+    /// Id stored in the settings (package id, voice name, model name).
+    pub id: String,
+    /// Display label.
+    pub label: String,
+    /// Language tag (`ru-RU`; `*` = multilingual).
+    pub language: String,
+    /// Installed / usable now.
+    pub available: bool,
+}
+
+/// One engine with its capabilities and readiness.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct VoiceEngineInfo {
+    /// STT engine id (for STT entries).
+    pub stt: Option<SttEngine>,
+    /// TTS engine id (for TTS entries).
+    pub tts: Option<TtsEngine>,
+    /// Product name.
+    pub name: String,
+    /// Runs without network access.
+    pub offline: bool,
+    /// Sends audio/text to a cloud service.
+    pub cloud: bool,
+    /// Supports streaming (interim results / incremental audio) in principle.
+    pub streaming: bool,
+    /// Languages (primary subtags; `*` = multilingual).
+    pub languages: Vec<String>,
+    /// Supports Russian.
+    pub russian: bool,
+    /// Recognition / voice quality.
+    pub quality: VoiceGrade,
+    /// Speed (higher = lower latency).
+    pub speed: VoiceGrade,
+    /// Readiness.
+    pub status: VoiceEngineStatus,
+    /// Technical detail for `status` (English, e.g. "no ru-RU recognizer").
+    pub detail: Option<String>,
+    /// Packages this engine can use (runtime + models/voices).
+    pub packages: Vec<String>,
+    /// API key slot.
+    pub key: Option<VoiceKeyId>,
+    /// Whether that key is stored.
+    pub key_configured: bool,
+    /// Needs consent (cloud).
+    pub needs_consent: bool,
+    /// Consent recorded.
+    pub consented: bool,
+    /// Verification level.
+    pub verification: VoiceEngineVerification,
+    /// Selectable voices/models.
+    pub options: Vec<VoiceEngineOption>,
+}
+
+/// Params of `voice.listEngines`.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct ListVoiceEnginesParams {
+    /// Re-run OS detection (Windows voices/recognizers) instead of using the cache.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub refresh: Option<bool>,
+}
+
+/// Result of `voice.listEngines` / `voice.setEngineKey`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct VoiceEnginesResult {
+    /// Speech-to-text engines.
+    pub stt: Vec<VoiceEngineInfo>,
+    /// Text-to-speech engines.
+    pub tts: Vec<VoiceEngineInfo>,
+    /// Key slots that hold a key.
+    pub configured_keys: Vec<VoiceKeyId>,
+}
+
+/// Params of `voice.setEngineKey`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct SetVoiceEngineKeyParams {
+    /// Key slot.
+    pub key: VoiceKeyId,
+    /// The key (stored in the secret vault); `None`/empty clears it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub api_key: Option<String>,
+}
+
+/// Kind of a downloadable voice package.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub enum VoicePackageKind {
+    /// Engine binaries.
+    Runtime,
+    /// A speech recognition model.
+    SttModel,
+    /// A synthesis voice.
+    TtsVoice,
+}
+
+/// Install state of a package.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub enum VoicePackageState {
+    /// Not on disk.
+    NotInstalled,
+    /// Waiting for another download.
+    Queued,
+    /// Downloading.
+    Downloading,
+    /// Checking SHA-256 / unpacking.
+    Installing,
+    /// Installed and verified.
+    Installed,
+    /// The last download failed (`error`).
+    Failed,
+}
+
+/// A downloadable runtime / model / voice.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct VoicePackageInfo {
+    /// Package id (`whisper-base`, `piper-ru-irina`, …).
+    pub id: String,
+    /// Display title.
+    pub title: String,
+    /// Kind.
+    pub kind: VoicePackageKind,
+    /// STT engine it belongs to.
+    pub stt: Option<SttEngine>,
+    /// TTS engine it belongs to.
+    pub tts: Option<TtsEngine>,
+    /// Languages (`*` = multilingual).
+    pub languages: Vec<String>,
+    /// Download size in bytes.
+    pub download_bytes: u64,
+    /// Size on disk when installed.
+    pub installed_bytes: u64,
+    /// State.
+    pub state: VoicePackageState,
+    /// Downloaded bytes of the running download.
+    pub progress_bytes: u64,
+    /// Last error.
+    pub error: Option<String>,
+    /// Suggested for Russian out of the box.
+    pub recommended: bool,
+    /// Packages installed together with this one.
+    pub depends_on: Vec<String>,
+    /// Pinned SHA-256 of each downloaded file.
+    pub sha256: Vec<String>,
+    /// Available for this OS/CPU.
+    pub supported: bool,
+    /// License (SPDX-like).
+    pub license: String,
+    /// Download host.
+    pub source: String,
+}
+
+/// Result of the `voice.*Model` methods.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct VoiceModelsResult {
+    /// Catalog with state.
+    pub packages: Vec<VoicePackageInfo>,
+    /// Bytes used under the voice directory.
+    pub disk_usage_bytes: u64,
+    /// The voice directory (`<ORKESTR_HOME>/voice/models`).
+    pub root: String,
+}
+
+/// Params naming one package.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct VoicePackageParams {
+    /// Package id.
+    pub id: String,
+}
+
+/// Result of `voice.verifyModel`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct VoiceVerifyResult {
+    /// All files match the manifest written at install time.
+    pub ok: bool,
+    /// Files checked.
+    pub files: u32,
+    /// Relative paths that are missing or changed.
+    pub mismatches: Vec<String>,
 }
 
 /// How a voice command was started.
@@ -575,6 +1300,34 @@ method!(
 method!(
     /// `voice.recordCommand`.
     RecordCommand, "voice.recordCommand", RecordVoiceCommandParams, super::Empty
+);
+method!(
+    /// `voice.listEngines` (ADR-0046).
+    ListEngines, "voice.listEngines", ListVoiceEnginesParams, VoiceEnginesResult
+);
+method!(
+    /// `voice.setEngineKey`: stores/clears a paid engine's API key in the secret vault.
+    SetEngineKey, "voice.setEngineKey", SetVoiceEngineKeyParams, VoiceEnginesResult
+);
+method!(
+    /// `voice.listModels`.
+    ListModels, "voice.listModels", super::Empty, VoiceModelsResult
+);
+method!(
+    /// `voice.downloadModel`: starts a download (with dependencies).
+    DownloadModel, "voice.downloadModel", VoicePackageParams, VoiceModelsResult
+);
+method!(
+    /// `voice.cancelDownload`.
+    CancelDownload, "voice.cancelDownload", VoicePackageParams, VoiceModelsResult
+);
+method!(
+    /// `voice.removeModel`.
+    RemoveModel, "voice.removeModel", VoicePackageParams, VoiceModelsResult
+);
+method!(
+    /// `voice.verifyModel`: re-hashes installed files against the install manifest.
+    VerifyModel, "voice.verifyModel", VoicePackageParams, VoiceVerifyResult
 );
 
 #[cfg(test)]
@@ -644,7 +1397,7 @@ mod tests {
             pitch_pct: None,
         };
         assert!(bad(&|c| {
-            c.agent_voices.insert("t1".into(), profile("elevenlabs", None));
+            c.agent_voices.insert("t1".into(), profile("bogus", None));
         }));
         assert!(bad(&|c| {
             c.agent_voices.insert("t1".into(), profile("system", Some(20)));

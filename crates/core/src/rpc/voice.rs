@@ -9,16 +9,24 @@
 //! - `voice.transcribe` / `voice.synthesize` run only with the matching
 //!   consent and go through the user's OpenAI(-compatible) provider. Audio is
 //!   never persisted or logged; buffers are dropped when the call returns.
+//! - ADR-0046: `voice.transcribe` / `voice.synthesize` route through the
+//!   configured engine chain (per-language default, then the fallback
+//!   chain) run by `orkestr-voice`; local engines need no consent, cloud
+//!   engines need a per-engine consent. Paid engines' API keys live in the
+//!   secret vault (`voice.setEngineKey`), never in the config document.
 //! - `voice.recordCommand` publishes a `VoiceCommand` event (transcript +
 //!   intent, never audio).
 
 use base64::Engine as _;
+use orkestr_domain::{Actor, SecretScope};
 use orkestr_domain::{AuditOutcome, ProviderKind};
 use orkestr_protocol::event::{EventKind, VoiceCommandPayload};
 use orkestr_protocol::methods::voice::{
-    self as m, RecordVoiceCommandParams, SetVoiceConfigParams, SetVoiceConsentParams, SttConsent, SttEngine,
-    SynthesizeParams, SynthesizeResult, TranscribeParams, TranscribeResult, TtsEngine, VoiceCloudProvider, VoiceConfig,
-    VoiceConfigResult, VoiceConsentScope, MAX_SYNTHESIZE_CHARS, MAX_TRANSCRIBE_BYTES,
+    self as m, ListVoiceEnginesParams, RecordVoiceCommandParams, SetVoiceConfigParams, SetVoiceConsentParams,
+    SetVoiceEngineKeyParams, SttConsent, SttEngine, SynthesizeParams, SynthesizeResult, TranscribeParams,
+    TranscribeResult, TtsConsent, TtsEngine, VoiceCloudProvider, VoiceConfig, VoiceConfigResult, VoiceConsentScope,
+    VoiceEngineStatus, VoiceEnginesResult, VoiceKeyId, VoiceModelsResult, VoicePackageParams, VoiceVerifyResult,
+    MAX_SYNTHESIZE_CHARS, MAX_TRANSCRIBE_BYTES,
 };
 use orkestr_protocol::methods::Empty;
 use orkestr_protocol::{NewEvent, RpcError};
@@ -46,7 +54,14 @@ pub fn register(router: &mut RpcRouter) {
         .method::<m::SetConsent, _, _>(set_consent)
         .method::<m::Transcribe, _, _>(transcribe)
         .method::<m::Synthesize, _, _>(synthesize)
-        .method::<m::RecordCommand, _, _>(record_command);
+        .method::<m::RecordCommand, _, _>(record_command)
+        .method::<m::ListEngines, _, _>(list_engines)
+        .method::<m::SetEngineKey, _, _>(set_engine_key)
+        .method::<m::ListModels, _, _>(|ctx: RpcContext, _: Empty| list_models(ctx))
+        .method::<m::DownloadModel, _, _>(download_model)
+        .method::<m::CancelDownload, _, _>(cancel_download)
+        .method::<m::RemoveModel, _, _>(remove_model)
+        .method::<m::VerifyModel, _, _>(verify_model);
 }
 
 /// Serializes read-modify-write cycles of the voice document.
@@ -202,14 +217,17 @@ async fn set_config(ctx: RpcContext, p: SetVoiceConfigParams) -> Result<VoiceCon
     // Consent is server-owned.
     next.stt_consent = stored.stt_consent;
     next.tts_consent_at = stored.tts_consent_at;
-    if !next.stt_consented() {
+    next.stt_consents = stored.stt_consents;
+    next.tts_consents = stored.tts_consents;
+    if let Some(e) = next.stt_engines_in_use().into_iter().find(|e| !next.stt_engine_consented(*e)) {
         return Err(RpcError::forbidden(format!(
-            "speech recognition with {:?} sends audio off this device and needs consent first (voice.setConsent)",
-            next.stt_engine
+            "speech recognition with {e:?} sends audio off this device and needs consent first (voice.setConsent)"
         )));
     }
-    if next.tts_engine == TtsEngine::OpenAi && !next.tts_consented() {
-        return Err(RpcError::forbidden("cloud text-to-speech needs consent first (voice.setConsent)"));
+    if let Some(e) = next.tts_engines_in_use().into_iter().find(|e| !next.tts_engine_consented(*e)) {
+        return Err(RpcError::forbidden(format!(
+            "cloud text-to-speech with {e:?} needs consent first (voice.setConsent)"
+        )));
     }
     if let Some(id) = next.cloud_provider_id {
         match cloud_providers(&ctx).iter().find(|v| v.provider.id == id) {
@@ -225,44 +243,109 @@ async fn set_config(ctx: RpcContext, p: SetVoiceConfigParams) -> Result<VoiceCon
     Ok(result(&ctx, next))
 }
 
+/// Drops STT engines that lost their consent from the selection.
+fn prune_stt(c: &mut VoiceConfig) {
+    let keep = |c: &VoiceConfig, e: SttEngine| c.stt_engine_consented(e);
+    if !keep(c, c.stt_engine) {
+        c.stt_engine = SttEngine::Disabled;
+    }
+    let snapshot = c.clone();
+    c.stt_fallback.retain(|e| keep(&snapshot, *e));
+    c.stt_by_language.retain(|_, e| keep(&snapshot, *e));
+}
+
+/// Drops TTS engines that lost their consent from the selection.
+fn prune_tts(c: &mut VoiceConfig) {
+    let keep = |c: &VoiceConfig, e: TtsEngine| c.tts_engine_consented(e);
+    if !keep(c, c.tts_engine) {
+        c.tts_engine = TtsEngine::System;
+    }
+    let snapshot = c.clone();
+    c.tts_fallback.retain(|e| keep(&snapshot, *e));
+    c.tts_by_language.retain(|_, e| keep(&snapshot, *e));
+}
+
 async fn set_consent(ctx: RpcContext, p: SetVoiceConsentParams) -> Result<VoiceConfigResult, RpcError> {
     let _guard = write_lock().lock().await;
     let mut next = load(&ctx).await?;
     let now = chrono::Utc::now();
+    let select = !p.keep_selection.unwrap_or(false);
     let resource = match (p.scope, p.granted) {
         (VoiceConsentScope::SpeechRecognition, true) => {
             let engine = p.engine.ok_or_else(|| RpcError::bad_request("engine is required to grant consent"))?;
             if !engine.needs_consent() {
                 return Err(RpcError::bad_request("this engine does not need consent"));
             }
-            next.stt_consent = Some(SttConsent { engine, granted_at: now });
-            next.stt_engine = engine;
+            next.stt_consents.retain(|c| c.engine != engine);
+            next.stt_consents.push(SttConsent { engine, granted_at: now });
+            if select {
+                next.stt_consent = Some(SttConsent { engine, granted_at: now });
+                next.stt_engine = engine;
+            }
             format!("voice:stt:{engine:?}")
         }
         (VoiceConsentScope::SpeechRecognition, false) => {
-            next.stt_consent = None;
-            next.stt_engine = SttEngine::Disabled;
-            "voice:stt".to_owned()
+            match p.engine {
+                Some(engine) => {
+                    next.stt_consents.retain(|c| c.engine != engine);
+                    if next.stt_consent.as_ref().is_some_and(|c| c.engine == engine) {
+                        next.stt_consent = None;
+                    }
+                }
+                None => {
+                    next.stt_consents.clear();
+                    next.stt_consent = None;
+                }
+            }
+            prune_stt(&mut next);
+            p.engine.map_or_else(|| "voice:stt".to_owned(), |e| format!("voice:stt:{e:?}"))
         }
         (VoiceConsentScope::CloudSpeech, true) => {
-            next.tts_consent_at = Some(now);
-            next.tts_engine = TtsEngine::OpenAi;
-            "voice:tts:OpenAi".to_owned()
+            let engine = p.tts_engine.unwrap_or(TtsEngine::OpenAi);
+            if !engine.is_cloud() {
+                return Err(RpcError::bad_request("this engine does not need consent"));
+            }
+            if engine == TtsEngine::OpenAi {
+                next.tts_consent_at = Some(now);
+            }
+            next.tts_consents.retain(|c| c.engine != engine);
+            next.tts_consents.push(TtsConsent { engine, granted_at: now });
+            if select {
+                next.tts_engine = engine;
+            }
+            format!("voice:tts:{engine:?}")
         }
         (VoiceConsentScope::CloudSpeech, false) => {
-            next.tts_consent_at = None;
-            next.tts_engine = TtsEngine::System;
-            "voice:tts".to_owned()
+            match p.tts_engine {
+                Some(engine) => {
+                    next.tts_consents.retain(|c| c.engine != engine);
+                    if engine == TtsEngine::OpenAi {
+                        next.tts_consent_at = None;
+                    }
+                }
+                None => {
+                    next.tts_consents.clear();
+                    next.tts_consent_at = None;
+                }
+            }
+            prune_tts(&mut next);
+            p.tts_engine.map_or_else(|| "voice:tts".to_owned(), |e| format!("voice:tts:{e:?}"))
         }
     };
     save(&ctx, &next).await?;
-    // Bind the consent to the provider that will receive the data.
-    let key = match p.scope {
-        VoiceConsentScope::SpeechRecognition => STT_PROVIDER_KEY,
-        VoiceConsentScope::CloudSpeech => TTS_PROVIDER_KEY,
+    // Bind the OpenAI-provider consent to the provider that will receive the data.
+    let openai = match p.scope {
+        VoiceConsentScope::SpeechRecognition => p.engine.is_none_or(|e| e == SttEngine::OpenAiWhisper),
+        VoiceConsentScope::CloudSpeech => p.tts_engine.is_none_or(|e| e == TtsEngine::OpenAi),
     };
-    let bound = if p.granted { pick_provider(&ctx, &next).ok().map(|v| v.provider.id.to_string()) } else { None };
-    store_setting(&ctx, key, bound).await?;
+    if openai {
+        let key = match p.scope {
+            VoiceConsentScope::SpeechRecognition => STT_PROVIDER_KEY,
+            VoiceConsentScope::CloudSpeech => TTS_PROVIDER_KEY,
+        };
+        let bound = if p.granted { pick_provider(&ctx, &next).ok().map(|v| v.provider.id.to_string()) } else { None };
+        store_setting(&ctx, key, bound).await?;
+    }
     let sec = &ctx.services.security;
     let action = if p.granted { "voice.consentGranted" } else { "voice.consentRevoked" };
     sec.audit.record(NewAudit::new(sec.user(), action, resource, AuditOutcome::Executed)).await;
@@ -270,11 +353,65 @@ async fn set_consent(ctx: RpcContext, p: SetVoiceConsentParams) -> Result<VoiceC
     Ok(result(&ctx, next))
 }
 
-async fn transcribe(ctx: RpcContext, p: TranscribeParams) -> Result<TranscribeResult, RpcError> {
-    let config = load(&ctx).await?;
-    if config.stt_engine != SttEngine::OpenAiWhisper || !config.stt_consented() {
-        return Err(RpcError::forbidden("cloud speech recognition is not enabled with consent"));
+/// The voice API key of a slot, from the secret vault (`None` when unset).
+async fn engine_key(ctx: &RpcContext, key: VoiceKeyId) -> Option<zeroize::Zeroizing<String>> {
+    if !configured_keys(ctx).await.contains(&key) {
+        return None;
     }
+    ctx.services
+        .security
+        .secrets
+        .resolve_by_name(key.secret_name(), Actor::System, orkestr_security::AccessContext::default())
+        .await
+        .ok()
+}
+
+async fn configured_keys(ctx: &RpcContext) -> Vec<VoiceKeyId> {
+    let names: Vec<String> = ctx
+        .services
+        .security
+        .secrets
+        .list(None)
+        .await
+        .map(|v| v.into_iter().map(|r| r.name).collect())
+        .unwrap_or_default();
+    VoiceKeyId::ALL.into_iter().filter(|k| names.iter().any(|n| n == k.secret_name())).collect()
+}
+
+fn voice_error_to_rpc(e: orkestr_voice::VoiceError) -> RpcError {
+    use orkestr_voice::VoiceError as E;
+    match e {
+        E::NotInstalled(_) | E::NeedsKey(_) | E::Unavailable(_) | E::BadRequest(_) => {
+            RpcError::bad_request(e.to_string())
+        }
+        E::Network(m) | E::Failed(m) => RpcError::internal(m),
+    }
+}
+
+/// OpenAI through the user's provider (no voice API key configured).
+async fn provider_transcribe(
+    ctx: &RpcContext,
+    config: &VoiceConfig,
+    audio: Vec<u8>,
+    mime_type: String,
+    language: Option<String>,
+) -> Result<(String, Option<String>), RpcError> {
+    let provider = consented_provider(ctx, config, STT_PROVIDER_KEY).await?;
+    let adapter = ctx
+        .services
+        .providers
+        .adapter(provider.provider.id)
+        .ok_or_else(|| RpcError::not_found("speech provider is not loaded"))?;
+    let out = adapter
+        .transcribe(TranscriptionRequest { audio, mime_type, language, model: None })
+        .await
+        .map_err(|e| provider_error_to_rpc(&e))?;
+    Ok((out.text, out.language))
+}
+
+async fn transcribe(ctx: RpcContext, p: TranscribeParams) -> Result<TranscribeResult, RpcError> {
+    let started = std::time::Instant::now();
+    let config = load(&ctx).await?;
     if p.audio_base64.len() > MAX_TRANSCRIBE_BYTES / 3 * 4 + 4 {
         return Err(RpcError::bad_request("audio is too large (max 8 MiB)"));
     }
@@ -286,47 +423,250 @@ async fn transcribe(ctx: RpcContext, p: TranscribeParams) -> Result<TranscribeRe
     }
     let language =
         p.language.or_else(|| Some(config.language.clone()).filter(|l| l != "auto")).filter(|l| l.len() <= 16);
-    let provider = consented_provider(&ctx, &config, STT_PROVIDER_KEY).await?;
-    let adapter = ctx
-        .services
-        .providers
-        .adapter(provider.provider.id)
-        .ok_or_else(|| RpcError::not_found("speech provider is not loaded"))?;
-    let out = adapter
-        .transcribe(TranscriptionRequest { audio, mime_type: p.mime_type, language, model: None })
-        .await
-        .map_err(|e| provider_error_to_rpc(&e))?;
-    Ok(TranscribeResult { text: out.text, language: out.language })
+    let chain = match p.engine {
+        Some(e) => {
+            if !config.stt_engine_consented(e) {
+                return Err(RpcError::forbidden(format!("speech recognition with {e:?} needs consent first")));
+            }
+            vec![e]
+        }
+        None => config.stt_chain(language.as_deref()),
+    };
+    if chain.is_empty() || chain.iter().any(|e| !config.stt_engine_consented(*e)) {
+        return Err(RpcError::forbidden("speech recognition in the core is not enabled (with consent)"));
+    }
+    // Local engines need PCM; uploads are WAV (the voice worklet encodes 16 kHz WAV).
+    let pcm = orkestr_voice::audio::to_pcm16k(&audio).ok();
+    let mut first_err: Option<RpcError> = None;
+    for engine in chain {
+        let r: Result<(String, Option<String>), RpcError> = async {
+            let key = match engine.key() {
+                Some(k) => engine_key(&ctx, k).await,
+                None => None,
+            };
+            if engine == SttEngine::OpenAiWhisper && key.is_none() {
+                return provider_transcribe(&ctx, &config, audio.clone(), p.mime_type.clone(), language.clone()).await;
+            }
+            let pcm = pcm.as_ref().ok_or_else(|| RpcError::bad_request("audio must be a PCM WAV file"))?;
+            ctx.services
+                .voice
+                .transcribe(engine, &config.engines, key.as_deref().map(String::as_str), pcm, language.as_deref())
+                .await
+                .map(|t| (t, None))
+                .map_err(voice_error_to_rpc)
+        }
+        .await;
+        match r {
+            Ok((text, lang)) => {
+                return Ok(TranscribeResult {
+                    text: text.trim().to_owned(),
+                    language: lang,
+                    engine: Some(engine),
+                    elapsed_ms: u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX),
+                })
+            }
+            Err(e) => {
+                tracing::warn!(?engine, error = %e.message, "speech recognition engine failed");
+                first_err.get_or_insert(e);
+            }
+        }
+    }
+    Err(first_err.unwrap_or_else(|| RpcError::internal("speech recognition failed")))
 }
 
 async fn synthesize(ctx: RpcContext, p: SynthesizeParams) -> Result<SynthesizeResult, RpcError> {
     let config = load(&ctx).await?;
-    if !config.tts_consented() {
-        return Err(RpcError::forbidden("cloud text-to-speech is not enabled with consent"));
-    }
     let text = p.text.trim();
     if text.is_empty() || text.chars().count() > MAX_SYNTHESIZE_CHARS {
         return Err(RpcError::bad_request(format!("text must be 1..={MAX_SYNTHESIZE_CHARS} characters")));
     }
-    let voice = p.voice.filter(|v| !v.trim().is_empty()).unwrap_or_else(|| config.cloud_voice.clone());
-    if voice.len() > 40 || !voice.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_') {
+    if p.voice.as_deref().is_some_and(|v| v.chars().count() > 100 || v.chars().any(char::is_control)) {
         return Err(RpcError::bad_request("invalid voice id"));
     }
+    let language = p
+        .language
+        .clone()
+        .filter(|l| l.len() <= 16 && l != "auto")
+        .or_else(|| Some(config.language.clone()).filter(|l| l != "auto"))
+        .unwrap_or_else(|| "ru-RU".into());
+    let locale = orkestr_voice::cloud::locale(Some(&language));
+    let chain = match p.engine {
+        Some(e) => {
+            if !config.tts_engine_consented(e) {
+                return Err(RpcError::forbidden(format!("cloud text-to-speech with {e:?} needs consent first")));
+            }
+            vec![e]
+        }
+        None => config.tts_chain(Some(&language)),
+    };
+    if chain.is_empty() || chain.iter().any(|e| !config.tts_engine_consented(*e)) {
+        return Err(RpcError::forbidden("no core text-to-speech engine is enabled (with consent)"));
+    }
     let style = p.style.filter(|s| s.chars().count() <= 200);
-    let provider = consented_provider(&ctx, &config, TTS_PROVIDER_KEY).await?;
-    let adapter = ctx
-        .services
-        .providers
-        .adapter(provider.provider.id)
-        .ok_or_else(|| RpcError::not_found("speech provider is not loaded"))?;
-    let out = adapter
-        .synthesize_speech(SpeechRequest { text: text.to_owned(), voice, style, model: None })
-        .await
-        .map_err(|e| provider_error_to_rpc(&e))?;
-    Ok(SynthesizeResult {
-        audio_base64: base64::engine::general_purpose::STANDARD.encode(&out.bytes),
-        mime_type: out.mime_type,
-    })
+    let mut first_err: Option<RpcError> = None;
+    for engine in chain {
+        // A voice from the request applies to the requested engine only.
+        let voice = if p.engine.is_some() || engine == config.tts_engine_for(Some(&language)) {
+            p.voice.clone().filter(|v| !v.trim().is_empty())
+        } else {
+            None
+        };
+        let r: Result<(Vec<u8>, String), RpcError> = async {
+            let key = match engine.key() {
+                Some(k) => engine_key(&ctx, k).await,
+                None => None,
+            };
+            if engine == TtsEngine::OpenAi && key.is_none() {
+                let voice = voice.clone().unwrap_or_else(|| config.cloud_voice.clone());
+                if voice.len() > 40 || !voice.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_') {
+                    return Err(RpcError::bad_request("invalid voice id"));
+                }
+                let provider = consented_provider(&ctx, &config, TTS_PROVIDER_KEY).await?;
+                let adapter = ctx
+                    .services
+                    .providers
+                    .adapter(provider.provider.id)
+                    .ok_or_else(|| RpcError::not_found("speech provider is not loaded"))?;
+                let out = adapter
+                    .synthesize_speech(SpeechRequest {
+                        text: text.to_owned(),
+                        voice,
+                        style: style.clone(),
+                        model: None,
+                    })
+                    .await
+                    .map_err(|e| provider_error_to_rpc(&e))?;
+                return Ok((out.bytes, out.mime_type));
+            }
+            let voice = voice.or_else(|| (engine == TtsEngine::OpenAi).then(|| config.cloud_voice.clone()));
+            ctx.services
+                .voice
+                .synthesize(
+                    engine,
+                    &config.engines,
+                    key.as_deref().map(String::as_str),
+                    voice.as_deref(),
+                    &locale,
+                    config.rate_pct,
+                    text,
+                )
+                .await
+                .map(|c| (c.bytes, c.mime_type))
+                .map_err(voice_error_to_rpc)
+        }
+        .await;
+        match r {
+            Ok((bytes, mime_type)) => {
+                return Ok(SynthesizeResult {
+                    audio_base64: base64::engine::general_purpose::STANDARD.encode(&bytes),
+                    mime_type,
+                    engine: Some(engine),
+                })
+            }
+            Err(e) => {
+                tracing::warn!(?engine, error = %e.message, "text-to-speech engine failed");
+                first_err.get_or_insert(e);
+            }
+        }
+    }
+    Err(first_err.unwrap_or_else(|| RpcError::internal("text-to-speech failed")))
+}
+
+async fn list_engines(ctx: RpcContext, p: ListVoiceEnginesParams) -> Result<VoiceEnginesResult, RpcError> {
+    let config = load(&ctx).await?;
+    engines_result(&ctx, &config, p.refresh.unwrap_or(false)).await
+}
+
+async fn engines_result(ctx: &RpcContext, config: &VoiceConfig, refresh: bool) -> Result<VoiceEnginesResult, RpcError> {
+    let keys = configured_keys(ctx).await;
+    let mut r = ctx.services.voice.engines(config, &keys, refresh).await;
+    // OpenAI also works through an OpenAI provider without a voice key.
+    let provider = pick_provider(ctx, config).is_ok_and(|v| v.has_credential);
+    for e in r.stt.iter_mut().filter(|e| e.stt == Some(SttEngine::OpenAiWhisper)) {
+        if provider && e.status == VoiceEngineStatus::NeedsKey {
+            e.status = VoiceEngineStatus::Ready;
+            e.detail = Some("uses your OpenAI provider".into());
+        }
+    }
+    for e in r.tts.iter_mut().filter(|e| e.tts == Some(TtsEngine::OpenAi)) {
+        if provider && e.status == VoiceEngineStatus::NeedsKey {
+            e.status = VoiceEngineStatus::Ready;
+            e.detail = Some("uses your OpenAI provider".into());
+        }
+    }
+    Ok(r)
+}
+
+async fn set_engine_key(ctx: RpcContext, p: SetVoiceEngineKeyParams) -> Result<VoiceEnginesResult, RpcError> {
+    let sec = &ctx.services.security;
+    let name = p.key.secret_name();
+    match p.api_key.as_deref().map(str::trim).filter(|k| !k.is_empty()) {
+        Some(value) => {
+            if value.len() > 4096 || value.chars().any(char::is_control) {
+                return Err(RpcError::bad_request("the API key must be 1..=4096 printable characters"));
+            }
+            sec.secrets
+                .set(name, SecretScope::Global, zeroize::Zeroizing::new(value.to_owned()), sec.user())
+                .await
+                .map_err(crate::error::security_to_rpc)?;
+        }
+        None => {
+            if let Some(r) = sec
+                .secrets
+                .list(None)
+                .await
+                .map_err(crate::error::security_to_rpc)?
+                .into_iter()
+                .find(|r| r.name == name)
+            {
+                sec.secrets.delete(r.id, sec.user()).await.map_err(crate::error::security_to_rpc)?;
+            }
+        }
+    }
+    tracing::info!(key = ?p.key, set = p.api_key.is_some(), "voice engine key updated");
+    let config = load(&ctx).await?;
+    engines_result(&ctx, &config, false).await
+}
+
+fn models_err(e: orkestr_voice::VoiceError) -> RpcError {
+    voice_error_to_rpc(e)
+}
+
+async fn list_models(ctx: RpcContext) -> Result<VoiceModelsResult, RpcError> {
+    let models = ctx.services.voice.models().clone();
+    tokio::task::spawn_blocking(move || models.list()).await.map_err(|e| RpcError::internal(e.to_string()))
+}
+
+async fn download_model(ctx: RpcContext, p: VoicePackageParams) -> Result<VoiceModelsResult, RpcError> {
+    ctx.services.voice.models().download(&p.id).map_err(models_err)?;
+    let sec = &ctx.services.security;
+    sec.audit
+        .record(NewAudit::new(
+            sec.user(),
+            "voice.modelDownload",
+            format!("voice:model:{}", p.id),
+            AuditOutcome::Executed,
+        ))
+        .await;
+    list_models(ctx).await
+}
+
+async fn cancel_download(ctx: RpcContext, p: VoicePackageParams) -> Result<VoiceModelsResult, RpcError> {
+    ctx.services.voice.models().cancel(&p.id);
+    list_models(ctx).await
+}
+
+async fn remove_model(ctx: RpcContext, p: VoicePackageParams) -> Result<VoiceModelsResult, RpcError> {
+    ctx.services.voice.models().remove(&p.id).map_err(models_err)?;
+    let sec = &ctx.services.security;
+    sec.audit
+        .record(NewAudit::new(sec.user(), "voice.modelRemove", format!("voice:model:{}", p.id), AuditOutcome::Executed))
+        .await;
+    list_models(ctx).await
+}
+
+async fn verify_model(ctx: RpcContext, p: VoicePackageParams) -> Result<VoiceVerifyResult, RpcError> {
+    ctx.services.voice.models().verify(&p.id).await.map_err(models_err)
 }
 
 fn is_code(s: &str, max: usize) -> bool {

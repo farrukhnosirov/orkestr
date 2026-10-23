@@ -48,8 +48,6 @@ import type { BudgetListResult } from "./BudgetListResult";
 import type { BudgetResult } from "./BudgetResult";
 import type { CancelJobParams } from "./CancelJobParams";
 import type { CancelRunResult } from "./CancelRunResult";
-import type { CatalogueParams } from "./CatalogueParams";
-import type { CatalogueResult } from "./CatalogueResult";
 import type { CheckBudgetParams } from "./CheckBudgetParams";
 import type { CheckBudgetResult } from "./CheckBudgetResult";
 import type { CheckIdParams } from "./CheckIdParams";
@@ -91,11 +89,8 @@ import type { ClaudeTranscriptResult } from "./ClaudeTranscriptResult";
 import type { ClaudeUsageParams } from "./ClaudeUsageParams";
 import type { CloneParams } from "./CloneParams";
 import type { CloneResult } from "./CloneResult";
-import type { CommandResult } from "./CommandResult";
 import type { CommitParams } from "./CommitParams";
 import type { CommitResult } from "./CommitResult";
-import type { ComputerStatus } from "./ComputerStatus";
-import type { ConfirmParams } from "./ConfirmParams";
 import type { ConsensusResult } from "./ConsensusResult";
 import type { ContextExplainParams } from "./ContextExplainParams";
 import type { ContextExplainResult } from "./ContextExplainResult";
@@ -185,8 +180,6 @@ import type { EnvironmentIdParams } from "./EnvironmentIdParams";
 import type { EnvironmentResult } from "./EnvironmentResult";
 import type { EvaluateParams } from "./EvaluateParams";
 import type { ExecLineParams } from "./ExecLineParams";
-import type { ExecuteParams } from "./ExecuteParams";
-import type { ExportSetResult } from "./ExportSetResult";
 import type { ExportTemplateResult } from "./ExportTemplateResult";
 import type { ExtensionAssetResult } from "./ExtensionAssetResult";
 import type { ExtensionFileParams } from "./ExtensionFileParams";
@@ -208,14 +201,9 @@ import type { GetPipelineResult } from "./GetPipelineResult";
 import type { GetReviewParams } from "./GetReviewParams";
 import type { GetUiConfigParams } from "./GetUiConfigParams";
 import type { GrantPluginParams } from "./GrantPluginParams";
-import type { HandleParams } from "./HandleParams";
-import type { HandleResult } from "./HandleResult";
 import type { HealthCheckResult } from "./HealthCheckResult";
 import type { HealthResult } from "./HealthResult";
-import type { HistoryParams } from "./HistoryParams";
-import type { HistoryResult } from "./HistoryResult";
 import type { ImportModelParams } from "./ImportModelParams";
-import type { ImportSetParams } from "./ImportSetParams";
 import type { ImportTemplateParams } from "./ImportTemplateParams";
 import type { ImportTemplateResult } from "./ImportTemplateResult";
 import type { IncidentActionParams } from "./IncidentActionParams";
@@ -307,6 +295,7 @@ import type { ListTerminalsParams } from "./ListTerminalsParams";
 import type { ListTerminalsResult } from "./ListTerminalsResult";
 import type { ListTrashParams } from "./ListTrashParams";
 import type { ListTrashResult } from "./ListTrashResult";
+import type { ListVoiceEnginesParams } from "./ListVoiceEnginesParams";
 import type { ListWidgetsResult } from "./ListWidgetsResult";
 import type { LogParams } from "./LogParams";
 import type { LogQuery } from "./LogQuery";
@@ -341,8 +330,6 @@ import type { MarketplaceDetails } from "./MarketplaceDetails";
 import type { MarketplaceRef } from "./MarketplaceRef";
 import type { MarketplaceSearchParams } from "./MarketplaceSearchParams";
 import type { MarketplaceSearchResult } from "./MarketplaceSearchResult";
-import type { MatchParams } from "./MatchParams";
-import type { MatchResult } from "./MatchResult";
 import type { MemoryIdParams } from "./MemoryIdParams";
 import type { MemoryItemResult } from "./MemoryItemResult";
 import type { MemoryListResult } from "./MemoryListResult";
@@ -390,9 +377,6 @@ import type { OpenTerminalParams } from "./OpenTerminalParams";
 import type { PathsParams } from "./PathsParams";
 import type { PipelineConfig } from "./PipelineConfig";
 import type { PipelineConfigParams } from "./PipelineConfigParams";
-import type { PlanIdParams } from "./PlanIdParams";
-import type { PlanParams } from "./PlanParams";
-import type { PlanResult } from "./PlanResult";
 import type { PlanRollbackParams } from "./PlanRollbackParams";
 import type { PluginIdParams } from "./PluginIdParams";
 import type { PluginLogsParams } from "./PluginLogsParams";
@@ -410,7 +394,6 @@ import type { PmUpdateParams } from "./PmUpdateParams";
 import type { PowerStatusView } from "./PowerStatusView";
 import type { PreviewUiPatchParams } from "./PreviewUiPatchParams";
 import type { PreviewUiPatchResult } from "./PreviewUiPatchResult";
-import type { ProcessesResult } from "./ProcessesResult";
 import type { ProjectIdParams } from "./ProjectIdParams";
 import type { ProjectResult } from "./ProjectResult";
 import type { ProviderIdParams } from "./ProviderIdParams";
@@ -437,7 +420,6 @@ import type { ReadFileResult } from "./ReadFileResult";
 import type { RecordVoiceCommandParams } from "./RecordVoiceCommandParams";
 import type { RefreshSourcesParams } from "./RefreshSourcesParams";
 import type { RejectPlanParams } from "./RejectPlanParams";
-import type { RememberPlanParams } from "./RememberPlanParams";
 import type { RemoteEnableParams } from "./RemoteEnableParams";
 import type { RemoteRevokeAllResult } from "./RemoteRevokeAllResult";
 import type { RemoteStatus } from "./RemoteStatus";
@@ -483,14 +465,12 @@ import type { RuleResult } from "./RuleResult";
 import type { RunChecksParams } from "./RunChecksParams";
 import type { RunCommandParams } from "./RunCommandParams";
 import type { RunCommandResult } from "./RunCommandResult";
-import type { RunComputerCommandParams } from "./RunComputerCommandParams";
 import type { RunConsensusParams } from "./RunConsensusParams";
 import type { RunIdParams } from "./RunIdParams";
 import type { SafeModeResult } from "./SafeModeResult";
 import type { SaveClaudeAgentParams } from "./SaveClaudeAgentParams";
 import type { SaveDashboardParams } from "./SaveDashboardParams";
 import type { SaveLayoutParams } from "./SaveLayoutParams";
-import type { SaveSetParams } from "./SaveSetParams";
 import type { SaveThemeParams } from "./SaveThemeParams";
 import type { SaveThemeResult } from "./SaveThemeResult";
 import type { SchedulerExplainParams } from "./SchedulerExplainParams";
@@ -508,15 +488,12 @@ import type { SearchMemoryResult } from "./SearchMemoryResult";
 import type { SecretResult } from "./SecretResult";
 import type { SetBudgetParams } from "./SetBudgetParams";
 import type { SetCredentialParams } from "./SetCredentialParams";
-import type { SetEnabledParams } from "./SetEnabledParams";
 import type { SetExtensionEnabledParams } from "./SetExtensionEnabledParams";
 import type { SetGatesParams } from "./SetGatesParams";
-import type { SetIdParams } from "./SetIdParams";
 import type { SetModeParams } from "./SetModeParams";
 import type { SetNodePolicyParams } from "./SetNodePolicyParams";
 import type { SetPipelineConfigParams } from "./SetPipelineConfigParams";
 import type { SetProfileParams } from "./SetProfileParams";
-import type { SetResult } from "./SetResult";
 import type { SetRobotsConfigParams } from "./SetRobotsConfigParams";
 import type { SetRuleParams } from "./SetRuleParams";
 import type { SetSafeModeParams } from "./SetSafeModeParams";
@@ -528,7 +505,7 @@ import type { SetUiLanguageParams } from "./SetUiLanguageParams";
 import type { SetUiLanguageResult } from "./SetUiLanguageResult";
 import type { SetVoiceConfigParams } from "./SetVoiceConfigParams";
 import type { SetVoiceConsentParams } from "./SetVoiceConsentParams";
-import type { SetsResult } from "./SetsResult";
+import type { SetVoiceEngineKeyParams } from "./SetVoiceEngineKeyParams";
 import type { SettingsResult } from "./SettingsResult";
 import type { ShowParams } from "./ShowParams";
 import type { ShowResult } from "./ShowResult";
@@ -549,7 +526,6 @@ import type { SpawnAgentResult } from "./SpawnAgentResult";
 import type { StartPipelineParams } from "./StartPipelineParams";
 import type { StopAgentParams } from "./StopAgentParams";
 import type { StopProjectParams } from "./StopProjectParams";
-import type { StopResult } from "./StopResult";
 import type { SubmitJobParams } from "./SubmitJobParams";
 import type { SyncConfigureParams } from "./SyncConfigureParams";
 import type { SyncConflictList } from "./SyncConflictList";
@@ -604,6 +580,10 @@ import type { UseClaudeForEverythingParams } from "./UseClaudeForEverythingParam
 import type { UseClaudeForEverythingResult } from "./UseClaudeForEverythingResult";
 import type { VaultStatusResult } from "./VaultStatusResult";
 import type { VoiceConfigResult } from "./VoiceConfigResult";
+import type { VoiceEnginesResult } from "./VoiceEnginesResult";
+import type { VoiceModelsResult } from "./VoiceModelsResult";
+import type { VoicePackageParams } from "./VoicePackageParams";
+import type { VoiceVerifyResult } from "./VoiceVerifyResult";
 import type { VsCodeCommandsParams } from "./VsCodeCommandsParams";
 import type { VsCodeCommandsResult } from "./VsCodeCommandsResult";
 import type { VsCodeConfigPatch } from "./VsCodeConfigPatch";
@@ -627,7 +607,6 @@ import type { WatchFilesParams } from "./WatchFilesParams";
 import type { WatchFilesResult } from "./WatchFilesResult";
 import type { WidgetBundleParams } from "./WidgetBundleParams";
 import type { WidgetBundleResult } from "./WidgetBundleResult";
-import type { WindowsResult } from "./WindowsResult";
 import type { WorkerCancelResult } from "./WorkerCancelResult";
 import type { WorkerJobParams } from "./WorkerJobParams";
 import type { WorktreeResult } from "./WorktreeResult";
@@ -894,6 +873,13 @@ export type Methods = {
   "voice.transcribe": [TranscribeParams, TranscribeResult];
   "voice.synthesize": [SynthesizeParams, SynthesizeResult];
   "voice.recordCommand": [RecordVoiceCommandParams, Empty];
+  "voice.listEngines": [ListVoiceEnginesParams, VoiceEnginesResult];
+  "voice.setEngineKey": [SetVoiceEngineKeyParams, VoiceEnginesResult];
+  "voice.listModels": [Empty, VoiceModelsResult];
+  "voice.downloadModel": [VoicePackageParams, VoiceModelsResult];
+  "voice.cancelDownload": [VoicePackageParams, VoiceModelsResult];
+  "voice.removeModel": [VoicePackageParams, VoiceModelsResult];
+  "voice.verifyModel": [VoicePackageParams, VoiceVerifyResult];
   "vscode.status": [Empty, VsCodeStatus];
   "vscode.checkUpdate": [Empty, VsCodeRelease];
   "vscode.install": [VsCodeInstallParams, VsCodeStatus];
@@ -1067,27 +1053,6 @@ export type Methods = {
   "detective.cancel": [IncidentActionParams, IncidentResult];
   "detective.settings": [Empty, DetectiveSettings];
   "detective.setSettings": [DetectiveSettings, DetectiveSettings];
-  "computer.status": [Empty, ComputerStatus];
-  "computer.handle": [HandleParams, HandleResult];
-  "computer.match": [MatchParams, MatchResult];
-  "computer.run": [RunComputerCommandParams, HandleResult];
-  "computer.execute": [ExecuteParams, HandleResult];
-  "computer.confirm": [ConfirmParams, HandleResult];
-  "computer.plan": [PlanParams, PlanResult];
-  "computer.approvePlan": [PlanIdParams, HandleResult];
-  "computer.rememberPlan": [RememberPlanParams, CommandResult];
-  "computer.catalogue": [CatalogueParams, CatalogueResult];
-  "computer.listSets": [Empty, SetsResult];
-  "computer.getSet": [SetIdParams, SetResult];
-  "computer.saveSet": [SaveSetParams, SetResult];
-  "computer.deleteSet": [SetIdParams, Empty];
-  "computer.setEnabled": [SetEnabledParams, SetResult];
-  "computer.exportSet": [SetIdParams, ExportSetResult];
-  "computer.importSet": [ImportSetParams, SetResult];
-  "computer.windows": [Empty, WindowsResult];
-  "computer.processes": [Empty, ProcessesResult];
-  "computer.stop": [Empty, StopResult];
-  "computer.history": [HistoryParams, HistoryResult];
 };
 
 /** All implemented method names. */
@@ -1348,6 +1313,13 @@ export const METHOD_NAMES = [
   "voice.transcribe",
   "voice.synthesize",
   "voice.recordCommand",
+  "voice.listEngines",
+  "voice.setEngineKey",
+  "voice.listModels",
+  "voice.downloadModel",
+  "voice.cancelDownload",
+  "voice.removeModel",
+  "voice.verifyModel",
   "vscode.status",
   "vscode.checkUpdate",
   "vscode.install",
@@ -1521,27 +1493,6 @@ export const METHOD_NAMES = [
   "detective.cancel",
   "detective.settings",
   "detective.setSettings",
-  "computer.status",
-  "computer.handle",
-  "computer.match",
-  "computer.run",
-  "computer.execute",
-  "computer.confirm",
-  "computer.plan",
-  "computer.approvePlan",
-  "computer.rememberPlan",
-  "computer.catalogue",
-  "computer.listSets",
-  "computer.getSet",
-  "computer.saveSet",
-  "computer.deleteSet",
-  "computer.setEnabled",
-  "computer.exportSet",
-  "computer.importSet",
-  "computer.windows",
-  "computer.processes",
-  "computer.stop",
-  "computer.history",
 ] as const;
 
 /** Wire protocol version (see orkestr-protocol PROTOCOL_VERSION). */
@@ -1644,7 +1595,6 @@ export const EVENT_KINDS = [
   "IncidentOpened",
   "IncidentStageChanged",
   "DashboardChanged",
-  "ComputerCommand",
 ] as const;
 
 /** UI config schema version (see orkestr-protocol ui_config). */

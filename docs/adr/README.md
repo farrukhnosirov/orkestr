@@ -52,6 +52,7 @@ summarises them: **Built** = implemented as decided (with listed deviations),
 | [0042](0042-infrastructure-monitor-and-bug-detective.md) | Infrastructure monitor (metrics, checks, logs, alerts) and the Bug Detective workflow with two human gates | Accepted | 7 | — | — | Implemented (Phase 7; see the ADR's "as built" notes) |
 | [0048](0048-updates-and-installer.md) | App updates (signed, remote or local channel, backups, downgrade guard) and the Windows installer (per-user NSIS + MSI, in-place upgrades) | Accepted | W8 | — | — | Implemented (wave 8, task 9) |
 | [0035](0035-computer-control.md) | Computer Control: personal computer assistant (`orkestr-computer`, Windows backend, 1035-command catalogue, user sets, AI plans, confirmations, Assistant mode) | Accepted | Wave 8 | — | — | Implemented (Wave 8; macOS/Linux backends `Unsupported`) |
+| [0046](0046-switchable-speech-engines.md) | Switchable STT/TTS engines (whisper.cpp, Vosk, sherpa-onnx, Windows speech, Piper, Silero, cloud services), voice model manager, engine keys in the secret vault | Accepted | Wave 8 | — | — | Implemented (wave 8) |
 
 ## Planned ADRs (to be written when their phase starts)
 
@@ -76,6 +77,7 @@ summarises them: **Built** = implemented as decided (with listed deviations),
 | [ADR-0041](0041-environments-and-deployment-adapters.md) | Environments & deployment adapters (§26) — Implemented (Phase 7) | 7 |
 | [ADR-0042](0042-infrastructure-monitor-and-bug-detective.md) | Infrastructure monitor & Bug Detective (§27) — Implemented (Phase 7) | 7 |
 | [ADR-0048](0048-updates-and-installer.md) | Updates & installer — Implemented (wave 8) | W8 |
+| [ADR-0046](0046-switchable-speech-engines.md) | Switchable speech engines + voice model manager (§33) — Implemented (wave 8) | 8 |
 
 ## Decision map
 
@@ -115,6 +117,7 @@ flowchart TB
   A4 --> A48[0048 Updates + installer]
   A10 --> A35[0035 Computer control]
   A17 --> A35
+  A17 --> A46[0046 Switchable speech engines]
   A18 --> A22[0022 Crash recovery]
   A20[0020 UUID v7] --> A18
 ```
