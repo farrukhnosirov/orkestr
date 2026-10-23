@@ -59,6 +59,20 @@ body {
   isolation: isolate;
 }
 
+/* Assistant mode (ADR-0035): the assistant panel is the main surface; the
+   workspace stays mounted but takes no space. */
+.app__body--hidden {
+  display: none;
+}
+
+.app__assistant {
+  position: relative;
+  z-index: 0;
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
 .app__main {
   position: relative;
   flex: 1;

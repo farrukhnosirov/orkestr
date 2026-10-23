@@ -54,6 +54,8 @@ orkestr-monitor = { path = "crates/monitor" }
 orkestr-detective = { path = "crates/detective" }
 # Wave 8: app updates (ADR-0048)
 orkestr-updater = { path = "crates/updater" }
+# Wave 8: computer assistant (ADR-0035)
+orkestr-computer = { path = "crates/computer" }
 
 # --- async ---------------------------------------------------------------------
 tokio = { version = "1.47", features = ["full"] }

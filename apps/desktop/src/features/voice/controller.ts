@@ -25,6 +25,8 @@ import type { MicCapture } from "./audio/mic";
 import { type Intent, intentId, needsConfirmation, parseConfirmation, parseIntent } from "./intent/parser";
 import { realVoiceDeps } from "./pipeline/deps";
 import { bindApproval, type CommandResult, confirmationPrompt, executeIntent, precheck, type VoiceDeps } from "./pipeline/executor";
+import { assistantResult } from "../assistant/voiceResult";
+import { routeUtterance } from "../assistant/voiceRoute";
 import { isBusy, type MachineEvent, nextPhase } from "./pipeline/machine";
 import { speakable } from "./pipeline/summary";
 import { type MicPurpose, useVoiceStore } from "./store";
@@ -406,6 +408,13 @@ async function handleText(text: string, source: VoiceCommandSource): Promise<voi
   }
   // Approve/reject are bound to the approval read out in the prompt (exact id).
   const intent = bindApproval(parseIntent(text, await intentContext()), getDeps());
+  // Computer assistant (ADR-0035): computer commands, its confirmations and AI plans.
+  const viaAssistant = await routeUtterance(text, intent, wakePhrases()).catch(() => null);
+  if (viaAssistant) {
+    finish(intent, assistantResult(viaAssistant), source);
+    for (const extra of viaAssistant.speak) void say(extra);
+    return;
+  }
   const pre = precheck(intent, getDeps());
   if (pre) {
     finish(intent, pre, source);
@@ -450,7 +459,8 @@ function finish(intent: Intent, r: CommandResult, source: VoiceCommandSource): v
   scheduleDismiss(r.managerReply ? 60_000 : 9000);
 }
 
-async function say(text: string): Promise<void> {
+/** Speaks a reply with the active TTS engine (when spoken replies are on). */
+export async function say(text: string): Promise<void> {
   const c = useVoiceStore.getState().config;
   const opts = assistantOptions();
   if (!c?.spokenReplies || !opts) return;

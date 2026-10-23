@@ -3672,6 +3672,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "orkestr-computer"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "directories",
+ "orkestr-domain",
+ "orkestr-events",
+ "orkestr-protocol",
+ "orkestr-security",
+ "orkestr-storage",
+ "parking_lot",
+ "serde",
+ "serde_json",
+ "sysinfo",
+ "tempfile",
+ "thiserror 2.0.21",
+ "tokio",
+ "tokio-util",
+ "tracing",
+ "uuid",
+ "windows 0.61.3",
+]
+
+[[package]]
 name = "orkestr-context"
 version = "0.1.0"
 dependencies = [
@@ -3704,6 +3729,7 @@ dependencies = [
  "hkdf",
  "hmac",
  "orkestr-agent-runtime",
+ "orkestr-computer",
  "orkestr-context",
  "orkestr-cost",
  "orkestr-deploy",

@@ -219,6 +219,8 @@
     "IncidentStageChanged_one": "{{count}} incident stage change",
     "IncidentStageChanged_other": "{{count}} incident stage changes",
     "DashboardChanged_one": "{{count}} dashboard change",
-    "DashboardChanged_other": "{{count}} dashboard changes"
+    "DashboardChanged_other": "{{count}} dashboard changes",
+    "ComputerCommand_one": "{{count}} assistant command",
+    "ComputerCommand_other": "{{count}} assistant commands"
   }
 }

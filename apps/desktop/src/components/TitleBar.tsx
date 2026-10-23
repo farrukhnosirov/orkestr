@@ -2,6 +2,8 @@ import { Kbd } from "@orkestr/ui";
 import { Copy, Minus, PictureInPicture2, Search, Settings, Square, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { ModeToggle } from "../features/assistant/ModeToggle";
+import { useAssistantStore } from "../features/assistant/store";
 import { LayoutSwitcher } from "../features/layout/LayoutSwitcher";
 import { hudControls } from "../features/hud/hudWindow";
 import { NotificationBell } from "../features/notifications/NotificationCenter";
@@ -23,6 +25,8 @@ export function TitleBar() {
   const openSettings = useSettingsStore((s) => s.openSettings);
   const [maximized, setMaximized] = useState(false);
   const native = isTauri();
+  // Assistant mode (ADR-0035): compact bar — brand, mode switch, stop, window controls.
+  const compact = useAssistantStore((s) => s.mode === "assistant");
   const { t } = useT("shell");
   const { t: tHud } = useT("hud");
 
@@ -46,7 +50,7 @@ export function TitleBar() {
         <span className="titlebar__wordmark" data-tauri-drag-region>
           Orkestr
         </span>
-        {project && (
+        {project && !compact && (
           <>
             <span className="titlebar__sep" data-tauri-drag-region>
               /
@@ -61,39 +65,43 @@ export function TitleBar() {
         )}
       </div>
 
-      {/* VS Code-style File menu (project & file management). */}
-      <FileMenu />
+      <ModeToggle />
 
-      <button
-        type="button"
-        className="titlebar__search"
-        aria-label={t("titleBar.search")}
-        title={t("titleBar.search")}
-        onClick={() => setPaletteOpen(true)}
-      >
-        <Search size={14} />
-        <span>{t("titleBar.search")}</span>
-        <span className="titlebar__search-keys">
-          <Kbd>Ctrl</Kbd>
-          <Kbd>K</Kbd>
-        </span>
-      </button>
+      {/* VS Code-style File menu (project & file management). */}
+      {!compact && <FileMenu />}
+
+      {!compact && (
+        <button
+          type="button"
+          className="titlebar__search"
+          aria-label={t("titleBar.search")}
+          title={t("titleBar.search")}
+          onClick={() => setPaletteOpen(true)}
+        >
+          <Search size={14} />
+          <span>{t("titleBar.search")}</span>
+          <span className="titlebar__search-keys">
+            <Kbd>Ctrl</Kbd>
+            <Kbd>K</Kbd>
+          </span>
+        </button>
+      )}
 
       {/* layout-multimonitor (Phase 3): layout presets / editor */}
-      <LayoutSwitcher />
+      {!compact && <LayoutSwitcher />}
 
       <div className="titlebar__spacer" data-tauri-drag-region />
 
       <div className="sec-titlebar-group">
-        <ApprovalsBadge />
+        {!compact && <ApprovalsBadge />}
         <EmergencyStopButton />
       </div>
 
       <div className="titlebar__controls">
         <UpdateBadge />
         <MicIndicator />
-        <NotificationBell />
-        {native && (
+        {!compact && <NotificationBell />}
+        {native && !compact && (
           <button
             type="button"
             className="titlebar__ctl titlebar__hud"
@@ -114,14 +122,16 @@ export function TitleBar() {
           <button type="button" className="titlebar__ctl" aria-label={t("titleBar.minimize")} onClick={() => void windowControls.minimize()}>
             <Minus size={15} />
           </button>
-          <button
-            type="button"
-            className="titlebar__ctl"
-            aria-label={maximized ? t("titleBar.restore") : t("titleBar.maximize")}
-            onClick={() => void windowControls.toggleMaximize()}
-          >
-            {maximized ? <Copy size={13} style={{ transform: "scaleX(-1)" }} /> : <Square size={12} />}
-          </button>
+          {!compact && (
+            <button
+              type="button"
+              className="titlebar__ctl"
+              aria-label={maximized ? t("titleBar.restore") : t("titleBar.maximize")}
+              onClick={() => void windowControls.toggleMaximize()}
+            >
+              {maximized ? <Copy size={13} style={{ transform: "scaleX(-1)" }} /> : <Square size={12} />}
+            </button>
+          )}
           <button
             type="button"
             className="titlebar__ctl titlebar__ctl--close"

@@ -119,5 +119,6 @@
   "alertResolved": "Alert resolved: {{title}}",
   "incidentOpened": "Incident opened: {{title}}",
   "incidentStageChanged": "Incident {{id}}: {{stage}}",
-  "dashboardChanged": "Dashboard {{id}} changed"
+  "dashboardChanged": "Dashboard {{id}} changed",
+  "computerCommand": "Assistant: {{title}} — {{outcome}}"
 }

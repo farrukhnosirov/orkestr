@@ -1,0 +1,22 @@
+{
+  "_comment": "Known folders: opened through shell: URIs (no hard-coded paths). `path` is also accepted by FileCreate / FolderCreate / FileMove as a root.",
+  "folders": [
+    { "key": "downloads", "shell": "shell:Downloads", "en": ["downloads"], "ru": ["загрузки"] },
+    { "key": "documents", "shell": "shell:Personal", "en": ["documents", "my documents"], "ru": ["документы", "мои документы"] },
+    { "key": "desktop", "shell": "shell:Desktop", "en": ["desktop folder"], "ru": ["папку рабочий стол"] },
+    { "key": "pictures", "shell": "shell:My Pictures", "en": ["pictures", "images folder"], "ru": ["изображения", "картинки папку"] },
+    { "key": "screenshots", "shell": "shell:Screenshots", "en": ["screenshots folder", "screenshots"], "ru": ["папку скриншотов", "снимки экрана"] },
+    { "key": "music", "shell": "shell:My Music", "en": ["music folder"], "ru": ["папку музыка", "музыку папку"] },
+    { "key": "videos", "shell": "shell:My Video", "en": ["videos", "video folder"], "ru": ["видео", "папку видео"] },
+    { "key": "home", "shell": "shell:UsersFilesFolder", "en": ["home folder", "user folder"], "ru": ["домашнюю папку", "папку пользователя"] },
+    { "key": "thispc", "shell": "shell:MyComputerFolder", "en": ["this pc", "my computer"], "ru": ["этот компьютер", "мой компьютер"] },
+    { "key": "recyclebin", "shell": "shell:RecycleBinFolder", "en": ["recycle bin", "trash"], "ru": ["корзину"] },
+    { "key": "network", "shell": "shell:NetworkPlacesFolder", "en": ["network folder"], "ru": ["сетевое окружение"] },
+    { "key": "appdata", "shell": "shell:AppData", "en": ["appdata", "app data"], "ru": ["аппдату", "папку appdata"] },
+    { "key": "startup", "shell": "shell:Startup", "en": ["startup folder"], "ru": ["папку автозагрузки"] },
+    { "key": "fonts", "shell": "shell:Fonts", "en": ["fonts folder"], "ru": ["папку шрифтов"] },
+    { "key": "programfiles", "shell": "shell:ProgramFiles", "en": ["program files"], "ru": ["программ файлс", "папку программ"] },
+    { "key": "onedrivefolder", "shell": "shell:OneDrive", "en": ["onedrive"], "ru": ["ванедрайв", "уандрайв"] },
+    { "key": "temp", "shell": "%TEMP%", "en": ["temp folder"], "ru": ["временную папку", "папку темп"] }
+  ]
+}
