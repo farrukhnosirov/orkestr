@@ -189,8 +189,9 @@ async function projectStatus(project: ProjectRef, deps: VoiceDeps): Promise<Comm
   const facts = projectFacts(tasks, agents, approvals, new Date(), quality);
   const parts = summaryParts(facts);
   const urgent = parts.some((p) => p.id === "failed" || p.id === "buildFailed" || p.id === "testsFailed" || p.id === "approvals");
-  // Name the project only when it matters: several projects, or it was asked about by name.
-  const mention = project.via === "spoken" || (deps.projectCount?.() ?? 1) > 1 ? humanProjectName(project.name) : null;
+  // Name the project only when the user asked about it by name; otherwise the
+  // active project is implied and saying its slug sounds robotic.
+  const mention = project.via === "spoken" ? humanProjectName(project.name) : null;
   const template = naturalStatus(facts, { project: mention });
   const reply = await phraseNaturally(deps.phrase, factsForModel(facts, mention), template);
   const r = result("ok", reply, urgent ? "warn" : "info", project.id);

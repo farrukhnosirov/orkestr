@@ -21,7 +21,7 @@ export function humanProjectName(name: string): string {
   return name.replace(/[_]+/g, " ").replace(/\s+/g, " ").trim();
 }
 
-function lowerFirst(s: string): string {
+export function lowerFirst(s: string): string {
   return s ? s.charAt(0).toLocaleLowerCase() + s.slice(1) : s;
 }
 
@@ -120,7 +120,7 @@ export function factsForModel(f: ProjectFacts, project: string | null): string {
 }
 
 /** Time limit for AI phrasing before the template is used. */
-export const PHRASE_TIMEOUT_MS = 2500;
+export const PHRASE_TIMEOUT_MS = 5000;
 
 /**
  * AI phrasing with a strict time limit; the template `fallback` on any

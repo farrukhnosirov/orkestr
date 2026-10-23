@@ -182,7 +182,7 @@
     "quietFrom": "Quiet from",
     "quietTo": "Quiet until",
     "criticalNote": "A budget overrun is announced even in Do Not Disturb and quiet hours.",
-    "withProject": "{{project}}: {{phrase}}",
+    "withProject": "In {{project}}, {{phrase}}",
     "phrases": {
       "taskCompleted": "Task completed.",
       "taskFailed": "A task failed.",

@@ -19,6 +19,7 @@ import { assistantOptions, robotVoiceFor, speakAsAgent } from "./agentVoices";
 import { installVoiceDebugHook, shutdownVoice, startListening, stopListening, syncWakeListener } from "./controller";
 import { isHoldEnd, isHoldStart, parseHotkey, yieldsToEditor } from "./hotkey";
 import { noticeFromEvent, phraseId, PhraseLimiter, speakDecision } from "./notify/policy";
+import { humanProjectName, lowerFirst } from "./pipeline/natural";
 import { useVoiceStore } from "./store";
 import { startVoiceBroadcast } from "./ui/voiceBridge";
 
@@ -48,8 +49,11 @@ function announce(ev: Event): void {
   if (v.phase !== "idle" || v.speaking) return;
   if (!limiter.admit(n.id, Date.now())) return;
   const phrase = t(`voice:notify.phrases.${phraseId(n)}`, { percent: n.vars.percent ?? 0 });
-  const project = n.projectId ? useAppStore.getState().projects.find((p) => p.id === n.projectId)?.name : undefined;
-  const text = project ? t("voice:notify.withProject", { project, phrase }) : phrase;
+  // Name the project only when there are several (otherwise it is implied),
+  // as a natural sentence rather than a "slug: phrase" prefix.
+  const projects = useAppStore.getState().projects;
+  const project = n.projectId && projects.length > 1 ? projects.find((p) => p.id === n.projectId)?.name : undefined;
+  const text = project ? t("voice:notify.withProject", { project: humanProjectName(project), phrase: lowerFirst(phrase) }) : phrase;
   void speakAsAgent(n.agentId, text);
 }
 

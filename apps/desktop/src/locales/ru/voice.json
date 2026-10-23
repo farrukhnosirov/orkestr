@@ -216,7 +216,7 @@
     "quietFrom": "Тихие часы с",
     "quietTo": "Тихие часы до",
     "criticalNote": "О превышении бюджета сообщается даже в режиме «Не беспокоить» и в тихие часы.",
-    "withProject": "{{project}}: {{phrase}}",
+    "withProject": "В проекте «{{project}}» {{phrase}}",
     "phrases": {
       "taskCompleted": "Задача выполнена.",
       "taskFailed": "Сбой задачи.",
