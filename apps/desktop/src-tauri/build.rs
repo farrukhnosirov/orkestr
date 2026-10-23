@@ -10,6 +10,14 @@ fn main() {
         println!("cargo:rerun-if-changed={}", manifest.display());
         println!("cargo:rustc-link-arg-tests=/MANIFEST:EMBED");
         println!("cargo:rustc-link-arg-tests=/MANIFESTINPUT:{}", manifest.display());
+        // The lib's unit-test binary gets no `-tests` link args (Cargo applies
+        // them to `tests/*` only) and so no manifest: delay-load comctl32, so
+        // `TaskDialogIndirect` (Common Controls v6 only) is resolved on first
+        // use instead of failing the process start with
+        // STATUS_ENTRYPOINT_NOT_FOUND. The app binary keeps its manifest from
+        // tauri-build, so v6 is what loads when a dialog is shown.
+        println!("cargo:rustc-link-arg=/DELAYLOAD:comctl32.dll");
+        println!("cargo:rustc-link-arg=delayimp.lib");
     }
     // Declaring the app commands scopes them by capability: orb, HUD and
     // panel windows may call only the commands their capability grants

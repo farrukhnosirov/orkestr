@@ -101,6 +101,7 @@ const child = spawn(exe, [], {
   env: {
     ...process.env,
     ORKESTR_HOME: home,
+    CODEX_HOME: join(base, "codex-home"), // never the real ChatGPT account
     ORKESTR_SECRET_BACKEND: "vault-file",
     ORKESTR_ALLOW_SECOND_INSTANCE: "1",
     WEBVIEW2_USER_DATA_FOLDER: join(base, "webview2"),
@@ -257,6 +258,31 @@ const clickText = (cdp, selector, text) =>
     return true;
   })()`);
 
+/** The main window's DevTools target (not the orb, HUD or a detached panel:
+ *  the orb's target can be listed before its `#/orb` URL commits, so the
+ *  Tauri window label is checked in the page itself). */
+async function findMainTarget(port) {
+  const list = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
+  for (const t of list.filter((t) => t.type === "page" && !t.url.startsWith("devtools") && !t.url.includes("#/"))) {
+    const c = new Cdp(t.webSocketDebuggerUrl);
+    try {
+      await c.open();
+      // Tauri's own window label is authoritative (the URL hash may not be set yet).
+      const label = await c.eval("window.__TAURI_INTERNALS__?.metadata?.currentWindow?.label ?? null");
+      if (label === "main") return t;
+    } catch {
+      /* not ready */
+    } finally {
+      try {
+        c.ws.close();
+      } catch {
+        /* closed */
+      }
+    }
+  }
+  return null;
+}
+
 let exitCode = 0;
 let rpc = null;
 try {
@@ -281,10 +307,7 @@ try {
   check("V2", "theme, language-server and webview extensions installed from Open VSX", want.every((w) => list.includes(w)), list.join(", "));
 
   // DevTools target of the main window.
-  const target = await waitFor(async () => {
-    const r = await fetch(`http://127.0.0.1:${cdpPort}/json`);
-    return (await r.json()).find((x) => x.type === "page" && x.url.includes("tauri.localhost") && !x.url.includes("#/panel"));
-  }, 60_000, "devtools target");
+  const target = await waitFor(() => findMainTarget(cdpPort), 60_000, "devtools target");
   const cdp = new Cdp(target.webSocketDebuggerUrl);
   await cdp.open();
   await waitFor(() => cdp.eval(`!!document.querySelector('[role="tab"]')`), 60_000, "workspace");
