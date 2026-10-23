@@ -31,6 +31,7 @@ mod hud;
 pub mod stop_all;
 pub mod updates;
 pub mod vscode_window;
+mod webview_policy;
 mod widget_scheme;
 pub mod windows;
 
@@ -426,6 +427,8 @@ pub fn run() {
         // Installs verified updates (ADR-0048). Its own commands are not granted
         // to any window: the UI goes through the `updates_*` shell commands.
         .plugin(tauri_plugin_updater::Builder::new().build())
+        // Orkestr's own context menu replaces the WebView2 one in every app window.
+        .plugin(webview_policy::plugin())
         .manage(CoreState { ready: ready_rx, handle: Arc::clone(&handle_slot) })
         .manage(ShellState {
             close_to_tray: AtomicBool::new(true),

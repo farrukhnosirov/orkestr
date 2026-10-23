@@ -1,6 +1,9 @@
 import type { Task } from "@orkestr/protocol";
 import { clsx } from "clsx";
-import { ArrowDown, ArrowUp, GitFork } from "lucide-react";
+import { ArrowDown, ArrowUp, Copy, GitFork, Sparkles, SquareArrowOutUpRight } from "lucide-react";
+
+import { contextMenuHandler, type MenuEntry, writeClipboardText } from "../../features/contextMenu";
+import { askManager } from "../../features/files/actions";
 
 import { useFormat, useT } from "../../i18n";
 import { taskTag } from "../../lib/coreText";
@@ -15,8 +18,19 @@ const COLUMNS: { key: SortKey; label: "task" | "status" | "priority" | "updated"
   { key: "updatedAt", label: "updated", className: "tasks-col--updated" },
 ];
 
+/** Context menu of a task row (exported for tests). */
+export function taskRowMenu(task: Task, t: (key: string) => string, select: (id: string) => void): MenuEntry[] {
+  return [
+    { id: "task.open", label: t("contextMenu:common.open"), icon: <SquareArrowOutUpRight size={14} />, shortcut: "Enter", onSelect: () => select(task.id) },
+    { id: "task.ask", label: t("contextMenu:tasks.askManager"), icon: <Sparkles size={14} />, onSelect: () => askManager({ text: task.title, projectId: task.projectId }) },
+    { kind: "separator", id: "task.s1" },
+    { id: "task.copyTitle", label: t("contextMenu:common.copyTitle"), icon: <Copy size={14} />, onSelect: () => void writeClipboardText(task.title) },
+    { id: "task.copyId", label: t("contextMenu:common.copyId"), icon: <Copy size={14} />, onSelect: () => void writeClipboardText(task.id) },
+  ];
+}
+
 export function ListView({ tasks, readyIds }: { tasks: Task[]; readyIds: ReadonlySet<string> }) {
-  const { t } = useT("tasks");
+  const { t } = useT(["tasks", "contextMenu"]);
   const fmt = useFormat();
   const sortKey = useTasksUi((s) => s.sortKey);
   const sortDir = useTasksUi((s) => s.sortDir);
@@ -56,6 +70,10 @@ export function ListView({ tasks, readyIds }: { tasks: Task[]; readyIds: Readonl
               tabIndex={0}
               aria-selected={selected === task.id}
               onClick={() => select(task.id)}
+              onContextMenu={contextMenuHandler(() => {
+                select(task.id);
+                return taskRowMenu(task, t as (key: string) => string, select);
+              })}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();

@@ -1,0 +1,60 @@
+{
+  "menu": {
+    "label": "Context menu"
+  },
+  "edit": {
+    "undo": "Undo",
+    "redo": "Redo",
+    "cut": "Cut",
+    "copy": "Copy",
+    "paste": "Paste",
+    "pastePlain": "Paste as plain text",
+    "selectAll": "Select all"
+  },
+  "selection": {
+    "copy": "Copy",
+    "search": "Search Orkestr for “{{text}}”",
+    "askManager": "Ask Manager about selection"
+  },
+  "link": {
+    "open": "Open link",
+    "copy": "Copy link address"
+  },
+  "image": {
+    "copy": "Copy image",
+    "save": "Save image as…"
+  },
+  "terminal": {
+    "copy": "Copy",
+    "paste": "Paste",
+    "clear": "Clear terminal",
+    "selectAll": "Select all"
+  },
+  "common": {
+    "open": "Open",
+    "copyId": "Copy ID",
+    "copyName": "Copy name",
+    "copyTitle": "Copy title",
+    "copyBranch": "Copy branch name",
+    "copyPath": "Copy path"
+  },
+  "agents": {
+    "pause": "Pause agent",
+    "resume": "Resume agent",
+    "stop": "Stop agent"
+  },
+  "tasks": {
+    "askManager": "Ask Manager about this task"
+  },
+  "plugins": {
+    "copyPackageId": "Copy package ID"
+  },
+  "editor": {
+    "goToDefinition": "Go to Definition",
+    "goToReferences": "Go to References",
+    "renameSymbol": "Rename Symbol",
+    "changeAll": "Change All Occurrences",
+    "formatDocument": "Format Document",
+    "commandPalette": "Command Palette"
+  }
+}

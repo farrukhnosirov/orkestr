@@ -23,6 +23,14 @@ libloading = "0.7"
 
 [target.'cfg(windows)'.dependencies]
 windows-sys.workspace = true
+# WebView2 settings of the desktop shell's windows (feature `webview2`; same
+# versions as Tauri's wry, so nothing new is compiled into the desktop app).
+webview2-com = { version = "0.39", optional = true }
+windows-core = { version = "0.62", optional = true }
+
+[features]
+# Enables `webview_shell::webview2` (used by `orkestr-desktop` only).
+webview2 = ["dep:webview2-com", "dep:windows-core"]
 
 [dev-dependencies]
 tempfile.workspace = true

@@ -1,15 +1,64 @@
 import type { AgentInstance, Task } from "@orkestr/protocol";
 import { clsx } from "clsx";
-import { GitBranch } from "lucide-react";
+import { Copy, GitBranch, OctagonX, Pause, Play, SquareArrowOutUpRight } from "lucide-react";
+
+import { contextMenuHandler, type MenuEntry, writeClipboardText } from "../../features/contextMenu";
+import { agentActions, errorMessage } from "./data";
+import { isActive } from "./model";
 
 import { useLanguage, useT } from "../../i18n";
 import { elapsed, formatCost, formatTokens, tokenPluralCount } from "./model";
+
 import { RoleAvatar, StateChip } from "./parts";
 import { useAgentsUi } from "./store";
-import { agentActivity, agentName } from "../../lib/coreText";
+import { agentActivity, agentName, PAUSED_ACTIVITY } from "../../lib/coreText";
+
+/** Context menu of an agent row (exported for tests). */
+export function agentRowMenu(a: AgentInstance, t: (key: string, opts?: Record<string, unknown>) => string): MenuEntry[] {
+  const ui = useAgentsUi.getState();
+  const active = isActive(a.state);
+  const paused = a.state === "Waiting" && a.activity === PAUSED_ACTIVITY;
+  const act = (fn: () => Promise<AgentInstance>, done?: (x: AgentInstance) => void) => async () => {
+    try {
+      const r = await fn();
+      done?.(r);
+    } catch (e) {
+      ui.toast("danger", errorMessage(e));
+    }
+  };
+  return [
+    { id: "agent.open", label: t("contextMenu:common.open"), icon: <SquareArrowOutUpRight size={14} />, onSelect: () => ui.select(a.id) },
+    { kind: "separator", id: "agent.s1" },
+    {
+      id: "agent.pause",
+      label: t(paused ? "contextMenu:agents.resume" : "contextMenu:agents.pause"),
+      icon: paused ? <Play size={14} /> : <Pause size={14} />,
+      hidden: !active,
+      onSelect: act(() => (paused ? agentActions.resume(a.id) : agentActions.pause(a.id))),
+    },
+    {
+      id: "agent.stop",
+      label: t("contextMenu:agents.stop"),
+      icon: <OctagonX size={14} />,
+      danger: true,
+      hidden: !active,
+      onSelect: act(() => agentActions.stop(a.id), (r) => ui.toast("info", t("agents:stopped", { name: agentName(r.name) }))),
+    },
+    { kind: "separator", id: "agent.s2" },
+    { id: "agent.copyName", label: t("contextMenu:common.copyName"), icon: <Copy size={14} />, onSelect: () => void writeClipboardText(agentName(a.name)) },
+    { id: "agent.copyId", label: t("contextMenu:common.copyId"), icon: <Copy size={14} />, onSelect: () => void writeClipboardText(a.id) },
+    {
+      id: "agent.copyBranch",
+      label: t("contextMenu:common.copyBranch"),
+      icon: <GitBranch size={14} />,
+      hidden: !a.worktree?.branch,
+      onSelect: () => void writeClipboardText(a.worktree?.branch ?? ""),
+    },
+  ];
+}
 
 export function AgentList({ agents, tasks, now }: { agents: AgentInstance[]; tasks: Task[]; now: number }) {
-  const { t } = useT("agents");
+  const { t } = useT(["agents", "contextMenu"]);
   const lng = useLanguage();
   const selected = useAgentsUi((s) => s.selectedAgentId);
   const select = useAgentsUi((s) => s.select);
@@ -25,6 +74,7 @@ export function AgentList({ agents, tasks, now }: { agents: AgentInstance[]; tas
               className={clsx("agents-row", selected === a.id && "agents-row--selected")}
               aria-current={selected === a.id ? "true" : undefined}
               onClick={() => select(a.id)}
+              onContextMenu={contextMenuHandler(() => agentRowMenu(a, t as (key: string, opts?: Record<string, unknown>) => string))}
             >
               <RoleAvatar role={a.role} state={a.state} />
               <span className="agents-row__main">

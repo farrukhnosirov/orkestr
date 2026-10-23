@@ -50,3 +50,40 @@ The Project Desktop (§14) has 15 or more panels (Manager, Code, Files, Terminal
 ## Implementation notes (Phase 0 foundation, 2026-10-02)
 
 Implemented for the shell (`apps/desktop/src/components/Workspace.tsx`). **dockview 8 split its React bindings** into the `dockview-react` package; both `dockview` (framework-agnostic core) and `dockview-react` are installed. Theming uses a `DockviewTheme` object whose `className` must be a single class (`dockview-theme-nebula`), which re-declares the structural `--dv-*` variables. Panels come from `apps/desktop/src/panels/registry.ts` (15 panels) and the default layout is `CODING_PRESET`. The layout is persisted per webview in `localStorage` (dockview `toJSON`/`fromJSON`), not yet through the core (`ui.*`, ADR-0015); popouts are not implemented.
+
+## Addendum (Wave 8): Orkestr's own context menu
+
+**Decision.** Orkestr windows never show the WebView2 (Edge) context menu.
+
+* **Shell:** an internal plugin (`apps/desktop/src-tauri/src/webview_policy.rs`)
+  runs on every new web view except the VS Code window and calls
+  `orkestr_platform::webview_shell::webview2::apply_app_webview_policy`:
+  `AreDefaultContextMenusEnabled = false`, plus a `PermissionRequested`
+  handler that grants `clipboard-read` to the bundled UI origin only
+  (`http://tauri.localhost`, dev server) so the menu's *Paste* works without
+  an Edge prompt. Plugin widget frames (`orkestr-widget:`) are not granted.
+  Tauri does not expose the setting, so this is a WebView2 COM call
+  (`unsafe`, feature `webview2` of `orkestr-platform`); the one `#[cfg(windows)]`
+  outside the platform crate is the `controller()` access in `webview_policy.rs`.
+  We call the WebView2 API directly instead of adding a clipboard plugin
+  because that would mean new npm and cargo dependencies.
+* **UI:** `apps/desktop/src/features/contextMenu`: one menu per window
+  (`ContextMenuProvider` wraps every window root, including robot windows).
+  A window-level bubble listener cancels every unhandled `contextmenu` (the
+  fallback for other engines and for DevTools builds), builds the menu from
+  *contributions* (`useContextMenu(items)` / `contextMenuHandler(items)` /
+  `registerContextMenu(el, items)`, innermost first) plus default items
+  for text fields (Undo, Redo, Cut, Copy, Paste, Paste as plain text, Select all),
+  selected text (Copy, Search in Orkestr, Ask Manager about selection), links
+  and images. Components that draw their own menu call `preventDefault()`
+  and the listener leaves the event alone. Monaco's built-in menu is switched
+  off (`contextmenu: false`) and the Code panel contributes its own items
+  (Ask Manager/Claude, Go to Definition/References, Rename, Format, clipboard,
+  editor Command Palette) that run Monaco actions. Iframes (plugin widgets)
+  keep their own menus.
+* WAI-ARIA menu pattern (roles `menu`/`menuitem[checkbox|radio]`,
+  `aria-activedescendant`, arrows/Home/End/Enter/Esc/Tab, type-ahead in any
+  script, submenus with →/←). A menu opened on a text field leaves keyboard
+  focus in the field, so inline editors do not blur or commit.
+* Spelling suggestions are not offered: WebView2 gives them only to its own
+  menu.

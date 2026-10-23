@@ -1,0 +1,134 @@
+{
+  "date": "2026-10-22T23:18:38.826Z",
+  "result": "13/13 checks passed",
+  "checks": [
+    {
+      "id": "INPUT",
+      "label": "text field → Undo/Redo/Cut/Copy/Paste/Select all (en)",
+      "ok": true,
+      "detail": "{\"prevented\":true,\"orkestr\":[\"Undo\",\"Redo\",\"Cut\",\"Copy\",\"Paste\",\"Select all\",\"Search Orkestr for “Check the”\",\"Ask Manager about selection\"],\"monaco\":false}"
+    },
+    {
+      "id": "LIST",
+      "label": "file tree row → file menu (en)",
+      "ok": true,
+      "detail": "{\"prevented\":true,\"orkestr\":[\"Open\",\"New File…\",\"New Folder…\",\"Rename…\",\"Delete…\",\"Copy Path\",\"Copy Relative Path\",\"Reveal in File Explorer\",\"Open in External IDE\"],\"monaco\":false}"
+    },
+    {
+      "id": "EDITOR",
+      "label": "Monaco editor → Orkestr editor menu (Monaco's own menu off) (en)",
+      "ok": true,
+      "detail": "{\"prevented\":true,\"orkestr\":[\"Go to Definition\",\"Go to References\",\"Rename Symbol\",\"Change All Occurrences\",\"Format Document\",\"Cut\",\"Copy\",\"Paste\",\"Select all\",\"Command Palette\"],\"monaco\":false}"
+    },
+    {
+      "id": "TERMINAL",
+      "label": "terminal → Copy/Paste/Select all/Clear (en)",
+      "ok": true,
+      "detail": "{\"prevented\":true,\"orkestr\":[\"Copy\",\"Paste\",\"Select all\",\"Clear terminal\"],\"monaco\":false}"
+    },
+    {
+      "id": "TASKS",
+      "label": "task row → Open/Ask Manager/Copy (en)",
+      "ok": true,
+      "detail": "{\"prevented\":true,\"orkestr\":[\"Open\",\"Ask Manager about this task\",\"Copy title\",\"Copy ID\"],\"monaco\":false}"
+    },
+    {
+      "id": "SELECTION",
+      "label": "selected text → Copy/Search/Ask Manager (en)",
+      "ok": true,
+      "detail": "{\"prevented\":true,\"orkestr\":[\"Open\",\"Ask Manager about this task\",\"Copy title\",\"Copy ID\",\"Copy\",\"Search Orkestr for “Add login form validation”\",\"Ask Manager about selection\"],\"monaco\":false}"
+    },
+    {
+      "id": "INPUT",
+      "label": "text field → Undo/Redo/Cut/Copy/Paste/Select all (ru)",
+      "ok": true,
+      "detail": "{\"prevented\":true,\"orkestr\":[\"Отменить\",\"Повторить\",\"Вырезать\",\"Копировать\",\"Вставить\",\"Выделить всё\",\"Найти в Orkestr «Проверить»\",\"Спросить Менеджера о выделенном\"],\"monaco\":false}"
+    },
+    {
+      "id": "LIST",
+      "label": "file tree row → file menu (ru)",
+      "ok": true,
+      "detail": "{\"prevented\":true,\"orkestr\":[\"Открыть\",\"Создать файл…\",\"Создать папку…\",\"Переименовать…\",\"Удалить…\",\"Копировать путь\",\"Копировать относительный путь\",\"Показать в проводнике\",\"Открыть во внешней IDE\"],\"monaco\":false}"
+    },
+    {
+      "id": "EDITOR",
+      "label": "Monaco editor → Orkestr editor menu (Monaco's own menu off) (ru)",
+      "ok": true,
+      "detail": "{\"prevented\":true,\"orkestr\":[\"Перейти к определению\",\"Найти ссылки\",\"Переименовать символ\",\"Изменить все вхождения\",\"Форматировать документ\",\"Вырезать\",\"Копировать\",\"Вставить\",\"Выделить всё\",\"Палитра команд редактора\"],\"monaco\":false}"
+    },
+    {
+      "id": "TERMINAL",
+      "label": "terminal → Copy/Paste/Select all/Clear (ru)",
+      "ok": true,
+      "detail": "{\"prevented\":true,\"orkestr\":[\"Копировать\",\"Вставить\",\"Выделить всё\",\"Очистить терминал\"],\"monaco\":false}"
+    },
+    {
+      "id": "TASKS",
+      "label": "task row → Open/Ask Manager/Copy (ru)",
+      "ok": true,
+      "detail": "{\"prevented\":true,\"orkestr\":[\"Открыть\",\"Спросить Менеджера об этой задаче\",\"Копировать название\",\"Копировать ID\"],\"monaco\":false}"
+    },
+    {
+      "id": "SELECTION",
+      "label": "selected text → Copy/Search/Ask Manager (ru)",
+      "ok": true,
+      "detail": "{\"prevented\":true,\"orkestr\":[\"Открыть\",\"Спросить Менеджера об этой задаче\",\"Копировать название\",\"Копировать ID\",\"Копировать\",\"Найти в Orkestr «Add login form validation»\",\"Спросить Менеджера о выделенном\"],\"monaco\":false}"
+    },
+    {
+      "id": "POLICY",
+      "label": "WebView2 policy applied (AreDefaultContextMenusEnabled=false) without warnings",
+      "ok": true,
+      "detail": ""
+    }
+  ],
+  "screenshots": [
+    {
+      "name": "01-input-en.png",
+      "note": "text field → Undo/Redo/Cut/Copy/Paste/Select all (en)"
+    },
+    {
+      "name": "02-file-tree-en.png",
+      "note": "file tree row → file menu (en)"
+    },
+    {
+      "name": "03-editor-en.png",
+      "note": "Monaco editor → Orkestr editor menu (Monaco's own menu off) (en)"
+    },
+    {
+      "name": "04-terminal-en.png",
+      "note": "terminal → Copy/Paste/Select all/Clear (en)"
+    },
+    {
+      "name": "05-tasks-en.png",
+      "note": "task row → Open/Ask Manager/Copy (en)"
+    },
+    {
+      "name": "06-selection-en.png",
+      "note": "selected text → Copy/Search/Ask Manager (en)"
+    },
+    {
+      "name": "01-input-ru.png",
+      "note": "text field → Undo/Redo/Cut/Copy/Paste/Select all (ru)"
+    },
+    {
+      "name": "02-file-tree-ru.png",
+      "note": "file tree row → file menu (ru)"
+    },
+    {
+      "name": "03-editor-ru.png",
+      "note": "Monaco editor → Orkestr editor menu (Monaco's own menu off) (ru)"
+    },
+    {
+      "name": "04-terminal-ru.png",
+      "note": "terminal → Copy/Paste/Select all/Clear (ru)"
+    },
+    {
+      "name": "05-tasks-ru.png",
+      "note": "task row → Open/Ask Manager/Copy (ru)"
+    },
+    {
+      "name": "06-selection-ru.png",
+      "note": "selected text → Copy/Search/Ask Manager (ru)"
+    }
+  ]
+}

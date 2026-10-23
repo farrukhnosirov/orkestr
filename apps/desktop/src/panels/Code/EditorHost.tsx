@@ -3,7 +3,10 @@
  * the diff editor (last saved / disk version vs. the live model).
  */
 import type * as Monaco from "monaco-editor";
+import { ClipboardPaste, Copy, FileCode2, ListTree, PencilLine, Replace, Scissors, Sparkles, SquareTerminal, TextSelect, WandSparkles } from "lucide-react";
 import { useEffect, useRef } from "react";
+
+import { type MenuEntry, useContextMenu } from "../../features/contextMenu";
 
 import { toRanges } from "../../features/files/lineDiff";
 import { t, useLanguage } from "../../i18n";
@@ -45,6 +48,9 @@ function baseOptions(): Monaco.editor.IStandaloneEditorConstructionOptions {
     guides: { bracketPairs: "active", indentation: true },
     stickyScroll: { enabled: true },
     fixedOverflowWidgets: true,
+    // Monaco's built-in menu is replaced by Orkestr's (themed, localized):
+    // see `editorMenu` below.
+    contextmenu: false,
     glyphMargin: false,
     lineDecorationsWidth: 12,
     tabSize: 2,
@@ -83,6 +89,42 @@ function registerCommands(monaco: MonacoApi, editor: Monaco.editor.IStandaloneCo
       cb.current.onAskClaude(model.getValueInRange(sel), sel.startLineNumber, sel.endLineNumber);
     },
   });
+}
+
+/** Runs a Monaco action / command by id (no-op when unsupported for the model). */
+function runEditorAction(editor: Monaco.editor.IStandaloneCodeEditor, id: string): void {
+  editor.focus();
+  const action = editor.getAction(id);
+  if (action) void action.run();
+  else editor.trigger("contextmenu", id, null);
+}
+
+/** Orkestr context menu for the code editor (exported for tests). */
+export function editorMenu(editor: Monaco.editor.IStandaloneCodeEditor, cb: EditorCallbacks): MenuEntry[] {
+  const model = editor.getModel();
+  const sel = editor.getSelection();
+  const hasSel = !!model && !!sel && !sel.isEmpty();
+  const readOnly = editor.getRawOptions().readOnly === true;
+  const selected = () => (model && sel ? model.getValueInRange(sel) : "");
+  const run = (id: string) => () => runEditorAction(editor, id);
+  return [
+    { id: "ed.askManager", label: t("code:editor.askManager"), icon: <Sparkles size={14} />, hidden: !hasSel, onSelect: () => void (sel && cb.onAskManager(selected(), sel.startLineNumber, sel.endLineNumber)) },
+    { id: "ed.askClaude", label: t("code:editor.askClaude"), icon: <Sparkles size={14} />, hidden: !hasSel, onSelect: () => void (sel && cb.onAskClaude(selected(), sel.startLineNumber, sel.endLineNumber)) },
+    { kind: "separator", id: "ed.s0" },
+    { id: "ed.def", label: t("contextMenu:editor.goToDefinition"), icon: <FileCode2 size={14} />, shortcut: "F12", onSelect: run("editor.action.revealDefinition") },
+    { id: "ed.refs", label: t("contextMenu:editor.goToReferences"), icon: <ListTree size={14} />, shortcut: "Shift+F12", onSelect: run("editor.action.goToReferences") },
+    { kind: "separator", id: "ed.s1" },
+    { id: "ed.rename", label: t("contextMenu:editor.renameSymbol"), icon: <PencilLine size={14} />, shortcut: "F2", disabled: readOnly, onSelect: run("editor.action.rename") },
+    { id: "ed.changeAll", label: t("contextMenu:editor.changeAll"), icon: <Replace size={14} />, shortcut: "Ctrl+F2", disabled: readOnly, onSelect: run("editor.action.changeAll") },
+    { id: "ed.format", label: t("contextMenu:editor.formatDocument"), icon: <WandSparkles size={14} />, shortcut: "Shift+Alt+F", disabled: readOnly, onSelect: run("editor.action.formatDocument") },
+    { kind: "separator", id: "ed.s2" },
+    { id: "ed.cut", label: t("contextMenu:edit.cut"), icon: <Scissors size={14} />, shortcut: "Ctrl+X", disabled: readOnly || !hasSel, onSelect: run("editor.action.clipboardCutAction") },
+    { id: "ed.copy", label: t("contextMenu:edit.copy"), icon: <Copy size={14} />, shortcut: "Ctrl+C", disabled: !hasSel, onSelect: run("editor.action.clipboardCopyAction") },
+    { id: "ed.paste", label: t("contextMenu:edit.paste"), icon: <ClipboardPaste size={14} />, shortcut: "Ctrl+V", disabled: readOnly, onSelect: run("editor.action.clipboardPasteAction") },
+    { id: "ed.selectAll", label: t("contextMenu:edit.selectAll"), icon: <TextSelect size={14} />, shortcut: "Ctrl+A", onSelect: run("editor.action.selectAll") },
+    { kind: "separator", id: "ed.s3" },
+    { id: "ed.palette", label: t("contextMenu:editor.commandPalette"), icon: <SquareTerminal size={14} />, shortcut: "F1", onSelect: run("editor.action.quickCommand") },
+  ];
 }
 
 /** Code editor bound to the active document. */
@@ -194,7 +236,8 @@ export function CodeEditor({
     // `lng`: the gutter tooltip follows a live language switch.
   }, [agentLines, doc, monaco, lng]);
 
-  return <div className="code-editor" ref={el} />;
+  const menu = useContextMenu(() => (editorRef.current ? editorMenu(editorRef.current, cb.current) : []), { replaceDefaults: true });
+  return <div className="code-editor" ref={el} {...menu} />;
 }
 
 /** Diff editor: `original` text (left, read-only) vs the live model (right, editable). */
