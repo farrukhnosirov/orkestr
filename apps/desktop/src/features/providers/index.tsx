@@ -9,6 +9,8 @@ import type { AppCommand } from "../commands/registry";
 import type { SettingsSection, SettingsSectionProps } from "../settings/sections";
 import { useSettingsStore } from "../settings/settingsStore";
 import { ClaudeEngineCard } from "../claudeEngine/ClaudeEngineCard";
+import { CodexEngineCard } from "../engines/CodexEngineCard";
+import { EnginesCard } from "../engines/EnginesCard";
 import { ManagerSettings } from "./ManagerSettings";
 import { ProviderSetup } from "./ProviderSetup";
 import { checkHealth, loadProviders, useProvidersStore } from "./store";
@@ -25,6 +27,8 @@ function ProvidersSection(_props: SettingsSectionProps) {
     <div className="pv">
       <p className="pv__intro">{tr("intro")}</p>
       <ClaudeEngineCard onApplied={() => void loadProviders()} />
+      <CodexEngineCard />
+      <EnginesCard />
       <ProviderSetup />
     </div>
   );

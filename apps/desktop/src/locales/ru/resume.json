@@ -419,6 +419,18 @@
     "DashboardChanged_one": "{{count}} изменение дашборда",
     "DashboardChanged_few": "{{count}} изменения дашбордов",
     "DashboardChanged_many": "{{count}} изменений дашбордов",
-    "DashboardChanged_other": "{{count}} изменения дашбордов"
+    "DashboardChanged_other": "{{count}} изменения дашбордов",
+    "CodexEvent_one": "{{count}} сообщение чата Codex",
+    "CodexEvent_few": "{{count}} сообщения чата Codex",
+    "CodexEvent_many": "{{count}} сообщений чата Codex",
+    "CodexEvent_other": "{{count}} сообщения чата Codex",
+    "CodexStatus_one": "{{count}} смена состояния сеанса Codex",
+    "CodexStatus_few": "{{count}} смены состояния сеанса Codex",
+    "CodexStatus_many": "{{count}} смен состояния сеанса Codex",
+    "CodexStatus_other": "{{count}} смены состояния сеанса Codex",
+    "CodexAccount_one": "{{count}} изменение входа в Codex",
+    "CodexAccount_few": "{{count}} изменения входа в Codex",
+    "CodexAccount_many": "{{count}} изменений входа в Codex",
+    "CodexAccount_other": "{{count}} изменения входа в Codex"
   }
 }

@@ -193,6 +193,10 @@
       "title": "Claude Code",
       "description": "Чат с Claude Code (официальный CLI) о проекте, с разрешениями прямо в чате"
     },
+    "codex": {
+      "title": "Codex",
+      "description": "Чат с Codex (подписка ChatGPT, официальный CLI OpenAI) о проекте, с подтверждениями прямо в чате"
+    },
     "nodes": {
       "title": "Узлы",
       "description": "Подключённые компьютеры, удалённые задания и распространение моделей"

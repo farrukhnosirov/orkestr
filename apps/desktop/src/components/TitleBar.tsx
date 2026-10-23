@@ -2,6 +2,7 @@ import { Kbd } from "@orkestr/ui";
 import { Copy, Minus, PictureInPicture2, Search, Settings, Square, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { EnginesIndicator } from "../features/engines/EnginesIndicator";
 import { LayoutSwitcher } from "../features/layout/LayoutSwitcher";
 import { hudControls } from "../features/hud/hudWindow";
 import { NotificationBell } from "../features/notifications/NotificationCenter";
@@ -89,6 +90,8 @@ export function TitleBar() {
       </div>
 
       <div className="titlebar__controls">
+        {/* Claude / Codex subscription status (parallel engines) */}
+        <EnginesIndicator />
         <MicIndicator />
         <NotificationBell />
         {native && (

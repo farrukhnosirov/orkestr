@@ -374,6 +374,12 @@ export function describeEvent(event: Event): string {
       return t("events:claudeCodeEvent", { session: short(event.payload.sessionId), type: event.payload.event.type });
     case "ClaudeCodeStatus":
       return t("events:claudeCodeStatus", { session: short(event.payload.session.sessionId), state: event.payload.session.state });
+    case "CodexEvent":
+      return t("events:codexEvent", { session: short(event.payload.sessionId), type: event.payload.event.type });
+    case "CodexStatus":
+      return t("events:codexStatus", { session: short(event.payload.session.sessionId), state: event.payload.session.state });
+    case "CodexAccount":
+      return event.payload.loggedIn ? t("events:codexSignedIn") : t("events:codexSignedOut");
     case "RemoteSessionOpened":
       return t("events:remoteSessionOpened", { device: short(event.payload.deviceId) });
     case "RemoteSessionRevoked":

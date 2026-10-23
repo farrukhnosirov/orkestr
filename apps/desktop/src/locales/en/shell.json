@@ -189,6 +189,10 @@
       "title": "Claude Code",
       "description": "Chat with Claude Code (the official CLI) about the project, with inline permissions"
     },
+    "codex": {
+      "title": "Codex",
+      "description": "Chat with Codex (ChatGPT subscription, the official OpenAI CLI) about the project, with inline approvals"
+    },
     "nodes": {
       "title": "Nodes",
       "description": "Enrolled computers, remote jobs and model distribution"

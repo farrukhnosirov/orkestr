@@ -171,6 +171,9 @@ pub enum TemplateSource {
     /// A Claude Code sub-agent (built in or `.claude/agents/*.md`), run by
     /// the official CLI with `--agent`.
     ClaudeCode,
+    /// A Codex agent (built in, or the user's `~/.codex/prompts/*.md`),
+    /// run by the official Codex CLI (ADR-0047).
+    Codex,
 }
 
 /// Agent template (§6) — all fields from the spec.

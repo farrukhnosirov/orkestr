@@ -1450,6 +1450,63 @@ async fn claude_bridge_denies_forbidden_commands_and_files_outside_the_worktree(
     assert_eq!(status("Write"), vec![ToolCallStatus::Denied]);
 }
 
+/// ADR-0047: Codex approvals use the same bridge (forbidden command and a
+/// multi-file change leaving the worktree denied, a safe command allowed),
+/// writes need a write tool, and a Codex usage limit falls back to Claude Code.
+#[tokio::test]
+async fn codex_bridge_decides_approvals_and_falls_back_to_claude_on_its_usage_limit() {
+    let h = harness(ApprovalMode::FullAuto).await;
+    let tpl = h.template(&["write_file", "run_command", "submit_result"], WorktreePolicy::SharedWorktree, None).await;
+    let perm = |rid: &str, call: &str, tool: &str, input: serde_json::Value| {
+        orkestr_providers::CodingAgentEvent::PermissionRequest {
+            request_id: rid.into(),
+            tool: tool.into(),
+            tool_use_id: Some(call.into()),
+            input,
+            description: None,
+            blocked_path: None,
+        }
+    };
+    let inside = h.root.join("src").join("a.rs").to_string_lossy().into_owned();
+    let outside = h.root.parent().unwrap().join("elsewhere.txt").to_string_lossy().into_owned();
+    let codex = h.cli(
+        ProviderKind::Codex,
+        Vec::new(),
+        vec![
+            perm("r1", "c1", "Bash", json!({"command": "rm -rf /"})),
+            perm("r2", "f1", "Edit", json!({"file_path": inside, "paths": [inside, outside]})),
+            perm("r3", "c3", "Bash", json!({"command": "cargo test"})),
+            orkestr_providers::CodingAgentEvent::Chat(ChatEvent::Error(ProviderError::QuotaExceeded(
+                "You've hit your usage limit".into(),
+            ))),
+        ],
+    );
+    let claude = h.cli(
+        ProviderKind::ClaudeCode,
+        Vec::new(),
+        vec![
+            cli_text("Done.\n```json\n{\"status\": \"done\", \"summary\": \"finished on Claude\"}\n```\n"),
+            cli_done(),
+        ],
+    );
+    *h.gateway.chain.lock() = vec![
+        ModelRef { provider_id: codex.id, model: "default".into() },
+        ModelRef { provider_id: claude.id, model: "sonnet".into() },
+    ];
+    let a = h.wait_done(h.spawn(tpl, None).await.id).await;
+    assert_eq!(a.state, AgentState::Completed, "{:?}", a.last_error);
+    assert_eq!(a.model.as_ref().map(|m| m.provider_id), Some(claude.id), "moved to Claude Code");
+    let req = codex.requests.lock()[0].clone();
+    assert!(req.tool_policy.allow_writes, "a template with write tools gets the workspace-write sandbox");
+    assert!(req.subagent.is_none());
+    let mut rx = req.permission_bridge.unwrap().take().expect("receiver left");
+    assert!(!rx.try_recv().unwrap().allow, "forbidden command denied");
+    let r2 = rx.try_recv().unwrap();
+    assert!(!r2.allow && r2.message.unwrap_or_default().contains("worktree"), "a path outside the worktree is denied");
+    assert!(rx.try_recv().unwrap().allow, "a safe command is allowed in Full Auto");
+    assert!(claude.requests.lock()[0].prompt.contains("usage limit"), "structured handoff");
+}
+
 #[tokio::test]
 async fn cli_dangerous_command_stops_the_run_and_is_audited() {
     let h = harness(ApprovalMode::FullAuto).await;
@@ -1460,19 +1517,22 @@ async fn cli_dangerous_command_stops_the_run_and_is_audited() {
         vec![
             orkestr_providers::CodingAgentEvent::ToolStarted {
                 call_id: "c1".into(),
-                tool: "command_execution".into(),
+                tool: "Bash".into(),
                 summary: "git push --force origin main".into(),
             },
+            // Codex (ADR-0047) is bridged: a command it ran without asking
+            // is classified when it finishes and stops the run.
+            orkestr_providers::CodingAgentEvent::ToolFinished { call_id: "c1".into(), ok: true, summary: "ok".into() },
             cli_text("pushed\n```json\n{\"status\": \"done\", \"summary\": \"pushed\"}\n```\n"),
             cli_done(),
         ],
     );
     let a = h.wait_done(h.spawn(tpl, None).await.id).await;
     assert_eq!(a.state, AgentState::Error, "{:?}", a.last_error);
-    assert!(a.last_error.as_deref().unwrap_or_default().contains("dangerous"), "{:?}", a.last_error);
+    assert!(a.last_error.as_deref().unwrap_or_default().contains("without asking"), "{:?}", a.last_error);
     assert_eq!(h.task_status(&a).await, TaskStatus::Failed);
     let tr = h.rt.transcript(a.id, None).await.unwrap();
-    let call = tr.tool_calls.iter().find(|c| c.tool_call.tool == "command_execution").unwrap();
+    let call = tr.tool_calls.iter().find(|c| c.tool_call.tool == "Bash").unwrap();
     assert_eq!(call.tool_call.status, ToolCallStatus::Denied);
     let audit = h
         .sec
@@ -1481,7 +1541,7 @@ async fn cli_dangerous_command_stops_the_run_and_is_audited() {
         .await
         .unwrap()
         .into_iter()
-        .any(|r| r.event.action == "agent.cliDangerousCommand");
+        .any(|r| r.event.action == "agent.cliPostHocViolation");
     assert!(audit, "the dangerous CLI command was audited");
 }
 

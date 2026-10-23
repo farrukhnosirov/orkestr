@@ -1,0 +1,279 @@
+{
+  "commands": {
+    "group": "Codex",
+    "open": "Codex: открыть чат",
+    "newChat": "Codex: новый чат",
+    "interrupt": "Codex: прервать"
+  },
+  "hero": {
+    "description": "Codex — агент для программирования от OpenAI. Orkestr запускает официальный CLI Codex с вашей подпиской ChatGPT — параллельно с Claude Code.",
+    "version": "CLI Codex {{version}}",
+    "source": {
+      "override": "заданный путь",
+      "orkestr": "установлен Orkestr",
+      "path": "найден в PATH"
+    }
+  },
+  "install": {
+    "title": "Установите CLI Codex",
+    "description": "Официальный CLI Codex (пакет npm @openai/codex) устанавливается в папку инструментов Orkestr. Больше ничего на компьютере не меняется.",
+    "noNpm": "npm не найден. Установите Node.js (npm входит в него) и проверьте снова.",
+    "button": "Установить CLI Codex",
+    "installing": "Установка…",
+    "wait": "Загрузка через npm — это может занять минуту.",
+    "failed": "Не удалось установить. Последние строки журнала npm:",
+    "done": "CLI Codex установлен.",
+    "update": "Обновить CLI Codex",
+    "updateTo": "Обновить до {{version}}",
+    "updating": "Обновление…"
+  },
+  "signIn": {
+    "title": "Войдите через ChatGPT",
+    "description": "Codex работает по вашему тарифу ChatGPT (Plus, Pro, Team…). Вход выполняет официальный CLI — Orkestr не видит ни пароль, ни токены.",
+    "button": "Войти через ChatGPT",
+    "deviceCode": "Войти по коду устройства",
+    "terminal": "Войти в терминале",
+    "terminalHint": "Завершите вход в терминале и проверьте снова.",
+    "waitingBrowser": "Ожидание входа в браузере…",
+    "openLink": "Открыть страницу входа",
+    "deviceStep1": "1. Откройте эту страницу на любом устройстве:",
+    "deviceStep2": "2. Введите одноразовый код:",
+    "deviceWaiting": "Ожидание подтверждения кода…",
+    "copy": "Копировать",
+    "copied": "Скопировано",
+    "cancel": "Отменить вход",
+    "failed": "Не удалось войти. Повторите попытку.",
+    "failedWith": "Не удалось войти: {{error}}"
+  },
+  "account": {
+    "signedIn": "Вход выполнен",
+    "plan": "Тариф: {{plan}}",
+    "apiKey": "Ключ API",
+    "signOut": "Выйти"
+  },
+  "actions": {
+    "checkAgain": "Проверить снова",
+    "newChat": "Новый чат",
+    "resume": "Продолжить чат",
+    "fork": "Ответвить чат"
+  },
+  "status": {
+    "checking": "Проверка CLI Codex…",
+    "model": "Модель: {{model}}",
+    "primary": "Короткое окно: использовано {{percent}}",
+    "secondary": "Длинное окно: использовано {{percent}}",
+    "limitsUnknown": "Лимиты тарифа: неизвестно",
+    "tokens": "Токенов в этом чате: {{total}}"
+  },
+  "errors": {
+    "status": "Не удалось проверить CLI Codex",
+    "authRequired": "Codex просит войти через ChatGPT.",
+    "usageLimit": "Лимит тарифа ChatGPT исчерпан. Codex продолжит работу после сброса лимита.",
+    "usageLimitPct": "Лимит тарифа ChatGPT почти исчерпан ({{percent}}).",
+    "retrying": "Codex повторит попытку сам."
+  },
+  "noProject": {
+    "title": "Проект не открыт",
+    "description": "Откройте проект с папкой, чтобы обсуждать его с Codex."
+  },
+  "noFolder": {
+    "title": "У проекта нет папки",
+    "description": "Codex работает в папке проекта. Сначала укажите папку проекта."
+  },
+  "welcome": {
+    "title": "Codex",
+    "hint": "Выберите сохранённый чат слева или начните новый."
+  },
+  "empty": {
+    "title": "Спросите Codex о проекте",
+    "description": "Codex читает код, выполняет команды и правит файлы — перед любым рискованным действием Orkestr спросит вас."
+  },
+  "state": {
+    "starting": "Запуск",
+    "idle": "Готов",
+    "running": "Работает",
+    "waitingApproval": "Ждёт подтверждения",
+    "exited": "Завершён",
+    "failed": "Ошибка"
+  },
+  "chat": {
+    "label": "Чат с Codex",
+    "you": "Вы",
+    "copy": "Копировать",
+    "copied": "Скопировано",
+    "reasoning": "Краткий ход рассуждений",
+    "plan": "План",
+    "working": "Codex работает…",
+    "ended": "Сеанс завершён."
+  },
+  "turn": {
+    "done": "Готово",
+    "failed": "Сбой",
+    "interrupted": "Прервано",
+    "files_one": "Изменён {{count}} файл:",
+    "files_few": "Изменено {{count}} файла:",
+    "files_many": "Изменено {{count}} файлов:",
+    "files_other": "Изменено {{count}} файла:"
+  },
+  "notice": {
+    "modelChanged": "Модель: {{model}}",
+    "exited": "Сеанс завершён",
+    "exitedCode": "Сеанс завершён (код {{code}})"
+  },
+  "patch": {
+    "title_one": "Изменения в {{count}} файле",
+    "title_few": "Изменения в {{count}} файлах",
+    "title_many": "Изменения в {{count}} файлах",
+    "title_other": "Изменения в {{count}} файла",
+    "added": "новый файл",
+    "deleted": "удалён",
+    "updated": "изменён",
+    "open": "Открыть в редакторе",
+    "diff": "Изменения {{path}}",
+    "more_one": "…и ещё {{count}} строка",
+    "more_few": "…и ещё {{count}} строки",
+    "more_many": "…и ещё {{count}} строк",
+    "more_other": "…и ещё {{count}} строки",
+    "running": "Применение…",
+    "applied": "Применено",
+    "failed": "Не применено"
+  },
+  "approval": {
+    "titleCommand": "Codex хочет выполнить команду",
+    "titleFiles": "Codex хочет изменить файлы",
+    "inFolder": "В папке: {{path}}",
+    "reason": "Зачем: {{reason}}",
+    "risk": {
+      "dangerous": "Опасно",
+      "forbidden": "Запрещено"
+    },
+    "autoDenied": "Запрещено политикой безопасности Orkestr — отклонено автоматически.",
+    "allow": "Разрешить",
+    "allowSession": "Разрешить до конца сеанса",
+    "allowSessionHint": "Разрешить этот и похожие запросы до конца сеанса",
+    "deny": "Запретить",
+    "abort": "Остановить ход",
+    "abortHint": "Запретить и остановить текущую работу Codex",
+    "keys": "Enter — разрешить · Esc — запретить",
+    "outcome": {
+      "allow": "Разрешено один раз",
+      "allowSession": "Разрешено до конца сеанса",
+      "deny": "Запрещено",
+      "abort": "Запрещено, ход остановлен",
+      "policy": "Запрещено политикой безопасности Orkestr"
+    }
+  },
+  "sidebar": {
+    "label": "Чаты Codex",
+    "title": "Чаты",
+    "toggle": "Показать или скрыть список чатов",
+    "reload": "Обновить сохранённые чаты",
+    "newChat": "Новый чат",
+    "search": "Поиск по чатам",
+    "searchPlaceholder": "Поиск…",
+    "loading": "Загрузка чатов…",
+    "empty": "Сохранённых чатов этого проекта пока нет.",
+    "noMatches": "По запросу «{{query}}» ничего не найдено",
+    "untitled": "Новый чат",
+    "running": "Работает",
+    "live": "Открыт",
+    "forked": "Ответвлённый чат",
+    "menu": "Действия с чатом",
+    "resume": "Продолжить",
+    "resumeHint": "Продолжить «{{title}}»",
+    "fork": "Ответвить в новый чат",
+    "terminal": "Открыть в терминале",
+    "close": "Закрыть",
+    "threadsError": "Сохранённые чаты недоступны: {{error}}",
+    "group": {
+      "live": "Открытые",
+      "today": "Сегодня",
+      "yesterday": "Вчера",
+      "week": "Эта неделя",
+      "earlier": "Ранее"
+    }
+  },
+  "limits": {
+    "label": "Лимиты тарифа ChatGPT",
+    "title": "Лимиты тарифа",
+    "plan": "Тариф: {{plan}}",
+    "refresh": "Обновить лимиты",
+    "primary": "Короткое окно",
+    "secondary": "Длинное окно",
+    "weekly": "Неделя",
+    "hours_one": "{{count}} ч",
+    "hours_few": "{{count}} ч",
+    "hours_many": "{{count}} ч",
+    "hours_other": "{{count}} ч",
+    "minutes": "{{time}}",
+    "resetsIn": "Сброс через {{time}}",
+    "resetsAt": "Сброс {{date}}",
+    "unknown": "Неизвестно",
+    "unknownHint": "CLI Codex не сообщил лимиты тарифа.",
+    "credits": "Кредиты: {{credits}}",
+    "reached": "Лимит исчерпан: {{limit}}",
+    "updated": "Обновлено {{time}}",
+    "show": "Показать лимиты"
+  },
+  "tokens": {
+    "label": "Этот чат",
+    "lastTurn": "Последний ход: {{input}} на входе / {{output}} на выходе",
+    "total": "Всего токенов: {{total}}",
+    "cached": "Из кэша: {{cached}}",
+    "context": "Контекст: {{share}} из {{window}}",
+    "contextShort": "Контекст"
+  },
+  "options": {
+    "model": "Модель",
+    "modelHint": "Модель для следующих сообщений",
+    "defaultModel": "По умолчанию",
+    "defaultModelNamed": "По умолчанию ({{name}})",
+    "effort": "Рассуждения",
+    "effortHint": "Глубина рассуждений: глубже — медленнее и расходует больше лимита",
+    "defaultEffort": "По умолчанию",
+    "defaultEffortNamed": "По умолчанию ({{effort}})",
+    "efforts": {
+      "minimal": "Минимальная",
+      "low": "Низкая",
+      "medium": "Средняя",
+      "high": "Высокая",
+      "xhigh": "Очень высокая"
+    },
+    "mode": "Подтверждения",
+    "modes": {
+      "readOnly": "Только чтение",
+      "ask": "Спрашивать",
+      "auto": "Авто"
+    },
+    "modeHint": {
+      "readOnly": "Codex только читает проект, всё остальное спрашивает",
+      "ask": "Codex спрашивает перед каждой командой и правкой",
+      "auto": "Codex работает в папке проекта и спрашивает, только чтобы выйти за её пределы"
+    }
+  },
+  "composer": {
+    "label": "Сообщение для Codex",
+    "placeholder": "Спросите Codex… (@ — файл, / — команда)",
+    "placeholderBusy": "Codex работает — сообщение встанет в очередь",
+    "queueFull": "В очереди уже есть сообщение — дождитесь ответа Codex или удалите его."
+  },
+  "commandsMenu": {
+    "open": "Команды",
+    "title": "Команды Codex",
+    "hint": "Команды Codex (Ctrl+/)"
+  },
+  "slash": {
+    "new": "Начать новый чат",
+    "resume": "Продолжить сохранённый чат",
+    "resumeArg": "[id чата]",
+    "fork": "Ответвить этот чат в новый",
+    "compact": "Сжать беседу, чтобы освободить контекст",
+    "model": "Сменить модель",
+    "modelArg": "[модель]",
+    "status": "Показать модель, лимиты тарифа и токены",
+    "noThread": "У этого чата пока нет сохранённой беседы для ответвления.",
+    "modelList": "Модели: {{models}}",
+    "modelSet": "Модель сменится на {{model}} со следующего сообщения.",
+    "modelUnknown": "Неизвестная модель: {{model}}"
+  }
+}

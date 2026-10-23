@@ -4,6 +4,7 @@ import { clsx } from "clsx";
 import { Check, ChevronRight, GitBranch, OctagonX, Pause, Play, ShieldAlert, TriangleAlert, Wrench, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { AgentEngineBadge } from "../../features/engines/AgentEngineBadge";
 import { useFormat, useLanguage, useT } from "../../i18n";
 import { TaskRollbackButton } from "../../features/rollback";
 import { resolveApproval } from "../../features/security/store";
@@ -170,7 +171,9 @@ export function AgentDetail({ agent, taskTitle, now }: { agent: AgentInstance; t
       <dl className="agents-facts">
         <div>
           <dt>{t("detail.model")}</dt>
-          <dd>{agent.model?.model ?? "—"}</dd>
+          <dd>
+            {agent.model?.model ?? "—"} <AgentEngineBadge providerId={agent.model?.providerId} />
+          </dd>
         </div>
         <div>
           <dt>{t("detail.worktree")}</dt>

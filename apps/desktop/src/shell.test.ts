@@ -42,6 +42,8 @@ describe("panel registry", () => {
       "Extensions",
       // Claude Code chat (official CLI)
       "Claude Code",
+      // Codex chat (ChatGPT subscription, official CLI)
+      "Codex",
       // multi-node (Phase 6)
       "Nodes",
       // ecosystem (Phase 7)

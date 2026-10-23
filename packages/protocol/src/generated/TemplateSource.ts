@@ -3,4 +3,4 @@
 /**
  * Where a template comes from (§6 Agent Marketplace).
  */
-export type TemplateSource = "Builtin" | "Official" | "Community" | "Private" | "Custom" | "ClaudeCode";
+export type TemplateSource = "Builtin" | "Official" | "Community" | "Private" | "Custom" | "ClaudeCode" | "Codex";

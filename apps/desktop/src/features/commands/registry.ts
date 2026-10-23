@@ -18,6 +18,7 @@ import { voiceCommands } from "../voice";
 import { WORKBENCH_COMMANDS } from "../workbench/commands";
 import { vscodeCommands } from "../vscode";
 import { claudeCodeCommands } from "../claudeCode/commands";
+import { codexCommands } from "../codex/commands";
 
 export interface CommandContext {
   projectId: string | null;
@@ -78,3 +79,5 @@ commands.push(...WORKBENCH_COMMANDS);
 commands.push(...vscodeCommands);
 // Claude Code panel
 commands.push(...claudeCodeCommands);
+// Codex panel (ChatGPT subscription)
+commands.push(...codexCommands);

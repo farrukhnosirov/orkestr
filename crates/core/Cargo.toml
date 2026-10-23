@@ -18,6 +18,12 @@ path = "src/bin/fake_claude.rs"
 test = false
 doc = false
 
+[[bin]]
+name = "orkestr-fake-codex"
+path = "src/bin/fake_codex.rs"
+test = false
+doc = false
+
 [dependencies]
 orkestr-domain.workspace = true
 orkestr-protocol.workspace = true

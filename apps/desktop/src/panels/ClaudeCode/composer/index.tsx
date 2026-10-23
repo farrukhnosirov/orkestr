@@ -64,6 +64,18 @@ export interface ComposerViewProps extends Omit<ComposerProps, "onSend"> {
   toolbar?: ReactNode;
   /** Images can be pasted / attached (default true). */
   allowImages?: boolean;
+  /** Offer Claude Code's built-in slash commands (default true; the Codex panel passes its own list). */
+  builtinSlashCommands?: boolean;
+  /** Engine-specific texts (the Codex panel reuses this composer); defaults are Claude's. */
+  texts?: ComposerTexts;
+}
+
+/** Overridable composer texts (already localized). */
+export interface ComposerTexts {
+  label?: string;
+  placeholder?: string;
+  placeholderBusy?: string;
+  queueFull?: string;
 }
 
 let imageSeq = 0;
@@ -113,6 +125,8 @@ export function Composer({
   insertReplace = false,
   toolbar,
   allowImages = true,
+  builtinSlashCommands = true,
+  texts,
 }: ComposerViewProps) {
   const { t } = useT("claudeCodeComposer");
   const listId = useId();
@@ -220,10 +234,10 @@ export function Composer({
 
   const suggestions: Suggestion[] =
     popup?.kind === "slash"
-      ? slashSuggestions(commands, popup.query).map((c) => ({
+      ? slashSuggestions(commands, popup.query, 8, builtinSlashCommands).map((c) => ({
           key: c.name,
           label: c.argumentHint ? `/${c.name} ${c.argumentHint}` : `/${c.name}`,
-          detail: isBuiltinSlashCommand(c.name) ? t(`composer.builtin.${c.name}`) : c.description,
+          detail: builtinSlashCommands && isBuiltinSlashCommand(c.name) ? t(`composer.builtin.${c.name}`) : c.description,
           apply: () => setValue(`/${c.name} `, c.name.length + 2),
         }))
       : popup?.kind === "mention" && files
@@ -409,8 +423,8 @@ export function Composer({
           rows={1}
           value={text}
           disabled={disabled}
-          placeholder={running ? t("composer.placeholderBusy") : t("composer.placeholder")}
-          aria-label={t("composer.label")}
+          placeholder={running ? (texts?.placeholderBusy ?? t("composer.placeholderBusy")) : (texts?.placeholder ?? t("composer.placeholder"))}
+          aria-label={texts?.label ?? t("composer.label")}
           role="combobox"
           aria-autocomplete="list"
           aria-expanded={popupOpen}
@@ -486,7 +500,7 @@ export function Composer({
         ) : tooLong ? (
           t("composer.tooLong", { count: MAX_MESSAGE_CHARS })
         ) : queueFull ? (
-          t("composer.queueFull")
+          (texts?.queueFull ?? t("composer.queueFull"))
         ) : running ? (
           t("composer.hintBusy")
         ) : (
