@@ -1,17 +1,17 @@
 #!/usr/bin/env node
-// NOTE (Wave 8, ADR-0045): the per-agent robot windows checked by Scenario H
-// were replaced by one floating orb; see scripts/smoke/orb-screenshots.mjs.
 // Phase 3 (Visual OS) acceptance + visual QA run.
 //
 // Launches the real desktop app (debug build with the bundled frontend),
 // seeds an isolated ORKESTR_HOME through the RPC API (mock provider, a temp
 // git project named «Schoolify»), then drives the app and checks:
 //
-//   H  Manager run → one floating robot window per agent with live state →
-//      QA agent completes → completion pose + result bubble → click → the
-//      main window opens the agent (§63 H). Robot windows are checked for
-//      transparency (alpha at the corners) and click-through (WS_EX_LAYERED +
-//      WS_EX_TRANSPARENT while the cursor is not over the robot).
+//   H  Manager run → the one floating orb (ADR-0045, replaced the per-agent
+//      robots) follows the run's mood → its Agent Hub lists every agent →
+//      QA agent completes, a Backend agent waits for an approval (approval
+//      mood + inline approval) → the hub opens the QA result in the main
+//      window (§63 H). The orb window is checked for transparency (alpha at
+//      the corners) and click-through (WS_EX_LAYERED + WS_EX_TRANSPARENT while
+//      the cursor is not over the sphere).
 //   G  «Jarvis, что происходит со Schoolify?» fed through the voice pipeline
 //      as a finished transcript (no microphone) → projectStatus intent →
 //      summary reply → TTS called (speechSynthesis is stubbed, silent).
@@ -20,7 +20,7 @@
 //   detach a panel into its own window and re-dock it.
 //
 // Captures are webview-only (DevTools `Page.captureScreenshot`) — never the
-// screen, so no other application can appear. Robot windows are captured
+// screen, so no other application can appear. The orb window is captured
 // with a transparent background and composited over a synthetic desktop.
 //
 // Usage (repo root, Windows):
@@ -224,8 +224,8 @@ async function capture(cdp, name, note, { settle = 1000 } = {}) {
   for (const e of errors) console.log(`      ${e.slice(0, 300)}`);
 }
 
-/** Transparent capture of a robot window (background override alpha 0). */
-async function robotPng(cdp) {
+/** Transparent capture of the orb window (background override alpha 0). */
+async function orbPng(cdp) {
   await cdp.send("Emulation.setDefaultBackgroundColorOverride", { color: { r: 0, g: 0, b: 0, a: 0 } });
   const { data } = await cdp.send("Page.captureScreenshot", { format: "png" });
   await cdp.send("Emulation.setDefaultBackgroundColorOverride", {});
@@ -314,7 +314,7 @@ try {
   console.log("seeded");
 
   // ── main window ─────────────────────────────────────────────────────────
-  const main = await attach((t) => !t.url.includes("robot.html") && !t.url.includes("#/panel") && /tauri\.localhost|127\.0\.0\.1:1420/.test(t.url), "main webview");
+  const main = await attach((t) => !t.url.includes("#/orb") && !t.url.includes("#/panel") && /tauri\.localhost|127\.0\.0\.1:1420/.test(t.url), "main webview");
   await main.eval("localStorage.setItem('orkestr.debugHooks', '1'), true");
   await main.send("Page.reload", { ignoreCache: true });
   await waitFor(() => main.eval("!!document.querySelector('.app__body')"), 60_000, "app shell");
@@ -324,7 +324,7 @@ try {
   await main.eval(`document.querySelector('.resume-card button[aria-label*="ismiss" i], .resume-card button[aria-label*="lose" i]')?.click(), true`);
   await sleep(500);
 
-  // ── Scenario H: Manager run → robots per agent ──────────────────────────
+  // ── Scenario H: Manager run → the floating orb + Agent Hub ──────────────
   const chat = async (text) => {
     const sent = await rpc.call("manager.chat", { projectId, text });
     return waitFor(
@@ -338,10 +338,16 @@ try {
   const ap = await rpc.call("manager.approvePlan", { planId: plan.planId });
   const runId = ap.run.id;
 
-  const robots = new Map(); // agentId → { cdp, states:Set, shots:Set }
-  const stateOf = (cdp) =>
-    cdp.eval(`(() => { const el = document.querySelector('.robot-window__robot'); return el ? el.getAttribute('aria-label') : null; })()`);
-  const robotPngs = []; // {agentId, state, data}
+  // The floating orb (ADR-0045): one window for every agent, no per-agent robots.
+  const orb = await attach((t) => t.url.includes("#/orb"), "orb window");
+  await waitFor(() => orb.eval("!!document.querySelector('.orb')"), 30_000, "orb drawn");
+  const moodOf = () => orb.eval("document.querySelector('.orb')?.dataset.orbMood ?? null");
+  const badgeOf = () => orb.eval("document.querySelector('.orb-badge')?.textContent?.trim() ?? null");
+  const hubOpen = () => orb.eval("!!document.querySelector('.orb-hub')");
+  const toggleHub = () =>
+    orb.eval(`(() => { const o = document.querySelector('.orb'); o.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 })); o.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, button: 0 })); return true; })()`);
+  const orbPngs = []; // {state, data}
+  const moods = [];
   let runStatus = "Running";
   const t0 = Date.now();
   const approved = new Set();
@@ -354,27 +360,13 @@ try {
       console.log(`  approving: ${a.actionSummary}`);
       await soft(rpc.call("approvals.resolve", { approvalId: a.id, decision: "Approve", note: "phase3 acceptance" }));
     }
-    for (const t of await targets()) {
-      const m = t.url.match(/robot\.html#\/agent\/([^/?#]+)/);
-      if (m && !robots.has(m[1])) {
-        const c = new Cdp(t.webSocketDebuggerUrl, `robot ${m[1]}`);
-        await c.open();
-        robots.set(m[1], { cdp: c, states: new Set(), labels: [] });
-      }
-    }
-    for (const [agentId, r] of robots) {
-      const label = await soft(stateOf(r.cdp));
-      if (!label) continue;
-      const state = (label.split(": ")[1] ?? label).split(".")[0].trim();
-      if (!r.states.has(state)) {
-        r.states.add(state);
-        r.labels.push(label);
-        // Let the pose and bubble transitions settle, then capture only if the state held.
-        await sleep(700);
-        const again = await soft(stateOf(r.cdp));
-        const data = again === label ? await soft(robotPng(r.cdp)) : null;
-        if (data) robotPngs.push({ agentId, state, data });
-      }
+    const mood = await soft(moodOf());
+    if (mood && moods.at(-1) !== mood) {
+      moods.push(mood);
+      // Let the mood transition settle, then capture only if it held.
+      await sleep(700);
+      const data = (await soft(moodOf())) === mood ? await soft(orbPng(orb)) : null;
+      if (data) orbPngs.push({ state: `${mood}${(await soft(badgeOf())) ? ` · ${await soft(badgeOf())}` : ""}`, data });
     }
     runStatus = (await rpc.call("manager.status", { runId })).runs[0].status;
     if (["Completed", "Failed", "Cancelled"].includes(runStatus) && Date.now() - t0 > 4000) break;
@@ -382,14 +374,22 @@ try {
   }
   const runAgents = (await rpc.call("agents.list", { projectId })).agents ?? [];
   check("H", "Manager run finished", ["Completed", "Failed"].includes(runStatus), `status ${runStatus}; approvals given: ${approved.size}`);
+  check("H", "one orb window, no per-agent robot windows", !(await targets()).some((t) => t.url.includes("robot.html")), `${runAgents.length} agent(s)`);
+  check("H", "the orb's mood followed the run", moods.length >= 2 && moods.includes("working"), moods.join(" → "));
+
+  // Every agent of the run is listed in the Agent Hub.
+  if (!(await hubOpen())) await toggleHub();
+  await waitFor(hubOpen, 10_000, "hub open");
+  await sleep(600);
+  const rows = await orb.eval("[...document.querySelectorAll('.orb-row')].map((r) => r.dataset.orbRow)");
   check(
     "H",
-    "a floating robot window per spawned agent",
-    runAgents.length > 0 && runAgents.every((a) => robots.has(a.id)),
-    `${robots.size} robot window(s) for ${runAgents.length} agent(s): ${runAgents.map((a) => `${a.name}:${a.state}`).join(", ")}`,
+    "the Agent Hub lists every agent of the run",
+    runAgents.length > 0 && runAgents.every((a) => rows.includes(a.id)),
+    `${rows.length} row(s) for ${runAgents.length} agent(s): ${runAgents.map((a) => `${a.name}:${a.state}`).join(", ")}`,
   );
-  const animated = [...robots.values()].filter((r) => r.states.size >= 2).length;
-  check("H", "robots changed state during the run", animated > 0, [...robots.values()].map((r) => r.labels.join(" → ")).join(" | "));
+  await toggleHub();
+  await sleep(400);
 
   // QA agent (Scenario H proper) + a Backend agent that waits for an approval.
   const qa = await rpc.call("agents.spawn", {
@@ -404,47 +404,45 @@ try {
     newTask: { title: "Clean the build output", description: "Remove untracked build leftovers.\nRun: `git clean -fd`" },
   });
   const beId = be.agent.id;
-  const qaRobot = await attach((t) => t.url.includes(`robot.html#/agent/${qaId}`), "QA robot window");
-  await waitFor(() => qaRobot.eval("!!document.querySelector('.robot-window svg, .robot-window canvas')"), 30_000, "QA robot drawn");
-  const qaStates = [];
-  await waitFor(
-    async () => {
-      const l = await soft(stateOf(qaRobot));
-      if (l && qaStates.at(-1) !== l) {
-        qaStates.push(l);
-        const data = await soft(robotPng(qaRobot));
-        if (data) robotPngs.push({ agentId: qaId, state: `QA · ${(l.split(": ")[1] ?? l).split(".")[0]}`, data });
-      }
-      return ["Completed", "Error", "Stopped"].includes((await rpc.call("agents.get", { agentId: qaId })).agent.state);
-    },
-    120_000,
-    "QA agent finished",
-  );
+  await waitFor(async () => ["Completed", "Error", "Stopped"].includes((await rpc.call("agents.get", { agentId: qaId })).agent.state), 120_000, "QA agent finished");
   const qaFinal = (await rpc.call("agents.get", { agentId: qaId })).agent.state;
-  check("H", "QA agent completes", qaFinal === "Completed", `state ${qaFinal}; robot: ${qaStates.join(" → ")}`);
-  const completedPose = await waitFor(async () => /Completed|Done|Готов|Заверш/i.test((await stateOf(qaRobot)) ?? ""), 15_000, "completed pose").catch(() => false);
-  check("H", "QA robot shows the Completed state", completedPose, await soft(stateOf(qaRobot)));
-  const bubble = await waitFor(
-    () => qaRobot.eval(`(() => { const b = document.querySelector('[class*=bubble]'); return b && b.textContent.trim() ? b.textContent.trim() : null; })()`),
-    15_000,
-    "QA bubble",
-  ).catch(() => null);
-  check("H", "completion bubble with the result", bubble, bubble);
-  await sleep(900);
-  robotPngs.push({ agentId: qaId, state: "Completed + bubble", data: await robotPng(qaRobot), hero: true });
-  await capture(qaRobot, "h-01-qa-robot-completed-raw", "QA robot window as rendered (transparent window, captured with the webview default background)", { settle: 200 });
+  check("H", "QA agent completes", qaFinal === "Completed", `state ${qaFinal}`);
 
   await waitFor(async () => (await rpc.call("agents.get", { agentId: beId })).agent.state === "Waiting", 60_000, "backend waiting").catch(() => null);
-  const beRobot = await attach((t) => t.url.includes(`robot.html#/agent/${beId}`), "backend robot window");
-  await waitFor(() => beRobot.eval("!!document.querySelector('.robot-window svg, .robot-window canvas')"), 30_000, "backend robot drawn");
-  await sleep(1500);
-  robotPngs.push({ agentId: beId, state: "Waiting (approval)", data: await robotPng(beRobot), hero: true });
-  check("H", "Backend robot waits for the approval", /Waiting|Ожида/i.test((await soft(stateOf(beRobot))) ?? ""), await soft(stateOf(beRobot)));
+  const approvalMood = await waitFor(async () => ((await soft(moodOf())) === "approval" ? true : null), 20_000, "approval mood").catch(() => false);
+  await sleep(900);
+  orbPngs.push({ state: `approval · ${(await soft(badgeOf())) ?? ""}`.trim(), data: await orbPng(orb), hero: true });
+  check("H", "the orb shows the pending approval", approvalMood, `${await soft(moodOf())} badge=${await soft(badgeOf())}`);
 
-  // Transparency: corners of a robot capture must be fully transparent.
+  // Hub: QA done, Backend waiting with its approval inline.
+  await toggleHub();
+  await waitFor(hubOpen, 10_000, "hub open");
+  await sleep(800);
+  const hubState = await orb.eval(`(() => {
+    const row = (id) => document.querySelector('[data-orb-row="' + id + '"]')?.className ?? null;
+    return { qa: row(${JSON.stringify(qaId)}), be: row(${JSON.stringify(beId)}), approvals: document.querySelectorAll('.orb-hub__approvals [role=listitem], .orb-hub__approvals > *').length };
+  })()`);
+  check("H", "hub: QA agent done", /orb-row--done/.test(hubState.qa ?? ""), JSON.stringify(hubState));
+  check("H", "hub: Backend agent waits with an approval", /orb-row--waiting/.test(hubState.be ?? "") && hubState.approvals > 0, JSON.stringify(hubState));
+  orbPngs.push({ state: "Agent Hub", data: await orbPng(orb), hero: true });
+  await capture(orb, "h-01-orb-hub-raw", "Agent Hub as rendered (transparent window, captured with the webview default background)", { settle: 200 });
+
+  // Click-through: the orb window is layered, topmost and passes clicks through while the cursor is elsewhere.
+  await toggleHub();
+  await sleep(800);
+  const orbWins = listWindows().filter((w) => w.topmost && w.layered && w.w <= 640 && w.h <= 640);
+  check(
+    "H",
+    "orb window: layered, always-on-top, click-through when not hovered",
+    orbWins.length === 1 && orbWins.every((w) => w.clickThrough),
+    orbWins.map((w) => `${w.title} ${w.w}x${w.h}@${w.x},${w.y} layered=${w.layered} topmost=${w.topmost} clickThrough=${w.clickThrough}`).join("; ") || "no orb window",
+  );
+
+  // Transparency: corners of the orb capture must be fully transparent.
+  const idlePng = await orbPng(orb);
   const alphaProbe = await main.eval(`(async () => {
     const img = new Image();
-    img.src = 'data:image/png;base64,${robotPngs.at(-1).data}';
+    img.src = 'data:image/png;base64,${idlePng}';
     await img.decode();
     const c = document.createElement('canvas'); c.width = img.width; c.height = img.height;
     const g = c.getContext('2d'); g.drawImage(img, 0, 0);
@@ -454,58 +452,47 @@ try {
     for (let i = 3; i < d.length; i += 4) if (d[i] > 8) opaque++;
     return { w: img.width, h: img.height, corners, coverage: opaque / (img.width * img.height) };
   })()`);
-  check(
-    "H",
-    "robot window background is transparent (no box around the robot)",
-    alphaProbe.corners.every((a) => a === 0) && alphaProbe.coverage < 0.8,
-    JSON.stringify(alphaProbe),
-  );
+  check("H", "orb window background is transparent (no box around the sphere)", alphaProbe.corners.every((a) => a === 0) && alphaProbe.coverage < 0.8, JSON.stringify(alphaProbe));
 
-  // Click-through: robot windows are layered and pass clicks through while the cursor is elsewhere.
-  const wins = listWindows();
-  const robotWins = wins.filter((w) => w.title === "Orkestr robot");
-  check(
-    "H",
-    "robot windows: layered, always-on-top, click-through when not hovered",
-    robotWins.length > 0 && robotWins.every((w) => w.layered && w.topmost && w.clickThrough),
-    robotWins.map((w) => `${w.w}x${w.h}@${w.x},${w.y} layered=${w.layered} topmost=${w.topmost} clickThrough=${w.clickThrough}`).join("; "),
-  );
-
-  // Context menu (Waiting robot).
-  await beRobot.eval(`(() => { const el = document.querySelector('.robot-window__robot'); el.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2 })); return true; })()`);
+  // Context menu on the orb.
+  await orb.eval(`(() => { const el = document.querySelector('.orb'); el.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2 })); return true; })()`);
   await sleep(700);
-  robotPngs.push({ agentId: beId, state: "context menu", data: await robotPng(beRobot), menu: true });
-  await beRobot.eval("document.querySelector('.robot-menu')?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })), document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })), true");
+  check("H", "orb context menu opens", await soft(orb.eval("!!document.querySelector('.orb-menu')")));
+  orbPngs.push({ state: "context menu", data: await orbPng(orb), menu: true });
+  await orb.eval("document.querySelector('.orb-menu')?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })), document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })), true");
+  await sleep(400);
 
-  // Click the QA robot → its result opens in the main window.
-  await qaRobot.eval(`(() => {
-    const el = document.querySelector('.robot-window__robot');
-    const r = el.getBoundingClientRect();
-    const o = { bubbles: true, button: 0, clientX: r.x + r.width / 2, clientY: r.y + r.height / 2, pointerId: 1 };
-    el.dispatchEvent(new PointerEvent('pointerdown', o));
-    el.dispatchEvent(new PointerEvent('pointerup', o));
-    return true;
+  // Hub → QA row → "Open in main window" → its result opens in the Agents panel.
+  if (!(await hubOpen())) await toggleHub();
+  await waitFor(hubOpen, 10_000, "hub open");
+  await sleep(500);
+  await orb.eval(`(() => {
+    const row = document.querySelector('[data-orb-row="${qaId}"]');
+    const btns = [...(row?.querySelectorAll('.orb-row__actions button') ?? [])];
+    (btns.at(-1))?.click();
+    return btns.length;
   })()`);
   const opened = await waitFor(
     () => main.eval(`(() => { const d = document.querySelector('.agents-detail, [class*=agents-detail]'); return d ? d.textContent.slice(0, 120) : null; })()`),
     15_000,
     "agent detail",
   ).catch(() => null);
-  check("H", "click on the robot opens the agent result in the main window", opened, opened);
-  await capture(main, "h-03-robot-click-opens-agent", "Scenario H: clicking the QA robot opens its result in the Agents panel");
+  check("H", "the hub opens the agent result in the main window", opened, opened);
+  await capture(main, "h-03-orb-opens-agent", "Scenario H: the Agent Hub opens the QA agent's result in the Agents panel");
+  if (await soft(hubOpen())) await soft(toggleHub());
 
-  // Composite the robot captures over a synthetic desktop (no real screen content).
+  // Composite the orb captures over a synthetic desktop (no real screen content).
   if (!noShots) {
     const pick = [];
     const seen = new Set();
-    for (const p of robotPngs.filter((p) => p.hero)) pick.push(p);
-    for (const p of robotPngs) {
+    for (const p of orbPngs.filter((p) => p.hero)) pick.push(p);
+    for (const p of orbPngs) {
       if (pick.length >= 6) break;
       if (p.hero || p.menu || seen.has(p.state)) continue;
       seen.add(p.state);
       pick.push(p);
     }
-    const menu = robotPngs.find((p) => p.menu);
+    const menu = orbPngs.find((p) => p.menu);
     const composite = await main.eval(`(async () => {
       const shots = ${JSON.stringify(pick.map((p) => ({ data: p.data, state: p.state })))};
       const menu = ${JSON.stringify(menu ? menu.data : null)};
@@ -527,7 +514,7 @@ try {
       g.fillStyle = 'rgba(255,255,255,0.05)';
       g.beginPath(); g.moveTo(0, H * 0.72); g.bezierCurveTo(W * 0.3, H * 0.55, W * 0.6, H * 0.85, W, H * 0.66); g.lineTo(W, H); g.lineTo(0, H); g.fill();
       g.fillStyle = 'rgba(8,10,20,0.85)'; g.fillRect(0, H - 48, W, 48);
-      g.fillStyle = 'rgba(255,255,255,0.75)'; g.font = '14px Segoe UI, sans-serif'; g.fillText('Synthetic desktop backdrop — robot windows captured individually (transparent)', 24, H - 18);
+      g.fillStyle = 'rgba(255,255,255,0.75)'; g.font = '14px Segoe UI, sans-serif'; g.fillText('Synthetic desktop backdrop — the orb window captured on its own (transparent)', 24, H - 18);
       imgs.forEach(({ i, s }, k) => {
         const [x, y] = pos[k];
         g.drawImage(i, x, y);
@@ -538,9 +525,8 @@ try {
       if (menu) { const m = new Image(); m.src = 'data:image/png;base64,' + menu; await m.decode(); g.drawImage(m, W - m.width - 20, 40); }
       return c.toDataURL('image/png').split(',')[1];
     })()`);
-    writeFileSync(join(outDir, "h-02-floating-robots-over-desktop.png"), Buffer.from(composite, "base64"));
-    shots.push({ name: "h-02-floating-robots-over-desktop.png", note: `Floating robot windows (${pick.map((p) => p.state).join(", ")}; + context menu) composited over a synthetic desktop`, consoleErrors: [] });
-    for (const r of [...robots.values()]) r.cdp.close();
+    writeFileSync(join(outDir, "h-02-floating-orb-over-desktop.png"), Buffer.from(composite, "base64"));
+    shots.push({ name: "h-02-floating-orb-over-desktop.png", note: `The floating orb (${pick.map((p) => p.state).join(", ")}; + context menu) composited over a synthetic desktop`, consoleErrors: [] });
   }
 
   // ── Scenario G: voice pipeline with a recognised transcript ──────────────
@@ -634,7 +620,7 @@ try {
 
   // ── HUD ─────────────────────────────────────────────────────────────────
   await main.eval("window.__TAURI_INTERNALS__.invoke('hud_show', { position: null }).then(() => true)");
-  const hud = await attach((t) => t.id !== main.targetId && !t.url.includes("robot.html") && !t.url.includes("#/panel"), "HUD webview", 30_000);
+  const hud = await attach((t) => t.id !== main.targetId && !t.url.includes("#/orb") && !t.url.includes("#/panel"), "HUD webview", 30_000);
   const hudShells = await soft(hud.eval("document.querySelectorAll('.app__body').length"));
   check("HUD", "HUD window renders only the HUD (no main shell behind it)", hudShells === 0, `shells in HUD: ${hudShells}`);
   const hudOk = await waitFor(() => hud.eval("!!document.querySelector('.hud')"), 30_000, "HUD rendered").catch(() => false);
@@ -719,9 +705,12 @@ try {
   await soft(main.eval(`document.querySelector('.th-editor button[aria-label="Close the editor"]')?.click(), true`));
   await sleep(300);
   await soft(clickText(main, ".th-editor__confirm button", "Discard"));
-  await palette(main, "Open Robot Designer");
-  await sleep(800);
-  await capture(main, "e-02-robot-designer", "Settings → Robots: Robot Designer with live preview");
+  // The Robot Designer was removed with the robots (ADR-0045): Settings → Orb instead.
+  await palette(main, "Open Settings");
+  await sleep(500);
+  await clickText(main, "[role=tab], button", "Orb");
+  await sleep(600);
+  await capture(main, "e-02-orb-settings", "Settings → Orb: the floating orb's shape, size and behaviour with a live preview");
   await main.key("Escape");
   await palette(main, "Open Settings");
   await sleep(500);
