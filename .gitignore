@@ -31,3 +31,6 @@ Thumbs.db
 # Agent worktrees
 .claude/worktrees/
 .claude/workflows/
+
+# Release artifacts (scripts/release/build-installer.ps1)
+dist-release/

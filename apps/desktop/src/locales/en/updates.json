@@ -1,0 +1,119 @@
+{
+  "sectionTitle": "Updates",
+  "notInShell": "Updates are managed by the Orkestr desktop app.",
+  "dataSafety": "Updates replace only the app. Your projects, settings and history stay where they are and are backed up before every update.",
+  "version": {
+    "title": "Version",
+    "current": "Orkestr {{version}}",
+    "notConfigured": "No update source yet: the update server is not available. Turn it on below once it exists, or update from a downloaded installer or release folder."
+  },
+  "status": {
+    "checking": "Checking for updates…",
+    "upToDate": "You have the latest version",
+    "available": "Version {{version}} is available",
+    "installing": "Backing up your data and starting the installer…",
+    "failed": "The last check failed",
+    "checkedAt": "checked {{when}}",
+    "neverChecked": "Not checked yet"
+  },
+  "offer": {
+    "title": "Orkestr {{version}}",
+    "from": "You have {{current}}",
+    "sourceRemote": "update server",
+    "sourceManifest": "release folder",
+    "sourceInstaller": "installer file",
+    "beta": "Beta",
+    "signed": "Signed",
+    "unsigned": "Unsigned",
+    "notes": "Release notes",
+    "noNotes": "No release notes were published for this version.",
+    "unsignedConsent": "This installer has no signature, so Orkestr cannot verify where it came from. Install it only if you downloaded it from a source you trust.",
+    "downloading": "Downloading…",
+    "progress": "{{done}} of {{total}}",
+    "installHint": "Installing closes Orkestr, backs up your data, updates the app in place and starts it again. Running agents are stopped.",
+    "scheduled": "The update will be installed when you quit Orkestr."
+  },
+  "source": {
+    "title": "Update source",
+    "remote": "Check the update server",
+    "remoteHint": "Off until the Orkestr update server is available.",
+    "endpoint": "Update server address",
+    "endpointHint": "The https:// address of latest.json. It may contain the variables target, arch, current_version and channel in double braces.",
+    "channel": "Channel",
+    "channelHint": "Beta gets pre-release versions earlier.",
+    "stable": "Stable",
+    "beta": "Beta",
+    "local": "Release folder or file",
+    "localHint": "For updating without the server: a folder (for example a network share) with latest.json, a latest.json file or an Orkestr installer.",
+    "localPlaceholder": "D:\\Releases\\Orkestr or …\\latest.json",
+    "pickFile": "Choose an installer or latest.json",
+    "pickFolder": "Choose a release folder"
+  },
+  "schedule": {
+    "title": "Automatic checks",
+    "onStartup": "Check when Orkestr starts",
+    "onStartupHint": "Shortly after start, in the background.",
+    "interval": "Check periodically",
+    "intervalHint": "Orkestr never installs an update without asking you.",
+    "never": "Never",
+    "everyHours_one": "Every hour",
+    "everyHours_other": "Every {{count}} hours",
+    "autoDownload": "Download updates automatically",
+    "autoDownloadHint": "Signed updates are downloaded in the background; you choose when to install."
+  },
+  "backups": {
+    "title": "Data backups and rollback",
+    "folder": "Backups folder",
+    "folderHint": "Each backup is a zip with your databases and settings (secrets stay in the system keychain).",
+    "retention": "Keep backups",
+    "retentionHint": "Older backups are deleted automatically.",
+    "keep_one": "The last {{count}}",
+    "keep_other": "The last {{count}}",
+    "none": "No backups yet.",
+    "list": "Backups",
+    "reasonPreUpdate": "Before update",
+    "reasonPreMigration": "Before data upgrade",
+    "reasonManual": "Manual",
+    "versions": "{{from}} → {{to}}",
+    "version": "{{version}}"
+  },
+  "rollback": {
+    "updatedFrom": "Updated from {{from}} to {{to}}. Your data was backed up before the upgrade.",
+    "downgradedFrom": "Started {{to}} on data last used by {{from}}.",
+    "howTo": "To roll back, install the previous version's installer over this one: your data stays. If the newer version has already upgraded the data, the older version will refuse to open it — then restore the backup made before the update."
+  },
+  "actions": {
+    "check": "Check for updates",
+    "download": "Download",
+    "prepare": "Verify and prepare",
+    "cancelDownload": "Cancel download",
+    "installNow": "Install now and restart",
+    "installOnExit": "Install when Orkestr closes",
+    "cancelOnExit": "Don't install on exit",
+    "backupNow": "Back up now",
+    "save": "Save",
+    "pickFile": "Choose file…",
+    "pickFolder": "Choose folder…"
+  },
+  "badge": {
+    "available": "Update {{version}} is available",
+    "ready": "Update {{version}} is ready to install"
+  },
+  "downgrade": {
+    "blocked": "This Orkestr version is older than the one that last used your data, so it will not open the data to keep it safe. Install the newer version again, or restore a backup made before the update. Details: {{detail}}"
+  },
+  "errors": {
+    "not_configured": "No update source is set up. Turn on the update server or choose a release folder or file.",
+    "invalid_endpoint": "The update server address is not valid. Use an https:// address.",
+    "offline": "The update server can't be reached. Check your internet connection and try again later.",
+    "server_error": "The update server returned an error. Try again later.",
+    "bad_manifest": "The update information is not valid.",
+    "no_platform": "This release has no build for this computer.",
+    "bad_signature": "The update failed signature verification and was rejected.",
+    "unsigned": "This installer is not signed. Confirm that you trust it to continue.",
+    "cancelled": "Cancelled.",
+    "database_newer": "Your data was written by a newer Orkestr version.",
+    "io": "A file or the database could not be read or written.",
+    "unknown": "Something went wrong."
+  }
+}

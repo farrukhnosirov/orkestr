@@ -17,6 +17,7 @@ import { notificationFromEvent } from "../notifications/fromEvent";
 import { useNotificationsStore } from "../notifications/notificationsStore";
 import { useOnboardingStore } from "../onboarding/onboardingStore";
 import { startResumeWatcher } from "../resume/resumeStore";
+import { startUpdatesWatcher } from "../updates";
 import { useSettingsStore } from "./settingsStore";
 
 function onEvent(ev: Event): void {
@@ -99,6 +100,9 @@ export function useShellBootstrap(ready: boolean): void {
       off?.();
     };
   }, []);
+
+  // App updates (ADR-0048): status + title-bar badge; independent of the core connection.
+  useEffect(() => startUpdatesWatcher(), []);
 
   // Session Resume.
   useEffect(() => (ready ? startResumeWatcher() : undefined), [ready]);
