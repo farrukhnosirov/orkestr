@@ -14,61 +14,73 @@
     },
     {
       "area": "H",
-      "name": "a floating robot window per spawned agent",
+      "name": "one orb window, no per-agent robot windows",
       "ok": true,
-      "detail": "4 robot window(s) for 4 agent(s): QA Engineer #1:Completed, Product Manager #1:Completed, Backend Engineer #1:Completed, Software Architect #1:Completed"
+      "detail": "4 agent(s)"
     },
     {
       "area": "H",
-      "name": "robots changed state during the run",
+      "name": "the orb's mood followed the run",
       "ok": true,
-      "detail": "Software Architect #1: Coding. Click to open the agent; right-click for actions. → Software Architect #1: Reviewing. Click to open the agent; right-click for actions. → Software Architect #1: Completed. Click to open the agent; right-click for actions. | Product Manager #1: Reviewing. Click to open the agent; right-click for actions. → Product Manager #1: Completed. Click to open the agent; right-click for actions. | Backend Engineer #1: Reviewing. Click to open the agent; right-click for actions. → Backend Engineer #1: Completed. Click to open the agent; right-click for actions. | QA Engineer #1: Reviewing. Click to open the agent; right-click for actions. → QA Engineer #1: Completed. Click to open the agent; right-click for actions."
+      "detail": "idle → working → idle"
+    },
+    {
+      "area": "H",
+      "name": "the Agent Hub lists every agent of the run",
+      "ok": true,
+      "detail": "4 row(s) for 4 agent(s): QA Engineer #1:Completed, Product Manager #1:Completed, Backend Engineer #1:Completed, Software Architect #1:Completed"
     },
     {
       "area": "H",
       "name": "QA agent completes",
       "ok": true,
-      "detail": "state Completed; robot: QA Engineer #2: Coding. Click to open the agent; right-click for actions. → QA Engineer #2: Completed. Click to open the agent; right-click for actions."
+      "detail": "state Completed"
     },
     {
       "area": "H",
-      "name": "QA robot shows the Completed state",
+      "name": "the orb shows the pending approval",
       "ok": true,
-      "detail": "QA Engineer #2: Completed. Click to open the agent; right-click for actions."
+      "detail": "approval badge=1"
     },
     {
       "area": "H",
-      "name": "completion bubble with the result",
+      "name": "hub: QA agent done",
       "ok": true,
-      "detail": "Done! ✓"
+      "detail": "{\"qa\":\"orb-row orb-row--done\",\"be\":\"orb-row orb-row--waiting orb-row--selected\",\"approvals\":2}"
     },
     {
       "area": "H",
-      "name": "Backend robot waits for the approval",
+      "name": "hub: Backend agent waits with an approval",
       "ok": true,
-      "detail": "Backend Engineer #2: Waiting. Click to open the agent; right-click for actions."
+      "detail": "{\"qa\":\"orb-row orb-row--done\",\"be\":\"orb-row orb-row--waiting orb-row--selected\",\"approvals\":2}"
     },
     {
       "area": "H",
-      "name": "robot window background is transparent (no box around the robot)",
+      "name": "orb window: layered, always-on-top, click-through when not hovered",
       "ok": true,
-      "detail": "{\"w\":348,\"h\":387,\"corners\":[0,0,0,0],\"coverage\":0.3660637381567614}"
+      "detail": "Orkestr 88x88@3328,1280 layered=true topmost=true clickThrough=true"
     },
     {
       "area": "H",
-      "name": "robot windows: layered, always-on-top, click-through when not hovered",
+      "name": "orb window background is transparent (no box around the sphere)",
       "ok": true,
-      "detail": "348x387@364,1123 layered=true topmost=true clickThrough=true; 348x387@730,1123 layered=true topmost=true clickThrough=true; 348x387@1096,1123 layered=true topmost=true clickThrough=true; 348x387@1462,1123 layered=true topmost=true clickThrough=true; 348x387@1828,1123 layered=true topmost=true clickThrough=true; 348x387@2194,1123 layered=true topmost=true clickThrough=true"
+      "detail": "{\"w\":88,\"h\":88,\"corners\":[0,0,0,0],\"coverage\":0.7431559917355371}"
     },
     {
       "area": "H",
-      "name": "click on the robot opens the agent result in the main window",
+      "name": "orb context menu opens",
       "ok": true,
-      "detail": "ARSoftware Architect #1CompletedArchitect·Design the report-card module APIRoll back task…Modelmock-smartWorktree agent/"
+      "detail": ""
+    },
+    {
+      "area": "H",
+      "name": "the hub opens the agent result in the main window",
+      "ok": true,
+      "detail": "ARSoftware Architect #1CompletedArchitect·Design the report-card module APIRoll back task…Modelmock-smart APIWorktree ag"
     },
     {
       "area": "Visual",
-      "name": "h-03-robot-click-opens-agent: one shell, page not scrolled",
+      "name": "h-03-orb-opens-agent: one shell, page not scrolled",
       "ok": true,
       "detail": "{\"shells\":1,\"scrollY\":0,\"docH\":900,\"winH\":900,\"bodyChildren\":\"DIV.root\"}"
     },
@@ -238,25 +250,25 @@
       "area": "Perf",
       "name": "performance mode UltraVisual → policy on <html>",
       "ok": true,
-      "detail": "{\"okTheme\":\"nebula\",\"okMode\":\"dark\",\"okAnimations\":\"on\",\"okMotion\":\"full\",\"okPerformance\":\"UltraVisual\",\"okBackground\":\"nebula\",\"okBlur\":\"on\",\"okGlow\":\"on\",\"okBgAnim\":\"on\",\"okGpu\":\"on\",\"okPaused\":\"off\",\"okDensity\":\"comfortable\"}"
+      "detail": "{\"okTheme\":\"nebula\",\"okMode\":\"dark\",\"okAnimations\":\"on\",\"okMotion\":\"full\",\"okPerformance\":\"UltraVisual\",\"okBackground\":\"nebula\",\"okBlur\":\"on\",\"okGlow\":\"on\",\"okBgAnim\":\"on\",\"okGpu\":\"on\",\"okPaused\":\"off\",\"okIdle\":\"off\",\"okUiMode\":\"orchestra\",\"okDensity\":\"comfortable\"}"
     },
     {
       "area": "Perf",
       "name": "performance mode Balanced → policy on <html>",
       "ok": true,
-      "detail": "{\"okTheme\":\"nebula\",\"okMode\":\"dark\",\"okAnimations\":\"on\",\"okMotion\":\"full\",\"okPerformance\":\"Balanced\",\"okBackground\":\"nebula\",\"okBlur\":\"on\",\"okGlow\":\"on\",\"okBgAnim\":\"on\",\"okGpu\":\"off\",\"okPaused\":\"off\",\"okDensity\":\"comfortable\"}"
+      "detail": "{\"okTheme\":\"nebula\",\"okMode\":\"dark\",\"okAnimations\":\"on\",\"okMotion\":\"full\",\"okPerformance\":\"Balanced\",\"okBackground\":\"nebula\",\"okBlur\":\"on\",\"okGlow\":\"on\",\"okBgAnim\":\"on\",\"okGpu\":\"off\",\"okPaused\":\"off\",\"okIdle\":\"off\",\"okUiMode\":\"orchestra\",\"okDensity\":\"comfortable\"}"
     },
     {
       "area": "Perf",
       "name": "performance mode Performance → policy on <html>",
       "ok": true,
-      "detail": "{\"okTheme\":\"nebula\",\"okMode\":\"dark\",\"okAnimations\":\"off\",\"okMotion\":\"reduced\",\"okPerformance\":\"Performance\",\"okBackground\":\"nebula\",\"okBlur\":\"off\",\"okGlow\":\"off\",\"okBgAnim\":\"off\",\"okGpu\":\"off\",\"okPaused\":\"off\",\"okDensity\":\"comfortable\"}"
+      "detail": "{\"okTheme\":\"nebula\",\"okMode\":\"dark\",\"okAnimations\":\"off\",\"okMotion\":\"reduced\",\"okPerformance\":\"Performance\",\"okBackground\":\"nebula\",\"okBlur\":\"off\",\"okGlow\":\"off\",\"okBgAnim\":\"off\",\"okGpu\":\"off\",\"okPaused\":\"off\",\"okIdle\":\"off\",\"okUiMode\":\"orchestra\",\"okDensity\":\"comfortable\"}"
     },
     {
       "area": "Perf",
       "name": "performance mode BatterySaver → policy on <html>",
       "ok": true,
-      "detail": "{\"okTheme\":\"nebula\",\"okMode\":\"dark\",\"okAnimations\":\"off\",\"okMotion\":\"off\",\"okPerformance\":\"BatterySaver\",\"okBackground\":\"nebula\",\"okBlur\":\"off\",\"okGlow\":\"off\",\"okBgAnim\":\"off\",\"okGpu\":\"off\",\"okPaused\":\"off\",\"okDensity\":\"comfortable\"}"
+      "detail": "{\"okTheme\":\"nebula\",\"okMode\":\"dark\",\"okAnimations\":\"off\",\"okMotion\":\"off\",\"okPerformance\":\"BatterySaver\",\"okBackground\":\"nebula\",\"okBlur\":\"off\",\"okGlow\":\"off\",\"okBgAnim\":\"off\",\"okGpu\":\"off\",\"okPaused\":\"off\",\"okIdle\":\"off\",\"okUiMode\":\"orchestra\",\"okDensity\":\"comfortable\"}"
     },
     {
       "area": "Visual",
@@ -334,7 +346,7 @@
       "area": "Layout",
       "name": "panel detached into its own window",
       "ok": true,
-      "detail": "/panel/files?projectId=01a1164b-d5cc-729f-9e68-8b68ec85a765"
+      "detail": "/panel/files?projectId=01a1685b-f091-7318-b6b4-ec3d05674f46"
     },
     {
       "area": "Layout",
@@ -362,7 +374,7 @@
     },
     {
       "area": "Visual",
-      "name": "e-02-robot-designer: one shell, page not scrolled",
+      "name": "e-02-orb-settings: one shell, page not scrolled",
       "ok": true,
       "detail": "{\"shells\":1,\"scrollY\":0,\"docH\":900,\"winH\":900,\"bodyChildren\":\"DIV.root DIV.context-view DIV.monaco-aria-container\"}"
     },
@@ -387,18 +399,18 @@
   ],
   "shots": [
     {
-      "name": "h-01-qa-robot-completed-raw.png",
-      "note": "QA robot window as rendered (transparent window, captured with the webview default background)",
+      "name": "h-01-orb-hub-raw.png",
+      "note": "Agent Hub as rendered (transparent window, captured with the webview default background)",
       "consoleErrors": []
     },
     {
-      "name": "h-03-robot-click-opens-agent.png",
-      "note": "Scenario H: clicking the QA robot opens its result in the Agents panel",
+      "name": "h-03-orb-opens-agent.png",
+      "note": "Scenario H: the Agent Hub opens the QA agent's result in the Agents panel",
       "consoleErrors": []
     },
     {
-      "name": "h-02-floating-robots-over-desktop.png",
-      "note": "Floating robot windows (Completed + bubble, Waiting (approval), Reviewing, Completed, QA · Coding, QA · Completed; + context menu) composited over a synthetic desktop",
+      "name": "h-02-floating-orb-over-desktop.png",
+      "note": "The floating orb (approval · 1, Agent Hub, idle; + context menu) composited over a synthetic desktop",
       "consoleErrors": []
     },
     {
@@ -473,7 +485,7 @@
     },
     {
       "name": "l-04-detached-panel.png",
-      "note": "Detached panel window (/panel/files?projectId=01a1164b-d5cc-729f-9e68-8b68ec85a765) with its own title bar and re-dock",
+      "note": "Detached panel window (/panel/files?projectId=01a1685b-f091-7318-b6b4-ec3d05674f46) with its own title bar and re-dock",
       "consoleErrors": []
     },
     {
@@ -487,8 +499,8 @@
       "consoleErrors": []
     },
     {
-      "name": "e-02-robot-designer.png",
-      "note": "Settings → Robots: Robot Designer with live preview",
+      "name": "e-02-orb-settings.png",
+      "note": "Settings → Orb: the floating orb's shape, size and behaviour with a live preview",
       "consoleErrors": []
     },
     {

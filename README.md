@@ -6,7 +6,15 @@ specialised agents, models, tools and compute nodes. The product spec is in
 [`docs/spec/MASTER_SPEC.md`](docs/spec/MASTER_SPEC.md). The rules every
 contributor follows are in [`docs/ENGINEERING_CONTRACT.md`](docs/ENGINEERING_CONTRACT.md).
 
-> Status: **Phases 0–7 complete on Windows** (Phase 5 for Android). Phase 7
+> Status: **Phases 0–7 and Wave 8 complete on Windows** (Phase 5 for Android).
+> Wave 8 (2026-10-23) added the VS Code workbench inside Orkestr, Orkestr's own
+> context menu, one floating orb with an Agent Hub instead of per-agent robots,
+> the Window Library, switchable speech engines, the computer assistant with
+> an Assistant mode, Codex (ChatGPT subscription) next to Claude Code, the
+> update system and installer configuration, and a design sweep — see
+> [Wave 8](#wave-8). Regression run on the merged build: Phase 1 45/45, Phase 2
+> 47/47, Phase 3 66/66, Phase 4 40/40, Phase 5 44/44, Phase 6 47/47, Phase 7
+> 91/91. Phase 7
 > (Ecosystem: signed plugins in a wasmtime sandbox, marketplace registries,
 > widgets and dashboards, deployments, infrastructure monitor, Bug Detective)
 > passed its acceptance run <!-- P7-ACCEPTANCE -->91/91<!-- /P7-ACCEPTANCE --> —
@@ -70,7 +78,7 @@ contributor follows are in [`docs/ENGINEERING_CONTRACT.md`](docs/ENGINEERING_CON
 - **Mission Control**.
 - Six themes and a Theme Editor with a WCAG report.
 - Layout presets (Ctrl+1…5), a Layout Editor and panels you can detach into their own windows.
-- **Floating robots**, one transparent click-through window per agent, and a Robot Designer.
+- One **floating orb** (a transparent click-through window) with an Agent Hub for every agent — it replaced the per-agent robots in Wave 8.
 - A **HUD**.
 - Voice:
   - push-to-talk and typed voice commands;
@@ -81,6 +89,8 @@ contributor follows are in [`docs/ENGINEERING_CONTRACT.md`](docs/ENGINEERING_CON
 - **AI-editable UI**: the Manager proposes a theme or layout patch, and you preview it, keep it or undo it.
 
 **Phase 4–6: remote, mobile, multi-node** — see the sections below.
+
+**Wave 8** — see [Wave 8](#wave-8).
 
 **Phase 7: ecosystem**
 - **Plugins**: signed `.orkp` packages, a WebAssembly sandbox (wasmtime) with fuel, time and memory limits, permission prompts, a kill switch and safe mode; plugin tools are available to agents.
@@ -107,8 +117,9 @@ All screenshots are captures of the app window only, taken on the final build.
 |---|---|
 | [`phase1`](docs/screenshots/phase1/) | Manager plan card, agents, task graph, code, terminal, Git, providers, onboarding |
 | [`phase2`](docs/screenshots/phase2/) | Quality pipeline, reviews, AI PM, Merge Manager, architecture map, Replay, teams, benchmarks (English and Russian) |
-| [`phase3`](docs/screenshots/phase3/) | Acceptance run: robots, voice, every theme, layout preset and performance mode, HUD, AI-UI, detached panels |
-| [`phase3-mission-control`](docs/screenshots/phase3-mission-control/) · [`phase3-theme`](docs/screenshots/phase3-theme/) · [`phase3-layout`](docs/screenshots/phase3-layout/) · [`phase3-robots`](docs/screenshots/phase3-robots/) · [`phase3-hud`](docs/screenshots/phase3-hud/) · [`phase3-voice`](docs/screenshots/phase3-voice/) | Per-area Visual OS reviews |
+| [`phase3`](docs/screenshots/phase3/) | Acceptance run: the orb and Agent Hub, voice, every theme, layout preset and performance mode, HUD, AI-UI, detached panels |
+| [`phase3-mission-control`](docs/screenshots/phase3-mission-control/) · [`phase3-theme`](docs/screenshots/phase3-theme/) · [`phase3-layout`](docs/screenshots/phase3-layout/) · [`phase3-robots`](docs/screenshots/phase3-robots/) (historic, replaced by the orb) · [`phase3-hud`](docs/screenshots/phase3-hud/) · [`phase3-voice`](docs/screenshots/phase3-voice/) | Per-area Visual OS reviews |
+| [`vscode-embed`](docs/screenshots/vscode-embed/) · [`context-menu`](docs/screenshots/context-menu/) · [`orb`](docs/screenshots/orb/) · [`window-library`](docs/screenshots/window-library/) · [`assistant`](docs/screenshots/assistant/) · [`codex`](docs/screenshots/codex/) · [`design-sweep`](docs/screenshots/design-sweep/) | Wave 8: VS Code in Orkestr, context menu, orb + Agent Hub, Window Library, Assistant mode, Codex, design sweep before / after |
 | [`i18n-ru`](docs/screenshots/i18n-ru/) | Every panel, settings section, onboarding step and dialog in Russian at 960×600, then a live switch to English |
 
 ## Architecture in one picture
@@ -221,7 +232,7 @@ also checks consensus, the architecture map, Replay, benchmarks, teams and the
 AI Product Manager.
 
 `scripts/smoke/phase3-acceptance.mjs` (Windows) runs the Visual OS checks:
-scenario H (floating robots), scenario G (voice through a finished
+scenario H (the floating orb and its Agent Hub), scenario G (voice through a finished
 transcript), and every theme, layout preset and performance mode. It also
 checks the HUD, AI-editable UI and detaching panels into their own windows.
 
@@ -242,7 +253,7 @@ RPC and captures only the webview through the WebView2 DevTools protocol. Pass
 
 | Script | Needs |
 |---|---|
-| `phase3-{theme,voice,robots,hud}-screenshots.mjs` | `npm run build && cargo build -p orkestr-desktop --features custom-protocol` |
+| `phase3-{theme,voice,hud}-screenshots.mjs`, `orb-screenshots.mjs` | `npm run build && cargo build -p orkestr-desktop --features custom-protocol` |
 | `phase3-mission-control-screenshots.mjs` | `npm run build` and `cargo build -p orkestr-core --bin orkestrd` (headless Edge) |
 | `phase1-screenshots.mjs`, `i18n-ru-screenshots.mjs`, `phase3-layout-screenshots.mjs` | `npm run dev -w @orkestr/desktop` (Vite on `127.0.0.1:1420`) and `cargo build -p orkestr-desktop` |
 
@@ -696,6 +707,23 @@ deferred list are in
 [`docs/roadmap/feature-traceability.md`](docs/roadmap/feature-traceability.md)
 → "Phase 7 acceptance check".
 
+## Wave 8
+
+The ten requests of 2026-10-23, merged on `main`:
+
+| # | Request | What was built | Checked by |
+|---|---|---|---|
+| 1 | VS Code extensions inside Orkestr | The real VS Code workbench (VSCodium REH) in a frame of the Orkestr window, Open VSX installs, theme sync, extension enable / disable, detachable panel (ADR-0043) | `vscode-embed-screenshots.mjs` 17/17 |
+| 2 | Own context menu | Orkestr's menu replaces the WebView2 one in every window; per-window default actions | `wave8-context-menu-screenshots.mjs` 13/13 |
+| 3 | One floating orb | One sphere in the theme palette; its Agent Hub lists every agent and Claude Code session (message, pause, stop, restart, open, approvals, Stop all) (ADR-0045) | `orb-screenshots.mjs` 24/24, Phase 3 scenario H |
+| 4 | Window Library | Every panel and window with a description, tags and en / ru × dark / light previews | `window-library-previews.mjs`, vitest |
+| 5 | Switchable STT / TTS | whisper.cpp, Vosk, sherpa-onnx, Windows speech, Piper, Silero and cloud services; model manager; API keys in the secret vault (ADR-0046) | Rust + vitest |
+| 6 | Computer assistant | `orkestr-computer`: 1035 ready commands, user command sets, AI plans with approval and «remember as a command», confirmations for risky actions; Assistant mode (compact UI) next to Orchestra mode (ADR-0035) | Rust (mock backend) + vitest; `assistant-acceptance.mjs` drives the real desktop and is run by hand only |
+| 7 | Design sweep | Title bar (no overlaps at 960–1920 px, en / ru, dark / light), modal focus, narrow panels, light-theme native controls | [`design-sweep`](docs/screenshots/design-sweep/) |
+| 8 | Codex (ChatGPT subscription) | Codex panel and engine in parallel with Claude Code, routing modes, plan limits (ADR-0047) | `codex-screenshots.mjs` 6/6 (scripted CLI) |
+| 9 | Updates | Manual and automatic checks against a configurable server, signed packages, backups and rollback, install over the old version keeping data (ADR-0048) | Rust + vitest |
+| 10 | Windows installer | `scripts/release/build-installer.ps1` (NSIS + MSI, per-user, in-place upgrades) | — |
+
 ## Troubleshooting
 
 - **`npm run tauri dev` fails because port 1420 is unavailable.** Windows may
@@ -736,6 +764,6 @@ deferred list are in
 | `packages/widget-sdk` | `@orkestr/widget-sdk`: postMessage bridge for sandboxed dashboard widgets. |
 | `packages/ui` | `@orkestr/ui`: `--ok-*` tokens, theme engine, primitives. |
 | `apps/mobile` | Expo / React Native Android app (standalone npm project, not in the root workspaces). |
-| `apps/desktop` | Tauri 2 shell (windows, tray, robots, HUD) and the React UI (panels, features, i18n en/ru). |
+| `apps/desktop` | Tauri 2 shell (windows, tray, orb, HUD) and the React UI (panels, features, i18n en/ru). |
 | `scripts/smoke` | End-to-end smoke, acceptance and screenshot scripts. |
 | `docs/` | Spec, contract, ADRs, architecture, roadmap, audit report, screenshots. |

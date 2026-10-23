@@ -1,5 +1,5 @@
 {
-  "when": "2026-10-23T09:17:13.585Z",
+  "when": "2026-10-23T10:25:47.809Z",
   "checks": [
     {
       "id": "V0",
@@ -17,7 +17,7 @@
       "id": "V1a",
       "label": "the panel shows VS Code in a frame on vscode.tauri.localhost",
       "ok": true,
-      "detail": "http://vscode.tauri.localhost:13456/?tkn=…&folder=/c:/Users/User/AppData/Local/Temp/orkestr-vsx-YmISb7/demo-project"
+      "detail": "http://vscode.tauri.localhost:7484/?tkn=…&folder=/c:/Users/User/AppData/Local/Temp/orkestr-vsx-hCbIny/demo-project"
     },
     {
       "id": "V1b",

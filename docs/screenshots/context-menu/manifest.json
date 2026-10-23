@@ -1,5 +1,5 @@
 {
-  "date": "2026-10-22T23:18:38.826Z",
+  "date": "2026-10-23T10:49:54.819Z",
   "result": "13/13 checks passed",
   "checks": [
     {
@@ -12,7 +12,7 @@
       "id": "LIST",
       "label": "file tree row → file menu (en)",
       "ok": true,
-      "detail": "{\"prevented\":true,\"orkestr\":[\"Open\",\"New File…\",\"New Folder…\",\"Rename…\",\"Delete…\",\"Copy Path\",\"Copy Relative Path\",\"Reveal in File Explorer\",\"Open in External IDE\"],\"monaco\":false}"
+      "detail": "{\"prevented\":true,\"orkestr\":[\"Open\",\"Open in VS Code\",\"New File…\",\"New Folder…\",\"Rename…\",\"Delete…\",\"Copy Path\",\"Copy Relative Path\",\"Reveal in File Explorer\",\"Open in External IDE\"],\"monaco\":false}"
     },
     {
       "id": "EDITOR",
@@ -48,7 +48,7 @@
       "id": "LIST",
       "label": "file tree row → file menu (ru)",
       "ok": true,
-      "detail": "{\"prevented\":true,\"orkestr\":[\"Открыть\",\"Создать файл…\",\"Создать папку…\",\"Переименовать…\",\"Удалить…\",\"Копировать путь\",\"Копировать относительный путь\",\"Показать в проводнике\",\"Открыть во внешней IDE\"],\"monaco\":false}"
+      "detail": "{\"prevented\":true,\"orkestr\":[\"Открыть\",\"Открыть в VS Code\",\"Создать файл…\",\"Создать папку…\",\"Переименовать…\",\"Удалить…\",\"Копировать путь\",\"Копировать относительный путь\",\"Показать в проводнике\",\"Открыть во внешней IDE\"],\"monaco\":false}"
     },
     {
       "id": "EDITOR",
