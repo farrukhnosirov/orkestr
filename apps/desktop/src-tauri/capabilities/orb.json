@@ -1,0 +1,17 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "orb",
+  "description": "Floating orb window (ADR-0045): one transparent always-on-top sphere with the Agent Hub flyout. It may only drag itself, take focus for the hub, listen to shell events and call core_connection, orb_set_shape, orb_set_layout and orb_to_main (whitelisted requests); business data goes over the RPC protocol like every other window.",
+  "windows": [
+    "orb"
+  ],
+  "permissions": [
+    "core:default",
+    "core:window:allow-start-dragging",
+    "core:window:allow-set-focus",
+    "allow-core-connection",
+    "allow-orb-set-shape",
+    "allow-orb-set-layout",
+    "allow-orb-to-main"
+  ]
+}

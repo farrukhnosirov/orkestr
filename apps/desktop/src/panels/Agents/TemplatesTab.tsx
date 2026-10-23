@@ -1,6 +1,6 @@
 import type { AgentRole, AgentTemplate, MemoryAccess, ModelRef, QualityGate, TemplateDraft, WorktreePolicy } from "@orkestr/protocol";
 import { Badge, Button, EmptyState, IconButton, Input, Spinner } from "@orkestr/ui";
-import { Bot, Copy, Download, FileUp, LayoutTemplate, Lock, Palette, Pencil, Plus, RefreshCw, Trash2, X } from "lucide-react";
+import { Bot, Copy, Download, FileUp, LayoutTemplate, Lock, Pencil, Plus, RefreshCw, Trash2, X } from "lucide-react";
 import { type FormEvent, useEffect, useState } from "react";
 
 import { ModelPicker } from "../../features/providers/ModelPicker";
@@ -11,7 +11,6 @@ import { ALL_TOOLS, BUILTIN_ROLES, blankDraft, draftOf, duplicateDraft, isBuilti
 import { RoleAvatar } from "./parts";
 import { useAgentsUi } from "./store";
 import { templateDescription, templateName } from "../../lib/coreText";
-import { openRobotDesigner } from "../../features/robots/store";
 import { Overlay } from "../../components/Overlay";
 
 const GATES: QualityGate[] = ["Build", "Lint", "Typecheck", "Tests", "Security", "Review", "AcceptanceCriteria"];
@@ -21,7 +20,7 @@ const MEMORY: MemoryAccess[] = ["None", "ProjectOnly", "ProjectAndGlobal", "Full
 const TEMPLATE_VARS = "{{project.name}} {{task.title}} {{agent.role}}";
 
 function TemplateCard({ tpl, onChanged }: { tpl: AgentTemplate; onChanged: () => void }) {
-  const { t } = useT(["agents", "common", "robots"]);
+  const { t } = useT(["agents", "common"]);
   const fmt = useFormat();
   const ui = useAgentsUi();
   const builtin = isBuiltin(tpl);
@@ -55,7 +54,6 @@ function TemplateCard({ tpl, onChanged }: { tpl: AgentTemplate; onChanged: () =>
       </div>
       <div className="agents-tpl__actions">
         <IconButton label={t("templates.spawnFrom")} icon={<Bot size={15} />} onClick={() => ui.openSpawn(tpl.id)} tooltip="bottom" />
-        <IconButton label={t("robots:templates.design")} icon={<Palette size={15} />} onClick={() => openRobotDesigner(tpl.id)} tooltip="bottom" />
         {!builtin && (
           <IconButton label={t("templates.edit")} icon={<Pencil size={15} />} onClick={() => ui.setEditor({ mode: "edit", template: tpl })} tooltip="bottom" />
         )}

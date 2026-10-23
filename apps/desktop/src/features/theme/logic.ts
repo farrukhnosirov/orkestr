@@ -6,7 +6,6 @@
 import type { ThemeConfig, UiConfigIssue } from "@orkestr/protocol";
 import { isBuiltinTheme, isValidTokenName, normalizeTheme, plainNumber, validateTheme } from "@orkestr/ui";
 
-import { SKIN_IDS } from "../robots/model/design";
 import { THEME_SOUND_EVENTS, THEME_SOUND_PRESETS } from "../sound/recipes";
 
 // ---------------------------------------------------------------------------
@@ -143,8 +142,6 @@ export const SOUND_EVENTS: readonly string[] = Object.keys(THEME_SOUND_EVENTS);
 /** Sound preset ids — the Sound Engine's theme preset catalogue. */
 export const SOUND_PRESETS: readonly string[] = Object.keys(THEME_SOUND_PRESETS);
 
-/** Robot skin ids — the Robot Designer's skin catalogue. */
-export const ROBOT_SKINS: readonly string[] = SKIN_IDS;
 
 // ---------------------------------------------------------------------------
 // Scales

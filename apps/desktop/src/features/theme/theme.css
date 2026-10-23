@@ -1153,46 +1153,15 @@
   border-color: var(--ok-color-border-accent);
 }
 
-/* ── Robot preview ────────────────────────────────────── */
-.th-robot-preview {
-  display: grid;
-  place-items: center;
-  height: 110px;
-  border-radius: var(--ok-radius-md);
-  border: 1px solid var(--ok-color-border);
-  background: radial-gradient(circle at 50% 60%, color-mix(in srgb, var(--th-robot) 18%, transparent), transparent 60%);
-}
-.th-robot-preview__bot {
+/* ── Orb preview ──────────────────────────────────────── */
+.th-orb-preview {
   display: flex;
-  align-items: center;
   justify-content: center;
-  gap: 10px;
-  width: 54px;
-  height: 42px;
-  border-radius: 16px;
-  background: linear-gradient(160deg, var(--ok-color-surface-strong), var(--ok-color-bg-elevated));
-  border: 2px solid var(--th-robot);
-  box-shadow: 0 0 calc(18px * var(--ok-glow-intensity) + 2px) color-mix(in srgb, var(--th-robot) 60%, transparent);
-  transform: scale(var(--th-robot-scale));
-  transition: transform var(--ok-duration-base) var(--ok-ease-spring);
-  animation: th-hover 3s ease-in-out infinite;
+  padding: var(--ok-space-4);
+  border-radius: var(--ok-radius-lg);
+  background: var(--ok-color-surface-sunken);
 }
-[data-ok-motion="off"] .th-robot-preview__bot,
-[data-ok-motion="reduced"] .th-robot-preview__bot {
-  animation: none;
-}
-@keyframes th-hover {
-  50% {
-    translate: 0 calc(-4px * var(--ok-motion-intensity));
-  }
-}
-.th-robot-preview__eye {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--th-robot);
-  box-shadow: 0 0 8px var(--th-robot);
-}
+
 
 @media (max-width: 720px) {
   .th-editor {

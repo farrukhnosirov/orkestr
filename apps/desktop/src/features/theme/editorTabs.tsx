@@ -19,6 +19,8 @@ import { useMemo, useState } from "react";
 import { useFormat, useT } from "../../i18n";
 import { Segmented, Switch } from "../settings/controls";
 import { ColorField, ColorPicker, Select, Slider } from "./controls";
+import { ORB_PAD } from "../orb/model";
+import { OrbSphere } from "../orb/OrbSphere";
 import {
   COLOR_GROUPS,
   EASING_PRESETS,
@@ -27,7 +29,6 @@ import {
   GRADIENT_TOKENS,
   MONO_FONTS,
   RADII,
-  ROBOT_SKINS,
   SANS_FONTS,
   SHADOW_PRESETS,
   SOUND_EVENTS,
@@ -552,42 +553,26 @@ export function SoundsTab({ draft, edit }: TabProps) {
 }
 
 // ---------------------------------------------------------------------------
-// Robot defaults (schema only — the robots area renders them)
+// Orb (ADR-0045): accent of the floating orb (`theme.robot.accent`, schema name kept)
 // ---------------------------------------------------------------------------
 
-export function RobotTab({ draft, edit }: TabProps) {
+export function OrbTab({ draft, edit }: TabProps) {
   const { t } = useT("theme");
-  const fmt = useFormat();
   const value = useTokenValue(draft);
   const r = draft.robot;
-  const setRobot = (patch: Partial<ThemeConfig["robot"]>) => edit((th) => ({ ...th, robot: { ...th.robot, ...patch } }));
-  const accent = r.accent ?? value("color-accent");
+  const setAccent = (accent: string | null) => edit((th) => ({ ...th, robot: { ...th.robot, accent } }));
   return (
     <div className="th-tab">
-      <div className="th-robot-preview" aria-hidden="true" style={{ ["--th-robot" as string]: accent, ["--th-robot-scale" as string]: String(r.scale) }}>
-        <span className="th-robot-preview__bot">
-          <span className="th-robot-preview__eye" />
-          <span className="th-robot-preview__eye" />
-        </span>
+      <div className="th-orb-preview" aria-hidden="true">
+        <OrbSphere size={64} pad={ORB_PAD} mood="working" motion="static" fps={0} rings={2} level={0} themeKey={JSON.stringify(draft.tokens)} accent={r.accent} lit={false} />
       </div>
       <section className="th-block">
-        <label className="th-field">
-          <span className="th-field__label">{t("editor.robotSkin")}</span>
-          <Select
-            label={t("editor.robotSkin")}
-            value={r.skin}
-            options={[...new Set([...ROBOT_SKINS, r.skin])].map((s) => ({ value: s, label: t(`robotSkins.${s}` as never, { defaultValue: s }) }))}
-            onChange={(v) => setRobot({ skin: v })}
-          />
-        </label>
-        <Slider label={t("editor.robotScale")} value={r.scale} min={0.5} max={2} step={0.05} format={(v) => fmt.percent(v)} onChange={(v) => setRobot({ scale: v })} />
         <div className="th-row">
           <span className="th-field__label">{t("editor.robotUseAccent")}</span>
-          <Switch label={t("editor.robotUseAccent")} checked={r.accent === null} onChange={(v) => setRobot({ accent: v ? null : value("color-accent") })} />
+          <Switch label={t("editor.robotUseAccent")} checked={r.accent === null} onChange={(v) => setAccent(v ? null : value("color-accent"))} />
         </div>
-        {r.accent !== null && <ColorPicker value={r.accent} allowAlpha={false} onChange={(v) => setRobot({ accent: v })} />}
-        {/* The floating robots use theme.robot (skin, scale, accent) as the defaults of every robot without its own design. */}
-        <p className="th-hint">{t("editor.robotHint")}</p>
+        {r.accent !== null && <ColorPicker value={r.accent} allowAlpha={false} onChange={(v) => setAccent(v)} />}
+        <p className="th-hint">{t("editor.orbHint")}</p>
       </section>
     </div>
   );

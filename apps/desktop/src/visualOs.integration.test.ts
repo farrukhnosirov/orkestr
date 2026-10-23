@@ -2,7 +2,7 @@
  * Phase 3 integration seams (Visual OS ↔ Phase 2 quality data, theme ↔
  * sound / robots, performance policy, layout widget state, AI-editable UI).
  */
-import type { CheckResult, Event, QualityRun, Review, ThemeSounds } from "@orkestr/protocol";
+import type { CheckResult, QualityRun, Review, ThemeSounds } from "@orkestr/protocol";
 import { validatePrefs, validateUiConfig, defaultUiConfig } from "@orkestr/ui";
 import { describe, expect, it } from "vitest";
 
@@ -10,12 +10,10 @@ import { layoutIdForPreset } from "./features/aiui/useAiUiRuntime";
 import { validateLayoutDocument } from "./features/layout/schema";
 import { resolvePolicy } from "./features/performance/policy";
 import { buildErrorsOf, hudStateOf, mergeMissionRows, missionRowsOf, openReviewCount, qualityFactsOf } from "./features/quality/signals";
-import { bubbleForEvent } from "./features/robots/model/bubble";
-import { defaultDesign, withThemeRobotDefaults } from "./features/robots/model/design";
-import { FPS_BY_MODE, robotEffects } from "./features/robots/model/perf";
-import { pipelineStateFor, withPipelineState } from "./features/robots/model/states";
+import { agentItem, hubCounts } from "./features/orb/hubModel";
+import { orbFps, orbMood, orbMotion, IDLE_SIGNALS } from "./features/orb/model";
 import { THEME_SOUND_EVENTS, THEME_SOUND_PRESETS, themeCueOverride } from "./features/sound/recipes";
-import { ROBOT_SKINS, SOUND_EVENTS, SOUND_PRESETS } from "./features/theme/logic";
+import { SOUND_EVENTS, SOUND_PRESETS } from "./features/theme/logic";
 import { widgetPrefIds } from "./panels/MissionControl/Dashboard";
 
 function check(over: Partial<CheckResult>): CheckResult {
@@ -54,10 +52,6 @@ function run(id: string, startedAt: string, results: CheckResult[]): QualityRun 
   } as QualityRun;
 }
 
-function ev(kind: string, payload: unknown): Event {
-  return { seq: 1, id: "e1", ts: "2026-10-05T10:00:00Z", projectId: "p1", taskId: "t1", agentId: null, nodeId: null, correlationId: null, kind, payload } as unknown as Event;
-}
-
 describe("Phase 2 quality signals", () => {
   const runs = [
     run("r2", "2026-10-05T10:00:00Z", [
@@ -91,36 +85,20 @@ describe("Phase 2 quality signals", () => {
   });
 });
 
-describe("robots follow the quality pipeline and the theme", () => {
-  it("pipeline stages drive Testing / Reviewing", () => {
-    const stage = (stage: string, status: string) => ev("PipelineStageChanged", { pipelineId: "x", projectId: "p1", taskId: "t1", stage, status, runs: 1 });
-    expect(pipelineStateFor(stage("Test", "Running"))).toBe("Testing");
-    expect(pipelineStateFor(stage("Security", "Running"))).toBe("Reviewing");
-    expect(pipelineStateFor(stage("Test", "Passed"))).toBeNull();
-    expect(pipelineStateFor(ev("TaskUpdated", {}))).toBeUndefined();
-    expect(withPipelineState({ state: "Coding", asleep: false }, "Testing").state).toBe("Testing");
-    expect(withPipelineState({ state: "Error", asleep: false }, "Testing").state).toBe("Error");
-    expect(bubbleForEvent(stage("Build", "Failed"))?.key).toBe("buildFailed");
+describe("the orb follows agents and the performance table", () => {
+  it("agent states drive the sphere's mood", () => {
+    const agent = (state: string) => agentItem({ id: state, projectId: "p1", name: "QA", state, stoppedAt: null, activity: null, maxTurns: 0, turnsUsed: 0, templateId: null, taskId: null, lastActivityAt: null, startedAt: null, createdAt: "2026-01-01T00:00:00Z" } as never);
+    const counts = hubCounts([agent("Coding"), agent("Testing"), agent("Error")]);
+    expect(counts).toEqual({ working: 2, waiting: 0, errors: 1 });
+    expect(orbMood({ ...IDLE_SIGNALS, ...counts })).toBe("error");
+    expect(orbMood({ ...IDLE_SIGNALS, working: 2 })).toBe("working");
   });
 
-  it("adversarial review findings become a bubble", () => {
-    const review = { kind: "Adversarial", status: "Finished", verdict: "RequestChanges", findings: [{}, {}] };
-    expect(bubbleForEvent(ev("ReviewUpdated", { review }))).toMatchObject({ key: "securityFindings", values: { count: 2 } });
-  });
-
-  it("theme robot defaults style unstyled robots only", () => {
-    const d = defaultDesign();
-    expect(withThemeRobotDefaults(d, { skin: "ember", accent: "#f59e0b" })).toMatchObject({ skin: "ember", accent: "#f59e0b" });
-    expect(withThemeRobotDefaults({ ...d, skin: "mint" }, { skin: "ember", accent: null }).skin).toBe("mint");
-    expect(withThemeRobotDefaults(d, { skin: "not-a-skin", accent: null })).toBe(d);
-    expect(ROBOT_SKINS).toContain("ember");
-  });
-
-  it("robot frame rates and 3D come from the central performance table", () => {
-    expect(FPS_BY_MODE.UltraVisual).toBe(resolvePolicy("UltraVisual", { reducedMotion: false, hidden: false }).robotFps);
-    expect(FPS_BY_MODE.BatterySaver).toBe(0);
-    expect(robotEffects("UltraVisual", false).threeD).toBe(true);
-    expect(robotEffects("Balanced", false).threeD).toBe(false);
+  it("orb frame rates come from the central performance table", () => {
+    const env = { pref: "Full", reducedMotion: false, hidden: false, appActive: true, hovered: false, hubOpen: false, voice: false } as const;
+    expect(orbFps(orbMotion({ ...env, mode: "BatterySaver" }), "BatterySaver")).toBe(0);
+    expect(orbFps(orbMotion({ ...env, mode: "Performance" }), "Performance")).toBeLessThanOrEqual(resolvePolicy("Performance", { reducedMotion: false, hidden: false }).robotFps);
+    expect(orbFps(orbMotion({ ...env, mode: "UltraVisual" }), "UltraVisual")).toBe(30);
   });
 });
 

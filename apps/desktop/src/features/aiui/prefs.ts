@@ -17,6 +17,7 @@ export const DEFAULT_PREFS: UiPrefs = {
   hiddenWidgets: [],
   backgroundDim: 0,
   hud: { opacity: 0.82, showAgents: true, showManagerInput: true },
+  orb: { enabled: true, size: 64, showBadge: true, animation: "Full" },
 };
 
 const DEFAULT_EFFECTS: ThemeEffects = { blurPx: 18, glowIntensity: 0.6, panelOpacity: 0.72, animations: true };
@@ -25,7 +26,7 @@ const DEFAULT_EFFECTS: ThemeEffects = { blurPx: 18, glowIntensity: 0.6, panelOpa
 export function prefsOf(config: UiConfig | null | undefined): UiPrefs {
   const p = config?.prefs;
   if (!p) return DEFAULT_PREFS;
-  return { ...DEFAULT_PREFS, ...p, hud: { ...DEFAULT_PREFS.hud, ...p.hud } };
+  return { ...DEFAULT_PREFS, ...p, hud: { ...DEFAULT_PREFS.hud, ...p.hud }, orb: { ...DEFAULT_PREFS.orb, ...p.orb } };
 }
 
 function clamp(v: number, min: number, max: number): number {

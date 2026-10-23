@@ -1,0 +1,130 @@
+{
+  "orb": {
+    "label": "Orkestr orb — {{state}}. Click for the Agent Hub, right-click for options"
+  },
+  "mood": {
+    "offline": "Not connected",
+    "listening": "Listening",
+    "speaking": "Speaking",
+    "stopped": "All AI stopped",
+    "approval": "Approval needed",
+    "error": "An agent failed",
+    "working": "Agents working",
+    "idle": "Idle"
+  },
+  "status": {
+    "waiting": "Waiting for you",
+    "error": "Error",
+    "working": "Working",
+    "paused": "Paused",
+    "idle": "Idle",
+    "done": "Done",
+    "stopped": "Stopped"
+  },
+  "actions": {
+    "message": "Write a message",
+    "pause": "Pause",
+    "resume": "Resume",
+    "stop": "Stop",
+    "restart": "Restart",
+    "transcript": "Open transcript"
+  },
+  "risk": {
+    "Low": "Low risk",
+    "Medium": "Medium risk",
+    "High": "High risk",
+    "Critical": "Critical risk"
+  },
+  "animation": {
+    "Full": "Full",
+    "Reduced": "Reduced",
+    "Static": "Still"
+  },
+  "menu": {
+    "label": "Orb menu",
+    "hub": "Open the Agent Hub",
+    "openMain": "Open Orkestr",
+    "animation": "Animation",
+    "badge": "Show the count badge",
+    "settings": "Orb settings…",
+    "hide": "Hide the orb"
+  },
+  "summaries": {
+    "animation": "Orb animation: {{value}}",
+    "badge": "Orb badge switched",
+    "hidden": "Orb hidden",
+    "shown": "Orb shown",
+    "size": "Orb size: {{size}} px",
+    "migrated": "Orb hidden (the floating robots were off)"
+  },
+  "hub": {
+    "title": "Agent Hub",
+    "summary": "{{working}} working · {{waiting}} waiting",
+    "summaryIdle": "Nothing running right now",
+    "openMain": "Open Orkestr",
+    "settings": "Orb settings",
+    "close": "Close",
+    "approvals_one": "{{count}} approval",
+    "approvals_other": "{{count}} approvals",
+    "allApprovals": "All approvals",
+    "approve": "Approve",
+    "deny": "Deny",
+    "approveTitle": "Approve: {{summary}}",
+    "denyTitle": "Deny: {{summary}}",
+    "review": "Review",
+    "reviewHint": "Risky actions are reviewed in the main window",
+    "loading": "Loading agents…",
+    "empty": "No agents right now",
+    "emptyHint": "Running agents and Claude Code chats of every project appear here.",
+    "groupCount_one": "{{count}} item",
+    "groupCount_other": "{{count}} items",
+    "askManager": "Ask the Manager",
+    "managerPlaceholder": "Message the Manager of {{project}}…",
+    "send": "Send",
+    "sent": "Sent",
+    "sendFailed": "Could not send: {{error}}",
+    "rowLabel": "{{name}} — {{status}}",
+    "claudeSession": "Claude Code",
+    "progress": "Turns used",
+    "messageSession": "Message {{name}}…",
+    "messageAgent": "Message {{name}} (via the Manager)…",
+    "allStopped": "All AI stopped",
+    "stoppedResult_one": "Stopped {{count}} agent",
+    "stoppedResult_other": "Stopped {{count}} agents",
+    "emergency": "Stop all",
+    "emergencyConfirm": "Confirm: stop all AI",
+    "emergencyHint": "Emergency stop: every agent, Manager run and check",
+    "voiceOff": "Voice is off (Settings → Voice)",
+    "voiceListening": "Listening… release to send",
+    "voiceHold": "Hold to talk"
+  },
+  "settings": {
+    "sectionTitle": "Orb",
+    "group": "Floating orb",
+    "enabled": "Show the orb",
+    "enabledDesc": "One small sphere on your desktop shows what your agents do. Click it (or press {{shortcut}}) for the Agent Hub: write to agents, stop, approve.",
+    "enabledDescBrowser": "The orb lives on the desktop and appears only in the Orkestr desktop app.",
+    "size": "Size",
+    "sizeDesc": "Diameter of the sphere.",
+    "sizes": {
+      "56": "Small",
+      "64": "Medium",
+      "72": "Large"
+    },
+    "badge": "Count badge",
+    "badgeDesc": "Pending approvals, failed or working agents.",
+    "animation": "Animation",
+    "animationDesc": "The Performance Mode can lower it further; the orb stays still while you work in other apps.",
+    "position": "Position",
+    "positionDesc": "Drag the orb anywhere; it snaps to screen edges and is remembered per monitor.",
+    "resetPosition": "Reset position",
+    "positionReset": "Moved to the corner",
+    "preview": "States"
+  },
+  "commands": {
+    "group": "Orb",
+    "show": "Show the orb",
+    "hide": "Hide the orb",
+    "hub": "Toggle the Agent Hub"
+  }
+}

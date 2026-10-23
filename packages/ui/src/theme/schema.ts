@@ -197,6 +197,8 @@ export function validatePrefs(prefs: Partial<UiPrefs>): UiConfigIssue[] {
   });
   if (!inRange(prefs.backgroundDim ?? 0, 0, 0.9)) push("prefs.backgroundDim", "must be between 0 and 0.9");
   if (!inRange(prefs.hud?.opacity ?? 0.82, 0.4, 1)) push("prefs.hud.opacity", "must be between 0.4 and 1");
+  const orbSize = prefs.orb?.size ?? 64;
+  if (!Number.isInteger(orbSize) || !inRange(orbSize, 48, 96)) push("prefs.orb.size", "must be between 48 and 96");
   return issues;
 }
 

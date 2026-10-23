@@ -46,7 +46,7 @@ use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent}
 use tauri::{AppHandle, Emitter, Manager, RunEvent, WindowEvent};
 use tokio::sync::{watch, Mutex};
 
-pub mod robots;
+pub mod orb;
 
 /// Label of the main window (see `tauri.conf.json`).
 const MAIN_WINDOW: &str = "main";
@@ -337,7 +337,7 @@ fn toggle_main(app: &AppHandle) {
 enum MainCloseAction {
     /// Hide to the tray; agents keep running.
     HideToTray,
-    /// Quit the whole app: auxiliary windows (HUD, robots, detached panels)
+    /// Quit the whole app: auxiliary windows (HUD, orb, detached panels)
     /// must not keep a headless process alive once the main window is gone.
     Quit,
     /// Already quitting: let the window close.
@@ -432,7 +432,7 @@ pub fn run() {
             quitting: AtomicBool::new(false),
             language: std::sync::Mutex::new("en".to_owned()),
         })
-        .manage(robots::RobotsState::default())
+        .manage(orb::OrbState::default())
         .manage(vscode_window::VsCodeWindowState::default())
         // Plugin widget documents (ADR-0034): one-time URLs with the widget CSP.
         .manage(widget_scheme::WidgetDocs::default())
@@ -480,7 +480,7 @@ pub fn run() {
         .manage(windows::PanelWindows::default())
         .on_window_event(|window, event| {
             windows::on_panel_window_event(window, event);
-            robots::on_window_event(window, event);
+            orb::on_window_event(window, event);
             if window.label() != MAIN_WINDOW {
                 return;
             }
@@ -496,7 +496,7 @@ pub fn run() {
                             tracing::info!("main window hidden to tray; agents keep running");
                         }
                         MainCloseAction::Quit => {
-                            // Auxiliary windows (HUD, robots, panels) would otherwise keep
+                            // Auxiliary windows (HUD, orb, panels) would otherwise keep
                             // a headless, unreachable process alive.
                             api.prevent_close();
                             tracing::info!("main window closed with close-to-tray off; quitting");
@@ -532,12 +532,13 @@ pub fn run() {
             hud::hud_toggle,
             hud::hud_collapse,
             hud::hud_expand,
-            robots::robot_open,
-            robots::robot_close,
-            robots::robot_close_all,
-            robots::robot_set_shape,
-            robots::robot_set_drop_zones,
-            robots::robot_to_main,
+            orb::orb_show,
+            orb::orb_hide,
+            orb::orb_toggle_hub,
+            orb::orb_reset_position,
+            orb::orb_set_shape,
+            orb::orb_set_layout,
+            orb::orb_to_main,
             vscode_window::vscode_window_open,
             vscode_window::vscode_window_close,
             vscode_window::vscode_window_reload,
@@ -622,8 +623,8 @@ mod tests {
     }
 
     /// Every command in `generate_handler!` must be declared (build.rs) and
-    /// granted only where needed: robot, HUD and panel windows must not reach
-    /// shell-wide commands (quit, prefs, window placement, robot lifecycle).
+    /// granted only where needed: orb, HUD and panel windows must not reach
+    /// shell-wide commands (quit, prefs, window placement, orb lifecycle).
     #[test]
     fn app_commands_are_scoped_per_window_capability() {
         fn granted(capability: &str) -> Vec<String> {
@@ -651,7 +652,10 @@ mod tests {
             want.sort();
             assert_eq!(got, want);
         };
-        expect(include_str!("../capabilities/robots.json"), &["core_connection", "robot_set_shape", "robot_to_main"]);
+        expect(
+            include_str!("../capabilities/orb.json"),
+            &["core_connection", "orb_set_shape", "orb_set_layout", "orb_to_main"],
+        );
         expect(
             include_str!("../capabilities/hud.json"),
             &["core_connection", "hud_show", "hud_hide", "hud_toggle", "hud_collapse", "hud_expand"],
@@ -681,7 +685,7 @@ mod tests {
         for capability in [
             include_str!("../capabilities/default.json"),
             include_str!("../capabilities/panels.json"),
-            include_str!("../capabilities/robots.json"),
+            include_str!("../capabilities/orb.json"),
             include_str!("../capabilities/hud.json"),
         ] {
             assert!(!capability.contains("updater:"), "no updater plugin permission may be granted");
@@ -707,7 +711,7 @@ mod tests {
         let open = vec!["dialog:allow-open".to_owned(), "dialog:allow-save".to_owned()];
         assert_eq!(dialog(include_str!("../capabilities/default.json")), open);
         assert_eq!(dialog(include_str!("../capabilities/panels.json")), open);
-        assert!(dialog(include_str!("../capabilities/robots.json")).is_empty());
+        assert!(dialog(include_str!("../capabilities/orb.json")).is_empty());
         assert!(dialog(include_str!("../capabilities/hud.json")).is_empty());
     }
 }

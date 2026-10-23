@@ -80,7 +80,6 @@ export function ProjectRail() {
                   }
                   aria-haspopup="menu"
                   aria-current={active ? "true" : undefined}
-                  data-robot-drop={p.id}
                   onClick={() => {
                     if (!active) void openProject(p.id);
                   }}

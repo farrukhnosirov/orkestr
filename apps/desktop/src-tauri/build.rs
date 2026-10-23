@@ -11,7 +11,7 @@ fn main() {
         println!("cargo:rustc-link-arg-tests=/MANIFEST:EMBED");
         println!("cargo:rustc-link-arg-tests=/MANIFESTINPUT:{}", manifest.display());
     }
-    // Declaring the app commands scopes them by capability: robot, HUD and
+    // Declaring the app commands scopes them by capability: orb, HUD and
     // panel windows may call only the commands their capability grants
     // (capabilities/*.json); undeclared, every window could call all of them.
     let manifest = tauri_build::AppManifest::new().commands(APP_COMMANDS);

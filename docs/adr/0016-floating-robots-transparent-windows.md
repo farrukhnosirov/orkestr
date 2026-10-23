@@ -1,6 +1,6 @@
 # ADR-0016: Floating robots as separate transparent Tauri windows
 
-- **Status:** Accepted (implementation is conditional on SP-04 passing; a fallback is defined)
+- **Status:** Superseded by [ADR-0045](0045-floating-orb-agent-hub.md) (2026-10-23: one floating orb with an Agent Hub replaces the per-agent robot windows; the robot windows, Robot Designer and `robots.rs` were removed). Originally: Accepted (implementation conditional on SP-04).
 - **Date:** 2026-10-02
 - **Phase:** 3 (Phase 0 spike SP-04 de-risks it early)
 - **Spec:** §30, §31, §34, §61 (floating transparent window spike), §62.1, §63H

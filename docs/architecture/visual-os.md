@@ -1,7 +1,7 @@
 # Visual OS (Phase 3)
 
 How the Phase 3 "Visual OS" layer is put together (§28–§34): themes, layouts
-and their persistence, floating robot windows, the voice privacy model,
+and their persistence, the floating orb, the voice privacy model,
 performance modes and the safety rules for the AI-editable UI.
 
 Decisions live in the ADRs. This page describes the system as built at Phase 3
@@ -11,12 +11,12 @@ acceptance (2026-10-05):
 |---|---|
 | Docking and detached windows | ADR-0013 |
 | UI config schema | ADR-0015, schema v2 |
-| Floating robots | ADR-0016 |
+| Floating orb + Agent Hub | ADR-0045 (supersedes ADR-0016) |
 | Local wake word | ADR-0017 |
 
 The UI never talks to Tauri for business data (§67). Everything below that is
 *data* goes through the RPC protocol (`ui.*`, `robots.*`, `voice.*`). Tauri
-commands only manage windows: HUD, robot windows and detached panels.
+commands only manage windows: HUD, the orb and detached panels.
 
 ## 1. One UI config document
 
@@ -34,7 +34,7 @@ UiConfig (schemaVersion 2; v1 documents are upgraded on read)
 │  ├─ background    kind (Solid | Gradient | Nebula | Grid | Particles) + params
 │  ├─ motion        durations / easing scale
 │  ├─ sounds        preset + per-event cues (sound engine ids)
-│  └─ robot         default skin / accent for robots the user has not styled
+│  └─ robot         orb accent override (`accent`; skin / scale are legacy)
 ├─ layout           LayoutConfig: active preset id
 ├─ performanceMode  UltraVisual | Balanced | Performance | BatterySaver
 └─ prefs?           density, panel placement, hidden widgets, background dim, HUD look
@@ -66,7 +66,7 @@ Each built-in theme carries a WCAG contrast report (`ui_theme::contrast_report`)
 
 **Theme engine** (`features/theme/ThemeRuntime.tsx`, `@orkestr/ui`):
 - It turns the active document into `--ok-*` CSS variables on `<html>`, plus the background layer.
-- Every window runs it: main, HUD, robots and detached panels. It re-reads on `UiConfigChanged`, so live edits reach every window.
+- Every window runs it: main, HUD, orb and detached panels. It re-reads on `UiConfigChanged`, so live edits reach every window.
 - Monaco and xterm themes are derived from the same tokens.
 
 ## 2. Layouts and their persistence
@@ -102,38 +102,30 @@ Each device stores up to 64 layouts. Layouts never leak between machines, becaus
 - save as, reset, export and import;
 - a per-panel list with placement (main window or a monitor), float, detach and hide.
 
-## 3. Floating robot windows
+## 3. Floating orb and Agent Hub
 
-Each robot is bound to a real agent id (§30). It is its own small
-`WebviewWindow` with these properties:
-- labelled `robot-<agentId>`;
-- loads `robot.html`;
-- transparent, frameless, shadowless;
-- always on top;
-- hidden from the taskbar;
-- not focusable on open.
+ADR-0045 (supersedes the per-agent robots of ADR-0016). One small sphere on
+the desktop, window `orb` (same bundle as every window; transparent,
+frameless, always on top, skip-taskbar, not focused on open), managed by
+`src-tauri/src/orb.rs`; the frontend lives in `features/orb/`.
 
-One more window, `robot-cluster`, collects the overflow robots (Settings → Robots → "Robots on the desktop").
-
-- **Who decides visibility:** the main window's `RobotHost` watches agent events over RPC. It opens and closes windows through `robot_open` and `robot_close`. Rust only manages windows; no business data passes through it.
-- **States:** the robot state is derived from the agent state: Idle, Listening, Thinking, Coding, Testing, Reviewing, Waiting, Error, Completed. Pipeline events of the agent's task also switch it to Testing or Reviewing. Each state has a pose and an animation. Important events add a speech bubble, such as "Done! ✓", "Waiting for you", "Tests failed" or "Review approved ✓". A finished robot stays for a configurable time (2 min by default) and then leaves.
-- **Click-through:**
-  - Windows start with `set_ignore_cursor_events(true)`, which sets `WS_EX_LAYERED | WS_EX_TRANSPARENT` on Windows.
-  - While robots exist, a 30 Hz poller hit-tests the global cursor against the robot's reported shape (ellipses and rectangles).
-  - Cursor events are enabled only while the cursor is over the robot. An idle (pass-through) robot needs a 600 ms hover first.
-  - Clicks anywhere else go to the app underneath.
-- **Interaction:**
-  - Click opens the agent in the Agents panel.
-  - Right-click opens the context menu: open, assign to project, voice, hide, stop agent.
-  - Drag snaps to work-area edges and other robots.
-  - Dropping a robot on a project tile in the main window assigns the agent there.
-- **Look:** Robot Designer (Settings → Robots) offers:
-  - 2D (SVG) or 3D (three.js);
-  - skin, material, accent, size, accessories, animation intensity;
-  - voice, sound set, behaviour (snap, auto-hide idle, click-through idle, bubble level).
-
-  Designs are stored per template through `robots.setConfig`. A theme's robot skin and accent apply to robots the user has not styled.
-- **Voice:** a robot speaks with the agent's voice profile, with the robot design's voice id on top. A robot with voice on speaks its important bubbles, and the general voice notifications skip that agent so nothing is announced twice.
+- **Who decides visibility:** the main window's `OrbHost` shows / hides /
+  resizes the window from `UiConfig.prefs.orb` and answers orb requests (open
+  an agent, a Claude Code chat, settings, the approvals inbox). No business
+  data passes through Rust.
+- **Moods:** offline, listening, speaking, stopped, approval, error, working,
+  idle — from agents, Claude Code sessions, approvals, emergency flags and the
+  main window's voice state (`BroadcastChannel orkestr.orb`). Count badge:
+  approvals, errors, working agents.
+- **Rendering / performance:** Canvas 2D gradients in theme colours; full /
+  reduced / static motion from the Performance Mode, reduced motion, the
+  user's animation level and whether Orkestr has the focus (`orbMotion`).
+- **Click-through:** a 30 Hz poller hit-tests the cursor against the sphere
+  circle and the open flyout / menu box.
+- **Interaction:** click or `Ctrl+Alt+O` → Agent Hub (message, pause / resume,
+  stop, restart, transcript, approvals, Manager, emergency stop, push-to-talk);
+  right-click → orb menu; drag snaps to screen edges; the position is
+  remembered per monitor on this device.
 
 ## 4. Voice privacy model
 

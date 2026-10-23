@@ -128,8 +128,8 @@
     "motion": "Motion",
     "background": "Background",
     "sounds": "Sounds",
-    "robot": "Robots",
-    "json": "JSON"
+    "json": "JSON",
+    "orb": "Orb"
   },
   "editor": {
     "title": "Theme editor",
@@ -183,10 +183,7 @@
     "volume": "Volume",
     "soundEvents": "Event sounds",
     "soundsHint": "The sound engine plays these presets; Do Not Disturb mutes them.",
-    "robotSkin": "Robot look",
-    "robotScale": "Robot size",
     "robotUseAccent": "Use the theme accent",
-    "robotHint": "Defaults for floating robots. Each robot can still be customized in the Robot Designer.",
     "description": "Description",
     "author": "Author",
     "jsonTitle": "Theme JSON",
@@ -194,7 +191,8 @@
     "refreshJson": "Refresh from editor",
     "copyJson": "Copy",
     "copied": "Copied",
-    "soundPreview": "Preview sound: {{event}}"
+    "soundPreview": "Preview sound: {{event}}",
+    "orbHint": "Accent of the floating orb. Everything else about the orb follows the theme colors."
   },
   "groups": {
     "backgrounds": "Background layers",
@@ -324,15 +322,5 @@
     "alert-soft": "Soft alert",
     "alert-strong": "Strong alert",
     "whoosh": "Whoosh"
-  },
-  "robotSkins": {
-    "nebula": "Nebula",
-    "ember": "Ember",
-    "mint": "Mint",
-    "chrome": "Chrome",
-    "sakura": "Sakura",
-    "obsidian": "Obsidian",
-    "sunrise": "Sunrise",
-    "glacier": "Glacier"
   }
 }
