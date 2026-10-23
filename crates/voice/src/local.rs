@@ -292,7 +292,7 @@ function Await($op, [Type]$t) { $task = $asTask.MakeGenericMethod($t).Invoke($nu
 $s = New-Object Windows.Media.SpeechSynthesis.SpeechSynthesizer
 $all = [Windows.Media.SpeechSynthesis.SpeechSynthesizer]::AllVoices
 $v = $null
-if ($env:ORKESTR_VOICE_NAME) { $v = $all | Where-Object { $_.DisplayName -eq $env:ORKESTR_VOICE_NAME } | Select-Object -First 1 }
+if ($env:ORKESTR_VOICE_NAME) { $n = $env:ORKESTR_VOICE_NAME; $v = $all | Where-Object { $_.DisplayName -eq $n -or $n.StartsWith($_.DisplayName + ' ') } | Select-Object -First 1 }
 if (-not $v -and $env:ORKESTR_VOICE_LANG) { $v = $all | Where-Object { $_.Language -eq $env:ORKESTR_VOICE_LANG } | Select-Object -First 1 }
 if (-not $v -and $env:ORKESTR_VOICE_LANG) { $p = $env:ORKESTR_VOICE_LANG.Split('-')[0]; $v = $all | Where-Object { $_.Language.Split('-')[0] -eq $p } | Select-Object -First 1 }
 if ($v) { $s.Voice = $v }

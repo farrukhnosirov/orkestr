@@ -11,6 +11,7 @@ import { useAppStore } from "../../store/app";
 import { installVoiceDebugHook, setVoiceDeps, simulateTranscript } from "./controller";
 import type { VoiceDeps } from "./pipeline/executor";
 import { useVoiceStore } from "./store";
+import { VOICE_ENGINE_DEFAULTS } from "./testConfig";
 
 const CONFIG = {
   enabled: true,
@@ -40,6 +41,7 @@ const CONFIG = {
   },
   sound: { enabled: false, volumePct: 55, preset: "Auto", muteInDnd: true },
   agentVoices: {},
+  ...VOICE_ENGINE_DEFAULTS,
 } satisfies VoiceConfig;
 
 const deps: VoiceDeps = {

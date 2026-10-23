@@ -14,14 +14,15 @@ import { templateName } from "../../../lib/coreText";
 import { loadTemplates } from "../agentVoices";
 import { assistantOptions } from "../agentVoices";
 import { optionsForProfile, speak, systemVoices } from "../tts/speaker";
-import { CLOUD_VOICES, LANGUAGE_OPTIONS } from "./options";
+import { CLOUD_VOICES, PIPER_VOICES, LANGUAGE_OPTIONS } from "./options";
+import { engineFromProvider } from "../engineMeta";
 import { Select, Slider } from "./fields";
 
 const DEFAULT_PROFILE: VoiceProfile = { provider: "system", voice: "", language: "auto", style: null };
 
 function profileSummary(p: VoiceProfile | null): string {
   if (!p) return tGlobal("voice:settings.agents.assistantVoice");
-  const engine = p.provider === "openai" ? tGlobal("voice:settings.tts.engines.OpenAi") : tGlobal("voice:settings.tts.engines.System");
+  const engine = tGlobal(`voice:settings.tts.engines.${engineFromProvider(p.provider) ?? "System"}`);
   return p.voice ? `${engine} · ${p.voice}` : engine;
 }
 
@@ -69,6 +70,8 @@ export function AgentVoices({ config, patch }: { config: VoiceConfig; patch: (fn
         const voiceOptions =
           p.provider === "openai"
             ? CLOUD_VOICES.map((v) => ({ value: v, label: v }))
+            : p.provider === "piper"
+              ? PIPER_VOICES.map((v) => ({ value: v, label: v }))
             : [{ value: "", label: t("settings.tts.autoVoice") }, ...voices.map((v) => ({ value: v.name, label: `${v.name} (${v.lang})` }))];
         return (
           <div key={tpl.id} className="vx-agent">
@@ -90,9 +93,11 @@ export function AgentVoices({ config, patch }: { config: VoiceConfig; patch: (fn
                     value={p.provider}
                     options={[
                       { value: "system", label: t("settings.tts.engines.System") },
+                      { value: "piper", label: t("settings.tts.engines.Piper") },
+                      { value: "windows", label: t("settings.tts.engines.WindowsOneCore") },
                       { value: "openai", label: t("settings.tts.engines.OpenAi"), disabled: !cloudAllowed },
                     ]}
-                    onChange={(v) => edit((x) => ({ ...x, provider: v, voice: v === "openai" ? (CLOUD_VOICES[0] ?? "alloy") : "" }))}
+                    onChange={(v) => edit((x) => ({ ...x, provider: v, voice: v === "openai" ? (CLOUD_VOICES[0] ?? "alloy") : v === "piper" ? (PIPER_VOICES[0] ?? "") : "" }))}
                   />
                 </label>
                 <label className="vx-field">

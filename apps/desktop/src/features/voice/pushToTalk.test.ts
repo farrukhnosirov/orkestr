@@ -47,6 +47,7 @@ import { useSettingsStore } from "../settings/settingsStore";
 import { cancelVoice, startListening, stopListening, wakeWanted } from "./controller";
 import { useVoiceStore } from "./store";
 import { TEMPLATES_KEY } from "./wake/spotter";
+import { VOICE_ENGINE_DEFAULTS } from "./testConfig";
 
 const CONFIG = {
   enabled: true,
@@ -76,6 +77,7 @@ const CONFIG = {
   },
   sound: { enabled: false, volumePct: 55, preset: "Auto", muteInDnd: true },
   agentVoices: {},
+  ...VOICE_ENGINE_DEFAULTS,
 } satisfies VoiceConfig;
 
 /** Waits until the controller is inside `getUserMedia` (mic open pending). */

@@ -1,0 +1,30 @@
+/** VoiceConfig fields added by ADR-0046, with their defaults (test fixtures). */
+import type { VoiceConfig } from "@orkestr/protocol";
+
+export const VOICE_ENGINE_DEFAULTS: Pick<VoiceConfig, "sttFallback" | "ttsFallback" | "sttByLanguage" | "ttsByLanguage" | "sttConsents" | "ttsConsents" | "engines"> = {
+  sttFallback: [],
+  ttsFallback: [],
+  sttByLanguage: {},
+  ttsByLanguage: {},
+  sttConsents: [],
+  ttsConsents: [],
+  engines: {
+    whisperModel: "whisper-base",
+    whisperGpu: false,
+    voskModel: "vosk-small-ru",
+    sherpaModel: "sherpa-zipformer-small-ru-int8",
+    piperVoice: "piper-ru-irina",
+    windowsVoice: null,
+    sileroSpeaker: "xenia",
+    openaiSttModel: "gpt-4o-transcribe",
+    openaiTtsModel: "gpt-4o-mini-tts",
+    deepgramModel: "nova-2",
+    azureRegion: "",
+    azureVoice: "ru-RU-SvetlanaNeural",
+    googleVoice: "",
+    yandexFolderId: "",
+    yandexVoice: "alena",
+    elevenlabsVoice: "21m00Tcm4TlvDq8ikWAM",
+    elevenlabsModel: "eleven_multilingual_v2",
+  },
+};

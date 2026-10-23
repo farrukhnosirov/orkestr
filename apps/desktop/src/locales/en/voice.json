@@ -174,7 +174,9 @@
       "wake": "Wake word",
       "tts": "Assistant voice",
       "cloud": "Cloud speech provider",
-      "agents": "Agent voices"
+      "agents": "Agent voices",
+      "engines": "Speech engines",
+      "models": "Voice models"
     },
     "general": {
       "enabled": "Voice commands",
@@ -213,12 +215,28 @@
       "engines": {
         "Disabled": "Off (typed commands)",
         "WebSpeech": "Web Speech",
-        "OpenAiWhisper": "OpenAI Whisper"
+        "OpenAiWhisper": "OpenAI (Whisper / GPT-4o)",
+        "WhisperCpp": "whisper.cpp (offline)",
+        "Vosk": "Vosk (offline)",
+        "SherpaOnnx": "sherpa-onnx (offline)",
+        "WindowsSpeech": "Windows Speech (offline)",
+        "Deepgram": "Deepgram",
+        "AzureSpeech": "Azure AI Speech",
+        "GoogleCloud": "Google Cloud",
+        "YandexSpeechKit": "Yandex SpeechKit"
       },
       "engineHints": {
         "Disabled": "No audio leaves this device",
         "WebSpeech": "Built into the webview; audio goes to the browser's speech service",
-        "OpenAiWhisper": "Audio goes to OpenAI through your provider key"
+        "OpenAiWhisper": "Audio goes to OpenAI with your key or provider",
+        "WhisperCpp": "Runs on this computer; multilingual, accurate",
+        "Vosk": "Runs on this computer; small and very fast",
+        "SherpaOnnx": "Runs on this computer; fast streaming models",
+        "WindowsSpeech": "Built into Windows; needs the language's speech pack",
+        "Deepgram": "Audio goes to Deepgram with your API key",
+        "AzureSpeech": "Audio goes to Microsoft Azure with your API key",
+        "GoogleCloud": "Audio goes to Google Cloud with your API key",
+        "YandexSpeechKit": "Audio goes to Yandex Cloud with your API key"
       },
       "webSpeechMissing": "Web Speech recognition isn't available in this webview",
       "disabledNote": "With recognition off, use the voice panel to type commands. The wake word still opens it."
@@ -227,7 +245,8 @@
       "sttTitle": "Send your voice commands to {{engine}}?",
       "sttText": {
         "WebSpeech": "After push-to-talk or the wake word, the audio of your command is sent to the speech service of the webview (Microsoft or Google). The wake word itself is always detected on this device.",
-        "OpenAiWhisper": "After push-to-talk or the wake word, the audio of your command (up to 15 seconds) is sent to OpenAI with your API key and deleted from memory right after recognition. The wake word itself is always detected on this device."
+        "OpenAiWhisper": "After push-to-talk or the wake word, the audio of your command (up to 15 seconds) is sent to OpenAI with your API key and deleted from memory right after recognition. The wake word itself is always detected on this device.",
+        "Cloud": "After push-to-talk or the wake word, the audio of your command (up to 15 seconds) is sent to {{engine}} with your API key and deleted from memory right after recognition. The wake word itself is always detected on this device."
       },
       "ttsTitle": "Use OpenAI voices?",
       "ttsText": "The text of replies and notifications is sent to OpenAI to synthesize speech. No audio from your microphone is sent.",
@@ -235,7 +254,9 @@
       "given": "Consent given",
       "givenDesc": "{{engine}} · {{date}}",
       "ttsGiven": "Consent for cloud voices given",
-      "revoke": "Revoke"
+      "revoke": "Revoke",
+      "ttsTitleEngine": "Use {{engine}} voices?",
+      "ttsTextEngine": "The text of replies and notifications is sent to {{engine}} to synthesize speech. No audio from your microphone is sent."
     },
     "wake": {
       "privacyTitle": "Detected on this device",
@@ -292,7 +313,14 @@
       "engineDesc": "System voices work offline.",
       "engines": {
         "System": "System voices",
-        "OpenAi": "OpenAI voices"
+        "OpenAi": "OpenAI voices",
+        "Piper": "Piper (offline)",
+        "WindowsOneCore": "Windows voices (offline)",
+        "Silero": "Silero (offline)",
+        "AzureSpeech": "Azure AI Speech",
+        "GoogleCloud": "Google Cloud",
+        "YandexSpeechKit": "Yandex SpeechKit",
+        "ElevenLabs": "ElevenLabs"
       },
       "voice": "Voice",
       "voiceDesc_one": "{{count}} voice for this language.",
@@ -306,7 +334,8 @@
       "test": "Test",
       "testDesc": "Plays a sample with the current settings.",
       "testButton": "Play sample",
-      "sample": "Hello! All agents are working, and nothing needs your attention right now."
+      "sample": "Hello! All agents are working, and nothing needs your attention right now.",
+      "coreVoiceNote": "Pick the voice of this engine under Speech engines below."
     },
     "cloud": {
       "provider": "Provider",
@@ -330,6 +359,100 @@
     "privacy": {
       "title": "Privacy",
       "text": "Only transcripts of commands are logged, never audio. The microphone indicator in the title bar is on whenever the microphone is in use."
+    },
+    "engines": {
+      "byLanguage": "Engines per language",
+      "byLanguageDesc": "Recognition and voice for each language; otherwise the selected engines are used.",
+      "lang": {
+        "ru": "Russian",
+        "en": "English"
+      },
+      "sttFor": "Recognition for {{lang}}",
+      "ttsFor": "Voice for {{lang}}",
+      "sameAsSelected": "Same as selected",
+      "fallbackStt": "Recognition fallback",
+      "fallbackTts": "Voice fallback",
+      "fallbackDesc": "Tried in order when the engine fails.",
+      "fallbackTtsDesc": "Tried in order when the engine fails; the system voice is always the last resort.",
+      "noFallback": "No fallback",
+      "addFallback": "Add engine…",
+      "moveUp": "Move up",
+      "remove": "Remove",
+      "cardsDesc": "Every engine with what it can do on this computer.",
+      "refresh": "Re-detect",
+      "status": {
+        "Ready": "Ready",
+        "NeedsDownload": "Needs download",
+        "NeedsKey": "Needs API key",
+        "Unavailable": "Unavailable",
+        "Client": "In the app window"
+      },
+      "verification": {
+        "Tested": "Tested here",
+        "RequestShapeVerified": "Request shape verified",
+        "Untested": "Not tested"
+      },
+      "grade": {
+        "Low": "low",
+        "Medium": "medium",
+        "High": "high",
+        "VeryHigh": "very high"
+      },
+      "offline": "Offline",
+      "cloud": "Cloud",
+      "russian": "Russian",
+      "streaming": "Streaming",
+      "quality": "Quality: {{grade}}",
+      "speed": "Speed: {{grade}}",
+      "option": "Model or voice",
+      "notInstalled": "{{name}} (not installed)",
+      "gpu": "Use the GPU (CUDA runtime)",
+      "region": "Region",
+      "regionPlaceholder": "westeurope",
+      "folderId": "Folder ID",
+      "folderPlaceholder": "b1g…",
+      "voiceId": "Voice ID",
+      "apiKey": "API key",
+      "apiKeyPlaceholder": "Paste the API key",
+      "keyStored": "Key stored in the vault",
+      "keySaved": "Key stored in the vault",
+      "saveKey": "Save key",
+      "clearKey": "Remove key",
+      "testStt": "Record & transcribe",
+      "testTts": "Speak sample",
+      "recording": "Speak now…",
+      "transcribing": "Recognizing…",
+      "testResult": "“{{text}}” ({{ms}} ms)",
+      "testEmpty": "Nothing recognized",
+      "testFailed": "Test failed: {{error}}",
+      "played": "Played"
+    },
+    "models": {
+      "diskUsage": "{{size}} on disk in {{path}}",
+      "downloadButton": "Download",
+      "download": "Download {{size}}",
+      "onDisk": "{{size}} on disk",
+      "verify": "Verify",
+      "remove": "Remove",
+      "verified_one": "Checksum matches ({{count}} file)",
+      "verified_other": "Checksums match ({{count}} files)",
+      "verifyFailed_one": "{{count}} file changed or missing",
+      "verifyFailed_other": "{{count}} files changed or missing",
+      "recommended": "Recommended",
+      "unsupported": "Not available for this OS",
+      "state": {
+        "NotInstalled": "Not installed",
+        "Queued": "Queued",
+        "Downloading": "Downloading",
+        "Installing": "Verifying",
+        "Installed": "Installed",
+        "Failed": "Failed"
+      },
+      "kind": {
+        "Runtime": "Engine",
+        "SttModel": "Recognition model",
+        "TtsVoice": "Voice"
+      }
     }
   },
   "sound": {
