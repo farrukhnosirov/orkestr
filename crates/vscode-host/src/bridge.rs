@@ -27,7 +27,7 @@ use tokio::sync::{mpsc, oneshot, watch};
 use tokio_util::sync::CancellationToken;
 
 /// Version of the bundled bridge extension (matches `bridge/package.json`).
-pub const BRIDGE_VERSION: &str = "0.1.0";
+pub const BRIDGE_VERSION: &str = "0.2.0";
 /// Extension id of the bridge.
 pub const BRIDGE_EXTENSION_ID: &str = "orkestr.orkestr-bridge";
 /// Env var naming the bridge connection file.
@@ -219,7 +219,12 @@ enum Incoming {
         #[serde(default)]
         error: Option<String>,
     },
+    /// A keybinding of the bridge asked Orkestr for something (ADR-0043).
+    Signal { signal: String },
 }
+
+/// Signals the bridge extension may send (anything else is dropped).
+pub const SIGNALS: &[&str] = &["focusOrkestr", "showPalette"];
 
 type Pending = Arc<Mutex<HashMap<u64, oneshot::Sender<Result<Value, BridgeError>>>>>;
 
@@ -236,6 +241,7 @@ struct Inner {
     conns: Mutex<Vec<Conn>>,
     next_id: AtomicU64,
     count_tx: watch::Sender<usize>,
+    signal_tx: tokio::sync::broadcast::Sender<String>,
     shutdown: CancellationToken,
     bind_lock: tokio::sync::Mutex<()>,
 }
@@ -294,6 +300,7 @@ impl Bridge {
     #[must_use]
     pub fn new() -> Self {
         let (count_tx, _) = watch::channel(0);
+        let (signal_tx, _) = tokio::sync::broadcast::channel(16);
         Self {
             inner: Arc::new(Inner {
                 token: Mutex::new(None),
@@ -301,6 +308,7 @@ impl Bridge {
                 conns: Mutex::new(Vec::new()),
                 next_id: AtomicU64::new(1),
                 count_tx,
+                signal_tx,
                 shutdown: CancellationToken::new(),
                 bind_lock: tokio::sync::Mutex::new(()),
             }),
@@ -334,6 +342,12 @@ impl Bridge {
     #[must_use]
     pub fn hello(&self) -> Option<BridgeHello> {
         self.inner.conns.lock().last().map(|c| c.hello.clone())
+    }
+
+    /// Signals sent by connected windows (`focusOrkestr`, `showPalette`).
+    #[must_use]
+    pub fn subscribe_signals(&self) -> tokio::sync::broadcast::Receiver<String> {
+        self.inner.signal_tx.subscribe()
     }
 
     /// Watches the connection count.
@@ -441,8 +455,8 @@ impl Bridge {
                 l = read_line_limited(&mut reader, &mut buf, MAX_LINE) => l,
             };
             match line {
-                Ok(Some(line)) => {
-                    if let Ok(Incoming::Res { id: rid, ok, result, error }) = serde_json::from_str::<Incoming>(&line) {
+                Ok(Some(line)) => match serde_json::from_str::<Incoming>(&line) {
+                    Ok(Incoming::Res { id: rid, ok, result, error }) => {
                         if let Some(tx) = pending.lock().remove(&rid) {
                             let _ = tx.send(if ok {
                                 Ok(result)
@@ -451,7 +465,11 @@ impl Bridge {
                             });
                         }
                     }
-                }
+                    Ok(Incoming::Signal { signal }) if SIGNALS.contains(&signal.as_str()) => {
+                        let _ = self.inner.signal_tx.send(signal);
+                    }
+                    _ => {}
+                },
                 Ok(None) | Err(_) => break,
             }
         }
@@ -620,5 +638,35 @@ mod tests {
         let mut rx = bridge.subscribe();
         let _ = tokio::time::timeout(Duration::from_secs(5), rx.wait_for(|n| *n == 0)).await;
         assert!(!bridge.is_connected());
+    }
+
+    #[tokio::test]
+    async fn known_signals_are_forwarded_and_others_dropped() {
+        let bridge = Bridge::new();
+        bridge.set_token(Some("tkn".into()));
+        let port = bridge.listen().await.unwrap();
+        let mut signals = bridge.subscribe_signals();
+        let (mut r, mut w) = client(port).await;
+        w.write_all(
+            b"{\"type\":\"hello\",\"token\":\"tkn\",\"version\":\"0.2.0\",\"vscodeVersion\":\"1.99.0\"}
+",
+        )
+        .await
+        .unwrap();
+        assert!(next_line(&mut r).await.unwrap().contains("welcome"));
+        w.write_all(
+            b"{\"type\":\"signal\",\"signal\":\"runAnything\"}
+",
+        )
+        .await
+        .unwrap();
+        w.write_all(
+            b"{\"type\":\"signal\",\"signal\":\"showPalette\"}
+",
+        )
+        .await
+        .unwrap();
+        let got = tokio::time::timeout(Duration::from_secs(5), signals.recv()).await.unwrap().unwrap();
+        assert_eq!(got, "showPalette", "unknown signals never reach Orkestr");
     }
 }

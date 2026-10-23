@@ -11,4 +11,12 @@ id: string,
 /**
  * Installed version.
  */
-version: string | null, };
+version: string | null, 
+/**
+ * Disabled from Orkestr (`VsCodeConfig::disabled_extensions`).
+ */
+disabled: boolean, 
+/**
+ * The enabled/disabled state changes on the next VS Code (re)start.
+ */
+restartRequired: boolean, };

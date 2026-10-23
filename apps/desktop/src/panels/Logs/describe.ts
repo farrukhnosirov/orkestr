@@ -424,6 +424,8 @@ export function describeEvent(event: Event): string {
       return t("events:incidentStageChanged", { id: short(event.payload.incidentId), stage: event.payload.to });
     case "DashboardChanged":
       return t("events:dashboardChanged", { id: short(event.payload.dashboardId) });
+    case "VsCodeBridgeSignal":
+      return t("events:vscodeBridgeSignal", { signal: event.payload.signal });
   }
 }
 

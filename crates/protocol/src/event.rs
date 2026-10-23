@@ -929,6 +929,7 @@ macro_rules! event_kinds {
                         | EventKind::ClaudeCodeEvent(_)
                         | EventKind::ClaudeCodeStatus(_)
                         | EventKind::DeploymentProgress(_)
+                        | EventKind::VsCodeBridgeSignal(_)
                 )
             }
 
@@ -1134,6 +1135,8 @@ event_kinds! {
     IncidentStageChanged(crate::methods::detective::IncidentStageChangedPayload),
     /// A dashboard was saved or deleted (Phase 7). Appended.
     DashboardChanged(crate::methods::dashboards::DashboardChangedPayload),
+    /// The embedded VS Code asked Orkestr for focus / its palette (ephemeral, ADR-0043). Appended.
+    VsCodeBridgeSignal(crate::methods::vscode::VsCodeBridgeSignalPayload),
 }
 
 // ---------------------------------------------------------------------------

@@ -85,6 +85,32 @@ async fn vscode_status_consent_and_config() {
     let r = call(&mut ws, "12", "vscode.listExtensions", json!({})).await;
     assert_eq!(r["ok"], false, "{r}");
 
+    // ADR-0043 management: validated before anything runs.
+    let r =
+        call(&mut ws, "13", "vscode.setExtensionEnabled", json!({"id": "orkestr.orkestr-bridge", "enabled": false}))
+            .await;
+    assert_eq!(r["error"]["code"], "bad_request", "the bridge cannot be disabled: {r}");
+    let r =
+        call(&mut ws, "14", "vscode.setExtensionEnabled", json!({"id": "redhat.vscode-yaml", "enabled": false})).await;
+    assert_eq!(r["error"]["code"], "not_found", "not installed: {r}");
+    let r = call(&mut ws, "15", "vscode.uninstallExtension", json!({"id": "a.b@1.0.0"})).await;
+    assert_eq!(r["error"]["code"], "bad_request", "{r}");
+    let r = call(&mut ws, "16", "vscode.installVsix", json!({"path": "relative/x.vsix"})).await;
+    assert_eq!(r["error"]["code"], "bad_request", "{r}");
+    let missing = dir.path().join("missing.vsix");
+    let r = call(&mut ws, "17", "vscode.installVsix", json!({"path": missing})).await;
+    assert_eq!(r["error"]["code"], "bad_request", "{r}");
+    let r = call(&mut ws, "18", "vscode.syncTheme", json!({"kind": "dark", "colors": {"editor.background": "url(x)"}}))
+        .await;
+    assert_eq!(r["error"]["code"], "bad_request", "colors are validated: {r}");
+    let r =
+        call(&mut ws, "19", "vscode.syncTheme", json!({"kind": "light", "colors": {"editor.background": "#ffffff"}}))
+            .await;
+    assert_eq!(r["error"]["data"]["reason"], "bridgeNotConnected", "{r}");
+    let r = call(&mut ws, "20", "vscode.setConfig", json!({"embed": false, "syncTheme": false})).await;
+    assert_eq!(r["result"]["config"]["embed"], false, "{r}");
+    assert_eq!(r["result"]["config"]["syncTheme"], false, "{r}");
+
     drop(ws);
     core.shutdown().await;
 }

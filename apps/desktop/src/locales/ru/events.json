@@ -137,5 +137,6 @@
   "alertResolved": "Алерт снят: {{title}}",
   "incidentOpened": "Открыт инцидент: {{title}}",
   "incidentStageChanged": "Инцидент {{id}}: {{stage}}",
-  "dashboardChanged": "Дашборд {{id}} изменён"
+  "dashboardChanged": "Дашборд {{id}} изменён",
+  "vscodeBridgeSignal": "VS Code обратился к Orkestr: {{signal}}"
 }

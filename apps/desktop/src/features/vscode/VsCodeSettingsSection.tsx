@@ -129,6 +129,30 @@ export function VsCodeSettingsSection(_props: SettingsSectionProps) {
             onChange={(v) => void useVsCodeStore.getState().setConfig({ autoRestart: v })}
           />
         </SettingRow>
+        <SettingRow title={t("settings.embed")} description={t("settings.embedDesc")}>
+          <Switch
+            checked={config.embed}
+            label={t("settings.embed")}
+            busy={busy === "config"}
+            onChange={(v) => void useVsCodeStore.getState().setConfig({ embed: v })}
+          />
+        </SettingRow>
+        <SettingRow title={t("settings.syncTheme")} description={t("settings.syncThemeDesc")}>
+          <Switch
+            checked={config.syncTheme}
+            label={t("settings.syncTheme")}
+            busy={busy === "config"}
+            onChange={(v) => void useVsCodeStore.getState().setConfig({ syncTheme: v })}
+          />
+        </SettingRow>
+        <SettingRow title={t("settings.workspaceTrust")} description={t("settings.workspaceTrustDesc")}>
+          <Switch
+            checked={config.workspaceTrust}
+            label={t("settings.workspaceTrust")}
+            busy={busy === "config"}
+            onChange={(v) => void useVsCodeStore.getState().setConfig({ workspaceTrust: v })}
+          />
+        </SettingRow>
         {running && (
           <SettingRow title={t("settings.stopNow")}>
             <Button size="sm" variant="secondary" loading={busy === "stop"} onClick={() => void useVsCodeStore.getState().stop()}>

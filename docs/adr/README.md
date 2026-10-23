@@ -50,6 +50,7 @@ summarises them: **Built** = implemented as decided (with listed deviations),
 | [0040](0040-marketplace-registry-and-package-signing.md) | Marketplace: static signed registries (official / directory / gateway HTTP), publisher key TOFU + pinning + revocation | Accepted | 7 | — | — | Implemented (Phase 7; see the ADR's "as built" notes) |
 | [0041](0041-environments-and-deployment-adapters.md) | Environments and `DeployAdapter`s: local targets live, cloud adapters request-shape verified, guarded production deploys | Accepted | 7 | — | — | Implemented (Phase 7; see the ADR's "as built" notes) |
 | [0042](0042-infrastructure-monitor-and-bug-detective.md) | Infrastructure monitor (metrics, checks, logs, alerts) and the Bug Detective workflow with two human gates | Accepted | 7 | — | — | Implemented (Phase 7; see the ADR's "as built" notes) |
+| [0043](0043-vscode-workbench-embedded-in-orkestr.md) | VS Code workbench embedded in the Orkestr window (same-site `vscode.tauri.localhost` frame), theme sync, extension management, focus signals | Accepted | 8 | — | — | Implemented (Wave 8; see the ADR's "as built" notes) |
 
 ## Planned ADRs (to be written when their phase starts)
 
@@ -109,6 +110,7 @@ flowchart TB
   A34 --> A40[0040 Marketplace registry]
   A10 --> A41[0041 Deployment adapters]
   A41 --> A42[0042 Infra monitor + Bug Detective]
+  A25[0025 VS Code extensions] --> A43[0043 VS Code embedded in Orkestr]
   A18 --> A22[0022 Crash recovery]
   A20[0020 UUID v7] --> A18
 ```

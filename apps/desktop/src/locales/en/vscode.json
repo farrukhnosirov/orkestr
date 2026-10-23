@@ -109,7 +109,13 @@
     "security": "Security",
     "securityBody": "VS Code extensions are third-party code running with your user's permissions, outside Orkestr's permission rules and approvals. The server listens only on 127.0.0.1 with a random token, stops with “Stop All AI” and when Orkestr exits.",
     "legal": "Orkestr uses VSCodium (MIT license) and the Open VSX registry. The Microsoft Visual Studio Marketplace is not used.",
-    "targetValue": "Platform: {{target}}"
+    "targetValue": "Platform: {{target}}",
+    "embed": "Show VS Code inside Orkestr",
+    "embedDesc": "The VS Code panel shows the full workbench. Turn off to use the separate VS Code window instead.",
+    "syncTheme": "Match the Orkestr theme",
+    "syncThemeDesc": "VS Code takes Orkestr's colors (applied while one of VS Code's built-in default themes is selected).",
+    "workspaceTrust": "Workspace Trust (Restricted Mode)",
+    "workspaceTrustDesc": "Off: Orkestr projects open trusted, so every extension runs. On: VS Code asks before trusting a folder and keeps most extensions disabled until then. Applies after VS Code restarts."
   },
   "commands": {
     "open": "Open VS Code panel",
@@ -140,6 +146,51 @@
     "browseHint": "To browse the catalog, open VS Code and press Ctrl+Shift+X there.",
     "notInstalled": "Install VS Code first — extensions run inside it.",
     "suggested": "Suggested",
-    "claude": "Claude Code (Anthropic)"
+    "claude": "Claude Code (Anthropic)",
+    "rust": "rust-analyzer",
+    "python": "Python",
+    "gitlens": "GitLens"
+  },
+  "tabs": {
+    "label": "VS Code sections",
+    "workbench": "Workbench",
+    "extensions": "Extensions",
+    "commands": "Commands",
+    "log": "Log"
+  },
+  "embed": {
+    "loading": "Loading VS Code…",
+    "reload": "Reload VS Code",
+    "separateWindow": "Open in the separate VS Code window",
+    "start": "Start VS Code",
+    "why": "VS Code runs right here, inside Orkestr: every installed extension works with the real extension host — language servers, debuggers, webviews (Claude Code, GitLens…).",
+    "keys": "While VS Code has the keyboard, press Ctrl+Alt+K for Orkestr's command palette or Ctrl+Alt+O to return focus to Orkestr.",
+    "unsupported": "This page cannot show VS Code inside itself — use the separate window or the browser."
+  },
+  "manager": {
+    "title": "Installed extensions ({{n}})",
+    "disabled": "Disabled",
+    "restartRequired": "Restart needed",
+    "openView": "Open {{name}}",
+    "settings": "Extension settings",
+    "enable": "Enable",
+    "disable": "Disable",
+    "uninstall": "Uninstall",
+    "uninstallTitle": "Uninstall {{name}}?",
+    "uninstallBody": "The extension is removed from Orkestr's VS Code. Its settings stay in VS Code.",
+    "cancel": "Cancel",
+    "updateAll": "Update all",
+    "vsix": "Install from VSIX…",
+    "vsixPick": "Choose a .vsix package",
+    "vsixLabel": "Path of a .vsix file",
+    "vsixPlaceholder": "C:\\path\\to\\extension.vsix",
+    "restartHint": "Enabling or disabling extensions takes effect after VS Code restarts.",
+    "appliesOnStart": "The change takes effect the next time VS Code starts.",
+    "restartNow": "Restart VS Code",
+    "version": "v{{version}}"
+  },
+  "openFile": {
+    "action": "Open in VS Code",
+    "noFolder": "The project has no folder on disk."
   }
 }

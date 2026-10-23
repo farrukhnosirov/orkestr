@@ -272,6 +272,27 @@ impl VsCodeHost {
                 }
             });
         }
+        // Bridge keybindings (focus Orkestr / its palette) → ephemeral events.
+        if let Some(bus) = self.inner.opts.events.clone() {
+            let host = self.clone();
+            let mut rx = self.inner.bridge.subscribe_signals();
+            tokio::spawn(async move {
+                loop {
+                    let signal = tokio::select! {
+                        () = host.inner.shutdown.cancelled() => return,
+                        s = rx.recv() => match s {
+                            Ok(s) => s,
+                            Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
+                            Err(_) => return,
+                        },
+                    };
+                    let payload = orkestr_protocol::methods::vscode::VsCodeBridgeSignalPayload { signal };
+                    if let Err(e) = bus.publish(NewEvent::new(EventKind::VsCodeBridgeSignal(payload))).await {
+                        tracing::debug!(error = %e, "failed to publish VsCodeBridgeSignal");
+                    }
+                }
+            });
+        }
         let host = self.clone();
         let every = self.inner.opts.idle_check;
         tokio::spawn(async move {
@@ -434,6 +455,15 @@ impl VsCodeHost {
             }
             if let Some(v) = patch.auto_restart {
                 st.config.auto_restart = v;
+            }
+            if let Some(v) = patch.embed {
+                st.config.embed = v;
+            }
+            if let Some(v) = patch.sync_theme {
+                st.config.sync_theme = v;
+            }
+            if let Some(v) = patch.workspace_trust {
+                st.config.workspace_trust = v;
             }
             st.config.clone()
         };
@@ -889,7 +919,166 @@ impl VsCodeHost {
     /// Not installed, busy, or the CLI failed.
     pub async fn list_extensions(&self) -> HostResult<Vec<VsCodeExtension>> {
         let out = self.run_extension_cli(&["--list-extensions", "--show-versions"]).await?;
-        Ok(crate::extensions::parse_extension_list(&out))
+        Ok(self.merge_disabled(crate::extensions::parse_extension_list(&out)))
+    }
+
+    /// Adds the stashed (disabled) extensions and the desired enablement.
+    fn merge_disabled(&self, mut list: Vec<VsCodeExtension>) -> Vec<VsCodeExtension> {
+        let desired = self.inner.st.lock().config.disabled_extensions.clone();
+        let is_disabled = |id: &str| desired.iter().any(|d| d == id);
+        for e in &mut list {
+            e.disabled = is_disabled(&e.id);
+            e.restart_required = e.disabled;
+        }
+        for (id, version) in crate::manage::stashed(&self.inner.layout.disabled_extensions_dir()) {
+            if list.iter().any(|e| e.id == id) {
+                continue;
+            }
+            let disabled = is_disabled(&id);
+            list.push(VsCodeExtension { id, version, disabled, restart_required: !disabled });
+        }
+        list.sort_by(|a, b| a.id.cmp(&b.id));
+        list
+    }
+
+    /// Moves disabled / re-enabled extensions (only while the server is not running).
+    async fn apply_disabled_now(&self) {
+        let disabled = self.inner.st.lock().config.disabled_extensions.clone();
+        let ext = self.inner.layout.extensions_dir();
+        let stash = self.inner.layout.disabled_extensions_dir();
+        let report = tokio::task::spawn_blocking(move || crate::manage::apply_disabled(&ext, &stash, &disabled))
+            .await
+            .unwrap_or_default();
+        for id in &report.disabled {
+            self.log(&format!("Orkestr: extension {id} disabled"));
+        }
+        for id in &report.enabled {
+            self.log(&format!("Orkestr: extension {id} enabled"));
+        }
+        for e in &report.errors {
+            self.log(&format!("Orkestr: could not change the state of an extension: {e}"));
+        }
+    }
+
+    fn server_active(&self) -> bool {
+        matches!(
+            self.inner.st.lock().state,
+            VsCodeState::Starting | VsCodeState::Running | VsCodeState::Restarting | VsCodeState::Stopping
+        )
+    }
+
+    fn manageable_id(raw: &str) -> HostResult<String> {
+        let id = crate::extensions::normalize_extension_id(raw)?;
+        if id.contains('@') {
+            return Err(HostError::Invalid("an extension id without a version is expected".into()));
+        }
+        if id == bridge::BRIDGE_EXTENSION_ID {
+            return Err(HostError::Invalid("the Orkestr bridge extension is managed by Orkestr".into()));
+        }
+        Ok(id)
+    }
+
+    /// Enables or disables an extension. Applied right away while the server
+    /// is stopped, otherwise on its next start (`restartRequired`).
+    ///
+    /// # Errors
+    /// Invalid id, not installed, or the config could not be saved.
+    pub async fn set_extension_enabled(&self, raw_id: &str, enabled: bool) -> HostResult<Vec<VsCodeExtension>> {
+        let id = Self::manageable_id(raw_id)?;
+        let config = {
+            let mut st = self.inner.st.lock();
+            if st.installed.is_none() {
+                return Err(HostError::NotInstalled);
+            }
+            st.config.disabled_extensions.retain(|d| d != &id);
+            if !enabled {
+                st.config.disabled_extensions.push(id.clone());
+                st.config.disabled_extensions.sort();
+            }
+            st.config.clone()
+        };
+        write_json(&self.inner.layout.config_file(), &config)?;
+        if !self.server_active() {
+            let _ops = self.inner.ops.lock().await;
+            if !self.server_active() {
+                self.apply_disabled_now().await;
+            }
+        }
+        self.emit_current().await;
+        self.list_extensions().await
+    }
+
+    /// Uninstalls an extension (also a disabled one).
+    ///
+    /// # Errors
+    /// Invalid id, not installed, or the CLI failed.
+    pub async fn uninstall_extension(&self, raw_id: &str) -> HostResult<Vec<VsCodeExtension>> {
+        let id = Self::manageable_id(raw_id)?;
+        let stash = self.inner.layout.disabled_extensions_dir();
+        let id2 = id.clone();
+        let was_stashed = tokio::task::spawn_blocking(move || crate::manage::remove_stashed(&stash, &id2))
+            .await
+            .map_err(|e| HostError::Server(e.to_string()))??;
+        let changed = {
+            let mut st = self.inner.st.lock();
+            let before = st.config.disabled_extensions.len();
+            st.config.disabled_extensions.retain(|d| d != &id);
+            (before != st.config.disabled_extensions.len()).then(|| st.config.clone())
+        };
+        if let Some(config) = changed {
+            write_json(&self.inner.layout.config_file(), &config)?;
+        }
+        self.log(&format!("Orkestr: uninstalling extension {id}"));
+        if !was_stashed {
+            self.run_extension_cli(&["--uninstall-extension", &id]).await?;
+        }
+        self.list_extensions().await
+    }
+
+    /// Installs a local `.vsix` package.
+    ///
+    /// # Errors
+    /// Not a readable `.vsix` file, not installed, or the CLI failed.
+    pub async fn install_vsix(&self, path: &Path) -> HostResult<Vec<VsCodeExtension>> {
+        let is_vsix = path.extension().is_some_and(|e| e.eq_ignore_ascii_case("vsix"));
+        if !path.is_absolute() || !is_vsix {
+            return Err(HostError::Invalid("an absolute path of a .vsix file is expected".into()));
+        }
+        let meta =
+            std::fs::metadata(path).map_err(|e| HostError::Invalid(format!("cannot read {}: {e}", path.display())))?;
+        if !meta.is_file() || meta.len() > 1024 * 1024 * 1024 {
+            return Err(HostError::Invalid("not a .vsix file (or larger than 1 GiB)".into()));
+        }
+        let text = path.to_string_lossy().into_owned();
+        self.log(&format!("Orkestr: installing extension package {text}"));
+        self.run_extension_cli(&["--install-extension", &text, "--force"]).await?;
+        self.list_extensions().await
+    }
+
+    /// Updates every installed extension from Open VSX.
+    ///
+    /// # Errors
+    /// Not installed, busy, or the CLI failed.
+    pub async fn update_extensions(&self) -> HostResult<Vec<VsCodeExtension>> {
+        self.log("Orkestr: updating extensions from Open VSX");
+        self.run_extension_cli(&["--update-extensions"]).await?;
+        self.list_extensions().await
+    }
+
+    /// Pushes Orkestr's theme into the connected workbench (bridge
+    /// `applyTheme`: `workbench.colorTheme` + colors scoped to that theme).
+    ///
+    /// # Errors
+    /// Invalid colors, no window connected (after `wait`), or the bridge failed.
+    pub async fn sync_theme(
+        &self,
+        light: bool,
+        colors: &std::collections::BTreeMap<String, String>,
+        wait: Duration,
+    ) -> HostResult<()> {
+        crate::manage::validate_theme_colors(colors)?;
+        let params = serde_json::json!({ "theme": crate::manage::base_theme(light), "colors": colors });
+        self.bridge_call("applyTheme", params, wait, Duration::from_secs(20)).await.map(|_| ())
     }
 
     /// Installs an Open VSX extension (`publisher.name[@version]`) and
@@ -1121,6 +1310,8 @@ impl VsCodeHost {
         if let Err(e) = orkestr_platform::fs::write_private_file(&layout.token_file(), token.as_bytes()) {
             return fail(format!("cannot write the connection token file: {e}"));
         }
+        // Extensions disabled from Orkestr: moved while nothing holds their files.
+        self.apply_disabled_now().await;
         let last = self.inner.st.lock().runtime.last_port;
         let port = last.filter(|p| port_is_free(*p)).unwrap_or(0);
         let spec = LaunchSpec {
@@ -1134,6 +1325,7 @@ impl VsCodeHost {
         };
         let mut cmd = tokio::process::Command::new(&spec.node);
         cmd.args(server::build_args(&spec))
+            .args(server::trust_args(self.inner.st.lock().config.workspace_trust))
             .args(&self.inner.opts.extra_server_args)
             .current_dir(dir)
             .stdin(Stdio::null())

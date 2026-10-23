@@ -46,6 +46,7 @@ import { useThemeRevision } from "../../features/theme/useThemeRevision";
 import { registerSaveAsHandler, registerSaveHandler } from "../../features/workbench/saveBus";
 import { relativeTo } from "../../features/workbench/hostPaths";
 import { canPickPaths, pickSavePath } from "../../lib/tauri";
+import { openFileInVsCode } from "../../features/vscode/quickAccess";
 
 const ENCODINGS: Record<string, string> = {
   utf8: "UTF-8",
@@ -299,6 +300,10 @@ export default function Workbench({ projectId }: { projectId: string }) {
       if (active?.path) askClaude(selectionPrompt({ path: active.path, startLine, endLine, text, language: active.language }));
     },
     onCursor: (line, column, selected) => setCursor({ line, column, selected }),
+    onOpenInVsCode: (line, column) => {
+      if (!active?.path) return;
+      void openFileInVsCode({ projectId, path: active.path, line, column }).then((err) => err && setNotice(err));
+    },
   };
 
   const openCompare = async (path: string) => {

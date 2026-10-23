@@ -33,6 +33,7 @@ pub mod extensions;
 mod host;
 pub mod install;
 pub mod lifecycle;
+pub mod manage;
 pub mod release;
 pub mod server;
 pub mod target;

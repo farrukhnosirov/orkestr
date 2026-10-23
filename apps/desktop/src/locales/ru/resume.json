@@ -419,6 +419,10 @@
     "DashboardChanged_one": "{{count}} изменение дашборда",
     "DashboardChanged_few": "{{count}} изменения дашбордов",
     "DashboardChanged_many": "{{count}} изменений дашбордов",
-    "DashboardChanged_other": "{{count}} изменения дашбордов"
+    "DashboardChanged_other": "{{count}} изменения дашбордов",
+    "VsCodeBridgeSignal_one": "{{count}} запрос от VS Code",
+    "VsCodeBridgeSignal_few": "{{count}} запроса от VS Code",
+    "VsCodeBridgeSignal_many": "{{count}} запросов от VS Code",
+    "VsCodeBridgeSignal_other": "{{count}} запроса от VS Code"
   }
 }

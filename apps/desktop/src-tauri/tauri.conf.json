@@ -14,6 +14,7 @@
     "windows": [
       {
         "label": "main",
+        "create": false,
         "title": "Orkestr",
         "width": 1440,
         "height": 900,
@@ -38,7 +39,7 @@
         "font-src": "'self' data:",
         "worker-src": "'self' blob:",
         "media-src": "'self' blob: data:",
-        "frame-src": "'self' orkestr-widget: http://orkestr-widget.localhost"
+        "frame-src": "'self' orkestr-widget: http://orkestr-widget.localhost http://vscode.tauri.localhost:*"
       }
     }
   },
