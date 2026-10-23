@@ -1,0 +1,116 @@
+{
+  "card": {
+    "title": "Параллельные движки",
+    "subtitle": "Claude Code (подписка Claude) и Codex (подписка ChatGPT) рядом: как Orkestr распределяет между ними агентов.",
+    "refresh": "Проверить обе подписки снова"
+  },
+  "engine": {
+    "claudeCode": "Claude Code",
+    "codex": "Codex"
+  },
+  "tone": {
+    "ok": "Вход выполнен",
+    "warn": "Лимит почти исчерпан",
+    "off": "Не установлен",
+    "error": "Вход не выполнен"
+  },
+  "facts": {
+    "installed": "Установлен",
+    "version": "Да, {{version}}",
+    "yes": "Да",
+    "no": "Нет",
+    "signedIn": "Вход выполнен",
+    "plan": "Тариф",
+    "limit": "Использовано лимита",
+    "unknown": "Неизвестно",
+    "resets": "сброс {{date}}",
+    "running": "Работает сейчас",
+    "agents_one": "{{count}} агент",
+    "agents_few": "{{count}} агента",
+    "agents_many": "{{count}} агентов",
+    "agents_other": "{{count}} агента"
+  },
+  "form": {
+    "mode": "Режим",
+    "manager": "AI-менеджер работает на",
+    "primary": "Основной движок (режим «Один движок»)",
+    "claudeModel": "Модель Claude Code",
+    "codexModel": "Модель Codex",
+    "codexDefault": "По умолчанию CLI Codex",
+    "codexRoles": "Роли на Codex",
+    "codexRolesHint": "Агенты этих ролей работают на Codex, остальные — на Claude Code.",
+    "codexRolesSplitOnly": "Используется в режиме «По ролям».",
+    "crossFallback": "Переключаться на другой движок, когда исчерпан лимит тарифа",
+    "crossFallbackHint": "Другая подписка становится первой резервной; прежние резервные модели остаются после неё.",
+    "save": "Сохранить",
+    "reset": "Отменить изменения",
+    "saved": "Сохранено"
+  },
+  "modes": {
+    "off": {
+      "title": "Выключено",
+      "description": "Orkestr не меняет маршрутизацию: каждый агент работает на своей модели."
+    },
+    "single": {
+      "title": "Один движок",
+      "description": "Всё работает на основном движке, другой — резервный."
+    },
+    "split": {
+      "title": "По ролям",
+      "description": "Выбранные роли работают на Codex, остальные — на Claude Code."
+    },
+    "balanced": {
+      "title": "Балансировка",
+      "description": "Каждый новый агент идёт на движок, где меньше работающих агентов и больше запас лимита."
+    },
+    "race": {
+      "title": "Гонка",
+      "description": "Ревью делится между движками: движок Менеджера проводит ревью, второй движок перепроверяет его как состязательный рецензент."
+    },
+    "consensus": {
+      "title": "Консенсус",
+      "description": "Важные решения согласуются между обоими движками."
+    }
+  },
+  "claudeModels": {
+    "sonnet": "Sonnet — быстрая, сбалансированная",
+    "opus": "Opus — самая мощная",
+    "haiku": "Haiku — самая быстрая"
+  },
+  "codexCard": {
+    "title": "Codex (ChatGPT подписка)",
+    "subtitle": "Официальный CLI Codex от OpenAI с вашим тарифом ChatGPT: установка, вход и чат в панели Codex.",
+    "refresh": "Проверить CLI Codex снова",
+    "checking": "Проверка…",
+    "notInstalled": "Не установлен",
+    "notSignedIn": "Вход не выполнен",
+    "ready": "Готов",
+    "version": "Версия {{version}}",
+    "plan": "Тариф: {{plan}}",
+    "limit": "Использовано лимита: {{percent}}",
+    "providerReady": "Провайдер подключён",
+    "openPanel": "Открыть Codex",
+    "hint": "Агенты работают на Codex, когда это задано в параллельных движках ниже. Orkestr никогда не читает файлы учётных данных Codex."
+  },
+  "indicator": {
+    "label": "Подписки",
+    "claude": "Claude",
+    "codex": "Codex",
+    "state": "{{name}}: {{state}}",
+    "plan": "Тариф: {{plan}}",
+    "limit": "Использовано лимита: {{percent}}"
+  },
+  "agentBadge": {
+    "claudeCode": "Claude Code",
+    "codex": "Codex",
+    "api": "API",
+    "hint": {
+      "claudeCode": "Работает по подписке Claude (Claude Code)",
+      "codex": "Работает по подписке ChatGPT (Codex)",
+      "api": "Работает через API-провайдера"
+    }
+  },
+  "reason": {
+    "claudeNotInstalled": "Claude Code не установлен (установите расширение Claude Code или CLI)."
+  }
+}

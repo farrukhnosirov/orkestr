@@ -35,7 +35,7 @@ export interface SlashSuggestion {
 }
 
 /** Built-ins first, then the CLI's commands (deduplicated), filtered by prefix. */
-export function slashSuggestions(commands: readonly ClaudeSlashCommand[], query: string, limit = 8): SlashSuggestion[] {
+export function slashSuggestions(commands: readonly ClaudeSlashCommand[], query: string, limit = 8, builtins = true): SlashSuggestion[] {
   const q = query.toLowerCase();
   const seen = new Set<string>();
   const out: SlashSuggestion[] = [];
@@ -44,7 +44,7 @@ export function slashSuggestions(commands: readonly ClaudeSlashCommand[], query:
     seen.add(s.name);
     out.push(s);
   };
-  for (const name of BUILTIN_SLASH_COMMANDS) {
+  for (const name of builtins ? BUILTIN_SLASH_COMMANDS : []) {
     const cli = commands.find((c) => c.name === name);
     push({ name, description: null, argumentHint: cli?.argumentHint ?? null });
   }

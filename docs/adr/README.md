@@ -53,6 +53,7 @@ summarises them: **Built** = implemented as decided (with listed deviations),
 | [0048](0048-updates-and-installer.md) | App updates (signed, remote or local channel, backups, downgrade guard) and the Windows installer (per-user NSIS + MSI, in-place upgrades) | Accepted | W8 | — | — | Implemented (wave 8, task 9) |
 | [0035](0035-computer-control.md) | Computer Control: personal computer assistant (`orkestr-computer`, Windows backend, 1035-command catalogue, user sets, AI plans, confirmations, Assistant mode) | Accepted | Wave 8 | — | — | Implemented (Wave 8; macOS/Linux backends `Unsupported`) |
 | [0046](0046-switchable-speech-engines.md) | Switchable STT/TTS engines (whisper.cpp, Vosk, sherpa-onnx, Windows speech, Piper, Silero, cloud services), voice model manager, engine keys in the secret vault | Accepted | Wave 8 | — | — | Implemented (wave 8) |
+| [0047](0047-codex-chatgpt-subscription-and-parallel-engines.md) | Codex (ChatGPT subscription) over `codex app-server`: bridged approvals, chat pool, panel, sign-in, limits; parallel engines routing | Accepted | wave 8 | 0012 (for Codex) | — | Implemented |
 
 ## Planned ADRs (to be written when their phase starts)
 

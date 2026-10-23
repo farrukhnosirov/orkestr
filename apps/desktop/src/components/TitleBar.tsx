@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { ModeToggle } from "../features/assistant/ModeToggle";
 import { useAssistantStore } from "../features/assistant/store";
+import { EnginesIndicator } from "../features/engines/EnginesIndicator";
 import { LayoutSwitcher } from "../features/layout/LayoutSwitcher";
 import { hudControls } from "../features/hud/hudWindow";
 import { NotificationBell } from "../features/notifications/NotificationCenter";
@@ -112,6 +113,8 @@ export function TitleBar() {
 
       <div className="titlebar__controls">
         <UpdateBadge />
+        {/* Claude / Codex subscription status (parallel engines) */}
+        {!compact && <EnginesIndicator />}
         <MicIndicator />
         {!compact && <NotificationBell />}
         {native && !compact && (

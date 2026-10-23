@@ -1,0 +1,114 @@
+{
+  "card": {
+    "title": "Parallel engines",
+    "subtitle": "Claude Code (Claude subscription) and Codex (ChatGPT subscription) side by side: how Orkestr spreads agents over them.",
+    "refresh": "Check both subscriptions again"
+  },
+  "engine": {
+    "claudeCode": "Claude Code",
+    "codex": "Codex"
+  },
+  "tone": {
+    "ok": "Signed in",
+    "warn": "Limit almost used up",
+    "off": "Not installed",
+    "error": "Not signed in"
+  },
+  "facts": {
+    "installed": "Installed",
+    "version": "Yes, {{version}}",
+    "yes": "Yes",
+    "no": "No",
+    "signedIn": "Signed in",
+    "plan": "Plan",
+    "limit": "Limit used",
+    "unknown": "Unknown",
+    "resets": "resets {{date}}",
+    "running": "Running now",
+    "agents_one": "{{count}} agent",
+    "agents_other": "{{count}} agents"
+  },
+  "form": {
+    "mode": "Mode",
+    "manager": "AI Manager runs on",
+    "primary": "Main engine (one-engine mode)",
+    "claudeModel": "Claude Code model",
+    "codexModel": "Codex model",
+    "codexDefault": "Codex CLI default",
+    "codexRoles": "Roles on Codex",
+    "codexRolesHint": "These agent roles run on Codex, all others on Claude Code.",
+    "codexRolesSplitOnly": "Used in the «Split by role» mode.",
+    "crossFallback": "Switch to the other engine when a plan limit is reached",
+    "crossFallbackHint": "The other subscription becomes the first fallback; previous fallbacks stay after it.",
+    "save": "Save",
+    "reset": "Discard changes",
+    "saved": "Saved"
+  },
+  "modes": {
+    "off": {
+      "title": "Off",
+      "description": "Orkestr does not change routing: each agent uses its own model."
+    },
+    "single": {
+      "title": "One engine",
+      "description": "Everything runs on the main engine; the other one is the fallback."
+    },
+    "split": {
+      "title": "Split by role",
+      "description": "Chosen roles run on Codex, the rest on Claude Code."
+    },
+    "balanced": {
+      "title": "Balanced",
+      "description": "Each new agent goes to the engine with fewer running agents and more limit left."
+    },
+    "race": {
+      "title": "Race",
+      "description": "Reviews are split between the engines: the Manager's engine reviews, the other engine double-checks it as the adversarial reviewer."
+    },
+    "consensus": {
+      "title": "Consensus",
+      "description": "Important decisions are agreed between both engines."
+    }
+  },
+  "claudeModels": {
+    "sonnet": "Sonnet — fast, balanced",
+    "opus": "Opus — most capable",
+    "haiku": "Haiku — fastest"
+  },
+  "codexCard": {
+    "title": "Codex (ChatGPT subscription)",
+    "subtitle": "OpenAI's official Codex CLI with your ChatGPT plan: install, sign in and chat in the Codex panel.",
+    "refresh": "Check Codex CLI again",
+    "checking": "Checking…",
+    "notInstalled": "Not installed",
+    "notSignedIn": "Not signed in",
+    "ready": "Ready",
+    "version": "Version {{version}}",
+    "plan": "Plan: {{plan}}",
+    "limit": "Limit used: {{percent}}",
+    "providerReady": "Provider connected",
+    "openPanel": "Open Codex",
+    "hint": "Agents run on Codex once the parallel engines below say so. Orkestr never reads Codex's credential files."
+  },
+  "indicator": {
+    "label": "Subscriptions",
+    "claude": "Claude",
+    "codex": "Codex",
+    "state": "{{name}}: {{state}}",
+    "plan": "Plan: {{plan}}",
+    "limit": "Limit used: {{percent}}"
+  },
+  "agentBadge": {
+    "claudeCode": "Claude Code",
+    "codex": "Codex",
+    "api": "API",
+    "hint": {
+      "claudeCode": "Runs on the Claude subscription (Claude Code)",
+      "codex": "Runs on the ChatGPT subscription (Codex)",
+      "api": "Runs on an API provider"
+    }
+  },
+  "reason": {
+    "claudeNotInstalled": "Claude Code is not installed (install the Claude Code extension or the CLI)."
+  }
+}

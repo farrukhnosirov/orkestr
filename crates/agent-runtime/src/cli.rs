@@ -12,23 +12,18 @@
 //! classified when it finishes and a violation stops the run. A template
 //! mirroring a Claude Code sub-agent runs it with `--agent` (+ `--agents`).
 //!
-//! **Codex** (sandbox-only gating) keeps the static model:
-//!
-//! * the CLI runs with `cwd` = the agent's worktree and a static tool policy
-//!   derived from the template; it needs a one-time explicit user approval
-//!   per run unless the project is in Full Auto;
-//! * the task's automatic Before checkpoint is taken before the CLI starts
-//!   (ADR-0012 §4 / ADR-0021) — no checkpoint, no start;
-//! * every command the CLI reports is classified after the fact by the
-//!   dangerous-action guard; Dangerous / Forbidden stops the run at once
-//!   (process tree killed) and is audited (`agent.cliDangerousCommand`);
-//! * every file change the CLI reports is confined to the worktree — a change
-//!   outside it cancels the run immediately (process tree killed).
+//! **Codex** (ADR-0047) runs on `codex app-server` with `approvalPolicy:
+//! untrusted` inside its own sandbox (`workspace-write` only when the
+//! template may write, else `read-only`): every command / file change Codex
+//! asks for arrives as a `PermissionRequest` and is decided exactly like a
+//! Claude Code one (same `bridge_decide`). Commands Codex runs without asking
+//! (its built-in safe list) are classified when they finish; every file
+//! change it reports is confined to the worktree (outside → run killed).
 //!
 //! Both: cancellation (stop / emergency / wall-clock) kills the CLI process
 //! tree; usage is recorded; the turn limit is passed as `--max-turns`.
 //!
-//! Known limits (honest): Codex commands are not individually approved; the
+//! Known limits (honest): the
 //! post-hoc budget check cannot stop spend that already happened inside one
 //! CLI run.
 
@@ -100,11 +95,12 @@ pub(crate) async fn run_cli(run: &mut Run) -> Outcome {
     // Claude Code: every tool call the CLI would prompt for is decided by
     // Orkestr (permission engine + guard + approvals) over the stdio
     // permission bridge — per command, not only after the fact.
-    let bridged = info.kind == ProviderKind::ClaudeCode;
+    // Codex (ADR-0047): the same per-command bridge over its app-server.
+    let bridged = matches!(info.kind, ProviderKind::ClaudeCode | ProviderKind::Codex);
     let shell = shell || (bridged && run.tools.iter().any(|t| t == "run_command"));
 
-    // Codex gates only at launch (its own sandbox): explicit opt-in per run.
-    if info.kind == ProviderKind::Codex && run.approval_mode != ApprovalMode::FullAuto {
+    // Legacy launch-time gate (ADR-0012) for an unbridged Codex run only.
+    if info.kind == ProviderKind::Codex && !bridged && run.approval_mode != ApprovalMode::FullAuto {
         let mut req = ApprovalRequest::new(
             Capability::Terminal,
             format!("Let {} run Codex in its sandbox", run.agent.name),
@@ -139,7 +135,12 @@ pub(crate) async fn run_cli(run: &mut Run) -> Outcome {
         let _ = run.store.save_tool_call(&placeholder, Some("approved"), None).await;
     }
 
-    let policy = if bridged { cli_tool_policy_bridged() } else { cli_tool_policy(writes) };
+    let policy = match info.kind {
+        // Codex's sandbox: writable only when the template may write.
+        ProviderKind::Codex => CliToolPolicy { allow_writes: writes, ..CliToolPolicy::default() },
+        _ if bridged => cli_tool_policy_bridged(),
+        _ => cli_tool_policy(writes),
+    };
     // The CLI owns its tool loop: its changes (including Codex sandbox
     // commands) need the task's Before checkpoint first (ADR-0012 §4,
     // ADR-0021), or `rollbackTask` has nothing to restore.
@@ -174,7 +175,7 @@ pub(crate) async fn run_cli(run: &mut Run) -> Outcome {
     } else {
         (None, None)
     };
-    let subagent = if bridged { claude_subagent(&run.template) } else { None };
+    let subagent = if info.kind == ProviderKind::ClaudeCode { claude_subagent(&run.template) } else { None };
     let req = CodingAgentRequest {
         prompt: prompt.clone(),
         system_append: Some(system),
@@ -466,7 +467,9 @@ pub(crate) async fn run_cli(run: &mut Run) -> Outcome {
                 if let Some(id) = tool_use_id.as_deref() {
                     unchecked.remove(id);
                 }
-                let verdict = bridge_decide(run, &root, &mut calls, &key, &tool, &input, blocked_path.as_deref()).await;
+                let engine = if info.kind == ProviderKind::Codex { "Codex" } else { "Claude Code" };
+                let verdict =
+                    bridge_decide(run, &root, &mut calls, &key, &tool, &input, blocked_path.as_deref(), engine).await;
                 if verdict.is_err() {
                     denied.insert(key.clone());
                 }
@@ -633,7 +636,7 @@ async fn posthoc_violation(run: &mut Run, root: &Path, tool: &str, summary: &str
 /// engine (with the dangerous-action guard) → approval when asked →
 /// checkpoint before the first change. `Err` = denied, with the reason the
 /// model sees.
-#[allow(clippy::too_many_lines)]
+#[allow(clippy::too_many_lines, clippy::too_many_arguments)]
 async fn bridge_decide(
     run: &mut Run,
     root: &Path,
@@ -642,6 +645,7 @@ async fn bridge_decide(
     tool: &str,
     input: &Value,
     blocked_path: Option<&str>,
+    engine: &str,
 ) -> Result<(), String> {
     let lower = tool.to_ascii_lowercase();
     let cap = if lower.starts_with("mcp__") { Capability::Network } else { cli_capability(tool) };
@@ -666,6 +670,14 @@ async fn bridge_decide(
     }
     if cap == Capability::Terminal && !shell_ok {
         return Err("This Orkestr agent may not run shell commands (its template has no run_command tool).".into());
+    }
+    // Codex: a multi-file change carries every path.
+    for p in input.get("paths").and_then(Value::as_array).into_iter().flatten().filter_map(Value::as_str) {
+        if cap == Capability::Write {
+            if let Some(why) = cli_path_violation(root, tool, p) {
+                return Err(format!("Orkestr denied this: {why}. Stay inside the agent's worktree."));
+            }
+        }
     }
     let path = input_path(input).or(blocked_path);
     if let Some(p) = path.filter(|_| matches!(cap, Capability::Read | Capability::Write)) {
@@ -722,7 +734,7 @@ async fn bridge_decide(
             let what = one_line(&resource.summary(), 120);
             let mut req = ApprovalRequest::new(
                 cap,
-                format!("{} (Claude Code) wants to {tool} {what}", run.agent.name),
+                format!("{} ({engine}) wants to {tool} {what}", run.agent.name),
                 r.message.clone(),
                 r.risk,
             );

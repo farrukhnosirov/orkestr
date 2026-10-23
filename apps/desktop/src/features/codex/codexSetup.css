@@ -1,0 +1,133 @@
+/* Codex CLI install / sign-in blocks (tokens only). */
+
+.cx-setup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-2);
+  min-width: 0;
+}
+
+.cx-setup__text {
+  margin: 0;
+  color: var(--ok-color-text-muted);
+  font-size: var(--ok-font-size-sm);
+  line-height: var(--ok-line-height);
+}
+
+.cx-setup__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ok-space-2);
+}
+
+.cx-setup__muted {
+  margin: 0;
+  color: var(--ok-color-text-subtle);
+  font-size: var(--ok-font-size-xs);
+}
+
+.cx-setup__warn {
+  margin: 0;
+  color: var(--ok-color-warning);
+  font-size: var(--ok-font-size-sm);
+}
+
+.cx-setup__ok {
+  margin: 0;
+  color: var(--ok-color-success);
+  font-size: var(--ok-font-size-sm);
+}
+
+.cx-setup__fail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-1);
+  padding: var(--ok-space-2);
+  border: 1px solid var(--ok-color-danger);
+  border-radius: var(--ok-radius-md);
+  background: var(--ok-color-danger-soft);
+  color: var(--ok-color-danger);
+  font-size: var(--ok-font-size-sm);
+}
+
+.cx-setup__log {
+  margin: 0;
+  max-height: 180px;
+  overflow: auto;
+  padding: var(--ok-space-2);
+  border-radius: var(--ok-radius-sm);
+  background: var(--ok-color-surface-sunken);
+  color: var(--ok-color-text);
+  font-family: var(--ok-font-mono);
+  font-size: var(--ok-font-size-xs);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.cx-setup__pending,
+.cx-setup__device {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ok-space-2);
+  padding: var(--ok-space-2) var(--ok-space-3);
+  border: 1px solid var(--ok-color-border-accent);
+  border-radius: var(--ok-radius-md);
+  background: var(--ok-color-accent-soft);
+  color: var(--ok-color-text);
+  font-size: var(--ok-font-size-sm);
+}
+
+.cx-setup__device {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.cx-setup__link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ok-space-1);
+  color: var(--ok-color-accent);
+  text-decoration: none;
+  word-break: break-all;
+}
+
+.cx-setup__link:hover {
+  text-decoration: underline;
+}
+
+.cx-code {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ok-space-2);
+}
+
+.cx-code__value {
+  padding: var(--ok-space-1) var(--ok-space-3);
+  border: 1px dashed var(--ok-color-border-strong);
+  border-radius: var(--ok-radius-sm);
+  background: var(--ok-color-surface);
+  font-family: var(--ok-font-mono);
+  font-size: var(--ok-font-size-lg);
+  font-weight: var(--ok-font-weight-semibold);
+  letter-spacing: 0.12em;
+  color: var(--ok-color-text);
+  user-select: all;
+}
+
+.cx-account {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ok-space-2);
+  font-size: var(--ok-font-size-sm);
+}
+
+.cx-account__email {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ok-color-text);
+}

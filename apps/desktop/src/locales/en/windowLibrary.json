@@ -170,6 +170,11 @@
       "details": "Run the official Claude Code CLI on your subscription inside Orkestr: chat, see tool calls and file edits as they happen, and answer permission requests right in the chat.",
       "tags": "Claude, CLI, chat, Anthropic"
     },
+    "codex": {
+      "summary": "Chat with Codex (the official CLI) on your ChatGPT subscription.",
+      "details": "Run the official OpenAI Codex CLI on your ChatGPT subscription inside Orkestr, alongside Claude Code: chat, follow commands and file edits as they happen, approve actions and keep an eye on the plan limits.",
+      "tags": "Codex, ChatGPT, OpenAI, CLI, chat"
+    },
     "nodes": {
       "summary": "Connected computers, remote jobs and model distribution.",
       "details": "Enroll other computers as nodes, run jobs on them, see their resources and spread local models between them to share the load.",

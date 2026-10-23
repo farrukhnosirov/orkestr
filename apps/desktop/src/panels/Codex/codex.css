@@ -1,0 +1,315 @@
+/* Codex panel — additions on top of the Claude Code panel styles (tokens only). */
+
+.cx-root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.cx-root > .cc2 {
+  flex: 1;
+  height: auto;
+}
+
+.cx-accountbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ok-space-2);
+  padding: var(--ok-space-1) var(--ok-space-3);
+  border-bottom: 1px solid var(--ok-color-border);
+  background: var(--ok-color-surface);
+}
+
+.cx-accountbar:empty {
+  display: none;
+}
+
+/* ── setup hero (install / sign in) ── */
+
+.cx-hero {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-3);
+  width: min(560px, 100%);
+  padding: var(--ok-space-6) var(--ok-space-4);
+  border: 1px solid var(--ok-color-border-strong);
+  border-radius: var(--ok-radius-lg);
+  background: var(--ok-gradient-panel), var(--ok-color-surface);
+  box-shadow: var(--ok-shadow-panel);
+}
+
+.cx-hero__glow {
+  position: absolute;
+  inset: -40% -20% auto auto;
+  width: 60%;
+  height: 160%;
+  background: var(--ok-gradient-accent-soft);
+  filter: blur(40px);
+  opacity: calc(0.8 * var(--ok-glow-intensity, 1));
+  pointer-events: none;
+}
+
+.cx-hero > * {
+  position: relative;
+}
+
+.cx-hero__icon,
+.cx-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ok-color-text-inverse);
+  background: var(--ok-gradient-accent);
+}
+
+.cx-hero__icon {
+  width: 46px;
+  height: 46px;
+  border-radius: var(--ok-radius-md);
+  box-shadow: var(--ok-glow-accent);
+}
+
+.cx-hero__title {
+  margin: 0;
+  font-size: var(--ok-font-size-lg);
+  font-weight: var(--ok-font-weight-semibold);
+  color: var(--ok-color-text);
+}
+
+.cx-hero__desc,
+.cx-hero__meta {
+  margin: 0;
+  color: var(--ok-color-text-muted);
+  font-size: var(--ok-font-size-sm);
+  line-height: var(--ok-line-height);
+}
+
+.cx-hero__meta {
+  color: var(--ok-color-text-subtle);
+  font-size: var(--ok-font-size-xs);
+}
+
+/* ── reasoning / plan folds ── */
+
+.cx-fold {
+  margin: 0 var(--ok-space-4);
+  border: 1px solid var(--ok-color-border);
+  border-radius: var(--ok-radius-md);
+  background: var(--ok-color-surface-sunken);
+  font-size: var(--ok-font-size-sm);
+}
+
+.cx-fold > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-1);
+  padding: var(--ok-space-1) var(--ok-space-2);
+  color: var(--ok-color-text-muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.cx-fold--plan {
+  border-color: var(--ok-color-border-accent);
+}
+
+.cx-fold__body {
+  padding: 0 var(--ok-space-3) var(--ok-space-2);
+  color: var(--ok-color-text-muted);
+}
+
+.cx-fold--plan .cx-fold__body {
+  color: var(--ok-color-text);
+}
+
+/* ── patch card ── */
+
+.cx-patch {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-2);
+  margin: 0 var(--ok-space-4);
+  padding: var(--ok-space-2) var(--ok-space-3);
+  border: 1px solid var(--ok-color-border);
+  border-radius: var(--ok-radius-md);
+  background: var(--ok-color-surface);
+}
+
+.cx-patch--error {
+  border-color: var(--ok-color-danger);
+}
+
+.cx-patch__title,
+.cx-patch__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ok-space-2);
+  font-size: var(--ok-font-size-sm);
+}
+
+.cx-patch__title {
+  font-weight: var(--ok-font-weight-semibold);
+}
+
+.cx-patch__state,
+.cx-patch__kind {
+  color: var(--ok-color-text-subtle);
+  font-size: var(--ok-font-size-xs);
+  font-weight: normal;
+}
+
+.cx-patch__state {
+  margin-left: auto;
+}
+
+.cx-patch__file {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-1);
+  min-width: 0;
+}
+
+.cx-patch__path {
+  font-family: var(--ok-font-mono);
+  font-size: var(--ok-font-size-xs);
+  word-break: break-all;
+}
+
+.cx-patch__hunk {
+  padding: 0 var(--ok-space-2);
+  color: var(--ok-color-violet);
+  font-family: var(--ok-font-mono);
+  font-size: var(--ok-font-size-xs);
+}
+
+.cx-patch__more {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.cx-patch__error {
+  margin: 0;
+  color: var(--ok-color-danger);
+  font-family: var(--ok-font-mono);
+  font-size: var(--ok-font-size-xs);
+  white-space: pre-wrap;
+}
+
+/* ── errors, banners, notices ── */
+
+.cx-error--retry {
+  border-color: var(--ok-color-warning);
+  color: var(--ok-color-warning);
+}
+
+.cx-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ok-space-2);
+  margin: var(--ok-space-2) var(--ok-space-4) 0;
+  padding: var(--ok-space-2) var(--ok-space-3);
+  border: 1px solid var(--ok-color-warning);
+  border-radius: var(--ok-radius-md);
+  background: var(--ok-color-surface);
+  color: var(--ok-color-warning);
+  font-size: var(--ok-font-size-sm);
+}
+
+.cx-notice__text {
+  white-space: pre-wrap;
+}
+
+/* ── composer pickers ── */
+
+.cx-pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--ok-color-text-subtle);
+  font-size: var(--ok-font-size-xs);
+}
+
+.cx-pick select {
+  max-width: 170px;
+  padding: 2px 4px;
+  border: 1px solid var(--ok-color-border);
+  border-radius: var(--ok-radius-sm);
+  background: var(--ok-color-surface);
+  color: var(--ok-color-text);
+  font: inherit;
+}
+
+.cx-pick select:disabled {
+  opacity: 0.55;
+}
+
+.cx-pick option {
+  background: var(--ok-color-bg-elevated);
+  color: var(--ok-color-text);
+}
+
+.cx-welcome__options {
+  flex-wrap: wrap;
+}
+
+/* ── commands menu ── */
+
+.cx-cmds {
+  width: min(320px, 86vw);
+}
+
+.cx-cmds__list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cx-cmds__item {
+  display: grid;
+  grid-template-columns: 84px 1fr;
+  align-items: baseline;
+  gap: var(--ok-space-2);
+  padding: var(--ok-space-1) var(--ok-space-2);
+  border: 0;
+  border-radius: var(--ok-radius-sm);
+  background: transparent;
+  color: var(--ok-color-text);
+  font: inherit;
+  font-size: var(--ok-font-size-sm);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--ok-duration-fast) var(--ok-ease);
+}
+
+.cx-cmds__item:hover:not(:disabled),
+.cx-cmds__item:focus-visible {
+  background: var(--ok-color-surface-hover);
+  outline: none;
+}
+
+.cx-cmds__item:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.cx-cmds__item code {
+  color: var(--ok-color-accent);
+  font-family: var(--ok-font-mono);
+}
+
+.cx-cmds__item span {
+  color: var(--ok-color-text-muted);
+}
+
+[data-ok-motion="off"] .cx-cmds__item {
+  transition: none;
+}

@@ -19,10 +19,12 @@ pub mod benchmarks;
 pub mod checks;
 pub mod claude_code;
 pub mod claude_engine;
+pub mod codex;
 pub mod config;
 pub mod dashboards_store;
 pub mod discovery;
 pub mod ecosystem;
+pub mod engines;
 pub mod error;
 pub mod gates;
 pub mod housekeeping;
@@ -418,6 +420,10 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
         &paths.data_dir,
         vscode.layout().extensions_dir(),
     );
+    // Codex (ChatGPT subscription): one shared `codex app-server` for the panel.
+    let (codex_tx, codex_rx) = tokio::sync::mpsc::unbounded_channel();
+    let mut codex = codex::CodexService::new(&paths.data_dir, codex_tx, Arc::clone(&security));
+    codex.open_browser = config.claude_auto_register;
 
     // Encrypted sync engine (Phase 4, ADR-0031): `<data_dir>/sync`.
     let sync_engine = match orkestr_sync::DefaultSyncEngine::open(&paths.data_dir.join("sync")) {
@@ -520,6 +526,7 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
         extensions,
         lsp,
         claude,
+        codex,
         remote,
         node_hub,
         plugins,
@@ -577,8 +584,11 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
     }
     rpc::lsp::spawn_bridge(services.lsp.clone(), lsp_rx, services.events.clone(), shutdown.clone());
     claude_code::spawn_bridge(Arc::clone(&services), claude_rx);
+    codex::spawn_bridge(Arc::clone(&services), codex_rx);
+    engines::spawn_balancer(Arc::clone(&services));
     if config.claude_auto_register {
         claude_engine::spawn_auto_register(Arc::clone(&services));
+        codex::spawn_auto_register(Arc::clone(&services));
     }
     // Architecture Map: debounced incremental refresh after file changes (§21).
     orkestr_insight::arch::spawn_auto_refresh(

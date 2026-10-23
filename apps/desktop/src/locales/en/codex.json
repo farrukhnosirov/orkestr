@@ -1,0 +1,271 @@
+{
+  "commands": {
+    "group": "Codex",
+    "open": "Codex: open chat",
+    "newChat": "Codex: new chat",
+    "interrupt": "Codex: interrupt"
+  },
+  "hero": {
+    "description": "Codex is OpenAI's coding agent. Orkestr runs the official Codex CLI with your ChatGPT subscription — in parallel with Claude Code.",
+    "version": "Codex CLI {{version}}",
+    "source": {
+      "override": "pinned path",
+      "orkestr": "installed by Orkestr",
+      "path": "found on PATH"
+    }
+  },
+  "install": {
+    "title": "Install Codex CLI",
+    "description": "The official Codex CLI (npm package @openai/codex) is installed into Orkestr's tools folder. Nothing else on your computer is changed.",
+    "noNpm": "npm was not found. Install Node.js (it includes npm) and check again.",
+    "button": "Install Codex CLI",
+    "installing": "Installing…",
+    "wait": "Downloading with npm — this can take a minute.",
+    "failed": "Installation failed. Last lines of the npm log:",
+    "done": "Codex CLI is installed.",
+    "update": "Update Codex CLI",
+    "updateTo": "Update to {{version}}",
+    "updating": "Updating…"
+  },
+  "signIn": {
+    "title": "Sign in with ChatGPT",
+    "description": "Codex uses your ChatGPT plan (Plus, Pro, Team…). The sign-in runs in the official CLI; Orkestr never sees your password or tokens.",
+    "button": "Sign in with ChatGPT",
+    "deviceCode": "Use a device code",
+    "terminal": "Sign in in the terminal",
+    "terminalHint": "Finish the sign-in in the terminal, then check again.",
+    "waitingBrowser": "Waiting for the sign-in in the browser…",
+    "openLink": "Open the sign-in page",
+    "deviceStep1": "1. Open this page on any device:",
+    "deviceStep2": "2. Enter the one-time code:",
+    "deviceWaiting": "Waiting for you to confirm the code…",
+    "copy": "Copy",
+    "copied": "Copied",
+    "cancel": "Cancel sign-in",
+    "failed": "Sign-in failed. Try again.",
+    "failedWith": "Sign-in failed: {{error}}"
+  },
+  "account": {
+    "signedIn": "Signed in",
+    "plan": "Plan: {{plan}}",
+    "apiKey": "API key",
+    "signOut": "Sign out"
+  },
+  "actions": {
+    "checkAgain": "Check again",
+    "newChat": "New chat",
+    "resume": "Continue the chat",
+    "fork": "Fork the chat"
+  },
+  "status": {
+    "checking": "Checking Codex CLI…",
+    "model": "Model: {{model}}",
+    "primary": "Short window: {{percent}} used",
+    "secondary": "Long window: {{percent}} used",
+    "limitsUnknown": "Plan limits: unknown",
+    "tokens": "Tokens in this chat: {{total}}"
+  },
+  "errors": {
+    "status": "Could not check Codex CLI",
+    "authRequired": "Codex needs you to sign in with ChatGPT.",
+    "usageLimit": "The ChatGPT plan limit is reached. Codex continues after the limit resets.",
+    "usageLimitPct": "The ChatGPT plan limit is almost used up ({{percent}}).",
+    "retrying": "Codex retries automatically."
+  },
+  "noProject": {
+    "title": "No project open",
+    "description": "Open a project with a folder to chat with Codex about it."
+  },
+  "noFolder": {
+    "title": "The project has no folder",
+    "description": "Codex works in the project's folder. Set the project folder first."
+  },
+  "welcome": {
+    "title": "Codex",
+    "hint": "Pick a saved chat on the left or start a new one."
+  },
+  "empty": {
+    "title": "Ask Codex about the project",
+    "description": "Codex reads the code, runs commands and edits files — Orkestr asks you before anything risky."
+  },
+  "state": {
+    "starting": "Starting",
+    "idle": "Ready",
+    "running": "Working",
+    "waitingApproval": "Waiting for approval",
+    "exited": "Ended",
+    "failed": "Failed"
+  },
+  "chat": {
+    "label": "Codex chat",
+    "you": "You",
+    "copy": "Copy",
+    "copied": "Copied",
+    "reasoning": "Reasoning summary",
+    "plan": "Plan",
+    "working": "Codex is working…",
+    "ended": "The session has ended."
+  },
+  "turn": {
+    "done": "Done",
+    "failed": "Failed",
+    "interrupted": "Interrupted",
+    "files_one": "{{count}} file changed:",
+    "files_other": "{{count}} files changed:"
+  },
+  "notice": {
+    "modelChanged": "Model: {{model}}",
+    "exited": "The session ended",
+    "exitedCode": "The session ended (code {{code}})"
+  },
+  "patch": {
+    "title_one": "Changes in {{count}} file",
+    "title_other": "Changes in {{count}} files",
+    "added": "new file",
+    "deleted": "deleted",
+    "updated": "changed",
+    "open": "Open in the editor",
+    "diff": "Changes of {{path}}",
+    "more_one": "…and {{count}} more line",
+    "more_other": "…and {{count}} more lines",
+    "running": "Applying…",
+    "applied": "Applied",
+    "failed": "Not applied"
+  },
+  "approval": {
+    "titleCommand": "Codex wants to run a command",
+    "titleFiles": "Codex wants to change files",
+    "inFolder": "In folder: {{path}}",
+    "reason": "Why: {{reason}}",
+    "risk": {
+      "dangerous": "Dangerous",
+      "forbidden": "Forbidden"
+    },
+    "autoDenied": "Forbidden by Orkestr's safety policy — denied automatically.",
+    "allow": "Allow",
+    "allowSession": "Allow for this session",
+    "allowSessionHint": "Allow this and similar requests until the session ends",
+    "deny": "Deny",
+    "abort": "Stop the turn",
+    "abortHint": "Deny and stop what Codex is doing",
+    "keys": "Enter — allow · Esc — deny",
+    "outcome": {
+      "allow": "Allowed once",
+      "allowSession": "Allowed for this session",
+      "deny": "Denied",
+      "abort": "Denied, the turn was stopped",
+      "policy": "Denied by Orkestr's safety policy"
+    }
+  },
+  "sidebar": {
+    "label": "Codex chats",
+    "title": "Chats",
+    "toggle": "Show or hide the chat list",
+    "reload": "Reload saved chats",
+    "newChat": "New chat",
+    "search": "Search chats",
+    "searchPlaceholder": "Search…",
+    "loading": "Loading chats…",
+    "empty": "No saved chats for this project yet.",
+    "noMatches": "Nothing found for «{{query}}»",
+    "untitled": "New chat",
+    "running": "Working",
+    "live": "Open",
+    "forked": "Forked chat",
+    "menu": "Chat actions",
+    "resume": "Continue",
+    "resumeHint": "Continue «{{title}}»",
+    "fork": "Fork into a new chat",
+    "terminal": "Open in the terminal",
+    "close": "Close",
+    "threadsError": "Saved chats are unavailable: {{error}}",
+    "group": {
+      "live": "Open",
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "week": "This week",
+      "earlier": "Earlier"
+    }
+  },
+  "limits": {
+    "label": "ChatGPT plan limits",
+    "title": "Plan limits",
+    "plan": "Plan: {{plan}}",
+    "refresh": "Refresh limits",
+    "primary": "Short window",
+    "secondary": "Long window",
+    "weekly": "Week",
+    "hours_one": "{{count}} hour",
+    "hours_other": "{{count}} hours",
+    "minutes": "{{time}}",
+    "resetsIn": "Resets in {{time}}",
+    "resetsAt": "Resets {{date}}",
+    "unknown": "Unknown",
+    "unknownHint": "Codex CLI did not report the plan limits.",
+    "credits": "Credits: {{credits}}",
+    "reached": "Limit reached: {{limit}}",
+    "updated": "Updated {{time}}",
+    "show": "Show limits"
+  },
+  "tokens": {
+    "label": "This chat",
+    "lastTurn": "Last turn: {{input}} in / {{output}} out",
+    "total": "Total: {{total}} tokens",
+    "cached": "Cached: {{cached}}",
+    "context": "Context: {{share}} of {{window}}",
+    "contextShort": "Context"
+  },
+  "options": {
+    "model": "Model",
+    "modelHint": "Model used from the next message",
+    "defaultModel": "Default",
+    "defaultModelNamed": "Default ({{name}})",
+    "effort": "Reasoning",
+    "effortHint": "Reasoning effort: deeper is slower and uses more of the plan",
+    "defaultEffort": "Default",
+    "defaultEffortNamed": "Default ({{effort}})",
+    "efforts": {
+      "minimal": "Minimal",
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "xhigh": "Extra high"
+    },
+    "mode": "Approvals",
+    "modes": {
+      "readOnly": "Read only",
+      "ask": "Ask",
+      "auto": "Auto"
+    },
+    "modeHint": {
+      "readOnly": "Codex only reads the project; anything else is asked",
+      "ask": "Codex asks before every command and edit",
+      "auto": "Codex works in the project folder and asks only to go beyond it"
+    }
+  },
+  "composer": {
+    "label": "Message to Codex",
+    "placeholder": "Ask Codex… (@ — file, / — command)",
+    "placeholderBusy": "Codex is working — your message will be queued",
+    "queueFull": "A message is already queued — wait for Codex to finish or remove it."
+  },
+  "commandsMenu": {
+    "open": "Commands",
+    "title": "Codex commands",
+    "hint": "Codex commands (Ctrl+/)"
+  },
+  "slash": {
+    "new": "Start a new chat",
+    "resume": "Continue a saved chat",
+    "resumeArg": "[chat id]",
+    "fork": "Fork this chat into a new one",
+    "compact": "Compact the conversation to free up context",
+    "model": "Switch the model",
+    "modelArg": "[model]",
+    "status": "Show the model, plan limits and tokens",
+    "noThread": "This chat has no saved conversation to fork yet.",
+    "modelList": "Models: {{models}}",
+    "modelSet": "Model switched to {{model}} from the next message.",
+    "modelUnknown": "Unknown model: {{model}}"
+  }
+}

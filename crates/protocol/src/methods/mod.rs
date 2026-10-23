@@ -22,6 +22,7 @@ pub mod audit;
 pub mod benchmarks;
 pub mod claude_code;
 pub mod claude_engine;
+pub mod codex;
 pub mod computer;
 pub mod consensus;
 pub mod context;
@@ -497,6 +498,27 @@ pub fn registry() -> Vec<MethodDescriptor> {
         MethodDescriptor::of::<claude_code::SetChatMeta>(),
         MethodDescriptor::of::<claude_code::OpenInTerminal>(),
         MethodDescriptor::of::<claude_code::Rewind>(),
+        // Codex (ChatGPT subscription) + parallel engines (ADR-0047)
+        MethodDescriptor::of::<codex::Status>(),
+        MethodDescriptor::of::<codex::Install>(),
+        MethodDescriptor::of::<codex::Login>(),
+        MethodDescriptor::of::<codex::LoginCancel>(),
+        MethodDescriptor::of::<codex::Logout>(),
+        MethodDescriptor::of::<codex::OpenInTerminal>(),
+        MethodDescriptor::of::<codex::Limits>(),
+        MethodDescriptor::of::<codex::Models>(),
+        MethodDescriptor::of::<codex::Threads>(),
+        MethodDescriptor::of::<codex::Transcript>(),
+        MethodDescriptor::of::<codex::Start>(),
+        MethodDescriptor::of::<codex::Send>(),
+        MethodDescriptor::of::<codex::Interrupt>(),
+        MethodDescriptor::of::<codex::Stop>(),
+        MethodDescriptor::of::<codex::Compact>(),
+        MethodDescriptor::of::<codex::SetOptions>(),
+        MethodDescriptor::of::<codex::RespondApproval>(),
+        MethodDescriptor::of::<codex::Templates>(),
+        MethodDescriptor::of::<codex::EnginesStatusMethod>(),
+        MethodDescriptor::of::<codex::EnginesSetConfig>(),
         // remote access, sync, Web Push (Phase 4)
         MethodDescriptor::of::<remote::Enable>(),
         MethodDescriptor::of::<remote::Disable>(),

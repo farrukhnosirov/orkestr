@@ -527,7 +527,7 @@ pub fn is_valid_agent_name(name: &str) -> bool {
 }
 
 /// Tool-call instructions appended to a chat prompt (emulated tools).
-fn tool_protocol(req: &ChatRequest) -> String {
+pub(crate) fn tool_protocol(req: &ChatRequest) -> String {
     let mut s = String::from(
         "\n\n## Tools\nYou cannot run tools yourself. To call one or more of the tools below, answer with ONLY this JSON \
          object (no prose, no code fences): {\"tool_calls\": [{\"name\": \"<tool>\", \"arguments\": {…}}]}. \
@@ -583,7 +583,11 @@ pub fn parse_emulated_tool_calls(text: &str, known: &[String]) -> Option<Vec<(St
     None
 }
 
-fn emulate_tool_calls(inner: CodingAgentStream, known: Vec<String>, cancel: CancellationToken) -> ChatStream {
+pub(crate) fn emulate_tool_calls(
+    inner: CodingAgentStream,
+    known: Vec<String>,
+    cancel: CancellationToken,
+) -> ChatStream {
     use futures::StreamExt;
     crate::http::drive(cancel, move |em: crate::http::Emitter<ChatEvent>| async move {
         let mut inner = inner;

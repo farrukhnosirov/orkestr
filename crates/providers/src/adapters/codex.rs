@@ -1,23 +1,37 @@
-//! OpenAI Codex — the official `codex` CLI (`codex exec --json`), using the
-//! user's own login (`codex login`). Orkestr never reads `~/.codex/auth.json`.
+//! OpenAI Codex — the official `codex` CLI with the user's own sign-in
+//! (ChatGPT plan or API key; `codex login`). Orkestr never reads
+//! `~/.codex/auth.json`. ADR-0047 (supersedes the launch-time-only gating of
+//! ADR-0012 for Codex):
 //!
-//! Gating is launch-time only (ADR-0012): Codex runs inside its own sandbox
-//! (`read-only` or `workspace-write`); `danger-full-access` is never used.
+//! * coding agents run on `codex app-server` (`thread/start` + `turn/start`)
+//!   with `approvalPolicy: untrusted` — every command / file change Codex
+//!   wants to make is asked over the permission bridge and decided by the
+//!   agent runtime (permission engine + Dangerous Action Guard + approvals);
+//!   `danger-full-access` is never used;
+//! * chat calls (Manager, reviews) use a persistent process pool
+//!   ([`CodexChatBackend`] in the shared `claude_chat` pool);
+//! * [`CodexStreamParser`] parses the legacy `codex exec --json` stream.
 
 use std::collections::HashSet;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use orkestr_domain::{Model, ModelCapabilities, ProviderHealth, ProviderId, ProviderKind};
 use serde_json::Value;
 use tokio_util::sync::CancellationToken;
 
+use super::claude_chat::{ChatPool, CliSpawner, PoolBackend, ProcSpawner, TurnStatus};
+use super::claude_code;
 use super::cli::{self, CliStreamParser};
 use crate::adapter::ProviderAdapter;
 use crate::catalog::default_models;
+use crate::codex_app::{self, conn::AppServer, conn::Inbound, map};
+use crate::http::Emitter;
 use crate::types::{
     AuthStatus, ChatEvent, ChatRequest, ChatStream, CodingAgentEvent, CodingAgentRequest, CodingAgentStream,
-    CostModelKind, FileChangeKind, HealthReport, Locality, ProviderDescriptor, ProviderError, StopReason, Usage,
+    CostModelKind, FileChangeKind, HealthReport, Locality, ProviderDescriptor, ProviderError, StopReason, ToolChoice,
+    Usage,
 };
 
 /// Auth label shown for a logged-in CLI.
@@ -174,26 +188,147 @@ impl CliStreamParser for CodexStreamParser {
     }
 }
 
-/// Codex adapter.
-#[derive(Debug)]
+/// Persistent Codex app-server threads for chat-style calls (AI Manager,
+/// reviews): one process + one ephemeral read-only thread per
+/// conversation; later turns send only the new messages (`claude_chat`
+/// pool logic).
+pub struct CodexChatBackend {
+    spawner: Arc<dyn ProcSpawner>,
+}
+
+impl CodexChatBackend {
+    /// Creates the backend.
+    #[must_use]
+    pub fn new(spawner: Arc<dyn ProcSpawner>) -> Self {
+        Self { spawner }
+    }
+}
+
+/// A pooled Codex chat process.
+pub struct CodexChatProc {
+    server: Arc<AppServer>,
+    inbound: tokio::sync::mpsc::UnboundedReceiver<Inbound>,
+    thread_id: String,
+    effort: Option<String>,
+}
+
+#[async_trait]
+impl PoolBackend for CodexChatBackend {
+    type Proc = CodexChatProc;
+
+    async fn start(&self, program: &Path, cwd: &Path, model: &str) -> Result<CodexChatProc, ProviderError> {
+        let (server, inbound) = AppServer::start(&*self.spawner, program, cwd).await?;
+        let (model, effort) = codex_app::split_model(Some(model));
+        let params =
+            codex_app::thread_params(&cwd.to_string_lossy(), model.as_deref(), "read-only", "never", None, true);
+        let r = server.request_with("thread/start", params, codex_app::conn::THREAD_TIMEOUT).await?;
+        let thread_id = r
+            .pointer("/thread/id")
+            .and_then(Value::as_str)
+            .ok_or_else(|| ProviderError::Server("Codex did not return a thread id".into()))?
+            .to_owned();
+        Ok(CodexChatProc { server, inbound, thread_id, effort })
+    }
+
+    async fn turn(
+        &self,
+        proc: &mut CodexChatProc,
+        text: &str,
+        em: &Emitter<CodingAgentEvent>,
+        cancel: &CancellationToken,
+    ) -> Result<TurnStatus, ProviderError> {
+        if !proc.server.is_alive() {
+            return Ok(TurnStatus::Died { output: false });
+        }
+        let params = codex_app::turn_params(&proc.thread_id, text, proc.effort.as_deref());
+        if let Err(e) = proc.server.request("turn/start", params).await {
+            return if proc.server.is_alive() { Err(e) } else { Ok(TurnStatus::Died { output: false }) };
+        }
+        let mut parser = map::TurnParser::default();
+        let mut output = false;
+        loop {
+            let next = tokio::select! {
+                () = cancel.cancelled() => return Err(ProviderError::Cancelled),
+                n = tokio::time::timeout(cli::CLI_IDLE_TIMEOUT, proc.inbound.recv()) => n.map_err(|_| {
+                    ProviderError::Server(format!("Codex produced no output for {}s", cli::CLI_IDLE_TIMEOUT.as_secs()))
+                })?,
+            };
+            match next {
+                None | Some(Inbound::Closed) => return Ok(TurnStatus::Died { output }),
+                Some(Inbound::Request { id, .. }) => {
+                    // A read-only chat thread never asks; refuse anything.
+                    proc.server.respond(&id, map::approval_answer(false, false, false));
+                }
+                Some(Inbound::Notification { method, params }) => {
+                    if params.get("threadId").and_then(Value::as_str).is_some_and(|t| t != proc.thread_id) {
+                        continue;
+                    }
+                    for ev in parser.notification(&method, &params) {
+                        match &ev {
+                            CodingAgentEvent::Chat(ChatEvent::Done { .. }) => {
+                                em.emit(ev).await?;
+                                return Ok(TurnStatus::Answered);
+                            }
+                            CodingAgentEvent::Chat(ChatEvent::Error(_)) => {
+                                em.emit(ev).await?;
+                                return Ok(TurnStatus::Failed);
+                            }
+                            CodingAgentEvent::Chat(ChatEvent::TextDelta(_)) => {
+                                output = true;
+                                em.emit(ev).await?;
+                            }
+                            CodingAgentEvent::Chat(_) => em.emit(ev).await?,
+                            _ => {}
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Codex adapter (ADR-0047): agents run on `codex app-server` with
+/// per-command approvals bridged to Orkestr; chat calls use a persistent
+/// process pool.
 pub struct CodexAdapter {
     id: ProviderId,
     name: String,
     binary_override: Option<String>,
+    spawner: Arc<dyn ProcSpawner>,
+    chats: Arc<ChatPool<CodexChatBackend>>,
+}
+
+impl std::fmt::Debug for CodexAdapter {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CodexAdapter").field("id", &self.id).field("name", &self.name).finish_non_exhaustive()
+    }
 }
 
 impl CodexAdapter {
     /// Creates the adapter.
     #[must_use]
     pub fn new(id: ProviderId, name: impl Into<String>, binary_override: Option<String>) -> Self {
-        Self { id, name: name.into(), binary_override }
+        Self::with_spawner(id, name, binary_override, Arc::new(CliSpawner))
+    }
+
+    /// Creates the adapter with a process spawner (tests use a fake CLI).
+    #[must_use]
+    pub fn with_spawner(
+        id: ProviderId,
+        name: impl Into<String>,
+        binary_override: Option<String>,
+        spawner: Arc<dyn ProcSpawner>,
+    ) -> Self {
+        let chats = Arc::new(ChatPool::with_backend(CodexChatBackend::new(Arc::clone(&spawner))));
+        Self { id, name: name.into(), binary_override, spawner, chats }
     }
 
     fn binary(&self) -> Option<PathBuf> {
-        cli::resolve_binary("codex", self.binary_override.as_deref())
+        resolve_codex(self.binary_override.as_deref())
     }
 
-    /// Argument vector for a run (pure; tested). The prompt goes over stdin (`-`).
+    /// Argument vector of a one-shot `codex exec --json` run (pure; tested).
+    /// Orkestr runs agents on the app-server; this is kept for diagnostics.
     #[must_use]
     pub fn exec_args(cwd: &str, model: Option<&str>, allow_writes: bool, skip_git_check: bool) -> Vec<String> {
         let mut args: Vec<String> =
@@ -210,16 +345,48 @@ impl CodexAdapter {
         args
     }
 
-    fn spawn(
-        &self,
-        args: Vec<String>,
-        cwd: PathBuf,
-        prompt: String,
-        cancel: CancellationToken,
-    ) -> Result<CodingAgentStream, ProviderError> {
-        let bin = self.binary().ok_or_else(|| ProviderError::Auth("Codex CLI (`codex`) is not installed".into()))?;
-        Ok(cli::run_cli(bin, args, cwd, prompt, CodexStreamParser::default(), cancel))
+    /// The app-server run of a coding-agent request (pure; tested).
+    #[must_use]
+    pub fn agent_run(req: &CodingAgentRequest, cwd: PathBuf) -> codex_app::AgentRun {
+        let bridged = req.permission_bridge.is_some();
+        codex_app::AgentRun {
+            cwd,
+            model: req.model.clone(),
+            instructions: req.system_append.clone(),
+            prompt: req.prompt.clone(),
+            resume: req.resume_session.clone(),
+            sandbox: if req.tool_policy.allow_writes { "workspace-write" } else { "read-only" },
+            // Bridged: Codex asks before every command / edit it does not
+            // consider trivially safe, and Orkestr decides. Otherwise the
+            // sandbox is the only gate (ADR-0012).
+            approval_policy: if bridged { "untrusted" } else { "never" },
+        }
     }
+}
+
+/// Resolves the Codex binary: a pinned path, else `PATH`, else Orkestr's own
+/// installation (`<ORKESTR_HOME>/tools/codex`).
+#[must_use]
+pub fn resolve_codex(override_path: Option<&str>) -> Option<PathBuf> {
+    if override_path.is_some_and(|p| !p.trim().is_empty()) {
+        return cli::resolve_binary("codex", override_path);
+    }
+    cli::resolve_binary("codex", None).or_else(orkestr_tools_binary)
+}
+
+/// `<ORKESTR_HOME>/tools/codex/node_modules/.bin/codex(.cmd)` when it exists.
+#[must_use]
+pub fn orkestr_tools_binary() -> Option<PathBuf> {
+    let home = std::env::var_os("ORKESTR_HOME").map(PathBuf::from)?;
+    tools_binary(&home.join("tools").join("codex"))
+}
+
+/// The CLI inside an npm `--prefix` folder.
+#[must_use]
+pub fn tools_binary(prefix: &Path) -> Option<PathBuf> {
+    let bin = prefix.join("node_modules").join(".bin");
+    let names: &[&str] = if cfg!(windows) { &["codex.cmd", "codex.exe", "codex"] } else { &["codex"] };
+    names.iter().map(|n| bin.join(n)).find(|p| p.is_file())
 }
 
 #[async_trait]
@@ -242,10 +409,10 @@ impl ProviderAdapter for CodexAdapter {
                 reasoning: true,
                 coding_agent: true,
             },
-            max_context_tokens: 200_000,
+            max_context_tokens: 272_000,
             coding_agent: true,
             cost_model: CostModelKind::Subscription,
-            max_concurrency: 2,
+            max_concurrency: 3,
         }
     }
 
@@ -255,18 +422,35 @@ impl ProviderAdapter for CodexAdapter {
         match cli::probe(&bin, &["login", "status"]).await {
             Ok((true, _)) => AuthStatus::Ready { label: SESSION_LABEL.into() },
             Ok((false, _)) => {
-                AuthStatus::Invalid { reason: "not logged in — run `codex login` in a terminal".into() }
+                AuthStatus::Invalid { reason: "not logged in — sign in with ChatGPT from the Codex panel".into() }
             }
             Err(_) => AuthStatus::Unverified { label: SESSION_LABEL.into() },
         }
     }
 
     async fn list_models(&self) -> Result<Vec<Model>, ProviderError> {
-        Ok(default_models(ProviderKind::Codex, self.id, false))
+        let mut out = default_models(ProviderKind::Codex, self.id, false);
+        let Some(bin) = self.binary() else { return Ok(out) };
+        let live = async {
+            let (srv, _rx) = AppServer::start(&*self.spawner, &bin, &std::env::temp_dir()).await?;
+            srv.request("model/list", serde_json::json!({})).await
+        };
+        if let Ok(Ok(v)) = tokio::time::timeout(std::time::Duration::from_secs(20), live).await {
+            let template = out.first().cloned();
+            for m in map::models(&v) {
+                if out.iter().any(|x| x.id == m.id) {
+                    continue;
+                }
+                if let Some(t) = template.clone() {
+                    out.push(Model { id: m.id.clone(), display_name: format!("Codex · {}", m.display_name), ..t });
+                }
+            }
+        }
+        Ok(out)
     }
 
     async fn health(&self) -> HealthReport {
-        let Some(bin) = self.binary() else { return HealthReport::down("not installed (`codex` not found on PATH)") };
+        let Some(bin) = self.binary() else { return HealthReport::down("not installed (`codex` not found)") };
         let start = std::time::Instant::now();
         match cli::probe(&bin, &["--version"]).await {
             Ok((true, text)) => {
@@ -286,15 +470,19 @@ impl ProviderAdapter for CodexAdapter {
     }
 
     async fn chat(&self, request: ChatRequest, cancel: CancellationToken) -> Result<ChatStream, ProviderError> {
-        if !request.tools.is_empty() {
-            return Err(ProviderError::Unsupported(
-                "Codex runs its own tools; use run_coding_agent for tool loops".into(),
-            ));
+        // Orkestr's own tools (Manager, reviews) are emulated exactly as for
+        // Claude Code: the catalogue goes into the prompt and a
+        // `{"tool_calls": […]}` answer becomes tool calls.
+        let tools = !request.tools.is_empty() && request.tool_choice != ToolChoice::None;
+        let protocol = if tools { claude_code::tool_protocol(&request) } else { String::new() };
+        let bin = self.binary().ok_or_else(|| ProviderError::Auth("Codex CLI (`codex`) is not installed".into()))?;
+        let first = cli::render_prompt(&request);
+        let names: Vec<String> = request.tools.iter().map(|t| t.name.clone()).collect();
+        let stream = self.chats.turn(bin, cli::chat_scratch_dir()?, request, first, protocol, cancel.clone());
+        if !tools {
+            return Ok(cli::chat_only(stream));
         }
-        let dir = cli::chat_scratch_dir()?;
-        let args = Self::exec_args(&dir.to_string_lossy(), Some(request.model.as_str()), false, true);
-        let stream = self.spawn(args, dir, cli::render_prompt(&request), cancel)?;
-        Ok(cli::chat_only(stream))
+        Ok(claude_code::emulate_tool_calls(stream, names, cancel))
     }
 
     async fn run_coding_agent(
@@ -302,19 +490,16 @@ impl ProviderAdapter for CodexAdapter {
         request: CodingAgentRequest,
         cancel: CancellationToken,
     ) -> Result<CodingAgentStream, ProviderError> {
-        if request.resume_session.is_some() {
-            return Err(ProviderError::Unsupported("resuming Codex sessions is not supported yet".into()));
-        }
         let cwd = cli::validate_cwd(&request.cwd)?;
-        let args = Self::exec_args(&request.cwd, request.model.as_deref(), request.tool_policy.allow_writes, false);
-        let mut prompt = String::new();
-        if let Some(sys) = request.system_append.as_deref().filter(|s| !s.trim().is_empty()) {
-            prompt.push_str("Additional instructions:\n");
-            prompt.push_str(sys);
-            prompt.push_str("\n\n");
-        }
-        prompt.push_str(&request.prompt);
-        self.spawn(args, cwd, prompt, cancel)
+        let bin = self.binary().ok_or_else(|| ProviderError::Auth("Codex CLI (`codex`) is not installed".into()))?;
+        let replies = match &request.permission_bridge {
+            Some(b) => Some(
+                b.take().ok_or_else(|| ProviderError::BadRequest("the permission bridge was already used".into()))?,
+            ),
+            None => None,
+        };
+        let run = Self::agent_run(&request, cwd);
+        Ok(codex_app::run_agent(Arc::clone(&self.spawner), bin, run, replies, cancel))
     }
 }
 
@@ -386,6 +571,85 @@ mod tests {
         assert!(
             matches!(crash.last(), Some(CodingAgentEvent::Chat(ChatEvent::Error(ProviderError::Server(m)))) if m.contains("stream disconnected"))
         );
+    }
+
+    #[test]
+    fn agent_runs_map_policy_to_sandbox_and_approvals() {
+        use crate::types::{CliToolPolicy, PermissionBridge};
+        let (bridge, _tx) = PermissionBridge::new();
+        let mut req = CodingAgentRequest {
+            prompt: "p".into(),
+            system_append: None,
+            cwd: ".".into(),
+            model: Some("gpt-5-codex".into()),
+            max_turns: None,
+            resume_session: None,
+            tool_policy: CliToolPolicy { allow_writes: true, ..CliToolPolicy::default() },
+            subagent: None,
+            permission_bridge: Some(bridge),
+        };
+        let r = CodexAdapter::agent_run(&req, PathBuf::from("."));
+        assert_eq!((r.sandbox, r.approval_policy), ("workspace-write", "untrusted"));
+        req.permission_bridge = None;
+        req.tool_policy.allow_writes = false;
+        let r = CodexAdapter::agent_run(&req, PathBuf::from("."));
+        assert_eq!((r.sandbox, r.approval_policy), ("read-only", "never"));
+    }
+
+    #[tokio::test]
+    async fn manager_chat_keeps_one_codex_process_per_conversation() {
+        use crate::codex_app::conn::fake::FakeCodex;
+        use crate::types::ChatMessage;
+        use futures::StreamExt;
+        use serde_json::json;
+        let turns = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let t2 = Arc::clone(&turns);
+        let fake = FakeCodex::new(Arc::new(move |method, _p, id| match method {
+            "thread/start" => vec![json!({"id": id, "result": {"thread": {"id": "th"}}})],
+            "turn/start" => {
+                let n = t2.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
+                vec![
+                    json!({"id": id, "result": {"turn": {"id": "u", "items": [], "status": "inProgress"}}}),
+                    json!({"method":"item/agentMessage/delta","params":{"threadId":"th","turnId":"u","itemId":"m","delta": format!("reply {n}")}}),
+                    json!({"method":"turn/completed","params":{"threadId":"th","turn":{"id":"u","items":[],"status":"completed"}}}),
+                ]
+            }
+            _ => vec![],
+        }));
+        let adapter = CodexAdapter::with_spawner(
+            ProviderId::new(),
+            "Codex",
+            Some(std::env::current_exe().unwrap().to_string_lossy().into_owned()),
+            Arc::clone(&fake) as Arc<dyn ProcSpawner>,
+        );
+        let ask = |msgs: Vec<ChatMessage>| {
+            let adapter = &adapter;
+            async move {
+                let s = adapter.chat(ChatRequest::new("default", msgs), CancellationToken::new()).await.unwrap();
+                s.filter_map(|e| async move {
+                    match e {
+                        ChatEvent::TextDelta(t) => Some(t),
+                        _ => None,
+                    }
+                })
+                .collect::<String>()
+                .await
+            }
+        };
+        let mut convo = vec![ChatMessage::user("plan")];
+        assert_eq!(ask(convo.clone()).await, "reply 1");
+        convo.push(ChatMessage::assistant("reply 1"));
+        convo.push(ChatMessage::user("next"));
+        assert_eq!(ask(convo).await, "reply 2");
+        assert_eq!(fake.spawned.load(std::sync::atomic::Ordering::SeqCst), 1, "one process for the conversation");
+        let seen = fake.seen.lock().clone();
+        let start = seen.iter().find(|v| v["method"] == "thread/start").unwrap();
+        assert_eq!(
+            (start["params"]["sandbox"].as_str(), start["params"]["approvalPolicy"].as_str()),
+            (Some("read-only"), Some("never"))
+        );
+        let last_turn = seen.iter().rev().find(|v| v["method"] == "turn/start").unwrap();
+        assert_eq!(last_turn["params"]["input"][0]["text"], "next", "only the new message");
     }
 
     #[test]

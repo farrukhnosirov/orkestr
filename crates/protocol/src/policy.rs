@@ -263,6 +263,10 @@ fn explicit(method: &str) -> Option<MethodPolicy> {
         "monitor.ingest" => MethodPolicy::write(),
         // reads whose verbs are not in READ_VERBS (widget data bindings need Read class)
         "marketplace.sources"
+        | "codex.limits"
+        | "codex.models"
+        | "codex.threads"
+        | "codex.transcript"
         | "marketplace.keys"
         | "marketplace.installed"
         | "widgets.bundle"
@@ -299,6 +303,12 @@ fn explicit(method: &str) -> Option<MethodPolicy> {
         | "claudeCode.loginInTerminal"
         | "claudeCode.setBinaryPath"
         | "claudeCode.openInTerminal"
+        | "codex.install"
+        | "codex.login"
+        | "codex.loginCancel"
+        | "codex.logout"
+        | "codex.openInTerminal"
+        | "engines.setConfig"
         | "nodes.power" => MethodPolicy::local(),
         // destructive
         "vcs.discard"
@@ -333,11 +343,18 @@ fn explicit(method: &str) -> Option<MethodPolicy> {
         | "terminal.execLine"
         | "claudeCode.send"
         | "claudeCode.start"
+        | "codex.send"
+        | "codex.start"
+        | "codex.compact"
         | "tasks.retry" => MethodPolicy::expensive(),
         // stopping work is always allowed to operators, never throttled
-        "agents.stop" | "manager.cancel" | "quality.cancel" | "claudeCode.interrupt" | "claudeCode.stop" => {
-            MethodPolicy::emergency()
-        }
+        "agents.stop"
+        | "manager.cancel"
+        | "quality.cancel"
+        | "claudeCode.interrupt"
+        | "claudeCode.stop"
+        | "codex.interrupt"
+        | "codex.stop" => MethodPolicy::emergency(),
         _ => return None,
     };
     Some(p)
@@ -398,6 +415,23 @@ mod tests {
             n += 1;
         }
         assert!(n >= 20, "computer.* methods registered: {n}");
+    }
+
+    #[test]
+    fn codex_methods_follow_the_claude_code_panel() {
+        for m in ["codex.install", "codex.login", "codex.logout", "codex.openInTerminal", "engines.setConfig"] {
+            assert!(policy_for(m).unwrap().local_only, "{m} must be local-only");
+        }
+        for m in ["codex.send", "codex.start", "codex.compact"] {
+            assert_eq!(policy_for(m).unwrap().rate_class, RateClass::Expensive, "{m}");
+        }
+        for m in ["codex.interrupt", "codex.stop"] {
+            assert_eq!(policy_for(m).unwrap().rate_class, RateClass::Emergency, "{m}");
+        }
+        for m in ["codex.status", "codex.limits", "codex.models", "codex.threads", "engines.status"] {
+            assert_eq!(policy_for(m).unwrap().min_role, Role::Viewer, "{m}");
+        }
+        assert_eq!(policy_for("codex.respondApproval").unwrap().min_role, Role::Operator);
     }
 
     #[test]

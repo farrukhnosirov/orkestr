@@ -150,43 +150,119 @@ pub fn render_tail(tail: &[&ChatMessage], req: &ChatRequest) -> String {
     out
 }
 
-struct Session {
+struct Session<P> {
     key: String,
     /// Conversation (fingerprints) the process has answered.
     seen: Vec<String>,
-    proc: ChatProc,
+    proc: P,
     last_used: Instant,
 }
 
-/// The pool of persistent chat processes of one Claude Code provider.
-pub struct ChatPool {
+/// How a turn on a pooled process ended.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TurnStatus {
+    /// The turn finished; the process can be reused.
+    Answered,
+    /// A terminal error was emitted (the process is dropped).
+    Failed,
+    /// The process ended before the turn finished.
+    Died {
+        /// Answer text had been emitted already.
+        output: bool,
+    },
+}
+
+/// What the pool runs: Claude Code stream-json processes ([`ClaudeBackend`])
+/// or Codex app-server threads (`codex_chat`).
+#[async_trait::async_trait]
+pub trait PoolBackend: Send + Sync + 'static {
+    /// A live process.
+    type Proc: Send + 'static;
+    /// Starts a process for `model` (`default` / empty = the CLI default).
+    async fn start(&self, program: &Path, cwd: &Path, model: &str) -> Result<Self::Proc, ProviderError>;
+    /// Runs one turn with `text` as the user message, emitting its events.
+    async fn turn(
+        &self,
+        proc: &mut Self::Proc,
+        text: &str,
+        em: &Emitter<CodingAgentEvent>,
+        cancel: &CancellationToken,
+    ) -> Result<TurnStatus, ProviderError>;
+}
+
+/// Claude Code `--input-format stream-json` processes.
+pub struct ClaudeBackend {
     spawner: Arc<dyn ProcSpawner>,
-    idle: Mutex<Vec<Session>>,
     /// Extra CLI arguments (model / tool restrictions are added per request).
     base_args: Vec<String>,
+}
+
+#[async_trait::async_trait]
+impl PoolBackend for ClaudeBackend {
+    type Proc = ChatProc;
+
+    async fn start(&self, program: &Path, cwd: &Path, model: &str) -> Result<ChatProc, ProviderError> {
+        let mut args = self.base_args.clone();
+        if !model.trim().is_empty() && model != "default" {
+            args.push("--model".into());
+            args.push(model.to_owned());
+        }
+        self.spawner.spawn(program, &args, cwd)
+    }
+
+    async fn turn(
+        &self,
+        proc: &mut ChatProc,
+        text: &str,
+        em: &Emitter<CodingAgentEvent>,
+        cancel: &CancellationToken,
+    ) -> Result<TurnStatus, ProviderError> {
+        run_turn(proc, text, em, cancel).await
+    }
+}
+
+/// The pool of persistent chat processes of one provider.
+pub struct ChatPool<B: PoolBackend = ClaudeBackend> {
+    backend: B,
+    idle: Mutex<Vec<Session<B::Proc>>>,
     /// How long an idle process is kept ([`IDLE_TTL`]; shorter in tests).
     ttl: Duration,
 }
 
-impl std::fmt::Debug for ChatPool {
+impl<B: PoolBackend> std::fmt::Debug for ChatPool<B> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ChatPool").field("idle", &self.idle.lock().len()).finish()
     }
 }
 
 /// How a turn continues a process.
-enum Plan {
+enum Plan<P> {
     /// A process that saw `seen.len()` messages; send the tail.
-    Continue(Session, usize),
+    Continue(Session<P>, usize),
     /// A new process with the whole conversation.
     Fresh,
 }
 
-impl ChatPool {
-    /// Creates a pool; `base_args` are appended to every process.
+impl ChatPool<ClaudeBackend> {
+    /// Creates a Claude Code pool; `base_args` are appended to every process.
     #[must_use]
     pub fn new(spawner: Arc<dyn ProcSpawner>, base_args: Vec<String>) -> Self {
-        Self { spawner, idle: Mutex::new(Vec::new()), base_args, ttl: IDLE_TTL }
+        Self::with_backend(ClaudeBackend { spawner, base_args })
+    }
+}
+
+impl<B: PoolBackend> ChatPool<B> {
+    /// Creates a pool over `backend`.
+    #[must_use]
+    pub fn with_backend(backend: B) -> Self {
+        Self { backend, idle: Mutex::new(Vec::new()), ttl: IDLE_TTL }
+    }
+
+    /// Sets the idle TTL (tests).
+    #[must_use]
+    pub fn with_ttl(mut self, ttl: Duration) -> Self {
+        self.ttl = ttl;
+        self
     }
 
     /// Idle processes (tests, diagnostics).
@@ -206,7 +282,7 @@ impl ChatPool {
         self.idle.lock().retain(|s| s.last_used.elapsed() < ttl);
     }
 
-    fn take(&self, key: &str, convo: &[String]) -> Plan {
+    fn take(&self, key: &str, convo: &[String]) -> Plan<B::Proc> {
         let ttl = self.ttl;
         let mut idle = self.idle.lock();
         idle.retain(|s| s.last_used.elapsed() < ttl);
@@ -227,7 +303,7 @@ impl ChatPool {
         }
     }
 
-    fn put_back(self: &Arc<Self>, mut s: Session) {
+    fn put_back(self: &Arc<Self>, mut s: Session<B::Proc>) {
         s.last_used = Instant::now();
         {
             let mut idle = self.idle.lock();
@@ -268,38 +344,33 @@ impl ChatPool {
             let convo: Vec<String> = convo_msgs.iter().map(|m| fingerprint(m)).collect();
             let mut plan = pool.take(&key, &convo);
             loop {
-                let (session, text, reused) = match plan {
+                let (mut session, text, reused) = match plan {
                     Plan::Continue(s, from) => {
                         let tail: Vec<&ChatMessage> = convo_msgs[from..].to_vec();
                         let text = render_tail(&tail, &request);
                         (s, text, true)
                     }
                     Plan::Fresh => {
-                        let mut args = pool.base_args.clone();
-                        if !request.model.trim().is_empty() && request.model != "default" {
-                            args.push("--model".into());
-                            args.push(request.model.clone());
-                        }
-                        let proc = pool.spawner.spawn(&program, &args, &cwd)?;
+                        let proc = pool.backend.start(&program, &cwd, &request.model).await?;
                         let s = Session { key: key.clone(), seen: Vec::new(), proc, last_used: Instant::now() };
                         (s, format!("{first_prompt}{tool_protocol}"), false)
                     }
                 };
-                match run_turn(session, &text, &em, &cancel).await? {
-                    TurnEnd::Answered(mut s) => {
-                        s.seen.clone_from(&convo);
-                        pool.put_back(s);
+                match pool.backend.turn(&mut session.proc, &text, &em, &cancel).await? {
+                    TurnStatus::Answered => {
+                        session.seen.clone_from(&convo);
+                        pool.put_back(session);
                         return Ok(());
                     }
-                    TurnEnd::Failed => return Ok(()),
-                    TurnEnd::Died { output } => {
+                    TurnStatus::Failed => return Ok(()),
+                    TurnStatus::Died { output } => {
                         if reused && !output {
                             // Restart: replay the turn on a new process.
-                            tracing::info!("Claude Code chat process ended; restarting it");
+                            tracing::info!("chat process ended; restarting it");
                             plan = Plan::Fresh;
                             continue;
                         }
-                        return Err(ProviderError::Server("the Claude Code process ended during the answer".into()));
+                        return Err(ProviderError::Server("the CLI process ended during the answer".into()));
                     }
                 }
             }
@@ -307,30 +378,21 @@ impl ChatPool {
     }
 }
 
-enum TurnEnd {
-    /// The turn finished; the process can be reused.
-    Answered(Session),
-    /// A terminal error was emitted (the process is dropped).
-    Failed,
-    /// The process ended before the turn finished.
-    Died { output: bool },
-}
-
 async fn run_turn(
-    mut s: Session,
+    proc: &mut ChatProc,
     text: &str,
     em: &Emitter<CodingAgentEvent>,
     cancel: &CancellationToken,
-) -> Result<TurnEnd, ProviderError> {
-    if s.proc.stdin.send(crate::claude_code_session::control::user_message(text)).is_err() {
-        return Ok(TurnEnd::Died { output: false });
+) -> Result<TurnStatus, ProviderError> {
+    if proc.stdin.send(crate::claude_code_session::control::user_message(text)).is_err() {
+        return Ok(TurnStatus::Died { output: false });
     }
     let mut parser = ClaudeStreamParser::default();
     let mut output = false;
     loop {
         let line = tokio::select! {
             () = cancel.cancelled() => return Err(ProviderError::Cancelled),
-            l = tokio::time::timeout(cli::CLI_IDLE_TIMEOUT, s.proc.stdout.recv()) => match l {
+            l = tokio::time::timeout(cli::CLI_IDLE_TIMEOUT, proc.stdout.recv()) => match l {
                 Ok(l) => l,
                 Err(_) => {
                     return Err(ProviderError::Server(format!(
@@ -340,16 +402,16 @@ async fn run_turn(
                 }
             },
         };
-        let Some(line) = line else { return Ok(TurnEnd::Died { output }) };
+        let Some(line) = line else { return Ok(TurnStatus::Died { output }) };
         for ev in parser.line(&line) {
             match ev {
                 CodingAgentEvent::Chat(ChatEvent::Done { .. }) => {
                     em.emit(ev).await?;
-                    return Ok(TurnEnd::Answered(s));
+                    return Ok(TurnStatus::Answered);
                 }
                 CodingAgentEvent::Chat(ChatEvent::Error(_)) => {
                     em.emit(ev).await?;
-                    return Ok(TurnEnd::Failed);
+                    return Ok(TurnStatus::Failed);
                 }
                 CodingAgentEvent::Chat(ChatEvent::TextDelta(_)) => {
                     output = true;
@@ -489,9 +551,9 @@ mod tests {
     #[tokio::test]
     async fn an_idle_process_is_stopped_after_its_ttl_without_further_calls() {
         let fake = Arc::new(FakeClaude::default());
-        let mut p = ChatPool::new(Arc::clone(&fake) as Arc<dyn ProcSpawner>, Vec::new());
-        p.ttl = Duration::from_millis(100);
-        let pool = Arc::new(p);
+        let pool = Arc::new(
+            ChatPool::new(Arc::clone(&fake) as Arc<dyn ProcSpawner>, Vec::new()).with_ttl(Duration::from_millis(100)),
+        );
         assert_eq!(ask(&pool, vec![ChatMessage::user("a")]).await, "reply 1");
         assert_eq!(pool.idle_count(), 1);
         tokio::time::sleep(Duration::from_millis(400)).await;

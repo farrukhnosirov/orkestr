@@ -221,6 +221,12 @@
     "DashboardChanged_one": "{{count}} dashboard change",
     "DashboardChanged_other": "{{count}} dashboard changes",
     "ComputerCommand_one": "{{count}} assistant command",
-    "ComputerCommand_other": "{{count}} assistant commands"
+    "ComputerCommand_other": "{{count}} assistant commands",
+    "CodexEvent_one": "{{count}} Codex chat item",
+    "CodexEvent_other": "{{count}} Codex chat items",
+    "CodexStatus_one": "{{count}} Codex session change",
+    "CodexStatus_other": "{{count}} Codex session changes",
+    "CodexAccount_one": "{{count}} Codex sign-in change",
+    "CodexAccount_other": "{{count}} Codex sign-in changes"
   }
 }

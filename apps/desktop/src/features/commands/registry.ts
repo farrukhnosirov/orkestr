@@ -19,6 +19,7 @@ import { WORKBENCH_COMMANDS } from "../workbench/commands";
 import { vscodeCommands } from "../vscode";
 import { claudeCodeCommands } from "../claudeCode/commands";
 import { windowLibraryCommands } from "../windowLibrary/commands";
+import { codexCommands } from "../codex/commands";
 
 export interface CommandContext {
   projectId: string | null;
@@ -86,3 +87,5 @@ commands.push(...vscodeCommands);
 commands.push(...claudeCodeCommands);
 // Window Library (Wave 8)
 commands.push(...windowLibraryCommands);
+// Codex panel (ChatGPT subscription)
+commands.push(...codexCommands);

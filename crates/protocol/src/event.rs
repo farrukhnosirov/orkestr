@@ -928,6 +928,9 @@ macro_rules! event_kinds {
                         | EventKind::LspStatus(_)
                         | EventKind::ClaudeCodeEvent(_)
                         | EventKind::ClaudeCodeStatus(_)
+                        | EventKind::CodexEvent(_)
+                        | EventKind::CodexStatus(_)
+                        | EventKind::CodexAccount(_)
                         | EventKind::DeploymentProgress(_)
                 )
             }
@@ -1136,6 +1139,12 @@ event_kinds! {
     DashboardChanged(crate::methods::dashboards::DashboardChangedPayload),
     /// The computer assistant ran / proposed / rejected a command, or a timer fired (ADR-0035). Appended.
     ComputerCommand(crate::methods::computer::ComputerCommandPayload),
+    /// One item of a Codex chat session (ephemeral, topic `codex:<sessionId>` only, ADR-0047). Appended.
+    CodexEvent(crate::methods::codex::CodexEventPayload),
+    /// A Codex chat session changed state (ephemeral; `codex:<sessionId>` + `project:<id>`). Appended.
+    CodexStatus(crate::methods::codex::CodexStatusPayload),
+    /// Codex sign-in progress / account change (ephemeral, global). Appended.
+    CodexAccount(crate::methods::codex::CodexAccountPayload),
 }
 
 // ---------------------------------------------------------------------------
@@ -1343,6 +1352,8 @@ impl NewEvent {
             EventKind::LspStatus(l) => self.project_id = Some(l.session.project_id),
             EventKind::ClaudeCodeEvent(c) => self.project_id = Some(c.project_id),
             EventKind::ClaudeCodeStatus(c) => self.project_id = Some(c.session.project_id),
+            EventKind::CodexEvent(c) => self.project_id = Some(c.project_id),
+            EventKind::CodexStatus(c) => self.project_id = Some(c.session.project_id),
             EventKind::EmergencyStop(e) => match e.scope {
                 EmergencyScope::Project { project_id } => self.project_id = Some(project_id),
                 EmergencyScope::Agent { agent_id } => self.agent_id = Some(agent_id),

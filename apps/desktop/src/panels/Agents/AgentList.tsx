@@ -6,6 +6,8 @@ import { contextMenuHandler, type MenuEntry, writeClipboardText } from "../../fe
 import { agentActions, errorMessage } from "./data";
 import { isActive } from "./model";
 
+import { AgentEngineBadge } from "../../features/engines/AgentEngineBadge";
+import { useProvidersLive } from "../../features/providers/store";
 import { useLanguage, useT } from "../../i18n";
 import { elapsed, formatCost, formatTokens, tokenPluralCount } from "./model";
 
@@ -63,6 +65,8 @@ export function AgentList({ agents, tasks, now }: { agents: AgentInstance[]; tas
   const selected = useAgentsUi((s) => s.selectedAgentId);
   const select = useAgentsUi((s) => s.select);
   const titles = new Map(tasks.map((x) => [x.id, x.title]));
+  // Providers tell which engine (Claude Code / Codex / API) each agent runs on.
+  useProvidersLive();
   return (
     <ul className="agents-list" aria-label={t("list.label")}>
       {agents.map((a) => {
@@ -87,6 +91,7 @@ export function AgentList({ agents, tasks, now }: { agents: AgentInstance[]; tas
                 </span>
                 {a.activity && <span className="agents-row__activity">{agentActivity(a.activity)}</span>}
                 <span className="agents-row__meta">
+                  <AgentEngineBadge providerId={a.model?.providerId} />
                   <span title={t("list.model")}>{a.model?.model ?? "—"}</span>
                   {a.worktree?.branch && (
                     <span className="agents-row__branch" title={a.worktree.path}>

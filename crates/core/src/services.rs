@@ -94,6 +94,8 @@ pub struct Services {
     pub lsp: orkestr_extensions::lsp::LspManager,
     /// Claude Code panel: chat sessions over the official `claude` CLI.
     pub claude: crate::claude_code::ClaudeCodeService,
+    /// Codex (ChatGPT subscription): installer, sign-in, panel hub (ADR-0047).
+    pub codex: crate::codex::CodexService,
     /// Remote access via the gateway (Phase 4; skeleton until wired).
     pub remote: Arc<crate::remote::RemoteService>,
     /// Multi-node registry, links, enrollment, worker state (Phase 6).

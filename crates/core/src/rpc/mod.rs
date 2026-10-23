@@ -11,6 +11,7 @@ pub mod audit;
 pub mod benchmarks;
 pub mod claude_code;
 pub mod claude_engine;
+pub mod codex;
 pub mod computer;
 pub mod consensus;
 pub mod context;
@@ -278,6 +279,8 @@ pub fn build_router() -> RpcRouter {
     // Claude Code panel (official `claude` CLI, stream-json)
     router.register(claude_code::register);
     router.register(claude_engine::register);
+    // Codex (ChatGPT subscription) + parallel engines (ADR-0047)
+    router.register(codex::register);
     // remote access, sync, Web Push (Phase 4)
     router.register(remote::register).register(sync::register).register(push::register);
     // multi-node (Phase 6): one registration per work-package file

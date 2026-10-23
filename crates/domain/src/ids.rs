@@ -185,6 +185,8 @@ define_id!(/// Bug Detective incident (Phase 7) id.
     IncidentId, "incident");
 define_id!(/// Claude Code chat session id (one official `claude` CLI process per chat tab of the Claude Code panel).
     ClaudeSessionId, "claude");
+define_id!(/// Codex chat session id (one thread of the shared `codex app-server` process, ADR-0047).
+    CodexSessionId, "codex");
 
 #[cfg(test)]
 mod tests {

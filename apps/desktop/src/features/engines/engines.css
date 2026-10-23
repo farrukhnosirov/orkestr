@@ -1,0 +1,276 @@
+/* Parallel engines card + title-bar indicator + agent engine badge (tokens only). */
+
+.eng-card > * {
+  position: relative;
+}
+
+.eng-cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--ok-space-3);
+}
+
+.eng-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-2);
+  padding: var(--ok-space-3);
+  border: 1px solid var(--ok-color-border);
+  border-radius: var(--ok-radius-md);
+  background: var(--ok-color-surface);
+}
+
+.eng-col__head {
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-2);
+  color: var(--ok-color-text);
+}
+
+.eng-col__state {
+  margin-left: auto;
+  color: var(--ok-color-text-subtle);
+  font-size: var(--ok-font-size-xs);
+}
+
+.eng-facts {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  font-size: var(--ok-font-size-sm);
+}
+
+.eng-facts > div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--ok-space-2);
+}
+
+.eng-facts dt {
+  color: var(--ok-color-text-muted);
+}
+
+.eng-facts dd {
+  margin: 0;
+  color: var(--ok-color-text);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.eng-muted {
+  margin: 0;
+  color: var(--ok-color-text-subtle);
+  font-size: var(--ok-font-size-xs);
+}
+
+/* Status dots: green signed in / amber limit > 80 % / grey not installed / red not signed in. */
+.eng-dot {
+  display: inline-block;
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ok-color-text-subtle);
+}
+
+.eng-dot--ok {
+  background: var(--ok-color-success);
+}
+
+.eng-dot--warn {
+  background: var(--ok-color-warning);
+}
+
+.eng-dot--error {
+  background: var(--ok-color-danger);
+}
+
+.eng-dot--off {
+  background: var(--ok-color-text-subtle);
+  opacity: 0.6;
+}
+
+/* ── modes ── */
+
+.eng-modes,
+.eng-roles {
+  display: grid;
+  gap: var(--ok-space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.eng-modes {
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.eng-modes legend,
+.eng-roles legend {
+  margin-bottom: var(--ok-space-2);
+  padding: 0;
+  color: var(--ok-color-text);
+  font-size: var(--ok-font-size-sm);
+  font-weight: var(--ok-font-weight-semibold);
+}
+
+.eng-mode {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: var(--ok-space-2);
+  row-gap: 2px;
+  padding: var(--ok-space-2);
+  border: 1px solid var(--ok-color-border);
+  border-radius: var(--ok-radius-md);
+  background: var(--ok-color-surface);
+  cursor: pointer;
+  transition: border-color var(--ok-duration-fast) var(--ok-ease), background var(--ok-duration-fast) var(--ok-ease);
+}
+
+.eng-mode:hover {
+  border-color: var(--ok-color-border-strong);
+}
+
+.eng-mode--on {
+  border-color: var(--ok-color-border-accent);
+  background: var(--ok-color-accent-soft);
+}
+
+.eng-mode input {
+  grid-row: span 2;
+  margin: 2px 0 0;
+  accent-color: var(--ok-color-accent);
+}
+
+.eng-mode__name {
+  color: var(--ok-color-text);
+  font-size: var(--ok-font-size-sm);
+  font-weight: var(--ok-font-weight-semibold);
+}
+
+.eng-mode__desc {
+  color: var(--ok-color-text-muted);
+  font-size: var(--ok-font-size-xs);
+  line-height: var(--ok-line-height);
+}
+
+.eng-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--ok-space-2) var(--ok-space-3);
+}
+
+.eng-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--ok-color-text-muted);
+  font-size: var(--ok-font-size-xs);
+}
+
+.eng-roles--dim .eng-roles__list {
+  opacity: 0.6;
+}
+
+.eng-roles__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ok-space-1);
+}
+
+.eng-role {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px var(--ok-space-2);
+  border: 1px solid var(--ok-color-border);
+  border-radius: var(--ok-radius-pill);
+  background: var(--ok-color-surface);
+  color: var(--ok-color-text-muted);
+  font-size: var(--ok-font-size-xs);
+  cursor: pointer;
+}
+
+.eng-role--on {
+  border-color: var(--ok-color-border-accent);
+  background: var(--ok-color-accent-soft);
+  color: var(--ok-color-text);
+}
+
+.eng-role input {
+  margin: 0;
+  accent-color: var(--ok-color-accent);
+}
+
+[data-ok-motion="off"] .eng-mode {
+  transition: none;
+}
+
+/* ── title-bar indicator ── */
+
+.eng-ind {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  height: 24px;
+  margin-right: var(--ok-space-1);
+  padding: 0 2px;
+  border: 1px solid var(--ok-color-border);
+  border-radius: var(--ok-radius-pill);
+  background: var(--ok-color-surface);
+}
+
+.eng-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 20px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: var(--ok-radius-pill);
+  background: transparent;
+  color: var(--ok-color-text-muted);
+  font: inherit;
+  font-size: 11px;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.eng-chip:hover,
+.eng-chip:focus-visible {
+  background: var(--ok-color-surface-hover);
+  color: var(--ok-color-text);
+  outline: none;
+}
+
+.eng-chip:focus-visible {
+  box-shadow: var(--ok-focus-ring);
+}
+
+/* ── agent engine badge ── */
+
+.eng-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 0 5px;
+  border: 1px solid var(--ok-color-border);
+  border-radius: var(--ok-radius-pill);
+  color: var(--ok-color-text-muted);
+  font-size: 10px;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.eng-badge--claudeCode {
+  border-color: var(--ok-color-border-accent);
+  color: var(--ok-color-accent);
+}
+
+.eng-badge--codex {
+  border-color: var(--ok-color-violet);
+  color: var(--ok-color-violet);
+}

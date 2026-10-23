@@ -34,6 +34,7 @@ import ArchitecturePanel from "./Architecture";
 import BrowserPanel from "./Browser";
 import BugDetectivePanel from "./BugDetective";
 import ClaudeCodePanel from "./ClaudeCode";
+import CodexPanel from "./Codex";
 import CodePanel from "./Code";
 import CostsPanel from "./Costs";
 import DashboardsPanel from "./Dashboards";
@@ -121,6 +122,8 @@ export const PANELS: readonly PanelDefinition[] = [
   panel("extensions", Puzzle, 0, ExtensionsPanel, "ecosystem"),
   // Claude Code chat (official `claude` CLI, stream-json)
   panel("claudeCode", Sparkle, 0, ClaudeCodePanel, "ai"),
+  // Codex chat (official `codex` CLI, ChatGPT subscription, ADR-0047)
+  panel("codex", Bot, 0, CodexPanel, "ai"),
   // multi-node (Phase 6): enrolled nodes, jobs, model distribution
   panel("nodes", Server, 0, NodesPanel, "ops"),
   // ecosystem (Phase 7): marketplace (WP2), dashboards (WP3), Bug Detective (WP6)

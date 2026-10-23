@@ -245,7 +245,10 @@ fn slug(name: &str) -> String {
 /// Built-in templates are read-only.
 #[must_use]
 pub fn is_read_only(t: &AgentTemplate) -> bool {
-    matches!(t.source, TemplateSource::Builtin | TemplateSource::Official | TemplateSource::ClaudeCode)
+    matches!(
+        t.source,
+        TemplateSource::Builtin | TemplateSource::Official | TemplateSource::ClaudeCode | TemplateSource::Codex
+    )
 }
 
 /// Template persistence and operations (cheap to clone).
@@ -390,7 +393,7 @@ impl TemplateService {
     /// Removes a mirrored template (its definition file was deleted).
     pub async fn remove_mirrored(&self, id: AgentTemplateId) -> AgentResult<()> {
         let existing = self.get(id).await?;
-        if existing.source != TemplateSource::ClaudeCode {
+        if !matches!(existing.source, TemplateSource::ClaudeCode | TemplateSource::Codex) {
             return Err(AgentError::Forbidden("only mirrored templates can be removed this way".into()));
         }
         self.db
