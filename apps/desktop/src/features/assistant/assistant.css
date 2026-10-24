@@ -302,6 +302,9 @@
 
 /* reply + blocks */
 .as-reply {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ok-space-2);
   padding: var(--ok-space-2) var(--ok-space-3);
   border-radius: var(--ok-radius-md);
   border: 1px solid var(--ok-color-border);
@@ -309,6 +312,26 @@
   color: var(--ok-color-text);
   font-size: var(--ok-font-size-sm);
   overflow-wrap: anywhere;
+}
+.as-reply__icon {
+  flex: none;
+  margin-top: 2px;
+}
+.as-reply__text {
+  flex: 1;
+  min-width: 0;
+}
+.as-reply--ok .as-reply__icon {
+  color: var(--ok-color-success);
+}
+.as-reply--warn .as-reply__icon {
+  color: var(--ok-color-warning);
+}
+.as-reply--error .as-reply__icon {
+  color: var(--ok-color-danger);
+}
+.as-reply--info .as-reply__icon {
+  color: var(--ok-color-info);
 }
 .as-reply--ok {
   border-color: color-mix(in srgb, var(--ok-color-success) 45%, transparent);

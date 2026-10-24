@@ -104,6 +104,371 @@
     "stoppedAll_one": "Stopped ({{count}} item).",
     "stoppedAll_other": "Stopped ({{count}} items)."
   },
+  "say": {
+    "now": {
+      "Launch": [
+        "Opening {{name}}",
+        "Launching {{name}}",
+        "Sure, opening {{name}}"
+      ],
+      "CloseApp": [
+        "Closing {{name}}",
+        "Sure, closing {{name}}"
+      ],
+      "CloseAppDiscard": [
+        "Closing {{name}} without saving"
+      ],
+      "FocusApp": [
+        "Switching to {{name}}"
+      ],
+      "KillProcess": [
+        "Ending the {{name}} process"
+      ],
+      "OpenUrl": [
+        "Opening {{name}}",
+        "Opening {{name}} in the browser"
+      ],
+      "WebSearch": [
+        "Searching the web for “{{query}}”",
+        "Looking up “{{query}}”"
+      ],
+      "OpenPath": [
+        "Opening {{name}}"
+      ],
+      "OpenSettings": [
+        "Opening {{what}} settings"
+      ],
+      "OpenSettingsTitled": [
+        "Opening {{what}}"
+      ],
+      "Window": {
+        "Focus": [
+          "Switching to {{name}}"
+        ],
+        "Minimize": [
+          "Minimizing {{name}}"
+        ],
+        "Maximize": [
+          "Maximizing {{name}}"
+        ],
+        "Restore": [
+          "Restoring {{name}}"
+        ],
+        "Close": [
+          "Closing the {{name}} window"
+        ],
+        "SnapLeft": [
+          "Snapping {{name}} to the left"
+        ],
+        "SnapRight": [
+          "Snapping {{name}} to the right"
+        ],
+        "NextMonitor": [
+          "Moving {{name}} to the next monitor"
+        ],
+        "PreviousMonitor": [
+          "Moving {{name}} to the previous monitor"
+        ]
+      },
+      "WindowSelf": {
+        "Minimize": [
+          "Minimizing the window"
+        ],
+        "Maximize": [
+          "Maximizing the window"
+        ],
+        "Restore": [
+          "Restoring the window"
+        ],
+        "Close": [
+          "Closing the window"
+        ],
+        "SnapLeft": [
+          "Snapping the window left"
+        ],
+        "SnapRight": [
+          "Snapping the window right"
+        ],
+        "NextMonitor": [
+          "Moving the window to the next monitor"
+        ],
+        "PreviousMonitor": [
+          "Moving the window to the previous monitor"
+        ],
+        "SwitchNext": [
+          "Switching windows"
+        ],
+        "ShowDesktop": [
+          "Showing the desktop"
+        ]
+      },
+      "TypeText": [
+        "Typing the text"
+      ],
+      "Scroll": {
+        "Up": [
+          "Scrolling up"
+        ],
+        "Down": [
+          "Scrolling down"
+        ],
+        "Left": [
+          "Scrolling left"
+        ],
+        "Right": [
+          "Scrolling right"
+        ]
+      },
+      "Volume": {
+        "Set": [
+          "Volume — {{value}}",
+          "Setting the volume to {{value}}"
+        ],
+        "Up": [
+          "Turning it up"
+        ],
+        "Down": [
+          "Turning it down"
+        ],
+        "Mute": [
+          "Muting the sound"
+        ]
+      },
+      "Brightness": {
+        "Set": [
+          "Brightness — {{value}}",
+          "Setting the brightness to {{value}}"
+        ],
+        "Up": [
+          "Making it brighter"
+        ],
+        "Down": [
+          "Dimming the screen"
+        ],
+        "Mute": [
+          "Changing the brightness"
+        ]
+      },
+      "Timer": [
+        "Setting a timer for {{time}}",
+        "Timer for {{time}} — started"
+      ],
+      "Screenshot": [
+        "Taking a screenshot"
+      ],
+      "ClipboardSet": [
+        "Copying to the clipboard"
+      ],
+      "ClipboardGet": [
+        "Checking the clipboard"
+      ],
+      "FileCreate": [
+        "Creating the file {{name}}"
+      ],
+      "FolderCreate": [
+        "Creating the folder {{name}}"
+      ],
+      "FileMove": [
+        "Moving {{name}}"
+      ],
+      "FileDelete": [
+        "Deleting {{name}}"
+      ],
+      "Notify": [
+        "Showing a notification"
+      ],
+      "ListProcesses": [
+        "Here are the running processes"
+      ],
+      "ListWindows": [
+        "Here are the open windows"
+      ]
+    },
+    "done": {
+      "Launch": "opened {{name}}",
+      "CloseApp": "closed {{name}}",
+      "CloseAppDiscard": "closed {{name}} without saving",
+      "FocusApp": "switched to {{name}}",
+      "KillProcess": "ended {{name}}",
+      "OpenUrl": "opened {{name}}",
+      "WebSearch": "searched for “{{query}}”",
+      "OpenPath": "opened {{name}}",
+      "Window": {
+        "Focus": "switched to {{name}}",
+        "Minimize": "minimized {{name}}",
+        "Maximize": "maximized {{name}}",
+        "Close": "closed the {{name}} window",
+        "Restore": "restored {{name}}"
+      },
+      "WindowSelf": {
+        "Minimize": "minimized the window",
+        "Maximize": "maximized the window",
+        "Close": "closed the window",
+        "Restore": "restored the window",
+        "ShowDesktop": "showed the desktop"
+      },
+      "TypeText": "typed the text",
+      "Scroll": {
+        "Up": "scrolled up",
+        "Down": "scrolled down",
+        "Left": "scrolled left",
+        "Right": "scrolled right"
+      },
+      "Volume": {
+        "Set": "set the volume to {{value}}",
+        "Up": "turned it up",
+        "Down": "turned it down",
+        "Mute": "muted the sound"
+      },
+      "Brightness": {
+        "Set": "set the brightness to {{value}}",
+        "Up": "made it brighter",
+        "Down": "dimmed the screen"
+      },
+      "Timer": "set a timer for {{time}}",
+      "Screenshot": "took a screenshot",
+      "ClipboardSet": "copied it to the clipboard",
+      "ClipboardGet": "read the clipboard",
+      "FileCreate": "created {{name}}",
+      "FolderCreate": "created the folder {{name}}",
+      "FileMove": "moved {{name}}",
+      "FileDelete": "deleted {{name}}",
+      "Notify": "showed a notification",
+      "ListProcesses": "listed the processes",
+      "ListWindows": "listed the windows"
+    },
+    "fail": {
+      "Launch": [
+        "Couldn’t open {{name}}: {{error}}",
+        "I couldn’t open {{name}}: {{error}}"
+      ],
+      "CloseApp": [
+        "Couldn’t close {{name}}: {{error}}"
+      ],
+      "CloseAppDiscard": [
+        "Couldn’t close {{name}}: {{error}}"
+      ],
+      "FocusApp": [
+        "Couldn’t switch to {{name}}: {{error}}"
+      ],
+      "KillProcess": [
+        "Couldn’t end {{name}}: {{error}}"
+      ],
+      "OpenUrl": [
+        "Couldn’t open {{name}}: {{error}}"
+      ],
+      "WebSearch": [
+        "Couldn’t search for “{{query}}”: {{error}}"
+      ],
+      "OpenPath": [
+        "Couldn’t open {{name}}: {{error}}"
+      ],
+      "TypeText": [
+        "Couldn’t type the text: {{error}}"
+      ],
+      "Screenshot": [
+        "Couldn’t take a screenshot: {{error}}"
+      ],
+      "Timer": [
+        "Couldn’t set the timer: {{error}}"
+      ],
+      "FileCreate": [
+        "Couldn’t create {{name}}: {{error}}"
+      ],
+      "FolderCreate": [
+        "Couldn’t create the folder {{name}}: {{error}}"
+      ],
+      "FileMove": [
+        "Couldn’t move {{name}}: {{error}}"
+      ],
+      "FileDelete": [
+        "Couldn’t delete {{name}}: {{error}}"
+      ],
+      "Window": {
+        "Focus": [
+          "Couldn’t switch to {{name}}: {{error}}"
+        ],
+        "Minimize": [
+          "Couldn’t minimize {{name}}: {{error}}"
+        ],
+        "Maximize": [
+          "Couldn’t maximize {{name}}: {{error}}"
+        ],
+        "Close": [
+          "Couldn’t close the {{name}} window: {{error}}"
+        ]
+      }
+    },
+    "summary": [
+      "Done — {{list}}",
+      "All set: {{list}}"
+    ],
+    "generic": [
+      "Done — {{what}}",
+      "All set: {{what}}"
+    ],
+    "and": " and ",
+    "andMore": " and more",
+    "unit": {
+      "percent_one": "{{count}} percent",
+      "percent_other": "{{count}} percent",
+      "seconds_one": "{{count}} second",
+      "seconds_other": "{{count}} seconds",
+      "minutes_one": "{{count}} minute",
+      "minutes_other": "{{count}} minutes",
+      "hours_one": "{{count}} hour",
+      "hours_other": "{{count}} hours"
+    },
+    "verbs": {
+      "open": "opening",
+      "close": "closing",
+      "switch": "switching",
+      "minimize": "minimizing",
+      "maximize": "maximizing",
+      "show": "showing",
+      "restart": "restarting",
+      "search": "searching",
+      "go": "going",
+      "scroll": "scrolling",
+      "move": "moving",
+      "list": "listing",
+      "save": "saving",
+      "print": "printing",
+      "find": "finding",
+      "delete": "deleting",
+      "lock": "locking",
+      "set": "setting",
+      "snap": "snapping",
+      "toggle": "toggling",
+      "copy": "copying",
+      "zoom": "zooming",
+      "press": "pressing",
+      "type": "typing",
+      "click": "clicking",
+      "play": "playing",
+      "stop": "stopping",
+      "mute": "muting",
+      "create": "creating",
+      "align": "aligning",
+      "seek": "seeking",
+      "kill": "killing",
+      "restore": "restoring",
+      "paste": "pasting",
+      "cut": "cutting",
+      "undo": "undoing",
+      "redo": "redoing",
+      "select": "selecting",
+      "replace": "replacing",
+      "reopen": "reopening",
+      "refresh": "refreshing",
+      "reset": "resetting",
+      "run": "running",
+      "start": "starting",
+      "turn": "turning",
+      "take": "taking",
+      "launch": "launching"
+    }
+  },
   "risk": {
     "closeDiscard": "{{detail}} closes without saving",
     "closeUnsaved": "“{{detail}}” has unsaved changes",

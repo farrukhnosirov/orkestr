@@ -199,6 +199,7 @@ impl Runner<'_> {
                 Ok(d) => d.clone(),
                 Err(e) => e.to_string(),
             },
+            step: (!matches!(action, ComputerAction::If { .. })).then(|| action.clone()),
         });
         self.index += 1;
     }

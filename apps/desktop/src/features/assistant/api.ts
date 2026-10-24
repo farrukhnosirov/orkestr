@@ -9,6 +9,8 @@ import type { ClientEffect, ComputerAction, HandleResult, RiskReason } from "@or
 import { getClient, maybeClient } from "../../core/client";
 import { currentLanguage, t } from "../../i18n";
 import { describeError } from "../../i18n/errors";
+import { useVoiceStore } from "../voice/store";
+import { naturalRunReply, type PhraseOptions } from "./phrasing";
 import { type AssistantReply, type AssistantTone, useAssistantStore } from "./store";
 
 export type AssistantOutcome = "ok" | "failed" | "needsConfirmation" | "proposed" | "cancelled" | "notUnderstood";
@@ -60,7 +62,7 @@ function applyEffects(effects: ClientEffect[]): string[] {
 }
 
 /** Turns a core result into store state + a reply. */
-export function applyResult(r: HandleResult): AssistantRun {
+export function applyResult(r: HandleResult, phrase: PhraseOptions = {}): AssistantRun {
   const store = useAssistantStore.getState();
   const out = (outcome: AssistantOutcome, reply: string, tone: AssistantTone, speak: string[] = []): AssistantRun => {
     store.patch({ reply: { text: reply, tone } });
@@ -70,18 +72,16 @@ export function applyResult(r: HandleResult): AssistantRun {
     case "Executed": {
       store.patch({ pending: null });
       const speak = applyEffects(r.run.effects);
-      const title = r.run.title;
       switch (r.run.outcome) {
         case "Succeeded":
-          return out("ok", t("assistant:reply.done", { title }), "ok", speak);
+          // natural speech ("Opening Calculator"), not a status line
+          return out("ok", naturalRunReply(r.run, phrase), "ok", speak);
         case "Stopped":
           return out("cancelled", t("assistant:reply.stopped"), "warn");
         case "Rejected":
           return out("cancelled", t("assistant:reply.rejected"), "info");
-        case "Failed": {
-          const err = r.run.steps.find((s) => !s.ok)?.detail ?? "";
-          return out("failed", t("assistant:reply.failed", { title, error: err }), "error");
-        }
+        case "Failed":
+          return out("failed", naturalRunReply(r.run, phrase), "error");
       }
       break;
     }
@@ -106,11 +106,11 @@ function lang(): string {
   return currentLanguage();
 }
 
-async function guarded(input: string | null, fn: () => Promise<HandleResult>): Promise<AssistantRun> {
+async function guarded(input: string | null, fn: () => Promise<HandleResult>, phrase: PhraseOptions = {}): Promise<AssistantRun> {
   const store = useAssistantStore.getState();
   store.patch({ busy: true, ...(input !== null ? { input, shown: null } : {}) });
   try {
-    return applyResult(await fn());
+    return applyResult(await fn(), phrase);
   } catch (e) {
     const reply: AssistantReply = { text: t("assistant:reply.error", { error: describeError(e) }), tone: "error" };
     store.patch({ reply });
@@ -152,9 +152,33 @@ export async function correctPlan(correction: string): Promise<AssistantRun> {
 export async function approvePlan(): Promise<AssistantRun> {
   const plan = useAssistantStore.getState().plan;
   if (!plan) return { outcome: "cancelled", reply: "", tone: "info", speak: [] };
-  const r = await guarded(null, () => getClient().call("computer.approvePlan", { planId: plan.planId }));
+  const r = await guarded(null, () => getClient().call("computer.approvePlan", { planId: plan.planId }), { planned: true });
   if (r.outcome === "ok") useAssistantStore.getState().patch({ ranPlanId: plan.planId });
-  return r;
+  return phrasePlanReply(r, plan.request);
+}
+
+/** AI phrasing budget for plan results (same limit as the voice replies). */
+export const PLAN_PHRASE_TIMEOUT_MS = 5000;
+
+/**
+ * AI-planned runs (long, several steps): when natural replies are on, the
+ * Manager's model may phrase the result (`voice.phrase`, 5 s limit); the
+ * instant template reply stays on any failure / timeout. Single commands
+ * never wait for this.
+ */
+async function phrasePlanReply(r: AssistantRun, request: string): Promise<AssistantRun> {
+  if ((r.outcome !== "ok" && r.outcome !== "failed") || !r.reply) return r;
+  if (useVoiceStore.getState().config?.naturalReplies !== true) return r;
+  try {
+    const facts = `The user asked the computer assistant: "${request}". Outcome: ${r.outcome === "ok" ? "done" : "failed"}. Result: ${r.reply}`;
+    const res = await getClient().call("voice.phrase", { facts, lang: lang(), timeoutMs: PLAN_PHRASE_TIMEOUT_MS }, { timeoutMs: PLAN_PHRASE_TIMEOUT_MS + 500 });
+    const text = res.text.trim();
+    if (!text) return r;
+    useAssistantStore.getState().patch({ reply: { text, tone: r.tone } });
+    return { ...r, reply: text };
+  } catch {
+    return r;
+  }
 }
 
 /** Dismisses the plan under review. */

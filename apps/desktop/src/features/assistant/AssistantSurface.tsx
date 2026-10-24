@@ -10,15 +10,19 @@ import { clsx } from "clsx";
 import {
   BookOpen,
   Check,
+  CircleCheck,
+  CircleX,
   CornerDownLeft,
   LayoutDashboard,
   Mic,
   OctagonX,
   Save,
   Search,
+  Info,
   ShieldAlert,
   Sparkles,
   Square,
+  TriangleAlert,
   Wand2,
   X,
 } from "lucide-react";
@@ -43,7 +47,7 @@ import {
   stepText,
   stopAssistant,
 } from "./api";
-import { useAssistantStore } from "./store";
+import { type AssistantTone, useAssistantStore } from "./store";
 import "./assistant.css";
 
 const EXAMPLES = ["e1", "e2", "e3", "e4", "e5", "e6"] as const;
@@ -160,7 +164,8 @@ export function AssistantSurface() {
 
         {s.reply && (
           <div className={clsx("as-reply", `as-reply--${s.reply.tone}`)} role="status">
-            {s.reply.text}
+            <ReplyIcon tone={s.reply.tone} />
+            <span className="as-reply__text">{s.reply.text}</span>
           </div>
         )}
 
@@ -257,6 +262,12 @@ export function AssistantSurface() {
       </section>
     </div>
   );
+}
+
+/** Small status mark of the reply card (the text itself is natural speech). */
+function ReplyIcon({ tone }: { tone: AssistantTone }) {
+  const Icon = tone === "ok" ? CircleCheck : tone === "error" ? CircleX : tone === "warn" ? TriangleAlert : Info;
+  return <Icon size={15} className="as-reply__icon" aria-hidden />;
 }
 
 function PlanCard() {

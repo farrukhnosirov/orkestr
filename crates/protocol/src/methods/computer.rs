@@ -669,6 +669,11 @@ pub struct StepReport {
     pub ok: bool,
     /// What happened / error.
     pub detail: String,
+    /// The resolved action (slots filled; not for `If`) — clients phrase
+    /// natural replies from it ("Opening Calculator").
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub step: Option<ComputerAction>,
 }
 
 /// Something the client must do (speak, switch mode, show a list…).
