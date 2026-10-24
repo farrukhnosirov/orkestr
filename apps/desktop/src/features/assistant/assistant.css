@@ -42,6 +42,150 @@
   color: var(--ok-color-text);
 }
 
+/* ── Assistant shell: slim title bar (ADR-0035) ────────── */
+.as-titlebar {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--ok-space-1, 4px);
+  min-width: 0;
+  height: 36px;
+  padding-left: var(--ok-space-3);
+  user-select: none;
+  -webkit-user-select: none;
+  border-bottom: 1px solid var(--ok-color-border);
+  background: color-mix(in srgb, var(--ok-color-bg) 55%, transparent);
+  backdrop-filter: blur(var(--ok-blur));
+  -webkit-backdrop-filter: blur(var(--ok-blur));
+}
+.as-titlebar__brand {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: var(--ok-space-2);
+  min-width: 0;
+  overflow: hidden;
+}
+.as-titlebar__brand > .ok-logo {
+  flex-shrink: 0;
+}
+.as-titlebar__name {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ok-color-text);
+  font-family: var(--ok-font-display);
+  font-size: var(--ok-font-size-sm);
+  font-weight: var(--ok-font-weight-semibold);
+  letter-spacing: 0.02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.as-titlebar__drag {
+  flex: 1 1 0;
+  align-self: stretch;
+  min-width: 8px;
+}
+.as-titlebar__tools {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+}
+/* Compact mic: the coloured (red / amber) pill always shows while the mic is
+   open; its purpose is in the tooltip. */
+.as-titlebar .vx-ind {
+  margin: 0 2px;
+  padding: 0 7px;
+}
+.as-titlebar .vx-ind__label {
+  display: none;
+}
+.as-titlebar__btn {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--ok-radius-sm);
+  background: transparent;
+  color: var(--ok-color-text-muted);
+  cursor: pointer;
+}
+.as-titlebar__btn:hover {
+  background: var(--ok-color-surface-hover);
+  color: var(--ok-color-text);
+}
+.as-titlebar__btn:focus-visible,
+.as-titlebar__win-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--ok-focus-ring);
+}
+.as-titlebar__stop {
+  border-color: color-mix(in srgb, var(--ok-color-danger) 55%, transparent);
+  background: color-mix(in srgb, var(--ok-color-danger) 18%, transparent);
+  color: var(--ok-color-danger);
+}
+.as-titlebar__stop:hover,
+.as-titlebar__stop--engaged {
+  background: var(--ok-color-danger);
+  color: var(--ok-color-text-inverse);
+}
+.as-titlebar__win {
+  display: flex;
+  flex: none;
+  align-self: stretch;
+  margin-left: var(--ok-space-1, 4px);
+}
+.as-titlebar__win-btn {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ok-color-text-muted);
+  cursor: pointer;
+}
+.as-titlebar__win-btn:hover {
+  background: var(--ok-color-surface-hover);
+  color: var(--ok-color-text);
+}
+.as-titlebar__win-btn--close:hover {
+  background: var(--ok-color-danger);
+  color: var(--ok-color-text-inverse);
+}
+
+/* The card fills the shell; only the recent list scrolls (the card itself
+   scrolls only if a plan / confirmation does not fit a very short window). */
+.app--assistant .as-surface {
+  padding: var(--ok-space-3);
+  overflow: hidden;
+}
+.app--assistant .as-card {
+  min-width: 0;
+  min-height: 0;
+  max-width: none;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+.app--assistant .as-card > * {
+  flex-shrink: 0;
+}
+.app--assistant .as-card > .as-recent {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 72px;
+}
+.app--assistant .as-recent ul {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+}
+
 /* ── Surface ───────────────────────────────────────────── */
 .as-surface {
   flex: 1;
@@ -605,4 +749,28 @@
 }
 :root[data-ok-ui-mode="assistant"] .sec-titlebar-group {
   margin-right: 0;
+}
+
+/* Short Assistant windows (≈520–640 px high): a tighter card, the examples
+   on one row, so the recent list keeps room and nothing else scrolls. */
+@media (max-height: 640px) {
+  .app--assistant .as-surface {
+    padding: var(--ok-space-2);
+  }
+  .app--assistant .as-card {
+    gap: var(--ok-space-2);
+    padding: var(--ok-space-3);
+  }
+  .app--assistant .as-orb {
+    width: 48px;
+    height: 48px;
+  }
+  .app--assistant .as-orb__core {
+    width: 34px;
+    height: 34px;
+  }
+  .app--assistant .as-chips {
+    max-height: 28px;
+    overflow: hidden;
+  }
 }

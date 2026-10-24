@@ -16,6 +16,7 @@ import { LayoutEditorPanel } from "./features/layout/LayoutEditor";
 import { registerLayoutFeature } from "./features/layout/register";
 import { AiUiLayer } from "./features/aiui/AiUiLayer";
 import { AssistantSurface } from "./features/assistant/AssistantSurface";
+import { AssistantTitleBar } from "./features/assistant/AssistantTitleBar";
 import { registerAssistantFeature, useAssistantMode } from "./features/assistant/register";
 import { useAssistantStore } from "./features/assistant/store";
 import { VisualLayer } from "./features/performance/VisualLayer";
@@ -115,10 +116,11 @@ export function App() {
   }, [boot]);
 
   return (
-    <div className="app">
+    <div className={clsx("app", assistantMode && "app--assistant")}>
       <ThemeBackdrop />
       <VisualLayer connected={ready} />
-      <TitleBar />
+      {/* Assistant mode (ADR-0035) is its own compact shell: slim bar + assistant card only. */}
+      {assistantMode ? <AssistantTitleBar /> : <TitleBar />}
       {ready && assistantMode && (
         <main className="app__assistant">
           <AssistantSurface />
@@ -159,7 +161,7 @@ export function App() {
       )}
       {ready && <AiUiLayer connected={ready} />}
       <div className="app__corner">
-        {ready && <ResumeCard />}
+        {ready && !assistantMode && <ResumeCard />}
         {ready && <LauncherToast />}
         <Toasts />
       </div>

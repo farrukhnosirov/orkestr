@@ -16,6 +16,9 @@
     "assistantHint": "Assistant mode: a compact voice assistant for the whole computer ({{keys}})",
     "toOrchestra": "Orchestra mode"
   },
+  "bar": {
+    "title": "Assistant"
+  },
   "commands": {
     "group": "Assistant",
     "toOrchestra": "Switch to Orchestra mode",
