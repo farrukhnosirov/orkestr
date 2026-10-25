@@ -18,6 +18,7 @@ import { AiUiLayer } from "./features/aiui/AiUiLayer";
 import { AssistantSurface } from "./features/assistant/AssistantSurface";
 import { AssistantTitleBar } from "./features/assistant/AssistantTitleBar";
 import { registerAssistantFeature, useAssistantMode } from "./features/assistant/register";
+import { registerCursorFeature } from "./features/cursor/register";
 import { useAssistantStore } from "./features/assistant/store";
 import { VisualLayer } from "./features/performance/VisualLayer";
 import { registerRemoteSyncFeature } from "./features/remoteSync/register";
@@ -45,6 +46,7 @@ registerRemoteSyncFeature();
 registerThemeFeature();
 registerLayoutFeature();
 registerAssistantFeature();
+registerCursorFeature();
 registerOrbFeature();
 
 

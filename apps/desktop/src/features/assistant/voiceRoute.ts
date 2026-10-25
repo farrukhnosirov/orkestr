@@ -18,7 +18,9 @@ import { parseConfirmation } from "@orkestr/client";
 import type { Intent } from "@orkestr/client";
 
 import { getClient } from "../../core/client";
-import { currentLanguage } from "../../i18n";
+import { currentLanguage, t } from "../../i18n";
+import { openCursorPanel, startCursor, useCursorStore } from "../cursor/store";
+import { parseCursorTrigger } from "../cursor/trigger";
 import { type AssistantRun, approvePlan, correctPlan, confirmPending, dismissPlan, runAssistant } from "./api";
 import { useAssistantStore } from "./store";
 
@@ -61,6 +63,9 @@ async function bestScore(text: string): Promise<number> {
  * `null` when the orchestrator should handle it.
  */
 export async function routeUtterance(text: string, intent: Intent, wakePhrases: readonly string[] = []): Promise<AssistantRun | null> {
+  // Cursor capture mode (ADR-0050): «возьми управление …» / the task asked for right after it.
+  const cursor = await routeCursor(text);
+  if (cursor) return cursor;
   const s = useAssistantStore.getState();
   const answer = parseConfirmation(text, wakePhrases);
   if (s.pending && answer) return confirmPending(answer === "yes");
@@ -87,4 +92,22 @@ export async function routeUtterance(text: string, intent: Intent, wakePhrases: 
     if (score < STRONG_MATCH) return null;
   }
   return runAssistant(text, "voice", true);
+}
+
+/** «Джарвис, возьми управление и …» starts cursor mode; without a task the next utterance is the task. */
+export async function routeCursor(text: string): Promise<AssistantRun | null> {
+  const cs = useCursorStore.getState();
+  let task = parseCursorTrigger(text);
+  if (task === null && cs.awaitingTask && !cs.active) task = text.trim();
+  if (task === null) return null;
+  if (!task) {
+    openCursorPanel();
+    useCursorStore.getState().patch({ awaitingTask: true });
+    return { outcome: "ok", reply: t("cursor:say.whatToDo"), tone: "info", speak: [] };
+  }
+  openCursorPanel();
+  const r = await startCursor(task, "voice");
+  if (r?.status === "Started") return { outcome: "ok", reply: "", tone: "ok", speak: [] };
+  if (r?.status === "NeedsConsent") return { outcome: "needsConfirmation", reply: t("cursor:say.needsConsent", { provider: r.backend.label }), tone: "warn", speak: [] };
+  return { outcome: "failed", reply: useCursorStore.getState().error ?? t("cursor:say.noBackend"), tone: "warn", speak: [] };
 }

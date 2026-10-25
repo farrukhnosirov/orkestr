@@ -145,6 +145,15 @@ import type { CreateSnapshotParams } from "./CreateSnapshotParams";
 import type { CreateTaskParams } from "./CreateTaskParams";
 import type { CreateTeamParams } from "./CreateTeamParams";
 import type { CreateTemplateParams } from "./CreateTemplateParams";
+import type { CursorAnswerParams } from "./CursorAnswerParams";
+import type { CursorConfirmParams } from "./CursorConfirmParams";
+import type { CursorConsentParams } from "./CursorConsentParams";
+import type { CursorSetSettingsParams } from "./CursorSetSettingsParams";
+import type { CursorShotParams } from "./CursorShotParams";
+import type { CursorShotResult } from "./CursorShotResult";
+import type { CursorStartParams } from "./CursorStartParams";
+import type { CursorStartResult } from "./CursorStartResult";
+import type { CursorStatus } from "./CursorStatus";
 import type { DashboardIdParams } from "./DashboardIdParams";
 import type { DashboardResult } from "./DashboardResult";
 import type { DashboardSnapshot } from "./DashboardSnapshot";
@@ -1160,6 +1169,16 @@ export type Methods = {
   "computer.processes": [Empty, ProcessesResult];
   "computer.stop": [Empty, StopResult];
   "computer.history": [HistoryParams, HistoryResult];
+  "computer.cursorStatus": [Empty, CursorStatus];
+  "computer.cursorStart": [CursorStartParams, CursorStartResult];
+  "computer.cursorStop": [Empty, CursorStatus];
+  "computer.cursorPause": [Empty, CursorStatus];
+  "computer.cursorResume": [Empty, CursorStatus];
+  "computer.cursorAnswer": [CursorAnswerParams, CursorStatus];
+  "computer.cursorConfirm": [CursorConfirmParams, CursorStatus];
+  "computer.cursorConsent": [CursorConsentParams, CursorStatus];
+  "computer.cursorSetSettings": [CursorSetSettingsParams, CursorStatus];
+  "computer.cursorScreenshot": [CursorShotParams, CursorShotResult];
 };
 
 /** All implemented method names. */
@@ -1647,6 +1666,16 @@ export const METHOD_NAMES = [
   "computer.processes",
   "computer.stop",
   "computer.history",
+  "computer.cursorStatus",
+  "computer.cursorStart",
+  "computer.cursorStop",
+  "computer.cursorPause",
+  "computer.cursorResume",
+  "computer.cursorAnswer",
+  "computer.cursorConfirm",
+  "computer.cursorConsent",
+  "computer.cursorSetSettings",
+  "computer.cursorScreenshot",
 ] as const;
 
 /** Wire protocol version (see orkestr-protocol PROTOCOL_VERSION). */
@@ -1754,6 +1783,7 @@ export const EVENT_KINDS = [
   "CodexStatus",
   "CodexAccount",
   "VsCodeBridgeSignal",
+  "ComputerCursor",
 ] as const;
 
 /** UI config schema version (see orkestr-protocol ui_config). */

@@ -143,5 +143,6 @@
   "incidentStageChanged": "Инцидент {{id}}: {{stage}}",
   "dashboardChanged": "Дашборд {{id}} изменён",
   "computerCommand": "Ассистент: {{title}} — {{outcome}}",
+  "computerCursor": "режим курсора: {{event}} ({{state}})",
   "vscodeBridgeSignal": "VS Code обратился к Orkestr: {{signal}}"
 }

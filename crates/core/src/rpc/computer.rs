@@ -100,6 +100,7 @@ pub fn register(router: &mut RpcRouter) {
             Ok(ProcessesResult { processes: ctx.services.computer.processes().await? })
         })
         .method::<m::Stop, _, _>(|ctx: RpcContext, _: Empty| async move {
+            let _ = ctx.services.cursor.stop("stop").await;
             Ok::<_, RpcError>(ctx.services.computer.stop().await)
         })
         .method::<m::History, _, _>(|ctx: RpcContext, p: m::HistoryParams| async move {

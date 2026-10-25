@@ -62,6 +62,7 @@
     "summary": "{{working}} working · {{waiting}} waiting",
     "summaryIdle": "Nothing running right now",
     "openMain": "Open Orkestr",
+    "takeControl": "Let the AI take the cursor",
     "settings": "Orb settings",
     "close": "Close",
     "approvals_one": "{{count}} approval",

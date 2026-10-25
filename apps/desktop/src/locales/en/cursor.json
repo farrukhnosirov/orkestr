@@ -1,0 +1,143 @@
+{
+  "title": "Cursor mode",
+  "launch": "Let the AI take the cursor",
+  "placeholder": "What should I do? For example: open Bluetooth settings and turn it on",
+  "start": "Take control",
+  "openSettings": "Cursor mode settings",
+  "close": "Close",
+  "privacy": "Screenshots of your screen stay on this computer and are sent only to the model you chose. Esc or a mouse movement stops the AI at once.",
+  "model": {
+    "active": "Model: {{name}}",
+    "none": "No model available — set it up in the settings"
+  },
+  "state": {
+    "Starting": "Taking control…",
+    "Observing": "Looking at the screen…",
+    "Thinking": "Thinking…",
+    "Acting": "Working…",
+    "Paused": "Paused — the cursor is yours",
+    "AwaitingConfirmation": "Waiting for your confirmation",
+    "AwaitingUser": "Waiting for your answer",
+    "Done": "Done — control handed back",
+    "Aborted": "Stopped — control handed back",
+    "Failed": "Could not finish"
+  },
+  "abort": {
+    "esc": "Esc pressed",
+    "mouse": "you moved the mouse",
+    "stop": "stopped",
+    "emergency": "emergency stop",
+    "stepLimit": "step limit reached",
+    "timeLimit": "time limit reached",
+    "secureDesktop": "the screen was locked",
+    "error": "error"
+  },
+  "outcome": {
+    "ok": "done",
+    "error": "error",
+    "refused": "refused",
+    "rejected": "rejected by you"
+  },
+  "risk": {
+    "password": "Typing into a password field",
+    "secret": "Typing a secret",
+    "purchase": "Purchase or payment",
+    "delete": "Deleting",
+    "send": "Sending a message",
+    "closeUnsaved": "Closing without saving",
+    "system": "Changing system settings",
+    "modelFlagged": "Risky action"
+  },
+  "confirm": {
+    "title": "Confirm the step",
+    "approve": "Allow",
+    "reject": "Reject"
+  },
+  "question": {
+    "title": "Question",
+    "placeholder": "Your answer",
+    "send": "Answer"
+  },
+  "shot": {
+    "target": "Screenshot with the target",
+    "last": "Last screenshot"
+  },
+  "plan": {
+    "title": "Plan"
+  },
+  "log": {
+    "title": "Steps"
+  },
+  "control": {
+    "pause": "Pause",
+    "resume": "Resume",
+    "stop": "Stop",
+    "new": "New task"
+  },
+  "hint": {
+    "abort": "Press Esc or move the mouse to stop at once."
+  },
+  "consent": {
+    "title": "Allow screenshots for {{provider}}?",
+    "body": "To control the cursor, the AI sees your screen: Orkestr sends screenshots and the names of on-screen controls to {{provider}}. Nothing else leaves this computer, Orkestr's own windows are hidden from the screenshots, and you can revoke this in the settings at any time.",
+    "allow": "Allow and start",
+    "cancel": "Cancel"
+  },
+  "errors": {
+    "noBackend": "No model can control the cursor: {{reason}}"
+  },
+  "say": {
+    "noBackend": "No model is available for cursor mode.",
+    "whatToDo": "What shall I do?",
+    "needsConsent": "Please allow screenshots for {{provider}} first."
+  },
+  "action": {
+    "click": "Click {{target}}",
+    "doubleClick": "Double-click {{target}}",
+    "rightClick": "Right-click {{target}}",
+    "move": "Point at {{target}}",
+    "drag": "Drag",
+    "scroll": "Scroll {{direction}} ×{{amount}}",
+    "type": "Type text ({{n}} chars)",
+    "keys": "Press {{keys}}",
+    "wait": "Wait {{ms}} ms",
+    "focus": "Switch to “{{title}}”",
+    "launch": "Open {{app}}",
+    "ask": "Ask you",
+    "done": "Finish"
+  },
+  "direction": {
+    "Up": "up",
+    "Down": "down",
+    "Left": "left",
+    "Right": "right"
+  },
+  "settings": {
+    "title": "Cursor mode",
+    "loading": "Loading…",
+    "intro": "In cursor mode the AI moves the mouse and types to perform your task, then hands control back. Start it by voice («Jarvis, take control …»), from Assistant mode, the orb or Ctrl+Alt+J.",
+    "source": "Model source",
+    "sourceSubscriptions": "My subscriptions (Claude Code / ChatGPT)",
+    "sourceApi": "API keys",
+    "sourceSubscriptionsHint": "Uses the Claude Code CLI and the Codex CLI you are signed in to — no API key, it counts against your subscription limits.",
+    "sourceApiHint": "Uses Anthropic / OpenAI vision models with the API keys from the vault — billed per request.",
+    "priority": "Priority",
+    "failover": "If a model stops working (sign-in, usage limit, rate limit, network, model unavailable), the next one in this list takes over at once.",
+    "activeBadge": "active",
+    "unavailable": "unavailable",
+    "model": "Model",
+    "modelDefault": "default",
+    "consent": "Allow screenshots for {{provider}}",
+    "up": "Move up",
+    "down": "Move down",
+    "maxSteps": "Step limit",
+    "maxMinutes": "Time limit (min)",
+    "imageSide": "Screenshot size (px)",
+    "abortOnMouse": "Moving the mouse stops the AI (Esc always does)",
+    "minimize": "Minimize Orkestr while the AI works"
+  },
+  "commands": {
+    "start": "Cursor mode: let the AI take control",
+    "stop": "Cursor mode: stop and take control back"
+  }
+}

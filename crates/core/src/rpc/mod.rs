@@ -13,6 +13,7 @@ pub mod claude_code;
 pub mod claude_engine;
 pub mod codex;
 pub mod computer;
+pub mod cursor;
 pub mod consensus;
 pub mod context;
 pub mod cost;
@@ -296,6 +297,7 @@ pub fn build_router() -> RpcRouter {
     router.register(deploy::register).register(monitor::register).register(detective::register);
     // Wave 8: computer assistant (ADR-0035), local only
     router.register(computer::register);
+    router.register(cursor::register);
     router
 }
 
