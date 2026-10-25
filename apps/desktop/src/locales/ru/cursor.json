@@ -120,7 +120,7 @@
     "sourceSubscriptions": "Мои подписки (Claude Code / ChatGPT)",
     "sourceApi": "API-ключи",
     "sourceSubscriptionsHint": "Используются Claude Code CLI и Codex CLI, в которые вы вошли, — без API-ключа, в счёт лимитов вашей подписки.",
-    "sourceApiHint": "Используются модели Anthropic / OpenAI с API-ключами из хранилища — оплата за каждый запрос.",
+    "sourceApiHint": "Используются модели Anthropic / OpenAI / Gemini с API-ключами из хранилища — оплата за каждый запрос.",
     "priority": "Приоритет",
     "failover": "Если модель перестала работать (вход, лимит подписки, ограничение частоты, сеть, модель недоступна), работу сразу продолжает следующая в списке.",
     "activeBadge": "активна",

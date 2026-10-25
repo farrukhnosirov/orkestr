@@ -6,7 +6,7 @@
 //! capture with `WDA_EXCLUDEFROMCAPTURE`, on the same thread).
 #![allow(unsafe_code)]
 
-use std::sync::atomic::{AtomicBool, AtomicI32, AtomicIsize, AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI32, AtomicIsize, AtomicU32, AtomicUsize, Ordering};
 use std::sync::mpsc;
 use std::sync::{LazyLock, Mutex as StdMutex};
 use std::time::Duration;
@@ -17,19 +17,19 @@ use windows::Win32::Foundation::{COLORREF, HWND, LPARAM, LRESULT, POINT, RECT, W
 use windows::Win32::Graphics::Gdi::{
     BeginPaint, BitBlt, CreateCompatibleBitmap, CreateCompatibleDC, CreateFontW, CreateSolidBrush, DeleteDC,
     DeleteObject, DrawTextW, EndPaint, EnumDisplayMonitors, FillRect, GetDC, GetDIBits, GetMonitorInfoW,
-    InvalidateRect, MonitorFromPoint, MonitorFromWindow, ReleaseDC, SelectObject, SetBkMode, SetTextColor,
-    BITMAPINFO, BITMAPINFOHEADER, BI_RGB, CAPTUREBLT, CLEARTYPE_QUALITY, CLIP_DEFAULT_PRECIS, DEFAULT_CHARSET,
-    DIB_RGB_COLORS, DT_CALCRECT, DT_CENTER, DT_NOPREFIX, DT_WORDBREAK, FF_DONTCARE, FW_SEMIBOLD, HDC, HGDIOBJ,
-    HMONITOR, MONITORINFO, MONITOR_DEFAULTTONEAREST, OUT_DEFAULT_PRECIS, PAINTSTRUCT, SRCCOPY, TRANSPARENT,
+    InvalidateRect, MonitorFromPoint, MonitorFromWindow, ReleaseDC, SelectObject, SetBkMode, SetTextColor, BITMAPINFO,
+    BITMAPINFOHEADER, BI_RGB, CAPTUREBLT, CLEARTYPE_QUALITY, CLIP_DEFAULT_PRECIS, DEFAULT_CHARSET, DIB_RGB_COLORS,
+    DT_CALCRECT, DT_CENTER, DT_NOPREFIX, DT_WORDBREAK, FF_DONTCARE, FW_SEMIBOLD, HDC, HGDIOBJ, HMONITOR, MONITORINFO,
+    MONITOR_DEFAULTTONEAREST, OUT_DEFAULT_PRECIS, PAINTSTRUCT, SRCCOPY, TRANSPARENT,
 };
 use windows::Win32::System::Com::CoTaskMemFree;
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::System::Threading::GetCurrentThreadId;
 use windows::Win32::System::Variant::{VariantToInt32, VariantToStringAlloc};
 use windows::Win32::UI::Accessibility::{
-    IUIAutomationElement, TreeScope_Descendants, UIA_IsPasswordPropertyId, UIA_ToggleToggleStatePropertyId,
-    UIA_BoundingRectanglePropertyId, UIA_ControlTypePropertyId, UIA_IsEnabledPropertyId, UIA_IsOffscreenPropertyId,
-    UIA_NamePropertyId, UIA_ValueValuePropertyId,
+    IUIAutomationElement, TreeScope_Descendants, UIA_BoundingRectanglePropertyId, UIA_ControlTypePropertyId,
+    UIA_IsEnabledPropertyId, UIA_IsOffscreenPropertyId, UIA_IsPasswordPropertyId, UIA_NamePropertyId,
+    UIA_ToggleToggleStatePropertyId, UIA_ValueValuePropertyId,
 };
 use windows::Win32::UI::HiDpi::{SetThreadDpiAwarenessContext, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2};
 use windows::Win32::UI::Input::KeyboardAndMouse::{
@@ -40,21 +40,21 @@ use windows::Win32::UI::Input::KeyboardAndMouse::{
 use windows::Win32::UI::WindowsAndMessaging::{
     CallNextHookEx, CreateWindowExW, DefWindowProcW, DispatchMessageW, GetAncestor, GetCursorPos, GetForegroundWindow,
     GetMessageW, GetSystemMetrics, GetWindowLongW, IsIconic, IsWindowVisible, PostThreadMessageW, RegisterClassExW,
-    SetLayeredWindowAttributes, SetWindowDisplayAffinity, SetWindowPos, SetWindowsHookExW, ShowWindow, TranslateMessage,
-    UnhookWindowsHookEx, WindowFromPoint, GA_ROOT, GWL_EXSTYLE, HHOOK, HWND_TOPMOST, KBDLLHOOKSTRUCT, LLKHF_INJECTED,
-    LLMHF_INJECTED, LWA_COLORKEY, MSG, MSLLHOOKSTRUCT, SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN, SM_XVIRTUALSCREEN,
-    SM_YVIRTUALSCREEN, SWP_NOACTIVATE, SW_HIDE, SW_MINIMIZE, SW_RESTORE, SW_SHOWNOACTIVATE, WDA_EXCLUDEFROMCAPTURE,
-    WDA_NONE, WH_KEYBOARD_LL, WH_MOUSE_LL, WM_APP, WM_KEYDOWN, WM_LBUTTONDOWN, WM_MBUTTONDOWN, WM_MOUSEHWHEEL,
-    WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_PAINT, WM_RBUTTONDOWN, WM_SYSKEYDOWN, WM_XBUTTONDOWN, WNDCLASSEXW, WS_EX_LAYERED,
-    WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_EX_TRANSPARENT, WS_POPUP,
+    SetLayeredWindowAttributes, SetWindowDisplayAffinity, SetWindowPos, SetWindowsHookExW, ShowWindow,
+    TranslateMessage, UnhookWindowsHookEx, WindowFromPoint, GA_ROOT, GWL_EXSTYLE, HHOOK, HWND_TOPMOST, KBDLLHOOKSTRUCT,
+    LLKHF_INJECTED, LLMHF_INJECTED, LWA_COLORKEY, MSG, MSLLHOOKSTRUCT, SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN,
+    SM_XVIRTUALSCREEN, SM_YVIRTUALSCREEN, SWP_NOACTIVATE, SW_HIDE, SW_MINIMIZE, SW_RESTORE, SW_SHOWNOACTIVATE,
+    WDA_EXCLUDEFROMCAPTURE, WDA_NONE, WH_KEYBOARD_LL, WH_MOUSE_LL, WM_APP, WM_KEYDOWN, WM_LBUTTONDOWN, WM_MBUTTONDOWN,
+    WM_MOUSEHWHEEL, WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_PAINT, WM_RBUTTONDOWN, WM_SYSKEYDOWN, WM_XBUTTONDOWN, WNDCLASSEXW,
+    WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_EX_TRANSPARENT, WS_POPUP,
 };
 
 use orkestr_protocol::methods::computer::{MouseButton, ScrollDirection};
 
-use super::windows::{enum_top_windows, is_cloaked, process_name, send, uia, window_pid, window_rect, window_title, Com};
-use crate::cursor::screen::{
-    AbortCause, CursorBackend, Foreground, RawElement, RawImage, ScreenRect, TripFn,
+use super::windows::{
+    enum_top_windows, is_cloaked, process_name, send, uia, window_pid, window_rect, window_title, Com,
 };
+use crate::cursor::screen::{AbortCause, CursorBackend, Foreground, RawElement, RawImage, ScreenRect, TripFn};
 use crate::error::{ComputerError, ComputerResult};
 
 /// `dwExtraInfo` of Orkestr's own injected pointer events.
@@ -82,6 +82,8 @@ struct Guard {
     ax: AtomicI32,
     ay: AtomicI32,
     trip: StdMutex<Option<TripFn>>,
+    /// Smoke tests only: injected events with this `dwExtraInfo` count as physical.
+    test_marker: AtomicUsize,
 }
 
 static GUARD: LazyLock<Guard> = LazyLock::new(|| Guard {
@@ -91,6 +93,7 @@ static GUARD: LazyLock<Guard> = LazyLock::new(|| Guard {
     ax: AtomicI32::new(0),
     ay: AtomicI32::new(0),
     trip: StdMutex::new(None),
+    test_marker: AtomicUsize::new(0),
 });
 
 static OVERLAY_HWND: AtomicIsize = AtomicIsize::new(0);
@@ -105,12 +108,17 @@ fn fire(cause: AbortCause) {
     }
 }
 
+fn is_injected(flag: bool, extra: usize) -> bool {
+    let marker = GUARD.test_marker.load(Ordering::Relaxed);
+    flag && !(marker != 0 && extra == marker)
+}
+
 unsafe extern "system" fn keyboard_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
     if code >= 0 && GUARD.armed.load(Ordering::Relaxed) {
         // SAFETY: for WH_KEYBOARD_LL, lparam points to a KBDLLHOOKSTRUCT.
         let k = unsafe { &*(lparam.0 as *const KBDLLHOOKSTRUCT) };
         let down = matches!(u32::try_from(wparam.0).unwrap_or(0), WM_KEYDOWN | WM_SYSKEYDOWN);
-        if down && k.vkCode == 0x1B && (k.flags.0 & LLKHF_INJECTED.0) == 0 {
+        if down && k.vkCode == 0x1B && !is_injected(k.flags.0 & LLKHF_INJECTED.0 != 0, k.dwExtraInfo) {
             fire(AbortCause::Esc);
         }
     }
@@ -122,7 +130,7 @@ unsafe extern "system" fn mouse_proc(code: i32, wparam: WPARAM, lparam: LPARAM) 
     if code >= 0 && GUARD.armed.load(Ordering::Relaxed) && GUARD.mouse.load(Ordering::Relaxed) {
         // SAFETY: for WH_MOUSE_LL, lparam points to an MSLLHOOKSTRUCT.
         let m = unsafe { &*(lparam.0 as *const MSLLHOOKSTRUCT) };
-        let injected = (m.flags & LLMHF_INJECTED) != 0;
+        let injected = is_injected((m.flags & LLMHF_INJECTED) != 0, m.dwExtraInfo);
         let msg = u32::try_from(wparam.0).unwrap_or(0);
         if injected {
             // our own pointer moved: physical movement is measured from the next physical event
@@ -309,7 +317,8 @@ unsafe fn create_overlay() -> Option<HWND> {
 unsafe extern "system" fn monitor_rects(m: HMONITOR, _: HDC, _: *mut RECT, lp: LPARAM) -> BOOL {
     // SAFETY: lp is the &mut Vec<RECT> passed by `paint`.
     let v = unsafe { &mut *(lp.0 as *mut Vec<(RECT, bool)>) };
-    let mut mi = MONITORINFO { cbSize: u32::try_from(std::mem::size_of::<MONITORINFO>()).unwrap_or(40), ..Default::default() };
+    let mut mi =
+        MONITORINFO { cbSize: u32::try_from(std::mem::size_of::<MONITORINFO>()).unwrap_or(40), ..Default::default() };
     // SAFETY: mi is a valid out struct.
     if unsafe { GetMonitorInfoW(m, &raw mut mi) }.as_bool() {
         v.push((mi.rcMonitor, mi.dwFlags & 1 != 0));
@@ -508,12 +517,29 @@ fn role_of(id: i32) -> &'static str {
 fn interactive(role: &str) -> bool {
     matches!(
         role,
-        "button" | "checkbox" | "combobox" | "edit" | "hyperlink" | "listitem" | "menuitem" | "radiobutton" | "slider"
-            | "spinner" | "tabitem" | "treeitem" | "dataitem" | "splitbutton" | "headeritem" | "document"
+        "button"
+            | "checkbox"
+            | "combobox"
+            | "edit"
+            | "hyperlink"
+            | "listitem"
+            | "menuitem"
+            | "radiobutton"
+            | "slider"
+            | "spinner"
+            | "tabitem"
+            | "treeitem"
+            | "dataitem"
+            | "splitbutton"
+            | "headeritem"
+            | "document"
     )
 }
 
-unsafe fn cached_string(el: &IUIAutomationElement, prop: windows::Win32::UI::Accessibility::UIA_PROPERTY_ID) -> Option<String> {
+unsafe fn cached_string(
+    el: &IUIAutomationElement,
+    prop: windows::Win32::UI::Accessibility::UIA_PROPERTY_ID,
+) -> Option<String> {
     // SAFETY: VARIANT owned by the call; the PWSTR is freed with CoTaskMemFree.
     unsafe {
         let v = el.GetCachedPropertyValue(prop).ok()?;
@@ -521,6 +547,58 @@ unsafe fn cached_string(el: &IUIAutomationElement, prop: windows::Win32::UI::Acc
         let s = p.to_string().ok();
         CoTaskMemFree(Some(p.0 as *const core::ffi::c_void));
         s
+    }
+}
+
+/// Smoke tests only: injected input carrying `marker` in `dwExtraInfo` is
+/// treated as physical by the guard (0 = off), so the Esc / mouse abort path
+/// can be exercised end to end with `SendInput`.
+#[doc(hidden)]
+pub fn set_test_physical_marker(marker: usize) {
+    GUARD.test_marker.store(marker, Ordering::SeqCst);
+}
+
+/// Smoke tests only: the overlay window exists and is visible.
+#[doc(hidden)]
+#[must_use]
+pub fn test_overlay_visible() -> bool {
+    let h = OVERLAY_HWND.load(Ordering::SeqCst);
+    // SAFETY: plain query on our own window handle (0 = none).
+    h != 0 && unsafe { IsWindowVisible(hwnd_from(h)) }.as_bool()
+}
+
+/// Smoke tests only: sends an Esc press (`esc = true`) or a 40 px relative
+/// mouse movement carrying `marker` in `dwExtraInfo`.
+///
+/// # Errors
+/// Input blocked.
+#[doc(hidden)]
+pub fn send_test_input(esc: bool, marker: usize) -> ComputerResult<()> {
+    use windows::Win32::UI::Input::KeyboardAndMouse::{
+        INPUT_KEYBOARD, KEYBDINPUT, KEYBD_EVENT_FLAGS, KEYEVENTF_KEYUP, VIRTUAL_KEY,
+    };
+    if esc {
+        let key = |up: bool| INPUT {
+            r#type: INPUT_KEYBOARD,
+            Anonymous: INPUT_0 {
+                ki: KEYBDINPUT {
+                    wVk: VIRTUAL_KEY(0x1B),
+                    wScan: 1,
+                    dwFlags: if up { KEYEVENTF_KEYUP } else { KEYBD_EVENT_FLAGS(0) },
+                    time: 0,
+                    dwExtraInfo: marker,
+                },
+            },
+        };
+        send(&[key(false), key(true)])
+    } else {
+        let mut m = mouse(MOUSEEVENTF_MOVE, 40, 0, 0);
+        m.Anonymous.mi.dwExtraInfo = marker;
+        send(&[m])?;
+        std::thread::sleep(Duration::from_millis(30));
+        let mut back = mouse(MOUSEEVENTF_MOVE, -40, 0, 0);
+        back.Anonymous.mi.dwExtraInfo = marker;
+        send(&[back])
     }
 }
 
@@ -591,7 +669,10 @@ impl CursorBackend for WindowsCursor {
                     MonitorFromPoint(p, MONITOR_DEFAULTTONEAREST)
                 }
             };
-            let mut mi = MONITORINFO { cbSize: u32::try_from(std::mem::size_of::<MONITORINFO>()).unwrap_or(40), ..Default::default() };
+            let mut mi = MONITORINFO {
+                cbSize: u32::try_from(std::mem::size_of::<MONITORINFO>()).unwrap_or(40),
+                ..Default::default()
+            };
             if !GetMonitorInfoW(m, &raw mut mi).as_bool() {
                 return Err(ComputerError::Backend("no monitor".into()));
             }
@@ -683,9 +764,12 @@ impl CursorBackend for WindowsCursor {
                     continue;
                 }
                 let role = role_of(el.CachedControlType().map(|c| c.0).unwrap_or(0));
-                let name: String = el.CachedName().map(|b| b.to_string()).unwrap_or_default().trim().chars().take(120).collect();
+                let name: String =
+                    el.CachedName().map(|b| b.to_string()).unwrap_or_default().trim().chars().take(120).collect();
                 let inter = interactive(role);
-                if name.is_empty() && !inter || matches!(role, "pane" | "window" | "titlebar" | "scrollbar") && name.is_empty() {
+                if name.is_empty() && !inter
+                    || matches!(role, "pane" | "window" | "titlebar" | "scrollbar") && name.is_empty()
+                {
                     continue;
                 }
                 let password = el.CachedIsPassword().is_ok_and(|b| b.as_bool());

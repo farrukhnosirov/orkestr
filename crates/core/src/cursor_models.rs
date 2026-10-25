@@ -5,7 +5,7 @@
 //!   Codex CLI (`codex exec --json -i <png>`), signed in with the user's
 //!   Claude / ChatGPT subscription.
 //! - **API keys** (vault): Anthropic / OpenAI vision models through the
-//!   provider stack (`ChatMessage::images`).
+//!   provider stack (`ChatMessage::images`); Gemini too when its key is there.
 //! - **mock**: a scripted model, offered only when
 //!   `ORKESTR_CURSOR_MOCK_SCRIPT` (a JSON array of actions) or
 //!   `ORKESTR_COMPUTER_BACKEND=mock` is set — tests and the sandboxed smoke.
@@ -40,6 +40,8 @@ pub const CLAUDE_DEFAULT: &str = "sonnet";
 pub const ANTHROPIC_DEFAULT: &str = "claude-sonnet-4-5";
 /// Default OpenAI API model.
 pub const OPENAI_DEFAULT: &str = "gpt-4.1";
+/// Default Gemini API model.
+pub const GEMINI_DEFAULT: &str = "gemini-2.5-flash";
 const CLI_TIMEOUT: Duration = Duration::from_secs(110);
 
 /// The factory core installs into the cursor service.
@@ -124,6 +126,7 @@ impl CursorModelFactory for CoreCursorFactory {
         for (id, label, kind, default) in [
             ("anthropic", "Anthropic API", ProviderKind::Anthropic, ANTHROPIC_DEFAULT),
             ("openai", "OpenAI API", ProviderKind::OpenAi, OPENAI_DEFAULT),
+            ("gemini", "Gemini API", ProviderKind::Gemini, GEMINI_DEFAULT),
         ] {
             let p = api_provider(&s, kind);
             out.push(CursorBackendInfo {
@@ -156,19 +159,26 @@ impl CursorModelFactory for CoreCursorFactory {
             "mock" => return Some(Arc::new(ScriptedModel::actions("mock", self.mock_script.clone()?))),
             "claudeCode" => {
                 let st = s.claude_binary_cached()?;
-                Arc::new(ClaudeCli { program: st, model: model_for(settings, id, CLAUDE_DEFAULT), cwd: self.work_dir.clone() })
+                Arc::new(ClaudeCli {
+                    program: st,
+                    model: model_for(settings, id, CLAUDE_DEFAULT),
+                    cwd: self.work_dir.clone(),
+                })
             }
             "codex" => {
                 let program = s.codex.locate(None).map(|(p, _)| p)?;
                 let model = model_for(settings, id, "");
                 Arc::new(CodexCli { program, model, cwd: self.work_dir.clone() })
             }
-            "anthropic" | "openai" => {
-                let (kind, default) =
-                    if id == "anthropic" { (ProviderKind::Anthropic, ANTHROPIC_DEFAULT) } else { (ProviderKind::OpenAi, OPENAI_DEFAULT) };
+            "anthropic" | "openai" | "gemini" => {
+                let (id, kind, default): (&'static str, _, _) = match id {
+                    "anthropic" => ("anthropic", ProviderKind::Anthropic, ANTHROPIC_DEFAULT),
+                    "openai" => ("openai", ProviderKind::OpenAi, OPENAI_DEFAULT),
+                    _ => ("gemini", ProviderKind::Gemini, GEMINI_DEFAULT),
+                };
                 let p = api_provider(&s, kind)?;
                 Arc::new(ApiVision {
-                    id: if id == "anthropic" { "anthropic" } else { "openai" },
+                    id,
                     services: Arc::downgrade(&s),
                     model: ModelRef { provider_id: p.provider.id, model: model_for(settings, id, default) },
                 })
@@ -261,9 +271,8 @@ async fn run_cli(
     stdin: String,
     cancel: &CancellationToken,
 ) -> Result<(String, String), ModelError> {
-    let mut child = cmd
-        .spawn()
-        .map_err(|e| ModelError::new(ModelErrorKind::Unavailable, format!("cannot start the CLI: {e}")))?;
+    let mut child =
+        cmd.spawn().map_err(|e| ModelError::new(ModelErrorKind::Unavailable, format!("cannot start the CLI: {e}")))?;
     if let Some(mut i) = child.stdin.take() {
         let _ = i.write_all(stdin.as_bytes()).await;
         let _ = i.write_all(b"\n").await;
@@ -304,7 +313,13 @@ impl VisionCompleter for ClaudeCli {
     fn label(&self) -> String {
         format!("Claude Code · {}", self.model)
     }
-    async fn complete(&self, system: &str, user: &str, png: &str, cancel: &CancellationToken) -> Result<String, ModelError> {
+    async fn complete(
+        &self,
+        system: &str,
+        user: &str,
+        png: &str,
+        cancel: &CancellationToken,
+    ) -> Result<String, ModelError> {
         let _ = std::fs::create_dir_all(&self.cwd);
         let mut cmd = orkestr_platform::process::stdio_command(&self.program, &claude_args(&self.model, system));
         cmd.current_dir(&self.cwd);
@@ -324,8 +339,10 @@ struct CodexCli {
 /// Arguments of one `codex exec` call (read-only sandbox, no session).
 #[must_use]
 pub fn codex_args(model: &str, image: &str) -> Vec<String> {
-    let mut v: Vec<String> =
-        ["exec", "--json", "-s", "read-only", "--skip-git-repo-check", "--ephemeral"].iter().map(|s| (*s).to_owned()).collect();
+    let mut v: Vec<String> = ["exec", "--json", "-s", "read-only", "--skip-git-repo-check", "--ephemeral"]
+        .iter()
+        .map(|s| (*s).to_owned())
+        .collect();
     if !model.is_empty() {
         v.push("-m".into());
         v.push(model.to_owned());
@@ -377,7 +394,13 @@ impl VisionCompleter for CodexCli {
             format!("Codex · {}", self.model)
         }
     }
-    async fn complete(&self, system: &str, user: &str, png: &str, cancel: &CancellationToken) -> Result<String, ModelError> {
+    async fn complete(
+        &self,
+        system: &str,
+        user: &str,
+        png: &str,
+        cancel: &CancellationToken,
+    ) -> Result<String, ModelError> {
         use base64::Engine as _;
         let _ = std::fs::create_dir_all(&self.cwd);
         static N: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
@@ -387,8 +410,10 @@ impl VisionCompleter for CodexCli {
             .decode(png)
             .map_err(|e| ModelError::new(ModelErrorKind::Other, format!("bad image: {e}")))?;
         std::fs::write(&file, bytes).map_err(|e| ModelError::new(ModelErrorKind::Other, format!("temp image: {e}")))?;
-        let mut cmd =
-            orkestr_platform::process::stdio_command(&self.program, &codex_args(&self.model, &file.display().to_string()));
+        let mut cmd = orkestr_platform::process::stdio_command(
+            &self.program,
+            &codex_args(&self.model, &file.display().to_string()),
+        );
         cmd.current_dir(&self.cwd);
         let prompt = format!("{system}\n\n---\n\n{user}\n\nDo not run any commands; answer with the JSON object only.");
         let r = run_cli(cmd, prompt, cancel).await;
@@ -414,8 +439,17 @@ impl VisionCompleter for ApiVision {
     fn label(&self) -> String {
         self.model.model.clone()
     }
-    async fn complete(&self, system: &str, user: &str, png: &str, cancel: &CancellationToken) -> Result<String, ModelError> {
-        let s = self.services.upgrade().ok_or_else(|| ModelError::new(ModelErrorKind::Unavailable, "core is shutting down"))?;
+    async fn complete(
+        &self,
+        system: &str,
+        user: &str,
+        png: &str,
+        cancel: &CancellationToken,
+    ) -> Result<String, ModelError> {
+        let s = self
+            .services
+            .upgrade()
+            .ok_or_else(|| ModelError::new(ModelErrorKind::Unavailable, "core is shutting down"))?;
         let mut msg = ChatMessage::user(user);
         if !png.is_empty() {
             msg.images.push(ImagePart { media_type: "image/png".into(), data_base64: png.to_owned() });

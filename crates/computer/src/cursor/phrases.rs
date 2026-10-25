@@ -51,9 +51,11 @@ pub fn phrase(m: &Moment<'_>, lang: &str) -> Option<String> {
             CursorAction::Launch { app } => {
                 Some(if r { format!("Открываю {app}…") } else { format!("Opening {app}…") })
             }
-            CursorAction::FocusWindow { title } => {
-                Some(if r { format!("Переключаюсь на {title}…") } else { format!("Switching to {title}…") })
-            }
+            CursorAction::FocusWindow { title } => Some(if r {
+                format!("Переключаюсь на {title}…")
+            } else {
+                format!("Switching to {title}…")
+            }),
             CursorAction::Type { .. } => s("Печатаю…", "Typing…"),
             _ => None,
         },
@@ -62,7 +64,11 @@ pub fn phrase(m: &Moment<'_>, lang: &str) -> Option<String> {
         Moment::Paused => s("Пауза. Курсор ваш, сэр.", "Paused. The cursor is yours, sir."),
         Moment::Resumed => s("Продолжаю, сэр.", "Resuming, sir."),
         Moment::Done(summary) => {
-            let tail = if r { "Готово, возвращаю управление." } else { "Done, handing control back." };
+            let tail = if r {
+                "Готово, возвращаю управление."
+            } else {
+                "Done, handing control back."
+            };
             Some(if summary.is_empty() { tail.to_owned() } else { format!("{summary} {tail}") })
         }
         Moment::Impossible(summary) => Some(if r {
@@ -77,8 +83,12 @@ pub fn phrase(m: &Moment<'_>, lang: &str) -> Option<String> {
             }
             _ => s("Останавливаюсь, сэр. Управление ваше.", "Stopping, sir. Control is yours."),
         },
-        Moment::Failed => s("Не удалось выполнить, сэр. Возвращаю управление.", "I couldn't complete it, sir. Handing control back."),
-        Moment::Failover(to) => Some(if r { format!("Переключаюсь на {to}.") } else { format!("Switching to {to}.") }),
+        Moment::Failed => {
+            s("Не удалось выполнить, сэр. Возвращаю управление.", "I couldn't complete it, sir. Handing control back.")
+        }
+        Moment::Failover(to) => {
+            Some(if r { format!("Переключаюсь на {to}.") } else { format!("Switching to {to}.") })
+        }
     }
 }
 

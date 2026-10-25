@@ -19,7 +19,7 @@ pub use self::windows::WindowsBackend;
 #[cfg(windows)]
 mod cursor_win;
 #[cfg(windows)]
-pub use self::cursor_win::WindowsCursor;
+pub use self::cursor_win::{send_test_input, set_test_physical_marker, test_overlay_visible, WindowsCursor};
 
 mod mock;
 pub use mock::{MockBackend, MockCall};

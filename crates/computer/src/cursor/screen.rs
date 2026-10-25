@@ -345,7 +345,12 @@ impl MockScreen {
         self.calls
             .lock()
             .iter()
-            .filter(|c| matches!(c, ScreenCall::Move(..) | ScreenCall::Click(..) | ScreenCall::Drag(..) | ScreenCall::Scroll(..)))
+            .filter(|c| {
+                matches!(
+                    c,
+                    ScreenCall::Move(..) | ScreenCall::Click(..) | ScreenCall::Drag(..) | ScreenCall::Scroll(..)
+                )
+            })
             .cloned()
             .collect()
     }

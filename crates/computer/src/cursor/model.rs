@@ -54,15 +54,58 @@ impl ModelErrorKind {
     pub fn classify(message: &str) -> Self {
         let m = message.to_lowercase();
         let has = |xs: &[&str]| xs.iter().any(|x| m.contains(x));
-        if has(&["usage limit", "limit reached", "quota", "insufficient_quota", "billing", "credit balance", "out of credits", "hit your limit"]) {
+        if has(&[
+            "usage limit",
+            "limit reached",
+            "quota",
+            "insufficient_quota",
+            "billing",
+            "credit balance",
+            "out of credits",
+            "hit your limit",
+        ]) {
             Self::Limit
         } else if has(&["rate limit", "rate_limit", "429", "too many requests", "overloaded"]) {
             Self::RateLimit
-        } else if has(&["unauthorized", "401", "403", "invalid api key", "invalid_api_key", "not logged in", "please run /login", "login required", "authentication", "not signed in"]) {
+        } else if has(&[
+            "unauthorized",
+            "401",
+            "403",
+            "invalid api key",
+            "invalid_api_key",
+            "not logged in",
+            "please run /login",
+            "login required",
+            "authentication",
+            "not signed in",
+        ]) {
             Self::Auth
-        } else if has(&["model not found", "model_not_found", "unknown model", "does not exist", "not installed", "no such file", "cannot find", "not supported", "not available"]) {
+        } else if has(&[
+            "model not found",
+            "model_not_found",
+            "unknown model",
+            "does not exist",
+            "not installed",
+            "no such file",
+            "cannot find",
+            "not supported",
+            "not available",
+        ]) {
             Self::Unavailable
-        } else if has(&["timed out", "timeout", "connection", "network", "dns", "502", "503", "504", "500 ", "internal server error", "econnreset", "unreachable"]) {
+        } else if has(&[
+            "timed out",
+            "timeout",
+            "connection",
+            "network",
+            "dns",
+            "502",
+            "503",
+            "504",
+            "500 ",
+            "internal server error",
+            "econnreset",
+            "unreachable",
+        ]) {
             Self::Network
         } else {
             Self::Other
@@ -414,7 +457,8 @@ pub fn parse_decision(text: &str) -> Result<Decision, String> {
         None if v.get("type").is_some() => v,
         None => return Err("missing `action`".into()),
     };
-    let mut action: CursorAction = serde_json::from_value(normalize_action(raw)).map_err(|e| format!("bad action: {e}"))?;
+    let mut action: CursorAction =
+        serde_json::from_value(normalize_action(raw)).map_err(|e| format!("bad action: {e}"))?;
     validate(&mut action)?;
     Ok(Decision {
         thought: clip(wire.thought.trim(), 300),
@@ -572,17 +616,27 @@ mod tests {
             "Sure!\n```json\n{\"thought\":\"open it\",\"plan\":[\"a\",\"b\"],\"say\":\"Открываю, сэр.\",\"action\":{\"type\":\"click\",\"element\":7}}\n```",
         )
         .unwrap();
-        assert_eq!(d.action, CursorAction::Click { target: CursorTarget::element(7), button: MouseButton::Left, double: false });
+        assert_eq!(
+            d.action,
+            CursorAction::Click { target: CursorTarget::element(7), button: MouseButton::Left, double: false }
+        );
         assert_eq!(d.plan.len(), 2);
         assert_eq!(d.say.as_deref(), Some("Открываю, сэр."));
         assert!(d.risk.is_none());
         let d = parse_decision(r#"{"type":"double_click","x":1,"y":2}"#).unwrap();
-        assert_eq!(d.action, CursorAction::Click { target: CursorTarget::point(1, 2), button: MouseButton::Left, double: true });
+        assert_eq!(
+            d.action,
+            CursorAction::Click { target: CursorTarget::point(1, 2), button: MouseButton::Left, double: true }
+        );
         let d = parse_decision(r#"{"action":{"type":"key","keys":"Ctrl+L"},"risk":"none"}"#).unwrap();
         assert_eq!(d.action, CursorAction::Keys { keys: vec!["ctrl".into(), "l".into()] });
         let d = parse_decision(r#"{"action":{"type":"scroll","direction":"down","amount":99}}"#).unwrap();
-        assert_eq!(d.action, CursorAction::Scroll { target: CursorTarget::default(), direction: ScrollDirection::Down, amount: 15 });
-        let d = parse_decision(r#"{"risk":"purchase","action":{"type":"click","element":1,"button":"right"}}"#).unwrap();
+        assert_eq!(
+            d.action,
+            CursorAction::Scroll { target: CursorTarget::default(), direction: ScrollDirection::Down, amount: 15 }
+        );
+        let d =
+            parse_decision(r#"{"risk":"purchase","action":{"type":"click","element":1,"button":"right"}}"#).unwrap();
         assert_eq!(d.risk.as_deref(), Some("purchase"));
         assert!(matches!(d.action, CursorAction::Click { button: MouseButton::Right, .. }));
     }
@@ -626,7 +680,12 @@ mod tests {
             lang: "ru".into(),
             step: 2,
             max_steps: 30,
-            history: vec![HistoryItem { index: 1, action: "{\"type\":\"launch\"}".into(), outcome: "ok".into(), detail: String::new() }],
+            history: vec![HistoryItem {
+                index: 1,
+                action: "{\"type\":\"launch\"}".into(),
+                outcome: "ok".into(),
+                detail: String::new(),
+            }],
             observation: Observation {
                 width: 1280,
                 height: 720,

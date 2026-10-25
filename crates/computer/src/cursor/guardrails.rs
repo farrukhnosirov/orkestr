@@ -53,16 +53,30 @@ pub struct StepContext<'a> {
 }
 
 const PURCHASE: &[&str] = &[
-    "купить", "оплатить", "оплата", "оформить заказ", "подтвердить заказ", "заказать", "в корзину", "pay", "buy", "checkout",
-    "place order", "purchase", "subscribe", "подписаться за", "donate",
+    "купить",
+    "оплатить",
+    "оплата",
+    "оформить заказ",
+    "подтвердить заказ",
+    "заказать",
+    "в корзину",
+    "pay",
+    "buy",
+    "checkout",
+    "place order",
+    "purchase",
+    "subscribe",
+    "подписаться за",
+    "donate",
 ];
-const DELETE: &[&str] = &[
-    "удалить", "удаление", "стереть", "очистить", "delete", "remove", "erase", "uninstall", "wipe", "empty recycle",
-];
+const DELETE: &[&str] =
+    &["удалить", "удаление", "стереть", "очистить", "delete", "remove", "erase", "uninstall", "wipe", "empty recycle"];
 const SEND: &[&str] = &["отправить", "опубликовать", "переслать", "send", "post", "publish", "tweet", "reply all"];
 const DISCARD: &[&str] = &["не сохранять", "don't save", "dont save", "discard", "не сохранить", "без сохранения"];
-const SYSTEM_PROCS: &[&str] = &["systemsettings", "control", "regedit", "mmc", "services", "gpedit", "msconfig", "devmgmt", "taskmgr"];
-const MESSENGERS: &[&str] = &["telegram", "whatsapp", "outlook", "thunderbird", "slack", "discord", "teams", "viber", "skype", "signal"];
+const SYSTEM_PROCS: &[&str] =
+    &["systemsettings", "control", "regedit", "mmc", "services", "gpedit", "msconfig", "devmgmt", "taskmgr"];
+const MESSENGERS: &[&str] =
+    &["telegram", "whatsapp", "outlook", "thunderbird", "slack", "discord", "teams", "viber", "skype", "signal"];
 
 fn norm(s: &str) -> String {
     s.to_lowercase().replace('ё', "е").replace('&', "")
@@ -82,9 +96,19 @@ fn luhn(digits: &[u32]) -> bool {
         .iter()
         .rev()
         .enumerate()
-        .map(|(i, &d)| if i % 2 == 1 { if d * 2 > 9 { d * 2 - 9 } else { d * 2 } } else { d })
+        .map(|(i, &d)| {
+            if i % 2 == 1 {
+                if d * 2 > 9 {
+                    d * 2 - 9
+                } else {
+                    d * 2
+                }
+            } else {
+                d
+            }
+        })
         .sum();
-    sum % 10 == 0
+    sum.is_multiple_of(10)
 }
 
 /// True when the text looks like a secret (never typed by the agent).
@@ -110,7 +134,10 @@ pub fn looks_like_secret(text: &str) -> bool {
         .iter()
         .filter(|b| **b)
         .count();
-        n >= 32 && classes >= 3 && !w.contains("://") && w.chars().all(|c| c.is_ascii_alphanumeric() || "-_.=+/".contains(c))
+        n >= 32
+            && classes >= 3
+            && !w.contains("://")
+            && w.chars().all(|c| c.is_ascii_alphanumeric() || "-_.=+/".contains(c))
     })
 }
 
@@ -185,13 +212,18 @@ pub fn check(action: &CursorAction, cx: &StepContext<'_>) -> Verdict {
             return confirm("delete", el_name);
         }
         let toggles = ["checkbox", "radiobutton", "button", "toggle", "switch", "combobox", "slider"];
-        let chrome = ["назад", "back", "поиск", "search", "свернуть", "развернуть", "закрыть", "minimize", "maximize", "close"];
+        let chrome =
+            ["назад", "back", "поиск", "search", "свернуть", "развернуть", "закрыть", "minimize", "maximize", "close"];
         if in_system && toggles.contains(&el_role) && has_word(el_name, &chrome).is_none() {
             return confirm("system", el_name);
         }
     }
     if let Some(r) = cx.model_risk {
-        let code = if ["purchase", "delete", "send", "password", "system", "closeUnsaved"].contains(&r) { r } else { "modelFlagged" };
+        let code = if ["purchase", "delete", "send", "password", "system", "closeUnsaved"].contains(&r) {
+            r
+        } else {
+            "modelFlagged"
+        };
         return confirm(code, if el_name.is_empty() { cx.window_title } else { el_name });
     }
     Verdict::Allow
@@ -205,7 +237,15 @@ mod tests {
     use super::*;
 
     fn el(role: &str, name: &str) -> CursorElement {
-        CursorElement { id: 1, role: role.into(), name: name.into(), rect: [0, 0, 10, 10], enabled: true, password: false, value: None }
+        CursorElement {
+            id: 1,
+            role: role.into(),
+            name: name.into(),
+            rect: [0, 0, 10, 10],
+            enabled: true,
+            password: false,
+            value: None,
+        }
     }
     fn click() -> CursorAction {
         CursorAction::Click { target: CursorTarget::element(1), button: MouseButton::Left, double: false }
@@ -252,11 +292,18 @@ mod tests {
         assert_eq!(code(&check(&CursorAction::Type { text: "hi".into() }, &cx)), "ownWindow");
         assert_eq!(code(&check(&CursorAction::FocusWindow { title: "Orkestr".into() }, &cx)), "ownWindow");
         let cx = StepContext::default();
-        for s in ["4111 1111 1111 1111", "sk-ant-api03-AbCdEfGhIjKlMnOpQrStUvWxYz0123456789", "ghp_AbCdEfGhIjKlMnOpQrStUvWxYz0123456789ab"] {
+        for s in [
+            "4111 1111 1111 1111",
+            "sk-ant-api03-AbCdEfGhIjKlMnOpQrStUvWxYz0123456789",
+            "ghp_AbCdEfGhIjKlMnOpQrStUvWxYz0123456789ab",
+        ] {
             assert_eq!(code(&check(&CursorAction::Type { text: s.into() }, &cx)), "secret", "{s}");
         }
         assert_eq!(code(&check(&CursorAction::Type { text: "Привет из Orkestr".into() }, &cx)), "allow");
-        assert_eq!(code(&check(&CursorAction::Type { text: "https://www.google.com/search?q=tickets".into() }, &cx)), "allow");
+        assert_eq!(
+            code(&check(&CursorAction::Type { text: "https://www.google.com/search?q=tickets".into() }, &cx)),
+            "allow"
+        );
     }
 
     #[test]

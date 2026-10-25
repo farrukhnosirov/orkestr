@@ -120,7 +120,7 @@
     "sourceSubscriptions": "My subscriptions (Claude Code / ChatGPT)",
     "sourceApi": "API keys",
     "sourceSubscriptionsHint": "Uses the Claude Code CLI and the Codex CLI you are signed in to — no API key, it counts against your subscription limits.",
-    "sourceApiHint": "Uses Anthropic / OpenAI vision models with the API keys from the vault — billed per request.",
+    "sourceApiHint": "Uses Anthropic / OpenAI / Gemini vision models with the API keys from the vault — billed per request.",
     "priority": "Priority",
     "failover": "If a model stops working (sign-in, usage limit, rate limit, network, model unavailable), the next one in this list takes over at once.",
     "activeBadge": "active",

@@ -152,9 +152,11 @@ fn clamp_settings(mut s: CursorSettings) -> CursorSettings {
     s.max_image_side = s.max_image_side.clamp(640, 1600);
     for list in [&mut s.subscription_order, &mut s.api_order] {
         let mut seen = Vec::new();
-        list.retain(|x| !seen.contains(x) && {
-            seen.push(x.clone());
-            true
+        list.retain(|x| {
+            !seen.contains(x) && {
+                seen.push(x.clone());
+                true
+            }
         });
     }
     s
@@ -417,7 +419,7 @@ impl CursorService {
         *self.ctrl.lock() = Some(Arc::clone(&ctrl));
         let me = Arc::clone(self);
         tokio::spawn(async move { me.run(ctrl, model, settings).await });
-        Ok(CursorStartResult::Started { session })
+        Ok(CursorStartResult::Started { session: Box::new(session) })
     }
 
     fn current_ctrl(&self) -> Option<Arc<Ctrl>> {
@@ -531,7 +533,9 @@ impl CursorService {
     async fn audit(&self, action: &str, sid: &str, outcome: AuditOutcome, details: serde_json::Value) {
         let s = &self.deps.security;
         s.audit
-            .record(NewAudit::new(s.user(), action, sid, outcome).capability(Capability::ComputerControl).details(details))
+            .record(
+                NewAudit::new(s.user(), action, sid, outcome).capability(Capability::ComputerControl).details(details),
+            )
             .await;
     }
 
@@ -556,10 +560,11 @@ impl CursorService {
         let say = self.say(&Moment::Start, &lang);
         self.set_state(&sid, CursorState::Starting, None, say).await;
 
-        let mut outcome: Result<(CursorState, Option<String>), String> = match self.take_control(&ctrl, &settings, &lang).await {
-            Ok(()) => Err(String::new()),
-            Err(e) => Ok((CursorState::Failed, Some(e.to_string()))),
-        };
+        let mut outcome: Result<(CursorState, Option<String>), String> =
+            match self.take_control(&ctrl, &settings, &lang).await {
+                Ok(()) => Err(String::new()),
+                Err(e) => Ok((CursorState::Failed, Some(e.to_string()))),
+            };
         if outcome.is_err() {
             sleep_or(&ctrl.cancel, timing.take_control).await;
         }
@@ -659,7 +664,10 @@ impl CursorService {
             }
             let (target_screen, target_el) = resolve_target(&decision.action, &obs);
             let target_rect = target_screen.map(|(x, y)| {
-                target_el.map_or_else(|| to_shot(ScreenRect { x: x - 8, y: y - 8, w: 16, h: 16 }, obs.monitor, obs.width, obs.height), |e| e.rect)
+                target_el.map_or_else(
+                    || to_shot(ScreenRect { x: x - 8, y: y - 8, w: 16, h: 16 }, obs.monitor, obs.width, obs.height),
+                    |e| e.rect,
+                )
             });
             let current = decision.say.clone().unwrap_or_else(|| decision.thought.clone());
             self.patch(|s| {
@@ -671,7 +679,8 @@ impl CursorService {
             if let Some(err) = target_error(&decision.action, target_screen, &obs) {
                 errors += 1;
                 notes.push(err.clone());
-                self.record(&sid, step, &decision, "error", &err, target_rect, &obs, &model, think_ms, &mut history).await;
+                self.record(&sid, step, &decision, "error", &err, target_rect, &obs, &model, think_ms, &mut history)
+                    .await;
                 if errors >= MAX_ERRORS {
                     outcome = Ok((CursorState::Failed, Some(err)));
                 }
@@ -680,11 +689,13 @@ impl CursorService {
             match &decision.action {
                 CursorAction::Done { summary, success } => {
                     self.record(&sid, step, &decision, "ok", summary, None, &obs, &model, think_ms, &mut history).await;
-                    outcome = Ok((if *success { CursorState::Done } else { CursorState::Failed }, Some(summary.clone())));
+                    outcome =
+                        Ok((if *success { CursorState::Done } else { CursorState::Failed }, Some(summary.clone())));
                     continue;
                 }
                 CursorAction::AskUser { question } => {
-                    self.record(&sid, step, &decision, "ok", question, None, &obs, &model, think_ms, &mut history).await;
+                    self.record(&sid, step, &decision, "ok", question, None, &obs, &model, think_ms, &mut history)
+                        .await;
                     match self.ask(&ctrl, &sid, question, &settings, &lang).await {
                         Some(a) => answers.push((question.clone(), a)),
                         None => continue,
@@ -721,8 +732,26 @@ impl CursorService {
                         "ownWindow" => "That action targets Orkestr's own window, which is never allowed. Work only in the user's apps.".to_owned(),
                         _ => "Typing secrets is never allowed. Ask the user to type it themselves (ask_user).".to_owned(),
                     });
-                    self.record(&sid, step, &decision, "refused", &msg, target_rect, &obs, &model, think_ms, &mut history).await;
-                    self.audit("computer.cursorStep", &sid, AuditOutcome::Denied, serde_json::json!({ "code": code, "action": audit_action(&decision.action) })).await;
+                    self.record(
+                        &sid,
+                        step,
+                        &decision,
+                        "refused",
+                        &msg,
+                        target_rect,
+                        &obs,
+                        &model,
+                        think_ms,
+                        &mut history,
+                    )
+                    .await;
+                    self.audit(
+                        "computer.cursorStep",
+                        &sid,
+                        AuditOutcome::Denied,
+                        serde_json::json!({ "code": code, "action": audit_action(&decision.action) }),
+                    )
+                    .await;
                     continue;
                 }
                 Verdict::Confirm { code, detail } => {
@@ -737,8 +766,22 @@ impl CursorService {
                     match self.confirm_step(&ctrl, &sid, conf, &settings, &lang).await {
                         Some(true) => {}
                         Some(false) => {
-                            notes.push("The user rejected that action. Do not repeat it; find another way or finish.".into());
-                            self.record(&sid, step, &decision, "rejected", &code, target_rect, &obs, &model, think_ms, &mut history).await;
+                            notes.push(
+                                "The user rejected that action. Do not repeat it; find another way or finish.".into(),
+                            );
+                            self.record(
+                                &sid,
+                                step,
+                                &decision,
+                                "rejected",
+                                &code,
+                                target_rect,
+                                &obs,
+                                &model,
+                                think_ms,
+                                &mut history,
+                            )
+                            .await;
                             continue;
                         }
                         None => continue,
@@ -783,7 +826,9 @@ impl CursorService {
             _ => self.say(&Moment::Failed, &lang),
         };
         // a pending approval is moot now
-        if let Some(aid) = self.session.lock().as_ref().and_then(|s| s.confirmation.as_ref().and_then(|c| c.approval_id)) {
+        if let Some(aid) =
+            self.session.lock().as_ref().and_then(|s| s.confirmation.as_ref().and_then(|c| c.approval_id))
+        {
             let sec = Arc::clone(&self.deps.security);
             tokio::spawn(async move {
                 let _ = sec.approvals.cancel(aid, "cursor session ended").await;
@@ -862,7 +907,12 @@ impl CursorService {
     async fn wait_paused(&self, ctrl: &Arc<Ctrl>, sid: &str, settings: &CursorSettings, lang: &str) {
         let say = self.say(&Moment::Paused, lang);
         self.set_state(sid, CursorState::Paused, None, say).await;
-        self.hand_back(if lang.starts_with("ru") { "ИИ на паузе — курсор ваш" } else { "AI paused — the cursor is yours" }).await;
+        self.hand_back(if lang.starts_with("ru") {
+            "ИИ на паузе — курсор ваш"
+        } else {
+            "AI paused — the cursor is yours"
+        })
+        .await;
         let Some(mut rx) = ctrl.paused.as_ref().map(watch::Sender::subscribe) else { return };
         loop {
             if !*rx.borrow() {
@@ -878,7 +928,14 @@ impl CursorService {
         self.retake(ctrl, settings, lang).await;
     }
 
-    async fn ask(&self, ctrl: &Arc<Ctrl>, sid: &str, question: &str, settings: &CursorSettings, lang: &str) -> Option<String> {
+    async fn ask(
+        &self,
+        ctrl: &Arc<Ctrl>,
+        sid: &str,
+        question: &str,
+        settings: &CursorSettings,
+        lang: &str,
+    ) -> Option<String> {
         let (tx, rx) = oneshot::channel();
         *ctrl.answer.lock() = Some(tx);
         self.patch(|s| s.question = Some(question.to_owned()));
@@ -910,7 +967,11 @@ impl CursorService {
             Capability::ComputerControl,
             format!("Cursor mode: {} — {}", conf.code, conf.detail).chars().take(300).collect::<String>(),
             "The AI controlling the cursor needs your confirmation for a risky step",
-            if matches!(conf.code.as_str(), "purchase" | "delete" | "send") { RiskLevel::High } else { RiskLevel::Medium },
+            if matches!(conf.code.as_str(), "purchase" | "delete" | "send") {
+                RiskLevel::High
+            } else {
+                RiskLevel::Medium
+            },
         );
         req.command_preview = Some(serde_json::to_string_pretty(&audit_action(&conf.action)).unwrap_or_default());
         req.ttl = Some(CONFIRM_TTL);
@@ -929,7 +990,12 @@ impl CursorService {
         let say = self.say(&Moment::Confirm, lang);
         self.set_state(sid, CursorState::AwaitingConfirmation, None, say).await;
         self.publish(sid, "confirm", None, Some(code.clone())).await;
-        self.hand_back(if lang.starts_with("ru") { "Ожидаю вашего подтверждения…" } else { "Waiting for your confirmation…" }).await;
+        self.hand_back(if lang.starts_with("ru") {
+            "Ожидаю вашего подтверждения…"
+        } else {
+            "Waiting for your confirmation…"
+        })
+        .await;
         let inbox = async {
             match aid {
                 Some(a) => self.deps.security.approvals.wait(a, CONFIRM_TTL, &ctrl.cancel).await.ok(),
@@ -1212,4 +1278,3 @@ fn target_error(a: &CursorAction, p: Option<(i32, i32)>, obs: &Observed) -> Opti
         _ => None,
     }
 }
-

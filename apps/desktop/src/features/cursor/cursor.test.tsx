@@ -7,7 +7,7 @@ const calls: { method: string; params: Record<string, unknown> }[] = [];
 const SETTINGS: CursorSettings = {
   source: "subscriptions",
   subscriptionOrder: ["claudeCode", "codex"],
-  apiOrder: ["anthropic", "openai"],
+  apiOrder: ["anthropic", "openai", "gemini"],
   models: {},
   maxSteps: 30,
   maxSeconds: 300,

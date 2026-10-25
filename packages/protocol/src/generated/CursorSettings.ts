@@ -14,7 +14,7 @@ source: CursorSource,
  */
 subscriptionOrder: Array<string>, 
 /**
- * Priority of the API backends (`anthropic`, `openai`).
+ * Priority of the API backends (`anthropic`, `openai`, `gemini`).
  */
 apiOrder: Array<string>, 
 /**

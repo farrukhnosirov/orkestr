@@ -19,8 +19,8 @@ use orkestr_events::EventBus;
 use orkestr_protocol::event::EventKind;
 use orkestr_protocol::methods::computer::MouseButton;
 use orkestr_protocol::methods::cursor::{
-    CursorAction, CursorBackendInfo, CursorEventPayload, CursorSettings, CursorSource, CursorStartResult, CursorState, CursorStatus,
-    CursorTarget,
+    CursorAction, CursorBackendInfo, CursorEventPayload, CursorSettings, CursorSource, CursorStartResult, CursorState,
+    CursorStatus, CursorTarget,
 };
 use orkestr_security::{AuditQuery, Security, SecurityConfig};
 use orkestr_storage::Db;
@@ -61,7 +61,10 @@ struct Fx {
     _dir: tempfile::TempDir,
 }
 
-async fn fx_with(models: Vec<(&str, ScriptedModel)>, edit: impl FnOnce(&MockScreen)) -> (Fx, HashMap<String, Arc<ScriptedModel>>) {
+async fn fx_with(
+    models: Vec<(&str, ScriptedModel)>,
+    edit: impl FnOnce(&MockScreen),
+) -> (Fx, HashMap<String, Arc<ScriptedModel>>) {
     let dir = tempfile::tempdir().unwrap();
     let db = Db::open(dir.path().join("t.db")).unwrap();
     let mut migs = orkestr_storage::storage_migrations();
@@ -171,7 +174,13 @@ async fn notepad_task_runs_end_to_end_and_hands_control_back() {
     let script = ScriptedModel::new(
         "mock",
         vec![
-            Decision { thought: "focus the editor".into(), plan: vec!["click".into(), "type".into()], say: None, risk: None, action: click(1) },
+            Decision {
+                thought: "focus the editor".into(),
+                plan: vec!["click".into(), "type".into()],
+                say: None,
+                risk: None,
+                action: click(1),
+            },
             Decision::act(CursorAction::Type { text: "Привет от Orkestr".into() }),
             Decision::act(CursorAction::Keys { keys: vec!["ctrl".into(), "a".into()] }),
             Decision::act(CursorAction::Done { summary: "Строка напечатана.".into(), success: true }),
@@ -187,7 +196,10 @@ async fn notepad_task_runs_end_to_end_and_hands_control_back() {
     assert_eq!(sess.summary.as_deref(), Some("Строка напечатана."));
     assert_eq!(sess.plan, ["click", "type"]);
     // element 1 = the editor, clicked in its centre (screen pixels)
-    assert_eq!(f.screen.input_calls(), vec![ScreenCall::Move(500, 400), ScreenCall::Click(500, 400, MouseButton::Left, false)]);
+    assert_eq!(
+        f.screen.input_calls(),
+        vec![ScreenCall::Move(500, 400), ScreenCall::Click(500, 400, MouseButton::Left, false)]
+    );
     let typed: String = f
         .backend
         .take_calls()
@@ -258,7 +270,8 @@ async fn physical_mouse_aborts_and_stop_works() {
 
 #[tokio::test]
 async fn step_limit_ends_the_session() {
-    let (f, _) = fx_with(vec![("mock", ScriptedModel::actions("mock", vec![CursorAction::Wait { ms: 50 }; 5]))], |_| {}).await;
+    let (f, _) =
+        fx_with(vec![("mock", ScriptedModel::actions("mock", vec![CursorAction::Wait { ms: 50 }; 5]))], |_| {}).await;
     f.svc.set_settings(CursorSettings { max_steps: 2, ..CursorSettings::default() }).await.unwrap();
     started(f.svc.start("loop", "ru", "ui").await.unwrap());
     let s = finished(&f.svc).await.session.unwrap();
@@ -267,7 +280,10 @@ async fn step_limit_ends_the_session() {
 
 #[tokio::test]
 async fn risky_click_waits_for_confirmation() {
-    let script = ScriptedModel::actions("mock", vec![click(2), click(2), CursorAction::Done { summary: String::new(), success: true }]);
+    let script = ScriptedModel::actions(
+        "mock",
+        vec![click(2), click(2), CursorAction::Done { summary: String::new(), success: true }],
+    );
     let (f, models) = fx_with(vec![("mock", script)], |_| {}).await;
     started(f.svc.start("buy it", "ru", "ui").await.unwrap());
     let s = wait_for(&f.svc, |s| state(s) == CursorState::AwaitingConfirmation).await;
@@ -278,7 +294,8 @@ async fn risky_click_waits_for_confirmation() {
     assert_eq!(f.screen.calls.lock().iter().filter(|c| **c == ScreenCall::Disarm).count(), 1, "input handed back");
     f.svc.confirm(false).await.unwrap();
     // second attempt: approved
-    wait_for(&f.svc, |s| state(s) == CursorState::AwaitingConfirmation && s.session.as_ref().unwrap().steps.len() == 1).await;
+    wait_for(&f.svc, |s| state(s) == CursorState::AwaitingConfirmation && s.session.as_ref().unwrap().steps.len() == 1)
+        .await;
     f.svc.confirm(true).await.unwrap();
     let s = finished(&f.svc).await.session.unwrap();
     assert_eq!(s.state, CursorState::Done);
@@ -314,7 +331,10 @@ async fn own_windows_and_secrets_are_refused() {
 async fn questions_reach_the_model() {
     let script = ScriptedModel::actions(
         "mock",
-        vec![CursorAction::AskUser { question: "Какой город?".into() }, CursorAction::Done { summary: String::new(), success: true }],
+        vec![
+            CursorAction::AskUser { question: "Какой город?".into() },
+            CursorAction::Done { summary: String::new(), success: true },
+        ],
     );
     let (f, models) = fx_with(vec![("mock", script)], |_| {}).await;
     started(f.svc.start("tickets", "ru", "voice").await.unwrap());
@@ -327,7 +347,10 @@ async fn questions_reach_the_model() {
 
 #[tokio::test]
 async fn pause_hands_input_back_and_resume_continues() {
-    let script = ScriptedModel::actions("mock", vec![CursorAction::Wait { ms: 300 }, CursorAction::Done { summary: String::new(), success: true }]);
+    let script = ScriptedModel::actions(
+        "mock",
+        vec![CursorAction::Wait { ms: 300 }, CursorAction::Done { summary: String::new(), success: true }],
+    );
     let (f, _) = fx_with(vec![("mock", script)], |_| {}).await;
     started(f.svc.start("p", "en", "ui").await.unwrap());
     wait_for(&f.svc, |s| state(s) == CursorState::Acting).await;
@@ -355,7 +378,8 @@ async fn consent_is_required_once_per_provider() {
 
 #[tokio::test]
 async fn failover_moves_to_the_next_subscription() {
-    let a = ScriptedModel::with_results("claudeCode", vec![Err(ModelError::classified("Claude AI usage limit reached"))]);
+    let a =
+        ScriptedModel::with_results("claudeCode", vec![Err(ModelError::classified("Claude AI usage limit reached"))]);
     let b = ScriptedModel::actions("codex", vec![CursorAction::Done { summary: "ok".into(), success: true }]);
     let (f, _) = fx_with(vec![("claudeCode", a), ("codex", b)], |_| {}).await;
     let mut rx = f.events.subscribe_all();

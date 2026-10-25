@@ -383,7 +383,7 @@ pub enum CursorSource {
     /// The user's subscriptions: Claude Code CLI / Codex CLI (no API key).
     #[default]
     Subscriptions,
-    /// API keys from the vault: Anthropic / OpenAI vision models.
+    /// API keys from the vault: Anthropic / OpenAI / Gemini vision models.
     Api,
 }
 
@@ -417,7 +417,7 @@ pub struct CursorSettings {
     pub source: CursorSource,
     /// Priority of the subscription backends (`claudeCode`, `codex`).
     pub subscription_order: Vec<String>,
-    /// Priority of the API backends (`anthropic`, `openai`).
+    /// Priority of the API backends (`anthropic`, `openai`, `gemini`).
     pub api_order: Vec<String>,
     /// Model override per backend.
     pub models: BTreeMap<String, String>,
@@ -440,7 +440,7 @@ impl Default for CursorSettings {
         Self {
             source: CursorSource::Subscriptions,
             subscription_order: vec!["claudeCode".into(), "codex".into()],
-            api_order: vec!["anthropic".into(), "openai".into()],
+            api_order: vec!["anthropic".into(), "openai".into(), "gemini".into()],
             models: BTreeMap::new(),
             max_steps: 30,
             max_seconds: 300,
@@ -504,7 +504,7 @@ pub enum CursorStartResult {
     /// Running.
     Started {
         /// Session.
-        session: CursorSession,
+        session: Box<CursorSession>,
     },
     /// The first backend needs the one-time privacy consent (`computer.cursorConsent`).
     NeedsConsent {
@@ -631,11 +631,17 @@ mod tests {
     #[test]
     fn model_json_parses_into_actions() {
         let a: CursorAction = serde_json::from_str(r#"{"type":"click","element":12}"#).unwrap();
-        assert_eq!(a, CursorAction::Click { target: CursorTarget::element(12), button: MouseButton::Left, double: false });
+        assert_eq!(
+            a,
+            CursorAction::Click { target: CursorTarget::element(12), button: MouseButton::Left, double: false }
+        );
         let a: CursorAction = serde_json::from_str(r#"{"type":"click","x":10,"y":20,"button":"Right"}"#).unwrap();
         assert_eq!(a.target(), Some(&CursorTarget::point(10, 20)));
         let a: CursorAction = serde_json::from_str(r#"{"type":"scroll","direction":"Down"}"#).unwrap();
-        assert_eq!(a, CursorAction::Scroll { target: CursorTarget::default(), direction: ScrollDirection::Down, amount: 1 });
+        assert_eq!(
+            a,
+            CursorAction::Scroll { target: CursorTarget::default(), direction: ScrollDirection::Down, amount: 1 }
+        );
         assert!(a.target().is_none());
         let a: CursorAction = serde_json::from_str(r#"{"type":"done","summary":"ok"}"#).unwrap();
         assert_eq!(a, CursorAction::Done { summary: "ok".into(), success: true });

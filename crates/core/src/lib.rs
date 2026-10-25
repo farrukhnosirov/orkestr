@@ -496,7 +496,8 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
             "unsupported" => Arc::new(orkestr_computer::cursor::UnsupportedScreen),
             _ => orkestr_computer::cursor::default_cursor_backend(),
         };
-    let cursor_factory = Arc::new(cursor_models::CoreCursorFactory::new(paths.data_dir.join("computer").join("cursor-work")));
+    let cursor_factory =
+        Arc::new(cursor_models::CoreCursorFactory::new(paths.data_dir.join("computer").join("cursor-work")));
     let cursor = orkestr_computer::cursor::CursorService::new(orkestr_computer::cursor::CursorDeps {
         events: events.clone(),
         security: Arc::clone(&security),

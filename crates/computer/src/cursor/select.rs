@@ -191,7 +191,13 @@ mod tests {
     #[test]
     fn mock_only_when_nothing_real() {
         let s = CursorSettings::default();
-        let o = ordered(vec![info("mock", CursorSource::Subscriptions, true), info("claudeCode", CursorSource::Subscriptions, false)], &s);
+        let o = ordered(
+            vec![
+                info("mock", CursorSource::Subscriptions, true),
+                info("claudeCode", CursorSource::Subscriptions, false),
+            ],
+            &s,
+        );
         assert_eq!(candidates(&o, &s)[0].id, "mock");
     }
 
