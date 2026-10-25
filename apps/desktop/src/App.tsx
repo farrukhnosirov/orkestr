@@ -18,6 +18,7 @@ import { AiUiLayer } from "./features/aiui/AiUiLayer";
 import { AssistantSurface } from "./features/assistant/AssistantSurface";
 import { AssistantTitleBar } from "./features/assistant/AssistantTitleBar";
 import { registerAssistantFeature, useAssistantMode } from "./features/assistant/register";
+import { registerJarvisFeature, useJarvisBootstrap } from "./features/jarvis/register";
 import { useAssistantStore } from "./features/assistant/store";
 import { VisualLayer } from "./features/performance/VisualLayer";
 import { registerRemoteSyncFeature } from "./features/remoteSync/register";
@@ -45,6 +46,7 @@ registerRemoteSyncFeature();
 registerThemeFeature();
 registerLayoutFeature();
 registerAssistantFeature();
+registerJarvisFeature();
 registerOrbFeature();
 
 
@@ -102,6 +104,7 @@ export function App() {
   useShellBootstrap(ready);
   useVoiceBootstrap(ready); // voice-sound (Phase 3)
   useAssistantMode(ready); // computer assistant (ADR-0035)
+  useJarvisBootstrap(ready); // Jarvis persona & conversation (ADR-0049)
   const assistantMode = useAssistantStore((s) => s.mode === "assistant");
 
   const boot = useCallback(() => {

@@ -229,6 +229,8 @@
     "CodexAccount_one": "{{count}} Codex sign-in change",
     "CodexAccount_other": "{{count}} Codex sign-in changes",
     "VsCodeBridgeSignal_one": "{{count}} VS Code request",
-    "VsCodeBridgeSignal_other": "{{count}} VS Code requests"
+    "VsCodeBridgeSignal_other": "{{count}} VS Code requests",
+    "JarvisMessage_one": "{{count}} Jarvis reply",
+    "JarvisMessage_other": "{{count}} Jarvis replies"
   }
 }

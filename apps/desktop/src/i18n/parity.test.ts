@@ -4,7 +4,10 @@
  * - every namespace exists in every language and has a type file;
  * - the same keys in en and ru (plural forms compared by base key);
  * - plural sets complete: en `_one/_other`, ru `_one/_few/_many/_other`;
- * - no empty or non-string values;
+ * - no empty or non-string values (an array of non-empty strings is a list
+ *   of phrasing variants, e.g. `assistant:say.*`, `jarvis:say.*`);
+ * - lookup tables that are language-specific by nature (`assistant:say.verbs`:
+ *   imperative → progressive verbs of each language) are exempt from key parity;
  * - the same `{{placeholders}}` and `<tags>` in every translation of a key.
  */
 import { existsSync, readdirSync, readFileSync } from "node:fs";
@@ -32,6 +35,11 @@ function flatten(obj: unknown, prefix = "", out: Flat = new Map()): Flat {
   }
   return out;
 }
+
+/** Key prefixes whose keys differ per language by design. */
+const LANGUAGE_SPECIFIC: Record<string, readonly string[]> = { assistant: ["say.verbs."] };
+
+const isVariants = (v: unknown) => Array.isArray(v) && v.length > 0 && v.every((x) => typeof x === "string" && x.trim() !== "");
 
 function load(lang: string, ns: string): Flat {
   return flatten(JSON.parse(readFileSync(join(LOCALES, lang, `${ns}.json`), "utf8")) as unknown);
@@ -87,15 +95,16 @@ describe("locale files", () => {
       >;
 
       it("has the same keys in en and ru", () => {
-        const en = [...groups.en.keys()].sort();
-        const ru = [...groups.ru.keys()].sort();
+        const own = (k: string) => (LANGUAGE_SPECIFIC[ns] ?? []).some((p) => k.startsWith(p));
+        const en = [...groups.en.keys()].filter((k) => !own(k)).sort();
+        const ru = [...groups.ru.keys()].filter((k) => !own(k)).sort();
         expect(en.filter((k) => !groups.ru.has(k)), "missing in ru").toEqual([]);
         expect(ru.filter((k) => !groups.en.has(k)), "missing in en").toEqual([]);
       });
 
       it("has only non-empty string values", () => {
         for (const lang of LANGS) {
-          const bad = [...flats[lang]].filter(([, v]) => typeof v !== "string" || v.trim() === "").map(([k]) => k);
+          const bad = [...flats[lang]].filter(([, v]) => !isVariants(v) && (typeof v !== "string" || v.trim() === "")).map(([k]) => k);
           expect(bad, `${lang}: empty or non-string`).toEqual([]);
         }
       });

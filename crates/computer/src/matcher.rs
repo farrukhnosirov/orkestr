@@ -3,7 +3,7 @@
 //! dynamic program (missing words, extra words, fuzzy tokens, multi-word
 //! slots). Runs before any AI call; ~10k patterns take a few milliseconds.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 use orkestr_protocol::methods::computer::{AppContext, WindowInfo};
 
@@ -65,6 +65,9 @@ pub struct RawMatch {
 pub struct Matcher {
     patterns: Vec<Pattern>,
     entries: Vec<Entry>,
+    /// Literal key → (pattern, occurrences) using it: the quick reject and a
+    /// score upper bound without scanning every pattern.
+    vocab: HashMap<String, Vec<(usize, u16)>>,
 }
 
 /// Compiles one template into items.
@@ -112,7 +115,19 @@ impl Matcher {
                 patterns.push(Pattern { owner, phrase: phrase.clone(), items, literals, slots });
             }
         }
-        Self { patterns, entries }
+        let mut vocab: HashMap<String, Vec<(usize, u16)>> = HashMap::new();
+        for (i, p) in patterns.iter().enumerate() {
+            for item in &p.items {
+                if let Item::Lit(k) = item {
+                    let list = vocab.entry(k.clone()).or_default();
+                    match list.last_mut() {
+                        Some((j, n)) if *j == i => *n += 1,
+                        _ => list.push((i, 1)),
+                    }
+                }
+            }
+        }
+        Self { patterns, entries, vocab }
     }
 
     /// Number of compiled patterns.
@@ -129,19 +144,35 @@ impl Matcher {
         if input.is_empty() {
             return Vec::new();
         }
+        // quick reject: some literal of a pattern must hit some token; the
+        // hit count bounds the score from above (literals that hit nothing
+        // are missing, input tokens no literal can take are extra)
+        let mut hits = vec![0_u16; self.patterns.len()];
+        for (key, list) in &self.vocab {
+            if input.iter().any(|t| token_cost(key, t).is_some()) {
+                for &(i, n) in list {
+                    hits[i] += n;
+                }
+            }
+        }
         let mut best: BTreeMap<usize, RawMatch> = BTreeMap::new();
-        for p in &self.patterns {
+        for (p, &h) in self.patterns.iter().zip(&hits) {
+            if h == 0 {
+                continue;
+            }
+            if p.slots == 0 && min_score > 0.0 {
+                let h = usize::from(h).min(p.literals).min(input.len());
+                #[allow(clippy::cast_precision_loss)]
+                let lower = MISSING * (p.literals - h) as f32 + EXTRA * (input.len() - h) as f32;
+                #[allow(clippy::cast_precision_loss)]
+                let upper = 1.0 - lower / (p.literals as f32 + 0.5);
+                if upper < min_score {
+                    continue;
+                }
+            }
             let entry = &self.entries[p.owner];
             let contextual = entry.context.as_ref().is_some_and(|c| !c.is_empty());
             if contextual && !entry.context.as_ref().is_some_and(|c| context_matches(c, active)) {
-                continue;
-            }
-            // quick reject: some literal must hit some token
-            let hit = p.items.iter().any(|i| match i {
-                Item::Lit(k) => input.iter().any(|t| token_cost(k, t).is_some()),
-                Item::Slot(_) => false,
-            });
-            if !hit {
                 continue;
             }
             let Some((cost, spans)) = align(&p.items, &input) else { continue };

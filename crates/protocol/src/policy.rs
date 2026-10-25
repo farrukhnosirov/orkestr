@@ -369,6 +369,8 @@ fn area_default(area: &str, verb: &str) -> MethodPolicy {
         "secrets" | "vscode" | "extensions" | "lsp" | "claudeEngine" => MethodPolicy::local(),
         // computer assistant (ADR-0035): driving this machine is never remote, not even `computer.stop`
         "computer" => MethodPolicy::local(),
+        // Jarvis conversation (ADR-0049): this machine's user only
+        "jarvis" => MethodPolicy::local(),
         // emergency stop controls
         "emergency" => MethodPolicy::emergency(),
         // worker side of the node protocol (Phase 6)
@@ -417,6 +419,16 @@ mod tests {
             n += 1;
         }
         assert!(n >= 20, "computer.* methods registered: {n}");
+    }
+
+    #[test]
+    fn jarvis_area_is_local_only() {
+        let mut n = 0;
+        for m in crate::methods::registry().iter().filter(|m| m.name.starts_with("jarvis.")) {
+            assert!(policy_for(m.name).unwrap().local_only, "{} must be local-only", m.name);
+            n += 1;
+        }
+        assert_eq!(n, 8, "jarvis.* methods registered");
     }
 
     #[test]

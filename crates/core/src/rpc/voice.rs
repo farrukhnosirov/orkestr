@@ -491,15 +491,10 @@ Facts:
     );
     let limit = std::time::Duration::from_millis(u64::from(p.timeout_ms.unwrap_or(3_000).clamp(500, 10_000)));
     let cancel = tokio_util::sync::CancellationToken::new();
-    let call = super::computer::manager_complete(
-        &ctx.services,
-        PHRASE_SYSTEM.to_owned(),
-        user,
-        160,
-        true,
-        "VoicePhrase",
-        cancel.clone(),
-    );
+    // Jarvis persona (ADR-0049): the same manner and form of address as every other reply
+    let persona = super::jarvis::persona_line(&ctx, lang).await;
+    let system = if persona.is_empty() { PHRASE_SYSTEM.to_owned() } else { format!("{PHRASE_SYSTEM} {persona}") };
+    let call = super::computer::manager_complete(&ctx.services, system, user, 160, true, "VoicePhrase", cancel.clone());
     let (text, model) = match tokio::time::timeout(limit, call).await {
         Ok(Ok(r)) => r,
         Ok(Err(e)) => return Err(RpcError::conflict(e)),

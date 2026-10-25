@@ -89,7 +89,7 @@ afterEach(() => cleanup());
 
 describe("assistant api", () => {
   it("maps results to replies and store state", () => {
-    expect(applyResult(run("Open notepad")).reply).toBe("Opening notepad");
+    expect(applyResult(run("Open notepad")).reply).toBe("Opening notepad.");
     expect(applyResult(run("Open x", "Failed")).reply).toContain("not found");
     const r = applyResult({
       status: "NeedsConfirmation",

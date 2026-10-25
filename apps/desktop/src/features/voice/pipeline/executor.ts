@@ -64,6 +64,8 @@ export interface CommandResult {
   managerReply?: { projectId: string; messageId: string };
   /** Offered next step: a spoken "yes" runs it (e.g. show the build errors). */
   followUp?: Intent;
+  /** Already spoken while streaming (Jarvis conversation) or deliberately silent. */
+  spoken?: boolean;
 }
 
 const result = (outcome: CommandOutcome, reply: string, tone: ReplyTone, projectId: string | null = null): CommandResult => ({

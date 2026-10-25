@@ -31,6 +31,9 @@ import { type FormEvent, type KeyboardEvent, useEffect, useMemo, useRef, useStat
 import { getClient } from "../../core/client";
 import { currentLanguage, useT } from "../../i18n";
 import { useSettingsStore } from "../settings/settingsStore";
+import { ChatTranscript, ConversationModeSwitch } from "../jarvis/ChatPanel";
+import { jarvisSession } from "../jarvis/session";
+import { useJarvisStore } from "../jarvis/store";
 import { say, startListening, stopListening, sttReady } from "../voice/controller";
 import { useVoiceStore } from "../voice/store";
 import {
@@ -58,13 +61,15 @@ function speakRun(r: AssistantRun): void {
 }
 
 export function AssistantSurface() {
-  const { t } = useT("assistant");
+  const { t } = useT(["assistant", "jarvis"]);
   const s = useAssistantStore();
   const phase = useVoiceStore((v) => v.phase);
   const transcript = useVoiceStore((v) => v.transcript);
   const speaking = useVoiceStore((v) => v.speaking);
   const voiceEnabled = useVoiceStore((v) => v.config?.enabled ?? false);
   const openSettings = useSettingsStore((v) => v.openSettings);
+  const conversation = useJarvisStore((j) => j.mode);
+  const streaming = useJarvisStore((j) => j.streamingId !== null);
   const [text, setText] = useState("");
   const [matches, setMatches] = useState<CommandMatch[]>([]);
   const [selected, setSelected] = useState(-1);
@@ -95,17 +100,24 @@ export function AssistantSurface() {
     };
   }, [text]);
 
-  const state = s.busy ? "thinking" : speaking ? "speaking" : phase === "idle" || phase === "result" ? "ready" : phase;
+  const state = s.busy || streaming ? "thinking" : speaking ? "speaking" : phase === "idle" || phase === "result" ? "ready" : phase;
   const heard = phase === "listening" || phase === "transcribing" ? transcript : s.input || transcript;
 
   const submit = async (e?: FormEvent) => {
     e?.preventDefault();
     if (selected >= 0 && matches[selected]) return pick(matches[selected]);
     const v = text.trim();
-    if (!v || s.busy) return;
+    if (!v || s.busy || streaming) return;
     setText("");
     setMatches([]);
-    speakRun(await runAssistant(v, "text", true));
+    // Jarvis routing (ADR-0049): actions → command → instant template → AI conversation / AI plan
+    const turn = await jarvisSession.send(v, { source: "text", speak: (x) => say(x) });
+    if (!turn) return;
+    if (turn.kind !== "command" && turn.kind !== "plan" && conversation === "commands") {
+      useAssistantStore.getState().patch({ reply: { text: turn.reply, tone: turn.tone } });
+    }
+    if (!turn.spoken && turn.reply) void say(turn.reply);
+    for (const extra of turn.run?.speak ?? []) void say(extra);
   };
 
   const pick = async (m: CommandMatch) => {
@@ -162,7 +174,10 @@ export function AssistantSurface() {
           <IconButton label={t("surface.stop")} tooltip="left" variant="danger" icon={<OctagonX size={16} />} onClick={() => void stopAssistant()} />
         </header>
 
-        {s.reply && (
+        <ConversationModeSwitch />
+        {conversation === "chat" && <ChatTranscript />}
+
+        {s.reply && conversation === "commands" && (
           <div className={clsx("as-reply", `as-reply--${s.reply.tone}`)} role="status">
             <ReplyIcon tone={s.reply.tone} />
             <span className="as-reply__text">{s.reply.text}</span>
@@ -213,13 +228,13 @@ export function AssistantSurface() {
               setSelected(-1);
             }}
             onKeyDown={onKey}
-            placeholder={t("surface.placeholder")}
+            placeholder={conversation === "chat" ? t("jarvis:chat.placeholder") : t("surface.placeholder")}
             aria-label={t("surface.placeholder")}
             aria-autocomplete="list"
             aria-expanded={matches.length > 0}
-            disabled={s.busy}
+            disabled={s.busy || streaming}
           />
-          <IconButton type="submit" label={t("surface.run")} icon={<CornerDownLeft size={15} />} disabled={!text.trim() || s.busy} />
+          <IconButton type="submit" label={t("surface.run")} icon={<CornerDownLeft size={15} />} disabled={!text.trim() || s.busy || streaming} />
         </form>
 
         {matches.length > 0 && (

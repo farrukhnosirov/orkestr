@@ -90,198 +90,203 @@
     "Dangerous": "Dangerous"
   },
   "reply": {
-    "done": "Done: {{title}}",
-    "stopped": "Stopped.",
-    "rejected": "Cancelled — nothing was changed.",
-    "failed": "Could not finish “{{title}}”: {{error}}",
-    "confirm": "“{{title}}” needs your confirmation: {{reasons}}",
-    "proposed": "I don't know this command yet. Here is a plan: {{explanation}}",
-    "remembered": "Saved. Say “{{phrase}}” to run it again.",
-    "notUnderstood": "I didn't understand that command.",
-    "notUnderstoodReason": "I didn't understand that command ({{reason}}).",
-    "error": "Assistant error: {{error}}",
-    "planDismissed": "Plan dismissed.",
-    "stoppedAll_one": "Stopped ({{count}} item).",
-    "stoppedAll_other": "Stopped ({{count}} items)."
+    "done": "Done{{addr}}: {{title}}",
+    "stopped": "Stopped{{addr}}.",
+    "rejected": "Cancelled{{addr}} — nothing was changed.",
+    "failed": "I’m afraid “{{title}}” didn’t work{{addr}}: {{error}}",
+    "confirm": "“{{title}}” needs your confirmation{{addr}}: {{reasons}}",
+    "proposed": "I don’t know this command yet{{addr}}. Here is a plan: {{explanation}}",
+    "remembered": "Noted{{addr}}. Say “{{phrase}}” to run it again.",
+    "notUnderstood": "I’m afraid I didn’t understand that command{{addr}}.",
+    "notUnderstoodReason": "I’m afraid I didn’t understand that command{{addr}} ({{reason}}).",
+    "error": "I’m afraid something went wrong{{addr}}: {{error}}",
+    "planDismissed": "Plan dismissed{{addr}}.",
+    "stoppedAll_one": "Stopped{{addr}} ({{count}} item).",
+    "stoppedAll_other": "Stopped{{addr}} ({{count}} items)."
   },
   "say": {
     "now": {
       "Launch": [
-        "Opening {{name}}",
-        "Launching {{name}}",
-        "Sure, opening {{name}}"
+        "Opening {{name}}{{addr}}.",
+        "Launching {{name}}{{addr}}.",
+        "Sure, opening {{name}}{{addr}}.",
+        "Right away{{addr}}. Opening {{name}}."
       ],
       "CloseApp": [
-        "Closing {{name}}",
-        "Sure, closing {{name}}"
+        "Closing {{name}}{{addr}}.",
+        "Sure, closing {{name}}{{addr}}."
       ],
       "CloseAppDiscard": [
-        "Closing {{name}} without saving"
+        "Closing {{name}} without saving{{addr}}."
       ],
       "FocusApp": [
-        "Switching to {{name}}"
+        "Switching to {{name}}{{addr}}."
       ],
       "KillProcess": [
-        "Ending the {{name}} process"
+        "Ending the {{name}} process{{addr}}."
       ],
       "OpenUrl": [
-        "Opening {{name}}",
-        "Opening {{name}} in the browser"
+        "Opening {{name}}{{addr}}.",
+        "Opening {{name}} in the browser{{addr}}.",
+        "Opening {{name}}{{addr}}. Enjoy."
       ],
       "WebSearch": [
-        "Searching the web for “{{query}}”",
-        "Looking up “{{query}}”"
+        "Searching the web for “{{query}}”{{addr}}.",
+        "Looking up “{{query}}”{{addr}}.",
+        "Already searching for “{{query}}”{{addr}}."
       ],
       "OpenPath": [
-        "Opening {{name}}"
+        "Opening {{name}}{{addr}}."
       ],
       "OpenSettings": [
-        "Opening {{what}} settings"
+        "Opening {{what}} settings{{addr}}."
       ],
       "OpenSettingsTitled": [
-        "Opening {{what}}"
+        "Opening {{what}}{{addr}}."
       ],
       "Window": {
         "Focus": [
-          "Switching to {{name}}"
+          "Switching to {{name}}{{addr}}."
         ],
         "Minimize": [
-          "Minimizing {{name}}"
+          "Minimizing {{name}}{{addr}}."
         ],
         "Maximize": [
-          "Maximizing {{name}}"
+          "Maximizing {{name}}{{addr}}."
         ],
         "Restore": [
-          "Restoring {{name}}"
+          "Restoring {{name}}{{addr}}."
         ],
         "Close": [
-          "Closing the {{name}} window"
+          "Closing the {{name}} window{{addr}}."
         ],
         "SnapLeft": [
-          "Snapping {{name}} to the left"
+          "Snapping {{name}} to the left{{addr}}."
         ],
         "SnapRight": [
-          "Snapping {{name}} to the right"
+          "Snapping {{name}} to the right{{addr}}."
         ],
         "NextMonitor": [
-          "Moving {{name}} to the next monitor"
+          "Moving {{name}} to the next monitor{{addr}}."
         ],
         "PreviousMonitor": [
-          "Moving {{name}} to the previous monitor"
+          "Moving {{name}} to the previous monitor{{addr}}."
         ]
       },
       "WindowSelf": {
         "Minimize": [
-          "Minimizing the window"
+          "Minimizing the window{{addr}}."
         ],
         "Maximize": [
-          "Maximizing the window"
+          "Maximizing the window{{addr}}."
         ],
         "Restore": [
-          "Restoring the window"
+          "Restoring the window{{addr}}."
         ],
         "Close": [
-          "Closing the window"
+          "Closing the window{{addr}}."
         ],
         "SnapLeft": [
-          "Snapping the window left"
+          "Snapping the window left{{addr}}."
         ],
         "SnapRight": [
-          "Snapping the window right"
+          "Snapping the window right{{addr}}."
         ],
         "NextMonitor": [
-          "Moving the window to the next monitor"
+          "Moving the window to the next monitor{{addr}}."
         ],
         "PreviousMonitor": [
-          "Moving the window to the previous monitor"
+          "Moving the window to the previous monitor{{addr}}."
         ],
         "SwitchNext": [
-          "Switching windows"
+          "Switching windows{{addr}}."
         ],
         "ShowDesktop": [
-          "Showing the desktop"
+          "Showing the desktop{{addr}}."
         ]
       },
       "TypeText": [
-        "Typing the text"
+        "Typing the text{{addr}}."
       ],
       "Scroll": {
         "Up": [
-          "Scrolling up"
+          "Scrolling up{{addr}}."
         ],
         "Down": [
-          "Scrolling down"
+          "Scrolling down{{addr}}."
         ],
         "Left": [
-          "Scrolling left"
+          "Scrolling left{{addr}}."
         ],
         "Right": [
-          "Scrolling right"
+          "Scrolling right{{addr}}."
         ]
       },
       "Volume": {
         "Set": [
-          "Volume — {{value}}",
-          "Setting the volume to {{value}}"
+          "Volume — {{value}}{{addr}}.",
+          "Setting the volume to {{value}}{{addr}}."
         ],
         "Up": [
-          "Turning it up"
+          "Turning it up{{addr}}."
         ],
         "Down": [
-          "Turning it down"
+          "Turning it down{{addr}}."
         ],
         "Mute": [
-          "Muting the sound"
+          "Muting the sound{{addr}}."
         ]
       },
       "Brightness": {
         "Set": [
-          "Brightness — {{value}}",
-          "Setting the brightness to {{value}}"
+          "Brightness — {{value}}{{addr}}.",
+          "Setting the brightness to {{value}}{{addr}}."
         ],
         "Up": [
-          "Making it brighter"
+          "Making it brighter{{addr}}."
         ],
         "Down": [
-          "Dimming the screen"
+          "Dimming the screen{{addr}}."
         ],
         "Mute": [
-          "Changing the brightness"
+          "Changing the brightness{{addr}}."
         ]
       },
       "Timer": [
-        "Setting a timer for {{time}}",
-        "Timer for {{time}} — started"
+        "Setting a timer for {{time}}{{addr}}.",
+        "Timer for {{time}} — started{{addr}}.",
+        "Timing {{time}}{{addr}}. I will let you know."
       ],
       "Screenshot": [
-        "Taking a screenshot"
+        "Taking a screenshot{{addr}}.",
+        "Taking a screenshot{{addr}}. Smile."
       ],
       "ClipboardSet": [
-        "Copying to the clipboard"
+        "Copying to the clipboard{{addr}}."
       ],
       "ClipboardGet": [
-        "Checking the clipboard"
+        "Checking the clipboard{{addr}}."
       ],
       "FileCreate": [
-        "Creating the file {{name}}"
+        "Creating the file {{name}}{{addr}}."
       ],
       "FolderCreate": [
-        "Creating the folder {{name}}"
+        "Creating the folder {{name}}{{addr}}."
       ],
       "FileMove": [
-        "Moving {{name}}"
+        "Moving {{name}}{{addr}}."
       ],
       "FileDelete": [
-        "Deleting {{name}}"
+        "Deleting {{name}}{{addr}}."
       ],
       "Notify": [
-        "Showing a notification"
+        "Showing a notification{{addr}}."
       ],
       "ListProcesses": [
-        "Here are the running processes"
+        "Here are the running processes{{addr}}."
       ],
       "ListWindows": [
-        "Here are the open windows"
+        "Here are the open windows{{addr}}."
       ]
     },
     "done": {
@@ -339,73 +344,74 @@
     },
     "fail": {
       "Launch": [
-        "Couldn’t open {{name}}: {{error}}",
-        "I couldn’t open {{name}}: {{error}}"
+        "I’m afraid I couldn’t open {{name}}{{addr}}: {{error}}",
+        "I’m afraid I couldn’t open {{name}}{{addr}}: {{error}}"
       ],
       "CloseApp": [
-        "Couldn’t close {{name}}: {{error}}"
+        "I’m afraid I couldn’t close {{name}}{{addr}}: {{error}}"
       ],
       "CloseAppDiscard": [
-        "Couldn’t close {{name}}: {{error}}"
+        "I’m afraid I couldn’t close {{name}}{{addr}}: {{error}}"
       ],
       "FocusApp": [
-        "Couldn’t switch to {{name}}: {{error}}"
+        "I’m afraid I couldn’t switch to {{name}}{{addr}}: {{error}}"
       ],
       "KillProcess": [
-        "Couldn’t end {{name}}: {{error}}"
+        "I’m afraid I couldn’t end {{name}}{{addr}}: {{error}}"
       ],
       "OpenUrl": [
-        "Couldn’t open {{name}}: {{error}}"
+        "I’m afraid I couldn’t open {{name}}{{addr}}: {{error}}"
       ],
       "WebSearch": [
-        "Couldn’t search for “{{query}}”: {{error}}"
+        "I’m afraid I couldn’t search for “{{query}}”{{addr}}: {{error}}"
       ],
       "OpenPath": [
-        "Couldn’t open {{name}}: {{error}}"
+        "I’m afraid I couldn’t open {{name}}{{addr}}: {{error}}"
       ],
       "TypeText": [
-        "Couldn’t type the text: {{error}}"
+        "I’m afraid I couldn’t type the text{{addr}}: {{error}}"
       ],
       "Screenshot": [
-        "Couldn’t take a screenshot: {{error}}"
+        "I’m afraid I couldn’t take a screenshot{{addr}}: {{error}}"
       ],
       "Timer": [
-        "Couldn’t set the timer: {{error}}"
+        "I’m afraid I couldn’t set the timer{{addr}}: {{error}}"
       ],
       "FileCreate": [
-        "Couldn’t create {{name}}: {{error}}"
+        "I’m afraid I couldn’t create {{name}}{{addr}}: {{error}}"
       ],
       "FolderCreate": [
-        "Couldn’t create the folder {{name}}: {{error}}"
+        "I’m afraid I couldn’t create the folder {{name}}{{addr}}: {{error}}"
       ],
       "FileMove": [
-        "Couldn’t move {{name}}: {{error}}"
+        "I’m afraid I couldn’t move {{name}}{{addr}}: {{error}}"
       ],
       "FileDelete": [
-        "Couldn’t delete {{name}}: {{error}}"
+        "I’m afraid I couldn’t delete {{name}}{{addr}}: {{error}}"
       ],
       "Window": {
         "Focus": [
-          "Couldn’t switch to {{name}}: {{error}}"
+          "I’m afraid I couldn’t switch to {{name}}{{addr}}: {{error}}"
         ],
         "Minimize": [
-          "Couldn’t minimize {{name}}: {{error}}"
+          "I’m afraid I couldn’t minimize {{name}}{{addr}}: {{error}}"
         ],
         "Maximize": [
-          "Couldn’t maximize {{name}}: {{error}}"
+          "I’m afraid I couldn’t maximize {{name}}{{addr}}: {{error}}"
         ],
         "Close": [
-          "Couldn’t close the {{name}} window: {{error}}"
+          "I’m afraid I couldn’t close the {{name}} window{{addr}}: {{error}}"
         ]
       }
     },
     "summary": [
-      "Done — {{list}}",
-      "All set: {{list}}"
+      "Done{{addr}} — {{list}}.",
+      "All set{{addr}}: {{list}}.",
+      "Taken care of{{addr}}: {{list}}."
     ],
     "generic": [
-      "Done — {{what}}",
-      "All set: {{what}}"
+      "Done{{addr}} — {{what}}.",
+      "All set{{addr}}: {{what}}."
     ],
     "and": " and ",
     "andMore": " and more",
@@ -467,7 +473,8 @@
       "turn": "turning",
       "take": "taking",
       "launch": "launching"
-    }
+    },
+    "progressive": "{{text}}{{addr}}."
   },
   "risk": {
     "closeDiscard": "{{detail}} closes without saving",

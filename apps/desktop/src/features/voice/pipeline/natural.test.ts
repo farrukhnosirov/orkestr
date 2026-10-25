@@ -29,13 +29,13 @@ describe("natural templates (ru)", () => {
   });
   it("idle + failed build + one blocked task → one flowing reply, no slug prefix", () => {
     const text = naturalStatus(f({ blocked: 1, quality: FAILED_BUILD }), { project: null, variant: 0 });
-    expect(text).toBe("Пока всё тихо: агенты не работают. Правда, последняя сборка упала, и одна задача заблокирована. Показать ошибки?");
+    expect(text).toBe("Всё спокойно: агенты отдыхают. Правда, последняя сборка упала, и одна задача заблокирована. Показать ошибки?");
   });
   it("plurals and agreement", () => {
-    expect(naturalStatus(f({ running: 3, activeAgents: 2 }), { project: null, variant: 0 })).toBe("Работа идёт: в процессе 3 задачи, заняты 2 агента.");
-    expect(naturalStatus(f({ running: 5, activeAgents: 1 }), { project: null, variant: 1 })).toBe("Сейчас занят один агент, в работе 5 задач.");
+    expect(naturalStatus(f({ running: 3, activeAgents: 2 }), { project: null, variant: 0 })).toBe("Работа кипит: в процессе 3 задачи, заняты 2 агента.");
+    expect(naturalStatus(f({ running: 5, activeAgents: 1 }), { project: null, variant: 1 })).toBe("Докладываю: занят один агент, в работе 5 задач.");
     expect(naturalStatus(f({ failed: 2, approvals: 5 }), { project: null, variant: 0 })).toBe(
-      "Пока всё тихо: агенты не работают. Правда, 2 задачи завершились сбоем, и 5 запросов ждут вашего подтверждения.",
+      "Всё спокойно: агенты отдыхают. Правда, 2 задачи завершились сбоем, и 5 запросов ждут вашего подтверждения.",
     );
     expect(naturalStatus(f({ completedToday: 21 }), { project: null, variant: 0 })).toContain("За сегодня закрыта 21 задача.");
   });

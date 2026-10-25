@@ -439,6 +439,10 @@
     "VsCodeBridgeSignal_one": "{{count}} запрос от VS Code",
     "VsCodeBridgeSignal_few": "{{count}} запроса от VS Code",
     "VsCodeBridgeSignal_many": "{{count}} запросов от VS Code",
-    "VsCodeBridgeSignal_other": "{{count}} запроса от VS Code"
+    "VsCodeBridgeSignal_other": "{{count}} запроса от VS Code",
+    "JarvisMessage_one": "{{count}} ответ Джарвиса",
+    "JarvisMessage_few": "{{count}} ответа Джарвиса",
+    "JarvisMessage_many": "{{count}} ответов Джарвиса",
+    "JarvisMessage_other": "{{count}} ответа Джарвиса"
   }
 }

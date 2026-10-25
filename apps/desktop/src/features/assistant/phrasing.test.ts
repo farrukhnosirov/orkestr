@@ -2,6 +2,7 @@ import type { ComputerAction, ComputerRunReport } from "@orkestr/protocol";
 import { describe, expect, it } from "vitest";
 
 import { applyLanguagePreference } from "../../i18n";
+import { applyPersona } from "../jarvis/persona";
 import { appName, duration, naturalRunReply, progressiveTitle } from "./phrasing";
 
 const report = (title: string, steps: ComputerAction[], o: { commandId?: string; fail?: number; error?: string } = {}): ComputerRunReport => ({
@@ -21,38 +22,38 @@ describe("natural replies (ru)", () => {
   it("speaks single actions in the present, with catalogue app names", async () => {
     await applyLanguagePreference("ru");
     const calc = report("Открыть калькулятор", [{ type: "Launch", target: "calculator" }], { commandId: "app.calculator.open" });
-    expect(naturalRunReply(calc, first)).toBe("Открываю Калькулятор");
-    expect(naturalRunReply(calc, { rnd: () => 0.5 })).toBe("Сейчас открою Калькулятор");
-    expect(naturalRunReply(report("Открыть фигму", [{ type: "Launch", target: "figma" }], { commandId: "app.figma.open" }), first)).toBe("Открываю Фигму");
-    expect(naturalRunReply(report("Закрыть проводник", [{ type: "CloseApp", app: "explorer", discard: false }], { commandId: "x" }), first)).toBe("Закрываю Проводник");
-    expect(naturalRunReply(report("Громкость", [{ type: "Volume", op: "Set", value: 30 }], { commandId: "x" }), first)).toBe("Громкость — 30 процентов");
-    expect(naturalRunReply(report("Громкость", [{ type: "Volume", op: "Set", value: "22" }], { commandId: "x" }), second)).toBe("Ставлю громкость на 22 процента");
-    expect(naturalRunReply(report("Таймер", [{ type: "Timer", seconds: 300, message: "" }], { commandId: "x" }), first)).toBe("Ставлю таймер на 5 минут");
-    expect(naturalRunReply(report("Прокрутить вниз", [{ type: "Scroll", direction: "Down", unit: "Lines" }], { commandId: "x" }), first)).toBe("Прокручиваю вниз");
-    expect(naturalRunReply(report("Поиск", [{ type: "WebSearch", query: "погода" }], { commandId: "x" }), first)).toBe("Ищу в интернете «погода»");
-    expect(naturalRunReply(report("Настройки: экрана", [{ type: "OpenSettings", page: "display" }], { commandId: "x" }), first)).toBe("Открываю настройки экрана");
+    expect(naturalRunReply(calc, first)).toBe("Открываю Калькулятор.");
+    expect(naturalRunReply(calc, { rnd: () => 0.3 })).toBe("Сейчас открою Калькулятор.");
+    expect(naturalRunReply(report("Открыть фигму", [{ type: "Launch", target: "figma" }], { commandId: "app.figma.open" }), first)).toBe("Открываю Фигму.");
+    expect(naturalRunReply(report("Закрыть проводник", [{ type: "CloseApp", app: "explorer", discard: false }], { commandId: "x" }), first)).toBe("Закрываю Проводник.");
+    expect(naturalRunReply(report("Громкость", [{ type: "Volume", op: "Set", value: 30 }], { commandId: "x" }), first)).toBe("Громкость — 30 процентов.");
+    expect(naturalRunReply(report("Громкость", [{ type: "Volume", op: "Set", value: "22" }], { commandId: "x" }), second)).toBe("Ставлю громкость на 22 процента.");
+    expect(naturalRunReply(report("Таймер", [{ type: "Timer", seconds: 300, message: "" }], { commandId: "x" }), first)).toBe("Ставлю таймер на 5 минут.");
+    expect(naturalRunReply(report("Прокрутить вниз", [{ type: "Scroll", direction: "Down", unit: "Lines" }], { commandId: "x" }), first)).toBe("Прокручиваю вниз.");
+    expect(naturalRunReply(report("Поиск", [{ type: "WebSearch", query: "погода" }], { commandId: "x" }), first)).toBe("Ищу в интернете «погода».");
+    expect(naturalRunReply(report("Настройки: экрана", [{ type: "OpenSettings", page: "display" }], { commandId: "x" }), first)).toBe("Открываю настройки экрана.");
     // unknown app: as said
-    expect(naturalRunReply(report("Открыть приложение", [{ type: "Launch", target: "мойредактор" }], { commandId: "app.any.open" }), first)).toBe("Открываю мойредактор");
+    expect(naturalRunReply(report("Открыть приложение", [{ type: "Launch", target: "мойредактор" }], { commandId: "app.any.open" }), first)).toBe("Открываю мойредактор.");
     // no rich template: the title's verb in the present
-    expect(naturalRunReply(report("Копировать", [{ type: "Keys", combo: "ctrl+c" }], { commandId: "keys.copy" }), first)).toBe("Копирую");
-    expect(naturalRunReply(report("Новая вкладка", [{ type: "Keys", combo: "ctrl+t" }], { commandId: "keys.tab" }), first)).toBe("Готово — новая вкладка");
+    expect(naturalRunReply(report("Копировать", [{ type: "Keys", combo: "ctrl+c" }], { commandId: "keys.copy" }), first)).toBe("Копирую.");
+    expect(naturalRunReply(report("Новая вкладка", [{ type: "Keys", combo: "ctrl+t" }], { commandId: "keys.tab" }), first)).toBe("Сделано: новая вкладка.");
     // a multi-step catalogue command keeps its title's verb
     expect(
       naturalRunReply(report("Перезапустить блокнот", [{ type: "CloseApp", app: "notepad", discard: false }, { type: "Wait", ms: 1500 }, { type: "Launch", target: "notepad" }], { commandId: "app.notepad.restart" }), first),
-    ).toBe("Перезапускаю блокнот");
+    ).toBe("Перезапускаю блокнот.");
   });
 
   it("summarises AI plans in the past tense and phrases errors", async () => {
     await applyLanguagePreference("ru");
     const plan = report("write a list", [{ type: "Launch", target: "notepad" }, { type: "Wait", ms: 1500 }, { type: "TypeText", text: "milk" }]);
-    expect(naturalRunReply(plan, { ...first, planned: true })).toBe("Готово — открыл Блокнот и напечатал текст");
-    expect(naturalRunReply(plan, { ...second, planned: true })).toBe("Сделано: открыл Блокнот и напечатал текст");
+    expect(naturalRunReply(plan, { ...first, planned: true })).toBe("Сделано: открыл Блокнот и напечатал текст.");
+    expect(naturalRunReply(plan, { ...second, planned: true })).toBe("Выполнено: открыл Блокнот и напечатал текст.");
     const failed = report("Открыть блокнот", [{ type: "Launch", target: "notepad" }], { commandId: "x", fail: 0, error: "not found" });
-    expect(naturalRunReply(failed, first)).toBe("Не получилось открыть Блокнот: not found");
-    expect(naturalRunReply(failed, second)).toBe("Не смог открыть Блокнот: not found");
+    expect(naturalRunReply(failed, first)).toBe("Боюсь, не получилось открыть Блокнот: not found");
+    expect(naturalRunReply(failed, second)).toBe("Увы, не смог открыть Блокнот: not found");
     // no step details (older core): the generic error line
     const old = { ...failed, steps: failed.steps.map(({ step: _s, ...rest }) => rest) };
-    expect(naturalRunReply(old, first)).toBe("Не удалось выполнить «Открыть блокнот»: not found");
+    expect(naturalRunReply(old, first)).toBe("Боюсь, «Открыть блокнот» выполнить не удалось: not found");
   });
 
   it("units and verbs", async () => {
@@ -69,15 +70,42 @@ describe("natural replies (en)", () => {
   it("present, summary and error forms", async () => {
     await applyLanguagePreference("en");
     expect(appName("explorer")).toBe("File Explorer");
-    expect(naturalRunReply(report("Open calculator", [{ type: "Launch", target: "calc.exe" }], { commandId: "x" }), first)).toBe("Opening Calculator");
-    expect(naturalRunReply(report("Volume", [{ type: "Volume", op: "Set", value: 30 }], { commandId: "x" }), first)).toBe("Volume — 30 percent");
-    expect(naturalRunReply(report("Timer", [{ type: "Timer", seconds: 300, message: "" }], { commandId: "x" }), first)).toBe("Setting a timer for 5 minutes");
-    expect(naturalRunReply(report("Display settings", [{ type: "OpenSettings", page: "display" }], { commandId: "x" }), first)).toBe("Opening display settings");
-    expect(naturalRunReply(report("Copy", [{ type: "Keys", combo: "ctrl+c" }], { commandId: "x" }), first)).toBe("Copying");
+    expect(naturalRunReply(report("Open calculator", [{ type: "Launch", target: "calc.exe" }], { commandId: "x" }), first)).toBe("Opening Calculator.");
+    expect(naturalRunReply(report("Volume", [{ type: "Volume", op: "Set", value: 30 }], { commandId: "x" }), first)).toBe("Volume — 30 percent.");
+    expect(naturalRunReply(report("Timer", [{ type: "Timer", seconds: 300, message: "" }], { commandId: "x" }), first)).toBe("Setting a timer for 5 minutes.");
+    expect(naturalRunReply(report("Display settings", [{ type: "OpenSettings", page: "display" }], { commandId: "x" }), first)).toBe("Opening display settings.");
+    expect(naturalRunReply(report("Copy", [{ type: "Keys", combo: "ctrl+c" }], { commandId: "x" }), first)).toBe("Copying.");
     const plan = report("list", [{ type: "Launch", target: "notepad" }, { type: "TypeText", text: "milk" }, { type: "Screenshot" }]);
-    expect(naturalRunReply(plan, { ...first, planned: true })).toBe("Done — opened Notepad, typed the text and took a screenshot");
+    expect(naturalRunReply(plan, { ...first, planned: true })).toBe("Done — opened Notepad, typed the text and took a screenshot.");
     expect(naturalRunReply(report("Close Word", [{ type: "CloseApp", app: "word", discard: false }], { commandId: "x", fail: 0, error: "no window" }), first)).toBe(
-      "Couldn’t close Word: no window",
+      "I’m afraid I couldn’t close Word: no window",
     );
+  });
+});
+
+describe("Jarvis persona in command replies (ADR-0049)", () => {
+  it("adds the form of address: сэр / босс / name / sir", async () => {
+    await applyLanguagePreference("ru");
+    const calc = report("Открыть калькулятор", [{ type: "Launch", target: "calculator" }], { commandId: "app.calculator.open" });
+    const scroll = report("Прокрутить вниз", [{ type: "Scroll", direction: "Down", unit: "Lines" }], { commandId: "x" });
+    const failed = report("Открыть блокнот", [{ type: "Launch", target: "notepad" }], { commandId: "x", fail: 0, error: "not found" });
+    try {
+      applyPersona({ persona: true, address: "Sir", userName: "" });
+      expect(naturalRunReply(calc, first)).toBe("Открываю Калькулятор, сэр.");
+      const yt = report("Открыть YouTube", [{ type: "OpenUrl", url: "https://www.youtube.com" }], { commandId: "site.youtube" });
+      expect(naturalRunReply(yt, first)).toBe("Открываю YouTube, сэр.");
+      expect(naturalRunReply(failed, first)).toBe("Боюсь, не получилось открыть Блокнот, сэр: not found");
+      applyPersona({ persona: true, address: "Boss", userName: "" });
+      expect(naturalRunReply(scroll, first)).toBe("Прокручиваю вниз, босс.");
+      applyPersona({ persona: true, address: "Name", userName: "Фаррух" });
+      expect(naturalRunReply(calc, first)).toBe("Открываю Калькулятор, Фаррух.");
+      applyPersona({ persona: false, address: "Sir", userName: "" });
+      expect(naturalRunReply(calc, first)).toBe("Открываю Калькулятор.");
+      await applyLanguagePreference("en");
+      applyPersona({ persona: true, address: "Sir", userName: "" });
+      expect(naturalRunReply(report("Open calculator", [{ type: "Launch", target: "calc.exe" }], { commandId: "x" }), first)).toBe("Opening Calculator, sir.");
+    } finally {
+      applyPersona({ persona: false, address: "Sir", userName: "" });
+    }
   });
 });

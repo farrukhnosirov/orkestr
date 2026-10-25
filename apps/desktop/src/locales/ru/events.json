@@ -143,5 +143,6 @@
   "incidentStageChanged": "Инцидент {{id}}: {{stage}}",
   "dashboardChanged": "Дашборд {{id}} изменён",
   "computerCommand": "Ассистент: {{title}} — {{outcome}}",
-  "vscodeBridgeSignal": "VS Code обратился к Orkestr: {{signal}}"
+  "vscodeBridgeSignal": "VS Code обратился к Orkestr: {{signal}}",
+  "jarvisMessage": "Ответ Джарвиса {{id}}"
 }

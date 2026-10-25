@@ -24,6 +24,7 @@ pub mod emergency;
 pub mod events;
 pub mod extensions;
 pub mod files;
+pub mod jarvis;
 pub mod jobs_ctl;
 pub mod jobs_ui;
 pub mod layouts;
@@ -296,6 +297,8 @@ pub fn build_router() -> RpcRouter {
     router.register(deploy::register).register(monitor::register).register(detective::register);
     // Wave 8: computer assistant (ADR-0035), local only
     router.register(computer::register);
+    // Wave 9: Jarvis persona & conversation (ADR-0049), local only
+    router.register(jarvis::register);
     router
 }
 

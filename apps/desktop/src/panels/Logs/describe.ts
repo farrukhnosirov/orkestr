@@ -434,6 +434,8 @@ export function describeEvent(event: Event): string {
       return t("events:computerCommand", { title: event.payload.title, outcome: event.payload.outcome });
     case "VsCodeBridgeSignal":
       return t("events:vscodeBridgeSignal", { signal: event.payload.signal });
+    case "JarvisMessage":
+      return t("events:jarvisMessage", { id: short(event.payload.messageId) });
   }
 }
 

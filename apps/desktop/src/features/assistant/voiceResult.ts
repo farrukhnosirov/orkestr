@@ -13,5 +13,5 @@ export function assistantResult(r: AssistantRun): CommandResult {
           : r.outcome === "notUnderstood"
             ? "notUnderstood"
             : "failed";
-  return { outcome, reply: r.reply, tone: r.tone, projectId: null };
+  return { outcome, reply: r.reply, tone: r.tone, projectId: null, ...(r.spoken ? { spoken: true } : {}) };
 }

@@ -941,6 +941,7 @@ macro_rules! event_kinds {
                         | EventKind::CodexAccount(_)
                         | EventKind::DeploymentProgress(_)
                         | EventKind::VsCodeBridgeSignal(_)
+                        | EventKind::JarvisMessage(_)
                 )
             }
 
@@ -1156,6 +1157,8 @@ event_kinds! {
     CodexAccount(crate::methods::codex::CodexAccountPayload),
     /// The embedded VS Code asked Orkestr for focus / its palette (ephemeral, ADR-0043). Appended.
     VsCodeBridgeSignal(crate::methods::vscode::VsCodeBridgeSignalPayload),
+    /// A streamed delta of a Jarvis conversation reply (ephemeral, global, ADR-0049). Appended.
+    JarvisMessage(crate::methods::jarvis::JarvisDeltaPayload),
 }
 
 // ---------------------------------------------------------------------------
