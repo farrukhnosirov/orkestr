@@ -22,7 +22,8 @@ source: CursorSource,
  */
 available: boolean, 
 /**
- * Why not / what it uses.
+ * Why not / what it uses, as a code the UI localizes: `notFound`,
+ * `notSignedIn`, `subscription:<plan>`, `noKey`, `key:<provider>`, `mockScript`.
  */
 detail: string, 
 /**

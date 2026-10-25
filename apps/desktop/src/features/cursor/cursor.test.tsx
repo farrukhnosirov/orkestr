@@ -55,9 +55,9 @@ const SESSION: CursorSession = {
 
 let status: CursorStatus = {
   backends: [
-    { id: "claudeCode", label: "Claude Code", source: "subscriptions", available: true, detail: "subscription: max", model: "sonnet", consented: false },
-    { id: "codex", label: "Codex (ChatGPT)", source: "subscriptions", available: true, detail: "subscription: ChatGPT", model: "", consented: true },
-    { id: "anthropic", label: "Anthropic API", source: "api", available: false, detail: "no API key in the vault", model: "claude-sonnet-4-5", consented: false },
+    { id: "claudeCode", label: "Claude Code", source: "subscriptions", available: true, detail: "subscription:max", model: "sonnet", consented: false },
+    { id: "codex", label: "Codex (ChatGPT)", source: "subscriptions", available: true, detail: "subscription:ChatGPT", model: "", consented: true },
+    { id: "anthropic", label: "Anthropic API", source: "api", available: false, detail: "noKey", model: "claude-sonnet-4-5", consented: false },
   ],
   activeBackend: "claudeCode",
   settings: SETTINGS,

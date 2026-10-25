@@ -10,7 +10,7 @@ import { ArrowDown, ArrowUp } from "lucide-react";
 import { useEffect } from "react";
 
 import { useT } from "../../i18n";
-import { refreshCursor, saveCursorSettings, setConsent, useCursorStore, watchCursor } from "./store";
+import { detailText, refreshCursor, saveCursorSettings, setConsent, useCursorStore, watchCursor } from "./store";
 import "./cursor.css";
 
 function orderOf(s: CursorSettings, source: CursorSource): string[] {
@@ -52,7 +52,7 @@ function BackendRow({
           {b.label} {active && <Badge tone="success">{t("settings.activeBadge")}</Badge>}
           {!b.available && <Badge tone="warning">{t("settings.unavailable")}</Badge>}
         </div>
-        <div className="cu-backend__detail">{b.detail}</div>
+        <div className="cu-backend__detail">{detailText(b.detail)}</div>
         <label className="cu-backend__model">
           {t("settings.model")}
           <input

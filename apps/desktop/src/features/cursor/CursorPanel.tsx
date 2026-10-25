@@ -185,9 +185,9 @@ function ConsentCard() {
   const c = useCursorStore((s) => s.consent);
   if (!c) return null;
   return (
-    <div className="cu-consent" role="dialog" aria-label={t("consent.title")}>
+    <div className="cu-consent" role="dialog" aria-label={t("consent.title", { provider: c.backend.label })}>
       <div className="cu-block__title">
-        <ShieldAlert size={15} /> {t("consent.title")}
+        <ShieldAlert size={15} /> {t("consent.title", { provider: c.backend.label })}
       </div>
       <p className="cu-note">{t("consent.body", { provider: c.backend.label })}</p>
       <div className="cu-actions">

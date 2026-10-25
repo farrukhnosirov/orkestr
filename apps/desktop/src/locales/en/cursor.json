@@ -83,6 +83,14 @@
     "allow": "Allow and start",
     "cancel": "Cancel"
   },
+  "detail": {
+    "notFound": "not installed",
+    "notSignedIn": "not signed in — sign in on its panel",
+    "subscription": "subscription: {{value}}",
+    "noKey": "no API key in the vault",
+    "key": "key: {{value}}",
+    "mockScript": "scripted test model"
+  },
   "errors": {
     "noBackend": "No model can control the cursor: {{reason}}"
   },
@@ -138,6 +146,7 @@
   },
   "commands": {
     "start": "Cursor mode: let the AI take control",
+    "settings": "Cursor mode: settings",
     "stop": "Cursor mode: stop and take control back"
   }
 }

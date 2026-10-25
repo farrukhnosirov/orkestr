@@ -400,7 +400,8 @@ pub struct CursorBackendInfo {
     pub source: CursorSource,
     /// Usable now (installed / key present).
     pub available: bool,
-    /// Why not / what it uses.
+    /// Why not / what it uses, as a code the UI localizes: `notFound`,
+    /// `notSignedIn`, `subscription:<plan>`, `noKey`, `key:<provider>`, `mockScript`.
     pub detail: String,
     /// Model (default or the user's override).
     pub model: String,

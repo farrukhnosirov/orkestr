@@ -3,11 +3,12 @@
  * commands (take control, stop) and the speaker for its Jarvis phrases.
  * Imported once from App.
  */
-import { MousePointer2, OctagonX } from "lucide-react";
+import { MousePointer2, OctagonX, Settings2 } from "lucide-react";
 
 import { t } from "../../i18n";
 import { commands } from "../commands/registry";
 import { settingsSections } from "../settings/sections";
+import { useSettingsStore } from "../settings/settingsStore";
 import { say } from "../voice/controller";
 import { CursorSettingsSection } from "./CursorSettingsSection";
 import { openCursorPanel, setCursorSpeaker, stopCursor } from "./store";
@@ -55,6 +56,18 @@ export function registerCursorFeature(): void {
       icon: OctagonX,
       keywords: ["cursor", "stop", "курсор", "стоп", "вернуть управление"],
       run: () => void stopCursor(),
+    },
+    {
+      id: "cursor.settings",
+      get title() {
+        return t("cursor:commands.settings");
+      },
+      get group() {
+        return t("assistant:commands.group");
+      },
+      icon: Settings2,
+      keywords: ["cursor", "settings", "subscriptions", "api", "курсор", "настройки", "подписки", "ключи"],
+      run: () => useSettingsStore.getState().openSettings("cursor"),
     },
   );
 }

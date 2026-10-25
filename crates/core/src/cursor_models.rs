@@ -25,11 +25,12 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio_util::sync::CancellationToken;
 
 use orkestr_computer::cursor::model::{
-    ComputerUseModel, JsonVisionModel, ModelError, ModelErrorKind, ScriptedModel, VisionCompleter,
+    parse_decision, ComputerUseModel, Decision, JsonVisionModel, ModelError, ModelErrorKind, ScriptedModel,
+    VisionCompleter,
 };
 use orkestr_computer::cursor::select::CursorModelFactory;
 use orkestr_domain::{ModelRef, ProviderKind};
-use orkestr_protocol::methods::cursor::{CursorAction, CursorBackendInfo, CursorSettings, CursorSource};
+use orkestr_protocol::methods::cursor::{CursorBackendInfo, CursorSettings, CursorSource};
 use orkestr_providers::{ChatEvent, ChatMessage, ChatRequest, ImagePart};
 
 use crate::Services;
@@ -48,7 +49,7 @@ const CLI_TIMEOUT: Duration = Duration::from_secs(110);
 #[derive(Default)]
 pub struct CoreCursorFactory {
     services: OnceLock<Weak<Services>>,
-    mock_script: Option<Vec<CursorAction>>,
+    mock_script: Option<Vec<Decision>>,
     work_dir: PathBuf,
 }
 
@@ -60,7 +61,9 @@ impl CoreCursorFactory {
             .ok()
             .filter(|p| !p.is_empty())
             .and_then(|p| std::fs::read_to_string(p).ok())
-            .and_then(|t| serde_json::from_str::<Vec<CursorAction>>(&t).ok())
+            .and_then(|t| serde_json::from_str::<Vec<Value>>(&t).ok())
+            // each item: an action (`{"type":"wait","ms":500}`) or a full answer (`{"thought","plan","say","risk","action"}`)
+            .map(|items| items.iter().filter_map(|v| parse_decision(&v.to_string()).ok()).collect())
             .or_else(|| (std::env::var("ORKESTR_COMPUTER_BACKEND").as_deref() == Ok("mock")).then(Vec::new));
         Self { services: OnceLock::new(), mock_script, work_dir }
     }
@@ -97,12 +100,13 @@ impl CursorModelFactory for CoreCursorFactory {
             label: "Claude Code".into(),
             source: CursorSource::Subscriptions,
             available: st.binary.is_some() && logged_in,
+            // detail codes (`code` / `code:value`) are localized by the UI
             detail: match (&st.binary, &st.auth) {
-                (None, _) => "Claude Code CLI not found".into(),
+                (None, _) => "notFound".into(),
                 (Some(_), Some(a)) if a.logged_in => {
-                    format!("subscription: {}", a.subscription_type.clone().unwrap_or_else(|| "Claude".into()))
+                    format!("subscription:{}", a.subscription_type.clone().unwrap_or_else(|| "Claude".into()))
                 }
-                _ => "not signed in (Claude Code → Sign in)".into(),
+                _ => "notSignedIn".into(),
             },
             model: model_for(settings, "claudeCode", CLAUDE_DEFAULT),
             consented: false,
@@ -115,9 +119,9 @@ impl CursorModelFactory for CoreCursorFactory {
             source: CursorSource::Subscriptions,
             available: cx.binary.is_some() && cx.logged_in,
             detail: match (&cx.binary, cx.logged_in) {
-                (None, _) => "Codex CLI not installed".into(),
-                (Some(_), false) => "not signed in (Codex → Sign in)".into(),
-                (Some(_), true) => "subscription: ChatGPT".into(),
+                (None, _) => "notFound".into(),
+                (Some(_), false) => "notSignedIn".into(),
+                (Some(_), true) => "subscription:ChatGPT".into(),
             },
             model: model_for(settings, "codex", ""),
             consented: false,
@@ -134,7 +138,7 @@ impl CursorModelFactory for CoreCursorFactory {
                 label: label.into(),
                 source: CursorSource::Api,
                 available: p.is_some(),
-                detail: p.map_or_else(|| "no API key in the vault".into(), |v| format!("key: {}", v.provider.name)),
+                detail: p.map_or_else(|| "noKey".into(), |v| format!("key:{}", v.provider.name)),
                 model: model_for(settings, id, default),
                 consented: false,
             });
@@ -145,7 +149,7 @@ impl CursorModelFactory for CoreCursorFactory {
                 label: "Scripted (test)".into(),
                 source: settings.source,
                 available: true,
-                detail: "ORKESTR_CURSOR_MOCK_SCRIPT".into(),
+                detail: "mockScript".into(),
                 model: "scripted".into(),
                 consented: true,
             });
@@ -156,7 +160,7 @@ impl CursorModelFactory for CoreCursorFactory {
     fn build(&self, id: &str, settings: &CursorSettings) -> Option<Arc<dyn ComputerUseModel>> {
         let s = self.services()?;
         let completer: Arc<dyn VisionCompleter> = match id {
-            "mock" => return Some(Arc::new(ScriptedModel::actions("mock", self.mock_script.clone()?))),
+            "mock" => return Some(Arc::new(ScriptedModel::new("mock", self.mock_script.clone()?))),
             "claudeCode" => {
                 let st = s.claude_binary_cached()?;
                 Arc::new(ClaudeCli {

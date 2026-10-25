@@ -142,10 +142,18 @@ function handleStart(r: CursorStartResult, task: string, source: CursorSource): 
     case "NeedsConsent":
       st.patch({ consent: { backend: r.backend, task, source }, open: true });
       break;
-    case "NoBackend":
-      st.patch({ error: t("cursor:errors.noBackend", { reason: r.reason }), open: true });
+    case "NoBackend": {
+      const s = useCursorStore.getState().status;
+      const reason = s
+        ? s.backends
+            .filter((b) => b.source === s.settings.source && b.id !== "mock")
+            .map((b) => `${b.label}: ${detailText(b.detail)}`)
+            .join("; ")
+        : r.reason;
+      st.patch({ error: t("cursor:errors.noBackend", { reason }), open: true });
       speak(t("cursor:say.noBackend"));
       break;
+    }
   }
   return r;
 }
@@ -248,6 +256,14 @@ export async function loadShot(id: string): Promise<string | null> {
   } catch {
     return null;
   }
+}
+
+/** Localized backend detail (`notFound`, `subscription:max`, `key:OpenAI`, …). */
+export function detailText(detail: string): string {
+  const i = detail.indexOf(":");
+  const code = i < 0 ? detail : detail.slice(0, i);
+  const value = i < 0 ? "" : detail.slice(i + 1);
+  return t(`cursor:detail.${code}`, { value, defaultValue: detail });
 }
 
 /** One-line localized description of an action. */
