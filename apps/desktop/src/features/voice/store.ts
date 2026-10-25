@@ -10,6 +10,7 @@ import { create } from "zustand";
 
 import { maybeClient } from "../../core/client";
 import { describeError } from "../../i18n/errors";
+import type { JarvisMode } from "./jarvis/model";
 import type { CommandOutcome, ReplyTone } from "./pipeline/executor";
 
 /** Pipeline phase shown by the HUD. */
@@ -51,6 +52,8 @@ export interface VoiceState {
   /** Confirmation question while `phase === "confirm"`. */
   confirmText: string | null;
   speaking: boolean;
+  /** Assistant mode the Jarvis card shows (command / chat / cursor; set by the mode's owner). */
+  assistantMode: JarvisMode;
   /** Open mic purposes (several can overlap: wake listening + command). */
   mic: MicPurpose[];
   /** 0..1 input level (smoothed) for meters. */
@@ -66,7 +69,7 @@ export interface VoiceState {
   patch: (fn: (c: VoiceConfig) => VoiceConfig) => Promise<boolean>;
   setConsent: (scope: VoiceConsentScope, granted: boolean, engine?: SttEngine, opts?: { ttsEngine?: TtsEngine; keepSelection?: boolean }) => Promise<boolean>;
   setHudOpen: (open: boolean) => void;
-  setRuntime: (patch: Partial<Pick<VoiceState, "phase" | "source" | "transcript" | "reply" | "confirmText" | "speaking" | "level" | "wakeStatus" | "wakeError" | "wakeLoadPct">>) => void;
+  setRuntime: (patch: Partial<Pick<VoiceState, "phase" | "source" | "transcript" | "reply" | "confirmText" | "speaking" | "assistantMode" | "level" | "wakeStatus" | "wakeError" | "wakeLoadPct">>) => void;
   micOn: (p: MicPurpose) => void;
   micOff: (p: MicPurpose) => void;
   pushHistory: (item: Omit<HistoryItem, "id" | "at">) => void;
@@ -88,6 +91,7 @@ export const useVoiceStore = create<VoiceState>()((set, get) => ({
   reply: null,
   confirmText: null,
   speaking: false,
+  assistantMode: "command",
   mic: [],
   level: 0,
   wakeStatus: "off",

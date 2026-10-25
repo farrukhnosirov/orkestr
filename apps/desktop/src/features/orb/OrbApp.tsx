@@ -9,7 +9,7 @@
 import type { AppSettings, Event, OrbAnimation, PerformanceMode } from "@orkestr/protocol";
 import { TOPIC_GLOBAL } from "@orkestr/protocol";
 import { clsx } from "clsx";
-import { type PointerEvent as ReactPointerEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, type PointerEvent as ReactPointerEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { bootstrapCore, maybeClient } from "../../core/client";
 import { applyLanguagePreference, languagePreference, useT } from "../../i18n";
@@ -21,6 +21,10 @@ import { initSecurityLive, useSecurityStore } from "../security/store";
 import { useSettingsStore } from "../settings/settingsStore";
 import { activeTheme, useThemeStore } from "../theme/themeStore";
 import { useThemeEngine } from "../theme/ThemeRuntime";
+import { channelSignal } from "../voice/jarvis/frame";
+import { JarvisReactor } from "../voice/jarvis/JarvisReactor";
+import { COLLAPSE_MS, reactorFps } from "../voice/jarvis/model";
+import { useJarvisDebug, useJarvisState } from "../voice/jarvis/useJarvisState";
 import { useOrbMainState, voicePopupWanted } from "./channel";
 import { hubActions, useHubData } from "./hubData";
 import { type HubItem, groupByProject, hubCounts } from "./hubModel";
@@ -37,18 +41,20 @@ import {
   orbMood,
   orbMotion,
   orbPrefsOf,
+  reactorAmbient,
 } from "./model";
 import { OrbHub } from "./OrbHub";
 import { type OrbMenuAction, OrbMenu } from "./OrbMenu";
-import { OrbSphere } from "./OrbSphere";
 import { OrbVoicePopup } from "./OrbVoicePopup";
 import { ORB_EVENTS, type OrbLayout, type OrbMoved, orbShell, savePosition } from "./shell";
 import "./orb.css";
 
 /** Size of the orb menu area (logical px). */
 const MENU_SIZE = { width: 232, height: 300 } as const;
-/** Size of the voice popup area (logical px). */
-const VOICE_SIZE = { width: 300, height: 168 } as const;
+/** Size of the voice transcript panel next to the grown orb of `size` px (logical px). */
+export function voiceCardSize(size: number): { width: number; height: number } {
+  return { width: 316, height: Math.max(size, 164) };
+}
 
 type Panel = "none" | "hub" | "menu" | "voice";
 
@@ -138,8 +144,13 @@ function useOrbDebugHook(): Partial<OrbSignals> | null {
 }
 
 /** Browser preview (`?orb=1`): no shell, the hub opens to the right of the sphere. */
-function previewLayout(panel: Panel, box: number): OrbLayout {
-  return panel === "none" ? { orbX: 0, orbY: 0, hubX: 0, hubY: 0, side: "right" } : { orbX: 0, orbY: 0, hubX: box + 8, hubY: 0, side: "right" };
+function previewLayout(panel: Panel, box: number, grow: number): OrbLayout {
+  if (panel === "none") return { orbX: 0, orbY: 0, hubX: 0, hubY: 0, side: "right" };
+  if (panel === "voice") {
+    const off = Math.max(0, (grow - box) / 2);
+    return { orbX: off, orbY: off, hubX: Math.max(grow, box) + 8, hubY: 0, side: "right" };
+  }
+  return { orbX: 0, orbY: 0, hubX: box + 8, hubY: 0, side: "right" };
 }
 
 export function OrbApp() {
@@ -155,7 +166,9 @@ export function OrbApp() {
   useAiUiRuntime(connected, false);
   const reducedMotion = useReducedMotion();
   const hidden = useDocumentHidden();
-  const main = useOrbMainState();
+  const signal = useMemo(() => channelSignal(), []);
+  const main = useOrbMainState(signal.push);
+  const jarvisForced = useJarvisDebug();
 
   const [panel, setPanel] = useState<Panel>("none");
   const [layout, setLayout] = useState<OrbLayout>({ orbX: 0, orbY: 0, hubX: 0, hubY: 0, side: "right" });
@@ -217,14 +230,32 @@ export function OrbApp() {
     if (errs.length) setAcknowledged((prev) => new Set([...prev, ...errs.map((i) => i.id)]));
   }, [panel, hub.items, acknowledged]);
 
-  // Background voice command: the popup opens next to the orb and closes when it is done.
+  // Background voice command: the Jarvis card opens next to the orb and
+  // collapses back into it when the command is done.
   const voiceState = main.state.voice;
   const appActive = main.state.appActive;
+  const jarvisState = useJarvisState(voiceState.phase, voiceState.speaking, voiceState.source);
+  const [leaving, setLeaving] = useState(false);
   useEffect(() => {
-    const want = voicePopupWanted(voiceState, appActive, panel === "voice");
-    if (want && panel === "none") setPanel("voice");
-    else if (!want && panel === "voice") setPanel("none");
-  }, [voiceState, appActive, panel]);
+    const want = jarvisForced !== null || voicePopupWanted(voiceState, appActive, panel === "voice", prefs.enabled);
+    if (want && (panel === "none" || (panel === "voice" && leaving))) {
+      setLeaving(false);
+      setPanel("voice");
+    } else if (!want && panel === "voice" && !leaving) setLeaving(true);
+  }, [voiceState, appActive, panel, leaving, jarvisForced, prefs.enabled]);
+  useEffect(() => {
+    if (!leaving) return undefined;
+    const timer = window.setTimeout(() => {
+      setLeaving(false);
+      setPanel((cur) => (cur === "voice" ? "none" : cur));
+    }, COLLAPSE_MS);
+    return () => window.clearTimeout(timer);
+  }, [leaving]);
+  // Dragging the card moves the orb with it; afterwards the card re-picks its side.
+  const [relayout, setRelayout] = useState(0);
+  const voiceFps = reactorFps(mode, reducedMotion, hidden);
+  const voiceSize = prefs.voiceSize;
+  const voiceDims = voiceCardSize(voiceSize);
 
   // Window area for the open panel (the shell grows the window next to the sphere).
   const openPanel = useCallback((next: Panel) => setPanel(next), []);
@@ -236,14 +267,14 @@ export function OrbApp() {
         : panel === "menu"
           ? [MENU_SIZE.width, MENU_SIZE.height]
           : panel === "voice"
-            ? [VOICE_SIZE.width, VOICE_SIZE.height]
+            ? [voiceDims.width, voiceDims.height]
             : null;
     if (!orbShell.available()) {
-      setLayout(previewLayout(panel, box));
+      setLayout(previewLayout(panel, box, voiceSize));
       return undefined;
     }
     let cancelled = false;
-    orbShell.setLayout(dims).then(
+    orbShell.setLayout(dims, panel === "voice" ? voiceSize : null).then(
       (l) => {
         if (l && !cancelled) setLayout(l);
       },
@@ -252,13 +283,16 @@ export function OrbApp() {
     return () => {
       cancelled = true;
     };
-  }, [panel, box]);
+  }, [panel, box, voiceSize, voiceDims.width, voiceDims.height, relayout]);
 
   // Shell signals.
   useEffect(() => {
     const subs = [
       orbShell.on<boolean>(ORB_EVENTS.hover, setHovered),
-      orbShell.on<boolean>(ORB_EVENTS.drag, setDragging),
+      orbShell.on<boolean>(ORB_EVENTS.drag, (d) => {
+        setDragging(d);
+        if (!d) setRelayout((n) => n + 1);
+      }),
       orbShell.on<OrbMoved>(ORB_EVENTS.moved, (p) => savePosition({ monitor: p.monitor, x: p.x, y: p.y })),
       orbShell.on<null>(ORB_EVENTS.hub, () => setPanel((cur) => (cur === "hub" ? "none" : "hub"))),
     ];
@@ -291,12 +325,15 @@ export function OrbApp() {
       window.clearTimeout(timer);
     };
   }, [panel, layout]);
+  const voiceOn = panel === "voice";
   useEffect(() => {
     const shape = orbHitShape({ x: layout.orbX, y: layout.orbY }, size, [panelBox]);
+    // The grown voice circle takes clicks over its whole disc.
+    if (voiceOn) shape.circles = [{ cx: layout.orbX + box / 2, cy: layout.orbY + box / 2, r: voiceSize * 0.42 + 4 }];
     // Orb switched off (popup only): the hidden sphere takes no clicks.
-    if (!prefs.enabled) shape.circles = [];
+    if (!prefs.enabled && !voiceOn) shape.circles = [];
     orbShell.setShape(shape).catch((e: unknown) => console.warn("orb_set_shape", e));
-  }, [layout.orbX, layout.orbY, size, panelBox, prefs.enabled]);
+  }, [layout.orbX, layout.orbY, size, box, panelBox, prefs.enabled, voiceOn, voiceSize]);
 
   // Escape anywhere closes; the hub handles its own keys first.
   useEffect(() => {
@@ -344,25 +381,48 @@ export function OrbApp() {
   };
   const onPointerMove = (e: ReactPointerEvent) => {
     const p = press.current;
-    if (!p || p.dragged || panel !== "none" || !isDragGesture(e.clientX - p.x, e.clientY - p.y)) return;
+    if (!p || p.dragged || (panel !== "none" && panel !== "voice") || !isDragGesture(e.clientX - p.x, e.clientY - p.y)) return;
     p.dragged = true;
     void orbShell.startDragging().catch((err: unknown) => console.warn("startDragging", err));
   };
   const onPointerUp = () => {
     const p = press.current;
     press.current = null;
-    if (p && !p.dragged) openPanel(panel === "hub" ? "none" : "hub");
+    // During a voice command the circle only drags; afterwards a click opens the Agent Hub.
+    if (p && !p.dragged && panel !== "voice") openPanel(panel === "hub" ? "none" : "hub");
   };
 
   const label = t("orb.label", { state: t(`mood.${mood}`) });
   const panelStyle = { left: layout.hubX, top: layout.hubY };
+  // One circle: the orb itself. At rest it is the small reactor showing the
+  // agents' state; during a voice command it grows about its centre.
+  const circle = voiceOn ? Math.max(voiceSize, box) : box;
+  const centerX = layout.orbX + box / 2;
+  const centerY = layout.orbY + box / 2;
+  const reactorState = voiceOn ? (jarvisForced?.state ?? jarvisState) : "idle";
+  const orbStyle: CSSProperties & Record<"--orb-from", string> = {
+    left: centerX - circle / 2,
+    top: centerY - circle / 2,
+    width: circle,
+    height: circle,
+    "--orb-from": String(box / circle),
+  };
 
   return (
     <div className={clsx("orb-root", `orb-root--${mood}`, `orb-root--${motion}`)}>
       <div
         ref={sphereRef}
-        className={clsx("orb", hovered && "orb--hover", dragging && "orb--drag", panel === "hub" && "orb--open", !prefs.enabled && "orb--ghost")}
-        style={{ left: layout.orbX, top: layout.orbY, width: box, height: box }}
+        className={clsx(
+          "orb",
+          hovered && "orb--hover",
+          dragging && "orb--drag",
+          panel === "hub" && "orb--open",
+          !prefs.enabled && !voiceOn && "orb--ghost",
+          voiceOn && "orb--voice",
+          voiceOn && leaving && "orb--shrink",
+          voiceOn && voiceFps > 0 && "orb--animate",
+        )}
+        style={orbStyle}
         role="button"
         tabIndex={0}
         aria-label={label}
@@ -388,17 +448,18 @@ export function OrbApp() {
           openPanel(panel === "menu" ? "none" : "menu");
         }}
       >
-        <OrbSphere
-          size={size}
-          pad={ORB_PAD}
-          mood={mood}
-          motion={motion}
-          fps={fps}
-          rings={Math.min(3, Math.max(1, counts.working))}
-          level={main.state.voice.level}
+        <JarvisReactor
+          presence
+          size={circle}
+          state={reactorState}
+          level={voiceOn ? (jarvisForced?.level ?? voiceState.level) : 0}
+          fps={voiceOn ? voiceFps : fps}
+          signal={voiceOn && !jarvisForced ? signal : null}
+          ambient={reactorAmbient(mood)}
+          workers={counts.working}
           themeKey={themeKey}
           accent={theme.robot?.accent ?? null}
-          lit={hovered || panel !== "none"}
+          className={clsx("jv-reactor orb-reactor", (hovered || panel === "hub") && "orb-reactor--lit")}
         />
         {badge && (
           <span className={clsx("orb-badge", `orb-badge--${badge.tone}`)} aria-hidden="true">
@@ -438,13 +499,27 @@ export function OrbApp() {
         </div>
       )}
       {panel === "voice" && (
-        <div ref={panelRef} className={clsx("orb-panel", `orb-panel--${layout.side}`)} style={{ ...panelStyle, width: VOICE_SIZE.width, height: VOICE_SIZE.height }}>
+        <div ref={panelRef} className={clsx("orb-panel orb-panel--voice", `orb-panel--${layout.side}`)} style={{ ...panelStyle, width: voiceDims.width, height: voiceDims.height }}>
           <OrbVoicePopup
             voice={voiceState}
+            state={jarvisState}
+            forced={jarvisForced}
             onAction={main.voiceAction}
             onOpenMain={() => {
               main.voiceAction("cancel");
               void orbShell.toMain("open-main");
+            }}
+            size={voiceSize}
+            fps={voiceFps}
+            motion={!reducedMotion && voiceFps > 0}
+            signal={signal}
+            themeKey={themeKey}
+            accent={theme.robot?.accent ?? null}
+            side={layout.side}
+            leaving={leaving}
+            onReactorPointerDown={(e) => {
+              if (e.button !== 0) return;
+              void orbShell.startDragging().catch((err: unknown) => console.warn("startDragging", err));
             }}
           />
         </div>

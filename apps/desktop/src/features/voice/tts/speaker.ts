@@ -13,6 +13,7 @@ import type { TtsEngine, VoiceConfig, VoiceProfile } from "@orkestr/protocol";
 import { maybeClient } from "../../../core/client";
 import { engineFromProvider, ttsIsCloud } from "../engineMeta";
 import { fromBase64 } from "../audio/wav";
+import { speechEnded, systemSpeechBoundary, systemSpeechStarted, tapAudioElement } from "./outputTap";
 
 export interface SpeakOptions {
   engine: TtsEngine;
@@ -141,6 +142,7 @@ let speakSeq = 0;
 /** Stops whatever is being spoken. */
 export function stopSpeaking(): void {
   speakSeq += 1;
+  speechEnded();
   if (ttsSupported()) window.speechSynthesis.cancel();
   if (currentAudio) {
     currentAudio.pause();
@@ -162,11 +164,14 @@ async function speakSystem(text: string, o: SpeakOptions, seq: number): Promise<
   u.lang = v?.lang ?? o.lang;
   u.rate = Math.min(2, Math.max(0.5, o.ratePct / 100));
   u.pitch = Math.min(2, Math.max(0, o.pitchPct / 100));
+  systemSpeechStarted(text.length);
+  u.onboundary = (e) => systemSpeechBoundary(e.charIndex);
   await new Promise<void>((resolve) => {
     u.onend = () => resolve();
     u.onerror = () => resolve();
     window.speechSynthesis.speak(u);
   });
+  if (seq === speakSeq) speechEnded();
 }
 
 async function speakCore(text: string, o: SpeakOptions, seq: number): Promise<void> {
@@ -191,11 +196,14 @@ async function speakCore(text: string, o: SpeakOptions, seq: number): Promise<vo
   const audio = new Audio(url);
   audio.playbackRate = Math.min(2, Math.max(0.5, o.ratePct / 100));
   currentAudio = audio;
+  await tapAudioElement(audio);
+  if (seq !== speakSeq) return;
   await new Promise<void>((resolve) => {
     audio.onended = () => resolve();
     audio.onerror = () => resolve();
     audio.play().catch(() => resolve());
   });
+  if (seq === speakSeq) speechEnded();
   if (currentUrl === url) {
     URL.revokeObjectURL(url);
     currentUrl = null;

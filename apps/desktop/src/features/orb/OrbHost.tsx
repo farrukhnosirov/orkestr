@@ -17,7 +17,8 @@ import { useClaudeStore } from "../claudeCode/store";
 import { openCursorPanel } from "../cursor/store";
 import { useSecurityStore } from "../security/store";
 import { useSettingsStore } from "../settings/settingsStore";
-import { answerConfirmation, cancelVoice, startListening, stopListening } from "../voice/controller";
+import { answerConfirmation, cancelVoice, repeatReply, startListening, stopListening } from "../voice/controller";
+import { startSignalBroadcast } from "../voice/jarvis/signal";
 import { useVoiceStore } from "../voice/store";
 import { type OrbMainState, isStateMessage, openChannel, safePost } from "./channel";
 import { orbBoxSize, orbPrefsOf } from "./model";
@@ -56,6 +57,10 @@ function mainState(): OrbMainState {
       transcript: v.transcript,
       reply: v.reply ? { text: v.reply.text, tone: v.reply.tone } : null,
       confirmText: v.confirmText,
+      source: v.source,
+      sttEngine: v.config?.sttEngine ?? null,
+      ttsEngine: v.config?.ttsEngine ?? null,
+      mode: v.assistantMode,
     },
     appActive: typeof document !== "undefined" && document.hasFocus() && !document.hidden,
   };
@@ -127,13 +132,16 @@ export function OrbHost() {
         const action = (m as { action?: unknown }).action;
         if (action === "yes" || action === "no") void answerConfirmation(action === "yes");
         else if (action === "cancel") cancelVoice();
+        else if (action === "repeat") repeatReply();
       } else if (m.type === "ptt") {
         if (m.down === true) void startListening("PushToTalk").catch((err: unknown) => console.warn("orb push-to-talk", err));
         else void stopListening().catch(() => undefined);
       }
     };
     publish();
+    const offSignal = startSignalBroadcast((frame) => safePost(ch, { type: "signal", frame }));
     return () => {
+      offSignal();
       offVoice();
       window.removeEventListener("focus", onFocus);
       window.removeEventListener("blur", onFocus);

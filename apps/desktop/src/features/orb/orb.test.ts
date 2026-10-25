@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { PAUSED_ACTIVITY } from "../../lib/coreText";
 import { IDLE_MAIN_STATE, isStateMessage, voicePopupWanted } from "./channel";
+import { reactorAmbient } from "./model";
 import {
   agentItem,
   agentStatus,
@@ -140,7 +141,8 @@ describe("orb geometry and prefs", () => {
     expect(clampOrbSize(200)).toBe(96);
     expect(clampOrbSize(Number.NaN)).toBe(64);
     expect(orbBoxSize(64)).toBe(88);
-    expect(orbPrefsOf(null)).toEqual({ enabled: true, size: 64, showBadge: true, animation: "Full" });
+    expect(orbPrefsOf(null)).toEqual({ enabled: true, size: 64, showBadge: true, animation: "Full", voiceSize: 150 });
+    expect(orbPrefsOf({ voiceSize: 999 }).voiceSize).toBe(180);
     expect(orbPrefsOf({ size: 500, enabled: false }).size).toBe(96);
   });
   it("hit shape is the sphere circle plus open panels", () => {
@@ -241,5 +243,20 @@ describe("voice popup next to the orb", () => {
     expect(voicePopupWanted(v("listening"), true, false)).toBe(false);
     expect(voicePopupWanted(v("result"), true, true)).toBe(true);
     expect(voicePopupWanted(v("idle"), false, true)).toBe(false);
+    // With the orb shown it is the one voice circle, focused or not.
+    expect(voicePopupWanted(v("listening"), true, false, true)).toBe(true);
+    expect(voicePopupWanted(v("idle"), true, false, true)).toBe(false);
+  });
+});
+
+describe("orb reactor ambient", () => {
+  it("maps moods onto the resting reactor", () => {
+    expect(reactorAmbient("working")).toBe("working");
+    expect(reactorAmbient("approval")).toBe("approval");
+    expect(reactorAmbient("error")).toBe("error");
+    expect(reactorAmbient("offline")).toBe("offline");
+    expect(reactorAmbient("stopped")).toBe("stopped");
+    expect(reactorAmbient("idle")).toBe("calm");
+    expect(reactorAmbient("listening")).toBe("calm");
   });
 });

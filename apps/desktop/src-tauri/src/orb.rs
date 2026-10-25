@@ -483,15 +483,35 @@ pub struct OrbLayout {
     pub side: HubSide,
 }
 
+/// The sphere box grown about its centre to `edge` (the Jarvis circle while a
+/// voice command runs); never smaller than the box itself.
+#[must_use]
+pub fn grown_rect(orb: Rect, edge: f64) -> Rect {
+    let e = edge.max(orb.w);
+    let (cx, cy) = orb.center();
+    Rect { x: cx - e / 2.0, y: cy - e / 2.0, w: e, h: e }
+}
+
+/// `r` moved (not resized) to lie inside `area` where it fits.
+#[must_use]
+pub fn keep_inside(r: Rect, area: Rect) -> Rect {
+    let x = r.x.clamp(area.x, (area.right() - r.w).max(area.x));
+    let y = r.y.clamp(area.y, (area.bottom() - r.h).max(area.y));
+    Rect { x, y, ..r }
+}
+
 /// Orb webview → shell: opens (`hub = Some([w, h])`, logical px) or closes the
 /// hub area. The sphere keeps its screen position; returns where the webview
-/// must draw the sphere and the flyout.
+/// must draw the sphere and the flyout. `grow` (logical px) reserves room for
+/// the orb growing about its centre (the voice circle): the flyout is placed
+/// next to the grown circle and the window holds all of it.
 #[tauri::command]
 pub async fn orb_set_layout(
     app: AppHandle,
     window: WebviewWindow,
     state: tauri::State<'_, OrbState>,
     hub: Option<(f64, f64)>,
+    grow: Option<f64>,
 ) -> Result<OrbLayout, String> {
     if window.label() != ORB_WINDOW {
         return Err("not the orb window".to_owned());
@@ -501,15 +521,22 @@ pub async fn orb_set_layout(
         let o = reg.orb.as_ref().ok_or("the orb is not shown")?;
         (o.orb_rect(), o.scale)
     };
-    let (win, orb_off, hub_off, side) = match hub {
+    // `draw_off`: where the webview centres the circle (the grown circle is
+    // kept on screen, so near an edge it shifts a little off the sphere box).
+    let (win, orb_off, draw_off, hub_off, side) = match hub {
         Some((w, h)) => {
             let w = if w.is_finite() { w.clamp(200.0, 640.0) } else { 360.0 };
             let h = if h.is_finite() { h.clamp(160.0, 900.0) } else { 520.0 };
             let area = area_of(rect, &work_areas(&app)).unwrap_or(rect);
-            let g = hub_layout(rect, area, (w * scale, h * scale), HUB_GAP * scale);
-            (g.window, g.orb, g.hub, g.side)
+            let edge = grow.filter(|g| g.is_finite()).map_or(0.0, |g| g.clamp(0.0, 240.0) * scale);
+            let big = keep_inside(grown_rect(rect, edge), area);
+            let g = hub_layout(big, area, (w * scale, h * scale), HUB_GAP * scale);
+            // The sphere box inside the window, and the box centred in the grown circle.
+            let orb_off = (g.orb.0 + (rect.x - big.x), g.orb.1 + (rect.y - big.y));
+            let draw_off = (g.orb.0 + (big.w - rect.w) / 2.0, g.orb.1 + (big.h - rect.h) / 2.0);
+            (g.window, orb_off, draw_off, g.hub, g.side)
         }
-        None => (rect, (0.0, 0.0), (0.0, 0.0), HubSide::Right),
+        None => (rect, (0.0, 0.0), (0.0, 0.0), (0.0, 0.0), HubSide::Right),
     };
     {
         let mut reg = lock(&state)?;
@@ -523,8 +550,8 @@ pub async fn orb_set_layout(
     move_window(&app, &window, win.x, win.y);
     let _ = window.set_size(PhysicalSize::new(win.w.round() as u32, win.h.round() as u32));
     Ok(OrbLayout {
-        orb_x: orb_off.0 / scale,
-        orb_y: orb_off.1 / scale,
+        orb_x: draw_off.0 / scale,
+        orb_y: draw_off.1 / scale,
         hub_x: hub_off.0 / scale,
         hub_y: hub_off.1 / scale,
         side,
@@ -571,7 +598,9 @@ pub fn on_window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
                 o.expected_pos = None;
                 return;
             }
-            if o.inside && !o.expanded {
+            // A user drag (the sphere, or the Jarvis voice card that moves the
+            // orb along with it): snap and remember the position when it ends.
+            if o.inside {
                 if o.last_user_move.is_none() {
                     let _ = app.emit_to(ORB_WINDOW, EV_DRAG, true);
                 }
@@ -769,6 +798,25 @@ mod tests {
         let stale = OrbPosition { monitor: Some("A".into()), x: 5000.0, y: 5000.0 };
         assert_eq!(resolve_position(&[stale], &monitors, Some(SCREEN), 88.0, 24.0), (1808.0, 928.0));
         assert_eq!(resolve_position(&[], &[], None, 88.0, 24.0), (1280.0 - 24.0 - 88.0, 720.0 - 24.0 - 88.0));
+    }
+
+    #[test]
+    fn grown_rect_is_centred_and_never_smaller() {
+        let orb = Rect { x: 100.0, y: 100.0, w: 88.0, h: 88.0 };
+        let g = grown_rect(orb, 150.0);
+        assert_eq!(g.center(), orb.center());
+        assert!((g.w - 150.0).abs() < 1e-9);
+        assert_eq!(grown_rect(orb, 10.0), orb);
+        // Near the screen edge the grown circle shifts back on screen.
+        let screen = Rect { x: 0.0, y: 0.0, w: 1920.0, h: 1080.0 };
+        let corner = Rect { x: 1808.0, y: 968.0, w: 88.0, h: 88.0 };
+        let k = keep_inside(grown_rect(corner, 150.0), screen);
+        assert!(k.x + k.w <= 1920.0 && k.y + k.h <= 1080.0);
+        // The flyout goes next to the grown circle, and the window holds both.
+        let area = Rect { x: 0.0, y: 0.0, w: 1920.0, h: 1080.0 };
+        let h = hub_layout(g, area, (300.0, 176.0), 8.0);
+        assert!(h.window.x <= g.x && h.window.x + h.window.w >= g.x + g.w);
+        assert!(h.hub.0 >= g.w + 8.0 - 1e-9);
     }
 
     #[test]

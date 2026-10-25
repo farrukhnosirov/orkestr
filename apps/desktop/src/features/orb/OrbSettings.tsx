@@ -13,10 +13,11 @@ import { useAiUiStore, useUiPrefs } from "../aiui/aiuiStore";
 import { Segmented, SettingGroup, SettingRow, Switch } from "../settings/controls";
 import type { SettingsSectionProps } from "../settings/sections";
 import { activeTheme, useThemeStore } from "../theme/themeStore";
-import { ORB_HUB_SHORTCUT, ORB_PAD, type OrbMood, orbPrefsOf } from "./model";
+import { ORB_HUB_SHORTCUT, ORB_PAD, type OrbMood, orbPrefsOf, reactorAmbient } from "./model";
 import { ANIMATIONS } from "./OrbMenu";
-import { OrbSphere } from "./OrbSphere";
+import { JarvisReactor } from "../voice/jarvis/JarvisReactor";
 import { orbShell } from "./shell";
+import { JARVIS_SIZES } from "../voice/jarvis/model";
 import "./orb.css";
 
 const SIZES = [56, 64, 72] as const;
@@ -49,6 +50,14 @@ export function OrbSettings(_props: SettingsSectionProps) {
             onChange={(v) => patch("size", Number(v), t("summaries.size", { size: v }))}
           />
         </SettingRow>
+        <SettingRow title={t("settings.voiceSize")} description={t("settings.voiceSizeDesc")}>
+          <Segmented<string>
+            label={t("settings.voiceSize")}
+            value={String(prefs.voiceSize)}
+            options={JARVIS_SIZES.map((s) => ({ value: String(s), label: t(`settings.voiceSizes.${s}`) }))}
+            onChange={(v) => patch("voiceSize", Number(v), t("summaries.voiceSize", { size: v }))}
+          />
+        </SettingRow>
         <SettingRow title={t("settings.badge")} description={t("settings.badgeDesc")}>
           <Switch label={t("settings.badge")} checked={prefs.showBadge} onChange={(v) => patch("showBadge", v, t("summaries.badge"))} />
         </SettingRow>
@@ -78,17 +87,16 @@ export function OrbSettings(_props: SettingsSectionProps) {
           {PREVIEW.map((mood) => (
             <div key={mood}>
               <span className="orb-settings__swatch">
-                <OrbSphere
-                  size={prefs.size}
-                  pad={ORB_PAD}
-                  mood={mood}
-                  motion="static"
+                <JarvisReactor
+                  presence
+                  size={prefs.size + ORB_PAD * 2}
+                  state={mood === "listening" ? "listening" : mood === "speaking" ? "speaking" : "idle"}
+                  ambient={reactorAmbient(mood)}
+                  workers={2}
                   fps={0}
-                  rings={2}
                   level={0.6}
                   themeKey={`${theme.id}:${theme.mode}:${JSON.stringify(theme.tokens)}`}
                   accent={theme.robot?.accent ?? null}
-                  lit={false}
                 />
               </span>
               <span className="orb-settings__label">{t(`mood.${mood}`)}</span>

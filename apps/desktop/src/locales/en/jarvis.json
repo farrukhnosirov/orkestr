@@ -35,7 +35,9 @@
     "commands": "Commands",
     "chat": "Conversation",
     "commandsHint": "I run commands; an unknown task goes to the AI planner.",
-    "chatHint": "Talk with the AI; commands like \"open YouTube\" still run."
+    "chatHint": "Talk with the AI; commands like \"open YouTube\" still run.",
+    "command": "Command",
+    "cursor": "Cursor"
   },
   "chat": {
     "title": "Conversation",
@@ -65,23 +67,107 @@
   },
   "say": {
     "greet": {
-      "morning": ["Good morning{{addr}}.", "Good morning{{addr}}. All systems are nominal.", "Good morning{{addr}}. Ready when you are."],
-      "day": ["Good afternoon{{addr}}.", "Good afternoon{{addr}}. What shall we do?", "Good afternoon{{addr}}. All systems are nominal."],
-      "evening": ["Good evening{{addr}}.", "Good evening{{addr}}. How may I help?", "Good evening{{addr}}. At your service."],
-      "night": ["Good evening{{addr}}. Rather late for work, but I'm at your service.", "Working late{{addr}}? How may I help?"]
+      "morning": [
+        "Good morning{{addr}}.",
+        "Good morning{{addr}}. All systems are nominal.",
+        "Good morning{{addr}}. Ready when you are."
+      ],
+      "day": [
+        "Good afternoon{{addr}}.",
+        "Good afternoon{{addr}}. What shall we do?",
+        "Good afternoon{{addr}}. All systems are nominal."
+      ],
+      "evening": [
+        "Good evening{{addr}}.",
+        "Good evening{{addr}}. How may I help?",
+        "Good evening{{addr}}. At your service."
+      ],
+      "night": [
+        "Good evening{{addr}}. Rather late for work, but I'm at your service.",
+        "Working late{{addr}}? How may I help?"
+      ]
     },
-    "welcome": ["Welcome back{{addr}}.", "Welcome back{{addr}}. All systems are nominal.", "Good to see you{{addr}}. Orkestr is ready."],
-    "listening": ["Listening{{addr}}.", "Yes{{addr}}?", "I'm all ears{{addr}}."],
-    "modeChat": ["Conversation mode{{addr}}. I'm all ears.", "Happy to chat{{addr}}. Go ahead.", "Switching to conversation{{addr}}."],
-    "modeCommands": ["Command mode{{addr}}. Awaiting instructions.", "Back to business{{addr}}.", "As you wish{{addr}}. Commands only."],
-    "forgot": ["Conversation forgotten{{addr}}. A clean slate.", "History cleared{{addr}}.", "Done{{addr}}. I remember nothing."],
-    "addressSet": ["As you wish{{addr}}.", "Noted{{addr}}."],
-    "noModel": ["I'm afraid no conversation model is connected{{addr}}. Add a provider in Settings.", "I have no one to consult{{addr}}: connect an AI provider and we'll continue."],
-    "aiFailed": ["I'm afraid I lost the model{{addr}}: {{error}}", "I couldn't get an answer{{addr}}: {{error}}"],
-    "notUnderstood": ["I'm afraid I didn't quite catch that{{addr}}. Once more?", "I beg your pardon{{addr}}? Once more, please."],
-    "nothingToRepeat": ["I haven't said anything yet{{addr}}."],
-    "done": ["Done{{addr}}.", "All done{{addr}}.", "Taken care of{{addr}}."],
-    "cancelled": ["Cancelled{{addr}}.", "As you wish{{addr}}. Standing down."],
-    "handoff": ["On it{{addr}}.", "Right away{{addr}}."]
+    "welcome": [
+      "Welcome back{{addr}}.",
+      "Welcome back{{addr}}. All systems are nominal.",
+      "Good to see you{{addr}}. Orkestr is ready."
+    ],
+    "listening": [
+      "Listening{{addr}}.",
+      "Yes{{addr}}?",
+      "I'm all ears{{addr}}."
+    ],
+    "modeChat": [
+      "Conversation mode{{addr}}. I'm all ears.",
+      "Happy to chat{{addr}}. Go ahead.",
+      "Switching to conversation{{addr}}."
+    ],
+    "modeCommands": [
+      "Command mode{{addr}}. Awaiting instructions.",
+      "Back to business{{addr}}.",
+      "As you wish{{addr}}. Commands only."
+    ],
+    "forgot": [
+      "Conversation forgotten{{addr}}. A clean slate.",
+      "History cleared{{addr}}.",
+      "Done{{addr}}. I remember nothing."
+    ],
+    "addressSet": [
+      "As you wish{{addr}}.",
+      "Noted{{addr}}."
+    ],
+    "noModel": [
+      "I'm afraid no conversation model is connected{{addr}}. Add a provider in Settings.",
+      "I have no one to consult{{addr}}: connect an AI provider and we'll continue."
+    ],
+    "aiFailed": [
+      "I'm afraid I lost the model{{addr}}: {{error}}",
+      "I couldn't get an answer{{addr}}: {{error}}"
+    ],
+    "notUnderstood": [
+      "I'm afraid I didn't quite catch that{{addr}}. Once more?",
+      "I beg your pardon{{addr}}? Once more, please."
+    ],
+    "nothingToRepeat": [
+      "I haven't said anything yet{{addr}}."
+    ],
+    "done": [
+      "Done{{addr}}.",
+      "All done{{addr}}.",
+      "Taken care of{{addr}}."
+    ],
+    "cancelled": [
+      "Cancelled{{addr}}.",
+      "As you wish{{addr}}. Standing down."
+    ],
+    "handoff": [
+      "On it{{addr}}.",
+      "Right away{{addr}}."
+    ]
+  },
+  "title": "Voice assistant",
+  "micOn": "Microphone on",
+  "status": {
+    "idle": "Standing by",
+    "listening": "Listening…",
+    "transcribing": "Recognizing…",
+    "thinking": "Thinking…",
+    "speaking": "Replying…",
+    "confirm": "Awaiting your answer",
+    "done": "Done",
+    "error": "Something went wrong"
+  },
+  "hint": {
+    "listening": "Go ahead — for example, “open YouTube”",
+    "thinking": "Working on it…",
+    "idle": "Say the wake word or hold the hotkey"
+  },
+  "actions": {
+    "repeat": "Repeat",
+    "repeatHint": "Say the reply again",
+    "cancel": "Cancel",
+    "open": "Open in Orkestr",
+    "yes": "Yes",
+    "no": "No"
   }
 }

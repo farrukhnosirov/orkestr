@@ -6,6 +6,7 @@
 import type { OrbAnimation, OrbPrefs, PerformanceMode } from "@orkestr/protocol";
 
 import { resolvePolicy } from "../performance/policy";
+import { clampJarvisSize, JARVIS_DEFAULT_SIZE, type ReactorAmbient } from "../voice/jarvis/model";
 
 /** What the sphere expresses, most urgent first. */
 export type OrbMood = "offline" | "listening" | "speaking" | "stopped" | "approval" | "error" | "working" | "idle";
@@ -54,6 +55,24 @@ export type BadgeTone = "accent" | "warning" | "danger";
 export interface OrbBadge {
   count: number;
   tone: BadgeTone;
+}
+
+/** How the resting reactor (the orb) shows a mood. Voice moods rest calm; the voice card drives them. */
+export function reactorAmbient(mood: OrbMood): ReactorAmbient {
+  switch (mood) {
+    case "offline":
+      return "offline";
+    case "stopped":
+      return "stopped";
+    case "approval":
+      return "approval";
+    case "error":
+      return "error";
+    case "working":
+      return "working";
+    default:
+      return "calm";
+  }
 }
 
 /** The count badge: approvals first, then errors, then working agents (none when 0 or switched off). */
@@ -121,7 +140,7 @@ export const ORB_HUB_SHORTCUT = "Ctrl+Alt+O";
 /** Room around the sphere for its glow and badge, in px. */
 export const ORB_PAD = 12;
 
-export const DEFAULT_ORB_PREFS: OrbPrefs = { enabled: true, size: 64, showBadge: true, animation: "Full" };
+export const DEFAULT_ORB_PREFS: OrbPrefs = { enabled: true, size: 64, showBadge: true, animation: "Full", voiceSize: JARVIS_DEFAULT_SIZE };
 
 /** Sphere size, clamped to the supported range (48..96 px). */
 export function clampOrbSize(size: number): number {
@@ -169,5 +188,5 @@ export function isDragGesture(dx: number, dy: number): boolean {
 /** Orb preferences of a document, defaults filled in. */
 export function orbPrefsOf(p: Partial<OrbPrefs> | null | undefined): OrbPrefs {
   const merged = { ...DEFAULT_ORB_PREFS, ...(p ?? {}) };
-  return { ...merged, size: clampOrbSize(merged.size) };
+  return { ...merged, size: clampOrbSize(merged.size), voiceSize: clampJarvisSize(merged.voiceSize) };
 }

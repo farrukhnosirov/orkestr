@@ -22,4 +22,9 @@ showBadge: boolean,
 /**
  * Animation level.
  */
-animation: OrbAnimation, };
+animation: OrbAnimation, 
+/**
+ * Diameter of the Jarvis voice circle while a voice command runs
+ * ([`ORB_VOICE_SIZE_RANGE`]; additive, wave 9).
+ */
+voiceSize: number, };
