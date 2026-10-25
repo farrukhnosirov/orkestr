@@ -105,11 +105,7 @@ async fn run_npm(args: &[String], timeout: Duration) -> Result<String, String> {
         .ok_or("npm was not found — install Node.js (https://nodejs.org) first")?;
     let mut cmd = tokio::process::Command::new(&npm);
     cmd.args(args).stdin(std::process::Stdio::null()).kill_on_drop(true);
-    #[cfg(windows)]
-    {
-        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-        cmd.creation_flags(CREATE_NO_WINDOW);
-    }
+    orkestr_platform::process::HideConsole::hide_console(&mut cmd);
     let out = tokio::time::timeout(timeout, cmd.output())
         .await
         .map_err(|_| format!("npm did not finish within {}s", timeout.as_secs()))?

@@ -53,7 +53,7 @@ fn current_user_sid() -> PlatformResult<String> {
     use std::sync::OnceLock;
     static SID: OnceLock<Option<String>> = OnceLock::new();
     let sid = SID.get_or_init(|| {
-        let out = std::process::Command::new("whoami").args(["/user", "/fo", "csv", "/nh"]).output().ok()?;
+        let out = crate::process::background_command("whoami").args(["/user", "/fo", "csv", "/nh"]).output().ok()?;
         if !out.status.success() {
             return None;
         }
@@ -72,7 +72,7 @@ pub fn restrict_to_current_user(path: &Path) -> PlatformResult<()> {
     #[cfg(windows)]
     {
         let sid = current_user_sid()?;
-        let out = std::process::Command::new("icacls")
+        let out = crate::process::background_command("icacls")
             .arg(path)
             .args(["/inheritance:r", "/grant:r"])
             .arg(format!("*{sid}:F"))

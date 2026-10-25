@@ -44,14 +44,14 @@ fn spawn_opener(url: &str) -> PlatformResult<()> {
 
 #[cfg(target_os = "macos")]
 fn spawn_opener(url: &str) -> PlatformResult<()> {
-    let mut cmd = std::process::Command::new("open");
+    let mut cmd = crate::process::background_command("open");
     cmd.arg(url);
     detach(cmd)
 }
 
 #[cfg(all(unix, not(target_os = "macos")))]
 fn spawn_opener(url: &str) -> PlatformResult<()> {
-    let mut cmd = std::process::Command::new("xdg-open");
+    let mut cmd = crate::process::background_command("xdg-open");
     cmd.arg(url);
     detach(cmd)
 }

@@ -196,6 +196,7 @@ impl GitRunner {
         }
         let mut cmd = tokio::process::Command::from(std_cmd);
         cmd.kill_on_drop(true);
+        orkestr_platform::process::HideConsole::hide_console(&mut cmd);
         let mut child = cmd.spawn().map_err(|e| {
             if e.kind() == std::io::ErrorKind::NotFound {
                 if dir.is_dir() {

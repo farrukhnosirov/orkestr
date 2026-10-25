@@ -127,7 +127,7 @@ pub fn import_gguf(bin: &Path, model_ref: &str, gguf: &Path, scratch: &Path, tim
     let from = gguf.to_string_lossy().replace('\\', "/");
     std::fs::write(&modelfile, format!("FROM {from}\n")).map_err(|e| e.to_string())?;
     let result = run_with_timeout(
-        std::process::Command::new(bin).arg("create").arg(model_ref).arg("-f").arg(&modelfile),
+        orkestr_platform::process::background_command(bin).arg("create").arg(model_ref).arg("-f").arg(&modelfile),
         timeout,
     );
     let _ = std::fs::remove_file(&modelfile);

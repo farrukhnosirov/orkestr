@@ -9,6 +9,7 @@ publish.workspace = true
 
 [dependencies]
 orkestr-domain.workspace = true
+orkestr-platform.workspace = true
 async-trait.workspace = true
 thiserror.workspace = true
 serde.workspace = true

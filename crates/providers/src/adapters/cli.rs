@@ -94,6 +94,8 @@ pub(crate) fn command(program: &Path, args: &[String]) -> tokio::process::Comman
         }
     }
     cmd.kill_on_drop(true);
+    // `.cmd` shims (claude.cmd, codex.cmd) run through cmd.exe: never show its console.
+    orkestr_platform::process::HideConsole::hide_console(&mut cmd);
     cmd
 }
 

@@ -762,7 +762,11 @@ fn git_head_blobs(root: &Path) -> BTreeMap<String, String> {
     if !root.join(".git").exists() {
         return BTreeMap::new();
     }
-    let Ok(out) = std::process::Command::new("git").arg("-C").arg(root).args(["ls-tree", "-r", "-z", "HEAD"]).output()
+    let Ok(out) = orkestr_platform::process::background_command("git")
+        .arg("-C")
+        .arg(root)
+        .args(["ls-tree", "-r", "-z", "HEAD"])
+        .output()
     else {
         return BTreeMap::new();
     };

@@ -9,7 +9,7 @@
 
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::Stdio;
 use std::sync::Arc;
 
 use orkestr_protocol::methods::files::OpenTarget;
@@ -176,7 +176,7 @@ impl SystemOpener {
 impl ExternalOpener for SystemOpener {
     fn open(&self, req: &OpenRequest) -> FilesResult<String> {
         let plan = plan_command(req, std::env::consts::OS, &*self.which)?;
-        let mut child = Command::new(&plan.program)
+        let mut child = orkestr_platform::process::background_command(&plan.program)
             .args(&plan.args)
             .stdin(Stdio::null())
             .stdout(Stdio::null())

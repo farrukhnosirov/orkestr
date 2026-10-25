@@ -450,7 +450,7 @@ fn launch(app: &AppHandle, prepared: Prepared, restart: bool) -> Result<(), Stri
             update.install(bytes).map_err(|e| e.to_string())
         }
         None => {
-            std::process::Command::new(&prepared.path).spawn().map_err(|e| e.to_string())?;
+            orkestr_platform::process::background_command(&prepared.path).spawn().map_err(|e| e.to_string())?;
             app.exit(0);
             Ok(())
         }

@@ -877,6 +877,7 @@ impl WorkerJobs {
         for (k, v) in env {
             cmd.env(k, v);
         }
+        orkestr_platform::process::HideConsole::hide_console(&mut cmd);
         let mut child = cmd.spawn().map_err(|e| StepError::Failed(format!("spawn {prog}: {e}"), None))?;
         let (line_tx, mut line_rx) = mpsc::unbounded_channel::<(String, String)>();
         for (stream, reader) in [

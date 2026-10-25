@@ -9,6 +9,7 @@ publish.workspace = true
 
 [dependencies]
 orkestr-domain.workspace = true
+orkestr-platform.workspace = true
 orkestr-protocol.workspace = true
 orkestr-storage.workspace = true
 orkestr-security.workspace = true

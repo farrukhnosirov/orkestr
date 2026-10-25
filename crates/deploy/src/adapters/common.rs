@@ -86,7 +86,7 @@ pub fn kill_tree(pid: u32) {
     #[cfg(not(windows))]
     {
         // The child leads its own process group (`isolate_command`).
-        let _ = std::process::Command::new("kill")
+        let _ = orkestr_platform::process::background_command("kill")
             .args(["-KILL", "--", &format!("-{pid}")])
             .stdin(Stdio::null())
             .stdout(Stdio::null())

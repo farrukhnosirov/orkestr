@@ -63,7 +63,7 @@ impl PlatformError {
 pub(crate) fn run_command(program: &str, args: &[&str]) -> PlatformResult<std::process::Output> {
     let mut cmd = std::process::Command::new(program);
     cmd.args(args).stdin(std::process::Stdio::null());
-    crate::process::hide_console(&mut cmd);
+    crate::process::HideConsole::hide_console(&mut cmd);
     let output = cmd.output()?;
     if output.status.success() {
         Ok(output)

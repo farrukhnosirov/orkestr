@@ -76,16 +76,43 @@ pub fn decode_output(bytes: &[u8]) -> String {
     String::from_utf8_lossy(bytes).into_owned()
 }
 
+/// `CREATE_NO_WINDOW`: a console program started from the GUI process gets
+/// no console window (a `.cmd` shim would otherwise pop up a `cmd.exe` window).
 #[cfg(windows)]
-pub(crate) fn hide_console(cmd: &mut Command) {
-    use std::os::windows::process::CommandExt;
-    /// `CREATE_NO_WINDOW`: no console window for console programs started from a GUI process.
-    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-    cmd.creation_flags(CREATE_NO_WINDOW);
+pub const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
+/// Hides the console window of a child process on Windows (no-op elsewhere).
+///
+/// Every background child (git, CLI probes, `.cmd` shims, PowerShell, ...)
+/// spawned by the GUI app must call this: the release build has no console,
+/// so Windows would otherwise open a fresh visible console window for it. The
+/// platform test `no_console_windows` enforces it. Not for PTY children
+/// (ConPTY owns their console).
+pub trait HideConsole {
+    /// Sets `CREATE_NO_WINDOW` on Windows; returns `self` for chaining.
+    fn hide_console(&mut self) -> &mut Self;
 }
 
-#[cfg(not(windows))]
-pub(crate) fn hide_console(_cmd: &mut Command) {}
+impl HideConsole for std::process::Command {
+    fn hide_console(&mut self) -> &mut Self {
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            self.creation_flags(CREATE_NO_WINDOW);
+        }
+        self
+    }
+}
+
+impl HideConsole for tokio::process::Command {
+    fn hide_console(&mut self) -> &mut Self {
+        #[cfg(windows)]
+        {
+            self.creation_flags(CREATE_NO_WINDOW);
+        }
+        self
+    }
+}
 
 fn spawn_reader<R: Read + Send + 'static>(stream: Option<R>) -> std::thread::JoinHandle<Vec<u8>> {
     std::thread::spawn(move || {
@@ -107,7 +134,7 @@ fn program_label(program: &Path) -> String {
 pub fn run_with_timeout(program: &Path, args: &[&str], timeout: Duration) -> PlatformResult<CommandOutput> {
     let mut cmd = Command::new(program);
     cmd.args(args).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
-    hide_console(&mut cmd);
+    cmd.hide_console();
     let mut child = cmd.spawn()?;
     let out_reader = spawn_reader(child.stdout.take());
     let err_reader = spawn_reader(child.stderr.take());
@@ -149,14 +176,8 @@ pub struct NativeProcessControl;
 /// passed as a vector by the caller (never through a shell).
 #[must_use]
 pub fn background_command(program: impl AsRef<std::ffi::OsStr>) -> std::process::Command {
-    #[allow(unused_mut)]
     let mut cmd = std::process::Command::new(program);
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-        cmd.creation_flags(CREATE_NO_WINDOW);
-    }
+    cmd.hide_console();
     cmd
 }
 
@@ -196,18 +217,10 @@ pub fn kill_pids(pids: &[u32]) {
 /// Prepares a child command for supervised execution: no console window on
 /// Windows, its own process group on Unix (so the whole tree can be killed).
 pub fn isolate_command(cmd: &mut tokio::process::Command) {
-    #[cfg(windows)]
-    {
-        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-        cmd.creation_flags(CREATE_NO_WINDOW);
-    }
+    cmd.hide_console();
     #[cfg(unix)]
     {
         cmd.process_group(0);
-    }
-    #[cfg(not(any(windows, unix)))]
-    {
-        let _ = cmd;
     }
 }
 
