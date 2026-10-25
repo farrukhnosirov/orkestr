@@ -23,7 +23,7 @@
 ## База шаблонов
 
 * Источник: `scripts/gen-jarvis-dialog.mjs` (категории, шаблоны фраз, ответы).
-* Данные: `crates/computer/data/dialog.json` (≈0,8 МБ) и отложенная выборка
+* Данные: `crates/computer/data/dialog.json` (≈1 МБ) и отложенная выборка
   `crates/computer/data/dialog-heldout.json` (не входит в базу).
 * Пересборка: `node scripts/gen-jarvis-dialog.mjs`; проверка, что данные
   актуальны: `node scripts/gen-jarvis-dialog.mjs --check`.
