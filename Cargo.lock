@@ -3637,7 +3637,7 @@ dependencies = [
 
 [[package]]
 name = "orkestr-agent-runtime"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "async-trait",
  "chrono",
@@ -3673,7 +3673,7 @@ dependencies = [
 
 [[package]]
 name = "orkestr-computer"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
@@ -3700,7 +3700,7 @@ dependencies = [
 
 [[package]]
 name = "orkestr-context"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "async-trait",
  "ignore",
@@ -3718,7 +3718,7 @@ dependencies = [
 
 [[package]]
 name = "orkestr-core"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -3784,7 +3784,7 @@ dependencies = [
 
 [[package]]
 name = "orkestr-cost"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "chrono",
  "orkestr-domain",
@@ -3802,7 +3802,7 @@ dependencies = [
 
 [[package]]
 name = "orkestr-deploy"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "async-trait",
  "axum",
@@ -3830,7 +3830,7 @@ dependencies = [
 
 [[package]]
 name = "orkestr-desktop"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -3855,7 +3855,7 @@ dependencies = [
 
 [[package]]
 name = "orkestr-detective"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "async-trait",
  "chrono",
@@ -3881,7 +3881,7 @@ dependencies = [
 
 [[package]]
 name = "orkestr-domain"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "chrono",
  "serde",
@@ -3893,7 +3893,7 @@ dependencies = [
 
 [[package]]
 name = "orkestr-events"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "async-trait",
  "chrono",
@@ -3909,7 +3909,7 @@ dependencies = [
 
 [[package]]
 name = "orkestr-extensions"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -3936,7 +3936,7 @@ dependencies = [
 
 [[package]]
 name = "orkestr-files"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "async-trait",
  "blake3",
@@ -3961,7 +3961,7 @@ dependencies = [
 
 [[package]]
 name = "orkestr-gateway"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -4008,7 +4008,7 @@ dependencies = [
 
 [[package]]
 name = "orkestr-insight"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "blake3",
  "chrono",
@@ -4034,7 +4034,7 @@ dependencies = [
 
 [[package]]
 name = "orkestr-marketplace"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
@@ -4066,7 +4066,7 @@ dependencies = [
 
 [[package]]
 name = "orkestr-memory"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "chrono",
  "ignore",
@@ -4085,7 +4085,7 @@ dependencies = [
 
 [[package]]
 name = "orkestr-monitor"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "async-trait",
  "chrono",
@@ -4110,7 +4110,7 @@ dependencies = [
 
 [[package]]
 name = "orkestr-node"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
@@ -4133,7 +4133,7 @@ dependencies = [
 
 [[package]]
 name = "orkestr-orchestrator"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "async-trait",
  "chrono",
@@ -4167,7 +4167,7 @@ dependencies = [
 
 [[package]]
 name = "orkestr-platform"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "directories",
  "keyring",
@@ -4188,7 +4188,7 @@ dependencies = [
 
 [[package]]
 name = "orkestr-plugin-sdk"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -4196,7 +4196,7 @@ dependencies = [
 
 [[package]]
 name = "orkestr-plugins"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
@@ -4230,7 +4230,7 @@ dependencies = [
 
 [[package]]
 name = "orkestr-protocol"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "chrono",
  "orkestr-domain",
@@ -4243,7 +4243,7 @@ dependencies = [
 
 [[package]]
 name = "orkestr-providers"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "async-trait",
  "axum",
@@ -4268,7 +4268,7 @@ dependencies = [
 
 [[package]]
 name = "orkestr-quality"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "async-trait",
  "chrono",
@@ -4293,7 +4293,7 @@ dependencies = [
 
 [[package]]
 name = "orkestr-security"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
@@ -4329,7 +4329,7 @@ dependencies = [
 
 [[package]]
 name = "orkestr-snapshots"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "async-trait",
  "blake3",
@@ -4350,7 +4350,7 @@ dependencies = [
 
 [[package]]
 name = "orkestr-storage"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "async-trait",
  "blake3",
@@ -4370,7 +4370,7 @@ dependencies = [
 
 [[package]]
 name = "orkestr-sync"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4401,7 +4401,7 @@ dependencies = [
 
 [[package]]
 name = "orkestr-task-engine"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "chrono",
  "orkestr-domain",
@@ -4419,7 +4419,7 @@ dependencies = [
 
 [[package]]
 name = "orkestr-terminal"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "async-trait",
  "orkestr-domain",
@@ -4438,7 +4438,7 @@ dependencies = [
 
 [[package]]
 name = "orkestr-updater"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "anyhow",
  "axum",
@@ -4464,7 +4464,7 @@ dependencies = [
 
 [[package]]
 name = "orkestr-vcs"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "async-trait",
  "chrono",
@@ -4483,7 +4483,7 @@ dependencies = [
 
 [[package]]
 name = "orkestr-voice"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "async-trait",
  "axum",
@@ -4508,7 +4508,7 @@ dependencies = [
 
 [[package]]
 name = "orkestr-vscode-host"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "base64 0.22.1",
  "chrono",
