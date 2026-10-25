@@ -84,7 +84,8 @@ void i18n.use(initReactI18next).init({
   ns: namespacesOf(resources),
   defaultNS: "common",
   fallbackNS: "common",
-  interpolation: { escapeValue: false },
+  // `{{addr}}`: the Jarvis form of address (", сэр" / ""), kept current by features/jarvis/persona.ts
+  interpolation: { escapeValue: false, defaultVariables: { addr: "" } },
   returnNull: false,
   initAsync: false,
   react: { useSuspense: false, bindI18n: "languageChanged loaded" },

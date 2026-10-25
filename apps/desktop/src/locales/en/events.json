@@ -125,5 +125,6 @@
   "incidentStageChanged": "Incident {{id}}: {{stage}}",
   "dashboardChanged": "Dashboard {{id}} changed",
   "computerCommand": "Assistant: {{title}} — {{outcome}}",
-  "vscodeBridgeSignal": "VS Code asked Orkestr: {{signal}}"
+  "vscodeBridgeSignal": "VS Code asked Orkestr: {{signal}}",
+  "jarvisMessage": "Jarvis reply {{id}}"
 }

@@ -1,0 +1,87 @@
+{
+  "settings": {
+    "title": "Jarvis",
+    "intro": "The assistant's character and conversation mode: how Jarvis addresses you, which model it talks with and how much it remembers.",
+    "persona": "Jarvis persona",
+    "personaHint": "A polite, calm, slightly dry tone in every reply. Turn it off for neutral replies without a form of address.",
+    "address": "Form of address",
+    "addressOptions": {
+      "Sir": "Sir",
+      "Boss": "Boss",
+      "Name": "By name",
+      "None": "None"
+    },
+    "userName": "Your name",
+    "userNamePlaceholder": "For example, Tony",
+    "greetOnStart": "Greeting on start",
+    "greetHint": "\"Good morning, sir\" when Orkestr starts and on the first request of the day.",
+    "localTemplates": "Instant replies without AI",
+    "localTemplatesHint": "Greetings, time, date, jokes and other common phrases are answered from a local bank (Russian) — no tokens.",
+    "bankStats": "The bank holds {{intents}} topics, {{questions}} question phrasings and {{answers}} reply variants.",
+    "model": "Conversation model",
+    "modelDefault": "Same as the AI Manager (with the fallback chain)",
+    "modelHint": "If a subscription or key fails, the reply moves on to the next provider automatically.",
+    "memoryTurns": "Conversation memory, messages",
+    "memoryHint": "How many recent messages the model sees in every reply. The history is stored on this computer.",
+    "projectContext": "Know about my projects",
+    "projectContextHint": "The model gets your project names and the number of running tasks to answer questions about them.",
+    "forget": "Forget the conversation",
+    "forgotten": "The conversation history was cleared.",
+    "saved": "Saved.",
+    "loadError": "Couldn't load the Jarvis settings: {{error}}"
+  },
+  "mode": {
+    "label": "Mode",
+    "commands": "Commands",
+    "chat": "Conversation",
+    "commandsHint": "I run commands; an unknown task goes to the AI planner.",
+    "chatHint": "Talk with the AI; commands like \"open YouTube\" still run."
+  },
+  "chat": {
+    "title": "Conversation",
+    "empty": "Ask anything — or just say hello.",
+    "placeholder": "Message Jarvis…",
+    "send": "Send",
+    "stop": "Stop the reply",
+    "forget": "Forget the conversation",
+    "you": "You",
+    "jarvis": "Jarvis",
+    "thinking": "Thinking…",
+    "source": {
+      "template": "instant reply",
+      "ai": "AI",
+      "command": "command"
+    }
+  },
+  "commands": {
+    "group": "Jarvis",
+    "toggleChat": "Jarvis: conversation / command mode",
+    "forget": "Jarvis: forget the conversation",
+    "settings": "Jarvis: settings"
+  },
+  "addressWord": {
+    "Sir": "sir",
+    "Boss": "boss"
+  },
+  "say": {
+    "greet": {
+      "morning": ["Good morning{{addr}}.", "Good morning{{addr}}. All systems are nominal.", "Good morning{{addr}}. Ready when you are."],
+      "day": ["Good afternoon{{addr}}.", "Good afternoon{{addr}}. What shall we do?", "Good afternoon{{addr}}. All systems are nominal."],
+      "evening": ["Good evening{{addr}}.", "Good evening{{addr}}. How may I help?", "Good evening{{addr}}. At your service."],
+      "night": ["Good evening{{addr}}. Rather late for work, but I'm at your service.", "Working late{{addr}}? How may I help?"]
+    },
+    "welcome": ["Welcome back{{addr}}.", "Welcome back{{addr}}. All systems are nominal.", "Good to see you{{addr}}. Orkestr is ready."],
+    "listening": ["Listening{{addr}}.", "Yes{{addr}}?", "I'm all ears{{addr}}."],
+    "modeChat": ["Conversation mode{{addr}}. I'm all ears.", "Happy to chat{{addr}}. Go ahead.", "Switching to conversation{{addr}}."],
+    "modeCommands": ["Command mode{{addr}}. Awaiting instructions.", "Back to business{{addr}}.", "As you wish{{addr}}. Commands only."],
+    "forgot": ["Conversation forgotten{{addr}}. A clean slate.", "History cleared{{addr}}.", "Done{{addr}}. I remember nothing."],
+    "addressSet": ["As you wish{{addr}}.", "Noted{{addr}}."],
+    "noModel": ["I'm afraid no conversation model is connected{{addr}}. Add a provider in Settings.", "I have no one to consult{{addr}}: connect an AI provider and we'll continue."],
+    "aiFailed": ["I'm afraid I lost the model{{addr}}: {{error}}", "I couldn't get an answer{{addr}}: {{error}}"],
+    "notUnderstood": ["I'm afraid I didn't quite catch that{{addr}}. Once more?", "I beg your pardon{{addr}}? Once more, please."],
+    "nothingToRepeat": ["I haven't said anything yet{{addr}}."],
+    "done": ["Done{{addr}}.", "All done{{addr}}.", "Taken care of{{addr}}."],
+    "cancelled": ["Cancelled{{addr}}.", "As you wish{{addr}}. Standing down."],
+    "handoff": ["On it{{addr}}.", "Right away{{addr}}."]
+  }
+}

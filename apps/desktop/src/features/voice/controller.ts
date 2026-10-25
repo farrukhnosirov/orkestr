@@ -27,6 +27,7 @@ import { realVoiceDeps } from "./pipeline/deps";
 import { bindApproval, type CommandResult, confirmationPrompt, executeIntent, precheck, type VoiceDeps } from "./pipeline/executor";
 import { assistantResult } from "../assistant/voiceResult";
 import { routeUtterance } from "../assistant/voiceRoute";
+import { dailyGreeting } from "../jarvis/greeting";
 import { isBusy, type MachineEvent, nextPhase } from "./pipeline/machine";
 import { speakable } from "./pipeline/summary";
 import { type MicPurpose, useVoiceStore } from "./store";
@@ -433,7 +434,13 @@ async function handleText(text: string, source: VoiceCommandSource): Promise<voi
   // Approve/reject are bound to the approval read out in the prompt (exact id).
   const intent = bindApproval(parseIntent(text, await intentContext()), getDeps());
   // Computer assistant (ADR-0035): computer commands, its confirmations and AI plans.
-  const viaAssistant = await routeUtterance(text, intent, wakePhrases()).catch(() => null);
+  // Jarvis (ADR-0049): AI conversation replies stream into the HUD and are spoken sentence by sentence.
+  const viaAssistant = await routeUtterance(text, intent, wakePhrases(), {
+    speak: (sentence) => say(sentence),
+    onPartial: (partial) => {
+      if (partial) useVoiceStore.getState().setRuntime({ reply: { text: partial, tone: "info", outcome: "ok" } });
+    },
+  }).catch(() => null);
   if (viaAssistant) {
     finish(intent, assistantResult(viaAssistant), source);
     for (const extra of viaAssistant.speak) void say(extra);
@@ -474,10 +481,13 @@ function finish(intent: Intent, r: CommandResult, source: VoiceCommandSource): v
     emit({ type: "confirmed" });
     emit({ type: "done" });
   } else s.setRuntime({ phase: "result" });
-  s.setRuntime({ reply: { text: r.reply, tone: r.tone, outcome: r.outcome } });
-  s.pushHistory({ transcript: s.transcript, reply: r.reply, tone: r.tone, source });
+  // first request of the day: «Доброе утро, сэр.» before the reply (Jarvis setting)
+  const hello = r.outcome !== "cancelled" && !r.spoken ? dailyGreeting() : null;
+  const reply = hello ? `${hello} ${r.reply}` : r.reply;
+  s.setRuntime({ reply: { text: reply, tone: r.tone, outcome: r.outcome } });
+  s.pushHistory({ transcript: s.transcript, reply, tone: r.tone, source });
   playSound(r.tone === "error" ? "error" : r.outcome === "cancelled" ? "listenEnd" : "completion");
-  void say(r.reply);
+  if (!r.spoken) void say(reply);
   void record(s.transcript, intent, r.outcome, source, r.projectId);
   if (r.managerReply) watchManagerReply(r.managerReply.projectId, r.managerReply.messageId);
   // An offered next step ("Show the errors?"): a spoken "yes" runs it.

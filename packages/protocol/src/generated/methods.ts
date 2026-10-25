@@ -260,6 +260,15 @@ import type { InstalledExtensionResult } from "./InstalledExtensionResult";
 import type { InstalledResult } from "./InstalledResult";
 import type { InvokePluginParams } from "./InvokePluginParams";
 import type { InvokePluginResult } from "./InvokePluginResult";
+import type { JarvisCancelParams } from "./JarvisCancelParams";
+import type { JarvisChatParams } from "./JarvisChatParams";
+import type { JarvisChatResult } from "./JarvisChatResult";
+import type { JarvisConfigResult } from "./JarvisConfigResult";
+import type { JarvisHistoryParams } from "./JarvisHistoryParams";
+import type { JarvisHistoryResult } from "./JarvisHistoryResult";
+import type { JarvisMatchParams } from "./JarvisMatchParams";
+import type { JarvisMatchResult } from "./JarvisMatchResult";
+import type { JarvisRecordParams } from "./JarvisRecordParams";
 import type { JobIdParams } from "./JobIdParams";
 import type { JobOffer } from "./JobOffer";
 import type { JobOfferResult } from "./JobOfferResult";
@@ -542,6 +551,7 @@ import type { SetEnabledParams } from "./SetEnabledParams";
 import type { SetExtensionEnabledParams } from "./SetExtensionEnabledParams";
 import type { SetGatesParams } from "./SetGatesParams";
 import type { SetIdParams } from "./SetIdParams";
+import type { SetJarvisConfigParams } from "./SetJarvisConfigParams";
 import type { SetModeParams } from "./SetModeParams";
 import type { SetNodePolicyParams } from "./SetNodePolicyParams";
 import type { SetPipelineConfigParams } from "./SetPipelineConfigParams";
@@ -1160,6 +1170,14 @@ export type Methods = {
   "computer.processes": [Empty, ProcessesResult];
   "computer.stop": [Empty, StopResult];
   "computer.history": [HistoryParams, HistoryResult];
+  "jarvis.getConfig": [Empty, JarvisConfigResult];
+  "jarvis.setConfig": [SetJarvisConfigParams, JarvisConfigResult];
+  "jarvis.match": [JarvisMatchParams, JarvisMatchResult];
+  "jarvis.chat": [JarvisChatParams, JarvisChatResult];
+  "jarvis.cancel": [JarvisCancelParams, Empty];
+  "jarvis.history": [JarvisHistoryParams, JarvisHistoryResult];
+  "jarvis.record": [JarvisRecordParams, Empty];
+  "jarvis.forget": [Empty, Empty];
 };
 
 /** All implemented method names. */
@@ -1647,6 +1665,14 @@ export const METHOD_NAMES = [
   "computer.processes",
   "computer.stop",
   "computer.history",
+  "jarvis.getConfig",
+  "jarvis.setConfig",
+  "jarvis.match",
+  "jarvis.chat",
+  "jarvis.cancel",
+  "jarvis.history",
+  "jarvis.record",
+  "jarvis.forget",
 ] as const;
 
 /** Wire protocol version (see orkestr-protocol PROTOCOL_VERSION). */
@@ -1754,6 +1780,7 @@ export const EVENT_KINDS = [
   "CodexStatus",
   "CodexAccount",
   "VsCodeBridgeSignal",
+  "JarvisMessage",
 ] as const;
 
 /** UI config schema version (see orkestr-protocol ui_config). */

@@ -7,10 +7,12 @@
  * - A plan under review: "yes" runs it, "no" dismisses it, "исправь …" /
  *   "correct …" re-plans with the correction.
  * - Orchestra mode: Orkestr intents win; utterances the orchestrator did
- *   not understand go to the local matcher (no AI plan — those still reach
- *   the AI Manager as before).
+ *   not understand go through Jarvis (ADR-0049): Jarvis actions, the local
+ *   command matcher, the small-talk bank, the AI conversation in
+ *   conversation mode — otherwise they reach the AI Manager as before.
  * - Assistant mode: computer commands win (strong match), Orkestr intents
- *   still work, everything else gets an AI plan.
+ *   still work, everything else goes through Jarvis (command mode: an AI
+ *   plan as before).
  *
  * The STT / TTS engines stay in the voice feature; this only routes text.
  */
@@ -19,6 +21,8 @@ import type { Intent } from "@orkestr/client";
 
 import { getClient } from "../../core/client";
 import { currentLanguage } from "../../i18n";
+import { jarvisSession } from "../jarvis/session";
+import type { JarvisTurn } from "../jarvis/router";
 import { type AssistantRun, approvePlan, correctPlan, confirmPending, dismissPlan, runAssistant } from "./api";
 import { useAssistantStore } from "./store";
 
@@ -56,11 +60,29 @@ async function bestScore(text: string): Promise<number> {
   }
 }
 
+/** A Jarvis turn as the assistant's run (voice pipeline result). */
+export function turnToRun(turn: JarvisTurn): AssistantRun {
+  if (turn.run) return { ...turn.run, reply: turn.reply, spoken: turn.spoken };
+  return { outcome: turn.tone === "error" ? "failed" : "ok", reply: turn.reply, tone: turn.tone, speak: [], spoken: turn.spoken };
+}
+
+export interface RouteVoiceOptions {
+  /** Speaks one sentence (streamed AI replies). */
+  speak?: (sentence: string) => Promise<void>;
+  /** The reply so far (streaming). */
+  onPartial?: (text: string) => void;
+}
+
 /**
  * Routes an utterance. Returns the assistant's run when it handled the text,
  * `null` when the orchestrator should handle it.
  */
-export async function routeUtterance(text: string, intent: Intent, wakePhrases: readonly string[] = []): Promise<AssistantRun | null> {
+export async function routeUtterance(
+  text: string,
+  intent: Intent,
+  wakePhrases: readonly string[] = [],
+  o: RouteVoiceOptions = {},
+): Promise<AssistantRun | null> {
   const s = useAssistantStore.getState();
   const answer = parseConfirmation(text, wakePhrases);
   if (s.pending && answer) return confirmPending(answer === "yes");
@@ -76,15 +98,17 @@ export async function routeUtterance(text: string, intent: Intent, wakePhrases: 
   // "запомни это как …" / "remember this as …" right after a plan ran
   if (s.ranPlanId && /^(?:запомни|сохрани|remember|save)/i.test(text.trim())) return runAssistant(text, "voice", false);
   const assistantMode = s.mode === "assistant";
-  if (!assistantMode) {
-    if (!isWeakIntent(intent)) return null;
-    const score = await bestScore(text);
-    if (score < MATCH) return null;
-    return runAssistant(text, "voice", false);
-  }
   if (!isWeakIntent(intent)) {
+    // an Orkestr intent wins unless the Assistant UI has a strong computer command
+    if (!assistantMode) return null;
     const score = await bestScore(text);
     if (score < STRONG_MATCH) return null;
+    return runAssistant(text, "voice", false);
   }
-  return runAssistant(text, "voice", true);
+  const turn = await jarvisSession.send(text, {
+    source: "voice",
+    ...(o.speak ? { speak: o.speak } : {}),
+    ...(o.onPartial ? { onPartial: o.onPartial } : {}),
+  });
+  return turn ? turnToRun(turn) : null;
 }

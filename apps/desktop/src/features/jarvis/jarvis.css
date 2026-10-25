@@ -1,0 +1,120 @@
+/* Jarvis conversation mode + settings (ADR-0049). Theme tokens only. */
+
+.jv-mode {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: var(--ok-radius-pill);
+  border: 1px solid var(--ok-color-border);
+  background: var(--ok-color-surface-sunken);
+}
+.jv-mode__item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ok-space-1);
+  padding: 3px var(--ok-space-3);
+  border: 0;
+  border-radius: var(--ok-radius-pill);
+  background: transparent;
+  color: var(--ok-color-text-muted);
+  font-size: var(--ok-font-size-xs);
+  cursor: pointer;
+}
+.jv-mode__item:hover {
+  color: var(--ok-color-text);
+  background: var(--ok-color-surface-hover);
+}
+.jv-mode__item:focus-visible {
+  outline: none;
+  box-shadow: var(--ok-focus-ring);
+}
+.jv-mode__item--on {
+  color: var(--ok-color-accent);
+  background: var(--ok-color-accent-soft);
+  font-weight: var(--ok-font-weight-medium);
+}
+
+.jv-chat {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border: 1px solid var(--ok-color-border);
+  border-radius: var(--ok-radius-md);
+  background: var(--ok-color-surface-sunken);
+}
+.jv-chat__head {
+  display: flex;
+  align-items: center;
+  gap: var(--ok-space-1);
+  padding: var(--ok-space-1) var(--ok-space-2);
+  border-bottom: 1px solid var(--ok-color-border);
+}
+.jv-chat__title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ok-space-1);
+  margin-right: auto;
+  color: var(--ok-color-text-subtle);
+  font-size: var(--ok-font-size-xs);
+  font-weight: var(--ok-font-weight-semibold);
+}
+.jv-chat__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-2);
+  max-height: 260px;
+  overflow-y: auto;
+  padding: var(--ok-space-2);
+}
+.jv-chat__empty {
+  margin: 0;
+  color: var(--ok-color-text-muted);
+  font-size: var(--ok-font-size-sm);
+}
+.jv-msg {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 88%;
+  padding: var(--ok-space-1) var(--ok-space-2);
+  border-radius: var(--ok-radius-md);
+  font-size: var(--ok-font-size-sm);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.jv-msg--user {
+  align-self: flex-end;
+  background: var(--ok-color-accent-soft);
+  color: var(--ok-color-text);
+}
+.jv-msg--assistant {
+  align-self: flex-start;
+  background: var(--ok-color-bg-elevated);
+  border: 1px solid var(--ok-color-border);
+  color: var(--ok-color-text);
+}
+.jv-msg--error {
+  border-color: var(--ok-color-danger);
+}
+.jv-msg--warn {
+  border-color: var(--ok-color-warning);
+}
+.jv-msg__who {
+  color: var(--ok-color-text-subtle);
+  font-size: var(--ok-font-size-xs);
+}
+.jv-msg__src {
+  align-self: flex-end;
+  color: var(--ok-color-text-muted);
+  font-size: var(--ok-font-size-xs);
+}
+
+.jv-set__intro,
+.jv-set__note {
+  margin: 0 0 var(--ok-space-3);
+  color: var(--ok-color-text-muted);
+  font-size: var(--ok-font-size-sm);
+}
+.jv-set__note--error {
+  color: var(--ok-color-danger);
+}

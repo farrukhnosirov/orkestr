@@ -21,6 +21,8 @@ export interface AssistantRun {
   tone: AssistantTone;
   /** Text to speak in addition to the reply (`Speak` steps). */
   speak: string[];
+  /** The reply was already spoken (streamed Jarvis conversation) or stays silent. */
+  spoken?: boolean;
 }
 
 /** Localized risk reason. */

@@ -10,6 +10,7 @@
 import type { ComputerAction, ComputerRunReport } from "@orkestr/protocol";
 
 import appTable from "../../../../../crates/computer/data/apps.json";
+import siteTable from "../../../../../crates/computer/data/sites.json";
 import { currentLanguage, t as typedT } from "../../i18n";
 
 /** Dynamic keys under `assistant:say.*` (variants are arrays). */
@@ -57,6 +58,31 @@ function host(url: string): string {
   const u = url.trim().replace(/^[a-z]+:\/\//i, "").replace(/^www\./i, "");
   return u.split(/[/?#]/)[0] || url;
 }
+
+/** Brand spelling of catalogue sites («Открываю YouTube, сэр»). */
+const BRANDS: Record<string, string> = {
+  youtube: "YouTube", github: "GitHub", gitlab: "GitLab", stackoverflow: "Stack Overflow", duckduckgo: "DuckDuckGo",
+  linkedin: "LinkedIn", tiktok: "TikTok", chatgpt: "ChatGPT", soundcloud: "SoundCloud", onedrive: "OneDrive",
+  aliexpress: "AliExpress", hh: "hh.ru", mailru: "Mail.ru", vk: "VK", twitter: "X", npm: "npm", crates: "crates.io",
+  docsrs: "docs.rs", mdn: "MDN", pypi: "PyPI", gmail: "Gmail", whatsappweb: "WhatsApp", telegramweb: "Telegram",
+  notionweb: "Notion", spotifyweb: "Spotify", outlookweb: "Outlook", rbc: "РБК", ozon: "Ozon", gosuslugi: "Госуслуги",
+};
+interface SiteNames {
+  key: string;
+  url: string;
+  en: string[];
+}
+const SITE_BY_URL = new Map<string, string>();
+for (const st of (siteTable as { sites: SiteNames[] }).sites) {
+  const k = st.url.replace(/^[a-z]+:\/\//i, "").replace(/^www\./i, "").replace(/\/+$/, "").toLocaleLowerCase();
+  SITE_BY_URL.set(k, BRANDS[st.key] ?? (st.en[0] ? st.en[0].replace(/(^|\s)(\p{L})/gu, (_m, a: string, b: string) => a + b.toLocaleUpperCase()) : st.key));
+}
+
+/** Human site name: the catalogue brand for known sites, else the host. */
+export function siteName(url: string): string {
+  const k = url.trim().replace(/^[a-z]+:\/\//i, "").replace(/^www\./i, "").replace(/\/+$/, "").toLocaleLowerCase();
+  return SITE_BY_URL.get(k) ?? host(url);
+}
 const base = (p: string) => p.replace(/[\\/]+$/, "").split(/[\\/]/).pop() || p;
 const num = (v: unknown): number | null => {
   const n = typeof v === "number" ? v : Number.parseFloat(String(v ?? ""));
@@ -88,7 +114,7 @@ function describe(a: ComputerAction): { key: string; vars: Record<string, unknow
     case "KillProcess":
       return { key: "KillProcess", vars: { name: a.name } };
     case "OpenUrl":
-      return { key: "OpenUrl", vars: { name: host(a.url) } };
+      return { key: "OpenUrl", vars: { name: siteName(a.url) } };
     case "WebSearch":
       return { key: "WebSearch", vars: { query: a.query.trim() } };
     case "OpenPath":
@@ -194,6 +220,6 @@ export function naturalRunReply(run: ComputerRunReport, o: PhraseOptions = {}): 
     if (said) return said;
   }
   const byTitle = progressiveTitle(run.title);
-  if (byTitle) return byTitle;
+  if (byTitle) return str("assistant:say.progressive", { text: byTitle });
   return pick("generic", { what: lowerFirst(run.title) }, rnd) ?? run.title;
 }

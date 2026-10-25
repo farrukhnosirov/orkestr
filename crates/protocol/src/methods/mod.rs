@@ -35,6 +35,7 @@ pub mod emergency;
 pub mod events;
 pub mod extensions;
 pub mod files;
+pub mod jarvis;
 pub mod jobs;
 pub mod layouts;
 pub mod lsp;
@@ -659,6 +660,15 @@ pub fn registry() -> Vec<MethodDescriptor> {
         MethodDescriptor::of::<computer::Processes>(),
         MethodDescriptor::of::<computer::Stop>(),
         MethodDescriptor::of::<computer::History>(),
+        // Jarvis persona & conversation (ADR-0049): local only
+        MethodDescriptor::of::<jarvis::GetConfig>(),
+        MethodDescriptor::of::<jarvis::SetConfig>(),
+        MethodDescriptor::of::<jarvis::Match>(),
+        MethodDescriptor::of::<jarvis::Chat>(),
+        MethodDescriptor::of::<jarvis::Cancel>(),
+        MethodDescriptor::of::<jarvis::History>(),
+        MethodDescriptor::of::<jarvis::Record>(),
+        MethodDescriptor::of::<jarvis::Forget>(),
     ]
 }
 
