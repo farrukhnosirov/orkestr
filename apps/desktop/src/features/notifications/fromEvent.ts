@@ -91,6 +91,19 @@ export function notificationFromEvent(ev: Event): AppNotification | null {
     }
     case "ProviderFallback": {
       const p = ev.payload;
+      if (p.fromName && p.toName && p.fromName !== p.toName) {
+        // Another AI source took over (ADR-0051): «Claude Code недоступен (лимит) — переключился на ChatGPT».
+        return base(
+          ev,
+          "Warning",
+          t("notifications:events.sourceSwitched"),
+          t("notifications:events.sourceUnavailable", {
+            from: p.fromName,
+            to: p.toName,
+            reason: t(`notifications:fallbackReason.${p.reason}`, { defaultValue: p.reason }),
+          }),
+        );
+      }
       return base(
         ev,
         "Warning",

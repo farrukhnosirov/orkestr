@@ -2,7 +2,7 @@
  * Provider hub UI (§55): "AI Providers" and "AI Manager" settings sections,
  * the reusable <ProviderSetup/> (onboarding embeds it) and palette commands.
  */
-import { Plug, Sparkles } from "lucide-react";
+import { ListOrdered, Plug, Sparkles } from "lucide-react";
 
 import { t, useT } from "../../i18n";
 import type { AppCommand } from "../commands/registry";
@@ -13,6 +13,7 @@ import { CodexEngineCard } from "../engines/CodexEngineCard";
 import { EnginesCard } from "../engines/EnginesCard";
 import { ManagerSettings } from "./ManagerSettings";
 import { ProviderSetup } from "./ProviderSetup";
+import { SourcePrioritySettings } from "./SourcePriority";
 import { checkHealth, loadProviders, useProvidersStore } from "./store";
 
 export { ManagerSettings } from "./ManagerSettings";
@@ -56,6 +57,17 @@ export const managerSettingsSection: SettingsSection = {
   icon: Sparkles,
   order: 21,
   component: ManagerSection,
+};
+
+/** «Приоритет ИИ-источников» (ADR-0051). */
+export const sourcesSettingsSection: SettingsSection = {
+  id: "sources",
+  get title() {
+    return t("providers:sections.sources");
+  },
+  icon: ListOrdered,
+  order: 22,
+  component: () => <SourcePrioritySettings />,
 };
 
 function openSettings(section: string): void {

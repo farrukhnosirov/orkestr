@@ -16,4 +16,12 @@ to: ModelRef,
 /**
  * Why ("rate limited", "quota exceeded", …).
  */
-reason: string, };
+reason: string, 
+/**
+ * Display name of the failed AI source (ADR-0051).
+ */
+fromName?: string, 
+/**
+ * Display name of the AI source switched to (ADR-0051).
+ */
+toName?: string, };

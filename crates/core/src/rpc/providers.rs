@@ -79,6 +79,25 @@ pub fn register(router: &mut RpcRouter) {
         .method::<m::GetRouting, _, _>(|ctx: RpcContext, _p: Empty| async move {
             Ok(RoutingConfigPayload { config: ctx.services.providers.routing_config().await.map_err(to_rpc)? })
         })
+        .method::<m::Sources, _, _>(|ctx: RpcContext, _p: Empty| async move {
+            let p = &ctx.services.providers;
+            Ok(m::AiSourcesResult {
+                sources: p.source_priority().await.map_err(to_rpc)?,
+                purposes: orkestr_providers::failover::PURPOSE_GROUPS.iter().map(|s| (*s).to_owned()).collect(),
+                log: p
+                    .failover_log(50)
+                    .into_iter()
+                    .map(|r| m::FailoverLogEntry {
+                        at: r.at,
+                        from: r.from,
+                        from_name: r.from_name,
+                        to: r.to,
+                        to_name: r.to_name,
+                        reason: r.reason,
+                    })
+                    .collect(),
+            })
+        })
         .method::<m::SetRouting, _, _>(|ctx: RpcContext, p: RoutingConfigPayload| async move {
             Ok(RoutingConfigPayload {
                 config: ctx.services.providers.set_routing_config(p.config).await.map_err(to_rpc)?,
@@ -302,8 +321,8 @@ impl ProviderEventSink for BusProviderSink {
             ProviderEvent::RateLimited { provider_id, model, retry_after_secs } => {
                 EventKind::ProviderRateLimited(ProviderRateLimitedPayload { provider_id, model, retry_after_secs })
             }
-            ProviderEvent::Fallback { from, to, reason } => {
-                EventKind::ProviderFallback(ProviderFallbackPayload { from, to, reason })
+            ProviderEvent::Fallback { from, to, reason, from_name, to_name } => {
+                EventKind::ProviderFallback(ProviderFallbackPayload { from, to, reason, from_name, to_name })
             }
         };
         let Ok(handle) = tokio::runtime::Handle::try_current() else {

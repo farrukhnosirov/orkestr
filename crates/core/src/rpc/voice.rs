@@ -22,11 +22,11 @@ use orkestr_domain::{Actor, SecretScope};
 use orkestr_domain::{AuditOutcome, ProviderKind};
 use orkestr_protocol::event::{EventKind, VoiceCommandPayload};
 use orkestr_protocol::methods::voice::{
-    self as m, ListVoiceEnginesParams, RecordVoiceCommandParams, SetVoiceConfigParams, SetVoiceConsentParams,
-    SetVoiceEngineKeyParams, SttConsent, SttEngine, SynthesizeParams, SynthesizeResult, TranscribeParams,
-    TranscribeResult, TtsConsent, TtsEngine, VoiceCloudProvider, VoiceConfig, VoiceConfigResult, VoiceConsentScope,
-    VoiceEngineStatus, VoiceEnginesResult, VoiceKeyId, VoiceModelsResult, VoicePackageParams, VoiceVerifyResult,
-    MAX_SYNTHESIZE_CHARS, MAX_TRANSCRIBE_BYTES, PhraseReplyParams, PhraseReplyResult,
+    self as m, ListVoiceEnginesParams, PhraseReplyParams, PhraseReplyResult, RecordVoiceCommandParams,
+    SetVoiceConfigParams, SetVoiceConsentParams, SetVoiceEngineKeyParams, SttConsent, SttEngine, SynthesizeParams,
+    SynthesizeResult, TranscribeParams, TranscribeResult, TtsConsent, TtsEngine, VoiceCloudProvider, VoiceConfig,
+    VoiceConfigResult, VoiceConsentScope, VoiceEngineStatus, VoiceEnginesResult, VoiceKeyId, VoiceModelsResult,
+    VoicePackageParams, VoiceVerifyResult, MAX_SYNTHESIZE_CHARS, MAX_TRANSCRIBE_BYTES,
 };
 use orkestr_protocol::methods::Empty;
 use orkestr_protocol::{NewEvent, RpcError};
@@ -484,12 +484,22 @@ async fn phrase(ctx: RpcContext, p: PhraseReplyParams) -> Result<PhraseReplyResu
         return Err(RpcError::bad_request("facts must be 1..2000 characters"));
     }
     let lang = if p.lang.trim().is_empty() { "en" } else { p.lang.trim() };
-    let user = format!("Language: {lang}
+    let user = format!(
+        "Language: {lang}
 Facts:
-{facts}");
+{facts}"
+    );
     let limit = std::time::Duration::from_millis(u64::from(p.timeout_ms.unwrap_or(3_000).clamp(500, 10_000)));
     let cancel = tokio_util::sync::CancellationToken::new();
-    let call = super::computer::manager_complete(&ctx.services, PHRASE_SYSTEM.to_owned(), user, 160, true, cancel.clone());
+    let call = super::computer::manager_complete(
+        &ctx.services,
+        PHRASE_SYSTEM.to_owned(),
+        user,
+        160,
+        true,
+        "VoicePhrase",
+        cancel.clone(),
+    );
     let (text, model) = match tokio::time::timeout(limit, call).await {
         Ok(Ok(r)) => r,
         Ok(Err(e)) => return Err(RpcError::conflict(e)),

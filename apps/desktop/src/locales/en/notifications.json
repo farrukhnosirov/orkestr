@@ -35,7 +35,9 @@
     "filesRestored_one": "{{count}} file restored.",
     "filesRestored_other": "{{count}} files restored.",
     "nodeOffline": "Node offline",
-    "nodeOfflineBody": "A node stopped sending heartbeats."
+    "nodeOfflineBody": "A node stopped sending heartbeats.",
+    "sourceUnavailable": "{{from}} unavailable ({{reason}}) — switched to {{to}}",
+    "sourceSwitched": "AI source switched"
   },
   "fallbackReason": {
     "rate_limited": "rate limit",
@@ -45,6 +47,13 @@
     "server": "provider error",
     "bad_request": "request rejected",
     "unsupported": "not supported",
-    "unimplemented": "not available"
+    "unimplemented": "not available",
+    "usage_limit": "usage limit",
+    "timeout": "timeout",
+    "model_unavailable": "model unavailable",
+    "cli_missing": "CLI not installed",
+    "cli_crashed": "CLI crashed",
+    "content_policy": "content policy",
+    "cancelled": "cancelled"
   }
 }

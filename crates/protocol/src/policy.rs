@@ -206,6 +206,7 @@ const READ_VERBS: &[&str] = &[
     "kinds",
     "getManager",
     "getRouting",
+    "sources",
     "shells",
     "mergePreview",
     "check",

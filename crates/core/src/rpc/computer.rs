@@ -119,7 +119,7 @@ impl PlanModel for CoreModel {
         cancel: CancellationToken,
     ) -> ComputerResult<(String, String)> {
         let s = self.0.upgrade().ok_or_else(|| ComputerError::Planner("core is shutting down".into()))?;
-        match manager_complete(&s, system, user, 1_500, false, cancel.clone()).await {
+        match manager_complete(&s, system, user, 1_500, false, "Manager", cancel.clone()).await {
             Ok(r) => Ok(r),
             Err(_) if cancel.is_cancelled() => Err(ComputerError::Stopped),
             Err(e) => Err(ComputerError::Planner(e)),
@@ -139,6 +139,7 @@ pub(crate) async fn manager_complete(
     user: String,
     max_output_tokens: u32,
     real_only: bool,
+    purpose: &str,
     cancel: CancellationToken,
 ) -> Result<(String, String), String> {
     let mut chain = Vec::new();
@@ -148,7 +149,7 @@ pub(crate) async fn manager_complete(
     let routed = s
         .providers
         .route(&RouteRequest {
-            purpose: Some("Manager".into()),
+            purpose: Some(purpose.into()),
             required: RequiredCapabilities::default(),
             preferred: chain.first().cloned(),
             fallback_chain: Vec::new(),

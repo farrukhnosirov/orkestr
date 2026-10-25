@@ -292,7 +292,7 @@ impl HypothesisModel for CorePorts {
         }
         let routed = models
             .route(&RouteRequest {
-                purpose: Some("Manager".into()),
+                purpose: Some("Detective".into()),
                 required: RequiredCapabilities::default(),
                 preferred: chain.first().cloned(),
                 fallback_chain: Vec::new(),

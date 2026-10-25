@@ -23,10 +23,11 @@ use crate::credentials::{CredentialError, CredentialResolver};
 use crate::factory::{
     build_adapter, effective_base_url, headers_from_settings, is_local, validate_base_url, AdapterDeps,
 };
+use crate::failover::{FailoverRecord, SourceInfo};
 use crate::fallback::{
     chat_with_fallback, AdapterSource, AttemptOutcome, FallbackOptions, HandoffHook, ProviderEvent, ProviderEventSink,
 };
-use crate::limits::{CircuitBreaker, LatencyStats, LimitWindows};
+use crate::limits::{CircuitBreaker, Cooldown, LatencyStats, LimitWindows};
 use crate::pricing::estimate_cost;
 use crate::router::{self, Candidate, RouteRequest};
 use crate::store::{ProviderStore, KEY_BOOTSTRAPPED, KEY_MANAGER, KEY_ROUTING, MIGRATIONS};
@@ -200,7 +201,11 @@ struct Runtime {
     circuit: CircuitBreaker,
     windows: LimitWindows,
     latency: LatencyStats,
+    cooldown: Cooldown,
 }
+
+/// Failover log length (Settings → AI source priority).
+const FAILOVER_LOG: usize = 100;
 
 struct CachedModels {
     models: Vec<Model>,
@@ -224,6 +229,8 @@ pub struct ProviderRegistry {
     writes: tokio::sync::Mutex<()>,
     /// Historical benchmark statistics for auto-routing (wired by the core).
     stats: RwLock<Option<Arc<dyn crate::history::ModelStatsSource>>>,
+    /// Recent automatic switches, newest last (ADR-0051).
+    failovers: Mutex<std::collections::VecDeque<FailoverRecord>>,
 }
 
 impl std::fmt::Debug for ProviderRegistry {
@@ -292,6 +299,7 @@ impl ProviderRegistry {
             models: Mutex::new(HashMap::new()),
             writes: tokio::sync::Mutex::new(()),
             stats: RwLock::new(None),
+            failovers: Mutex::new(std::collections::VecDeque::new()),
         }
     }
 
@@ -729,8 +737,16 @@ impl ProviderRegistry {
                 .unwrap_or_else(|_| HealthReport::down(format!("health probe timed out after {}s", timeout.as_secs()))),
         };
         let needs_key = kind_info(e.config.kind).requires_api_key;
+        let probe_ok = report.health == ProviderHealth::Healthy
+            && !report.detail.as_deref().is_some_and(|d| d.starts_with("authentication failed"));
         let rate_limited = {
-            let rt = self.runtime.lock();
+            let mut rt = self.runtime.lock();
+            if probe_ok {
+                // A passing probe ends a failover cooldown (ADR-0051).
+                if let Some(r) = rt.get_mut(&id) {
+                    r.cooldown.clear();
+                }
+            }
             rt.get(&id).is_some_and(|r| r.windows.blocked_for(Instant::now()).is_some())
         };
         self.update_status(id, false, |s| {
@@ -751,6 +767,9 @@ impl ProviderRegistry {
                 report.health
             };
             s.health_detail = report.detail.clone();
+            if probe_ok {
+                s.cooldown_until = None;
+            }
             s.latency_ms = report.latency_ms;
             if report.version.is_some() {
                 s.version = report.version.clone();
@@ -888,12 +907,14 @@ impl ProviderRegistry {
                 AttemptOutcome::Success { latency_ms } => {
                     r.circuit.record_success();
                     r.windows.clear();
+                    r.cooldown.clear();
                     r.latency.record(*latency_ms);
                     Box::new(|s: &mut ProviderStatus| {
                         s.health = ProviderHealth::Healthy;
                         s.health_detail = None;
                         s.rate_limited_until = None;
                         s.quota_exhausted_until = None;
+                        s.cooldown_until = None;
                         if s.auth_state == AuthState::Invalid {
                             s.auth_state = AuthState::Authenticated;
                         }
@@ -905,8 +926,10 @@ impl ProviderRegistry {
                     }
                     let opened = err.trips_circuit() && r.circuit.record_failure(now);
                     let circuit_open = r.circuit.is_open(now);
+                    let kind = crate::failover::classify(err);
+                    let cooldown = kind.cools_down().then(|| r.cooldown.strike(now));
                     let msg = err.to_string();
-                    match err {
+                    let inner: Box<dyn FnOnce(&mut ProviderStatus) + Send> = match err {
                         ProviderError::RateLimited { retry_after_secs } => {
                             let wait = retry_after_secs.map_or(LimitWindows::DEFAULT_RATE_WAIT, Duration::from_secs);
                             r.windows.rate_limited_until = Some(now + wait);
@@ -917,12 +940,13 @@ impl ProviderRegistry {
                                 s.rate_limited_until = Some(to_ts(wait));
                             })
                         }
-                        ProviderError::QuotaExceeded(_) => {
-                            r.windows.quota_until = Some(now + LimitWindows::DEFAULT_QUOTA_WAIT);
+                        ProviderError::QuotaExceeded(m) => {
+                            let wait = crate::failover::limit_reset_in(m).unwrap_or(LimitWindows::DEFAULT_QUOTA_WAIT);
+                            r.windows.quota_until = Some(now + wait);
                             Box::new(move |s: &mut ProviderStatus| {
                                 s.health = ProviderHealth::Degraded;
                                 s.health_detail = Some(msg);
-                                s.quota_exhausted_until = Some(to_ts(LimitWindows::DEFAULT_QUOTA_WAIT));
+                                s.quota_exhausted_until = Some(to_ts(wait));
                             })
                         }
                         ProviderError::Auth(_) => Box::new(move |s: &mut ProviderStatus| {
@@ -940,7 +964,13 @@ impl ProviderRegistry {
                             })
                         }
                         _ => Box::new(|_s: &mut ProviderStatus| {}),
-                    }
+                    };
+                    Box::new(move |s: &mut ProviderStatus| {
+                        inner(s);
+                        if let Some(d) = cooldown {
+                            s.cooldown_until = Some(to_ts(d));
+                        }
+                    })
                 }
             }
         };
@@ -1047,7 +1077,106 @@ impl ProviderRegistry {
         let cfg = self.routing_config().await?;
         let mut extra = router::manual_chain(req, &cfg);
         extra.extend(req.exclude.iter().cloned());
-        Ok(router::route(req, &self.candidates_with_history(&extra, req.purpose.as_deref()), &cfg))
+        let candidates = self.candidates_with_history(&extra, req.purpose.as_deref());
+        let routed = router::route(req, &candidates, &cfg);
+        Ok(crate::failover::prioritize(routed, req, &candidates, &cfg, &self.source_infos()))
+    }
+
+    /// Prioritisation facts of every provider (creation order).
+    fn source_infos(&self) -> Vec<SourceInfo> {
+        let now = Instant::now();
+        let list = self.list();
+        let rt = self.runtime.lock();
+        list.into_iter()
+            .map(|v| SourceInfo {
+                provider_id: v.provider.id,
+                kind: v.provider.kind,
+                default_model: v.provider.default_model.clone(),
+                cooling: rt.get(&v.provider.id).is_some_and(|r| r.cooldown.remaining(now).is_some()),
+            })
+            .collect()
+    }
+
+    /// The effective AI source priority (stored order + every other provider
+    /// in the default order, capabilities resolved; ADR-0051).
+    pub async fn source_priority(&self) -> RegistryResult<Vec<orkestr_domain::AiSource>> {
+        let cfg = self.routing_config().await?;
+        Ok(crate::failover::effective_sources(&cfg, &self.source_infos()))
+    }
+
+    /// A [`crate::ProviderChain`] over the routed, prioritised chain for
+    /// `req` — the generic failover runner for non-chat calls (vision
+    /// backends, custom adapter calls; ADR-0051).
+    pub async fn chain(self: &Arc<Self>, req: &RouteRequest) -> RegistryResult<crate::ProviderChain> {
+        let chain = self.route(req).await?;
+        Ok(crate::ProviderChain::new(Arc::clone(self) as Arc<dyn AdapterSource>, chain))
+    }
+
+    /// Routes `req` and runs `request` as a collected completion over the
+    /// prioritised chain with failover; returns the final text and the model
+    /// that produced it (ADR-0051: voice phrasing, Jarvis chat, …).
+    ///
+    /// # Errors
+    /// No routable source, or the last / first non-failover error.
+    pub async fn complete(
+        self: &Arc<Self>,
+        req: &RouteRequest,
+        request: ChatRequest,
+        cancel: CancellationToken,
+    ) -> Result<(String, ModelRef), ProviderError> {
+        let chain = self.route(req).await.map_err(|e| ProviderError::Unsupported(e.to_string()))?;
+        let Some(head) = chain.first().cloned() else {
+            return Err(ProviderError::Unsupported(
+                "no AI source is available for this request (check Settings → AI source priority)".into(),
+            ));
+        };
+        let mut stream = self.chat(chain, request, None, cancel);
+        let (mut text, mut model) = (String::new(), head);
+        while let Some(ev) = stream.next().await {
+            match ev {
+                ChatEvent::TextDelta(t) => text.push_str(&t),
+                ChatEvent::Switched { to, .. } => {
+                    text.clear();
+                    model = to;
+                }
+                ChatEvent::Done { .. } => return Ok((text, model)),
+                ChatEvent::Error(e) => return Err(e),
+                ChatEvent::Usage(_) | ChatEvent::ToolCall { .. } => {}
+            }
+        }
+        Err(ProviderError::Server("stream ended without a terminal event".into()))
+    }
+
+    /// Recent automatic switches, newest first.
+    #[must_use]
+    pub fn failover_log(&self, limit: usize) -> Vec<FailoverRecord> {
+        self.failovers.lock().iter().rev().take(limit).cloned().collect()
+    }
+
+    /// Adds a switch made outside the executors (CLI agent fallback, which
+    /// publishes its own `ProviderFallback`) to the failover log.
+    pub fn log_failover(&self, from: &ModelRef, to: &ModelRef, reason: &str) {
+        let rec = FailoverRecord {
+            at: chrono::Utc::now(),
+            from: from.clone(),
+            from_name: self.display_name(from.provider_id),
+            to: to.clone(),
+            to_name: self.display_name(to.provider_id),
+            reason: reason.to_owned(),
+        };
+        self.push_failover(rec);
+    }
+
+    fn push_failover(&self, rec: FailoverRecord) {
+        let mut log = self.failovers.lock();
+        log.push_back(rec);
+        while log.len() > FAILOVER_LOG {
+            log.pop_front();
+        }
+    }
+
+    fn display_name(&self, id: ProviderId) -> String {
+        self.entries.read().get(&id).map_or_else(|| id.to_string(), |e| e.config.name.clone())
     }
 
     /// Streams a chat over a fallback chain (see [`chat_with_fallback`]).
@@ -1128,10 +1257,25 @@ impl ProviderRegistry {
         for m in &cfg.default_fallback {
             self.check_ref(m, "default fallback")?;
         }
+        if let Some(p) = cfg
+            .purpose_sources
+            .iter()
+            .find(|p| !crate::failover::PURPOSE_GROUPS.iter().any(|g| g.eq_ignore_ascii_case(&p.purpose)))
+        {
+            return Err(RegistryError::Invalid(format!("unknown AI source purpose `{}`", p.purpose)));
+        }
+        // Removed providers simply drop out of the source lists.
+        let mut cfg = cfg;
+        {
+            let entries = self.entries.read();
+            cfg.source_priority.retain(|s| entries.contains_key(&s.provider_id));
+            for p in &mut cfg.purpose_sources {
+                p.sources.retain(|id| entries.contains_key(id));
+            }
+        }
         if cfg.max_rate_limit_wait_secs > 3600 {
             return Err(RegistryError::Invalid("maxRateLimitWaitSecs must be ≤ 3600".into()));
         }
-        let mut cfg = cfg;
         for r in &mut cfg.rules {
             r.purpose = r.purpose.trim().to_owned();
         }
@@ -1179,6 +1323,21 @@ impl AdapterSource for ProviderRegistry {
     }
 
     fn emit(&self, event: ProviderEvent) {
+        let event = match event {
+            ProviderEvent::Fallback { from, to, reason, .. } => {
+                let (from_name, to_name) = (self.display_name(from.provider_id), self.display_name(to.provider_id));
+                self.push_failover(FailoverRecord {
+                    at: chrono::Utc::now(),
+                    from: from.clone(),
+                    from_name: from_name.clone(),
+                    to: to.clone(),
+                    to_name: to_name.clone(),
+                    reason: reason.clone(),
+                });
+                ProviderEvent::Fallback { from, to, reason, from_name: Some(from_name), to_name: Some(to_name) }
+            }
+            other => other,
+        };
         self.sink.emit(event);
     }
 }
@@ -1444,5 +1603,63 @@ mod tests {
             reg.set_manager_config(ManagerConfig { max_parallel_agents: 0, ..ManagerConfig::default() }).await,
             Err(RegistryError::Invalid(_))
         ));
+    }
+
+    /// ADR-0051: the first source by priority hits a rate limit / fails;
+    /// the request switches to the next one, logs it, names both sources,
+    /// and a failing source is cooled down and demoted.
+    #[tokio::test]
+    async fn failover_follows_source_priority_and_cools_down() {
+        use orkestr_domain::AiSource;
+        let (reg, _creds, sink, _db) = registry().await;
+        let b = reg.list()[0].provider.id;
+        let a = reg
+            .create(NewProvider {
+                kind: Some(ProviderKind::Mock),
+                name: Some("Sub A".into()),
+                ..NewProvider::default()
+            })
+            .await
+            .unwrap()
+            .provider
+            .id;
+        let src = |id| AiSource { provider_id: id, enabled: true, model: None, capabilities: None };
+        reg.set_routing_config(RoutingConfig { source_priority: vec![src(a), src(b)], ..RoutingConfig::default() })
+            .await
+            .unwrap();
+        let sources = reg.source_priority().await.unwrap();
+        assert_eq!(sources.iter().map(|s| s.provider_id).collect::<Vec<_>>(), vec![a, b]);
+        let req = RouteRequest {
+            purpose: Some("Manager".into()),
+            preferred: Some(ModelRef { provider_id: a, model: "mock-rate-limit".into() }),
+            ..RouteRequest::default()
+        };
+        let chain = reg.route(&req).await.unwrap();
+        assert_eq!(chain[0].provider_id, a);
+        assert_eq!(chain[1].provider_id, b);
+        let (text, model) = reg
+            .complete(&req, ChatRequest::new("x", vec![ChatMessage::user("hello")]), CancellationToken::new())
+            .await
+            .unwrap();
+        assert!(!text.is_empty());
+        assert_eq!(model.provider_id, b);
+        let log = reg.failover_log(10);
+        assert_eq!(log.len(), 1);
+        assert_eq!((log[0].from_name.as_str(), log[0].reason.as_str()), ("Sub A", "rate_limited"));
+        assert!(sink.0.lock().iter().any(|e| matches!(e,
+            ProviderEvent::Fallback { from_name: Some(f), to_name: Some(t), .. } if f == "Sub A" && t == "Mock (offline demo)")));
+
+        // A 5xx puts A into a cooldown: it is demoted behind B, then a
+        // success clears it.
+        let am = ModelRef { provider_id: a, model: "mock-smart".into() };
+        reg.record(&am, &AttemptOutcome::Failure(ProviderError::Server("503".into())));
+        assert!(reg.get(a).unwrap().status.cooldown_until.is_some());
+        let plain = RouteRequest { purpose: Some("Manager".into()), ..RouteRequest::default() };
+        let chain = reg.route(&plain).await.unwrap();
+        assert_eq!(chain[0].provider_id, b);
+        assert_eq!(chain.last().unwrap().provider_id, a, "demoted, not dropped");
+        reg.record(&am, &AttemptOutcome::Success { latency_ms: 5 });
+        assert!(reg.get(a).unwrap().status.cooldown_until.is_none());
+        assert_eq!(reg.route(&plain).await.unwrap()[0].provider_id, a);
     }
 }

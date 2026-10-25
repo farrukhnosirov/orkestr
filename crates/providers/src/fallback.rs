@@ -1,11 +1,15 @@
 //! Fallback chain executor (spec §4 retry policy, §7.3 structured handoff).
 //!
-//! Tries each model of a chain in order. A fallback-eligible failure
-//! (RateLimited / QuotaExceeded / Auth / Network / Server / Unsupported) moves
-//! to the next model, emitting `ProviderRateLimited` and `ProviderFallback`
-//! events. A rate limit with a short retry-after is retried on the same model
-//! first. When output was already delivered, the caller's [`HandoffHook`]
-//! decides whether (and with which request) to continue — never silently.
+//! Tries each model of a chain in order. A failure that
+//! [`crate::failover::classify`] marks as failover-worthy (auth, usage limit,
+//! rate limit, quota, network/timeout, 5xx, model unavailable, CLI
+//! missing/crashed, unsupported) moves to the next model, emitting
+//! `ProviderRateLimited` and `ProviderFallback` events; bad requests, content
+//! policy refusals and cancellation never fail over. A rate limit with a short
+//! retry-after is retried on the same model first. When output was already
+//! delivered, the caller's [`HandoffHook`] builds the structured handoff;
+//! without a hook the next model restarts the answer with a note (the
+//! consumer discards the partial output on `ChatEvent::Switched`).
 
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -50,8 +54,12 @@ pub enum ProviderEvent {
         from: ModelRef,
         /// Next model.
         to: ModelRef,
-        /// Error class.
+        /// Failure slug ([`crate::FailureKind::slug`]).
         reason: String,
+        /// Display name of the failed source (filled by the registry).
+        from_name: Option<String>,
+        /// Display name of the next source (filled by the registry).
+        to_name: Option<String>,
     },
 }
 
@@ -267,7 +275,8 @@ pub fn chat_with_fallback(
                     continue;
                 }
             }
-            if !error.is_fallback_eligible() {
+            let kind = crate::failover::classify(&error);
+            if !kind.fails_over() {
                 return Err(error);
             }
             let Some(next) = chain.get(index + 1).cloned() else {
@@ -286,12 +295,29 @@ pub fn chat_with_fallback(
                     Some(r) => request = r,
                     None => return Err(error),
                 },
-                // Without a hook, partial output cannot be handed over safely.
-                None if had_output => return Err(error),
+                // Without a hook the next source restarts the answer (the
+                // consumer discards the partial output on `Switched`), told
+                // why the previous attempt stopped (ADR-0051).
+                None if had_output => {
+                    let note = format!(
+                        "
+
+[Note: a previous AI source ({}) failed mid-answer ({}). Answer the request from the beginning.]",
+                        model.model,
+                        kind.slug()
+                    );
+                    request.system = Some(format!("{}{note}", request.system.take().unwrap_or_default()));
+                }
                 None => {}
             }
-            let reason = error.class().to_owned();
-            source.emit(ProviderEvent::Fallback { from: model.clone(), to: next.clone(), reason: reason.clone() });
+            let reason = kind.slug().to_owned();
+            source.emit(ProviderEvent::Fallback {
+                from: model.clone(),
+                to: next.clone(),
+                reason: reason.clone(),
+                from_name: None,
+                to_name: None,
+            });
             em.emit(ChatEvent::Switched { from: model, to: next, reason }).await?;
             index += 1;
             retries = 0;

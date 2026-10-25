@@ -57,6 +57,12 @@ pub struct RequiredCapabilities {
     pub coding_agent: bool,
     /// Minimum context window.
     pub min_context: u32,
+    /// Screen understanding / computer use (source capability, ADR-0051).
+    #[serde(default)]
+    pub computer_use: bool,
+    /// Text embeddings (source capability, ADR-0051).
+    #[serde(default)]
+    pub embeddings: bool,
 }
 
 /// A routing request.

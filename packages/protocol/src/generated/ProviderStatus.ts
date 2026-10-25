@@ -49,4 +49,8 @@ rateLimitedUntil: string | null,
 /**
  * Quota exhausted until (estimated when the provider gives no reset time).
  */
-quotaExhaustedUntil: string | null, };
+quotaExhaustedUntil: string | null, 
+/**
+ * Failover cooldown until (auth / network / 5xx / CLI failures, exponential; ADR-0051).
+ */
+cooldownUntil?: string, };
