@@ -1,0 +1,32 @@
+{
+  "title": "Voice assistant",
+  "micOn": "Microphone on",
+  "status": {
+    "idle": "Standing by",
+    "listening": "Listening…",
+    "transcribing": "Recognizing…",
+    "thinking": "Thinking…",
+    "speaking": "Replying…",
+    "confirm": "Awaiting your answer",
+    "done": "Done",
+    "error": "Something went wrong"
+  },
+  "mode": {
+    "command": "Command",
+    "chat": "Conversation",
+    "cursor": "Cursor"
+  },
+  "hint": {
+    "listening": "Go ahead — for example, “open YouTube”",
+    "thinking": "Working on it…",
+    "idle": "Say the wake word or hold the hotkey"
+  },
+  "actions": {
+    "repeat": "Repeat",
+    "repeatHint": "Say the reply again",
+    "cancel": "Cancel",
+    "open": "Open in Orkestr",
+    "yes": "Yes",
+    "no": "No"
+  }
+}

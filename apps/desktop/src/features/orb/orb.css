@@ -700,83 +700,18 @@
   font-size: var(--ok-font-size-xs);
 }
 
-/* Voice popup next to the orb (background voice commands). */
-.orb-voice {
+/* Jarvis voice card next to the orb (background voice commands). */
+.orb-panel--voice {
+  align-items: center;
+  animation: none;
+}
+.orb-panel--voice > .jv {
   flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--ok-space-2);
-  padding: var(--ok-space-2) var(--ok-space-3) var(--ok-space-3);
-  overflow: auto;
-  font-size: var(--ok-font-size-sm);
-  border-radius: var(--ok-radius-lg);
-  border: 1px solid var(--ok-color-border-strong);
-  background:
-    var(--ok-gradient-panel),
-    color-mix(in srgb, var(--ok-color-bg-elevated) 94%, transparent);
-  box-shadow: var(--ok-shadow-panel);
+  height: 100%;
 }
-
-.orb-voice__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--ok-space-2);
-}
-
-.orb-voice__status {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--ok-space-1);
-  color: var(--ok-color-text-muted);
-  font-size: var(--ok-font-size-xs);
-  font-weight: var(--ok-font-weight-semibold);
-}
-
-.orb-voice__status--mic {
-  color: var(--ok-color-danger);
-}
-
-.orb-voice__heard {
-  margin: 0;
-  color: var(--ok-color-text-muted);
-  font-style: italic;
-}
-
-.orb-voice__reply {
-  margin: 0;
-  color: var(--ok-color-text);
-  line-height: 1.4;
-}
-
-.orb-voice__reply--error {
-  color: var(--ok-color-danger);
-}
-
-.orb-voice__reply--warn {
-  color: var(--ok-color-warning);
-}
-
-.orb-voice__actions {
-  display: flex;
-  gap: var(--ok-space-2);
-}
-
-.orb-voice__btn {
-  padding: 4px 10px;
-  border: 1px solid var(--ok-color-border-strong);
-  border-radius: var(--ok-radius-sm);
-  background: transparent;
-  color: var(--ok-color-text);
-  font: inherit;
-  cursor: pointer;
-}
-
-.orb-voice__btn--ok {
-  background: var(--ok-color-accent);
-  border-color: var(--ok-color-accent);
-  color: var(--ok-color-on-accent, #fff);
+.orb-panel--voice .jv__panel {
+  align-self: center;
+  max-height: calc(100% - 8px);
 }
 
 .orb--ghost {

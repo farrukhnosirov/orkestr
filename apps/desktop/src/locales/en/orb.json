@@ -55,7 +55,8 @@
     "hidden": "Orb hidden",
     "shown": "Orb shown",
     "size": "Orb size: {{size}} px",
-    "migrated": "Orb hidden (the floating robots were off)"
+    "migrated": "Orb hidden (the floating robots were off)",
+    "voiceSize": "Voice circle size: {{size}} px"
   },
   "hub": {
     "title": "Agent Hub",
@@ -119,7 +120,14 @@
     "positionDesc": "Drag the orb anywhere; it snaps to screen edges and is remembered per monitor.",
     "resetPosition": "Reset position",
     "positionReset": "Moved to the corner",
-    "preview": "States"
+    "preview": "States",
+    "voiceSize": "Voice circle size",
+    "voiceSizeDesc": "The Jarvis circle that appears next to the orb while you talk to Orkestr.",
+    "voiceSizes": {
+      "120": "Small",
+      "150": "Medium",
+      "180": "Large"
+    }
   },
   "commands": {
     "group": "Orb",

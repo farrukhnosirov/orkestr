@@ -76,7 +76,9 @@ describe("voice UI", () => {
     act(() => useVoiceStore.setState({ phase: "confirm", confirmText: "Остановить всю работу AI в проекте Schoolify?" }));
     expect(screen.getByRole("button", { name: "Да, выполнить" })).toBeTruthy();
     act(() => useVoiceStore.setState({ phase: "result", confirmText: null, reply: { text: "Готово.", tone: "ok", outcome: "ok" } }));
-    expect(screen.getByRole("status").textContent).toBe("Готово.");
+    expect(screen.getByRole("status", { name: "Готово." })).toBeTruthy();
+    // The reply sits in the Jarvis panel next to the reactor.
+    expect(document.querySelector(".jv--inline .jv-reactor")).toBeTruthy();
   });
 
   it("sound & notification settings render every cue and event toggle", () => {

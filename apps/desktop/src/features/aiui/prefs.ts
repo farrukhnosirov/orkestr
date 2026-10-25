@@ -17,7 +17,7 @@ export const DEFAULT_PREFS: UiPrefs = {
   hiddenWidgets: [],
   backgroundDim: 0,
   hud: { opacity: 0.82, showAgents: true, showManagerInput: true },
-  orb: { enabled: true, size: 64, showBadge: true, animation: "Full" },
+  orb: { enabled: true, size: 64, showBadge: true, animation: "Full", voiceSize: 150 },
 };
 
 const DEFAULT_EFFECTS: ThemeEffects = { blurPx: 18, glowIntensity: 0.6, panelOpacity: 0.72, animations: true };

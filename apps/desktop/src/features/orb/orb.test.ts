@@ -140,7 +140,8 @@ describe("orb geometry and prefs", () => {
     expect(clampOrbSize(200)).toBe(96);
     expect(clampOrbSize(Number.NaN)).toBe(64);
     expect(orbBoxSize(64)).toBe(88);
-    expect(orbPrefsOf(null)).toEqual({ enabled: true, size: 64, showBadge: true, animation: "Full" });
+    expect(orbPrefsOf(null)).toEqual({ enabled: true, size: 64, showBadge: true, animation: "Full", voiceSize: 150 });
+    expect(orbPrefsOf({ voiceSize: 999 }).voiceSize).toBe(180);
     expect(orbPrefsOf({ size: 500, enabled: false }).size).toBe(96);
   });
   it("hit shape is the sphere circle plus open panels", () => {

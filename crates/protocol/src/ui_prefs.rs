@@ -100,6 +100,9 @@ pub enum OrbAnimation {
 /// Min / max sphere size of the orb in logical px.
 pub const ORB_SIZE_RANGE: (u16, u16) = (48, 96);
 
+/// Min / max diameter of the Jarvis voice circle next to the orb, logical px.
+pub const ORB_VOICE_SIZE_RANGE: (u16, u16) = (120, 180);
+
 /// The floating orb (ADR-0045): one sphere on the desktop that opens the
 /// Agent Hub. Its position is remembered per device and monitor by the
 /// desktop (not in this document).
@@ -115,11 +118,14 @@ pub struct OrbPrefs {
     pub show_badge: bool,
     /// Animation level.
     pub animation: OrbAnimation,
+    /// Diameter of the Jarvis voice circle while a voice command runs
+    /// ([`ORB_VOICE_SIZE_RANGE`]; additive, wave 9).
+    pub voice_size: u16,
 }
 
 impl Default for OrbPrefs {
     fn default() -> Self {
-        Self { enabled: true, size: 64, show_badge: true, animation: OrbAnimation::Full }
+        Self { enabled: true, size: 64, show_badge: true, animation: OrbAnimation::Full, voice_size: 150 }
     }
 }
 
@@ -205,6 +211,13 @@ impl UiPrefs {
                 message: format!("must be between {min} and {max}"),
             });
         }
+        let (min, max) = ORB_VOICE_SIZE_RANGE;
+        if !(min..=max).contains(&self.orb.voice_size) {
+            issues.push(UiConfigIssue {
+                path: "prefs.orb.voiceSize".into(),
+                message: format!("must be between {min} and {max}"),
+            });
+        }
     }
 }
 
@@ -243,6 +256,11 @@ mod tests {
         UiPrefs { orb: OrbPrefs { size: 200, ..OrbPrefs::default() }, ..UiPrefs::default() }.validate_into(&mut issues);
         assert_eq!(issues.len(), 1);
         assert_eq!(issues[0].path, "prefs.orb.size");
+        assert_eq!(p.orb.voice_size, 150, "voice size defaults");
+        let mut issues = Vec::new();
+        UiPrefs { orb: OrbPrefs { voice_size: 300, ..OrbPrefs::default() }, ..UiPrefs::default() }.validate_into(&mut issues);
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].path, "prefs.orb.voiceSize");
     }
 
     #[test]

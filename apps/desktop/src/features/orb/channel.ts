@@ -7,6 +7,8 @@
  */
 import { useEffect, useRef, useState } from "react";
 
+import { isSignalFrame, type SignalFrame } from "../voice/jarvis/frame";
+
 const CHANNEL = "orkestr.orb";
 
 export interface OrbVoiceState {
@@ -26,10 +28,17 @@ export interface OrbVoiceState {
   reply?: { text: string; tone: string } | null;
   /** A pending yes/no question. */
   confirmText?: string | null;
+  /** How the command started (`WakeWord`, `PushToTalk`, …). */
+  source?: string | null;
+  /** Speech engines (status line). */
+  sttEngine?: string | null;
+  ttsEngine?: string | null;
+  /** Assistant mode shown on the Jarvis card (`command` / `chat` / `cursor`). */
+  mode?: string | null;
 }
 
 /** Orb popup → main window: answers / closes the voice command. */
-export type OrbVoiceAction = "yes" | "no" | "cancel";
+export type OrbVoiceAction = "yes" | "no" | "cancel" | "repeat";
 
 export interface OrbMainState {
   voice: OrbVoiceState;
@@ -41,7 +50,9 @@ export type OrbMessage =
   | { type: "state"; state: OrbMainState }
   | { type: "hello" }
   | { type: "ptt"; down: boolean }
-  | { type: "voice"; action: OrbVoiceAction };
+  | { type: "voice"; action: OrbVoiceAction }
+  /** main → orb: live band energies for the Jarvis reactor (plain numbers, ~30 Hz). */
+  | { type: "signal"; frame: SignalFrame };
 
 export const IDLE_MAIN_STATE: OrbMainState = {
   voice: { enabled: false, phase: "idle", speaking: false, level: 0 },
@@ -72,11 +83,20 @@ export function isStateMessage(m: unknown): m is { type: "state"; state: OrbMain
   return msg.type === "state" && typeof msg.state?.appActive === "boolean" && typeof msg.state.voice === "object" && msg.state.voice !== null;
 }
 
+/** Whether a message is a well-formed signal frame message. */
+export function isSignalMessage(m: unknown): m is { type: "signal"; frame: SignalFrame } {
+  if (!m || typeof m !== "object") return false;
+  const msg = m as { type?: unknown; frame?: unknown };
+  return msg.type === "signal" && isSignalFrame(msg.frame);
+}
+
 /**
  * Orb window: the main window's state, live (`IDLE_MAIN_STATE` until it
  * answers), and a push-to-talk sender.
  */
-export function useOrbMainState(): { state: OrbMainState; ptt: (down: boolean) => void; voiceAction: (action: OrbVoiceAction) => void } {
+export function useOrbMainState(onSignal?: (f: SignalFrame) => void): { state: OrbMainState; ptt: (down: boolean) => void; voiceAction: (action: OrbVoiceAction) => void } {
+  const signalRef = useRef(onSignal);
+  signalRef.current = onSignal;
   const [state, setState] = useState<OrbMainState>(IDLE_MAIN_STATE);
   const chRef = useRef<BroadcastChannel | null>(null);
   useEffect(() => {
@@ -85,6 +105,7 @@ export function useOrbMainState(): { state: OrbMainState; ptt: (down: boolean) =
     chRef.current = ch;
     ch.onmessage = (e: MessageEvent<unknown>) => {
       if (isStateMessage(e.data)) setState(e.data.state);
+      else if (isSignalMessage(e.data)) signalRef.current?.(e.data.frame);
     };
     safePost(ch, { type: "hello" });
     return () => {

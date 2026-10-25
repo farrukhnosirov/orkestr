@@ -570,7 +570,9 @@ pub fn on_window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
                 o.expected_pos = None;
                 return;
             }
-            if o.inside && !o.expanded {
+            // A user drag (the sphere, or the Jarvis voice card that moves the
+            // orb along with it): snap and remember the position when it ends.
+            if o.inside {
                 if o.last_user_move.is_none() {
                     let _ = app.emit_to(ORB_WINDOW, EV_DRAG, true);
                 }

@@ -6,17 +6,21 @@
  */
 import { Button, IconButton, Kbd } from "@orkestr/ui";
 import { clsx } from "clsx";
-import { Check, CornerDownLeft, Lock, Mic, MicOff, Settings2, ShieldAlert, Square, X } from "lucide-react";
+import { Check, CornerDownLeft, Lock, Mic, Settings2, ShieldAlert, Square, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 
 import { useT } from "../../../i18n";
 import { useSettingsStore } from "../../settings/settingsStore";
-import { answerConfirmation, cancelVoice, currentAnalyser, startListening, stopListening, submitTyped, sttReady } from "../controller";
+import { usePerfStore } from "../../performance/perfStore";
+import { answerConfirmation, cancelVoice, repeatReply, startListening, stopListening, submitTyped, sttReady } from "../controller";
+import { JarvisVoice } from "../jarvis/JarvisVoice";
+import { reactorFps } from "../jarvis/model";
+import { liveVoiceSignal } from "../jarvis/signal";
+import { useJarvisDebug, useJarvisState } from "../jarvis/useJarvisState";
 import { hotkeyKeys } from "../hotkey";
 import { useVoiceStore } from "../store";
 import { useVisualBudget } from "./visual";
-import { Waveform } from "./Waveform";
 import "../voice.css";
 
 const EXAMPLES = ["ex1", "ex2", "ex3", "ex4"] as const;
@@ -33,11 +37,19 @@ export function VoiceHud() {
   const config = useVoiceStore((s) => s.config);
   const setHudOpen = useVoiceStore((s) => s.setHudOpen);
   const openSettings = useSettingsStore((s) => s.openSettings);
+  const source = useVoiceStore((s) => s.source);
+  const mic = useVoiceStore((s) => s.mic);
+  const assistantMode = useVoiceStore((s) => s.assistantMode);
   const budget = useVisualBudget();
+  const perfMode = usePerfStore((s) => s.mode);
+  const reduced = usePerfStore((s) => s.reducedMotion);
+  const paused = usePerfStore((s) => s.policy.paused || s.policy.idle);
+  const jvState = useJarvisState(phase, speaking, source);
+  const forced = useJarvisDebug();
   const [text, setText] = useState("");
   const inputRef = useRef<HTMLInputElement | null>(null);
 
-  const visible = hudOpen || phase !== "idle";
+  const visible = hudOpen || phase !== "idle" || forced !== null;
   const canTalk = sttReady();
   const cloud = config?.sttEngine === "OpenAiWhisper" || config?.sttEngine === "WebSpeech";
 
@@ -59,9 +71,17 @@ export function VoiceHud() {
     void submitTyped(v);
   };
 
-  const phaseLabel = speaking ? t("hud.speaking") : t(`hud.phases.${phase}`);
   const keys = hotkeyKeys(config?.pushToTalkHotkey ?? "Ctrl+Space");
-  const analyser = phase === "listening" ? currentAnalyser() : null;
+  const listening = phase === "listening";
+  const engineId = speaking ? config?.ttsEngine : config?.sttEngine;
+  const engine = !canTalk
+    ? null
+    : speaking && config?.ttsEngine
+      ? t(`settings.tts.engines.${config.ttsEngine}`)
+      : config?.sttEngine
+        ? t(`settings.stt.engines.${config.sttEngine}`)
+        : null;
+  const fx = forced;
 
   return (
     <AnimatePresence>
@@ -85,20 +105,26 @@ export function VoiceHud() {
         >
           <div className="vx-hud__glow" aria-hidden="true" />
           <div className="vx-hud__top">
-            <div className="vx-hud__orb">
-              <Waveform analyser={analyser} phase={phase} level={level} fps={budget.fps} />
-              <span className="vx-hud__orb-icon" aria-hidden="true">
-                {phase === "listening" ? <Mic size={20} /> : phase === "error" ? <MicOff size={20} /> : <Mic size={18} />}
-              </span>
-            </div>
             <div className="vx-hud__main">
-              <div className="vx-hud__phase" aria-live="polite">
-                <span className={clsx("vx-dot", `vx-dot--${phase}`)} />
-                {phaseLabel}
-              </div>
-              <div className={clsx("vx-hud__transcript", !transcript && "vx-hud__transcript--empty")}>
-                {transcript || (phase === "listening" ? t("hud.speakNow") : t("hud.prompt"))}
-              </div>
+              <JarvisVoice
+                variant="inline"
+                size={112}
+                state={fx?.state ?? jvState}
+                level={fx?.level ?? level}
+                partialText={fx ? (fx.partialText ?? "") : listening ? transcript : ""}
+                finalText={fx ? (fx.finalText ?? "") : listening ? "" : transcript}
+                replyText={fx ? (fx.replyText ?? "") : phase !== "confirm" ? (reply?.text ?? "") : ""}
+                replyTone={reply?.tone ?? "info"}
+                mode={fx?.mode ?? assistantMode}
+                phase={fx?.phase ?? phase}
+                engine={fx?.engine ?? (engineId ? engine : null)}
+                micOpen={fx?.micOpen ?? mic.includes("command")}
+                speaking={fx?.speaking ?? speaking}
+                fps={reactorFps(perfMode, reduced, paused)}
+                motion={budget.motion}
+                signal={fx ? null : liveVoiceSignal}
+                onRepeat={repeatReply}
+              />
               <div className="vx-hud__privacy">
                 <Lock size={11} />
                 {cloud && canTalk ? t("hud.privacyCloud", { engine: t(`settings.stt.engines.${config?.sttEngine ?? "Disabled"}`) }) : t("hud.privacyLocal")}
@@ -132,18 +158,6 @@ export function VoiceHud() {
                     {t("hud.yes")}
                   </Button>
                 </div>
-              </motion.div>
-            )}
-            {reply && phase !== "confirm" && (
-              <motion.div
-                key={`reply-${reply.text}`}
-                className={clsx("vx-card", `vx-card--${reply.tone}`)}
-                initial={budget.motion ? { opacity: 0, y: 8 } : false}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                role="status"
-              >
-                <div className="vx-card__text">{reply.text}</div>
               </motion.div>
             )}
           </AnimatePresence>

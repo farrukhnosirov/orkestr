@@ -17,6 +17,7 @@ import { ORB_HUB_SHORTCUT, ORB_PAD, type OrbMood, orbPrefsOf } from "./model";
 import { ANIMATIONS } from "./OrbMenu";
 import { OrbSphere } from "./OrbSphere";
 import { orbShell } from "./shell";
+import { JARVIS_SIZES } from "../voice/jarvis/model";
 import "./orb.css";
 
 const SIZES = [56, 64, 72] as const;
@@ -47,6 +48,14 @@ export function OrbSettings(_props: SettingsSectionProps) {
             value={String(prefs.size)}
             options={SIZES.map((s) => ({ value: String(s), label: t(`settings.sizes.${s}`) }))}
             onChange={(v) => patch("size", Number(v), t("summaries.size", { size: v }))}
+          />
+        </SettingRow>
+        <SettingRow title={t("settings.voiceSize")} description={t("settings.voiceSizeDesc")}>
+          <Segmented<string>
+            label={t("settings.voiceSize")}
+            value={String(prefs.voiceSize)}
+            options={JARVIS_SIZES.map((s) => ({ value: String(s), label: t(`settings.voiceSizes.${s}`) }))}
+            onChange={(v) => patch("voiceSize", Number(v), t("summaries.voiceSize", { size: v }))}
           />
         </SettingRow>
         <SettingRow title={t("settings.badge")} description={t("settings.badgeDesc")}>

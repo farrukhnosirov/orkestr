@@ -485,6 +485,15 @@ function finish(intent: Intent, r: CommandResult, source: VoiceCommandSource): v
   scheduleDismiss(r.managerReply ? 60_000 : r.followUp ? 15_000 : 9000);
 }
 
+/** Says the current reply again (Jarvis card "Repeat"). Keeps the card open while it speaks. */
+export function repeatReply(): void {
+  const s = useVoiceStore.getState();
+  const text = s.reply?.text ?? s.confirmText;
+  if (!text) return;
+  if (s.phase === "result" || s.phase === "error") scheduleDismiss(9000);
+  void say(text);
+}
+
 /** Speaks a reply with the active TTS engine (when spoken replies are on). */
 export async function say(text: string): Promise<void> {
   const c = useVoiceStore.getState().config;
