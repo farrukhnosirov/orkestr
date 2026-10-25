@@ -518,10 +518,12 @@ impl Run {
         self.chat_loop().await
     }
 
-    /// A CLI coding agent (Claude Code subscription, Codex) hit its usage
-    /// limit: the task continues on the next model of the agent's chain
-    /// (template fallback models, then routing), with a structured handoff —
-    /// the same chain and handoff the chat executor uses for its fallback.
+    /// A CLI coding agent (Claude Code subscription, Codex) failed with a
+    /// failover-worthy error (usage limit, rate limit, quota, auth, CLI
+    /// missing / crashed, network, 5xx — `orkestr_providers::classify`,
+    /// ADR-0051): the task continues on the next model of the agent's chain
+    /// (template fallback models, then the AI source priority), with a
+    /// structured handoff — the same chain and handoff the chat executor uses.
     /// `Some(true)` = the next model is a CLI agent too, `Some(false)` = a
     /// chat model, `None` = no fallback (the outcome stands).
     async fn cli_limit_fallback(&mut self) -> Option<bool> {
@@ -531,7 +533,9 @@ impl Run {
         }
         let from = self.head_model()?;
         let models = Arc::clone(&self.deps.models);
-        let to = next_after_usage_limit(&self.chain, &from, &error, |m| {
+        // Cooldown / limit window / health of the failed source.
+        models.observe(&from, &orkestr_providers::AttemptOutcome::Failure(error.clone()));
+        let to = next_after_cli_failure(&self.chain, &from, &error, |m| {
             models.provider(m.provider_id).is_some_and(|i| i.enabled)
         })?;
         let to_cli = models.provider(to.provider_id).is_some_and(|i| i.is_cli_agent());
@@ -542,7 +546,7 @@ impl Run {
             reason: HandoffReason::ProviderFallback,
             to_model: Some(to.clone()),
             progress: &progress,
-            note: Some(format!("{} hit its usage limit: {error}", from.model)),
+            note: Some(format!("{} stopped ({}): {error}", from.model, orkestr_providers::classify(&error).slug())),
             turns_left: self.agent.max_turns.saturating_sub(self.agent.turns_used),
             cost_left: None,
         });
@@ -565,15 +569,18 @@ impl Run {
             .tasks
             .record_agent_run(self.task.id, AgentRunUpdate { model: Some(to.clone()), ..Default::default() })
             .await;
-        let reason = error.class().to_owned();
+        let reason = orkestr_providers::classify(&error).slug().to_owned();
+        models.record_failover(&from, &to, &reason);
         self.publish(EventKind::ProviderFallback(orkestr_protocol::event::ProviderFallbackPayload {
             from: from.clone(),
             to: to.clone(),
             reason: reason.clone(),
+            from_name: models.provider_name(from.provider_id),
+            to_name: models.provider_name(to.provider_id),
         }))
         .await;
         self.note(&format!(
-            "Provider fallback: {} → {} ({reason}, usage limit). A structured handoff was created.",
+            "Provider fallback: {} → {} ({reason}). A structured handoff was created.",
             from.model, to.model
         ))
         .await;
@@ -2061,17 +2068,18 @@ impl HandoffHook for FallbackHook {
 }
 
 /// The model a CLI agent falls back to after `error` ended its run on
-/// `from`: only a usage limit (quota / rate limit — e.g. "Claude AI usage
-/// limit reached") switches; the next usable model after `from` in `chain`.
+/// `from`: every failover-worthy failure (usage limit, rate limit, quota,
+/// auth, CLI missing / crashed, network, 5xx, model unavailable —
+/// [`orkestr_providers::classify`]) switches; bad requests, content policy
+/// and cancellation do not. The next usable model after `from` in `chain`.
 #[must_use]
-pub fn next_after_usage_limit(
+pub fn next_after_cli_failure(
     chain: &[ModelRef],
     from: &ModelRef,
     error: &orkestr_providers::ProviderError,
     usable: impl Fn(&ModelRef) -> bool,
 ) -> Option<ModelRef> {
-    use orkestr_providers::ProviderError as E;
-    if !matches!(error, E::QuotaExceeded(_) | E::RateLimited { .. }) {
+    if !orkestr_providers::classify(error).fails_over() {
         return None;
     }
     let pos = chain.iter().position(|m| m == from)?;

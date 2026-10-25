@@ -201,7 +201,11 @@ pub(crate) async fn run_cli(run: &mut Run) -> Outcome {
     let started = Instant::now();
     let mut stream = match adapter.run_coding_agent(req, run.control.cancel.child_token()).await {
         Ok(s) => s,
-        Err(e) => return Outcome::Failed(format!("could not start the CLI agent: {e}")),
+        Err(e) => {
+            // CLI missing / not logged in: the run fails over (ADR-0051).
+            run.cli_error = Some(e.clone());
+            return Outcome::Failed(format!("could not start the CLI agent: {e}"));
+        }
     };
     let message_id = uuid::Uuid::now_v7().to_string();
     let mut text = String::new();

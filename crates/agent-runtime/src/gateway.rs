@@ -94,6 +94,16 @@ pub trait ModelGateway: Send + Sync {
     async fn configured_model(&self, _purpose: &str) -> Option<ModelRef> {
         None
     }
+    /// Reports an attempt made outside [`Self::chat`] (CLI agent runs) so the
+    /// source gets its cooldown / limit window (ADR-0051). Default: ignored.
+    fn observe(&self, _model: &ModelRef, _outcome: &orkestr_providers::AttemptOutcome) {}
+    /// Records an automatic switch made outside [`Self::chat`] in the
+    /// failover log (ADR-0051). Default: ignored.
+    fn record_failover(&self, _from: &ModelRef, _to: &ModelRef, _reason: &str) {}
+    /// Display name of a provider instance (failover notifications).
+    fn provider_name(&self, _id: ProviderId) -> Option<String> {
+        None
+    }
 }
 
 /// Production gateway over the provider registry.
@@ -141,5 +151,19 @@ impl ModelGateway for RegistryGateway {
     async fn configured_model(&self, purpose: &str) -> Option<ModelRef> {
         let cfg = self.0.routing_config().await.ok()?;
         cfg.rule_for(purpose).map(|r| r.model.clone())
+    }
+
+    fn observe(&self, model: &ModelRef, outcome: &orkestr_providers::AttemptOutcome) {
+        if !matches!(outcome, orkestr_providers::AttemptOutcome::Failure(orkestr_providers::ProviderError::Cancelled)) {
+            self.0.record(model, outcome);
+        }
+    }
+
+    fn record_failover(&self, from: &ModelRef, to: &ModelRef, reason: &str) {
+        self.0.log_failover(from, to, reason);
+    }
+
+    fn provider_name(&self, id: ProviderId) -> Option<String> {
+        self.0.get(id).ok().map(|v| v.provider.name)
     }
 }

@@ -1334,19 +1334,27 @@ async fn cli_agent_takes_a_checkpoint_and_its_task_rolls_back() {
 }
 
 #[test]
-fn only_a_usage_limit_moves_a_cli_agent_to_the_next_model() {
+fn classified_failures_move_a_cli_agent_to_the_next_model() {
     let (a, b, c) = (ProviderId::new(), ProviderId::new(), ProviderId::new());
     let m = |p: ProviderId, n: &str| ModelRef { provider_id: p, model: n.into() };
     let chain = vec![m(a, "claude"), m(b, "disabled"), m(c, "gpt")];
     let usable = |x: &ModelRef| x.provider_id != b;
     let quota = ProviderError::QuotaExceeded("Claude AI usage limit reached".into());
-    let next = crate::run::next_after_usage_limit(&chain, &chain[0], &quota, usable);
+    let next = crate::run::next_after_cli_failure(&chain, &chain[0], &quota, usable);
     assert_eq!(next, Some(m(c, "gpt")), "skips the unusable provider");
-    let limited = ProviderError::RateLimited { retry_after_secs: Some(60) };
-    assert!(crate::run::next_after_usage_limit(&chain, &chain[0], &limited, usable).is_some());
-    let other = ProviderError::Server("boom".into());
-    assert_eq!(crate::run::next_after_usage_limit(&chain, &chain[0], &other, usable), None, "not a limit");
-    assert_eq!(crate::run::next_after_usage_limit(&chain, &chain[2], &quota, usable), None, "chain exhausted");
+    for e in [
+        ProviderError::RateLimited { retry_after_secs: Some(60) },
+        ProviderError::Server("claude exited with code 1".into()),
+        ProviderError::Auth("Claude Code CLI (`claude`) is not installed".into()),
+        ProviderError::Auth("Invalid API key · Please run /login".into()),
+        ProviderError::Network("connection reset".into()),
+    ] {
+        assert!(crate::run::next_after_cli_failure(&chain, &chain[0], &e, usable).is_some(), "{e}");
+    }
+    for e in [ProviderError::BadRequest("bad flag".into()), ProviderError::Cancelled] {
+        assert_eq!(crate::run::next_after_cli_failure(&chain, &chain[0], &e, usable), None, "{e}");
+    }
+    assert_eq!(crate::run::next_after_cli_failure(&chain, &chain[2], &quota, usable), None, "chain exhausted");
 }
 
 #[tokio::test]

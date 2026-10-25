@@ -1,7 +1,8 @@
 {
   "sections": {
     "providers": "AI Providers",
-    "manager": "AI Manager"
+    "manager": "AI Manager",
+    "sources": "AI source priority"
   },
   "commands": {
     "group": "AI Providers",
@@ -287,5 +288,52 @@
     "hint": "Sets the Manager, every agent role, review, consensus and PM to Claude Code. Your current models stay as fallbacks.",
     "applied_one": "Done: the Manager and {{count}} role now use Claude Code.",
     "applied_other": "Done: the Manager and {{count}} roles now use Claude Code."
+  },
+  "sources": {
+    "title": "AI source priority",
+    "intro": "Every subscription and API key in one ordered list. If a source stops working (limit, expired key, no network, CLI crash), every request switches to the next one by priority at once. Drag to reorder.",
+    "failover": "Switch to the next source automatically",
+    "enabled": "Use",
+    "moveUp": "Move {{name}} up",
+    "moveDown": "Move {{name}} down",
+    "test": "Test {{name}}",
+    "testing": "Testing…",
+    "testOk": "Works ({{ms}} ms)",
+    "testFailed": "Failed: {{error}}",
+    "status": {
+      "ok": "working",
+      "limit": "limit until {{until}}",
+      "auth": "sign-in error",
+      "offline": "no network",
+      "cooldown": "paused until {{until}}",
+      "disabled": "off",
+      "unknown": "not checked"
+    },
+    "cap": {
+      "chat": "chat",
+      "tools": "tools",
+      "vision": "images",
+      "computerUse": "computer use",
+      "embeddings": "embeddings"
+    },
+    "overrides": "Per-purpose order",
+    "overridesHint": "By default every purpose uses the list above filtered by the capability it needs.",
+    "custom": "own list",
+    "global": "global order",
+    "useCustom": "Use own sources for this purpose",
+    "purpose": {
+      "manager": "AI Manager",
+      "agents": "Agents",
+      "reviews": "Reviews",
+      "voice": "Voice replies",
+      "jarvis": "Jarvis chat",
+      "cursor": "Cursor mode",
+      "detective": "Bug Detective",
+      "productManager": "Product manager"
+    },
+    "save": "Save",
+    "reload": "Reload",
+    "log": "Recent switches",
+    "logEmpty": "No automatic switches yet."
   }
 }

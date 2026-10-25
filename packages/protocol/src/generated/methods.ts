@@ -14,6 +14,7 @@ import type { AgentStats } from "./AgentStats";
 import type { AgentStatsParams } from "./AgentStatsParams";
 import type { AgentStopParams } from "./AgentStopParams";
 import type { AgentTranscriptResult } from "./AgentTranscriptResult";
+import type { AiSourcesResult } from "./AiSourcesResult";
 import type { AlertIdParams } from "./AlertIdParams";
 import type { AlertResult } from "./AlertResult";
 import type { AlertRuleResult } from "./AlertRuleResult";
@@ -725,6 +726,7 @@ export type Methods = {
   "providers.setManager": [ManagerConfigPayload, ManagerConfigPayload];
   "providers.getRouting": [Empty, RoutingConfigPayload];
   "providers.setRouting": [RoutingConfigPayload, RoutingConfigPayload];
+  "providers.sources": [Empty, AiSourcesResult];
   "tasks.list": [ListTasksParams, ListTasksResult];
   "tasks.get": [TaskIdParams, SingleTaskResult];
   "tasks.create": [CreateTaskParams, SingleTaskResult];
@@ -1212,6 +1214,7 @@ export const METHOD_NAMES = [
   "providers.setManager",
   "providers.getRouting",
   "providers.setRouting",
+  "providers.sources",
   "tasks.list",
   "tasks.get",
   "tasks.create",

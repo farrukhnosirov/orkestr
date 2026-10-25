@@ -416,6 +416,44 @@ method!(
     /// `providers.getRouting` — routing table / fallback settings.
     GetRouting, "providers.getRouting", Empty, RoutingConfigPayload
 );
+/// One automatic switch between AI sources (ADR-0051).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct FailoverLogEntry {
+    /// When.
+    pub at: Timestamp,
+    /// Failed model.
+    pub from: orkestr_domain::ModelRef,
+    /// Failed source name.
+    pub from_name: String,
+    /// Model switched to.
+    pub to: orkestr_domain::ModelRef,
+    /// Its source name.
+    pub to_name: String,
+    /// Failure slug (`usage_limit`, `rate_limited`, `auth`, `network`, …).
+    pub reason: String,
+}
+
+/// `providers.sources` result: the effective AI source priority and the
+/// recent failover log (ADR-0051). Edit the order via `providers.setRouting`
+/// (`sourcePriority`, `purposeSources`, `failover`).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct AiSourcesResult {
+    /// Every provider in try order, capabilities resolved.
+    pub sources: Vec<orkestr_domain::AiSource>,
+    /// Purpose groups that accept an override.
+    pub purposes: Vec<String>,
+    /// Recent switches, newest first.
+    pub log: Vec<FailoverLogEntry>,
+}
+
+method!(
+    /// `providers.sources` — effective AI source priority + failover log.
+    Sources, "providers.sources", Empty, AiSourcesResult
+);
 method!(
     /// `providers.setRouting` — validates and stores routing settings.
     SetRouting, "providers.setRouting", RoutingConfigPayload, RoutingConfigPayload
@@ -438,6 +476,7 @@ pub const PLANNED: &[&str] = &[
     "providers.setManager",
     "providers.getRouting",
     "providers.setRouting",
+    "providers.sources",
 ];
 
 #[cfg(test)]

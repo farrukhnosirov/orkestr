@@ -8,7 +8,7 @@ import type { ComponentType } from "react";
 import { t } from "../../i18n";
 import { editorSettingsSection } from "../extensions";
 import { visualSettingsSection } from "../performance/section";
-import { managerSettingsSection, providersSettingsSection } from "../providers";
+import { managerSettingsSection, providersSettingsSection, sourcesSettingsSection } from "../providers";
 import { qualitySettingsSection } from "../quality";
 import { updatesSettingsSection } from "../updates";
 import { soundSettingsSection, voiceSettingsSection } from "../voice";
@@ -62,7 +62,7 @@ export const settingsSections: SettingsSection[] = [
     component: AboutSection,
   },
 ];
-settingsSections.push(providersSettingsSection, managerSettingsSection);
+settingsSections.push(providersSettingsSection, managerSettingsSection, sourcesSettingsSection);
 settingsSections.push(qualitySettingsSection);
 // Phase 3: Interface (Performance Mode, density, HUD, UI change history).
 settingsSections.push(visualSettingsSection);

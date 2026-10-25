@@ -377,6 +377,14 @@ pub struct ProviderFallbackPayload {
     pub to: ModelRef,
     /// Why ("rate limited", "quota exceeded", …).
     pub reason: String,
+    /// Display name of the failed AI source (ADR-0051).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub from_name: Option<String>,
+    /// Display name of the AI source switched to (ADR-0051).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub to_name: Option<String>,
 }
 
 /// `BudgetThreshold`.

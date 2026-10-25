@@ -195,9 +195,71 @@ impl LimitWindows {
     }
 }
 
+/// Exponential cooldown of an AI source after a failover-worthy failure
+/// that has no window of its own (auth, network, 5xx, model unavailable, CLI
+/// missing/crashed; ADR-0051). The router demotes a cooling source to the end
+/// of the chain; a success or a passing health probe clears it.
+#[derive(Debug, Clone, Default)]
+pub struct Cooldown {
+    strikes: u32,
+    until: Option<Instant>,
+}
+
+impl Cooldown {
+    /// First cooldown.
+    pub const BASE: Duration = Duration::from_secs(30);
+    /// Longest cooldown.
+    pub const MAX: Duration = Duration::from_secs(30 * 60);
+
+    /// Records a failure; returns the cooldown applied (30 s, 60 s, … ≤ 30 min).
+    pub fn strike(&mut self, now: Instant) -> Duration {
+        self.strikes = self.strikes.saturating_add(1);
+        let shift = self.strikes.saturating_sub(1).min(16);
+        let d = Self::BASE.saturating_mul(1u32 << shift).min(Self::MAX);
+        self.until = Some(now + d);
+        d
+    }
+
+    /// Remaining cooldown (None = usable).
+    #[must_use]
+    pub fn remaining(&self, now: Instant) -> Option<Duration> {
+        self.until.filter(|t| *t > now).map(|t| t.duration_since(now))
+    }
+
+    /// Consecutive failures.
+    #[must_use]
+    pub fn strikes(&self) -> u32 {
+        self.strikes
+    }
+
+    /// Recovered (success / passing probe).
+    pub fn clear(&mut self) {
+        *self = Self::default();
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cooldown_is_exponential_capped_and_clears() {
+        let t = Instant::now();
+        let mut c = Cooldown::default();
+        assert!(c.remaining(t).is_none());
+        assert_eq!(c.strike(t), Duration::from_secs(30));
+        assert_eq!(c.strike(t), Duration::from_secs(60));
+        assert_eq!(c.strike(t), Duration::from_secs(120));
+        for _ in 0..20 {
+            c.strike(t);
+        }
+        assert_eq!(c.strike(t), Cooldown::MAX);
+        assert!(c.remaining(t + Duration::from_secs(60)).is_some());
+        assert!(c.remaining(t + Cooldown::MAX + Duration::from_secs(1)).is_none(), "auto-expires");
+        c.clear();
+        assert_eq!(c.strikes(), 0);
+        assert!(c.remaining(t).is_none());
+    }
 
     #[test]
     fn opens_after_threshold_and_half_opens() {

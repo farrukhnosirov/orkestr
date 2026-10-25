@@ -154,6 +154,73 @@ pub struct RoutingConfig {
     /// Max seconds to wait for a rate limit before falling back.
     #[serde(default = "default_rate_limit_wait")]
     pub max_rate_limit_wait_secs: u32,
+    /// Global, user-ordered priority of AI sources (subscriptions and API
+    /// keys / provider instances, ADR-0051). Empty = the default order
+    /// (subscriptions, cloud API keys, local models, Mock last). Providers
+    /// missing from the list are appended in that default order.
+    #[serde(default)]
+    pub source_priority: Vec<AiSource>,
+    /// Optional per-purpose orders (`manager`, `agents`, `reviews`, `voice`,
+    /// `jarvis`, `cursor`, `detective`, `productManager`). A purpose without
+    /// an override uses [`Self::source_priority`] filtered by capability.
+    #[serde(default)]
+    pub purpose_sources: Vec<PurposeSources>,
+    /// Automatic failover to the next source by priority (default on).
+    #[serde(default = "default_true")]
+    pub failover: bool,
+}
+
+fn default_true() -> bool {
+    true
+}
+
+/// What an AI source can be used for (ADR-0051). Defaults come from the
+/// provider kind; the user may switch a capability off for a source.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct SourceCapabilities {
+    /// Plain chat / text completion.
+    pub chat: bool,
+    /// Tool calling / coding agents.
+    pub tools: bool,
+    /// Image input.
+    pub vision: bool,
+    /// Screen understanding for computer use (cursor mode).
+    pub computer_use: bool,
+    /// Text embeddings.
+    pub embeddings: bool,
+}
+
+/// One entry of the AI source priority list (ADR-0051).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct AiSource {
+    /// Provider instance (one subscription or one API key).
+    pub provider_id: crate::ProviderId,
+    /// Used for automatic routing and failover.
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    /// Model used when this source is picked by priority (`None` = the
+    /// provider's default model, else the best routed one).
+    #[serde(default)]
+    pub model: Option<String>,
+    /// Capability overrides (`None` = defaults of the provider kind).
+    #[serde(default)]
+    pub capabilities: Option<SourceCapabilities>,
+}
+
+/// A per-purpose source order (ADR-0051).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct PurposeSources {
+    /// Purpose group id (`manager`, `agents`, `reviews`, `voice`, `jarvis`,
+    /// `cursor`, `detective`, `productManager`).
+    pub purpose: String,
+    /// Ordered providers for this purpose (others are not used for it).
+    pub sources: Vec<crate::ProviderId>,
 }
 
 impl Default for RoutingConfig {
@@ -164,6 +231,9 @@ impl Default for RoutingConfig {
             default_fallback: Vec::new(),
             prefer_local: false,
             max_rate_limit_wait_secs: default_rate_limit_wait(),
+            source_priority: Vec::new(),
+            purpose_sources: Vec::new(),
+            failover: true,
         }
     }
 }
@@ -173,6 +243,12 @@ impl RoutingConfig {
     #[must_use]
     pub fn rule_for(&self, purpose: &str) -> Option<&RoutingRule> {
         self.rules.iter().find(|r| r.purpose.eq_ignore_ascii_case(purpose))
+    }
+
+    /// The per-purpose source override for a purpose group.
+    #[must_use]
+    pub fn purpose_override(&self, group: &str) -> Option<&PurposeSources> {
+        self.purpose_sources.iter().find(|p| p.purpose.eq_ignore_ascii_case(group))
     }
 }
 
@@ -203,6 +279,10 @@ pub struct ProviderStatus {
     pub rate_limited_until: Option<Timestamp>,
     /// Quota exhausted until (estimated when the provider gives no reset time).
     pub quota_exhausted_until: Option<Timestamp>,
+    /// Failover cooldown until (auth / network / 5xx / CLI failures, exponential; ADR-0051).
+    #[serde(default)]
+    #[ts(optional)]
+    pub cooldown_until: Option<Timestamp>,
 }
 
 impl Default for ProviderStatus {
@@ -219,6 +299,7 @@ impl Default for ProviderStatus {
             circuit_open: false,
             rate_limited_until: None,
             quota_exhausted_until: None,
+            cooldown_until: None,
         }
     }
 }

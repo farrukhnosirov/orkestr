@@ -13,7 +13,9 @@
 //! * [`ProviderRegistry`] — persisted configs, hot-swap, health polling,
 //!   model cache, limit state + circuit breaker.
 //! * [`router`] — manual routing table / automatic scoring under the privacy
-//!   policy; [`fallback`] — fallback chain executor with structured handoff.
+//!   policy; [`fallback`] — fallback chain executor with structured handoff;
+//!   [`failover`] — the global AI source priority, failure classification and
+//!   the generic [`ProviderChain`] runner (ADR-0051).
 //! * [`pricing`] — static **estimated** price table + cost helpers.
 //! * [`CredentialResolver`] — secrets are resolved by reference at call time;
 //!   this crate never persists keys.
@@ -31,6 +33,7 @@ pub mod claude_code_session;
 pub mod codex_app;
 pub mod credentials;
 pub mod factory;
+pub mod failover;
 pub mod fallback;
 pub mod history;
 pub mod http;
@@ -52,6 +55,9 @@ pub use adapters::mock_summarize::HANDOFF_SUMMARY_MARKER;
 pub use catalog::{kind_info, kind_slug, parse_kind, KindInfo, MOCK_DISPLAY_NAME, PHASE1_KINDS};
 pub use credentials::{CredentialError, CredentialResolver, MemoryCredentials};
 pub use factory::AdapterDeps;
+pub use failover::{
+    classify, purpose_group, ChainOutcome, ChainSwitch, FailoverRecord, FailureKind, ProviderChain, SourceAttempt,
+};
 pub use fallback::{
     chat_with_fallback, AdapterSource, AttemptOutcome, FallbackOptions, HandoffContext, HandoffHook, NullSink,
     ProviderEvent, ProviderEventSink,

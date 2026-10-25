@@ -41,7 +41,9 @@
     "filesRestored_many": "Восстановлено {{count}} файлов.",
     "filesRestored_other": "Восстановлено {{count}} файла.",
     "nodeOffline": "Узел не в сети",
-    "nodeOfflineBody": "Узел перестал отправлять сигналы активности."
+    "nodeOfflineBody": "Узел перестал отправлять сигналы активности.",
+    "sourceUnavailable": "{{from}} недоступен ({{reason}}) — переключился на {{to}}",
+    "sourceSwitched": "Переключение ИИ-источника"
   },
   "fallbackReason": {
     "rate_limited": "лимит запросов",
@@ -51,6 +53,13 @@
     "server": "ошибка провайдера",
     "bad_request": "запрос отклонён",
     "unsupported": "не поддерживается",
-    "unimplemented": "недоступно"
+    "unimplemented": "недоступно",
+    "usage_limit": "лимит",
+    "timeout": "нет ответа",
+    "model_unavailable": "модель недоступна",
+    "cli_missing": "CLI не установлен",
+    "cli_crashed": "сбой CLI",
+    "content_policy": "политика контента",
+    "cancelled": "отменено"
   }
 }
