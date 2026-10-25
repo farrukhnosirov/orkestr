@@ -279,6 +279,12 @@ impl ClaudeCodeService {
         self.status(native_extensions, false).await.binary.map(|b| PathBuf::from(b.path))
     }
 
+    /// The binary found by the last status check (no new check).
+    #[must_use]
+    pub fn cached_binary(&self) -> Option<PathBuf> {
+        self.cache.lock().binary.as_ref().map(|b| PathBuf::from(&b.path))
+    }
+
     /// The CLI's per-project transcripts directory.
     #[must_use]
     pub fn projects_dir(&self) -> Option<PathBuf> {

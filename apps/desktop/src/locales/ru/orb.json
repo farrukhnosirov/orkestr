@@ -62,6 +62,7 @@
     "summary": "Работают: {{working}} · ждут: {{waiting}}",
     "summaryIdle": "Сейчас ничего не выполняется",
     "openMain": "Открыть Orkestr",
+    "takeControl": "Передать курсор ИИ",
     "settings": "Настройки сферы",
     "close": "Закрыть",
     "approvals_one": "{{count}} подтверждение",

@@ -16,6 +16,7 @@ pub mod computer;
 pub mod consensus;
 pub mod context;
 pub mod cost;
+pub mod cursor;
 pub mod dashboard;
 pub mod dashboards;
 pub mod deploy;
@@ -299,6 +300,7 @@ pub fn build_router() -> RpcRouter {
     router.register(computer::register);
     // Wave 9: Jarvis persona & conversation (ADR-0049), local only
     router.register(jarvis::register);
+    router.register(cursor::register);
     router
 }
 

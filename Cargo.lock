@@ -3676,6 +3676,7 @@ name = "orkestr-computer"
 version = "1.1.0"
 dependencies = [
  "async-trait",
+ "base64 0.22.1",
  "chrono",
  "directories",
  "orkestr-domain",
@@ -3684,6 +3685,7 @@ dependencies = [
  "orkestr-security",
  "orkestr-storage",
  "parking_lot",
+ "png 0.17.16",
  "serde",
  "serde_json",
  "sysinfo",

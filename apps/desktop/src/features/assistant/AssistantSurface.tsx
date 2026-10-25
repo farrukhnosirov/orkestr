@@ -30,6 +30,7 @@ import { type FormEvent, type KeyboardEvent, useEffect, useMemo, useRef, useStat
 
 import { getClient } from "../../core/client";
 import { currentLanguage, useT } from "../../i18n";
+import { CursorPanel } from "../cursor/CursorPanel";
 import { useSettingsStore } from "../settings/settingsStore";
 import { ChatTranscript, ConversationModeSwitch } from "../jarvis/ChatPanel";
 import { jarvisSession } from "../jarvis/session";
@@ -183,6 +184,8 @@ export function AssistantSurface() {
             <span className="as-reply__text">{s.reply.text}</span>
           </div>
         )}
+
+        <CursorPanel />
 
         {s.pending && (
           <div className="as-block as-confirm" role="alertdialog" aria-label={t("confirm.title")}>

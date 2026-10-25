@@ -222,6 +222,8 @@
     "DashboardChanged_other": "{{count}} dashboard changes",
     "ComputerCommand_one": "{{count}} assistant command",
     "ComputerCommand_other": "{{count}} assistant commands",
+    "ComputerCursor_one": "{{count}} cursor-mode update",
+    "ComputerCursor_other": "{{count}} cursor-mode updates",
     "CodexEvent_one": "{{count}} Codex chat item",
     "CodexEvent_other": "{{count}} Codex chat items",
     "CodexStatus_one": "{{count}} Codex session change",

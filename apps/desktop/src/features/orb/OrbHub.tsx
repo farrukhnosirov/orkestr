@@ -18,6 +18,7 @@ import {
   Mic,
   MicOff,
   MessageSquare,
+  MousePointer2,
   OctagonX,
   Pause,
   Play,
@@ -51,6 +52,8 @@ export interface OrbHubProps {
   onOpenMain: () => void;
   onOpenSettings: () => void;
   onOpenApprovals: () => void;
+  /** Cursor capture mode: let the AI take the mouse (ADR-0050). */
+  onTakeControl?: () => void;
   onClose: () => void;
 }
 
@@ -415,6 +418,11 @@ export function OrbHub(props: OrbHubProps) {
           <span className="orb-hub__name">{t("hub.title")}</span>
           <span className="orb-hub__summary">{summary}</span>
         </div>
+        {props.onTakeControl && (
+          <button type="button" className="orb-icon-btn" aria-label={t("hub.takeControl")} title={t("hub.takeControl")} onClick={props.onTakeControl}>
+            <MousePointer2 size={14} />
+          </button>
+        )}
         <button type="button" className="orb-icon-btn" aria-label={t("hub.openMain")} title={t("hub.openMain")} onClick={props.onOpenMain}>
           <ExternalLink size={14} />
         </button>

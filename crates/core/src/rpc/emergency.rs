@@ -64,6 +64,7 @@ pub async fn stop_all(services: &Services) -> Result<EmergencyStopResult, RpcErr
     let terminals = terminals + services.deploy.cancel_all().await;
     let terminals = terminals + services.detective.cancel_all().await;
     // Computer assistant: running pipelines, pending confirmations, timers.
+    let _ = services.cursor.stop("emergency").await;
     let stopped = services.computer.stop().await;
     let terminals = terminals + stopped.runs_stopped as usize;
     // The VS Code server runs (untrusted) extension code: Stop All stops it too.

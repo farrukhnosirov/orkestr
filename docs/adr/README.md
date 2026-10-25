@@ -56,6 +56,7 @@ summarises them: **Built** = implemented as decided (with listed deviations),
 | [0035](0035-computer-control.md) | Computer Control: personal computer assistant (`orkestr-computer`, Windows backend, 1035-command catalogue, user sets, AI plans, confirmations, Assistant mode) | Accepted | Wave 8 | — | — | Implemented (Wave 8; macOS/Linux backends `Unsupported`) |
 | [0046](0046-switchable-speech-engines.md) | Switchable STT/TTS engines (whisper.cpp, Vosk, sherpa-onnx, Windows speech, Piper, Silero, cloud services), voice model manager, engine keys in the secret vault | Accepted | Wave 8 | — | — | Implemented (wave 8) |
 | [0047](0047-codex-chatgpt-subscription-and-parallel-engines.md) | Codex (ChatGPT subscription) over `codex app-server`: bridged approvals, chat pool, panel, sign-in, limits; parallel engines routing | Accepted | wave 8 | 0012 (for Codex) | — | Implemented |
+| [0050](0050-cursor-capture-mode.md) | Cursor capture mode: the AI drives mouse + keyboard (observe → decide → act loop, UIA + screenshots, subscriptions ↔ API keys with failover, overlay, Esc / mouse abort hooks, confirmations) | Accepted | wave 9 | — | — | Implemented (wave 9) |
 | [0043](0043-vscode-workbench-embedded-in-orkestr.md) | VS Code workbench embedded in the Orkestr window (same-site `vscode.tauri.localhost` frame), theme sync, extension management, focus signals | Accepted | 8 | — | — | Implemented (Wave 8; see the ADR's "as built" notes) |
 
 ## Planned ADRs (to be written when their phase starts)
@@ -81,6 +82,7 @@ summarises them: **Built** = implemented as decided (with listed deviations),
 | [ADR-0041](0041-environments-and-deployment-adapters.md) | Environments & deployment adapters (§26) — Implemented (Phase 7) | 7 |
 | [ADR-0042](0042-infrastructure-monitor-and-bug-detective.md) | Infrastructure monitor & Bug Detective (§27) — Implemented (Phase 7) | 7 |
 | [ADR-0048](0048-updates-and-installer.md) | Updates & installer — Implemented (wave 8) | W8 |
+| [ADR-0050](0050-cursor-capture-mode.md) | Cursor capture mode (AI computer use) — Implemented (wave 9) | W9 |
 | [ADR-0046](0046-switchable-speech-engines.md) | Switchable speech engines + voice model manager (§33) — Implemented (wave 8) | 8 |
 | [ADR-0045](0045-floating-orb-agent-hub.md) | One floating orb + Agent Hub replaces per-agent robots (supersedes 0016) — Implemented (Wave 8) | W8 |
 
@@ -121,6 +123,7 @@ flowchart TB
   A41 --> A42[0042 Infra monitor + Bug Detective]
   A4 --> A48[0048 Updates + installer]
   A10 --> A35[0035 Computer control]
+  A35 --> A50[0050 Cursor capture mode]
   A17 --> A35
   A17 --> A46[0046 Switchable speech engines]
   A16 --> A45[0045 Floating orb + Agent Hub]

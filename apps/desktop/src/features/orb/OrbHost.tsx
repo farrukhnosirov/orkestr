@@ -14,6 +14,7 @@ import { useAgentsUi } from "../../panels/Agents/store";
 import { useAppStore } from "../../store/app";
 import { useAiUiStore, useUiPrefs } from "../aiui/aiuiStore";
 import { useClaudeStore } from "../claudeCode/store";
+import { openCursorPanel } from "../cursor/store";
 import { useSecurityStore } from "../security/store";
 import { useSettingsStore } from "../settings/settingsStore";
 import { answerConfirmation, cancelVoice, startListening, stopListening } from "../voice/controller";
@@ -94,6 +95,7 @@ export function OrbHost() {
       }),
       orbShell.on<{ section?: string }>(ORB_EVENTS.openSettings, (p) => useSettingsStore.getState().openSettings(p.section ?? "orb")),
       orbShell.on(ORB_EVENTS.openApprovals, () => useSecurityStore.getState().setInboxOpen(true)),
+      orbShell.on(ORB_EVENTS.openCursor, () => openCursorPanel()),
     ];
     return () => subs.forEach((s) => void s.then((off) => off()));
   }, []);

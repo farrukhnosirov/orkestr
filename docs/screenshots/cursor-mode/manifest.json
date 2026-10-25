@@ -1,0 +1,153 @@
+{
+  "date": "2026-10-25T21:53:49.219Z",
+  "result": "12/12 checks passed",
+  "safety": "mock computer + cursor backends, scripted model, isolated home; Orkestr UI only",
+  "checks": [
+    {
+      "id": "S-ru",
+      "label": "Settings → Cursor mode shows the source switch and ordered backends",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "id": "P-ru",
+      "label": "Assistant mode shows the cursor start panel",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "id": "C-ru",
+      "label": "the first real backend asks for the one-time privacy consent",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "id": "L-ru",
+      "label": "a running session shows plan, step log and screenshot",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "id": "K-ru",
+      "label": "a risky step waits for a confirmation with the target highlighted",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "id": "D-ru",
+      "label": "the session finishes and hands control back",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "id": "S-en",
+      "label": "Settings → Cursor mode shows the source switch and ordered backends",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "id": "P-en",
+      "label": "Assistant mode shows the cursor start panel",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "id": "C-en",
+      "label": "the first real backend asks for the one-time privacy consent",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "id": "L-en",
+      "label": "a running session shows plan, step log and screenshot",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "id": "K-en",
+      "label": "a risky step waits for a confirmation with the target highlighted",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "id": "D-en",
+      "label": "the session finishes and hands control back",
+      "ok": true,
+      "detail": ""
+    }
+  ],
+  "screenshots": [
+    {
+      "name": "settings-ru.png",
+      "note": "source switch, priorities, consent, limits",
+      "cropped": true,
+      "errors": []
+    },
+    {
+      "name": "start-ru.png",
+      "note": "task box with the active model",
+      "cropped": true,
+      "errors": []
+    },
+    {
+      "name": "consent-ru.png",
+      "note": "privacy note + one-time consent",
+      "cropped": true,
+      "errors": []
+    },
+    {
+      "name": "running-ru.png",
+      "note": "live plan, current step, screenshot, Pause/Stop",
+      "cropped": true,
+      "errors": []
+    },
+    {
+      "name": "confirm-ru.png",
+      "note": "system-settings change needs confirmation",
+      "cropped": true,
+      "errors": []
+    },
+    {
+      "name": "done-ru.png",
+      "note": "finished: summary + step log",
+      "cropped": true,
+      "errors": []
+    },
+    {
+      "name": "settings-en.png",
+      "note": "source switch, priorities, consent, limits",
+      "cropped": true,
+      "errors": []
+    },
+    {
+      "name": "start-en.png",
+      "note": "task box with the active model",
+      "cropped": true,
+      "errors": []
+    },
+    {
+      "name": "consent-en.png",
+      "note": "privacy note + one-time consent",
+      "cropped": true,
+      "errors": []
+    },
+    {
+      "name": "running-en.png",
+      "note": "live plan, current step, screenshot, Pause/Stop",
+      "cropped": true,
+      "errors": []
+    },
+    {
+      "name": "confirm-en.png",
+      "note": "system-settings change needs confirmation",
+      "cropped": true,
+      "errors": []
+    },
+    {
+      "name": "done-en.png",
+      "note": "finished: summary + step log",
+      "cropped": true,
+      "errors": []
+    }
+  ]
+}

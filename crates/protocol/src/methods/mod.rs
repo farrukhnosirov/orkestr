@@ -27,6 +27,7 @@ pub mod computer;
 pub mod consensus;
 pub mod context;
 pub mod cost;
+pub mod cursor;
 pub mod dashboard;
 pub mod dashboards;
 pub mod deploy;
@@ -670,6 +671,17 @@ pub fn registry() -> Vec<MethodDescriptor> {
         MethodDescriptor::of::<jarvis::History>(),
         MethodDescriptor::of::<jarvis::Record>(),
         MethodDescriptor::of::<jarvis::Forget>(),
+        // cursor capture mode (ADR-0050): local only (computer area)
+        MethodDescriptor::of::<cursor::CursorStatusMethod>(),
+        MethodDescriptor::of::<cursor::CursorStart>(),
+        MethodDescriptor::of::<cursor::CursorStop>(),
+        MethodDescriptor::of::<cursor::CursorPause>(),
+        MethodDescriptor::of::<cursor::CursorResume>(),
+        MethodDescriptor::of::<cursor::CursorAnswer>(),
+        MethodDescriptor::of::<cursor::CursorConfirm>(),
+        MethodDescriptor::of::<cursor::CursorConsent>(),
+        MethodDescriptor::of::<cursor::CursorSetSettings>(),
+        MethodDescriptor::of::<cursor::CursorScreenshot>(),
     ]
 }
 

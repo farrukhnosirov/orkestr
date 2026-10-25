@@ -21,6 +21,7 @@ pub mod claude_code;
 pub mod claude_engine;
 pub mod codex;
 pub mod config;
+pub mod cursor_models;
 pub mod dashboards_store;
 pub mod discovery;
 pub mod ecosystem;
@@ -488,6 +489,23 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
         data_dir: paths.data_dir.join("computer"),
         backend: computer_backend,
     });
+    // Cursor capture mode (ADR-0050): same switch — `mock` never touches the real desktop.
+    let cursor_screen: Arc<dyn orkestr_computer::cursor::screen::CursorBackend> =
+        match std::env::var("ORKESTR_COMPUTER_BACKEND").unwrap_or_default().as_str() {
+            "mock" => Arc::new(orkestr_computer::cursor::MockScreen::default()),
+            "unsupported" => Arc::new(orkestr_computer::cursor::UnsupportedScreen),
+            _ => orkestr_computer::cursor::default_cursor_backend(),
+        };
+    let cursor_factory =
+        Arc::new(cursor_models::CoreCursorFactory::new(paths.data_dir.join("computer").join("cursor-work")));
+    let cursor = orkestr_computer::cursor::CursorService::new(orkestr_computer::cursor::CursorDeps {
+        events: events.clone(),
+        security: Arc::clone(&security),
+        data_dir: paths.data_dir.join("computer"),
+        computer: Arc::clone(&computer),
+        screen: cursor_screen,
+        factory: cursor_factory.clone(),
+    });
     let services = Arc::new(Services {
         version: VERSION.to_owned(),
         started_at: chrono::Utc::now(),
@@ -535,6 +553,8 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
         monitor,
         detective,
         computer,
+        cursor,
+        cursor_factory,
         voice: Arc::new(orkestr_voice::VoiceService::new(paths.data_dir.join("voice"))),
         sync: sync_engine.clone().map(|e| Arc::new(e) as Arc<dyn orkestr_sync::SyncEngine>),
     });
@@ -624,6 +644,7 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
     ecosystem::wire(&services, Arc::clone(&router)).await;
     // Computer assistant: AI planner over the provider stack + Start-menu index.
     rpc::computer::install(&services);
+    services.cursor_factory.attach(&services);
     let app = server::app(app_state);
     let server_shutdown = shutdown.clone();
     let server = tokio::spawn(async move {

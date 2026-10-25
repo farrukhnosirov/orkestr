@@ -942,6 +942,7 @@ macro_rules! event_kinds {
                         | EventKind::DeploymentProgress(_)
                         | EventKind::VsCodeBridgeSignal(_)
                         | EventKind::JarvisMessage(_)
+                        | EventKind::ComputerCursor(_)
                 )
             }
 
@@ -1159,6 +1160,8 @@ event_kinds! {
     VsCodeBridgeSignal(crate::methods::vscode::VsCodeBridgeSignalPayload),
     /// A streamed delta of a Jarvis conversation reply (ephemeral, global, ADR-0049). Appended.
     JarvisMessage(crate::methods::jarvis::JarvisDeltaPayload),
+    /// Cursor capture mode progress (ephemeral, global; ADR-0050). Appended.
+    ComputerCursor(crate::methods::cursor::CursorEventPayload),
 }
 
 // ---------------------------------------------------------------------------

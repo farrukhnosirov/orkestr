@@ -112,6 +112,10 @@ pub struct Services {
     pub detective: Arc<orkestr_detective::Detective>,
     /// Computer assistant (ADR-0035): local-only voice / text control of this PC.
     pub computer: Arc<orkestr_computer::ComputerService>,
+    /// Cursor capture mode (ADR-0050): the AI drives mouse + keyboard for a task.
+    pub cursor: Arc<orkestr_computer::cursor::CursorService>,
+    /// Model backends of cursor mode (CLIs, API keys, scripted mock).
+    pub cursor_factory: Arc<crate::cursor_models::CoreCursorFactory>,
     /// Speech engines + voice model manager (ADR-0046).
     pub voice: Arc<orkestr_voice::VoiceService>,
     /// Encrypted sync engine (Phase 4); `None` until the sync package wires it.

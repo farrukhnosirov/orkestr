@@ -31,9 +31,11 @@ export const ORB_EVENTS = {
   openClaude: "orkestr://orb/open-claude",
   openSettings: "orkestr://orb/open-settings",
   openApprovals: "orkestr://orb/open-approvals",
+  /** Cursor capture mode panel (ADR-0050). */
+  openCursor: "orkestr://orb/open-cursor",
 } as const;
 
-export type MainRequest = "open-main" | "open-agent" | "open-claude" | "open-settings" | "open-approvals";
+export type MainRequest = "open-main" | "open-agent" | "open-claude" | "open-settings" | "open-approvals" | "open-cursor";
 
 export interface OrbMoved {
   x: number;

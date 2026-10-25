@@ -92,11 +92,11 @@ fn hwnd_of(handle: &str) -> ComputerResult<HWND> {
     }
 }
 
-fn handle_str(h: HWND) -> String {
+pub(super) fn handle_str(h: HWND) -> String {
     format!("0x{:x}", h.0 as usize)
 }
 
-fn window_title(h: HWND) -> String {
+pub(super) fn window_title(h: HWND) -> String {
     // SAFETY: buffer sized from GetWindowTextLengthW (+1 for the terminator).
     unsafe {
         let len = GetWindowTextLengthW(h);
@@ -109,7 +109,7 @@ fn window_title(h: HWND) -> String {
     }
 }
 
-fn window_pid(h: HWND) -> u32 {
+pub(super) fn window_pid(h: HWND) -> u32 {
     let mut pid = 0u32;
     // SAFETY: pid is a valid out pointer.
     unsafe {
@@ -118,7 +118,7 @@ fn window_pid(h: HWND) -> u32 {
     pid
 }
 
-fn process_name(pid: u32) -> String {
+pub(super) fn process_name(pid: u32) -> String {
     // SAFETY: handle closed below; buffer length passed in/out.
     unsafe {
         let Ok(h) = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) else {
@@ -136,7 +136,7 @@ fn process_name(pid: u32) -> String {
     }
 }
 
-fn is_cloaked(h: HWND) -> bool {
+pub(super) fn is_cloaked(h: HWND) -> bool {
     let mut cloaked = 0u32;
     // SAFETY: out buffer of the attribute's size.
     unsafe {
@@ -175,7 +175,7 @@ fn hosted_app_pid(h: HWND, host_pid: u32) -> Option<u32> {
     ctx.found
 }
 
-fn enum_top_windows() -> Vec<HWND> {
+pub(super) fn enum_top_windows() -> Vec<HWND> {
     unsafe extern "system" fn cb(h: HWND, lp: LPARAM) -> BOOL {
         // SAFETY: lp is the &mut Vec passed below.
         let v = unsafe { &mut *(lp.0 as *mut Vec<HWND>) };
@@ -302,7 +302,7 @@ fn vk_of(name: &str) -> Option<(u16, bool)> {
     Some(v)
 }
 
-fn key_input(vk: u16, extended: bool, up: bool) -> INPUT {
+pub(super) fn key_input(vk: u16, extended: bool, up: bool) -> INPUT {
     // SAFETY: MapVirtualKeyW is a pure lookup.
     let scan = u16::try_from(unsafe { MapVirtualKeyW(u32::from(vk), MAPVK_VK_TO_VSC) }).unwrap_or(0);
     let mut flags = KEYBD_EVENT_FLAGS(0);
@@ -350,7 +350,7 @@ fn mouse_input(flags: MOUSE_EVENT_FLAGS, data: i32) -> INPUT {
     }
 }
 
-fn send(inputs: &[INPUT]) -> ComputerResult<()> {
+pub(super) fn send(inputs: &[INPUT]) -> ComputerResult<()> {
     if inputs.is_empty() {
         return Ok(());
     }
@@ -393,7 +393,7 @@ fn force_foreground(h: HWND) -> bool {
     }
 }
 
-fn window_rect(h: HWND) -> Option<RECT> {
+pub(super) fn window_rect(h: HWND) -> Option<RECT> {
     let mut r = RECT::default();
     // SAFETY: r is a valid out pointer.
     unsafe { GetWindowRect(h, &raw mut r).ok().map(|()| r) }
@@ -403,9 +403,9 @@ fn window_rect(h: HWND) -> Option<RECT> {
 // UI Automation
 // ---------------------------------------------------------------------------
 
-struct Com;
+pub(super) struct Com;
 impl Com {
-    fn init() -> Self {
+    pub(super) fn init() -> Self {
         // SAFETY: balanced by Drop (CoUninitialize) on this thread.
         unsafe {
             let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
@@ -420,7 +420,7 @@ impl Drop for Com {
     }
 }
 
-fn uia() -> ComputerResult<IUIAutomation> {
+pub(super) fn uia() -> ComputerResult<IUIAutomation> {
     // SAFETY: COM initialized by the caller (Com guard).
     unsafe { CoCreateInstance(&CUIAutomation, None, CLSCTX_INPROC_SERVER) }
         .map_err(|e| ComputerError::Backend(format!("UI Automation unavailable: {e}")))

@@ -19,6 +19,7 @@ import { AssistantSurface } from "./features/assistant/AssistantSurface";
 import { AssistantTitleBar } from "./features/assistant/AssistantTitleBar";
 import { registerAssistantFeature, useAssistantMode } from "./features/assistant/register";
 import { registerJarvisFeature, useJarvisBootstrap } from "./features/jarvis/register";
+import { registerCursorFeature } from "./features/cursor/register";
 import { useAssistantStore } from "./features/assistant/store";
 import { VisualLayer } from "./features/performance/VisualLayer";
 import { registerRemoteSyncFeature } from "./features/remoteSync/register";
@@ -47,6 +48,7 @@ registerThemeFeature();
 registerLayoutFeature();
 registerAssistantFeature();
 registerJarvisFeature();
+registerCursorFeature();
 registerOrbFeature();
 
 

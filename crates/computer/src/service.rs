@@ -169,6 +169,36 @@ impl ComputerService {
         }
     }
 
+    /// Orkestr's own processes (never input targets).
+    #[must_use]
+    pub fn own_pids(&self) -> Vec<u32> {
+        self.own_pids.lock().clone()
+    }
+
+    /// The OS backend.
+    #[must_use]
+    pub fn backend(&self) -> Arc<dyn ComputerBackend> {
+        Arc::clone(&self.deps.backend)
+    }
+
+    /// Runs one non-risky helper action for cursor mode (launch / focus),
+    /// without history entries. Returns the step detail.
+    ///
+    /// # Errors
+    /// The step failed or the action is not a helper.
+    pub async fn run_helper(self: &Arc<Self>, action: ComputerAction) -> ComputerResult<String> {
+        if !matches!(action, ComputerAction::Launch { .. } | ComputerAction::FocusApp { .. }) {
+            return Err(ComputerError::Invalid("not a cursor-mode helper action".into()));
+        }
+        let r = execute(&self.env(), std::slice::from_ref(&action), false).await;
+        match (r.outcome, r.steps.last()) {
+            (Some(RunOutcome::Succeeded), s) => Ok(s.map(|s| s.detail.clone()).unwrap_or_default()),
+            (Some(RunOutcome::Stopped), _) => Err(ComputerError::Stopped),
+            (_, Some(s)) => Err(ComputerError::Backend(s.detail.clone())),
+            _ => Err(ComputerError::Backend("the step did not run".into())),
+        }
+    }
+
     /// Indexes Start-menu apps in the background (refreshed every 10 min on use).
     pub fn refresh_apps(self: &Arc<Self>) {
         {

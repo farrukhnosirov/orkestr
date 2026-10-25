@@ -426,6 +426,10 @@ export function OrbApp() {
               void orbShell.toMain("open-settings", { section: "orb" });
             }}
             onOpenApprovals={() => void orbShell.toMain("open-approvals")}
+            onTakeControl={() => {
+              close();
+              void orbShell.toMain("open-cursor");
+            }}
             onClose={() => {
               close();
               sphereRef.current?.focus({ preventScroll: true });
