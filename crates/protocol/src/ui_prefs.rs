@@ -258,7 +258,8 @@ mod tests {
         assert_eq!(issues[0].path, "prefs.orb.size");
         assert_eq!(p.orb.voice_size, 150, "voice size defaults");
         let mut issues = Vec::new();
-        UiPrefs { orb: OrbPrefs { voice_size: 300, ..OrbPrefs::default() }, ..UiPrefs::default() }.validate_into(&mut issues);
+        UiPrefs { orb: OrbPrefs { voice_size: 300, ..OrbPrefs::default() }, ..UiPrefs::default() }
+            .validate_into(&mut issues);
         assert_eq!(issues.len(), 1);
         assert_eq!(issues[0].path, "prefs.orb.voiceSize");
     }

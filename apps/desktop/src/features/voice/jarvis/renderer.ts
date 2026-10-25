@@ -17,6 +17,8 @@ export interface JarvisPalette {
   accentStrong: Rgb;
   violet: Rgb;
   danger: Rgb;
+  warning: Rgb;
+  muted: Rgb;
   bg: Rgb;
   text: Rgb;
   light: boolean;
@@ -27,6 +29,8 @@ const FALLBACK: JarvisPalette = {
   accentStrong: [125, 211, 252],
   violet: [139, 92, 246],
   danger: [239, 68, 68],
+  warning: [245, 158, 11],
+  muted: [100, 116, 139],
   bg: [8, 12, 24],
   text: [226, 232, 240],
   light: false,
@@ -64,6 +68,8 @@ export function readPalette(accentOverride: string | null): JarvisPalette {
     accentStrong: read("accent-strong", FALLBACK.accentStrong),
     violet: read("violet", FALLBACK.violet),
     danger: read("danger", FALLBACK.danger),
+    warning: read("warning", FALLBACK.warning),
+    muted: read("text-muted", FALLBACK.muted),
     bg,
     text: read("text", FALLBACK.text),
     light: lum > 0.55,
@@ -149,12 +155,15 @@ export class ReactorRenderer {
     if (f.energy <= 0.002 && f.intro >= 1 && f.state === "idle") return;
 
     const c = size / 2;
-    const R = (size / 2) * 0.96 * f.scale;
+    // The ring system uses 82 % of the radius; the rest is room for the bloom (never clipped square).
+    const R = (size / 2) * 0.82 * f.scale;
     const e = Math.max(0, Math.min(1, f.energy));
     const light = pal.light;
-    const main = mix(mix(pal.accent, pal.danger, f.alarm), pal.violet, f.state === "thinking" ? 0.35 : 0);
-    const strong = mix(pal.accentStrong, pal.danger, f.alarm);
-    const second = mix(pal.violet, pal.danger, f.alarm * 0.7);
+    const grey = (c: Rgb) => mix(c, pal.muted, f.muted * 0.85);
+    const main = grey(mix(mix(pal.accent, pal.danger, f.alarm), pal.violet, f.state === "thinking" ? 0.35 : 0));
+    const strong = grey(mix(pal.accentStrong, pal.danger, f.alarm));
+    const second = grey(mix(pal.violet, pal.danger, f.alarm * 0.7));
+    const small = R < 50;
     const add = light ? "source-over" : "lighter";
     const A = (a: number) => a * e * (light ? 1.15 : 1);
 
@@ -171,7 +180,7 @@ export class ReactorRenderer {
 
     ctx.globalCompositeOperation = add;
     // Outer bloom.
-    const bloom = R * (1.25 + f.level * 0.25);
+    const bloom = (size / 2) * Math.min(1, 0.86 + f.level * 0.14) * Math.min(1, f.scale + 0.1);
     ctx.globalAlpha = A(0.35 + f.level * 0.35);
     ctx.drawImage(f.alarm > 0.5 ? sp.alarm : sp.glow, c - bloom, c - bloom, bloom * 2, bloom * 2);
     ctx.globalAlpha = 1;
@@ -192,11 +201,12 @@ export class ReactorRenderer {
     ctx.translate(c, c);
     ctx.rotate(f.rot[0]);
     ctx.lineCap = "butt";
-    for (let i = 0; i < 120; i++) {
-      const major = i % 10 === 0;
-      const mid = i % 5 === 0;
+    const ticks = small ? 48 : 120;
+    for (let i = 0; i < ticks; i++) {
+      const major = small ? i % 8 === 0 : i % 10 === 0;
+      const mid = small ? i % 4 === 0 : i % 5 === 0;
       const len = major ? R * 0.07 : mid ? R * 0.045 : R * 0.025;
-      const a = (i / 120) * TAU;
+      const a = (i / ticks) * TAU;
       ctx.strokeStyle = rgba(major ? strong : main, A(major ? 0.85 : mid ? 0.5 : 0.28));
       ctx.lineWidth = major ? 1.6 : 1;
       const cs = Math.cos(a);
@@ -219,11 +229,11 @@ export class ReactorRenderer {
     // Radial spectrum (mirrored: left and right halves meet at the top).
     const inner = R * 0.64;
     const maxLen = R * 0.2;
-    const bars = BANDS * 2;
+    const bars = small ? BANDS : BANDS * 2;
     ctx.lineCap = "round";
     ctx.lineWidth = Math.max(1.4, (TAU * inner) / bars / 2.1);
     for (let i = 0; i < bars; i++) {
-      const band = i < BANDS ? i : bars - 1 - i;
+      const band = small ? (i < BANDS / 2 ? i * 2 : (bars - 1 - i) * 2) : i < BANDS ? i : bars - 1 - i;
       const v = f.bands[band] ?? 0;
       const a = -Math.PI / 2 + ((i + 0.5) / bars) * TAU;
       const len = R * 0.025 + v * maxLen;
@@ -245,6 +255,18 @@ export class ReactorRenderer {
       ctx.strokeStyle = rgba(i % 2 ? second : main, A(0.75));
       ctx.beginPath();
       ctx.arc(c, c, segR, a0, a0 + TAU / 4 - 0.38);
+      ctx.stroke();
+    }
+    // Approval waiting: a pulsing amber segment (and bracket).
+    if (f.approval > 0.01) {
+      ctx.strokeStyle = rgba(pal.warning, f.approval);
+      ctx.lineWidth = Math.max(2.5, R * 0.06);
+      ctx.beginPath();
+      ctx.arc(c, c, segR, -Math.PI / 2 - 0.55, -Math.PI / 2 + 0.55);
+      ctx.stroke();
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(c, c, tickR + 2, -Math.PI / 2 - 0.4, -Math.PI / 2 + 0.4);
       ctx.stroke();
     }
     // Thin full ring under it.
@@ -332,7 +354,7 @@ export class ReactorRenderer {
     ctx.beginPath();
     ctx.arc(c, c, coreR, 0, TAU);
     ctx.stroke();
-    const coils = 10;
+    const coils = small ? 8 : 10;
     for (let i = 0; i < coils; i++) {
       const a0 = -f.rot[1] * 0.3 + (i / coils) * TAU;
       ctx.fillStyle = rgba(i % 2 ? main : strong, A(0.55 + f.level * 0.4));
@@ -366,7 +388,8 @@ export class ReactorRenderer {
     const active = f.state !== "idle" && f.state !== "done";
     const spawn = active ? (0.6 + f.level * 5) * dt * 30 : 0;
     let n = Math.floor(spawn) + (Math.random() < spawn % 1 ? 1 : 0);
-    while (n-- > 0 && this.particles.length < 48) {
+    const cap = R < 50 ? 14 : 48;
+    while (n-- > 0 && this.particles.length < cap) {
       this.particles.push({ a: Math.random() * TAU, r: R * (0.34 + Math.random() * 0.2), v: R * (0.25 + Math.random() * 0.5 + f.level * 0.6), life: 0, size: 0.6 + Math.random() * 1.2 });
     }
     for (const p of this.particles) {

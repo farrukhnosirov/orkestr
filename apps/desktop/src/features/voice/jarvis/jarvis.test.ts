@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { channelSignal, isSignalFrame, toFrame } from "./frame";
 import {
+  ambientSpeed,
   BANDS,
   bandsFromFrequency,
   clampJarvisSize,
@@ -106,6 +107,28 @@ describe("reactor dynamics", () => {
     for (let t = 16; t < 400; t += 16) f = d.step(t, 16, "listening", 0.5, raw);
     expect(f.bands[5]).toBeGreaterThan(0.9);
     expect(f.bands[20]).toBeLessThan(0.05);
+  });
+
+  it("as the orb (presence) it stays lit at rest and shows the agents' mood", () => {
+    const d = new ReactorDynamics();
+    const calm = run(d, 0, 1500, "idle", 0);
+    expect(calm.energy).toBe(0);
+    const orb = new ReactorDynamics();
+    let f = orb.step(0, 16, "idle", 0, null, { presence: true });
+    for (let t = 16; t < 1500; t += 16) f = orb.step(t, 16, "idle", 0, null, { presence: true, ambient: "approval" });
+    expect(f.energy).toBeGreaterThan(0.8);
+    expect(f.scale).toBeCloseTo(1, 2);
+    expect(f.approval).toBeGreaterThan(0);
+    for (let t = 1500; t < 3000; t += 16) f = orb.step(t, 16, "idle", 0, null, { presence: true, ambient: "offline" });
+    expect(f.muted).toBeGreaterThan(0.9);
+    for (let t = 3000; t < 4500; t += 16) f = orb.step(t, 16, "idle", 0, null, { presence: true, ambient: "stopped" });
+    expect(f.alarm).toBeGreaterThan(0.9);
+    // Growing into a voice session: no bloom shrink for the orb.
+    f = orb.step(4600, 16, "wake", 0.3, null, { presence: true });
+    expect(f.scale).toBeGreaterThan(0.95);
+    expect(ambientSpeed("working", 3)).toBeGreaterThan(ambientSpeed("calm", 0));
+    expect(ambientSpeed("stopped", 0)).toBe(0);
+    expect(orb.still("idle", 0, { presence: true, ambient: "error" }).alarm).toBe(1);
   });
 
   it("still frame for reduced motion", () => {

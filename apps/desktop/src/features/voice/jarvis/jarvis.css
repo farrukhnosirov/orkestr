@@ -103,6 +103,15 @@
   background: linear-gradient(90deg, transparent, var(--jv-accent));
   opacity: 0.8;
 }
+.jv--panel-only::before {
+  left: -14px !important;
+  right: auto !important;
+}
+.jv--panel-only.jv--reverse::before {
+  left: auto !important;
+  right: -14px !important;
+  background: linear-gradient(270deg, transparent, var(--jv-accent));
+}
 .jv--card.jv--reverse::before {
   left: auto;
   right: calc(var(--jv-size, 150px) - 6px);

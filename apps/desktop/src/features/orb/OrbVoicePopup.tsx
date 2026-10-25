@@ -73,6 +73,7 @@ export function OrbVoicePopup(p: OrbVoicePopupProps) {
       accent={p.accent}
       reactorSide={p.side === "right" ? "start" : "end"}
       variant="card"
+      showReactor={false}
       leaving={p.leaving}
       onReactorPointerDown={p.onReactorPointerDown}
       onCancel={() => p.onAction("cancel")}

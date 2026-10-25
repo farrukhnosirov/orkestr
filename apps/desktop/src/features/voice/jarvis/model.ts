@@ -198,6 +198,25 @@ export function follow(current: number, target: number, dtMs: number, attackMs: 
 // Reactor dynamics (per frame, deterministic for a given input sequence).
 // ---------------------------------------------------------------------------
 
+/**
+ * What the resting reactor (the desktop orb between voice commands) shows
+ * about the agents: calm, working (faster rings), an approval waiting
+ * (pulsing amber segment), an error (red flicker), offline (grey, nearly
+ * still) or the emergency stop (red, still).
+ */
+export type ReactorAmbient = "calm" | "working" | "approval" | "error" | "offline" | "stopped";
+
+export interface ReactorOptions {
+  /**
+   * The reactor is always present (the orb): at rest it stays lit and turns
+   * slowly instead of fading out, and it grows without the bloom shrink.
+   */
+  presence?: boolean;
+  ambient?: ReactorAmbient;
+  /** Working agents (ring speed). */
+  workers?: number;
+}
+
 export interface ReactorFrame {
   state: JarvisState;
   /** Wake bloom progress 0..1 (1 = settled). */
@@ -218,14 +237,36 @@ export interface ReactorFrame {
   /** Speaking ripple phase 0..1 and its visibility. */
   ripple: number;
   rippleAlpha: number;
-  /** Error tint 0..1. */
+  /** Red tint 0..1 (error, emergency stop). */
   alarm: number;
+  /** Approval pulse 0..1 (amber segment). */
+  approval: number;
+  /** Grey-out 0..1 (offline). */
+  muted: number;
   /** Time, seconds. */
   t: number;
 }
 
 /** Base angular speeds (rad/s) of the four rings. */
 const RING_SPEED = [0.12, -0.55, 0.95, -1.6] as const;
+
+/** Ring speed multiplier at rest for an ambient mood. */
+export function ambientSpeed(a: ReactorAmbient, workers: number): number {
+  switch (a) {
+    case "working":
+      return 1.5 + 0.35 * Math.min(3, Math.max(1, workers));
+    case "approval":
+      return 0.7;
+    case "error":
+      return 0.6;
+    case "offline":
+      return 0.06;
+    case "stopped":
+      return 0;
+    default:
+      return 0.45;
+  }
+}
 
 export class ReactorDynamics {
   private state: JarvisState = "idle";
@@ -235,6 +276,8 @@ export class ReactorDynamics {
   private energy = 0;
   private scale = 0.6;
   private alarm = 0;
+  private approval = 0;
+  private muted = 0;
   private sweepAlpha = 0;
   private rippleAlpha = 0;
   private speedMul = 1;
@@ -251,39 +294,64 @@ export class ReactorDynamics {
   }
 
   /** Advances by `dtMs`. `raw` = live bands (null → synthesized from `level`). */
-  step(now: number, dtMs: number, state: JarvisState, level: number, raw: Float32Array | null): ReactorFrame {
+  step(now: number, dtMs: number, state: JarvisState, level: number, raw: Float32Array | null, opts: ReactorOptions = {}): ReactorFrame {
     const dt = Math.max(0, Math.min(100, dtMs));
+    const presence = !!opts.presence;
+    const ambient: ReactorAmbient = opts.ambient ?? "calm";
+    const resting = state === "idle" || state === "done";
     if (state !== this.state) {
       // From rest into any active state: play the bloom (a wake always does).
-      if (state === "wake" || ((this.state === "idle" || this.state === "done") && state !== "idle" && state !== "done")) this.introStart = now;
+      if (state === "wake" || ((this.state === "idle" || this.state === "done") && !resting)) this.introStart = now;
       this.state = state;
       this.stateAt = now;
     }
     this.time += dt / 1000;
     const intro = Math.min(1, Math.max(0, (now - this.introStart) / WAKE_INTRO_MS));
 
-    const target = state === "idle" ? 0 : state === "thinking" ? 0.22 + 0.08 * Math.sin(this.time * 3) : state === "done" ? 0.06 : level;
+    const breathe = 0.07 + 0.04 * Math.sin(this.time * 1.6);
+    const target =
+      state === "idle"
+        ? presence && ambient !== "offline" && ambient !== "stopped"
+          ? breathe + (ambient === "working" ? 0.08 : 0)
+          : 0
+        : state === "thinking"
+          ? 0.22 + 0.08 * Math.sin(this.time * 3)
+          : state === "done"
+            ? 0.06
+            : level;
     this.level = follow(this.level, Math.min(1, Math.max(0, target)), dt, 45, 260);
 
     syntheticBands(this.level, this.time, this.synth);
-    const quiet = state === "thinking" || state === "done" || state === "idle";
+    const quiet = state === "thinking" || resting;
     const src = raw && !quiet ? raw : this.synth;
     for (let i = 0; i < BANDS; i++) {
       const v = quiet ? (src[i] ?? 0) * 0.6 : (src[i] ?? 0);
       this.bands[i] = follow(this.bands[i] ?? 0, v, dt, 35, 220);
     }
 
-    const wantEnergy = state === "idle" ? 0 : state === "done" ? 0.6 : 1;
+    const restEnergy = presence ? (ambient === "offline" ? 0.5 : 0.85) : 0;
+    const wantEnergy = state === "idle" ? restEnergy : state === "done" ? Math.max(0.6, restEnergy) : 1;
     this.energy = follow(this.energy, wantEnergy, dt, 160, 420);
-    const wantScale = state === "done" ? 0.9 : state === "idle" ? 0.6 : 1;
+    const wantScale = presence ? 1 : state === "done" ? 0.9 : state === "idle" ? 0.6 : 1;
     this.scale = follow(this.scale, wantScale, dt, 220, 380);
     let scale = this.scale;
-    if (intro < 1) {
+    if (intro < 1 && !presence) {
       const bloom = 1 - Math.pow(1 - intro, 3);
       scale = Math.min(scale, 0.3 + 0.7 * bloom) + Math.sin(intro * Math.PI) * 0.07;
     }
 
-    const wantMul = state === "thinking" ? 2.4 : state === "done" ? 0.35 : state === "idle" ? 0.2 : state === "error" ? 0.6 : 1 + this.level * 1.4;
+    const wantMul =
+      state === "thinking"
+        ? 2.4
+        : state === "error"
+          ? 0.6
+          : resting
+            ? presence
+              ? ambientSpeed(ambient, opts.workers ?? 0)
+              : state === "done"
+                ? 0.35
+                : 0.2
+            : 1 + this.level * 1.4;
     this.speedMul = follow(this.speedMul, wantMul, dt, 300, 600);
     for (let i = 0; i < 4; i++) this.rot[i] = ((this.rot[i] ?? 0) + (RING_SPEED[i] ?? 0) * this.speedMul * (dt / 1000)) % (Math.PI * 2);
 
@@ -292,11 +360,16 @@ export class ReactorDynamics {
     this.rippleAlpha = follow(this.rippleAlpha, state === "speaking" ? 1 : 0, dt, 200, 400);
     this.ripple = (this.ripple + (dt / 1000) * (0.5 + this.level * 0.9)) % 1;
 
-    this.alarm = follow(this.alarm, state === "error" ? 1 : 0, dt, 90, 500);
-    if (state === "error") {
-      const r = noise(Math.floor(this.time * 22));
+    const restAlarm = resting && presence && (ambient === "error" || ambient === "stopped");
+    this.alarm = follow(this.alarm, state === "error" || restAlarm ? 1 : 0, dt, 90, 500);
+    const flickering = state === "error" || (resting && presence && ambient === "error");
+    if (flickering) {
+      const r = noise(Math.floor(this.time * (state === "error" ? 22 : 9)));
       this.flicker = r > 0.55 ? 0.35 : r < -0.8 ? 0.6 : 1;
     } else this.flicker = 1;
+    const pulse = resting && presence && ambient === "approval" ? 0.55 + 0.45 * Math.sin(this.time * 4.2) : 0;
+    this.approval = follow(this.approval, pulse, dt, 80, 200);
+    this.muted = follow(this.muted, resting && presence && ambient === "offline" ? 1 : 0, dt, 300, 300);
 
     return {
       state,
@@ -311,19 +384,26 @@ export class ReactorDynamics {
       ripple: this.ripple,
       rippleAlpha: this.rippleAlpha,
       alarm: this.alarm,
+      approval: this.approval,
+      muted: this.muted,
       t: this.time,
     };
   }
 
   /** A settled still frame for `state` (reduced motion / Battery Saver / previews). */
-  still(state: JarvisState, level: number): ReactorFrame {
+  still(state: JarvisState, level: number, opts: ReactorOptions = {}): ReactorFrame {
+    const presence = !!opts.presence;
+    const ambient: ReactorAmbient = opts.ambient ?? "calm";
+    const resting = state === "idle" || state === "done";
     this.state = state;
     this.introStart = -Infinity;
-    this.level = state === "idle" ? 0 : state === "done" ? 0.06 : state === "thinking" ? 0.22 : Math.max(0.2, level);
+    this.level = state === "idle" ? (presence ? 0.1 : 0) : state === "done" ? 0.06 : state === "thinking" ? 0.22 : Math.max(0.2, level);
     syntheticBands(this.level, 1.3, this.bands);
-    this.energy = state === "idle" ? 0 : state === "done" ? 0.6 : 1;
-    this.scale = state === "done" ? 0.9 : state === "idle" ? 0.6 : 1;
-    this.alarm = state === "error" ? 1 : 0;
+    this.energy = state === "idle" ? (presence ? (ambient === "offline" ? 0.5 : 0.85) : 0) : state === "done" ? 0.6 : 1;
+    this.scale = presence ? 1 : state === "done" ? 0.9 : state === "idle" ? 0.6 : 1;
+    this.alarm = state === "error" || (resting && presence && (ambient === "error" || ambient === "stopped")) ? 1 : 0;
+    this.approval = resting && presence && ambient === "approval" ? 1 : 0;
+    this.muted = resting && presence && ambient === "offline" ? 1 : 0;
     this.sweepAlpha = state === "thinking" ? 1 : 0;
     this.rippleAlpha = state === "speaking" ? 1 : 0;
     return {
@@ -339,6 +419,8 @@ export class ReactorDynamics {
       ripple: 0.4,
       rippleAlpha: this.rippleAlpha,
       alarm: this.alarm,
+      approval: this.approval,
+      muted: this.muted,
       t: 1.3,
     };
   }

@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { PAUSED_ACTIVITY } from "../../lib/coreText";
 import { IDLE_MAIN_STATE, isStateMessage, voicePopupWanted } from "./channel";
+import { reactorAmbient } from "./model";
 import {
   agentItem,
   agentStatus,
@@ -242,5 +243,20 @@ describe("voice popup next to the orb", () => {
     expect(voicePopupWanted(v("listening"), true, false)).toBe(false);
     expect(voicePopupWanted(v("result"), true, true)).toBe(true);
     expect(voicePopupWanted(v("idle"), false, true)).toBe(false);
+    // With the orb shown it is the one voice circle, focused or not.
+    expect(voicePopupWanted(v("listening"), true, false, true)).toBe(true);
+    expect(voicePopupWanted(v("idle"), true, false, true)).toBe(false);
+  });
+});
+
+describe("orb reactor ambient", () => {
+  it("maps moods onto the resting reactor", () => {
+    expect(reactorAmbient("working")).toBe("working");
+    expect(reactorAmbient("approval")).toBe("approval");
+    expect(reactorAmbient("error")).toBe("error");
+    expect(reactorAmbient("offline")).toBe("offline");
+    expect(reactorAmbient("stopped")).toBe("stopped");
+    expect(reactorAmbient("idle")).toBe("calm");
+    expect(reactorAmbient("listening")).toBe("calm");
   });
 });

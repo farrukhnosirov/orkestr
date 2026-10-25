@@ -220,7 +220,7 @@ try {
   await rpc.call("settings.update", { patch: { profileName: "Demo", onboardingCompleted: true, performanceMode: "Balanced", language: "ru" } });
 
   let main = await waitFor(() => windowOf("main"), 120_000, "main window");
-  await main.eval(`localStorage.setItem("orkestr.debugHooks", "1"), true`);
+  await waitFor(() => main.eval(`localStorage.setItem("orkestr.debugHooks", "1"), true`), 60_000, "main localStorage");
   const orb = await waitFor(() => windowOf("orb"), 60_000, "orb window");
   await orb.send("Page.reload", { ignoreCache: true });
   await waitFor(() => orb.eval("!!document.querySelector('.orb') && !!window.__orkestrDebug?.jarvis"), 30_000, "orb + jarvis hook");
@@ -235,13 +235,27 @@ try {
   const force = (cdp, p) => cdp.eval(`window.__orkestrDebug.jarvis.set(${JSON.stringify(p)}), true`);
   const backdrop = (cdp, light) =>
     cdp.eval(`(() => { let s = document.getElementById('jv-shot-bg'); if (!s) { s = document.createElement('style'); s.id = 'jv-shot-bg'; document.head.appendChild(s); }
-      s.textContent = 'html,body{background:${light ? "linear-gradient(135deg,#e9eef5,#d5dde8)" : "linear-gradient(135deg,#1b2333,#0d121c)"} !important}'; return true; })()`);
+      s.textContent = 'html[data-ok-window],html[data-ok-window] body,html,body{background:${light ? "linear-gradient(135deg,#e9eef5,#d5dde8)" : "linear-gradient(135deg,#1b2333,#0d121c)"} !important}'; return true; })()`);
   const full = () => orb.eval("({ x: 0, y: 0, width: Math.ceil(window.innerWidth), height: Math.ceil(window.innerHeight) })");
 
   for (const [theme, themeId] of quick ? [["dark", darkTheme]] : [["dark", darkTheme], ["light", "solar-light"]]) {
     await setTheme(themeId);
     await sleep(1200);
     await backdrop(orb, theme === "light");
+    // The orb at rest: the same reactor, small, showing the agents' state.
+    const QUIET = { connected: true, working: 0, approvals: 0, errors: 0, voicePhase: null, speaking: false, allStopped: false };
+    const MOODS = { idle: {}, working: { working: 3 }, approval: { approvals: 2 }, error: { errors: 1 }, offline: { connected: false }, stopped: { allStopped: true } };
+    await force(orb, null);
+    await sleep(900);
+    for (const [mood, sig] of Object.entries(MOODS)) {
+      await orb.eval(`window.__orkestrDebug.orb.setSignals(${JSON.stringify({ ...QUIET, ...sig })}), true`);
+      await sleep(900);
+      const shown = await orb.eval("document.querySelector('.orb')?.dataset.orbMood");
+      const one = await orb.eval("document.querySelectorAll('canvas.jv-reactor').length === 1");
+      check(`M-${mood}-${theme}`, `orb at rest is the one reactor, ${mood} (${theme})`, shown === mood && one, shown);
+      await shot(orb, `orb-rest-${mood}-${theme}`, `Orb at rest (small Jarvis reactor): ${mood}, ${theme} theme`, await full());
+    }
+    await orb.eval("window.__orkestrDebug.orb.setSignals(null), true");
     for (const lang of quick || theme === "light" ? ["ru"] : ["ru", "en"]) {
       await rpc.call("settings.update", { patch: { language: lang } });
       await sleep(900);
@@ -250,7 +264,11 @@ try {
         await waitFor(() => orb.eval("!!document.querySelector('.orb-panel--voice .jv')"), 10_000, "card open");
         await sleep(name === "wake" ? 260 : 1400);
         const st = await orb.eval("document.querySelector('.orb-panel--voice .jv')?.dataset.jarvisState");
-        check(`S-${name}-${theme}-${lang}`, `card shows ${name} (${theme}, ${lang})`, st === p.state, st);
+        const one = await orb.eval("document.querySelectorAll('canvas.jv-reactor').length === 1 && !!document.querySelector('.orb--voice canvas.jv-reactor')");
+        check(`S-${name}-${theme}-${lang}`, `the orb grows into the voice circle: ${name} (${theme}, ${lang})`, st === p.state && one, st);
+        const fit = await orb.eval("(() => { const r = document.querySelector('.orb--voice').getBoundingClientRect(); return JSON.stringify({ l: r.left, t: r.top, r: r.right, b: r.bottom, w: innerWidth, h: innerHeight }); })()");
+        const f = JSON.parse(fit);
+        check(`F-${name}-${theme}-${lang}`, `the grown circle fits in the orb window (${name})`, f.l >= -1 && f.t >= -1 && f.r <= f.w + 1 && f.b <= f.h + 1, fit);
         await shot(orb, `orb-${name}-${theme}-${lang}`, `Orb Jarvis card: ${name}, ${theme} theme, ${lang}`, await full());
       }
     }
@@ -280,14 +298,19 @@ try {
   await sleep(200);
   await shot(orb, "seq-collapse", "Collapsing back into the orb", await full());
   await sleep(1200);
-  check("J1", "the card collapses and closes when the command ends", await orb.eval("!document.querySelector('.orb-panel--voice')"));
+  check("J1", "the circle collapses back into the small orb when the command ends", await orb.eval("!document.querySelector('.orb-panel--voice') && !document.querySelector('.orb--voice')"));
 
-  // In-app voice HUD (main window), smaller reactor.
-  main.send("Page.reload", { ignoreCache: true }).catch(() => undefined);
-  await sleep(4000);
-  main.ws.close();
-  main = await waitFor(() => windowOf("main"), 60_000, "main window (after reload)");
-  await waitFor(() => main.eval("!!document.querySelector('.app__body') && !!window.__orkestrDebug?.jarvis"), 60_000, "app shell + hook");
+  // In-app voice HUD (main window). Reload it (onboarding was completed over
+  // RPC after it started); retry when the app boots slowly.
+  for (let attempt = 0; ; attempt++) {
+    main.send("Page.reload", { ignoreCache: true }).catch(() => undefined);
+    await sleep(4000);
+    main.ws.close();
+    main = await waitFor(() => windowOf("main"), 60_000, "main window (after reload)");
+    const ok = await waitFor(() => main.eval("!!document.querySelector('.app__body') && !!window.__orkestrDebug?.jarvis"), 30_000, "app shell + hook").catch(() => false);
+    if (ok) break;
+    if (attempt >= 2) throw new Error("main window: no Jarvis debug hook after 3 reloads");
+  }
   for (const [theme, themeId] of quick ? [["dark", darkTheme]] : [["dark", darkTheme], ["light", "solar-light"]]) {
     await setTheme(themeId);
     await sleep(1200);
@@ -298,11 +321,28 @@ try {
       const r = await main.eval(
         "(() => { const b = document.querySelector('.vx-hud').getBoundingClientRect(); return { x: Math.max(0, b.x - 24), y: Math.max(0, b.y - 24), width: b.width + 48, height: b.height + 48 }; })()",
       );
-      check(`H-${name}-${theme}`, `in-app HUD shows the Jarvis reactor (${name}, ${theme})`, await main.eval("!!document.querySelector('.vx-hud .jv-reactor')"));
-      await shot(main, `hud-${name}-${theme}`, `In-app voice HUD: ${name}, ${theme} theme`, r);
+      check(`H-${name}-${theme}`, `in-app HUD: Jarvis panel, no second circle while the orb carries the voice (${name}, ${theme})`, await main.eval("!!document.querySelector('.vx-hud .jv') && !document.querySelector('.vx-hud .jv-reactor')"));
+      await shot(main, `hud-${name}-${theme}`, `In-app voice HUD with the orb shown (the orb is the circle): ${name}, ${theme} theme`, r);
     }
     await force(main, null);
     await sleep(600);
+  }
+  // Orb switched off: the HUD carries the same reactor, smaller.
+  {
+    await rpc.call("ui.applyPatch", { patch: [{ op: "replace", path: "/prefs/orb/enabled", value: false }], author: "User", summary: "Orb hidden (screenshots)" });
+    await setTheme(darkTheme);
+    await sleep(1500);
+    for (const name of ["listening", "speaking"]) {
+      await force(main, STATES(SAMPLE.ru)[name]);
+      await waitFor(() => main.eval("!!document.querySelector('.vx-hud .jv-reactor')"), 10_000, "hud reactor");
+      await sleep(1400);
+      const r = await main.eval(
+        "(() => { const b = document.querySelector('.vx-hud').getBoundingClientRect(); return { x: Math.max(0, b.x - 24), y: Math.max(0, b.y - 24), width: b.width + 48, height: b.height + 48 }; })()",
+      );
+      check(`HO-${name}`, `orb off: the HUD shows the reactor (${name})`, true);
+      await shot(main, `hud-orb-off-${name}-dark`, `In-app voice HUD with the orb switched off: ${name}`, r);
+    }
+    await force(main, null);
   }
   rpc.close();
 } catch (e) {

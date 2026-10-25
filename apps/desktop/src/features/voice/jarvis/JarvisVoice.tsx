@@ -54,6 +54,11 @@ export interface JarvisVoiceProps {
   reactorSide?: "start" | "end";
   /** Compact in-app variant (no own panel chrome; the host frames it). */
   variant?: "card" | "inline";
+  /**
+   * Render the reactor here (default). The desktop orb draws the reactor
+   * itself (it *is* the orb) and shows only the panel next to it.
+   */
+  showReactor?: boolean;
   /** Closing: collapse back into the orb. */
   leaving?: boolean;
   onRepeat?: () => void;
@@ -133,6 +138,7 @@ export function JarvisVoice(props: JarvisVoiceProps) {
     reactorSide = "start",
     variant = "card",
     leaving = false,
+    showReactor = true,
   } = props;
   const typed = useTyped(replyText, speaking, motion, signal);
   const bodyRef = useRef<HTMLDivElement | null>(null);
@@ -157,14 +163,14 @@ export function JarvisVoice(props: JarvisVoiceProps) {
 
   return (
     <section
-      className={clsx("jv", `jv--${variant}`, `jv--${state}`, `jv--mode-${mode}`, reactorSide === "end" && "jv--reverse", leaving && "jv--leaving", motion && "jv--motion")}
+      className={clsx("jv", `jv--${variant}`, `jv--${state}`, `jv--mode-${mode}`, reactorSide === "end" && "jv--reverse", !showReactor && "jv--panel-only", leaving && "jv--leaving", motion && "jv--motion")}
       role={variant === "card" ? "dialog" : "group"}
       aria-label={t("title")}
       data-jarvis-state={state}
       data-jarvis-mode={mode}
       style={{ ["--jv-size" as string]: `${size}px` }}
     >
-      {reactor}
+      {showReactor && reactor}
       <div className="jv__panel">
         <header className="jv__status" aria-live="polite">
           <span className={clsx("jv__dot", `jv__dot--${state}`)} aria-hidden="true" />

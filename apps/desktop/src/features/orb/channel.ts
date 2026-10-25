@@ -125,7 +125,8 @@ export function useOrbMainState(onSignal?: (f: SignalFrame) => void): { state: O
  * hidden to the tray or in the background). Once open it stays open until
  * the command finishes (phase back to idle).
  */
-export function voicePopupWanted(voice: OrbVoiceState, appActive: boolean, open: boolean): boolean {
+export function voicePopupWanted(voice: OrbVoiceState, appActive: boolean, open: boolean, orbShown = false): boolean {
   if (voice.phase === "idle") return false;
-  return open || !appActive;
+  // With the orb shown it is the one voice circle, wherever the focus is.
+  return open || orbShown || !appActive;
 }

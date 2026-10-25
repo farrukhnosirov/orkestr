@@ -7,7 +7,7 @@
  */
 import { useEffect, useRef } from "react";
 
-import { BANDS, type JarvisSignal, type JarvisState, ReactorDynamics } from "./model";
+import { BANDS, type JarvisSignal, type JarvisState, type ReactorAmbient, ReactorDynamics } from "./model";
 import { ReactorRenderer, readPalette } from "./renderer";
 
 export interface JarvisReactorProps {
@@ -24,12 +24,16 @@ export interface JarvisReactorProps {
   /** Accent override (theme orb accent). */
   accent?: string | null;
   className?: string;
+  /** Always lit at rest (the desktop orb), with the agents' mood. */
+  presence?: boolean;
+  ambient?: ReactorAmbient;
+  workers?: number;
 }
 
-export function JarvisReactor({ state, level, size, fps, signal = null, themeKey = "", accent = null, className }: JarvisReactorProps) {
+export function JarvisReactor({ state, level, size, fps, signal = null, themeKey = "", accent = null, className, presence = false, ambient = "calm", workers = 0 }: JarvisReactorProps) {
   const ref = useRef<HTMLCanvasElement | null>(null);
-  const live = useRef({ state, level, signal });
-  live.current = { state, level, signal };
+  const live = useRef({ state, level, signal, opts: { presence, ambient, workers } });
+  live.current = { state, level, signal, opts: { presence, ambient, workers } };
   const renderer = useRef<ReactorRenderer | null>(null);
   const dyn = useRef(new ReactorDynamics());
 
@@ -54,7 +58,7 @@ export function JarvisReactor({ state, level, size, fps, signal = null, themeKey
     const bands = new Float32Array(BANDS);
     if (fps <= 0) {
       r.clearParticles();
-      r.draw(dyn.current.still(state, level));
+      r.draw(dyn.current.still(state, level, { presence, ambient, workers }));
       return undefined;
     }
     let raf = 0;
@@ -76,7 +80,7 @@ export function JarvisReactor({ state, level, size, fps, signal = null, themeKey
       last = now;
       const cur = live.current;
       const s = cur.signal?.sample(bands, now) ?? null;
-      r.draw(dyn.current.step(now, dt, cur.state, s ? s.level : cur.level, s ? bands : null));
+      r.draw(dyn.current.step(now, dt, cur.state, s ? s.level : cur.level, s ? bands : null, cur.opts));
     };
     raf = requestAnimationFrame(loop);
     return () => {
@@ -84,7 +88,7 @@ export function JarvisReactor({ state, level, size, fps, signal = null, themeKey
       io?.disconnect();
     };
     // `state` / `level` are read live through the ref; a still frame redraws on change.
-  }, [fps, size, themeKey, accent, fps <= 0 ? state : "", fps <= 0 ? Math.round(level * 10) : 0]);
+  }, [fps, size, themeKey, accent, fps <= 0 ? `${state}|${ambient}|${presence}` : "", fps <= 0 ? Math.round(level * 10) : 0]);
 
-  return <canvas ref={ref} className={className ?? "jv-reactor"} style={{ width: size, height: size }} aria-hidden="true" data-jarvis-state={state} />;
+  return <canvas ref={ref} className={className ?? "jv-reactor"} style={{ width: size, height: size }} aria-hidden="true" data-jarvis-state={state} data-jarvis-ambient={presence ? ambient : undefined} />;
 }

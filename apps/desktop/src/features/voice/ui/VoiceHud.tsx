@@ -12,6 +12,9 @@ import { type FormEvent, useEffect, useRef, useState } from "react";
 
 import { useT } from "../../../i18n";
 import { useSettingsStore } from "../../settings/settingsStore";
+import { useUiPrefs } from "../../aiui/aiuiStore";
+import { orbPrefsOf } from "../../orb/model";
+import { orbShell } from "../../orb/shell";
 import { usePerfStore } from "../../performance/perfStore";
 import { answerConfirmation, cancelVoice, repeatReply, startListening, stopListening, submitTyped, sttReady } from "../controller";
 import { JarvisVoice } from "../jarvis/JarvisVoice";
@@ -49,7 +52,10 @@ export function VoiceHud() {
   const [text, setText] = useState("");
   const inputRef = useRef<HTMLInputElement | null>(null);
 
-  const visible = hudOpen || phase !== "idle" || forced !== null;
+  // One voice circle: with the desktop orb shown, the orb grows into it, so
+  // this HUD opens only on request (typed commands) and shows no reactor.
+  const orbCarriesVoice = orbShell.available() && orbPrefsOf(useUiPrefs().orb).enabled;
+  const visible = hudOpen || forced !== null || (!orbCarriesVoice && phase !== "idle");
   const canTalk = sttReady();
   const cloud = config?.sttEngine === "OpenAiWhisper" || config?.sttEngine === "WebSpeech";
 
@@ -107,7 +113,9 @@ export function VoiceHud() {
           <div className="vx-hud__top">
             <div className="vx-hud__main">
               <JarvisVoice
+                key={orbCarriesVoice ? "panel" : "reactor"}
                 variant="inline"
+                showReactor={!orbCarriesVoice}
                 size={112}
                 state={fx?.state ?? jvState}
                 level={fx?.level ?? level}

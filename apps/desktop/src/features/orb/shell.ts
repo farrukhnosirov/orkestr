@@ -147,10 +147,13 @@ export const orbShell = {
   async setShape(shape: HitShape): Promise<void> {
     if (isTauri()) await invoke("orb_set_shape", { shape });
   },
-  /** Orb window: open (`[w, h]`) or close (`null`) the hub area; returns where to draw. */
-  async setLayout(hub: readonly [number, number] | null): Promise<OrbLayout | null> {
+  /**
+   * Orb window: open (`[w, h]`) or close (`null`) the hub area; `grow` reserves
+   * room for the orb growing about its centre (the voice circle). Returns where to draw.
+   */
+  async setLayout(hub: readonly [number, number] | null, grow: number | null = null): Promise<OrbLayout | null> {
     if (!isTauri()) return null;
-    return invoke<OrbLayout>("orb_set_layout", { hub });
+    return invoke<OrbLayout>("orb_set_layout", { hub, grow });
   },
   async toMain(request: MainRequest, payload: Record<string, unknown> = {}): Promise<void> {
     if (isTauri()) await invoke("orb_to_main", { request, payload });

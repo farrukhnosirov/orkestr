@@ -20,7 +20,7 @@ import { useFormat, useT } from "../../i18n";
 import { Segmented, Switch } from "../settings/controls";
 import { ColorField, ColorPicker, Select, Slider } from "./controls";
 import { ORB_PAD } from "../orb/model";
-import { OrbSphere } from "../orb/OrbSphere";
+import { JarvisReactor } from "../voice/jarvis/JarvisReactor";
 import {
   COLOR_GROUPS,
   EASING_PRESETS,
@@ -564,7 +564,7 @@ export function OrbTab({ draft, edit }: TabProps) {
   return (
     <div className="th-tab">
       <div className="th-orb-preview" aria-hidden="true">
-        <OrbSphere size={64} pad={ORB_PAD} mood="working" motion="static" fps={0} rings={2} level={0} themeKey={JSON.stringify(draft.tokens)} accent={r.accent} lit={false} />
+        <JarvisReactor presence size={64 + ORB_PAD * 2} state="idle" ambient="working" workers={2} fps={0} level={0} themeKey={JSON.stringify(draft.tokens)} accent={r.accent} />
       </div>
       <section className="th-block">
         <div className="th-row">
