@@ -37,7 +37,7 @@ assistant speaks: «Здравствуйте, сэр.», «Открываю YouT
   from curated categories (greetings, courtesy, mood, about Jarvis/Orkestr,
   help, conversation control, confirmations, compliments/insults, jokes &
   facts, time/date, weather, coding small talk, Stark banter, refusals): 108
-  intents, 15 400+ unique question phrasings (+~800 typo variants), 336
+  intents, 16 415 unique question phrasings (+875 typo variants), 336
   answer variants with runtime slots (`{address}`, `{time}`, `{date_full}`,
   `{weekday}`, `{days_to_ny}`, `{weekend}`, `{greeting}`, `{coin}`, …). The
   counting rule (normalized forms, fillers dropped, typos separate) is in
