@@ -16,6 +16,7 @@ import { useVoiceStore } from "../voice/store";
 import { forgetConversation, loadJarvisConfig } from "./api";
 import { dailyGreeting } from "./greeting";
 import { JarvisSection } from "./JarvisSection";
+import { startJarvisModeSync } from "./modeSync";
 import { hookPersonaLanguage, jarvisSay } from "./persona";
 import { useJarvisStore } from "./store";
 
@@ -24,6 +25,8 @@ let registered = false;
 export function registerJarvisFeature(): void {
   if (registered) return;
   registered = true;
+  // the Jarvis circle shows chat / command / cursor (ADR-0052)
+  startJarvisModeSync();
   settingsSections.push({
     id: "jarvis",
     get title() {
