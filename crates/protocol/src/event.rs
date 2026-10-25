@@ -933,6 +933,7 @@ macro_rules! event_kinds {
                         | EventKind::CodexAccount(_)
                         | EventKind::DeploymentProgress(_)
                         | EventKind::VsCodeBridgeSignal(_)
+                        | EventKind::ComputerCursor(_)
                 )
             }
 
@@ -1148,6 +1149,8 @@ event_kinds! {
     CodexAccount(crate::methods::codex::CodexAccountPayload),
     /// The embedded VS Code asked Orkestr for focus / its palette (ephemeral, ADR-0043). Appended.
     VsCodeBridgeSignal(crate::methods::vscode::VsCodeBridgeSignalPayload),
+    /// Cursor capture mode progress (ephemeral, global; ADR-0050). Appended.
+    ComputerCursor(crate::methods::cursor::CursorEventPayload),
 }
 
 // ---------------------------------------------------------------------------

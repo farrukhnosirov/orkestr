@@ -26,6 +26,7 @@ pub mod codex;
 pub mod computer;
 pub mod consensus;
 pub mod context;
+pub mod cursor;
 pub mod cost;
 pub mod dashboard;
 pub mod dashboards;
@@ -659,6 +660,17 @@ pub fn registry() -> Vec<MethodDescriptor> {
         MethodDescriptor::of::<computer::Processes>(),
         MethodDescriptor::of::<computer::Stop>(),
         MethodDescriptor::of::<computer::History>(),
+        // cursor capture mode (ADR-0050): local only (computer area)
+        MethodDescriptor::of::<cursor::CursorStatusMethod>(),
+        MethodDescriptor::of::<cursor::CursorStart>(),
+        MethodDescriptor::of::<cursor::CursorStop>(),
+        MethodDescriptor::of::<cursor::CursorPause>(),
+        MethodDescriptor::of::<cursor::CursorResume>(),
+        MethodDescriptor::of::<cursor::CursorAnswer>(),
+        MethodDescriptor::of::<cursor::CursorConfirm>(),
+        MethodDescriptor::of::<cursor::CursorConsent>(),
+        MethodDescriptor::of::<cursor::CursorSetSettings>(),
+        MethodDescriptor::of::<cursor::CursorScreenshot>(),
     ]
 }
 

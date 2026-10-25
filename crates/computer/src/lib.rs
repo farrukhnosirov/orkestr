@@ -15,6 +15,7 @@
 pub mod apps;
 pub mod backend;
 pub mod catalogue;
+pub mod cursor;
 pub mod error;
 pub mod executor;
 pub mod keys;
