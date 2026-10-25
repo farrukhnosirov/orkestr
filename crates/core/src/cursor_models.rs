@@ -12,7 +12,10 @@
 //!
 //! All of them answer Orkestr's JSON action prompt
 //! ([`orkestr_computer::cursor::model::JsonVisionModel`]); choosing and
-//! failing over between them is `orkestr_computer::cursor::select`.
+//! failing over between them is `orkestr_computer::cursor::select` (the
+//! subscriptions source) and the system-wide provider chain (the API keys
+//! source, ADR-0051: purpose `Cursor`, vision + computer use, restricted to
+//! the consented API-key backends — never a subscription CLI or a local model).
 
 use std::path::PathBuf;
 use std::sync::{Arc, OnceLock, Weak};
@@ -31,7 +34,10 @@ use orkestr_computer::cursor::model::{
 use orkestr_computer::cursor::select::CursorModelFactory;
 use orkestr_domain::{ModelRef, ProviderKind};
 use orkestr_protocol::methods::cursor::{CursorBackendInfo, CursorSettings, CursorSource};
-use orkestr_providers::{ChatEvent, ChatMessage, ChatRequest, ImagePart};
+use orkestr_providers::{
+    AdapterSource, ChatEvent, ChatMessage, ChatRequest, ImagePart, ProviderChain, ProviderError, RequiredCapabilities,
+    RouteRequest,
+};
 
 use crate::Services;
 
@@ -190,6 +196,37 @@ impl CursorModelFactory for CoreCursorFactory {
             _ => return None,
         };
         Some(Arc::new(JsonVisionModel::new(completer)))
+    }
+
+    fn build_api_chain(&self, ids: &[String], settings: &CursorSettings) -> Option<Arc<dyn ComputerUseModel>> {
+        let s = self.services()?;
+        let mut picks = Vec::new();
+        for id in ids {
+            let (kind, default) = api_kind(id)?; // a non-API id (mock in tests): the plain failover
+            if let Some(p) = api_provider(&s, kind) {
+                picks.push(ModelRef { provider_id: p.provider.id, model: model_for(settings, id, default) });
+            }
+        }
+        let first = ids.first()?.clone();
+        if picks.is_empty() {
+            return None;
+        }
+        let label = picks[0].model.clone();
+        Some(Arc::new(JsonVisionModel::new(Arc::new(ApiChainVision {
+            id: first,
+            services: Arc::downgrade(&s),
+            picks,
+            label: parking_lot::Mutex::new(label),
+        }))))
+    }
+}
+
+fn api_kind(id: &str) -> Option<(ProviderKind, &'static str)> {
+    match id {
+        "anthropic" => Some((ProviderKind::Anthropic, ANTHROPIC_DEFAULT)),
+        "openai" => Some((ProviderKind::OpenAi, OPENAI_DEFAULT)),
+        "gemini" => Some((ProviderKind::Gemini, GEMINI_DEFAULT)),
+        _ => None,
     }
 }
 
@@ -479,6 +516,104 @@ impl VisionCompleter for ApiVision {
             }
         }
         Err(ModelError::new(ModelErrorKind::Network, "the model stream ended unexpectedly"))
+    }
+}
+
+/// The API keys source over the provider chain (ADR-0051): routed with
+/// purpose `Cursor` and vision + computer use, the user's consented backends
+/// first (in the cursor settings' order), then the global priority — but only
+/// over those consented API-key providers.
+struct ApiChainVision {
+    id: String,
+    services: Weak<Services>,
+    picks: Vec<ModelRef>,
+    label: parking_lot::Mutex<String>,
+}
+
+impl ApiChainVision {
+    async fn chain(&self, s: &Arc<Services>) -> Vec<ModelRef> {
+        let allowed: Vec<_> = self.picks.iter().map(|m| m.provider_id).collect();
+        let routed = s
+            .providers
+            .route(&RouteRequest {
+                purpose: Some("Cursor".into()),
+                required: RequiredCapabilities { vision: true, computer_use: true, ..RequiredCapabilities::default() },
+                preferred: self.picks.first().cloned(),
+                fallback_chain: self.picks.iter().skip(1).cloned().collect(),
+                est_input_tokens: 3_000,
+                max_output_tokens: 800,
+                ..RouteRequest::default()
+            })
+            .await
+            .unwrap_or_default();
+        let mut chain: Vec<ModelRef> = routed.into_iter().filter(|m| allowed.contains(&m.provider_id)).collect();
+        for m in &self.picks {
+            if !chain.iter().any(|c| c.provider_id == m.provider_id) {
+                chain.push(m.clone());
+            }
+        }
+        chain
+    }
+}
+
+async fn collect_text(mut stream: orkestr_providers::ChatStream) -> Result<String, ProviderError> {
+    let mut text = String::new();
+    while let Some(ev) = stream.next().await {
+        match ev {
+            ChatEvent::TextDelta(t) => text.push_str(&t),
+            ChatEvent::Switched { .. } => text.clear(),
+            ChatEvent::Done { .. } => return Ok(text),
+            ChatEvent::Error(e) => return Err(e),
+            ChatEvent::Usage(_) | ChatEvent::ToolCall { .. } => {}
+        }
+    }
+    Err(ProviderError::Network("the model stream ended unexpectedly".into()))
+}
+
+#[async_trait]
+impl VisionCompleter for ApiChainVision {
+    fn id(&self) -> &str {
+        &self.id
+    }
+    fn label(&self) -> String {
+        self.label.lock().clone()
+    }
+    async fn complete(
+        &self,
+        system: &str,
+        user: &str,
+        png: &str,
+        cancel: &CancellationToken,
+    ) -> Result<String, ModelError> {
+        let s = self
+            .services
+            .upgrade()
+            .ok_or_else(|| ModelError::new(ModelErrorKind::Unavailable, "core is shutting down"))?;
+        let mut msg = ChatMessage::user(user);
+        if !png.is_empty() {
+            msg.images.push(ImagePart { media_type: "image/png".into(), data_base64: png.to_owned() });
+        }
+        let mut base = ChatRequest::new(String::new(), vec![msg]);
+        base.system = Some(system.to_owned());
+        base.max_output_tokens = Some(800);
+        base.temperature = Some(0.0);
+        let chain = ProviderChain::new(Arc::clone(&s.providers) as Arc<dyn AdapterSource>, self.chain(&s).await);
+        let out = chain
+            .run(|a| {
+                let mut req = base.clone();
+                req.model = a.model.model.clone();
+                let cancel = cancel.clone();
+                async move { collect_text(a.adapter.chat(req, cancel.clone()).await?).await }
+            })
+            .await;
+        match out {
+            Ok(o) => {
+                *self.label.lock() = o.model.model.clone();
+                Ok(o.value)
+            }
+            Err(_) if cancel.is_cancelled() => Err(ModelError::cancelled()),
+            Err(e) => Err(ModelError::classified(format!("API keys: {e}"))),
+        }
     }
 }
 

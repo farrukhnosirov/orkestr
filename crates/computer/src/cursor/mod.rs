@@ -41,8 +41,8 @@ use orkestr_protocol::event::{EventKind, NewEvent};
 use orkestr_protocol::methods::computer::ComputerAction;
 use orkestr_protocol::methods::cursor::{
     CursorAction, CursorBackendInfo, CursorConfirmation, CursorElement, CursorEventPayload, CursorSession,
-    CursorSettings, CursorShot, CursorShotResult, CursorStartResult, CursorState, CursorStatus, CursorStep,
-    CursorTarget,
+    CursorSettings, CursorShot, CursorShotResult, CursorSource, CursorStartResult, CursorState, CursorStatus,
+    CursorStep, CursorTarget,
 };
 use orkestr_security::{ApprovalDecision, ApprovalRequest, NewAudit, Security};
 
@@ -357,11 +357,17 @@ impl CursorService {
         if !first.consented {
             return Ok(CursorStartResult::NeedsConsent { backend: first.clone() });
         }
-        let chain: Vec<Arc<dyn ComputerUseModel>> = candidates
-            .iter()
-            .filter(|b| b.consented)
-            .filter_map(|b| self.deps.factory.build(&b.id, &settings))
-            .collect();
+        let consented: Vec<String> = candidates.iter().filter(|b| b.consented).map(|b| b.id.clone()).collect();
+        // API keys: the system-wide provider chain (ADR-0051); subscriptions: the CLI failover below
+        let api_chain = if settings.source == CursorSource::Api {
+            self.deps.factory.build_api_chain(&consented, &settings)
+        } else {
+            None
+        };
+        let chain: Vec<Arc<dyn ComputerUseModel>> = match api_chain {
+            Some(m) => vec![m],
+            None => consented.iter().filter_map(|id| self.deps.factory.build(id, &settings)).collect(),
+        };
         if chain.is_empty() {
             return Ok(CursorStartResult::NoBackend { reason: format!("{} could not be started", first.label) });
         }

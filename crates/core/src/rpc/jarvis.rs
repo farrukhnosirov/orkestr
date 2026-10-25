@@ -116,11 +116,100 @@ async fn store(ctx: &RpcContext, key: &'static str, value: Option<String>) -> Re
 
 /// Stored settings; anything unreadable or invalid → defaults.
 async fn load_config(ctx: &RpcContext) -> Result<JarvisConfig, RpcError> {
-    Ok(load(ctx, JARVIS_KEY)
+    let config: JarvisConfig = load(ctx, JARVIS_KEY)
         .await?
         .and_then(|raw| serde_json::from_str::<JarvisConfig>(&raw).ok())
         .filter(|c| c.validate().is_ok())
-        .unwrap_or_default())
+        .unwrap_or_default();
+    *config_cache().lock() = Some(config.clone());
+    Ok(config)
+}
+
+/// The last loaded / saved settings (synchronous readers: cursor phrases).
+fn config_cache() -> &'static Mutex<Option<JarvisConfig>> {
+    static CACHE: OnceLock<Mutex<Option<JarvisConfig>>> = OnceLock::new();
+    CACHE.get_or_init(|| Mutex::new(None))
+}
+
+/// Cursor capture mode speaks in the Jarvis manner (ADR-0049 × ADR-0050):
+/// the built-in cursor phrases with varied Jarvis wording for the common
+/// moments and the configured form of address (or none with the persona off).
+pub fn install_cursor_phrases(services: &Arc<Services>) {
+    let s = Arc::clone(services);
+    tokio::spawn(async move {
+        let raw: Option<String> =
+            s.db.call(|c| {
+                Ok(c.query_row("SELECT value FROM core_settings WHERE key = ?1", params![JARVIS_KEY], |r| r.get(0))
+                    .optional()?)
+            })
+            .await
+            .ok()
+            .flatten();
+        let config = raw
+            .and_then(|r| serde_json::from_str::<JarvisConfig>(&r).ok())
+            .filter(|c| c.validate().is_ok())
+            .unwrap_or_default();
+        let mut cache = config_cache().lock();
+        if cache.is_none() {
+            *cache = Some(config);
+        }
+    });
+    let turn = std::sync::atomic::AtomicUsize::new(0);
+    services.cursor.set_phrase_hook(Arc::new(move |m, lang| {
+        let config = config_cache().lock().clone().unwrap_or_default();
+        let n = turn.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        cursor_phrase(m, lang, &config, n)
+    }));
+}
+
+/// One cursor phrase in the Jarvis manner (`n` rotates the variants).
+pub fn cursor_phrase(
+    m: &orkestr_computer::cursor::phrases::Moment<'_>,
+    lang: &str,
+    config: &JarvisConfig,
+    n: usize,
+) -> Option<String> {
+    use orkestr_computer::cursor::phrases::{phrase, Moment};
+    let ru = is_russian(lang);
+    let pick = |ru_v: &[&str], en_v: &[&str]| -> String {
+        let v = if ru { ru_v } else { en_v };
+        v[n % v.len()].to_owned()
+    };
+    // `{a}` = the address in suffix form («, сэр» / ", sir" / "")
+    let base = match m {
+        Moment::Start => pick(
+            &["Беру управление{a}.", "Принимаю управление{a}.", "Курсор у меня{a}. Приступаю."],
+            &["Taking control{a}.", "I have the controls{a}.", "Cursor is mine{a}. Getting started."],
+        ),
+        Moment::Resumed => pick(&["Продолжаю{a}.", "Возвращаюсь к задаче{a}."], &["Resuming{a}.", "Back to it{a}."]),
+        Moment::Paused => pick(
+            &["Пауза. Курсор ваш{a}.", "Приостановил. Управление ваше{a}."],
+            &["Paused. The cursor is yours{a}.", "On hold. You have the controls{a}."],
+        ),
+        Moment::Confirm => pick(
+            &["Требуется ваше подтверждение{a}.", "Этот шаг лучше согласовать с вами{a}."],
+            &["I need your confirmation{a}.", "This step needs your approval{a}."],
+        ),
+        Moment::Done(summary) => {
+            let tail = pick(
+                &["Готово{a}, возвращаю управление.", "Сделано{a}. Управление снова ваше."],
+                &["Done{a}, handing control back.", "All done{a}. The controls are yours again."],
+            );
+            if summary.is_empty() {
+                tail
+            } else {
+                format!("{summary} {tail}")
+            }
+        }
+        Moment::Ask(_) | Moment::Act(_) => return None,
+        _ => {
+            // other moments: the built-in phrase with the configured address
+            let b = phrase(m, lang)?;
+            b.replace(", сэр", "{a}").replace(", sir", "{a}")
+        }
+    };
+    let word = if !config.persona { None } else { address_word(config, ru) };
+    Some(base.replace("{a}", &word.map_or_else(String::new, |w| format!(", {w}"))))
 }
 
 fn config_result(config: JarvisConfig) -> Result<JarvisConfigResult, RpcError> {
@@ -136,6 +225,7 @@ async fn set_config(ctx: RpcContext, p: SetJarvisConfigParams) -> Result<JarvisC
     }
     let raw = serde_json::to_string(&p.config).map_err(|e| RpcError::internal(format!("serialize: {e}")))?;
     store(&ctx, JARVIS_KEY, Some(raw)).await?;
+    *config_cache().lock() = Some(p.config.clone());
     config_result(p.config)
 }
 
@@ -518,6 +608,26 @@ async fn chat(ctx: RpcContext, p: JarvisChatParams) -> Result<JarvisChatResult, 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cursor_phrases_use_the_configured_address() {
+        use orkestr_computer::cursor::phrases::Moment;
+        let mut c = JarvisConfig::default();
+        assert_eq!(cursor_phrase(&Moment::Start, "ru", &c, 0).unwrap(), "Беру управление, сэр.");
+        c.address = JarvisAddress::Boss;
+        assert_eq!(cursor_phrase(&Moment::Start, "ru", &c, 0).unwrap(), "Беру управление, босс.");
+        assert_eq!(cursor_phrase(&Moment::Resumed, "en", &c, 0).unwrap(), "Resuming, boss.");
+        assert_eq!(
+            cursor_phrase(&Moment::Failed, "ru", &c, 0).unwrap(),
+            "Не удалось выполнить, босс. Возвращаю управление."
+        );
+        assert!(cursor_phrase(&Moment::Done("Bluetooth включён."), "ru", &c, 1)
+            .unwrap()
+            .starts_with("Bluetooth включён. Сделано, босс."));
+        c.persona = false;
+        assert_eq!(cursor_phrase(&Moment::Paused, "ru", &c, 0).unwrap(), "Пауза. Курсор ваш.");
+        assert_eq!(cursor_phrase(&Moment::Ask("Какой файл?"), "ru", &c, 0), None);
+    }
 
     #[test]
     fn command_hand_off_is_split() {

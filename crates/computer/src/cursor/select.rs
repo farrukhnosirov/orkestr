@@ -7,8 +7,10 @@
 //! call to the next backend at once (sticky for the session) and reports
 //! "switched to …".
 //!
-//! Everything about choosing a model lives in this module so it can later be
-//! replaced by the central provider chain (wave 9 package D).
+//! In the "API keys" source the factory may hand out one model over the
+//! central provider chain instead (ADR-0051, [`CursorModelFactory::build_api_chain`]);
+//! the "subscriptions" source keeps this failover over the CLI backends and
+//! never crosses into API keys.
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
@@ -28,6 +30,13 @@ pub trait CursorModelFactory: Send + Sync {
     async fn backends(&self, settings: &CursorSettings) -> Vec<CursorBackendInfo>;
     /// Builds a backend for one session.
     fn build(&self, id: &str, settings: &CursorSettings) -> Option<Arc<dyn ComputerUseModel>>;
+    /// "API keys" source: one model over the system-wide provider chain
+    /// (ADR-0051) restricted to these consented backends, in this order.
+    /// `None` = not supported here; the caller falls back to a
+    /// [`FailoverModel`] over [`Self::build`] backends.
+    fn build_api_chain(&self, _ids: &[String], _settings: &CursorSettings) -> Option<Arc<dyn ComputerUseModel>> {
+        None
+    }
 }
 
 /// Backends that need no privacy consent (nothing leaves the machine).

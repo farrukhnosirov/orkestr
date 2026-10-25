@@ -532,7 +532,8 @@ pub async fn orb_set_layout(
 }
 
 /// Requests the orb window may forward to the main window.
-const MAIN_REQUESTS: &[&str] = &["open-main", "open-agent", "open-claude", "open-settings", "open-approvals", "open-cursor"];
+const MAIN_REQUESTS: &[&str] =
+    &["open-main", "open-agent", "open-claude", "open-settings", "open-approvals", "open-cursor"];
 
 /// Orb webview → main window request (`open-main`, `open-agent`,
 /// `open-claude`, `open-settings`, `open-approvals`). Every request brings the

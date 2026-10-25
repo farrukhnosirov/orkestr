@@ -19,6 +19,7 @@
 //! run of the real Claude Code CLI backend on the same window.
 #![cfg(windows)]
 
+use std::os::windows::process::CommandExt as _;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -26,6 +27,8 @@ use std::time::{Duration, Instant};
 use async_trait::async_trait;
 use parking_lot::Mutex;
 use tokio_util::sync::CancellationToken;
+
+const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
 use orkestr_computer::backend::{
     send_test_input, set_test_physical_marker, test_overlay_visible, WindowsBackend, WindowsCursor,
@@ -218,8 +221,9 @@ fn open_form(dir: &Path) -> (std::process::Child, PathBuf) {
     let script = dir.join("smoke.ps1");
     let out = dir.join("smoke-out.txt");
     std::fs::write(&script, FORM).unwrap();
-    // TODO(console): hide — a visible form is the point of this smoke; the console is hidden by -WindowStyle.
+    // no console window (CREATE_NO_WINDOW); the WinForms test form itself still shows
     let child = std::process::Command::new("powershell")
+        .creation_flags(CREATE_NO_WINDOW)
         .args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-File"])
         .arg(&script)
         .arg(&out)
@@ -435,8 +439,9 @@ impl VisionCompleter for ClaudeCli {
         .to_string();
         let (program, cwd, system) = (self.program.clone(), self.cwd.clone(), system.to_owned());
         tokio::task::spawn_blocking(move || {
-            // TODO(console): hide (test-only spawn)
+            // no console window (CREATE_NO_WINDOW)
             let mut c = std::process::Command::new(program)
+                .creation_flags(CREATE_NO_WINDOW)
                 .args([
                     "-p",
                     "--input-format",

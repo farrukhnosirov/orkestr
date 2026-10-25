@@ -220,7 +220,7 @@ async fn providers_end_to_end() {
     assert_eq!(c.call("providers.getManager", json!({})).await, cfg);
     assert_eq!(c.error_code("providers.setManager", json!({"config": {"maxParallelAgents": 0}})).await, "bad_request");
 
-    let routing = json!({"config": {"mode": "Manual", "rules": [{"purpose": "Backend", "model": {"providerId": mock_id, "model": "mock-smart"}, "fallback": []}], "defaultFallback": [], "preferLocal": true, "maxRateLimitWaitSecs": 30}});
+    let routing = json!({"config": {"mode": "Manual", "rules": [{"purpose": "Backend", "model": {"providerId": mock_id, "model": "mock-smart"}, "fallback": []}], "defaultFallback": [], "preferLocal": true, "maxRateLimitWaitSecs": 30, "sourcePriority": [], "purposeSources": [], "failover": true}});
     assert_eq!(c.call("providers.setRouting", routing.clone()).await, routing);
     assert_eq!(c.call("providers.getRouting", json!({})).await, routing);
     let bogus = json!({"config": {"rules": [{"purpose": "Backend", "model": {"providerId": "0199a213-81c0-7800-8aa1-bbab2a035a53", "model": "x"}}]}});

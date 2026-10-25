@@ -645,6 +645,8 @@ pub async fn start(config: CoreConfig) -> Result<CoreHandle, CoreError> {
     // Computer assistant: AI planner over the provider stack + Start-menu index.
     rpc::computer::install(&services);
     services.cursor_factory.attach(&services);
+    // Cursor mode speaks in the Jarvis manner with the configured address.
+    rpc::jarvis::install_cursor_phrases(&services);
     let app = server::app(app_state);
     let server_shutdown = shutdown.clone();
     let server = tokio::spawn(async move {
