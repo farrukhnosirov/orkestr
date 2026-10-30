@@ -1,4 +1,5 @@
 /** Stop-phrase classifier, conversation endings, the spotter client and the circle cues (ADR-0054). Pure. */
+import type { BargeHit } from "@orkestr/protocol";
 import { describe, expect, it, vi } from "vitest";
 
 import { followUpLeft, INTERRUPT_MS, interruptProgress, ReactorDynamics } from "../jarvis/model";
@@ -87,7 +88,7 @@ describe("spotter client", () => {
     let resolveFeed: ((v: { hit: null | { phrase: string; kind: "Hard"; heard: string; confidence: number } }) => void) | null = null;
     const transport: BargeTransport = {
       start: async () => ({ sessionId: "barge-7", engine: "VoskGrammar", reason: null }),
-      feed: vi.fn(() => new Promise((r) => (resolveFeed = r))),
+      feed: vi.fn(() => new Promise<{ hit: BargeHit | null }>((r) => (resolveFeed = r))),
       stop: vi.fn(async () => undefined),
     };
     const onHit = vi.fn();
