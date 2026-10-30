@@ -20,7 +20,7 @@ export type VoicePhase = "idle" | "listening" | "transcribing" | "thinking" | "c
 export type MicPurpose = "wake" | "command" | "enroll" | "meter" | "barge";
 
 /** Wake-word listener status. */
-export type WakeStatus = "off" | "needsEnrollment" | "starting" | "listening" | "pausedBattery" | "pausedBusy" | "error";
+export type WakeStatus = "off" | "needsEnrollment" | "starting" | "listening" | "restarting" | "pausedBattery" | "pausedBusy" | "error";
 
 export interface VoiceReply {
   text: string;

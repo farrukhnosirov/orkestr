@@ -86,7 +86,7 @@ vi.mock("../../sound/engine", () => ({ playSound: h.playSound }));
 vi.mock("../../jarvis/greeting", () => ({ dailyGreeting: () => null }));
 
 import { SttError } from "../stt/engines";
-import { type BargeActions, cancelVoice, FOLLOW_UP_DELAY_MS, interrupt, say, setBargeActions, setBargeTransport, setVoiceDeps, simulateTranscript, startListening, stopListening, syncBarge } from "../controller";
+import { type BargeActions, cancelVoice, checkVoiceHealth, FOLLOW_UP_DELAY_MS, interrupt, say, setBargeActions, setBargeTransport, setVoiceDeps, simulateTranscript, startListening, stopListening, syncBarge } from "../controller";
 import type { VoiceDeps } from "../pipeline/executor";
 import { useVoiceStore } from "../store";
 import { VOICE_ENGINE_DEFAULTS } from "../testConfig";
@@ -107,7 +107,7 @@ const CONFIG = {
   cloudVoice: "alloy",
   ratePct: 100,
   pitchPct: 100,
-  wake: { enabled: false, phrase: "Jarvis", sensitivity: 50, cpuBudgetPct: 2, pauseOnBatterySaver: true },
+  wake: { enabled: false, phrase: "Jarvis", phrases: ["Jarvis"], sensitivity: 50, cpuBudgetPct: 2, pauseOnBatterySaver: true },
   notifications: {
     enabled: false,
     quietHours: { enabled: false, start: "22:00", end: "08:00" },
@@ -305,8 +305,8 @@ describe("continuous conversation", () => {
     await replied();
     expect(h.speak).toHaveBeenCalledWith("Здравствуйте, сэр.", expect.anything());
     const s = useVoiceStore.getState();
-    expect(s.followUp?.ms).toBe(8000);
-    expect(h.stt.opts.at(-1)?.noSpeechMs).toBe(8000);
+    expect(s.followUp?.ms).toBe(6000);
+    expect(h.stt.opts.at(-1)?.noSpeechMs).toBe(6000);
     // The next utterance continues the conversation, and listening re-opens again.
     h.route.reply = "Сейчас 14:05, сэр.";
     h.stt.text = "а сколько времени";
@@ -363,7 +363,7 @@ describe("continuous conversation", () => {
     h.stt.text = "открой ютуб";
     await stopListening();
     expect(h.route.calls).toEqual(["расскажи про погоду", "открой ютуб"]);
-    await vi.waitFor(() => expect(useVoiceStore.getState().followUp?.ms).toBe(8000), { timeout: FOLLOW_UP_DELAY_MS + 1000 });
+    await vi.waitFor(() => expect(useVoiceStore.getState().followUp?.ms).toBe(6000), { timeout: FOLLOW_UP_DELAY_MS + 1000 });
   });
 
   it("is off when disabled, and never after a typed command", async () => {
@@ -376,5 +376,83 @@ describe("continuous conversation", () => {
     await simulateTranscript("привет", "Typed");
     await new Promise((r) => setTimeout(r, FOLLOW_UP_DELAY_MS + 50));
     expect(h.startStt).not.toHaveBeenCalled();
+  });
+});
+
+describe("bounded follow-up (ADR-0056)", () => {
+  async function replied(): Promise<void> {
+    const before = h.startStt.mock.calls.length;
+    await simulateTranscript("привет");
+    await vi.waitFor(() => expect(h.startStt.mock.calls.length).toBe(before + 1), { timeout: FOLLOW_UP_DELAY_MS + 1000 });
+  }
+  const followUps = () => h.stt.opts.filter((o) => o.noSpeechMs !== undefined).length;
+
+  it("noise, fillers and hallucinations in the window close it: no reply, no new window", async () => {
+    for (const noise of ["э", "Продолжение следует...", "угу"]) {
+      await replied();
+      const spoken = h.speak.mock.calls.length;
+      const opened = h.startStt.mock.calls.length;
+      h.stt.text = noise;
+      await stopListening();
+      expect(useVoiceStore.getState().phase).toBe("idle");
+      expect(h.speak.mock.calls.length).toBe(spoken);
+      await new Promise((r) => setTimeout(r, FOLLOW_UP_DELAY_MS + 50));
+      expect(h.startStt.mock.calls.length).toBe(opened);
+    }
+    expect(h.route.calls).toEqual(["привет", "привет", "привет"]);
+    expect(h.playSound).toHaveBeenCalledWith("listenEnd");
+  });
+
+  it("chains at most followUp.maxTurns real turns, then the wake word is needed again", async () => {
+    await replied(); // the wake-word turn opens the 1st window
+    for (let i = 1; i <= 3; i++) {
+      const before = h.startStt.mock.calls.length;
+      h.stt.text = `вопрос номер ${i}`;
+      await stopListening();
+      if (i < 3) await vi.waitFor(() => expect(h.startStt.mock.calls.length).toBe(before + 1), { timeout: FOLLOW_UP_DELAY_MS + 1000 });
+    }
+    await new Promise((r) => setTimeout(r, FOLLOW_UP_DELAY_MS + 50));
+    expect(followUps()).toBe(3);
+    expect(useVoiceStore.getState().phase).toBe("result");
+    expect(useVoiceStore.getState().followUp).toBeNull();
+  });
+
+  it("a reply the assistant did not understand does not re-open the window", async () => {
+    await replied();
+    h.routeUtterance.mockResolvedValueOnce({ outcome: "notUnderstood", reply: "Не понял, сэр.", tone: "warn", speak: [] } as never);
+    h.stt.text = "сделай то самое";
+    await stopListening();
+    await new Promise((r) => setTimeout(r, FOLLOW_UP_DELAY_MS + 50));
+    expect(followUps()).toBe(1);
+  });
+
+  it("the window is a hard limit: nobody speaks → it closes even if the engine never ends", async () => {
+    await startListening("WakeWord", { followUpMs: 50 });
+    expect(useVoiceStore.getState().phase).toBe("listening");
+    await vi.waitFor(() => expect(useVoiceStore.getState().phase).toBe("idle"), { timeout: 2000 });
+    expect(useVoiceStore.getState().followUp).toBeNull();
+    expect(useVoiceStore.getState().mic).not.toContain("command");
+    expect(h.playSound).toHaveBeenCalledWith("listenEnd");
+  });
+
+  it("the wake phrase alone in the window starts a fresh wake-word capture", async () => {
+    await replied();
+    const before = h.startStt.mock.calls.length;
+    h.stt.text = "Джервис";
+    await stopListening();
+    expect(h.playSound).toHaveBeenCalledWith("wake");
+    await vi.waitFor(() => expect(h.startStt.mock.calls.length).toBe(before + 1));
+    expect(useVoiceStore.getState().phase).toBe("listening");
+    expect(h.stt.opts.at(-1)?.noSpeechMs).toBeUndefined();
+    expect(h.route.calls).toEqual(["привет"]);
+  });
+
+  it("the watchdog resets a phase that never settled, so the wake word works again", async () => {
+    useVoiceStore.setState({ phase: "transcribing" });
+    const t0 = Date.now();
+    for (let t = t0; t <= t0 + 80_000; t += 2000) checkVoiceHealth(t);
+    expect(useVoiceStore.getState().phase).toBe("idle");
+    await startListening("WakeWord");
+    expect(useVoiceStore.getState().phase).toBe("listening");
   });
 });

@@ -34,5 +34,5 @@ export const VOICE_ENGINE_DEFAULTS: Pick<VoiceConfig, "sttFallback" | "ttsFallba
     softCancelsActions: false,
     sensitivity: 50,
   },
-  followUp: { enabled: true, windowSecs: 8, chimeOnClose: true },
+  followUp: { enabled: true, windowSecs: 6, chimeOnClose: true, maxTurns: 3 },
 };

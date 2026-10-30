@@ -9,9 +9,16 @@ export type WakeWordConfig = {
  */
 enabled: boolean, 
 /**
- * The phrase the user enrolled (display + matching hint), e.g. `Jarvis` / `Оркестр`.
+ * The primary wake phrase (display + matching hint), e.g. `Джарвис` /
+ * `Оркестр`. Always equals `phrases[0]` (kept for older clients).
  */
 phrase: string, 
+/**
+ * Every accepted wake phrase («Джарвис», «Эй, Джарвис», «Jarvis»…),
+ * primary first (ADR-0056). Older documents only have `phrase`;
+ * [`VoiceConfig::migrate`] fills this list from it.
+ */
+phrases: Array<string>, 
 /**
  * Sensitivity 0..=100 (higher = more accepts, more false accepts).
  */

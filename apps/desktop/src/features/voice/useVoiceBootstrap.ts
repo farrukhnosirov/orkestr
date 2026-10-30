@@ -16,7 +16,7 @@ import { usePerfStore } from "../performance/perfStore";
 import { configureSound, playSound } from "../sound/engine";
 import { activeTheme, useThemeStore } from "../theme/themeStore";
 import { assistantOptions, robotVoiceFor, speakAsAgent } from "./agentVoices";
-import { hushSpeech, installBargeWatcher, installVoiceDebugHook, shutdownVoice, startListening, stopListening, syncWakeListener } from "./controller";
+import { hushSpeech, installBargeWatcher, installVoiceDebugHook, installVoiceWatchdog, shutdownVoice, startListening, stopListening, syncWakeListener } from "./controller";
 import { isHoldEnd, isHoldStart, parseHotkey, yieldsToEditor } from "./hotkey";
 import { noticeFromEvent, phraseId, PhraseLimiter, speakDecision } from "./notify/policy";
 import { humanProjectName, lowerFirst } from "./pipeline/natural";
@@ -82,6 +82,8 @@ export function useVoiceBootstrap(ready: boolean): void {
     });
     const offBridge = startVoiceBroadcast();
     const offDebug = installVoiceDebugHook();
+    // ADR-0056: restarts a stalled / failed wake listener and resets a stuck pipeline phase.
+    const offWatchdog = installVoiceWatchdog();
     const offSettings = useSettingsStore.subscribe((s, prev) => {
       if (s.settings?.performanceMode !== prev.settings?.performanceMode) void syncWakeListener();
     });
@@ -93,6 +95,7 @@ export function useVoiceBootstrap(ready: boolean): void {
       offVoice();
       offBridge();
       offDebug();
+      offWatchdog();
       offSettings();
       offPerf();
       configureSound(() => null);

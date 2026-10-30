@@ -7,10 +7,18 @@ import type { VoiceConfig } from "@orkestr/protocol";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const h = vi.hoisted(() => {
-  const state = { resolveOpen: [] as ((m: unknown) => void)[], closed: 0, subscribes: 0 };
+  const state = { resolveOpen: [] as ((m: unknown) => void)[], rejectOpen: [] as ((e: unknown) => void)[], closed: 0, subscribes: 0, dead: null as null | (() => void) };
   const makeMic = () => {
     const m = {
       isClosed: false,
+      isDead: false,
+      onDead: (cb: () => void) => {
+        state.dead = () => {
+          m.isDead = true;
+          cb();
+        };
+        return () => undefined;
+      },
       analyser: null,
       subscribe: () => {
         state.subscribes += 1;
@@ -31,13 +39,14 @@ const h = vi.hoisted(() => {
 vi.mock("./audio/mic", () => ({
   MicCapture: {
     open: () =>
-      new Promise((resolve) => {
+      new Promise((resolve, reject) => {
         h.state.resolveOpen.push(resolve);
+        h.state.rejectOpen.push(reject);
       }),
   },
 }));
 
-import { shutdownVoice, syncWakeListener } from "./controller";
+import { checkVoiceHealth, shutdownVoice, syncWakeListener } from "./controller";
 import { useVoiceStore } from "./store";
 import { TEMPLATES_KEY } from "./wake/spotter";
 import { VOICE_ENGINE_DEFAULTS } from "./testConfig";
@@ -58,7 +67,7 @@ const BASE = {
   cloudVoice: "alloy",
   ratePct: 100,
   pitchPct: 100,
-  wake: { enabled: true, phrase: "Jarvis", sensitivity: 50, cpuBudgetPct: 2, pauseOnBatterySaver: false },
+  wake: { enabled: true, phrase: "Jarvis", phrases: ["Jarvis"], sensitivity: 50, cpuBudgetPct: 2, pauseOnBatterySaver: false },
   notifications: {
     enabled: true,
     quietHours: { enabled: false, start: "22:00", end: "08:00" },
@@ -84,6 +93,8 @@ describe("wake listener vs. a mic that is still opening", () => {
   beforeEach(() => {
     window.localStorage.setItem(TEMPLATES_KEY, JSON.stringify({ phrase: "Jarvis", samples: [[[1, 2]], [[1, 2]], [[1, 2]]] }));
     h.state.resolveOpen = [];
+    h.state.rejectOpen = [];
+    h.state.dead = null;
     h.state.closed = 0;
     h.state.subscribes = 0;
     useVoiceStore.setState({ config: BASE, phase: "idle", mic: [], wakeStatus: "off" });
@@ -139,5 +150,48 @@ describe("wake listener vs. a mic that is still opening", () => {
     await a;
     expect(useVoiceStore.getState().mic).not.toContain("wake");
     expect(h.state.closed).toBe(1);
+  });
+
+  // ADR-0056: the listener never dies silently.
+  it("watchdog: a start that failed (no microphone) is retried and recovers", async () => {
+    const a = syncWakeListener();
+    await micRequested();
+    h.state.rejectOpen[0]?.(Object.assign(new Error("no device"), { code: "notFound" }));
+    await a;
+    expect(useVoiceStore.getState().wakeStatus).toBe("error");
+    checkVoiceHealth(Date.now() + 1500); // first retry after 1 s of backoff
+    await micRequested(2);
+    expect(useVoiceStore.getState().wakeStatus).toBe("restarting");
+    h.state.resolveOpen[1]?.(h.makeMic());
+    await vi.waitFor(() => expect(useVoiceStore.getState().wakeStatus).toBe("listening"));
+    expect(useVoiceStore.getState().wakeError).toBeNull();
+  });
+
+  it("watchdog: a listener whose audio stalled is restarted on a fresh device", async () => {
+    const a = syncWakeListener();
+    await micRequested();
+    h.state.resolveOpen[0]?.(h.makeMic());
+    await a;
+    expect(useVoiceStore.getState().wakeStatus).toBe("listening");
+    const now = Date.now();
+    checkVoiceHealth(now + 2000);
+    expect(h.state.resolveOpen).toHaveLength(1); // audio is still fresh
+    checkVoiceHealth(now + 8000); // nothing from the worklet for 8 s
+    await micRequested(2);
+    expect(h.state.closed).toBe(1); // the dead stream was closed
+    h.state.resolveOpen[1]?.(h.makeMic());
+    await vi.waitFor(() => expect(useVoiceStore.getState().wakeStatus).toBe("listening"));
+    expect(useVoiceStore.getState().mic).toEqual(["wake"]);
+  });
+
+  it("watchdog: an unplugged microphone (stream ended) restarts the listener at once", async () => {
+    const a = syncWakeListener();
+    await micRequested();
+    h.state.resolveOpen[0]?.(h.makeMic());
+    await a;
+    h.state.dead?.();
+    await micRequested(2);
+    h.state.resolveOpen[1]?.(h.makeMic());
+    await vi.waitFor(() => expect(useVoiceStore.getState().wakeStatus).toBe("listening"));
   });
 });

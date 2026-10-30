@@ -78,7 +78,10 @@ fn write_lock() -> &'static tokio::sync::Mutex<()> {
 #[must_use]
 pub fn parse_stored(raw: Option<&str>) -> VoiceConfig {
     let Some(raw) = raw else { return VoiceConfig::default() };
-    match serde_json::from_str::<VoiceConfig>(raw) {
+    match serde_json::from_str::<VoiceConfig>(raw).map(|mut c| {
+        c.migrate(); // ADR-0056: one wake phrase → a list; follow-up bounds
+        c
+    }) {
         Ok(c) if c.validate().is_ok() => c,
         Ok(_) | Err(_) => {
             tracing::warn!("ignoring invalid stored voice configuration");
@@ -214,10 +217,11 @@ async fn get_config(ctx: RpcContext) -> Result<VoiceConfigResult, RpcError> {
 }
 
 async fn set_config(ctx: RpcContext, p: SetVoiceConfigParams) -> Result<VoiceConfigResult, RpcError> {
-    p.config.validate().map_err(|e| RpcError::bad_request(e.to_string()))?;
+    let mut next = p.config;
+    next.migrate(); // an older client sends only `wake.phrase` (ADR-0056)
+    next.validate().map_err(|e| RpcError::bad_request(e.to_string()))?;
     let _guard = write_lock().lock().await;
     let stored = load(&ctx).await?;
-    let mut next = p.config;
     // Consent is server-owned.
     next.stt_consent = stored.stt_consent;
     next.tts_consent_at = stored.tts_consent_at;
@@ -794,6 +798,12 @@ mod tests {
         let c = parse_stored(Some(r#"{"wake": {"enabled": true, "phrase": "Оркестр"}}"#));
         assert!(c.wake.enabled);
         assert_eq!(c.wake.phrase, "Оркестр");
+        assert_eq!(c.wake.phrases, vec!["Оркестр".to_owned()], "one stored phrase becomes the list (ADR-0056)");
+        // An older 3..=30 s follow-up window is clamped instead of resetting everything.
+        let c = parse_stored(Some(r#"{"followUp": {"enabled": true, "windowSecs": 20}, "ratePct": 120}"#));
+        assert_eq!(c.follow_up.window_secs, 10);
+        assert_eq!(c.follow_up.max_turns, 3);
+        assert_eq!(c.rate_pct, 120);
     }
 
     #[test]

@@ -85,11 +85,66 @@ export class WakeSpotter {
   }
 }
 
+/** A spotted wake phrase: which phrase's samples matched best. */
+export interface WakeDetection extends WakeHit {
+  phrase: string;
+}
+
+/**
+ * Several wake phrases (ADR-0056): one {@link WakeSpotter} per recorded
+ * phrase, a shared cooldown, the best match (distance relative to that
+ * phrase's own threshold) wins.
+ */
+export class WakeDetector {
+  private readonly spotters: { phrase: string; spotter: WakeSpotter }[];
+  private lastHit = -Infinity;
+
+  constructor(sets: readonly StoredTemplates[], sensitivity: number) {
+    this.spotters = sets
+      .filter((s) => s.samples.length >= MIN_ENROLL_SAMPLES)
+      .map((s) => ({ phrase: s.phrase, spotter: new WakeSpotter(s.samples, sensitivity) }))
+      .filter((x) => x.spotter.ready);
+  }
+
+  get ready(): boolean {
+    return this.spotters.length > 0;
+  }
+
+  get phrases(): string[] {
+    return this.spotters.map((s) => s.phrase);
+  }
+
+  /** The closest phrase (distance relative to its own threshold; ≤ 1 = accepted), no cooldown. */
+  closest(segment: readonly number[][], early = false): { phrase: string; distance: number; threshold: number; ratio: number } | null {
+    let best: { phrase: string; distance: number; threshold: number; ratio: number } | null = null;
+    for (const { phrase, spotter } of this.spotters) {
+      const distance = spotter.distance(segment, early);
+      const threshold = spotter.acceptThreshold;
+      const ratio = distance / threshold;
+      if (Number.isFinite(ratio) && (!best || ratio < best.ratio)) best = { phrase, distance, threshold, ratio };
+    }
+    return best;
+  }
+
+  /** Detects any wake phrase in a segment (respects a shared cooldown). */
+  detect(segment: readonly number[][], now: number, early = false): WakeDetection | null {
+    if (!this.ready || now - this.lastHit < WAKE_COOLDOWN_MS) return null;
+    const best = this.closest(segment, early);
+    if (!best || !(best.distance <= best.threshold)) return null;
+    this.lastHit = now;
+    const { distance, threshold, phrase } = best;
+    return { phrase, distance, threshold, score: Math.max(0, Math.min(1, 1 - distance / (threshold * 2))) };
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Local persistence (this device only).
 // ---------------------------------------------------------------------------
 
+/** One phrase's samples (v1 stored a single set under {@link TEMPLATES_KEY}). */
 export const TEMPLATES_KEY = "orkestr.voice.wakeTemplates.v1";
+/** Every phrase's samples (ADR-0056): `{ sets: StoredTemplates[] }`. */
+export const TEMPLATE_SETS_KEY = "orkestr.voice.wakeTemplates.v2";
 
 export interface StoredTemplates {
   phrase: string;
@@ -97,31 +152,84 @@ export interface StoredTemplates {
   samples: number[][][];
 }
 
-export function loadTemplates(): StoredTemplates | null {
+function parseSet(v: unknown): StoredTemplates | null {
+  if (!v || typeof v !== "object") return null;
+  const o = v as { phrase?: unknown; samples?: unknown };
+  if (typeof o.phrase !== "string" || !Array.isArray(o.samples)) return null;
+  const samples = o.samples.filter(
+    (s): s is number[][] => Array.isArray(s) && s.every((f) => Array.isArray(f) && f.every((x) => typeof x === "number" && Number.isFinite(x))),
+  );
+  return { phrase: o.phrase, samples };
+}
+
+function sameKey(a: string, b: string): boolean {
+  const k = (p: string) => p.trim().toLowerCase().replace(/ё/g, "е").replace(/[.,!?;:«»"']/g, "").replace(/\s+/g, " ");
+  return k(a) === k(b);
+}
+
+/** Every stored phrase's samples (the v1 single set when no v2 list exists). */
+export function loadTemplateSets(): StoredTemplates[] {
   try {
-    const raw = window.localStorage.getItem(TEMPLATES_KEY);
-    if (!raw) return null;
-    const v: unknown = JSON.parse(raw);
-    if (!v || typeof v !== "object") return null;
-    const o = v as { phrase?: unknown; samples?: unknown };
-    if (typeof o.phrase !== "string" || !Array.isArray(o.samples)) return null;
-    const samples = o.samples.filter(
-      (s): s is number[][] => Array.isArray(s) && s.every((f) => Array.isArray(f) && f.every((x) => typeof x === "number" && Number.isFinite(x))),
-    );
-    return { phrase: o.phrase, samples };
+    const raw = window.localStorage.getItem(TEMPLATE_SETS_KEY);
+    if (raw) {
+      const v: unknown = JSON.parse(raw);
+      const sets = (v as { sets?: unknown } | null)?.sets;
+      if (Array.isArray(sets)) return sets.map(parseSet).filter((s): s is StoredTemplates => s !== null && s.samples.length > 0);
+    }
+    const legacy = window.localStorage.getItem(TEMPLATES_KEY);
+    if (!legacy) return [];
+    const one = parseSet(JSON.parse(legacy));
+    return one && one.samples.length > 0 ? [one] : [];
   } catch {
-    return null;
+    return [];
   }
 }
 
-export function saveTemplates(t: StoredTemplates | null): void {
+/** Replaces every stored set (an empty list removes the samples). */
+export function saveTemplateSets(sets: readonly StoredTemplates[]): void {
   try {
-    if (!t) window.localStorage.removeItem(TEMPLATES_KEY);
+    const kept = sets.filter((s) => s.samples.length > 0);
+    window.localStorage.removeItem(TEMPLATES_KEY); // migrated to v2
+    if (kept.length === 0) window.localStorage.removeItem(TEMPLATE_SETS_KEY);
     else {
-      const rounded = t.samples.map((s) => s.map((f) => f.map((x) => Math.round(x * 1000) / 1000)));
-      window.localStorage.setItem(TEMPLATES_KEY, JSON.stringify({ phrase: t.phrase, samples: rounded }));
+      const rounded = kept.map((t) => ({ phrase: t.phrase, samples: t.samples.map((s) => s.map((f) => f.map((x) => Math.round(x * 1000) / 1000))) }));
+      window.localStorage.setItem(TEMPLATE_SETS_KEY, JSON.stringify({ sets: rounded }));
     }
   } catch {
     /* storage unavailable: enrollment lasts for this session only */
   }
+}
+
+/** The samples of one phrase, if recorded. */
+export function templatesFor(phrase: string, sets: readonly StoredTemplates[] = loadTemplateSets()): StoredTemplates | null {
+  return sets.find((s) => sameKey(s.phrase, phrase)) ?? null;
+}
+
+/** Stores (or with `null` removes) one phrase's samples, keeping the others. */
+export function saveTemplatesFor(phrase: string, samples: number[][][] | null): void {
+  const others = loadTemplateSets().filter((s) => !sameKey(s.phrase, phrase));
+  saveTemplateSets(samples && samples.length > 0 ? [...others, { phrase, samples }] : others);
+}
+
+/** Keeps only the samples of phrases still in the list (a removed phrase forgets its voice). */
+export function pruneTemplateSets(phrases: readonly string[]): void {
+  const sets = loadTemplateSets();
+  const kept = sets.filter((s) => phrases.some((p) => sameKey(p, s.phrase)));
+  if (kept.length !== sets.length) saveTemplateSets(kept);
+}
+
+/** Total recorded samples over every phrase (wake listener restart key). */
+export function templatesSignature(sets: readonly StoredTemplates[] = loadTemplateSets()): string {
+  return sets.map((s) => `${s.phrase.toLowerCase()}:${s.samples.length}`).join(",");
+}
+
+/** First stored set (compatibility with single-phrase callers). */
+export function loadTemplates(): StoredTemplates | null {
+  return loadTemplateSets()[0] ?? null;
+}
+
+/** `null` removes every phrase's samples; a set replaces that phrase's samples. */
+export function saveTemplates(t: StoredTemplates | null): void {
+  if (!t) saveTemplateSets([]);
+  else saveTemplatesFor(t.phrase, t.samples);
 }

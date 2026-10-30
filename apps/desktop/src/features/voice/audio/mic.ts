@@ -36,7 +36,9 @@ type Listener<T> = (v: T) => void;
 
 export class MicCapture {
   private readonly listeners = new Set<Listener<WorkletOutMessage>>();
+  private readonly deadListeners = new Set<() => void>();
   private closed = false;
+  private dead = false;
 
   private constructor(
     private readonly ctx: AudioContext,
@@ -48,6 +50,31 @@ export class MicCapture {
     node.port.onmessage = (e: MessageEvent<WorkletOutMessage>) => {
       for (const l of this.listeners) l(e.data);
     };
+    // The device went away (unplugged, driver reset, sleep) or the audio graph stopped (ADR-0056).
+    for (const track of stream.getAudioTracks()) track.addEventListener("ended", () => this.markDead());
+    ctx.addEventListener("statechange", () => {
+      if (this.closed) return;
+      if (ctx.state === "closed") this.markDead();
+      else if (ctx.state !== "running") void ctx.resume().catch(() => this.markDead());
+    });
+  }
+
+  private markDead(): void {
+    if (this.closed || this.dead) return;
+    this.dead = true;
+    for (const l of [...this.deadListeners]) l();
+  }
+
+  /** Called once when the stream ends or the audio graph cannot run any more. */
+  onDead(l: () => void): () => void {
+    if (this.dead) queueMicrotask(l);
+    else this.deadListeners.add(l);
+    return () => this.deadListeners.delete(l);
+  }
+
+  /** The stream ended or the audio graph stopped: reopen the microphone. */
+  get isDead(): boolean {
+    return this.dead;
   }
 
   static async open(opts: { deviceId?: string | null; cpuBudgetPct?: number }): Promise<MicCapture> {
@@ -132,6 +159,7 @@ export class MicCapture {
     this.send({ type: "stop" });
     this.closed = true;
     this.listeners.clear();
+    this.deadListeners.clear();
     try {
       this.source.disconnect();
       this.node.disconnect();

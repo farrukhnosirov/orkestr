@@ -10,10 +10,15 @@ export type FollowUpConfig = {
  */
 enabled: boolean, 
 /**
- * How long to wait for the user to start speaking, seconds (3..=30).
+ * How long to wait for the user to start speaking, seconds (3..=10, ADR-0056).
  */
 windowSecs: number, 
 /**
  * A soft chime when the window closes in silence.
  */
-chimeOnClose: boolean, };
+chimeOnClose: boolean, 
+/**
+ * Follow-up turns in a row without the wake word (1..=10, ADR-0056):
+ * after that many the wake word is needed again.
+ */
+maxTurns: number, };

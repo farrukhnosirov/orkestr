@@ -393,8 +393,14 @@ pub struct SttConsent {
 pub struct WakeWordConfig {
     /// Listen for the wake word (off by default, ADR-0017).
     pub enabled: bool,
-    /// The phrase the user enrolled (display + matching hint), e.g. `Jarvis` / `Оркестр`.
+    /// The primary wake phrase (display + matching hint), e.g. `Джарвис` /
+    /// `Оркестр`. Always equals `phrases[0]` (kept for older clients).
     pub phrase: String,
+    /// Every accepted wake phrase («Джарвис», «Эй, Джарвис», «Jarvis»…),
+    /// primary first (ADR-0056). Older documents only have `phrase`;
+    /// [`VoiceConfig::migrate`] fills this list from it.
+    #[serde(default)]
+    pub phrases: Vec<String>,
     /// Sensitivity 0..=100 (higher = more accepts, more false accepts).
     pub sensitivity: u8,
     /// Average CPU budget of the detector in percent of one core (1..=10).
@@ -403,11 +409,17 @@ pub struct WakeWordConfig {
     pub pause_on_battery_saver: bool,
 }
 
+/// The default wake phrase (ADR-0056).
+pub const DEFAULT_WAKE_PHRASE: &str = "Джарвис";
+/// Max wake phrases (ADR-0056).
+pub const MAX_WAKE_PHRASES: usize = 8;
+
 impl Default for WakeWordConfig {
     fn default() -> Self {
         Self {
             enabled: false,
-            phrase: "Jarvis".into(),
+            phrase: DEFAULT_WAKE_PHRASE.into(),
+            phrases: vec![DEFAULT_WAKE_PHRASE.into()],
             sensitivity: 50,
             cpu_budget_pct: 2,
             pause_on_battery_saver: true,
@@ -499,15 +511,23 @@ impl Default for BargeInConfig {
 pub struct FollowUpConfig {
     /// Re-open listening after a reply.
     pub enabled: bool,
-    /// How long to wait for the user to start speaking, seconds (3..=30).
+    /// How long to wait for the user to start speaking, seconds (3..=10, ADR-0056).
     pub window_secs: u8,
     /// A soft chime when the window closes in silence.
     pub chime_on_close: bool,
+    /// Follow-up turns in a row without the wake word (1..=10, ADR-0056):
+    /// after that many the wake word is needed again.
+    pub max_turns: u8,
 }
+
+/// Bounds of `FollowUpConfig::window_secs` (ADR-0056).
+pub const FOLLOW_UP_WINDOW_SECS: std::ops::RangeInclusive<u8> = 3..=10;
+/// Bounds of `FollowUpConfig::max_turns` (ADR-0056).
+pub const FOLLOW_UP_MAX_TURNS: std::ops::RangeInclusive<u8> = 1..=10;
 
 impl Default for FollowUpConfig {
     fn default() -> Self {
-        Self { enabled: true, window_secs: 8, chime_on_close: true }
+        Self { enabled: true, window_secs: 6, chime_on_close: true, max_turns: 3 }
     }
 }
 
@@ -785,6 +805,36 @@ pub fn validate_profile(p: &VoiceProfile) -> Result<(), VoiceConfigError> {
 }
 
 impl VoiceConfig {
+    /// Brings a stored (or older client's) document up to date (ADR-0056):
+    /// fills `wake.phrases` from the single `wake.phrase`, drops blank and
+    /// duplicate phrases, keeps `wake.phrase == wake.phrases[0]`, and clamps
+    /// the follow-up window / turn cap into their new bounds (an older 3..=30 s
+    /// window would otherwise reset the whole configuration).
+    pub fn migrate(&mut self) {
+        let w = &mut self.wake;
+        let mut list: Vec<String> = Vec::with_capacity(w.phrases.len() + 1);
+        let primary = w.phrase.trim();
+        // A client that only knows `phrase` changed it: it leads the list.
+        if !primary.is_empty() && !w.phrases.iter().any(|p| p.trim() == primary) {
+            list.push(primary.to_owned());
+        }
+        for p in &w.phrases {
+            let p = p.trim();
+            if !p.is_empty() && !list.iter().any(|x| x.to_lowercase() == p.to_lowercase()) {
+                list.push(p.to_owned());
+            }
+        }
+        if list.is_empty() {
+            list.push(DEFAULT_WAKE_PHRASE.to_owned());
+        }
+        list.truncate(MAX_WAKE_PHRASES);
+        w.phrase.clone_from(&list[0]);
+        w.phrases = list;
+        let f = &mut self.follow_up;
+        f.window_secs = f.window_secs.clamp(*FOLLOW_UP_WINDOW_SECS.start(), *FOLLOW_UP_WINDOW_SECS.end());
+        f.max_turns = f.max_turns.clamp(*FOLLOW_UP_MAX_TURNS.start(), *FOLLOW_UP_MAX_TURNS.end());
+    }
+
     /// Validates every field (consent fields are not checked here — the core owns them).
     pub fn validate(&self) -> Result<(), VoiceConfigError> {
         if !is_language(&self.language) {
@@ -817,6 +867,16 @@ impl VoiceConfig {
         let w = &self.wake;
         if w.phrase.trim().is_empty() || !printable(&w.phrase, 40) {
             return Err(invalid("wake.phrase", "1..=40 printable characters"));
+        }
+        if w.phrases.is_empty() || w.phrases.len() > MAX_WAKE_PHRASES {
+            return Err(invalid("wake.phrases", format!("1..={MAX_WAKE_PHRASES} phrases")));
+        }
+        if w.phrases.iter().any(|p| p.trim().is_empty() || !printable(p, 40)) {
+            return Err(invalid("wake.phrases", "phrases are 1..=40 printable characters"));
+        }
+        let mut seen = std::collections::BTreeSet::new();
+        if !w.phrases.iter().all(|p| seen.insert(p.trim().to_lowercase())) {
+            return Err(invalid("wake.phrases", "phrases must be unique"));
         }
         if w.sensitivity > 100 {
             return Err(invalid("wake.sensitivity", "must be between 0 and 100"));
@@ -869,8 +929,11 @@ impl VoiceConfig {
         if b.sensitivity > 100 {
             return Err(invalid("barge.sensitivity", "must be between 0 and 100"));
         }
-        if !(3..=30).contains(&self.follow_up.window_secs) {
-            return Err(invalid("followUp.windowSecs", "must be between 3 and 30"));
+        if !FOLLOW_UP_WINDOW_SECS.contains(&self.follow_up.window_secs) {
+            return Err(invalid("followUp.windowSecs", "must be between 3 and 10"));
+        }
+        if !FOLLOW_UP_MAX_TURNS.contains(&self.follow_up.max_turns) {
+            return Err(invalid("followUp.maxTurns", "must be between 1 and 10"));
         }
         self.engines.validate()
     }
@@ -1605,7 +1668,8 @@ mod tests {
     fn barge_and_follow_up_defaults_and_bounds() {
         let mut c = VoiceConfig::default();
         assert!(c.barge.enabled && c.follow_up.enabled);
-        assert_eq!(c.follow_up.window_secs, 8);
+        assert_eq!(c.follow_up.window_secs, 6);
+        assert_eq!(c.follow_up.max_turns, 3);
         assert!(c.barge.hard_phrases.iter().any(|p| p == "стоп"));
         assert!(c.barge.soft_phrases.iter().any(|p| p == "окей"));
         // A stored document without the new sections loads the defaults.
@@ -1613,7 +1677,12 @@ mod tests {
         assert_eq!(old.barge, BargeInConfig::default());
         c.follow_up.window_secs = 2;
         assert_eq!(c.validate().unwrap_err().field, "followUp.windowSecs");
-        c.follow_up.window_secs = 30;
+        c.follow_up.window_secs = 11;
+        assert_eq!(c.validate().unwrap_err().field, "followUp.windowSecs");
+        c.follow_up.window_secs = 10;
+        c.follow_up.max_turns = 0;
+        assert_eq!(c.validate().unwrap_err().field, "followUp.maxTurns");
+        c.follow_up.max_turns = 3;
         c.barge.hard_phrases.push("  ".into());
         assert_eq!(c.validate().unwrap_err().field, "barge.hardPhrases");
         c.barge.hard_phrases.pop();
@@ -1627,7 +1696,8 @@ mod tests {
             serde_json::from_str(r#"{"wake": {"enabled": true}, "futureField": 1, "sound": {"volumePct": 10}}"#)
                 .unwrap();
         assert!(c.wake.enabled);
-        assert_eq!(c.wake.phrase, "Jarvis");
+        assert_eq!(c.wake.phrase, "Джарвис");
+        assert!(c.wake.phrases.is_empty(), "filled by migrate()");
         assert_eq!(c.sound.volume_pct, 10);
         assert!(c.sound.enabled);
         assert_eq!(c.push_to_talk_hotkey, "Ctrl+Space");
@@ -1661,6 +1731,9 @@ mod tests {
         assert!(bad(&|c| c.wake.sensitivity = 101));
         assert!(bad(&|c| c.wake.cpu_budget_pct = 0));
         assert!(bad(&|c| c.wake.phrase = "  ".into()));
+        assert!(bad(&|c| c.wake.phrases.clear()));
+        assert!(bad(&|c| c.wake.phrases.push("джарвис".into())), "duplicates (any case)");
+        assert!(bad(&|c| c.wake.phrases = (0..9).map(|i| format!("p{i}")).collect()));
         assert!(bad(&|c| c.notifications.quiet_hours.end = "25:00".into()));
         assert!(bad(&|c| c.sound.volume_pct = 200));
         assert!(bad(&|c| c.cloud_voice = "a b".into()));
@@ -1687,6 +1760,36 @@ mod tests {
         ok.agent_voices.insert("t2".into(), profile("openai", None));
         ok.language = "ru".into();
         ok.wake.phrase = "Оркестр".into();
+        ok.wake.phrases = vec!["Оркестр".into(), "Эй, Оркестр".into()];
         ok.validate().unwrap();
+    }
+
+    #[test]
+    fn migrate_fills_and_cleans_wake_phrases() {
+        // A stored document from before ADR-0056: only `phrase`.
+        let mut c: VoiceConfig = serde_json::from_str(r#"{"wake": {"enabled": true, "phrase": "Jarvis"}}"#).unwrap();
+        c.migrate();
+        assert_eq!(c.wake.phrases, vec!["Jarvis".to_owned()]);
+        c.validate().unwrap();
+        // Blank and duplicate entries go; `phrase` follows the list.
+        c.wake.phrases = vec!["  ".into(), "Джарвис".into(), "джарвис".into(), "Эй, Джарвис".into()];
+        c.wake.phrase = "Джарвис".into();
+        c.migrate();
+        assert_eq!(c.wake.phrases, vec!["Джарвис".to_owned(), "Эй, Джарвис".to_owned()]);
+        assert_eq!(c.wake.phrase, "Джарвис");
+        // An older client renamed the single phrase: it leads.
+        c.wake.phrase = "Оркестр".into();
+        c.migrate();
+        assert_eq!(c.wake.phrases[0], "Оркестр");
+        assert_eq!(c.wake.phrases.len(), 3);
+        // Empty → the default phrase; out-of-range follow-up values are clamped.
+        c.wake.phrase = String::new();
+        c.wake.phrases.clear();
+        c.follow_up.window_secs = 30;
+        c.follow_up.max_turns = 0;
+        c.migrate();
+        assert_eq!(c.wake.phrases, vec![DEFAULT_WAKE_PHRASE.to_owned()]);
+        assert_eq!((c.follow_up.window_secs, c.follow_up.max_turns), (10, 1));
+        c.validate().unwrap();
     }
 }

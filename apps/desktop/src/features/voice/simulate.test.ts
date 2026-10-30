@@ -29,7 +29,7 @@ const CONFIG = {
   cloudVoice: "alloy",
   ratePct: 100,
   pitchPct: 100,
-  wake: { enabled: false, phrase: "Jarvis", sensitivity: 50, cpuBudgetPct: 2, pauseOnBatterySaver: true },
+  wake: { enabled: false, phrase: "Jarvis", phrases: ["Jarvis"], sensitivity: 50, cpuBudgetPct: 2, pauseOnBatterySaver: true },
   notifications: {
     enabled: true,
     quietHours: { enabled: false, start: "22:00", end: "08:00" },
