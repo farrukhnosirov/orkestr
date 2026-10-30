@@ -104,7 +104,8 @@
     "stoppedAll_one": "Остановлено{{addr}} ({{count}} действие).",
     "stoppedAll_few": "Остановлено{{addr}} ({{count}} действия).",
     "stoppedAll_many": "Остановлено{{addr}} ({{count}} действий).",
-    "stoppedAll_other": "Остановлено{{addr}} ({{count}} действия)."
+    "stoppedAll_other": "Остановлено{{addr}} ({{count}} действия).",
+    "didYouMean": "Вы имели в виду: «{{detail}}»{{addr}}? Скажите «да» или «нет»."
   },
   "say": {
     "now": {
@@ -177,6 +178,39 @@
         ],
         "PreviousMonitor": [
           "Переношу {{name}} на предыдущий монитор{{addr}}."
+        ],
+        "SnapTop": [
+          "{{name}} сверху{{addr}}."
+        ],
+        "SnapBottom": [
+          "{{name}} снизу{{addr}}."
+        ],
+        "SnapTopLeft": [
+          "{{name}} в левом верхнем углу{{addr}}."
+        ],
+        "SnapTopRight": [
+          "{{name}} в правом верхнем углу{{addr}}."
+        ],
+        "SnapBottomLeft": [
+          "{{name}} в левом нижнем углу{{addr}}."
+        ],
+        "SnapBottomRight": [
+          "{{name}} в правом нижнем углу{{addr}}."
+        ],
+        "Center": [
+          "{{name}} по центру{{addr}}."
+        ],
+        "AlwaysOnTop": [
+          "{{name}} поверх всех окон{{addr}}."
+        ],
+        "NotOnTop": [
+          "{{name}} больше не поверх всех{{addr}}."
+        ],
+        "MinimizeAll": [
+          "Сворачиваю все окна{{addr}}."
+        ],
+        "RestoreAll": [
+          "Возвращаю все окна{{addr}}."
         ]
       },
       "WindowSelf": {
@@ -193,10 +227,12 @@
           "Закрываю окно{{addr}}."
         ],
         "SnapLeft": [
-          "Двигаю окно влево{{addr}}."
+          "Двигаю окно влево{{addr}}.",
+          "Окно слева{{addr}}."
         ],
         "SnapRight": [
-          "Двигаю окно вправо{{addr}}."
+          "Двигаю окно вправо{{addr}}.",
+          "Окно справа{{addr}}."
         ],
         "NextMonitor": [
           "Переношу окно на следующий монитор{{addr}}."
@@ -209,6 +245,39 @@
         ],
         "ShowDesktop": [
           "Показываю рабочий стол{{addr}}."
+        ],
+        "SnapTop": [
+          "Окно сверху{{addr}}."
+        ],
+        "SnapBottom": [
+          "Окно снизу{{addr}}."
+        ],
+        "SnapTopLeft": [
+          "Окно в левом верхнем углу{{addr}}."
+        ],
+        "SnapTopRight": [
+          "Окно в правом верхнем углу{{addr}}."
+        ],
+        "SnapBottomLeft": [
+          "Окно в левом нижнем углу{{addr}}."
+        ],
+        "SnapBottomRight": [
+          "Окно в правом нижнем углу{{addr}}."
+        ],
+        "Center": [
+          "Окно по центру{{addr}}."
+        ],
+        "AlwaysOnTop": [
+          "Окно поверх всех{{addr}}."
+        ],
+        "NotOnTop": [
+          "Окно больше не поверх всех{{addr}}."
+        ],
+        "MinimizeAll": [
+          "Сворачиваю все окна{{addr}}."
+        ],
+        "RestoreAll": [
+          "Возвращаю все окна{{addr}}."
         ]
       },
       "TypeText": [
@@ -234,6 +303,7 @@
       "Volume": {
         "Set": [
           "Громкость — {{value}}{{addr}}.",
+          "Громкость {{value}}{{addr}}.",
           "Ставлю громкость на {{value}}{{addr}}."
         ],
         "Up": [
@@ -246,6 +316,22 @@
         ],
         "Mute": [
           "Выключаю звук{{addr}}."
+        ],
+        "MuteOn": [
+          "Звук выключен{{addr}}.",
+          "Тишина{{addr}}.",
+          "Выключаю звук{{addr}}."
+        ],
+        "MuteOff": [
+          "Звук включён{{addr}}.",
+          "Возвращаю звук{{addr}}."
+        ],
+        "Scale": [
+          "Меняю громкость{{addr}}.",
+          "Готово{{addr}}, громкость изменена."
+        ],
+        "Report": [
+          "Громкость сейчас {{value}}{{addr}}."
         ]
       },
       "Brightness": {
@@ -300,6 +386,310 @@
       ],
       "ListWindows": [
         "Показываю открытые окна{{addr}}."
+      ],
+      "VolumeApp": {
+        "Set": [
+          "Громкость {{name}} — {{value}}{{addr}}."
+        ],
+        "Up": [
+          "Делаю {{name}} громче{{addr}}."
+        ],
+        "Down": [
+          "Делаю {{name}} тише{{addr}}."
+        ],
+        "Mute": [
+          "Переключаю звук {{name}}{{addr}}."
+        ],
+        "MuteOn": [
+          "Звук {{name}} выключен{{addr}}.",
+          "Заглушаю {{name}}{{addr}}."
+        ],
+        "MuteOff": [
+          "Звук {{name}} включён{{addr}}."
+        ],
+        "Scale": [
+          "Меняю громкость {{name}}{{addr}}."
+        ]
+      },
+      "Microphone": {
+        "Set": [
+          "Микрофон — {{value}}{{addr}}."
+        ],
+        "Up": [
+          "Микрофон громче{{addr}}."
+        ],
+        "Down": [
+          "Микрофон тише{{addr}}."
+        ],
+        "Mute": [
+          "Переключаю микрофон{{addr}}."
+        ],
+        "MuteOn": [
+          "Микрофон выключен{{addr}}.",
+          "Вас больше не слышно{{addr}}."
+        ],
+        "MuteOff": [
+          "Микрофон включён{{addr}}.",
+          "Снова вас слышно{{addr}}."
+        ],
+        "Scale": [
+          "Меняю уровень микрофона{{addr}}."
+        ]
+      },
+      "AudioDevice": [
+        "Звук теперь через {{name}}{{addr}}.",
+        "Переключаю звук на {{name}}{{addr}}."
+      ],
+      "AudioDeviceInput": [
+        "Микрофон теперь {{name}}{{addr}}."
+      ],
+      "MediaSeek": {
+        "Forward": [
+          "Перематываю вперёд на {{time}}{{addr}}."
+        ],
+        "Back": [
+          "Отматываю назад на {{time}}{{addr}}."
+        ]
+      },
+      "WindowResize": [
+        "Меняю размер окна{{addr}}.",
+        "Окно {{size}}{{addr}}."
+      ],
+      "WindowOpacity": [
+        "Непрозрачность окна — {{value}}{{addr}}."
+      ],
+      "Desktop": {
+        "Next": [
+          "Следующий рабочий стол{{addr}}."
+        ],
+        "Previous": [
+          "Предыдущий рабочий стол{{addr}}."
+        ],
+        "New": [
+          "Создаю новый рабочий стол{{addr}}."
+        ],
+        "Close": [
+          "Закрываю рабочий стол{{addr}}. Окна переедут на соседний."
+        ],
+        "TaskView": [
+          "Показываю все окна и рабочие столы{{addr}}."
+        ]
+      },
+      "MouseMove": {
+        "Up": [
+          "Курсор выше{{addr}}."
+        ],
+        "Down": [
+          "Курсор ниже{{addr}}."
+        ],
+        "Left": [
+          "Курсор левее{{addr}}."
+        ],
+        "Right": [
+          "Курсор правее{{addr}}."
+        ]
+      },
+      "MouseTo": {
+        "Center": [
+          "Курсор в центре{{addr}}.",
+          "Курсор в центре экрана{{addr}}."
+        ],
+        "TopLeft": [
+          "Курсор в левом верхнем углу{{addr}}."
+        ],
+        "TopRight": [
+          "Курсор в правом верхнем углу{{addr}}."
+        ],
+        "BottomLeft": [
+          "Курсор в левом нижнем углу{{addr}}."
+        ],
+        "BottomRight": [
+          "Курсор в правом нижнем углу{{addr}}."
+        ],
+        "Top": [
+          "Курсор у верхнего края{{addr}}."
+        ],
+        "Bottom": [
+          "Курсор у нижнего края{{addr}}."
+        ],
+        "Left": [
+          "Курсор у левого края{{addr}}."
+        ],
+        "Right": [
+          "Курсор у правого края{{addr}}."
+        ]
+      },
+      "MouseToElement": [
+        "Навожу на «{{name}}»{{addr}}."
+      ],
+      "MouseHold": {
+        "Hold": [
+          "Кнопка зажата{{addr}}. Скажите «отпусти», когда нужно."
+        ],
+        "Release": [
+          "Отпускаю кнопку{{addr}}."
+        ]
+      },
+      "MouseDrag": [
+        "Перетаскиваю{{addr}}.",
+        "Тяну{{addr}}."
+      ],
+      "MouseSpeed": {
+        "Up": [
+          "Курсор быстрее{{addr}}."
+        ],
+        "Down": [
+          "Курсор медленнее{{addr}}."
+        ],
+        "Set": [
+          "Скорость курсора изменена{{addr}}."
+        ]
+      },
+      "LocateCursor": [
+        "Курсор здесь{{addr}}.",
+        "Вот курсор{{addr}}."
+      ],
+      "KeyboardLayout": [
+        "Раскладка: {{lang}}{{addr}}.",
+        "Переключаю на {{lang}}{{addr}}."
+      ],
+      "Display": {
+        "ScreenOff": [
+          "Гашу экран{{addr}}. Любая клавиша вернёт его."
+        ],
+        "PcScreenOnly": [
+          "Только экран компьютера{{addr}}."
+        ],
+        "Duplicate": [
+          "Дублирую экран{{addr}}."
+        ],
+        "Extend": [
+          "Расширяю экран{{addr}}."
+        ],
+        "SecondScreenOnly": [
+          "Только второй экран{{addr}}."
+        ]
+      },
+      "Radio": {
+        "WifiOn": [
+          "Включаю Wi-Fi{{addr}}."
+        ],
+        "WifiOff": [
+          "Выключаю Wi-Fi{{addr}}."
+        ],
+        "BluetoothOn": [
+          "Включаю Bluetooth{{addr}}."
+        ],
+        "BluetoothOff": [
+          "Выключаю Bluetooth{{addr}}."
+        ],
+        "AllOn": [
+          "Режим «в самолёте» выключен{{addr}}."
+        ],
+        "AllOff": [
+          "Режим «в самолёте» включён{{addr}}."
+        ]
+      },
+      "ScreenshotWindow": [
+        "Делаю скриншот окна{{addr}}."
+      ],
+      "ScreenshotClipboard": [
+        "Скриншот в буфере обмена{{addr}}."
+      ],
+      "ScreenshotRegion": [
+        "Выделите область{{addr}}, снимок попадёт в буфер обмена."
+      ],
+      "Query": {
+        "Time": [
+          "Сейчас {{time}}{{addr}}.",
+          "{{time}}{{addr}}."
+        ],
+        "Date": [
+          "Сегодня {{date}}{{addr}}."
+        ],
+        "DateTime": [
+          "Сегодня {{date}}, {{time}}{{addr}}."
+        ],
+        "Battery": [
+          "Заряд {{value}}{{addr}}."
+        ],
+        "BatteryCharging": [
+          "Заряд {{value}}, батарея заряжается{{addr}}."
+        ],
+        "BatteryNone": [
+          "У этого компьютера нет батареи{{addr}}, он работает от сети."
+        ],
+        "DiskSpace": [
+          "Свободно: {{list}}{{addr}}."
+        ],
+        "IpAddress": [
+          "Ваш IP-адрес {{ip}}{{addr}}."
+        ],
+        "Network": [
+          "Сеть подключена{{addr}}, адрес {{ip}}."
+        ],
+        "NetworkNone": [
+          "Похоже, сети нет{{addr}}."
+        ],
+        "SystemInfo": [
+          "Процессор загружен на {{cpu}}, памяти занято {{used}} из {{total}} гигабайт{{addr}}."
+        ],
+        "Volume": [
+          "Громкость {{value}}{{addr}}."
+        ],
+        "VolumeMuted": [
+          "Громкость {{value}}, но звук выключен{{addr}}."
+        ],
+        "NowPlaying": [
+          "Сейчас играет {{track}}{{addr}}."
+        ],
+        "NowPlayingNone": [
+          "Сейчас ничего не играет{{addr}}."
+        ],
+        "ActiveWindow": [
+          "Активное окно: {{title}}{{addr}}."
+        ],
+        "CursorPosition": [
+          "Курсор в точке {{x}}, {{y}}{{addr}}."
+        ],
+        "AudioDevices": [
+          "Звук идёт через {{output}}, микрофон — {{input}}{{addr}}."
+        ],
+        "AudioSessions": [
+          "Звук сейчас у: {{list}}{{addr}}."
+        ],
+        "AudioSessionsNone": [
+          "Сейчас ничего не издаёт звук{{addr}}."
+        ],
+        "Brightness": [
+          "Яркость {{value}}{{addr}}."
+        ],
+        "Uptime": [
+          "Компьютер работает {{time}}{{addr}}."
+        ],
+        "KeyboardLayout": [
+          "Сейчас раскладка: {{lang}}{{addr}}."
+        ]
+      },
+      "Calculate": [
+        "{{expression}} — это {{result}}{{addr}}.",
+        "Получается {{result}}{{addr}}."
+      ],
+      "Alarm": [
+        "Будильник на {{at}}{{addr}}.",
+        "Разбужу вас в {{at}}{{addr}}."
+      ],
+      "FileCopy": [
+        "Копирую {{name}}{{addr}}."
+      ],
+      "FileSearch": [
+        "Нашёл файлов: {{count}}{{addr}}. Список на экране."
+      ],
+      "FileSearchNone": [
+        "Боюсь, файлов «{{name}}» не нашлось{{addr}}."
+      ],
+      "EmptyRecycleBin": [
+        "Корзина очищена{{addr}}."
       ]
     },
     "done": {
@@ -415,7 +805,25 @@
         "Close": [
           "Боюсь, не получилось закрыть окно {{name}}{{addr}}: {{error}}"
         ]
-      }
+      },
+      "Volume": [
+        "Боюсь, не получилось изменить громкость{{addr}}: {{error}}"
+      ],
+      "AudioDevice": [
+        "Боюсь, не получилось переключить устройство{{addr}}: {{error}}"
+      ],
+      "MediaSeek": [
+        "Боюсь, перемотать не вышло{{addr}}: {{error}}"
+      ],
+      "Radio": [
+        "Боюсь, не получилось переключить радиомодуль{{addr}}: {{error}}"
+      ],
+      "Calculate": [
+        "Боюсь, не смог посчитать{{addr}}: {{error}}"
+      ],
+      "MouseToElement": [
+        "Боюсь, не нашёл «{{name}}» в активном окне{{addr}}."
+      ]
     },
     "summary": [
       "Сделано{{addr}}: {{list}}.",
@@ -444,7 +852,9 @@
       "hours_one": "{{count}} час",
       "hours_few": "{{count}} часа",
       "hours_many": "{{count}} часов",
-      "hours_other": "{{count}} часа"
+      "hours_other": "{{count}} часа",
+      "gb": "{{count}} ГБ",
+      "of": "из"
     },
     "verbs": {
       "открыть": "открываю",
@@ -493,7 +903,24 @@
       "громче": "делаю громче",
       "тише": "делаю тише"
     },
-    "progressive": "{{text}}{{addr}}."
+    "progressive": "{{text}}{{addr}}.",
+    "lang": {
+      "en": "английский",
+      "ru": "русский",
+      "uk": "украинский",
+      "de": "немецкий",
+      "fr": "французский",
+      "es": "испанский",
+      "it": "итальянский",
+      "uz": "узбекский",
+      "kk": "казахский",
+      "be": "белорусский",
+      "tr": "турецкий",
+      "pl": "польский",
+      "zh": "китайский",
+      "ja": "японский",
+      "ar": "арабский"
+    }
   },
   "risk": {
     "closeDiscard": "{{detail}} закроется без сохранения",
@@ -505,13 +932,39 @@
     "passwordField": "ввод в поле пароля",
     "declared": "«{{detail}}» помечена как рискованная",
     "forbiddenPath": "защищённый путь {{detail}}",
-    "aiPlan": "план ИИ {{detail}}"
+    "aiPlan": "план ИИ {{detail}}",
+    "didYouMean": "Вы имели в виду: «{{detail}}»?",
+    "emptyRecycleBin": "корзина будет очищена безвозвратно",
+    "radio": "радиомодуль: {{detail}}",
+    "display": "режим экрана: {{detail}}"
   },
   "shown": {
     "clipboard": "Буфер обмена",
     "processes": "Запущенные программы",
     "windows": "Открытые окна",
-    "screenshot": "Скриншот сохранён"
+    "screenshot": "Скриншот сохранён",
+    "files": "Найденные файлы",
+    "calculation": "Калькулятор",
+    "cursor": "Курсор",
+    "query": {
+      "Battery": "Батарея",
+      "DiskSpace": "Диски",
+      "IpAddress": "IP-адрес",
+      "Network": "Сеть",
+      "SystemInfo": "Система",
+      "Volume": "Громкость",
+      "NowPlaying": "Сейчас играет",
+      "ActiveWindow": "Активное окно",
+      "CursorPosition": "Курсор",
+      "AudioDevices": "Аудиоустройства",
+      "AudioSessions": "Звук приложений",
+      "Brightness": "Яркость",
+      "Uptime": "Время работы",
+      "KeyboardLayout": "Раскладка",
+      "DateTime": "Дата и время",
+      "Date": "Дата",
+      "Time": "Время"
+    }
   },
   "step": {
     "Launch": "Открыть {{target}}",
@@ -547,7 +1000,29 @@
     "Wait": "Подождать {{ms}} мс",
     "Speak": "Сказать «{{text}}»",
     "SetMode": "Режим: {{mode}}",
-    "If": "Если {{condition}}"
+    "If": "Если {{condition}}",
+    "Microphone": "Микрофон: {{op}} {{value}}",
+    "AudioDevice": "Устройство звука {{kind}}: {{name}}",
+    "MediaSeek": "Перемотка {{seconds}} с",
+    "WindowResize": "Размер окна {{app}} {{percent}} {{width}} {{height}}",
+    "WindowOpacity": "Непрозрачность окна {{app}} — {{percent}}",
+    "Desktop": "Рабочий стол: {{op}}",
+    "MouseMove": "Курсор {{direction}} {{distance}}",
+    "MouseTo": "Курсор: {{point}}",
+    "MouseToElement": "Курсор на «{{name}}»",
+    "MouseHold": "Кнопка мыши {{button}} (отпустить: {{release}})",
+    "MouseDrag": "Перетащить {{direction}} {{distance}} {{element}}",
+    "MouseSpeed": "Скорость курсора {{op}} {{value}}",
+    "LocateCursor": "Показать курсор",
+    "KeyboardLayout": "Раскладка {{lang}}",
+    "Display": "Экран: {{op}}",
+    "Radio": "Радио {{kind}}: {{on}}",
+    "Query": "Узнать: {{what}}",
+    "Calculate": "Посчитать {{expression}}",
+    "Alarm": "Будильник {{at}} {{message}}",
+    "FileCopy": "Копировать {{from}} → {{to}}",
+    "FileSearch": "Найти файлы «{{name}}» {{folder}}",
+    "EmptyRecycleBin": "Очистить корзину"
   },
   "windowOp": {
     "Focus": "активировать",
@@ -560,7 +1035,18 @@
     "NextMonitor": "на следующий монитор",
     "PreviousMonitor": "на предыдущий монитор",
     "SwitchNext": "следующее окно",
-    "ShowDesktop": "показать рабочий стол"
+    "ShowDesktop": "показать рабочий стол",
+    "SnapTop": "наверх",
+    "SnapBottom": "вниз",
+    "SnapTopLeft": "в левый верхний угол",
+    "SnapTopRight": "в правый верхний угол",
+    "SnapBottomLeft": "в левый нижний угол",
+    "SnapBottomRight": "в правый нижний угол",
+    "Center": "по центру",
+    "AlwaysOnTop": "поверх всех",
+    "NotOnTop": "не поверх всех",
+    "MinimizeAll": "свернуть все",
+    "RestoreAll": "вернуть все"
   },
   "sets": {
     "title": "Наборы команд",
@@ -636,7 +1122,29 @@
     "Wait": "Пауза",
     "Speak": "Сказать",
     "SetMode": "Режим интерфейса",
-    "If": "Условие"
+    "If": "Условие",
+    "Microphone": "Микрофон",
+    "AudioDevice": "Устройство звука",
+    "MediaSeek": "Перемотка",
+    "WindowResize": "Размер окна",
+    "WindowOpacity": "Прозрачность окна",
+    "Desktop": "Рабочие столы",
+    "MouseMove": "Сдвинуть курсор",
+    "MouseTo": "Курсор в точку экрана",
+    "MouseToElement": "Курсор на элемент",
+    "MouseHold": "Зажать / отпустить кнопку мыши",
+    "MouseDrag": "Перетащить",
+    "MouseSpeed": "Скорость курсора",
+    "LocateCursor": "Показать курсор",
+    "KeyboardLayout": "Раскладка клавиатуры",
+    "Display": "Экран",
+    "Radio": "Wi-Fi / Bluetooth",
+    "Query": "Узнать (время, батарея…)",
+    "Calculate": "Калькулятор",
+    "Alarm": "Будильник",
+    "FileCopy": "Копировать файл",
+    "FileSearch": "Найти файлы",
+    "EmptyRecycleBin": "Очистить корзину"
   },
   "fields": {
     "target": "программа, путь или адрес",
@@ -693,6 +1201,10 @@
     "browser": "Браузер",
     "office": "Офис",
     "explorer": "Проводник",
-    "custom": "Мои команды"
+    "custom": "Мои команды",
+    "sound": "Звук",
+    "mouse": "Курсор и мышь",
+    "display": "Экран",
+    "info": "Информация"
   }
 }

@@ -6,7 +6,7 @@
 
 use std::path::Path;
 
-use orkestr_protocol::methods::computer::{ComputerAction, RiskReason, SafetyLevel, SystemOp};
+use orkestr_protocol::methods::computer::{ComputerAction, DisplayOp, RiskReason, SafetyLevel, SystemOp};
 use orkestr_security::{DangerousActionGuard, ShellKind};
 
 use crate::error::{ComputerError, ComputerResult};
@@ -91,6 +91,20 @@ fn classify_into(
                 SystemOp::Restart => out.push(reason(i, "power", "restart", SafetyLevel::Dangerous)),
                 SystemOp::SignOut => out.push(reason(i, "power", "signOut", SafetyLevel::Dangerous)),
             },
+            ComputerAction::FileCopy { from, to } => {
+                check_path(from, guard)?;
+                check_path(to, guard)?;
+            }
+            ComputerAction::EmptyRecycleBin {} => {
+                out.push(reason(i, "emptyRecycleBin", "", SafetyLevel::Dangerous));
+            }
+            ComputerAction::Radio { kind, on } => {
+                let what = format!("{kind:?} {}", if *on { "on" } else { "off" });
+                out.push(reason(i, "radio", what, SafetyLevel::Confirm));
+            }
+            ComputerAction::Display { op } if *op != DisplayOp::ScreenOff => {
+                out.push(reason(i, "display", format!("{op:?}"), SafetyLevel::Confirm));
+            }
             ComputerAction::If { then, otherwise, .. } => {
                 classify_into(then, guard, idx, out)?;
                 classify_into(otherwise, guard, idx, out)?;

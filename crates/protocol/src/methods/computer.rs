@@ -70,6 +70,28 @@ pub enum WindowOp {
     SwitchNext,
     /// Minimize everything / show the desktop.
     ShowDesktop,
+    /// Top half of the monitor.
+    SnapTop,
+    /// Bottom half of the monitor.
+    SnapBottom,
+    /// Top-left quarter.
+    SnapTopLeft,
+    /// Top-right quarter.
+    SnapTopRight,
+    /// Bottom-left quarter.
+    SnapBottomLeft,
+    /// Bottom-right quarter.
+    SnapBottomRight,
+    /// Center on its monitor (size kept).
+    Center,
+    /// Keep above other windows.
+    AlwaysOnTop,
+    /// Stop keeping above other windows.
+    NotOnTop,
+    /// Minimize all windows (Win+M).
+    MinimizeAll,
+    /// Restore the minimized windows (Win+Shift+M).
+    RestoreAll,
 }
 
 /// Scroll direction.
@@ -138,8 +160,146 @@ pub enum LevelOp {
     Down,
     /// Set to `value` percent.
     Set,
-    /// Toggle mute (volume only).
+    /// Toggle mute (volume / microphone).
     Mute,
+    /// Mute (volume / microphone).
+    MuteOn,
+    /// Unmute (volume / microphone).
+    MuteOff,
+    /// Multiply the current level by `value` percent (50 = half, 200 = double).
+    Scale,
+}
+
+/// Audio endpoint kind.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub enum AudioDeviceKind {
+    /// Speakers / headphones.
+    #[default]
+    Output,
+    /// Microphones.
+    Input,
+}
+
+/// A point of the screen the cursor is on (the monitor under the cursor).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub enum ScreenPoint {
+    /// Center.
+    Center,
+    /// Top-left corner.
+    TopLeft,
+    /// Top-right corner.
+    TopRight,
+    /// Bottom-left corner.
+    BottomLeft,
+    /// Bottom-right corner.
+    BottomRight,
+    /// Middle of the top edge.
+    Top,
+    /// Middle of the bottom edge.
+    Bottom,
+    /// Middle of the left edge.
+    Left,
+    /// Middle of the right edge.
+    Right,
+}
+
+/// Virtual desktop operation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub enum DesktopOp {
+    /// Next desktop.
+    Next,
+    /// Previous desktop.
+    Previous,
+    /// New desktop.
+    New,
+    /// Close the current desktop (its windows move to the neighbour).
+    Close,
+    /// Task view (all desktops and windows).
+    TaskView,
+}
+
+/// Display operation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub enum DisplayOp {
+    /// Turn the monitors off (any input wakes them).
+    ScreenOff,
+    /// Projection: PC screen only.
+    PcScreenOnly,
+    /// Projection: duplicate.
+    Duplicate,
+    /// Projection: extend.
+    Extend,
+    /// Projection: second screen only.
+    SecondScreenOnly,
+}
+
+/// Screenshot scope.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub enum ScreenshotScope {
+    /// All screens.
+    #[default]
+    Full,
+    /// The active window.
+    Window,
+    /// A region the user selects (Snipping Tool overlay, result on the clipboard).
+    Region,
+}
+
+/// Wireless radio.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub enum RadioKind {
+    /// Wi-Fi.
+    Wifi,
+    /// Bluetooth.
+    Bluetooth,
+    /// Every radio (airplane mode = all off).
+    All,
+}
+
+/// Something the assistant reports (spoken + shown).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub enum QueryKind {
+    /// Date and time.
+    DateTime,
+    /// Date.
+    Date,
+    /// Time.
+    Time,
+    /// Battery level / charging.
+    Battery,
+    /// Free disk space.
+    DiskSpace,
+    /// Local IP address.
+    IpAddress,
+    /// Network adapters.
+    Network,
+    /// CPU / memory usage.
+    SystemInfo,
+    /// Current volume.
+    Volume,
+    /// What is playing (media session).
+    NowPlaying,
+    /// The active window / page title.
+    ActiveWindow,
+    /// Cursor position.
+    CursorPosition,
+    /// Audio output / input devices.
+    AudioDevices,
+    /// Apps playing sound and their volume.
+    AudioSessions,
+    /// Display brightness.
+    Brightness,
+    /// Time since boot.
+    Uptime,
+    /// Keyboard layout of the active window.
+    KeyboardLayout,
 }
 
 /// System / power operation.
@@ -306,7 +466,7 @@ pub enum ComputerAction {
         /// Key.
         key: MediaKey,
     },
-    /// Volume.
+    /// Volume of the default output (or of one app's audio session).
     Volume {
         /// Operation.
         op: LevelOp,
@@ -314,7 +474,182 @@ pub enum ComputerAction {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         #[ts(optional)]
         value: Option<SlotNum>,
+        /// App (process name / window title fragment): its own volume in the mixer.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[ts(optional)]
+        app: Option<String>,
     },
+    /// Default microphone: level / mute.
+    Microphone {
+        /// Operation.
+        op: LevelOp,
+        /// Percent.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[ts(optional)]
+        value: Option<SlotNum>,
+    },
+    /// Switch the default audio device (absent name = the next one).
+    AudioDevice {
+        /// Output (speakers / headphones) or input (microphone).
+        #[serde(default)]
+        kind: AudioDeviceKind,
+        /// Device name fragment ("наушники", "Realtek", "HDMI").
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[ts(optional)]
+        name: Option<String>,
+    },
+    /// Seek the current media session (forward / back by seconds, default 10).
+    MediaSeek {
+        /// Forward (true) or back.
+        forward: bool,
+        /// Seconds.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[ts(optional)]
+        seconds: Option<SlotNum>,
+    },
+    /// Resize a window: `percent` of its monitor's work area, or `width` × `height` px (centered).
+    WindowResize {
+        /// App (absent = active window).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[ts(optional)]
+        app: Option<String>,
+        /// Percent of the work area.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[ts(optional)]
+        percent: Option<SlotNum>,
+        /// Width px.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[ts(optional)]
+        width: Option<SlotNum>,
+        /// Height px.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[ts(optional)]
+        height: Option<SlotNum>,
+    },
+    /// Window transparency: opacity percent (100 = opaque, min 20).
+    WindowOpacity {
+        /// App (absent = active window).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[ts(optional)]
+        app: Option<String>,
+        /// Opacity percent.
+        percent: SlotNum,
+    },
+    /// Virtual desktops.
+    Desktop {
+        /// Operation.
+        op: DesktopOp,
+    },
+    /// Move the mouse cursor by `distance` px (default 100).
+    MouseMove {
+        /// Direction.
+        direction: ScrollDirection,
+        /// Pixels.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[ts(optional)]
+        distance: Option<SlotNum>,
+    },
+    /// Move the cursor to a point of the screen it is on.
+    MouseTo {
+        /// Point.
+        point: ScreenPoint,
+    },
+    /// Move the cursor onto a UI element of the active window (UI Automation name).
+    MouseToElement {
+        /// Element name.
+        name: String,
+    },
+    /// Press and hold (or release) a mouse button.
+    MouseHold {
+        /// Button.
+        #[serde(default)]
+        button: MouseButton,
+        /// Release instead of press.
+        #[serde(default)]
+        release: bool,
+    },
+    /// Drag with the left button from the cursor: in a direction (`distance` px,
+    /// default 200) or onto a named UI element.
+    MouseDrag {
+        /// Direction.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[ts(optional)]
+        direction: Option<ScrollDirection>,
+        /// Pixels.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[ts(optional)]
+        distance: Option<SlotNum>,
+        /// Target element name.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[ts(optional)]
+        element: Option<String>,
+    },
+    /// Pointer speed (Windows scale 1..20; Up / Down by `value`, default 2).
+    MouseSpeed {
+        /// Operation.
+        op: LevelOp,
+        /// Value.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[ts(optional)]
+        value: Option<SlotNum>,
+    },
+    /// Show where the cursor is (a small circle around it; the position is reported).
+    LocateCursor {},
+    /// Switch the keyboard layout of the active window (absent = next layout).
+    KeyboardLayout {
+        /// Language: `en`, `ru`, `uk`, `de`… or a name ("английский").
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[ts(optional)]
+        lang: Option<String>,
+    },
+    /// Monitors: off, projection mode.
+    Display {
+        /// Operation.
+        op: DisplayOp,
+    },
+    /// Wi-Fi / Bluetooth / all radios on or off (always confirmed).
+    Radio {
+        /// Radio.
+        kind: RadioKind,
+        /// On.
+        on: bool,
+    },
+    /// Report something (time, battery, disk, IP, CPU / RAM, what is playing…).
+    Query {
+        /// What.
+        what: QueryKind,
+    },
+    /// Evaluate an arithmetic expression ("2+2*3", "sqrt 16", "15% of 200").
+    Calculate {
+        /// Expression (digits / operators or spoken words).
+        expression: String,
+    },
+    /// Alarm at a local time ("07:30", "7 утра"); notifies and speaks.
+    Alarm {
+        /// Time of day.
+        at: String,
+        /// Text.
+        #[serde(default)]
+        message: String,
+    },
+    /// Copy a file or folder (fails if the target exists).
+    FileCopy {
+        /// Source.
+        from: String,
+        /// Destination (folder or new name).
+        to: String,
+    },
+    /// Find files by name in the user's folders (result shown).
+    FileSearch {
+        /// Name fragment.
+        name: String,
+        /// Folder (default: the user profile).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[ts(optional)]
+        folder: Option<String>,
+    },
+    /// Empty the recycle bin (always confirmed).
+    EmptyRecycleBin {},
     /// Display brightness (laptop panels).
     Brightness {
         /// Operation.
@@ -329,12 +664,18 @@ pub enum ComputerAction {
         /// Operation.
         op: SystemOp,
     },
-    /// Screenshot of all screens to a PNG (default: Pictures\Screenshots).
+    /// Screenshot to a PNG (default: Pictures\Screenshots) and / or the clipboard.
     Screenshot {
         /// Target path.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         #[ts(optional)]
         path: Option<String>,
+        /// All screens, the active window, or a region the user selects.
+        #[serde(default)]
+        scope: ScreenshotScope,
+        /// Copy the image to the clipboard (no file unless `path` is given).
+        #[serde(default)]
+        clipboard: bool,
     },
     /// Put text on the clipboard.
     ClipboardSet {
@@ -438,6 +779,28 @@ impl ComputerAction {
             Self::Media { .. } => "Media",
             Self::Volume { .. } => "Volume",
             Self::Brightness { .. } => "Brightness",
+            Self::Microphone { .. } => "Microphone",
+            Self::AudioDevice { .. } => "AudioDevice",
+            Self::MediaSeek { .. } => "MediaSeek",
+            Self::WindowResize { .. } => "WindowResize",
+            Self::WindowOpacity { .. } => "WindowOpacity",
+            Self::Desktop { .. } => "Desktop",
+            Self::MouseMove { .. } => "MouseMove",
+            Self::MouseTo { .. } => "MouseTo",
+            Self::MouseToElement { .. } => "MouseToElement",
+            Self::MouseHold { .. } => "MouseHold",
+            Self::MouseDrag { .. } => "MouseDrag",
+            Self::MouseSpeed { .. } => "MouseSpeed",
+            Self::LocateCursor {} => "LocateCursor",
+            Self::KeyboardLayout { .. } => "KeyboardLayout",
+            Self::Display { .. } => "Display",
+            Self::Radio { .. } => "Radio",
+            Self::Query { .. } => "Query",
+            Self::Calculate { .. } => "Calculate",
+            Self::Alarm { .. } => "Alarm",
+            Self::FileCopy { .. } => "FileCopy",
+            Self::FileSearch { .. } => "FileSearch",
+            Self::EmptyRecycleBin {} => "EmptyRecycleBin",
             Self::System { .. } => "System",
             Self::Screenshot { .. } => "Screenshot",
             Self::ClipboardSet { .. } => "ClipboardSet",

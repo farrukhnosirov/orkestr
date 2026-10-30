@@ -14,8 +14,14 @@ export interface FieldSpec {
   optional?: boolean;
 }
 
-const WINDOW_OPS = ["Focus", "Minimize", "Maximize", "Restore", "Close", "SnapLeft", "SnapRight", "NextMonitor", "PreviousMonitor", "SwitchNext", "ShowDesktop"] as const;
-const LEVEL_OPS = ["Up", "Down", "Set", "Mute"] as const;
+const WINDOW_OPS = [
+  "Focus", "Minimize", "Maximize", "Restore", "Close", "SnapLeft", "SnapRight", "SnapTop", "SnapBottom", "SnapTopLeft", "SnapTopRight",
+  "SnapBottomLeft", "SnapBottomRight", "Center", "AlwaysOnTop", "NotOnTop", "NextMonitor", "PreviousMonitor", "SwitchNext", "ShowDesktop",
+  "MinimizeAll", "RestoreAll",
+] as const;
+const LEVEL_OPS = ["Up", "Down", "Set", "Mute", "MuteOn", "MuteOff", "Scale"] as const;
+const DIRECTIONS = ["Up", "Down", "Left", "Right"] as const;
+const BUTTONS = ["Left", "Right", "Middle", "Double"] as const;
 
 export const STEP_FIELDS: Record<ActionType, readonly FieldSpec[]> = {
   Launch: [{ key: "target", kind: "text" }],
@@ -47,18 +53,97 @@ export const STEP_FIELDS: Record<ActionType, readonly FieldSpec[]> = {
     { key: "unit", kind: { options: ["Lines", "Pages", "Edge"] } },
   ],
   ClickElement: [{ key: "name", kind: "text" }],
-  MouseClick: [{ key: "button", kind: { options: ["Left", "Right", "Middle", "Double"] } }],
+  MouseClick: [{ key: "button", kind: { options: BUTTONS } }],
   Media: [{ key: "key", kind: { options: ["PlayPause", "Next", "Previous", "Stop"] } }],
   Volume: [
     { key: "op", kind: { options: LEVEL_OPS } },
     { key: "value", kind: "num", optional: true },
+    { key: "app", kind: "text", optional: true },
   ],
-  Brightness: [
-    { key: "op", kind: { options: ["Up", "Down", "Set"] } },
+  Microphone: [
+    { key: "op", kind: { options: LEVEL_OPS } },
     { key: "value", kind: "num", optional: true },
   ],
+  AudioDevice: [
+    { key: "kind", kind: { options: ["Output", "Input"] } },
+    { key: "name", kind: "text", optional: true },
+  ],
+  MediaSeek: [
+    { key: "forward", kind: "bool" },
+    { key: "seconds", kind: "num", optional: true },
+  ],
+  Brightness: [
+    { key: "op", kind: { options: ["Up", "Down", "Set", "Scale"] } },
+    { key: "value", kind: "num", optional: true },
+  ],
+  WindowResize: [
+    { key: "app", kind: "text", optional: true },
+    { key: "percent", kind: "num", optional: true },
+    { key: "width", kind: "num", optional: true },
+    { key: "height", kind: "num", optional: true },
+  ],
+  WindowOpacity: [
+    { key: "app", kind: "text", optional: true },
+    { key: "percent", kind: "num" },
+  ],
+  Desktop: [{ key: "op", kind: { options: ["Next", "Previous", "New", "Close", "TaskView"] } }],
+  MouseMove: [
+    { key: "direction", kind: { options: DIRECTIONS } },
+    { key: "distance", kind: "num", optional: true },
+  ],
+  MouseTo: [{ key: "point", kind: { options: ["Center", "TopLeft", "TopRight", "BottomLeft", "BottomRight", "Top", "Bottom", "Left", "Right"] } }],
+  MouseToElement: [{ key: "name", kind: "text" }],
+  MouseHold: [
+    { key: "button", kind: { options: BUTTONS } },
+    { key: "release", kind: "bool" },
+  ],
+  MouseDrag: [
+    { key: "direction", kind: { options: DIRECTIONS }, optional: true },
+    { key: "distance", kind: "num", optional: true },
+    { key: "element", kind: "text", optional: true },
+  ],
+  MouseSpeed: [
+    { key: "op", kind: { options: ["Up", "Down", "Set", "Scale"] } },
+    { key: "value", kind: "num", optional: true },
+  ],
+  LocateCursor: [],
+  KeyboardLayout: [{ key: "lang", kind: "text", optional: true }],
+  Display: [{ key: "op", kind: { options: ["ScreenOff", "PcScreenOnly", "Duplicate", "Extend", "SecondScreenOnly"] } }],
+  Radio: [
+    { key: "kind", kind: { options: ["Wifi", "Bluetooth", "All"] } },
+    { key: "on", kind: "bool" },
+  ],
+  Query: [
+    {
+      key: "what",
+      kind: {
+        options: [
+          "DateTime", "Date", "Time", "Battery", "DiskSpace", "IpAddress", "Network", "SystemInfo", "Volume", "NowPlaying",
+          "ActiveWindow", "CursorPosition", "AudioDevices", "AudioSessions", "Brightness", "Uptime", "KeyboardLayout",
+        ],
+      },
+    },
+  ],
+  Calculate: [{ key: "expression", kind: "text" }],
+  Alarm: [
+    { key: "at", kind: "text" },
+    { key: "message", kind: "text" },
+  ],
+  FileCopy: [
+    { key: "from", kind: "text" },
+    { key: "to", kind: "text" },
+  ],
+  FileSearch: [
+    { key: "name", kind: "text" },
+    { key: "folder", kind: "text", optional: true },
+  ],
+  EmptyRecycleBin: [],
   System: [{ key: "op", kind: { options: ["Lock", "Sleep", "Shutdown", "Restart", "SignOut"] } }],
-  Screenshot: [{ key: "path", kind: "text", optional: true }],
+  Screenshot: [
+    { key: "path", kind: "text", optional: true },
+    { key: "scope", kind: { options: ["Full", "Window", "Region"] } },
+    { key: "clipboard", kind: "bool" },
+  ],
   ClipboardSet: [{ key: "text", kind: "text" }],
   ClipboardGet: [],
   Notify: [

@@ -102,7 +102,8 @@
     "error": "I’m afraid something went wrong{{addr}}: {{error}}",
     "planDismissed": "Plan dismissed{{addr}}.",
     "stoppedAll_one": "Stopped{{addr}} ({{count}} item).",
-    "stoppedAll_other": "Stopped{{addr}} ({{count}} items)."
+    "stoppedAll_other": "Stopped{{addr}} ({{count}} items).",
+    "didYouMean": "Did you mean “{{detail}}”{{addr}}? Say “yes” or “no”."
   },
   "say": {
     "now": {
@@ -171,6 +172,39 @@
         ],
         "PreviousMonitor": [
           "Moving {{name}} to the previous monitor{{addr}}."
+        ],
+        "SnapTop": [
+          "{{name}} at the top{{addr}}."
+        ],
+        "SnapBottom": [
+          "{{name}} at the bottom{{addr}}."
+        ],
+        "SnapTopLeft": [
+          "{{name}} in the top left{{addr}}."
+        ],
+        "SnapTopRight": [
+          "{{name}} in the top right{{addr}}."
+        ],
+        "SnapBottomLeft": [
+          "{{name}} in the bottom left{{addr}}."
+        ],
+        "SnapBottomRight": [
+          "{{name}} in the bottom right{{addr}}."
+        ],
+        "Center": [
+          "{{name}} centered{{addr}}."
+        ],
+        "AlwaysOnTop": [
+          "{{name}} kept on top{{addr}}."
+        ],
+        "NotOnTop": [
+          "{{name}} no longer on top{{addr}}."
+        ],
+        "MinimizeAll": [
+          "Minimizing all windows{{addr}}."
+        ],
+        "RestoreAll": [
+          "Restoring all windows{{addr}}."
         ]
       },
       "WindowSelf": {
@@ -187,10 +221,12 @@
           "Closing the window{{addr}}."
         ],
         "SnapLeft": [
-          "Snapping the window left{{addr}}."
+          "Snapping the window left{{addr}}.",
+          "Window on the left{{addr}}."
         ],
         "SnapRight": [
-          "Snapping the window right{{addr}}."
+          "Snapping the window right{{addr}}.",
+          "Window on the right{{addr}}."
         ],
         "NextMonitor": [
           "Moving the window to the next monitor{{addr}}."
@@ -203,6 +239,39 @@
         ],
         "ShowDesktop": [
           "Showing the desktop{{addr}}."
+        ],
+        "SnapTop": [
+          "Window at the top{{addr}}."
+        ],
+        "SnapBottom": [
+          "Window at the bottom{{addr}}."
+        ],
+        "SnapTopLeft": [
+          "Window in the top left{{addr}}."
+        ],
+        "SnapTopRight": [
+          "Window in the top right{{addr}}."
+        ],
+        "SnapBottomLeft": [
+          "Window in the bottom left{{addr}}."
+        ],
+        "SnapBottomRight": [
+          "Window in the bottom right{{addr}}."
+        ],
+        "Center": [
+          "Window centered{{addr}}."
+        ],
+        "AlwaysOnTop": [
+          "Window kept on top{{addr}}."
+        ],
+        "NotOnTop": [
+          "Window no longer on top{{addr}}."
+        ],
+        "MinimizeAll": [
+          "Minimizing all windows{{addr}}."
+        ],
+        "RestoreAll": [
+          "Restoring all windows{{addr}}."
         ]
       },
       "TypeText": [
@@ -225,6 +294,7 @@
       "Volume": {
         "Set": [
           "Volume — {{value}}{{addr}}.",
+          "Volume at {{value}}{{addr}}.",
           "Setting the volume to {{value}}{{addr}}."
         ],
         "Up": [
@@ -235,6 +305,19 @@
         ],
         "Mute": [
           "Muting the sound{{addr}}."
+        ],
+        "MuteOn": [
+          "Sound off{{addr}}.",
+          "Muted{{addr}}."
+        ],
+        "MuteOff": [
+          "Sound back on{{addr}}."
+        ],
+        "Scale": [
+          "Adjusting the volume{{addr}}."
+        ],
+        "Report": [
+          "The volume is {{value}}{{addr}}."
         ]
       },
       "Brightness": {
@@ -287,6 +370,300 @@
       ],
       "ListWindows": [
         "Here are the open windows{{addr}}."
+      ],
+      "VolumeApp": {
+        "Set": [
+          "{{name}} volume at {{value}}{{addr}}."
+        ],
+        "Up": [
+          "Turning {{name}} up{{addr}}."
+        ],
+        "Down": [
+          "Turning {{name}} down{{addr}}."
+        ],
+        "Mute": [
+          "Toggling {{name}} sound{{addr}}."
+        ],
+        "MuteOn": [
+          "{{name}} muted{{addr}}."
+        ],
+        "MuteOff": [
+          "{{name}} unmuted{{addr}}."
+        ],
+        "Scale": [
+          "Adjusting {{name}} volume{{addr}}."
+        ]
+      },
+      "Microphone": {
+        "Set": [
+          "Microphone at {{value}}{{addr}}."
+        ],
+        "Up": [
+          "Microphone up{{addr}}."
+        ],
+        "Down": [
+          "Microphone down{{addr}}."
+        ],
+        "Mute": [
+          "Toggling the microphone{{addr}}."
+        ],
+        "MuteOn": [
+          "Microphone muted{{addr}}."
+        ],
+        "MuteOff": [
+          "Microphone on{{addr}}."
+        ],
+        "Scale": [
+          "Adjusting the microphone{{addr}}."
+        ]
+      },
+      "AudioDevice": [
+        "Sound now goes through {{name}}{{addr}}."
+      ],
+      "AudioDeviceInput": [
+        "Microphone is now {{name}}{{addr}}."
+      ],
+      "MediaSeek": {
+        "Forward": [
+          "Skipping ahead {{time}}{{addr}}."
+        ],
+        "Back": [
+          "Rewinding {{time}}{{addr}}."
+        ]
+      },
+      "WindowResize": [
+        "Resizing the window{{addr}}.",
+        "Window at {{size}}{{addr}}."
+      ],
+      "WindowOpacity": [
+        "Window opacity at {{value}}{{addr}}."
+      ],
+      "Desktop": {
+        "Next": [
+          "Next desktop{{addr}}."
+        ],
+        "Previous": [
+          "Previous desktop{{addr}}."
+        ],
+        "New": [
+          "Creating a new desktop{{addr}}."
+        ],
+        "Close": [
+          "Closing this desktop{{addr}}. Its windows move next door."
+        ],
+        "TaskView": [
+          "Showing all windows and desktops{{addr}}."
+        ]
+      },
+      "MouseMove": {
+        "Up": [
+          "Cursor up{{addr}}."
+        ],
+        "Down": [
+          "Cursor down{{addr}}."
+        ],
+        "Left": [
+          "Cursor left{{addr}}."
+        ],
+        "Right": [
+          "Cursor right{{addr}}."
+        ]
+      },
+      "MouseTo": {
+        "Center": [
+          "Cursor centered{{addr}}."
+        ],
+        "TopLeft": [
+          "Cursor at the top left{{addr}}."
+        ],
+        "TopRight": [
+          "Cursor at the top right{{addr}}."
+        ],
+        "BottomLeft": [
+          "Cursor at the bottom left{{addr}}."
+        ],
+        "BottomRight": [
+          "Cursor at the bottom right{{addr}}."
+        ],
+        "Top": [
+          "Cursor at the top edge{{addr}}."
+        ],
+        "Bottom": [
+          "Cursor at the bottom edge{{addr}}."
+        ],
+        "Left": [
+          "Cursor at the left edge{{addr}}."
+        ],
+        "Right": [
+          "Cursor at the right edge{{addr}}."
+        ]
+      },
+      "MouseToElement": [
+        "Pointing at “{{name}}”{{addr}}."
+      ],
+      "MouseHold": {
+        "Hold": [
+          "Button held{{addr}}. Say “release” when ready."
+        ],
+        "Release": [
+          "Releasing the button{{addr}}."
+        ]
+      },
+      "MouseDrag": [
+        "Dragging{{addr}}."
+      ],
+      "MouseSpeed": {
+        "Up": [
+          "Faster pointer{{addr}}."
+        ],
+        "Down": [
+          "Slower pointer{{addr}}."
+        ],
+        "Set": [
+          "Pointer speed changed{{addr}}."
+        ]
+      },
+      "LocateCursor": [
+        "Your cursor is here{{addr}}."
+      ],
+      "KeyboardLayout": [
+        "Keyboard: {{lang}}{{addr}}."
+      ],
+      "Display": {
+        "ScreenOff": [
+          "Turning the screen off{{addr}}. Any key brings it back."
+        ],
+        "PcScreenOnly": [
+          "PC screen only{{addr}}."
+        ],
+        "Duplicate": [
+          "Duplicating the screen{{addr}}."
+        ],
+        "Extend": [
+          "Extending the screen{{addr}}."
+        ],
+        "SecondScreenOnly": [
+          "Second screen only{{addr}}."
+        ]
+      },
+      "Radio": {
+        "WifiOn": [
+          "Turning Wi-Fi on{{addr}}."
+        ],
+        "WifiOff": [
+          "Turning Wi-Fi off{{addr}}."
+        ],
+        "BluetoothOn": [
+          "Turning Bluetooth on{{addr}}."
+        ],
+        "BluetoothOff": [
+          "Turning Bluetooth off{{addr}}."
+        ],
+        "AllOn": [
+          "Airplane mode off{{addr}}."
+        ],
+        "AllOff": [
+          "Airplane mode on{{addr}}."
+        ]
+      },
+      "ScreenshotWindow": [
+        "Taking a screenshot of the window{{addr}}."
+      ],
+      "ScreenshotClipboard": [
+        "Screenshot copied to the clipboard{{addr}}."
+      ],
+      "ScreenshotRegion": [
+        "Select an area{{addr}}; the snip goes to the clipboard."
+      ],
+      "Query": {
+        "Time": [
+          "It's {{time}}{{addr}}."
+        ],
+        "Date": [
+          "Today is {{date}}{{addr}}."
+        ],
+        "DateTime": [
+          "It's {{date}}, {{time}}{{addr}}."
+        ],
+        "Battery": [
+          "Battery at {{value}}{{addr}}."
+        ],
+        "BatteryCharging": [
+          "Battery at {{value}} and charging{{addr}}."
+        ],
+        "BatteryNone": [
+          "This computer has no battery{{addr}}; it runs on mains power."
+        ],
+        "DiskSpace": [
+          "Free space: {{list}}{{addr}}."
+        ],
+        "IpAddress": [
+          "Your IP address is {{ip}}{{addr}}."
+        ],
+        "Network": [
+          "You're online{{addr}}, address {{ip}}."
+        ],
+        "NetworkNone": [
+          "There seems to be no network{{addr}}."
+        ],
+        "SystemInfo": [
+          "CPU at {{cpu}}, memory {{used}} of {{total}} gigabytes in use{{addr}}."
+        ],
+        "Volume": [
+          "The volume is {{value}}{{addr}}."
+        ],
+        "VolumeMuted": [
+          "The volume is {{value}}, but muted{{addr}}."
+        ],
+        "NowPlaying": [
+          "Now playing: {{track}}{{addr}}."
+        ],
+        "NowPlayingNone": [
+          "Nothing is playing right now{{addr}}."
+        ],
+        "ActiveWindow": [
+          "The active window is {{title}}{{addr}}."
+        ],
+        "CursorPosition": [
+          "The cursor is at {{x}}, {{y}}{{addr}}."
+        ],
+        "AudioDevices": [
+          "Sound goes through {{output}}, microphone: {{input}}{{addr}}."
+        ],
+        "AudioSessions": [
+          "Playing sound: {{list}}{{addr}}."
+        ],
+        "AudioSessionsNone": [
+          "Nothing is making sound{{addr}}."
+        ],
+        "Brightness": [
+          "Brightness is {{value}}{{addr}}."
+        ],
+        "Uptime": [
+          "The computer has been on for {{time}}{{addr}}."
+        ],
+        "KeyboardLayout": [
+          "The keyboard is {{lang}}{{addr}}."
+        ]
+      },
+      "Calculate": [
+        "{{expression}} is {{result}}{{addr}}.",
+        "That makes {{result}}{{addr}}."
+      ],
+      "Alarm": [
+        "Alarm set for {{at}}{{addr}}."
+      ],
+      "FileCopy": [
+        "Copying {{name}}{{addr}}."
+      ],
+      "FileSearch": [
+        "Found {{count}} files{{addr}}. The list is on screen."
+      ],
+      "FileSearchNone": [
+        "I'm afraid no files named “{{name}}” turned up{{addr}}."
+      ],
+      "EmptyRecycleBin": [
+        "Recycle bin emptied{{addr}}."
       ]
     },
     "done": {
@@ -402,7 +779,25 @@
         "Close": [
           "I’m afraid I couldn’t close the {{name}} window{{addr}}: {{error}}"
         ]
-      }
+      },
+      "Volume": [
+        "I'm afraid I couldn't change the volume{{addr}}: {{error}}"
+      ],
+      "AudioDevice": [
+        "I'm afraid I couldn't switch the device{{addr}}: {{error}}"
+      ],
+      "MediaSeek": [
+        "I'm afraid seeking didn't work{{addr}}: {{error}}"
+      ],
+      "Radio": [
+        "I'm afraid I couldn't switch the radio{{addr}}: {{error}}"
+      ],
+      "Calculate": [
+        "I'm afraid I couldn't calculate that{{addr}}: {{error}}"
+      ],
+      "MouseToElement": [
+        "I'm afraid I couldn't find “{{name}}” in the active window{{addr}}."
+      ]
     },
     "summary": [
       "Done{{addr}} — {{list}}.",
@@ -423,7 +818,9 @@
       "minutes_one": "{{count}} minute",
       "minutes_other": "{{count}} minutes",
       "hours_one": "{{count}} hour",
-      "hours_other": "{{count}} hours"
+      "hours_other": "{{count}} hours",
+      "gb": "{{count}} GB",
+      "of": "of"
     },
     "verbs": {
       "open": "opening",
@@ -474,7 +871,24 @@
       "take": "taking",
       "launch": "launching"
     },
-    "progressive": "{{text}}{{addr}}."
+    "progressive": "{{text}}{{addr}}.",
+    "lang": {
+      "en": "English",
+      "ru": "Russian",
+      "uk": "Ukrainian",
+      "de": "German",
+      "fr": "French",
+      "es": "Spanish",
+      "it": "Italian",
+      "uz": "Uzbek",
+      "kk": "Kazakh",
+      "be": "Belarusian",
+      "tr": "Turkish",
+      "pl": "Polish",
+      "zh": "Chinese",
+      "ja": "Japanese",
+      "ar": "Arabic"
+    }
   },
   "risk": {
     "closeDiscard": "{{detail}} closes without saving",
@@ -486,13 +900,39 @@
     "passwordField": "typing into a password field",
     "declared": "“{{detail}}” is marked as risky",
     "forbiddenPath": "protected path {{detail}}",
-    "aiPlan": "AI plan {{detail}}"
+    "aiPlan": "AI plan {{detail}}",
+    "didYouMean": "Did you mean: “{{detail}}”?",
+    "emptyRecycleBin": "the recycle bin is emptied for good",
+    "radio": "radio: {{detail}}",
+    "display": "display mode: {{detail}}"
   },
   "shown": {
     "clipboard": "Clipboard",
     "processes": "Running apps",
     "windows": "Open windows",
-    "screenshot": "Screenshot saved"
+    "screenshot": "Screenshot saved",
+    "files": "Files found",
+    "calculation": "Calculator",
+    "cursor": "Cursor",
+    "query": {
+      "Battery": "Battery",
+      "DiskSpace": "Disks",
+      "IpAddress": "IP address",
+      "Network": "Network",
+      "SystemInfo": "System",
+      "Volume": "Volume",
+      "NowPlaying": "Now playing",
+      "ActiveWindow": "Active window",
+      "CursorPosition": "Cursor",
+      "AudioDevices": "Audio devices",
+      "AudioSessions": "App sound",
+      "Brightness": "Brightness",
+      "Uptime": "Uptime",
+      "KeyboardLayout": "Keyboard layout",
+      "DateTime": "Date and time",
+      "Date": "Date",
+      "Time": "Time"
+    }
   },
   "step": {
     "Launch": "Open {{target}}",
@@ -528,7 +968,29 @@
     "Wait": "Wait {{ms}} ms",
     "Speak": "Say “{{text}}”",
     "SetMode": "Switch to {{mode}} mode",
-    "If": "If {{condition}}"
+    "If": "If {{condition}}",
+    "Microphone": "Microphone: {{op}} {{value}}",
+    "AudioDevice": "Audio device {{kind}}: {{name}}",
+    "MediaSeek": "Seek {{seconds}} s",
+    "WindowResize": "Resize window {{app}} {{percent}} {{width}} {{height}}",
+    "WindowOpacity": "Window opacity {{app}}: {{percent}}",
+    "Desktop": "Desktop: {{op}}",
+    "MouseMove": "Cursor {{direction}} {{distance}}",
+    "MouseTo": "Cursor: {{point}}",
+    "MouseToElement": "Cursor onto “{{name}}”",
+    "MouseHold": "Mouse button {{button}} (release: {{release}})",
+    "MouseDrag": "Drag {{direction}} {{distance}} {{element}}",
+    "MouseSpeed": "Pointer speed {{op}} {{value}}",
+    "LocateCursor": "Show the cursor",
+    "KeyboardLayout": "Keyboard layout {{lang}}",
+    "Display": "Display: {{op}}",
+    "Radio": "Radio {{kind}}: {{on}}",
+    "Query": "Report: {{what}}",
+    "Calculate": "Calculate {{expression}}",
+    "Alarm": "Alarm {{at}} {{message}}",
+    "FileCopy": "Copy {{from}} → {{to}}",
+    "FileSearch": "Find files “{{name}}” {{folder}}",
+    "EmptyRecycleBin": "Empty the recycle bin"
   },
   "windowOp": {
     "Focus": "focus",
@@ -541,7 +1003,18 @@
     "NextMonitor": "next monitor",
     "PreviousMonitor": "previous monitor",
     "SwitchNext": "next window",
-    "ShowDesktop": "show desktop"
+    "ShowDesktop": "show desktop",
+    "SnapTop": "to the top",
+    "SnapBottom": "to the bottom",
+    "SnapTopLeft": "top left",
+    "SnapTopRight": "top right",
+    "SnapBottomLeft": "bottom left",
+    "SnapBottomRight": "bottom right",
+    "Center": "center",
+    "AlwaysOnTop": "always on top",
+    "NotOnTop": "not on top",
+    "MinimizeAll": "minimize all",
+    "RestoreAll": "restore all"
   },
   "sets": {
     "title": "Command sets",
@@ -615,7 +1088,29 @@
     "Wait": "Wait",
     "Speak": "Speak",
     "SetMode": "UI mode",
-    "If": "Condition"
+    "If": "Condition",
+    "Microphone": "Microphone",
+    "AudioDevice": "Audio device",
+    "MediaSeek": "Seek",
+    "WindowResize": "Resize window",
+    "WindowOpacity": "Window opacity",
+    "Desktop": "Virtual desktops",
+    "MouseMove": "Move the cursor",
+    "MouseTo": "Cursor to a screen point",
+    "MouseToElement": "Cursor onto an element",
+    "MouseHold": "Hold / release a mouse button",
+    "MouseDrag": "Drag",
+    "MouseSpeed": "Pointer speed",
+    "LocateCursor": "Show the cursor",
+    "KeyboardLayout": "Keyboard layout",
+    "Display": "Display",
+    "Radio": "Wi-Fi / Bluetooth",
+    "Query": "Report (time, battery…)",
+    "Calculate": "Calculator",
+    "Alarm": "Alarm",
+    "FileCopy": "Copy a file",
+    "FileSearch": "Find files",
+    "EmptyRecycleBin": "Empty the recycle bin"
   },
   "fields": {
     "target": "program, path or URL",
@@ -672,6 +1167,10 @@
     "browser": "Browser",
     "office": "Office",
     "explorer": "File Explorer",
-    "custom": "My commands"
+    "custom": "My commands",
+    "sound": "Sound",
+    "mouse": "Cursor & mouse",
+    "display": "Display",
+    "info": "Information"
   }
 }

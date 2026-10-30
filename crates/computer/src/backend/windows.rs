@@ -78,7 +78,7 @@ impl WindowsBackend {
     }
 }
 
-fn hwnd_of(handle: &str) -> ComputerResult<HWND> {
+pub(super) fn hwnd_of(handle: &str) -> ComputerResult<HWND> {
     let v = handle
         .strip_prefix("0x")
         .map_or_else(|| handle.parse::<isize>().ok(), |h| isize::from_str_radix(h, 16).ok())
@@ -333,7 +333,7 @@ fn unicode_input(unit: u16, up: bool) -> INPUT {
     }
 }
 
-fn mouse_input(flags: MOUSE_EVENT_FLAGS, data: i32) -> INPUT {
+pub(super) fn mouse_input(flags: MOUSE_EVENT_FLAGS, data: i32) -> INPUT {
     INPUT {
         r#type: INPUT_MOUSE,
         Anonymous: INPUT_0 {
@@ -365,7 +365,7 @@ pub(super) fn send(inputs: &[INPUT]) -> ComputerResult<()> {
     }
 }
 
-fn press_keys(keys: &[String]) -> ComputerResult<()> {
+pub(super) fn press_keys(keys: &[String]) -> ComputerResult<()> {
     let mut vks = Vec::new();
     for k in keys {
         vks.push(vk_of(k).ok_or_else(|| ComputerError::Invalid(format!("unknown key `{k}`")))?);
@@ -377,7 +377,7 @@ fn press_keys(keys: &[String]) -> ComputerResult<()> {
 
 /// Lets SetForegroundWindow succeed from a background process: a synthetic
 /// Alt press makes this process the last input source.
-fn force_foreground(h: HWND) -> bool {
+pub(super) fn force_foreground(h: HWND) -> bool {
     // SAFETY: plain Win32 calls on a valid handle.
     unsafe {
         if IsIconic(h).as_bool() {
@@ -430,9 +430,12 @@ fn norm_name(s: &str) -> String {
     s.to_lowercase().replace('ё', "е").replace('&', "").trim().to_owned()
 }
 
-fn click_element_impl(window: HWND, name: &str) -> ComputerResult<String> {
-    let _com = Com::init();
-    let auto = uia()?;
+/// Best element of `window` named like `name` (exact > prefix > contains, on screen).
+pub(super) fn find_element(
+    auto: &IUIAutomation,
+    window: HWND,
+    name: &str,
+) -> ComputerResult<(IUIAutomationElement, String)> {
     let want = norm_name(name);
     // SAFETY: COM calls on live interfaces; BSTRs are owned.
     unsafe {
@@ -470,6 +473,19 @@ fn click_element_impl(window: HWND, name: &str) -> ComputerResult<String> {
         }
         let (_, el, label) =
             best.ok_or_else(|| ComputerError::NotFound(format!("no element named “{name}” in the active window")))?;
+        Ok((el, label))
+    }
+}
+
+fn click_element_impl(window: HWND, name: &str) -> ComputerResult<String> {
+    let _com = Com::init();
+    let auto = uia()?;
+    let (el, label) = find_element(&auto, window, name)?;
+    // SAFETY: COM calls on live interfaces.
+    unsafe {
+        if el.CurrentIsPassword().is_ok_and(|b| b.as_bool()) {
+            return Err(ComputerError::Forbidden("refusing to act on a password field".into()));
+        }
         if let Ok(p) = el.GetCurrentPatternAs::<IUIAutomationInvokePattern>(UIA_InvokePatternId) {
             if p.Invoke().is_ok() {
                 return Ok(label);
@@ -532,11 +548,11 @@ fn b64(s: &str) -> String {
 }
 
 /// PowerShell string literal decoding a base64 UTF-8 value (no escaping issues).
-fn ps_str(s: &str) -> String {
+pub(super) fn ps_str(s: &str) -> String {
     format!("([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('{}')))", b64(s))
 }
 
-fn powershell(script: &str) -> ComputerResult<String> {
+pub(super) fn powershell(script: &str) -> ComputerResult<String> {
     let mut child = Command::new("powershell.exe")
         .args(["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", "-"])
         .stdin(Stdio::piped())
@@ -676,6 +692,10 @@ impl ComputerBackend for WindowsBackend {
                 WindowOp::ShowDesktop => {
                     press_keys(&["win".into(), "d".into()])?;
                 }
+                WindowOp::MinimizeAll => press_keys(&["win".into(), "m".into()])?,
+                WindowOp::RestoreAll => press_keys(&["win".into(), "shift".into(), "m".into()])?,
+                // geometry / z-order: the executor computes the rectangle (`pc` requests)
+                _ => return Err(ComputerError::Invalid(format!("{op:?} is handled by the executor"))),
             }
         }
         Ok(())
@@ -851,9 +871,8 @@ impl ComputerBackend for WindowsBackend {
         };
         match powershell(&script) {
             Ok(out) => Ok(out.lines().last().and_then(|l| l.trim().parse().ok()).unwrap_or(set.unwrap_or(0))),
-            Err(_) => Err(ComputerError::Unsupported(
-                "this display does not support brightness control (external monitors need their own buttons)".into(),
-            )),
+            // no laptop panel: external monitors over DDC/CI
+            Err(_) => super::pc_win::ddc_brightness(set),
         }
     }
 
@@ -940,6 +959,10 @@ impl ComputerBackend for WindowsBackend {
 
     fn kill(&self, pid: u32) -> ComputerResult<()> {
         crate::procs::kill(pid)
+    }
+
+    fn pc(&self, req: &super::PcRequest) -> ComputerResult<super::PcReply> {
+        super::pc_win::handle(self, req)
     }
 
     fn recycle(&self, path: &Path) -> ComputerResult<()> {

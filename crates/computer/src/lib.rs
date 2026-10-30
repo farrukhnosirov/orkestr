@@ -14,6 +14,7 @@
 
 pub mod apps;
 pub mod backend;
+pub mod calc;
 pub mod catalogue;
 pub mod cursor;
 pub mod dialog;
@@ -27,6 +28,7 @@ pub mod safety;
 pub mod service;
 pub mod store;
 pub mod text;
+pub mod vocab;
 
 pub use backend::{default_backend, ComputerBackend, InstalledApp, MockBackend, MockCall, UnsupportedBackend};
 pub use error::{ComputerError, ComputerResult};

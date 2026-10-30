@@ -3,4 +3,4 @@
 /**
  * Level change (volume, brightness).
  */
-export type LevelOp = "Up" | "Down" | "Set" | "Mute";
+export type LevelOp = "Up" | "Down" | "Set" | "Mute" | "MuteOn" | "MuteOff" | "Scale";

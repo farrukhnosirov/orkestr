@@ -11,8 +11,8 @@ use std::time::{Duration, Instant};
 use tokio_util::sync::CancellationToken;
 
 use orkestr_protocol::methods::computer::{
-    ClientEffect, ComputerAction, LevelOp, RiskReason, RunOutcome, SafetyLevel, ScrollUnit, SlotNum, StepCondition,
-    StepReport, WindowInfo, WindowOp,
+    ClientEffect, ComputerAction, LevelOp, RiskReason, RunOutcome, SafetyLevel, ScreenshotScope, ScrollUnit, SlotNum,
+    StepCondition, StepReport, WindowInfo, WindowOp,
 };
 
 use crate::apps;
@@ -21,6 +21,9 @@ use crate::error::{ComputerError, ComputerResult};
 use crate::keys::parse_combo;
 use crate::safety::{title_looks_unsaved, PROTECTED_PROCESSES};
 use crate::text::parse_number;
+
+mod pc_steps;
+pub use pc_steps::{level_after, release_held_buttons, snap_rect};
 
 /// Callback for `Timer` steps: (seconds, message).
 pub type TimerFn = Arc<dyn Fn(u32, String) + Send + Sync>;
@@ -308,6 +311,7 @@ impl Runner<'_> {
                 self.call(move |b| b.window_op(Some(&h), WindowOp::Focus)).await?;
                 done(w.title.clone())
             }
+            A::Window { op, app } if pc_steps::is_geometry(*op) => self.window_geometry(*op, app.as_deref()).await,
             A::Window { op, app } => {
                 let w = match app.as_deref().filter(|a| !a.trim().is_empty()) {
                     Some(a) => self
@@ -356,6 +360,18 @@ impl Runner<'_> {
                 let keys = parse_combo(combo)?;
                 let n = num(times.as_ref(), 1)?.clamp(1, 50);
                 self.ensure_target().await?;
+                // pasting / typing characters into a password field: ask first
+                let types = keys == ["ctrl", "v"]
+                    || keys == ["shift", "insert"]
+                    || (keys.len() == 1 && keys[0].chars().count() == 1);
+                if types && !self.confirmed && self.call(|b| b.focused_is_password()).await.unwrap_or(false) {
+                    return Ok(StepOut::Confirm(vec![RiskReason {
+                        step: self.index,
+                        code: "passwordField".into(),
+                        detail: "the focused field is a password field".into(),
+                        level: SafetyLevel::Dangerous,
+                    }]));
+                }
                 for _ in 0..n {
                     let k = keys.clone();
                     self.call(move |b| b.press(&k)).await?;
@@ -407,36 +423,54 @@ impl Runner<'_> {
                 self.call(move |b| b.media(k)).await?;
                 done(format!("{k:?}"))
             }
-            A::Volume { op, value } => {
-                let v = num(value.as_ref(), 10)?.min(100);
-                let op = *op;
-                #[allow(clippy::cast_possible_wrap)]
-                self.call(move |b| match op {
-                    LevelOp::Up => b.volume_step(v as i32, false),
-                    LevelOp::Down => b.volume_step(-(v as i32), false),
-                    LevelOp::Mute => b.volume_step(0, true),
-                    LevelOp::Set => {
-                        b.volume_step(-100, false)?;
-                        if v > 0 {
-                            b.volume_step(v as i32, false)?;
-                        }
-                        Ok(())
-                    }
-                })
-                .await?;
-                done(if op == LevelOp::Mute { "mute toggled".into() } else { format!("{op:?} {v}%") })
+            A::Volume { op, value, app } => self.volume(*op, value.as_ref(), app.as_deref()).await,
+            A::Microphone { op, value } => self.microphone(*op, value.as_ref()).await,
+            A::AudioDevice { kind, name } => self.audio_device(*kind, name.as_deref()).await,
+            A::MediaSeek { forward, seconds } => self.media_seek(*forward, seconds.as_ref()).await,
+            A::WindowResize { app, percent, width, height } => {
+                self.window_resize(app.as_deref(), percent.as_ref(), width.as_ref(), height.as_ref()).await
+            }
+            A::WindowOpacity { app, percent } => self.window_opacity(app.as_deref(), percent).await,
+            A::Desktop { op } => self.desktop(*op).await,
+            A::MouseMove { direction, distance } => self.mouse_move(*direction, distance.as_ref()).await,
+            A::MouseTo { point } => self.mouse_to(*point).await,
+            A::MouseToElement { name } => self.mouse_to_element(name).await,
+            A::MouseHold { button, release } => self.mouse_hold(*button, *release).await,
+            A::MouseDrag { direction, distance, element } => {
+                self.mouse_drag(*direction, distance.as_ref(), element.as_deref()).await
+            }
+            A::MouseSpeed { op, value } => self.mouse_speed(*op, value.as_ref()).await,
+            A::LocateCursor {} => self.locate_cursor().await,
+            A::KeyboardLayout { lang } => self.keyboard_layout(lang.as_deref()).await,
+            A::Display { op } => self.display(*op).await,
+            A::Radio { kind, on } => self.radio(*kind, *on).await,
+            A::Query { what } => self.query(*what).await,
+            A::Calculate { expression } => {
+                let r = crate::calc::eval_spoken(expression)?;
+                let shown = crate::calc::format_number(r);
+                self.effects.push(ClientEffect::Show {
+                    title: "calculation".into(),
+                    lines: vec![format!("{expression} = {shown}")],
+                });
+                done(serde_json::json!({ "expression": expression, "result": shown }).to_string())
+            }
+            A::Alarm { at, message } => self.alarm(at, message),
+            A::FileCopy { from, to } => self.file_copy(from, to).await,
+            A::FileSearch { name, folder } => self.file_search(name, folder.as_deref()).await,
+            A::EmptyRecycleBin {} => {
+                self.pc(crate::backend::PcRequest::EmptyRecycleBin).await?;
+                done("recycle bin emptied".into())
             }
             A::Brightness { op, value } => {
-                let v = num(value.as_ref(), 10)?.min(100);
                 let op = *op;
+                if matches!(op, LevelOp::Mute | LevelOp::MuteOn | LevelOp::MuteOff) {
+                    return Err(ComputerError::Invalid("brightness cannot be muted".into()));
+                }
+                let v = num(value.as_ref(), if op == LevelOp::Scale { 50 } else { 10 })?.min(400);
                 let now = self
                     .call(move |b| {
-                        let target = match op {
-                            LevelOp::Set => v,
-                            LevelOp::Up => (b.brightness(None)? + v).min(100),
-                            LevelOp::Down => b.brightness(None)?.saturating_sub(v),
-                            LevelOp::Mute => return Err(ComputerError::Invalid("brightness cannot be muted".into())),
-                        };
+                        let cur = if op == LevelOp::Set { 0 } else { b.brightness(None)? };
+                        let target = level_after(op, cur, v, 100).unwrap_or(cur);
                         b.brightness(Some(target))
                     })
                     .await?;
@@ -447,7 +481,10 @@ impl Runner<'_> {
                 self.call(move |b| b.system(op)).await?;
                 done(format!("{op:?}"))
             }
-            A::Screenshot { path } => {
+            A::Screenshot { path, scope, clipboard } if *clipboard || *scope != ScreenshotScope::Full => {
+                self.screenshot_ex(path.as_deref(), *scope, *clipboard).await
+            }
+            A::Screenshot { path, .. } => {
                 let p = path.as_deref().map_or_else(
                     || {
                         self.env

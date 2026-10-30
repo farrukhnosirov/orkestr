@@ -153,6 +153,15 @@ describe("routing order", () => {
     expect(d.chat).not.toHaveBeenCalled();
   });
 
+  it("a near miss of a command asks «Вы имели в виду» instead of chatting", async () => {
+    const d = deps({ commandScore: async () => 0.65 });
+    useJarvisStore.getState().setMode("chat");
+    const turn = await routeJarvis("громкость десять ну", { source: "voice", uiMode: "orchestra" }, d);
+    expect(turn?.kind).toBe("command");
+    expect(d.calls[0]).toBe("run:громкость десять ну:false");
+    expect(d.chat).not.toHaveBeenCalled();
+  });
+
   it("small talk is answered locally (no tokens) and remembered", async () => {
     const d = deps({ matchTemplate: async () => tpl("greet.hello", "Здравствуйте, сэр.") });
     useJarvisStore.getState().setMode("chat");

@@ -7,10 +7,14 @@ use std::collections::{BTreeMap, HashMap};
 
 use orkestr_protocol::methods::computer::{AppContext, WindowInfo};
 
-use crate::text::{parse_duration_secs, parse_number, token_cost, tokenize, Token};
+use crate::text::{parse_duration_secs, parse_number, stt_normalize, token_cost, tokenize, Token};
 
 /// Minimum score of an accepted match.
 pub const MATCH_THRESHOLD: f32 = 0.74;
+
+/// Near miss: below [`MATCH_THRESHOLD`] but close enough to ask «Вы имели в
+/// виду: …?» instead of planning with the AI.
+pub const NEAR_MISS_THRESHOLD: f32 = 0.6;
 
 const MISSING: f32 = 1.0;
 const EXTRA: f32 = 0.45;
@@ -137,9 +141,37 @@ impl Matcher {
     }
 
     /// Best matches for `text` (best first, at most `limit`, one per owner).
-    /// `min_score` 0 returns near misses too (suggestions).
+    /// `min_score` 0 returns near misses too (suggestions). Unless the raw text
+    /// matches a phrase exactly, the speech-recognition fixes of
+    /// [`stt_normalize`] are tried too («громко с 10%» → «громкость 10
+    /// процентов») and the better result wins.
     #[must_use]
     pub fn find(&self, text: &str, active: Option<&WindowInfo>, limit: usize, min_score: f32) -> Vec<RawMatch> {
+        let raw = self.find_exact(text, active, limit, min_score);
+        // an exact literal match needs no fixes
+        if raw.first().is_some_and(|m| m.score >= 0.99) {
+            return raw;
+        }
+        let fixed = stt_normalize(text);
+        if fixed.is_empty() || fixed == text.trim().to_lowercase() {
+            return raw;
+        }
+        let alt = self.find_exact(&fixed, active, limit, min_score);
+        let better = match (alt.first(), raw.first()) {
+            (Some(a), Some(r)) => a.rank > r.rank + 0.001,
+            (Some(_), None) => true,
+            _ => false,
+        };
+        if better {
+            alt
+        } else {
+            raw
+        }
+    }
+
+    /// [`Matcher::find`] without the speech-recognition fixes.
+    #[must_use]
+    pub fn find_exact(&self, text: &str, active: Option<&WindowInfo>, limit: usize, min_score: f32) -> Vec<RawMatch> {
         let input = tokenize(text);
         if input.is_empty() {
             return Vec::new();
@@ -238,8 +270,13 @@ fn align(items: &[Item], input: &[Token]) -> Option<(f32, Vec<Span>)> {
                         }
                         relax(i, j + 1, MISSING, false);
                     }
-                    Item::Slot(_) => {
+                    Item::Slot(name) => {
+                        let numeric = is_numeric_slot(name);
                         for e in i + 1..=n {
+                            // a number slot takes number words only (the rest is extra)
+                            if numeric && !numberish(&input[e - 1].word) {
+                                break;
+                            }
                             #[allow(clippy::cast_precision_loss)]
                             relax(e, j + 1, SLOT_BASE + SLOT_TOKEN * (e - i - 1) as f32, true);
                         }
@@ -278,8 +315,17 @@ fn align(items: &[Item], input: &[Token]) -> Option<(f32, Vec<Span>)> {
     Some((cost, spans))
 }
 
+fn is_numeric_slot(name: &str) -> bool {
+    matches!(name, "n" | "percent" | "count" | "w" | "h")
+}
+
+fn numberish(word: &str) -> bool {
+    parse_number(word).is_some()
+        || matches!(word, "процентов" | "процента" | "процент" | "проц" | "percent" | "и" | "and" | "%")
+}
+
 /// Slot texts from the original utterance; typed slots are validated
-/// (`n`, `percent`, `count` numbers; `duration` durations).
+/// (`n`, `percent`, `count`, `w`, `h` numbers; `duration` durations; `time` times of day).
 fn slot_values(text: &str, input: &[Token], spans: &[Span]) -> Option<BTreeMap<String, String>> {
     let mut out = BTreeMap::new();
     for (name, a, b) in spans {
@@ -287,8 +333,19 @@ fn slot_values(text: &str, input: &[Token], spans: &[Span]) -> Option<BTreeMap<S
         let end = input[*b - 1].end;
         let raw = text.get(start..end)?.trim().to_owned();
         let value = match name.as_str() {
-            "n" | "percent" | "count" => parse_number(&raw.to_lowercase())?.to_string(),
+            "n" | "percent" | "count" | "w" | "h" => parse_number(&raw.to_lowercase())?.to_string(),
             "duration" => parse_duration_secs(&raw)?.to_string(),
+            // an app is a name, not a preposition («сделай по громче» ≠ app «по»)
+            "app"
+                if raw.chars().count() < 3
+                    || matches!(raw.to_lowercase().as_str(), "все" | "всё" | "это" | "the" | "all" | "его" | "её") =>
+            {
+                return None;
+            }
+            "time" => {
+                let (h, m) = crate::text::parse_clock(&raw)?;
+                format!("{h:02}:{m:02}")
+            }
             _ => raw,
         };
         out.insert(name.clone(), value);

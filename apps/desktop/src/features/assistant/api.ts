@@ -38,7 +38,11 @@ export function stepText(s: ComputerAction): string {
   for (const [k, v] of Object.entries(fields)) values[k] = typeof v === "object" ? JSON.stringify(v) : String(v ?? "");
   if (s.type === "Window") values["op"] = t(`assistant:windowOp.${s.op}`);
   const key = s.type === "CloseApp" && s.discard ? "CloseAppDiscard" : s.type;
-  return t(`assistant:step.${key}`, { ...values, defaultValue: s.type }).replace(/\s+/g, " ").trim();
+  // optional fields that are absent leave no «{{x}}» behind
+  return t(`assistant:step.${key}`, { ...values, defaultValue: s.type })
+    .replace(/\{\{\w+\}\}/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function applyEffects(effects: ClientEffect[]): string[] {
@@ -89,6 +93,10 @@ export function applyResult(r: HandleResult, phrase: PhraseOptions = {}): Assist
     }
     case "NeedsConfirmation":
       store.patch({ pending: r.pending, plan: null });
+      // a near miss of the local matcher: «Вы имели в виду: громкость 10?»
+      if (r.pending.reasons.length > 0 && r.pending.reasons.every((x) => x.code === "didYouMean")) {
+        return out("needsConfirmation", t("assistant:reply.didYouMean", { detail: r.pending.reasons[0]!.detail }), "warn");
+      }
       return out("needsConfirmation", t("assistant:reply.confirm", { title: r.pending.title, reasons: r.pending.reasons.map(riskText).join("; ") }), "warn");
     case "Proposed":
       store.patch({ plan: r.plan, pending: null, ranPlanId: null });
