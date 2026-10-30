@@ -53,9 +53,12 @@ export interface JarvisRouteOptions {
   speak?: (sentence: string) => Promise<void>;
   /** The reply so far (streaming HUD / circle). */
   onPartial?: (text: string) => void;
+  /** `false`: the speech recognizer was unsure (ADR-0057) — free text that
+   * nothing local matched must not reach an AI; the turn is `unheard`. */
+  allowFreeText?: boolean;
 }
 
-export type JarvisTurnKind = "action" | "command" | "template" | "ai" | "plan";
+export type JarvisTurnKind = "action" | "command" | "template" | "ai" | "plan" | "unheard";
 
 /** The result of a routed utterance. */
 export interface JarvisTurn {
@@ -216,6 +219,9 @@ export async function routeJarvis(text: string, o: JarvisRouteOptions, deps: Jar
       return { kind: "command", reply: run.reply, tone, spoken: false, run };
     }
   }
+
+  // Uncertain speech (noise, music, TV) never reaches the AI or the Manager (ADR-0057).
+  if (o.allowFreeText === false) return { kind: "unheard", reply: "", tone: "info", spoken: true };
 
   // 3. conversation with the AI
   if (mode === "chat") return aiTurn(clean, o, deps);

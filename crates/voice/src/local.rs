@@ -66,38 +66,106 @@ fn lang_or_auto(language: Option<&str>) -> String {
 
 // --- whisper.cpp -----------------------------------------------------------
 
-/// Transcribes with whisper-cli.
+/// The whisper.cpp runtime to use: the self-contained CUDA 12 build, then the
+/// legacy CUDA 11.8 build (it needs cuBLAS from a CUDA toolkit), then the CPU build.
+#[must_use]
+pub fn whisper_runtime(models: &ModelManager, gpu: bool) -> Option<(PathBuf, bool)> {
+    if gpu {
+        for id in [crate::catalog::WHISPER_CUDA, "whisper-runtime-cuda"] {
+            if let Some(dir) = models.installed_dir(id) {
+                return Some((dir, true));
+            }
+        }
+    }
+    models.installed_dir("whisper-runtime").map(|d| (d, false))
+}
+
+/// The Silero VAD model for whisper.cpp, when installed.
+#[must_use]
+pub fn whisper_vad_model(models: &ModelManager) -> Option<PathBuf> {
+    models.installed_dir(crate::catalog::WHISPER_VAD).and_then(|d| find_file(&d, |n| n.ends_with(".bin")))
+}
+
+/// Options of one whisper.cpp call.
+#[derive(Debug, Clone, Default)]
+pub struct WhisperCall<'a> {
+    /// Initial prompt (vocabulary hint).
+    pub prompt: Option<&'a str>,
+    /// Run the Silero VAD first (when installed).
+    pub vad: bool,
+}
+
+/// Transcribes with whisper.cpp: the resident `whisper-server` (model kept
+/// loaded, ADR-0057), falling back to a `whisper-cli` run.
 pub async fn whisper(
     models: &ModelManager,
+    servers: &crate::whisper_server::WhisperServers,
     s: &VoiceEngineSettings,
     pcm: &Pcm,
     language: Option<&str>,
-) -> Result<String, VoiceError> {
-    let runtime = if s.whisper_gpu && models.is_installed("whisper-runtime-cuda") {
-        need(models, "whisper-runtime-cuda")?
-    } else {
-        need(models, "whisper-runtime")?
-    };
+    call: &WhisperCall<'_>,
+) -> Result<Vec<crate::gate::Segment>, VoiceError> {
+    let (runtime, gpu) =
+        whisper_runtime(models, s.whisper_gpu).ok_or_else(|| VoiceError::NotInstalled("whisper-runtime".into()))?;
     let model_dir = need(models, &s.whisper_model)?;
     let model = find_file(&model_dir, |n| n.ends_with(".bin"))
         .ok_or_else(|| VoiceError::NotInstalled(s.whisper_model.clone()))?;
+    let vad = whisper_vad_model(models);
+    let lang = lang_or_auto(language);
+    let wav_bytes = pcm.to_wav();
+    let key =
+        crate::whisper_server::ServerKey { runtime: runtime.clone(), model: model.clone(), vad: vad.clone(), gpu };
+    let req = crate::whisper_server::Request { language: &lang, prompt: call.prompt, vad: call.vad };
+    match servers.transcribe(&key, &wav_bytes, &req).await {
+        Ok(segments) => return Ok(segments),
+        Err(e) => tracing::warn!(error = %e, "whisper-server failed; using whisper-cli"),
+    }
     let wav = TempFile::new(models, "wav")?;
-    std::fs::write(&wav.0, pcm.to_wav()).map_err(|e| VoiceError::Failed(e.to_string()))?;
+    std::fs::write(&wav.0, &wav_bytes).map_err(|e| VoiceError::Failed(e.to_string()))?;
+    let out_base = wav.0.with_extension("out");
+    let json = TempFile(out_base.with_extension("out.json"));
     let threads = std::thread::available_parallelism().map_or(4, |n| n.get().clamp(1, 8));
-    let args: Vec<String> = vec![
+    let mut args: Vec<String> = vec![
         "-m".into(),
         model.display().to_string(),
         "-f".into(),
         wav.0.display().to_string(),
         "-l".into(),
-        lang_or_auto(language),
+        lang,
         "-nt".into(),
         "-np".into(),
         "-t".into(),
         threads.to_string(),
+        "-ojf".into(),
+        "-of".into(),
+        out_base.display().to_string(),
     ];
+    if !gpu {
+        args.push("-ng".into());
+    }
+    // whisper-cli reads its arguments in the ANSI code page on Windows: a
+    // Cyrillic prompt arrives garbled and makes whisper print «... ...».
+    if let Some(p) = call.prompt.filter(|p| !p.is_empty() && (p.is_ascii() || !cfg!(windows))) {
+        args.extend(["--prompt".into(), p.to_owned()]);
+    }
+    if let (true, Some(v)) = (call.vad, vad) {
+        args.extend([
+            "--vad".into(),
+            "-vm".into(),
+            v.display().to_string(),
+            "-vp".into(),
+            crate::whisper_server::VAD_PAD_MS.into(),
+        ]);
+    }
     let out = proc::run(&runtime.join(exe("whisper-cli")), &args, &[], None, STT_TIMEOUT).await?;
-    Ok(out.stdout.lines().map(str::trim).filter(|l| !l.is_empty()).collect::<Vec<_>>().join(" "))
+    let parsed = std::fs::read(&json.0)
+        .ok()
+        .and_then(|b| serde_json::from_slice::<serde_json::Value>(&b).ok())
+        .map(|v| crate::whisper_server::parse_cli_json(&v));
+    Ok(parsed.unwrap_or_else(|| {
+        let text = out.stdout.lines().map(str::trim).filter(|l| !l.is_empty()).collect::<Vec<_>>().join(" ");
+        vec![crate::gate::Segment { text, avg_logprob: 0.0, no_speech_prob: 0.0, tokens: 1 }]
+    }))
 }
 
 // --- Vosk ------------------------------------------------------------------

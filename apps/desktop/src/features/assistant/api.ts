@@ -23,6 +23,8 @@ export interface AssistantRun {
   speak: string[];
   /** The reply was already spoken (streamed Jarvis conversation) or stays silent. */
   spoken?: boolean;
+  /** Unsure speech recognition: nothing ran, the voice HUD quietly says «не расслышал» (ADR-0057). */
+  unheard?: boolean;
 }
 
 /** Localized risk reason. */

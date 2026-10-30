@@ -197,6 +197,39 @@ describe("EnginesPanel", () => {
   });
 });
 
+describe("best recognition for this PC (ADR-0057)", () => {
+  it("downloads what is missing, then switches to whisper large-v3-turbo on the GPU", async () => {
+    const rec = { engine: "WhisperCpp" as const, model: "whisper-large-v3-turbo-q5", gpu: true, packages: ["whisper-runtime-cuda12", "whisper-large-v3-turbo-q5"], downloadBytes: 1_259_000_000, gpuName: "NVIDIA GeForce RTX 2060 SUPER, 8 GB", active: false };
+    let polls = 0;
+    handler = (m) => {
+      if (m === "voice.listEngines") return { ...ENGINES, sttRecommendation: rec };
+      if (m === "voice.listModels") {
+        polls += 1;
+        const state = polls > 1 ? "Installed" : "Downloading";
+        return { root: "x", diskUsageBytes: 0, packages: rec.packages.map((id) => pkg({ id, state, downloadBytes: 100, progressBytes: polls > 1 ? 100 : 40 })) };
+      }
+      return {};
+    };
+    const patch = vi.fn();
+    render(<EnginesPanel config={CONFIG} patch={patch} />);
+    const card = await screen.findByTestId("stt-recommendation");
+    expect(card.textContent).toContain("RTX 2060 SUPER");
+    fireEvent.click(card.querySelector("button") as HTMLButtonElement);
+    await waitFor(() => expect(patch).toHaveBeenCalled(), { timeout: 4000 });
+    expect(calls.filter((c) => c.method === "voice.downloadModel").map((c) => c.params)).toEqual([{ id: "whisper-runtime-cuda12" }, { id: "whisper-large-v3-turbo-q5" }]);
+    const next = (patch.mock.calls[0]?.[0] as (c: VoiceConfig) => VoiceConfig)(CONFIG);
+    expect(next.sttEngine).toBe("WhisperCpp");
+    expect(next.engines).toMatchObject({ whisperModel: "whisper-large-v3-turbo-q5", whisperGpu: true });
+  });
+
+  it("is hidden when the recommended setup is already in use", async () => {
+    handler = (m) => (m === "voice.listEngines" ? { ...ENGINES, sttRecommendation: { engine: "WhisperCpp", model: "whisper-base", gpu: false, packages: [], downloadBytes: 0, active: true } } : {});
+    render(<EnginesPanel config={CONFIG} patch={() => undefined} />);
+    await screen.findByTestId("engine-stt-WhisperCpp");
+    expect(screen.queryByTestId("stt-recommendation")).toBeNull();
+  });
+});
+
 describe("ModelsPanel", () => {
   it("lists packages, starts downloads and shows progress", async () => {
     let state: VoiceModelsResult = { packages: [pkg({}), pkg({ id: "piper-ru-irina", title: "Piper Irina", kind: "TtsVoice", stt: null, tts: "Piper", state: "Installed", installedBytes: 64_000_000 })], diskUsageBytes: 64_000_000, root: "C:/x/voice/models" };

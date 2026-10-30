@@ -201,6 +201,7 @@
     "micUnsupported": "Microphone capture isn't available here.",
     "micFailed": "Couldn't open the microphone.",
     "noSpeech": "I didn't hear anything.",
+    "notHeard": "Didn't catch that.",
     "sttNetwork": "The speech service is unreachable.",
     "sttUnsupported": "This speech engine isn't available here.",
     "sttDisabled": "Speech recognition is off — pick an engine in Settings → Voice.",
@@ -453,6 +454,23 @@
       "option": "Model or voice",
       "notInstalled": "{{name}} (not installed)",
       "gpu": "Use the GPU (CUDA runtime)",
+      "noise": "Noise rejection",
+      "noiseDesc": "Background noise, music and TV are not turned into commands.",
+      "noiseLevel": {
+        "Off": "Off",
+        "Normal": "Normal",
+        "Strict": "Strict (loud room)"
+      },
+      "rec": {
+        "title": "Best recognition for this PC",
+        "gpu": "Whisper large-v3-turbo on the GPU ({{gpu}}) with speech detection: fast and accurate.",
+        "cpu": "Whisper {{model}} on the processor with speech detection.",
+        "active": "In use",
+        "download": "Download {{size}} and use",
+        "use": "Use it",
+        "installing": "Downloading… {{pct}}%",
+        "failed": "Could not install: {{error}}"
+      },
       "region": "Region",
       "regionPlaceholder": "westeurope",
       "folderId": "Folder ID",

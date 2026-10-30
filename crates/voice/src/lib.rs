@@ -24,16 +24,19 @@ pub mod audio;
 pub mod barge;
 pub mod catalog;
 pub mod cloud;
+pub mod gate;
 pub mod local;
 pub mod models;
 pub mod proc;
+pub mod whisper_server;
 
 use std::path::PathBuf;
 use std::sync::Arc;
 
 use orkestr_protocol::methods::voice::{
-    SttEngine, TtsEngine, VoiceConfig, VoiceEngineInfo, VoiceEngineOption, VoiceEngineSettings, VoiceEngineStatus,
-    VoiceEngineVerification, VoiceEnginesResult, VoiceGrade, VoiceKeyId,
+    NoiseRejection, SttEngine, SttRecommendation, SttRejectReason, TtsEngine, VoiceConfig, VoiceEngineInfo,
+    VoiceEngineOption, VoiceEngineSettings, VoiceEngineStatus, VoiceEngineVerification, VoiceEnginesResult, VoiceGrade,
+    VoiceKeyId,
 };
 use parking_lot::Mutex;
 
@@ -94,6 +97,8 @@ pub struct VoiceService {
     models: models::ModelManager,
     cloud: cloud::Cloud,
     vosk: Arc<local::VoskCache>,
+    whisper: whisper_server::WhisperServers,
+    gpus: Mutex<Option<Vec<orkestr_platform::GpuDevice>>>,
     windows: Mutex<Option<local::WindowsSpeech>>,
     barge: Mutex<BargeSessions>,
 }
@@ -134,7 +139,10 @@ impl VoiceService {
             .connect_timeout(std::time::Duration::from_secs(20))
             .build()
             .unwrap_or_default();
+        let whisper = whisper_server::WhisperServers::new(&voice_dir.join("models").join(".tmp"));
         Self {
+            whisper,
+            gpus: Mutex::new(None),
             models: models::ModelManager::new(voice_dir.join("models"), http.clone()),
             cloud: cloud::Cloud { http, endpoints: cloud::Endpoints::default() },
             vosk: Arc::default(),
@@ -184,7 +192,12 @@ impl VoiceService {
         match engine {
             SttEngine::Disabled => Err(VoiceError::BadRequest("speech recognition is disabled".into())),
             SttEngine::WebSpeech => Err(VoiceError::BadRequest("Web Speech runs in the app window".into())),
-            SttEngine::WhisperCpp => local::whisper(&self.models, s, pcm, language).await,
+            SttEngine::WhisperCpp => {
+                let segs =
+                    local::whisper(&self.models, &self.whisper, s, pcm, language, &local::WhisperCall::default())
+                        .await?;
+                Ok(segs.iter().map(|x| x.text.trim()).filter(|t| !t.is_empty()).collect::<Vec<_>>().join(" "))
+            }
             SttEngine::Vosk => local::vosk(&self.vosk, &self.models, s, pcm).await,
             SttEngine::SherpaOnnx => local::sherpa(&self.models, s, pcm).await,
             SttEngine::WindowsSpeech => {
@@ -197,6 +210,147 @@ impl VoiceService {
             SttEngine::GoogleCloud => self.cloud.google_stt(need_key()?, pcm, language).await,
             SttEngine::YandexSpeechKit => self.cloud.yandex_stt(need_key()?, s, pcm, language).await,
         }
+    }
+
+    /// Recognizes `pcm` behind the noise gates (ADR-0057): speech activity
+    /// first (silence / steady noise never reach the engine), whisper.cpp with
+    /// the vocabulary prompt + Silero VAD + decoder confidence, then the
+    /// hallucination filter. A rejection is `Ok` with an empty text.
+    pub async fn transcribe_checked(
+        &self,
+        engine: SttEngine,
+        s: &VoiceEngineSettings,
+        key: Option<&str>,
+        pcm: &Pcm,
+        language: Option<&str>,
+        hints: &SttHints,
+    ) -> Result<Transcript, VoiceError> {
+        let level = s.noise_rejection;
+        if level != NoiseRejection::Off {
+            let a = gate::speech_activity(&pcm.samples);
+            let strict_ok = level != NoiseRejection::Strict || a.snr_db >= gate::STRICT_SNR_DB;
+            if !a.has_speech() || !strict_ok {
+                tracing::debug!(?a, "voice: no speech in the recording");
+                return Ok(Transcript::rejected(SttRejectReason::NoSpeech));
+            }
+        }
+        let (text, confidence) = if engine == SttEngine::WhisperCpp {
+            let prompt = gate::initial_prompt(language, &hints.wake_phrases);
+            let call = local::WhisperCall { prompt: Some(&prompt), vad: level != NoiseRejection::Off };
+            let segs = local::whisper(&self.models, &self.whisper, s, pcm, language, &call).await?;
+            match gate::confidence(&segs) {
+                Some((t, c)) if !gate::copies_prompt(&t, &prompt) => (t, Some(c)),
+                Some(_) => return Ok(Transcript::rejected(SttRejectReason::Hallucination)),
+                None => return Ok(Transcript::rejected(SttRejectReason::NoSpeech)),
+            }
+        } else {
+            (self.transcribe(engine, s, key, pcm, language).await?, None)
+        };
+        let text = match gate::check_text(&text) {
+            Ok(t) => t,
+            Err(r) => {
+                tracing::debug!(reason = ?r, "voice: transcript rejected");
+                return Ok(Transcript::rejected(r));
+            }
+        };
+        if let Some(c) = confidence {
+            let min = match level {
+                NoiseRejection::Off => 0.0,
+                NoiseRejection::Normal => gate::REJECT_LOGPROB.exp(),
+                NoiseRejection::Strict => gate::STRICT_LOGPROB.exp(),
+            };
+            if c < min {
+                tracing::debug!(confidence = c, "voice: transcript too uncertain");
+                return Ok(Transcript::rejected(SttRejectReason::LowConfidence));
+            }
+        }
+        Ok(Transcript { text, confidence, rejected: None })
+    }
+
+    /// Loads the whisper model ahead of the first command (resident server).
+    pub async fn prewarm(&self, s: &VoiceEngineSettings) {
+        let Some((runtime, gpu)) = local::whisper_runtime(&self.models, s.whisper_gpu) else { return };
+        let Some(model) = self.models.installed_dir(&s.whisper_model).and_then(|d| {
+            std::fs::read_dir(d).ok()?.flatten().map(|e| e.path()).find(|p| p.extension().is_some_and(|x| x == "bin"))
+        }) else {
+            return;
+        };
+        let key = whisper_server::ServerKey { runtime, model, vad: local::whisper_vad_model(&self.models), gpu };
+        if self.whisper.is_running(&key).await {
+            return;
+        }
+        if let Err(e) = self.whisper.ensure(&key).await {
+            tracing::warn!(error = %e, "could not preload the whisper model");
+            return;
+        }
+        // One tiny decode: the first CUDA run compiles kernels (up to ~30 s on
+        // a fresh driver cache) — pay it here, not on the user's first command.
+        let lang = s.whisper_model.clone();
+        let quiet = audio::Pcm { samples: vec![0; audio::SAMPLE_RATE as usize / 2] };
+        let req = whisper_server::Request { language: "ru", prompt: None, vad: false };
+        let t = std::time::Instant::now();
+        if let Err(e) = self.whisper.transcribe(&key, &quiet.to_wav(), &req).await {
+            tracing::warn!(error = %e, "whisper warm-up failed");
+        }
+        tracing::info!(model = %lang, ms = t.elapsed().as_millis(), "whisper warmed up");
+    }
+
+    /// Stops the resident whisper server (engine switched away, shutdown).
+    pub async fn stop_whisper(&self) {
+        self.whisper.stop().await;
+    }
+
+    /// GPUs of this machine (detected once).
+    async fn gpus(&self) -> Vec<orkestr_platform::GpuDevice> {
+        if let Some(g) = self.gpus.lock().clone() {
+            return g;
+        }
+        let g = tokio::task::spawn_blocking(|| orkestr_platform::detect_gpus(std::time::Duration::from_secs(8)))
+            .await
+            .unwrap_or_default();
+        *self.gpus.lock() = Some(g.clone());
+        g
+    }
+
+    /// The best local recognizer for this PC and what is missing for it (ADR-0057).
+    pub async fn stt_recommendation(&self, cfg: &VoiceConfig) -> Option<SttRecommendation> {
+        let gpus = self.gpus().await;
+        let (ram, cores) = {
+            use orkestr_platform::ResourceMonitor as _;
+            let snap = orkestr_platform::SysinfoResourceMonitor::new(self.models.root().to_path_buf()).snapshot();
+            (snap.memory_total_bytes, snap.cpu_cores)
+        };
+        let pick = recommend(&gpus, ram, cores, cfg!(windows) && cfg!(target_arch = "x86_64"));
+        let mut packages: Vec<String> = Vec::new();
+        let mut add = |id: &str| {
+            let Some(p) = catalog::package(id) else { return };
+            for d in p.depends.iter().copied().chain(std::iter::once(id)) {
+                if !self.models.is_installed(d) && !packages.iter().any(|x| x == d) {
+                    packages.push(d.to_owned());
+                }
+            }
+        };
+        add("whisper-runtime");
+        if pick.gpu {
+            add(catalog::WHISPER_CUDA);
+        }
+        add(pick.model);
+        add(catalog::WHISPER_VAD);
+        let download_bytes =
+            packages.iter().filter_map(|id| catalog::package(id)).map(catalog::Package::download_bytes).sum();
+        let active = cfg.stt_engine == SttEngine::WhisperCpp
+            && cfg.engines.whisper_model == pick.model
+            && cfg.engines.whisper_gpu == pick.gpu
+            && packages.is_empty();
+        Some(SttRecommendation {
+            engine: SttEngine::WhisperCpp,
+            model: pick.model.to_owned(),
+            gpu: pick.gpu,
+            packages,
+            download_bytes,
+            gpu_name: pick.gpu_name,
+            active,
+        })
     }
 
     /// Opens a barge-in session: a Vosk grammar recognizer when `vosk-small-ru`
@@ -746,6 +900,97 @@ impl VoiceService {
                 options,
             });
         }
-        VoiceEnginesResult { stt, tts, configured_keys: keys.to_vec() }
+        let stt_recommendation = self.stt_recommendation(cfg).await;
+        VoiceEnginesResult { stt, tts, configured_keys: keys.to_vec(), stt_recommendation }
+    }
+}
+
+/// Context for [`VoiceService::transcribe_checked`].
+#[derive(Debug, Clone, Default)]
+pub struct SttHints {
+    /// Wake phrases (put first into whisper's vocabulary prompt).
+    pub wake_phrases: Vec<String>,
+}
+
+/// A checked transcript.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Transcript {
+    /// Text (empty when rejected).
+    pub text: String,
+    /// Decoder confidence 0..1 (whisper.cpp only).
+    pub confidence: Option<f32>,
+    /// Why the audio was not accepted as speech.
+    pub rejected: Option<SttRejectReason>,
+}
+
+impl Transcript {
+    fn rejected(r: SttRejectReason) -> Self {
+        Self { text: String::new(), confidence: None, rejected: Some(r) }
+    }
+}
+
+/// A recommended whisper setup.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Pick {
+    /// Model package.
+    pub model: &'static str,
+    /// Use the CUDA runtime.
+    pub gpu: bool,
+    /// The GPU it is for.
+    pub gpu_name: Option<String>,
+}
+
+/// Minimum VRAM for large-v3-turbo q5_0 on the GPU (model ≈ 0.6 GB + buffers ≈ 1 GB).
+const TURBO_MIN_VRAM: u64 = 3 * 1024 * 1024 * 1024;
+
+/// Picks the whisper setup for this hardware (ADR-0057): large-v3-turbo on an
+/// NVIDIA GPU with ≥ 3 GB VRAM (CUDA build, Windows x64); on the CPU `small`
+/// for 4+ cores with 8 GB RAM, `base` otherwise.
+#[must_use]
+pub fn recommend(gpus: &[orkestr_platform::GpuDevice], ram_bytes: u64, cores: u32, cuda_build: bool) -> Pick {
+    const GB: u64 = 1024 * 1024 * 1024;
+    let best = gpus
+        .iter()
+        .filter(|g| {
+            g.vendor.as_deref().is_some_and(|v| v.eq_ignore_ascii_case("nvidia"))
+                || g.name.to_lowercase().contains("nvidia")
+        })
+        .max_by_key(|g| g.vram_bytes.unwrap_or(0));
+    if let Some(g) = best.filter(|g| cuda_build && g.vram_bytes.unwrap_or(0) >= TURBO_MIN_VRAM) {
+        #[allow(clippy::cast_precision_loss)]
+        let vram = g.vram_bytes.unwrap_or(0) as f64 / GB as f64;
+        return Pick { model: catalog::WHISPER_TURBO, gpu: true, gpu_name: Some(format!("{}, {vram:.0} GB", g.name)) };
+    }
+    let model = if cores >= 4 && ram_bytes >= 7 * GB { "whisper-small" } else { "whisper-base" };
+    Pick { model, gpu: false, gpu_name: None }
+}
+
+#[cfg(test)]
+mod recommend_tests {
+    use super::*;
+
+    fn gpu(name: &str, vram_gb: u64) -> orkestr_platform::GpuDevice {
+        orkestr_platform::GpuDevice {
+            name: name.into(),
+            vendor: orkestr_platform::gpu::vendor_of(name),
+            vram_bytes: Some(vram_gb * 1024 * 1024 * 1024),
+            driver_version: None,
+            source: "nvidia-smi",
+        }
+    }
+
+    #[test]
+    fn picks_turbo_on_a_capable_nvidia_gpu_and_falls_back_otherwise() {
+        const GB: u64 = 1024 * 1024 * 1024;
+        let p = recommend(&[gpu("NVIDIA GeForce RTX 2060 SUPER", 8)], 32 * GB, 20, true);
+        assert_eq!((p.model, p.gpu), (catalog::WHISPER_TURBO, true));
+        assert_eq!(p.gpu_name.as_deref(), Some("NVIDIA GeForce RTX 2060 SUPER, 8 GB"));
+        let p = recommend(&[gpu("NVIDIA GeForce GT 1030", 2)], 16 * GB, 8, true);
+        assert_eq!((p.model, p.gpu), ("whisper-small", false));
+        let p = recommend(&[gpu("AMD Radeon RX 6800", 16)], 16 * GB, 8, true);
+        assert!(!p.gpu);
+        let p = recommend(&[gpu("NVIDIA GeForce RTX 4090", 24)], 64 * GB, 16, false);
+        assert!(!p.gpu, "no CUDA build for this OS/CPU");
+        assert_eq!(recommend(&[], 4 * GB, 2, true).model, "whisper-base");
     }
 }
