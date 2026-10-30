@@ -34,14 +34,14 @@ import { type Intent, intentId, needsConfirmation, parseConfirmation, parseInten
 import { realVoiceDeps } from "./pipeline/deps";
 import { bindApproval, type CommandResult, confirmationPrompt, executeIntent, precheck, type VoiceDeps } from "./pipeline/executor";
 import { assistantResult } from "../assistant/voiceResult";
-import { routeUtterance } from "../assistant/voiceRoute";
+import { isWeakIntent, routeUtterance } from "../assistant/voiceRoute";
 import { dailyGreeting } from "../jarvis/greeting";
 import { isBusy, type MachineEvent, nextPhase } from "./pipeline/machine";
 import { speakable } from "./pipeline/summary";
 import { type MicPurpose, useVoiceStore } from "./store";
 import { engineNeedsPcm, SttError, type SttSession, startStt, webSpeechAvailable } from "./stt/engines";
 import { speak, speechLang, stopSpeaking } from "./tts/speaker";
-import { stopAssistant } from "../assistant/api";
+import { confirmPending, stopAssistant } from "../assistant/api";
 import { useAssistantStore } from "../assistant/store";
 import { stopCursor, useCursorStore } from "../cursor/store";
 import { jarvisSession } from "../jarvis/session";
@@ -518,6 +518,16 @@ async function handleText(text: string, source: VoiceCommandSource): Promise<voi
   }
   // Approve/reject are bound to the approval read out in the prompt (exact id).
   const intent = bindApproval(parseIntent(text, await intentContext()), getDeps());
+  // Stop phrases first (ADR-0054): «хватит» / «замолчи» never reach the command
+  // matcher or its «Вы имели в виду» near-miss confirmation (ADR-0055). A strong
+  // Orkestr intent («стоп всё», «останови проект X») still wins.
+  const stop = source !== "Typed" && s.config && isWeakIntent(intent) ? classifyStop(text, s.config.barge) : null;
+  if (stop) {
+    if (useAssistantStore.getState().pending) await confirmPending(false).catch(() => null);
+    interrupt(stop.kind, { listen: false });
+    finish(intent, { outcome: "cancelled", reply: t("voice:reply.cancelled"), tone: "info", projectId: null }, source);
+    return;
+  }
   // Computer assistant (ADR-0035): computer commands, its confirmations and AI plans.
   // Jarvis (ADR-0049): AI conversation replies stream into the HUD and are spoken sentence by sentence.
   const viaAssistant = await routeUtterance(text, intent, wakePhrases(), {

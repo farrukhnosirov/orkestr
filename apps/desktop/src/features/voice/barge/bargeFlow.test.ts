@@ -81,7 +81,7 @@ vi.mock("../audio/mic", () => ({ MicCapture: { open: async () => h.mic } }));
 vi.mock("../stt/engines", async (orig) => ({ ...(await orig<typeof import("../stt/engines")>()), startStt: h.startStt }));
 vi.mock("../tts/speaker", async (orig) => ({ ...(await orig<typeof import("../tts/speaker")>()), speak: h.speak, stopSpeaking: h.stopSpeaking }));
 vi.mock("../agentVoices", () => ({ assistantOptions: () => ({ engine: "System", lang: "ru-RU", ratePct: 100, pitchPct: 100 }) }));
-vi.mock("../../assistant/voiceRoute", () => ({ routeUtterance: h.routeUtterance }));
+vi.mock("../../assistant/voiceRoute", async (orig) => ({ ...(await orig<typeof import("../../assistant/voiceRoute")>()), routeUtterance: h.routeUtterance }));
 vi.mock("../../sound/engine", () => ({ playSound: h.playSound }));
 vi.mock("../../jarvis/greeting", () => ({ dailyGreeting: () => null }));
 
@@ -214,6 +214,15 @@ describe("barge-in", () => {
     h.stt.text = "Стоп, открой ютуб";
     await stopListening();
     expect(h.route.calls).toEqual(["открой ютуб"]);
+  });
+
+  it("a stop phrase said after the wake word never reaches the command matcher (stop phrases first)", async () => {
+    await startListening("WakeWord");
+    h.stt.text = "хватит";
+    await stopListening();
+    expect(h.route.calls).toEqual([]);
+    expect(useVoiceStore.getState().reply?.outcome).toBe("cancelled");
+    expect(h.speak).not.toHaveBeenCalled();
   });
 
   it("a hard stop while the AI answers cancels the call and drops its late reply", async () => {
