@@ -35,6 +35,21 @@ export function clampJarvisSize(v: unknown): number {
 export const WAKE_INTRO_MS = 750;
 /** Collapse-back-into-the-orb animation when the voice card closes, ms. */
 export const COLLAPSE_MS = 520;
+/** "Interrupted" animation after a stop phrase (barge-in, ADR-0053), ms. */
+export const INTERRUPT_MS = 480;
+
+/** Progress 0..1 of the interrupted animation (`null` = none / over). */
+export function interruptProgress(interruptedAt: number | null | undefined, now: number): number | null {
+  if (!interruptedAt) return null;
+  const p = (now - interruptedAt) / INTERRUPT_MS;
+  return p >= 0 && p < 1 ? p : null;
+}
+
+/** Remaining share 0..1 of a follow-up window (`null` = not listening for a follow-up). */
+export function followUpLeft(followUp: { until: number; ms: number } | null | undefined, now: number): number | null {
+  if (!followUp || followUp.ms <= 0) return null;
+  return Math.max(0, Math.min(1, (followUp.until - now) / followUp.ms));
+}
 
 export interface PhaseInput {
   /** Voice pipeline phase (`idle`, `listening`, `transcribing`, `thinking`, `confirm`, `result`, `error`). */
@@ -215,6 +230,10 @@ export interface ReactorOptions {
   ambient?: ReactorAmbient;
   /** Working agents (ring speed). */
   workers?: number;
+  /** Interrupted animation progress 0..1 (barge-in); `null`/absent = none. */
+  interrupt?: number | null;
+  /** Follow-up window left 0..1 (thin countdown ring); `null`/absent = none. */
+  countdown?: number | null;
 }
 
 export interface ReactorFrame {
@@ -243,6 +262,10 @@ export interface ReactorFrame {
   approval: number;
   /** Grey-out 0..1 (offline). */
   muted: number;
+  /** Interrupted flash 0..1 (a quick contraction with a fading ring). */
+  interrupt: number;
+  /** Follow-up countdown 0..1 (share of the window left), −1 = none. */
+  countdown: number;
   /** Time, seconds. */
   t: number;
 }
@@ -335,6 +358,10 @@ export class ReactorDynamics {
     const wantScale = presence ? 1 : state === "done" ? 0.9 : state === "idle" ? 0.6 : 1;
     this.scale = follow(this.scale, wantScale, dt, 220, 380);
     let scale = this.scale;
+    // Interrupted: a quick contraction and release.
+    const cut = opts.interrupt ?? null;
+    const interrupt = cut === null ? 0 : Math.sin(Math.min(1, Math.max(0, cut)) * Math.PI);
+    scale *= 1 - 0.12 * interrupt;
     if (intro < 1 && !presence) {
       const bloom = 1 - Math.pow(1 - intro, 3);
       scale = Math.min(scale, 0.3 + 0.7 * bloom) + Math.sin(intro * Math.PI) * 0.07;
@@ -386,6 +413,8 @@ export class ReactorDynamics {
       alarm: this.alarm,
       approval: this.approval,
       muted: this.muted,
+      interrupt,
+      countdown: opts.countdown ?? -1,
       t: this.time,
     };
   }
@@ -421,6 +450,8 @@ export class ReactorDynamics {
       alarm: this.alarm,
       approval: this.approval,
       muted: this.muted,
+      interrupt: 0,
+      countdown: opts.countdown ?? -1,
       t: 1.3,
     };
   }

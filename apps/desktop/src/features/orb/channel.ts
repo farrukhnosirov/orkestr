@@ -35,10 +35,14 @@ export interface OrbVoiceState {
   ttsEngine?: string | null;
   /** Assistant mode shown on the Jarvis card (`command` / `chat` / `cursor`). */
   mode?: string | null;
+  /** Last barge-in, epoch ms (the circle's "interrupted" animation). */
+  interruptedAt?: number | null;
+  /** Follow-up window without the wake word, epoch ms (countdown ring). */
+  followUp?: { until: number; ms: number } | null;
 }
 
 /** Orb popup → main window: answers / closes the voice command. */
-export type OrbVoiceAction = "yes" | "no" | "cancel" | "repeat";
+export type OrbVoiceAction = "yes" | "no" | "cancel" | "repeat" | "hush";
 
 export interface OrbMainState {
   voice: OrbVoiceState;

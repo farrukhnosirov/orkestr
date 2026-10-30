@@ -290,6 +290,8 @@ fn explicit(method: &str) -> Option<MethodPolicy> {
         "voice.setEngineKey" | "voice.downloadModel" | "voice.removeModel" | "voice.cancelDownload" => {
             MethodPolicy::local()
         }
+        // barge-in streams the local microphone into the local core (ADR-0053)
+        "voice.bargeStart" | "voice.bargeFeed" | "voice.bargeStop" => MethodPolicy::local(),
         "voice.listEngines" | "voice.listModels" | "voice.verifyModel" => MethodPolicy::read(),
         "providers.setCredential"
         | "providers.clearCredential"
@@ -624,6 +626,9 @@ mod tests {
             "voice.setEngineKey",
             "voice.downloadModel",
             "voice.removeModel",
+            "voice.bargeStart",
+            "voice.bargeFeed",
+            "voice.bargeStop",
         ] {
             assert!(policy_for(m).unwrap().local_only, "{m}");
         }

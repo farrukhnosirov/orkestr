@@ -17,7 +17,7 @@ import type { CommandOutcome, ReplyTone } from "./pipeline/executor";
 export type VoicePhase = "idle" | "listening" | "transcribing" | "thinking" | "confirm" | "result" | "error";
 
 /** Why the microphone is open (the indicator names it). */
-export type MicPurpose = "wake" | "command" | "enroll" | "meter";
+export type MicPurpose = "wake" | "command" | "enroll" | "meter" | "barge";
 
 /** Wake-word listener status. */
 export type WakeStatus = "off" | "needsEnrollment" | "starting" | "listening" | "pausedBattery" | "pausedBusy" | "error";
@@ -52,6 +52,10 @@ export interface VoiceState {
   /** Confirmation question while `phase === "confirm"`. */
   confirmText: string | null;
   speaking: boolean;
+  /** When the assistant was last interrupted (barge-in; the circle plays a short animation), epoch ms. */
+  interruptedAt: number | null;
+  /** Listening for a follow-up without the wake word: the window (epoch ms) the circle counts down. */
+  followUp: { until: number; ms: number } | null;
   /** Assistant mode the Jarvis card shows (command / chat / cursor; set by the mode's owner). */
   assistantMode: JarvisMode;
   /** Open mic purposes (several can overlap: wake listening + command). */
@@ -69,7 +73,7 @@ export interface VoiceState {
   patch: (fn: (c: VoiceConfig) => VoiceConfig) => Promise<boolean>;
   setConsent: (scope: VoiceConsentScope, granted: boolean, engine?: SttEngine, opts?: { ttsEngine?: TtsEngine; keepSelection?: boolean }) => Promise<boolean>;
   setHudOpen: (open: boolean) => void;
-  setRuntime: (patch: Partial<Pick<VoiceState, "phase" | "source" | "transcript" | "reply" | "confirmText" | "speaking" | "assistantMode" | "level" | "wakeStatus" | "wakeError" | "wakeLoadPct">>) => void;
+  setRuntime: (patch: Partial<Pick<VoiceState, "phase" | "source" | "transcript" | "reply" | "confirmText" | "speaking" | "interruptedAt" | "followUp" | "assistantMode" | "level" | "wakeStatus" | "wakeError" | "wakeLoadPct">>) => void;
   micOn: (p: MicPurpose) => void;
   micOff: (p: MicPurpose) => void;
   pushHistory: (item: Omit<HistoryItem, "id" | "at">) => void;
@@ -91,6 +95,8 @@ export const useVoiceStore = create<VoiceState>()((set, get) => ({
   reply: null,
   confirmText: null,
   speaking: false,
+  interruptedAt: null,
+  followUp: null,
   assistantMode: "command",
   mic: [],
   level: 0,

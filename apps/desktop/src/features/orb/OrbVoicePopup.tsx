@@ -76,6 +76,7 @@ export function OrbVoicePopup(p: OrbVoicePopupProps) {
       showReactor={false}
       leaving={p.leaving}
       onReactorPointerDown={p.onReactorPointerDown}
+      followUp={f ? null : (v.followUp ?? null)}
       onCancel={() => p.onAction("cancel")}
       onRepeat={() => p.onAction("repeat")}
       onConfirm={(yes) => p.onAction(yes ? "yes" : "no")}

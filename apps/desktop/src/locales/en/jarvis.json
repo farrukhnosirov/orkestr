@@ -155,7 +155,8 @@
     "speaking": "Replying…",
     "confirm": "Awaiting your answer",
     "done": "Done",
-    "error": "Something went wrong"
+    "error": "Something went wrong",
+    "followUp": "Listening — just keep talking"
   },
   "hint": {
     "listening": "Go ahead — for example, “open YouTube”",

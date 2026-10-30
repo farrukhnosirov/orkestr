@@ -16,7 +16,7 @@ import { usePerfStore } from "../performance/perfStore";
 import { configureSound, playSound } from "../sound/engine";
 import { activeTheme, useThemeStore } from "../theme/themeStore";
 import { assistantOptions, robotVoiceFor, speakAsAgent } from "./agentVoices";
-import { installVoiceDebugHook, shutdownVoice, startListening, stopListening, syncWakeListener } from "./controller";
+import { hushSpeech, installBargeWatcher, installVoiceDebugHook, shutdownVoice, startListening, stopListening, syncWakeListener } from "./controller";
 import { isHoldEnd, isHoldStart, parseHotkey, yieldsToEditor } from "./hotkey";
 import { noticeFromEvent, phraseId, PhraseLimiter, speakDecision } from "./notify/policy";
 import { humanProjectName, lowerFirst } from "./pipeline/natural";
@@ -120,6 +120,22 @@ export function useVoiceBootstrap(ready: boolean): void {
     return () => {
       off();
       unsubscribe?.();
+    };
+  }, [ready]);
+
+  // Barge-in (ADR-0053): the stop-phrase spotter follows speaking / thinking / cursor control;
+  // Esc while the assistant speaks silences it.
+  useEffect(() => {
+    if (!ready) return;
+    const offBarge = installBargeWatcher();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented || !useVoiceStore.getState().speaking) return;
+      hushSpeech();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      offBarge();
+      window.removeEventListener("keydown", onKey);
     };
   }, [ready]);
 

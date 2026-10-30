@@ -195,6 +195,30 @@ export class ReactorRenderer {
       ctx.stroke();
     }
 
+    // Interrupted (barge-in): a ring collapsing inwards.
+    if (f.interrupt > 0.01) {
+      ctx.strokeStyle = rgba(strong, f.interrupt * 0.85);
+      ctx.lineWidth = 1.5 + f.interrupt * 3;
+      ctx.beginPath();
+      ctx.arc(c, c, R * (1.05 - 0.25 * f.interrupt), 0, TAU);
+      ctx.stroke();
+    }
+    // Follow-up window: a thin ring counting down clockwise from the top.
+    if (f.countdown >= 0) {
+      const r = R * 0.985;
+      ctx.lineWidth = small ? 1.5 : 2;
+      ctx.strokeStyle = rgba(main, A(0.16));
+      ctx.beginPath();
+      ctx.arc(c, c, r, 0, TAU);
+      ctx.stroke();
+      if (f.countdown > 0) {
+        ctx.strokeStyle = rgba(strong, A(0.75));
+        ctx.beginPath();
+        ctx.arc(c, c, r, -Math.PI / 2, -Math.PI / 2 + TAU * f.countdown);
+        ctx.stroke();
+      }
+    }
+
     // Outer tick ring.
     const tickR = R * 0.93;
     ctx.save();

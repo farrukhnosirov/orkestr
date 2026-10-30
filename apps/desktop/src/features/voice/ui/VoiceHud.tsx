@@ -16,7 +16,7 @@ import { useUiPrefs } from "../../aiui/aiuiStore";
 import { orbPrefsOf } from "../../orb/model";
 import { orbShell } from "../../orb/shell";
 import { usePerfStore } from "../../performance/perfStore";
-import { answerConfirmation, cancelVoice, repeatReply, startListening, stopListening, submitTyped, sttReady } from "../controller";
+import { answerConfirmation, cancelVoice, hushSpeech, repeatReply, startListening, stopListening, submitTyped, sttReady } from "../controller";
 import { JarvisVoice } from "../jarvis/JarvisVoice";
 import { reactorFps } from "../jarvis/model";
 import { liveVoiceSignal } from "../jarvis/signal";
@@ -43,6 +43,8 @@ export function VoiceHud() {
   const source = useVoiceStore((s) => s.source);
   const mic = useVoiceStore((s) => s.mic);
   const assistantMode = useVoiceStore((s) => s.assistantMode);
+  const interruptedAt = useVoiceStore((s) => s.interruptedAt);
+  const followUp = useVoiceStore((s) => s.followUp);
   const budget = useVisualBudget();
   const perfMode = usePerfStore((s) => s.mode);
   const reduced = usePerfStore((s) => s.reducedMotion);
@@ -132,6 +134,12 @@ export function VoiceHud() {
                 motion={budget.motion}
                 signal={fx ? null : liveVoiceSignal}
                 onRepeat={repeatReply}
+                interruptedAt={interruptedAt}
+                followUp={fx ? null : followUp}
+                onReactorPointerDown={(e) => {
+                  // A click on the circle while it speaks silences it (barge-in).
+                  if (e.button === 0 && speaking) hushSpeech();
+                }}
               />
               <div className="vx-hud__privacy">
                 <Lock size={11} />

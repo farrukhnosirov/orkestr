@@ -1,7 +1,7 @@
-/** VoiceConfig fields added by ADR-0046, with their defaults (test fixtures). */
+/** VoiceConfig fields added by ADR-0046 / ADR-0053, with their defaults (test fixtures). */
 import type { VoiceConfig } from "@orkestr/protocol";
 
-export const VOICE_ENGINE_DEFAULTS: Pick<VoiceConfig, "sttFallback" | "ttsFallback" | "sttByLanguage" | "ttsByLanguage" | "sttConsents" | "ttsConsents" | "engines"> = {
+export const VOICE_ENGINE_DEFAULTS: Pick<VoiceConfig, "sttFallback" | "ttsFallback" | "sttByLanguage" | "ttsByLanguage" | "sttConsents" | "ttsConsents" | "engines" | "barge" | "followUp"> = {
   sttFallback: [],
   ttsFallback: [],
   sttByLanguage: {},
@@ -27,4 +27,12 @@ export const VOICE_ENGINE_DEFAULTS: Pick<VoiceConfig, "sttFallback" | "ttsFallba
     elevenlabsVoice: "21m00Tcm4TlvDq8ikWAM",
     elevenlabsModel: "eleven_multilingual_v2",
   },
+  barge: {
+    enabled: true,
+    hardPhrases: ["стоп", "хватит", "прекрати", "отмена", "перестань", "достаточно", "не надо", "stop", "enough", "cancel"],
+    softPhrases: ["окей", "ок", "тихо", "тишина", "замолчи", "заткнись", "помолчи", "всё", "shut up", "quiet"],
+    softCancelsActions: false,
+    sensitivity: 50,
+  },
+  followUp: { enabled: true, windowSecs: 8, chimeOnClose: true },
 };

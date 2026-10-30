@@ -62,7 +62,10 @@ pub fn register(router: &mut RpcRouter) {
         .method::<m::DownloadModel, _, _>(download_model)
         .method::<m::CancelDownload, _, _>(cancel_download)
         .method::<m::RemoveModel, _, _>(remove_model)
-        .method::<m::VerifyModel, _, _>(verify_model);
+        .method::<m::VerifyModel, _, _>(verify_model)
+        .method::<m::BargeStart, _, _>(barge_start)
+        .method::<m::BargeFeed, _, _>(barge_feed)
+        .method::<m::BargeStop, _, _>(barge_stop);
 }
 
 /// Serializes read-modify-write cycles of the voice document.
@@ -703,6 +706,58 @@ async fn remove_model(ctx: RpcContext, p: VoicePackageParams) -> Result<VoiceMod
 
 async fn verify_model(ctx: RpcContext, p: VoicePackageParams) -> Result<VoiceVerifyResult, RpcError> {
     ctx.services.voice.models().verify(&p.id).await.map_err(models_err)
+}
+
+// --- barge-in (ADR-0053) ------------------------------------------------------
+
+/// Max PCM per `voice.bargeFeed` call: 2 s of 16 kHz 16-bit mono.
+const MAX_BARGE_CHUNK_BYTES: usize = 2 * 16_000 * 2;
+
+fn barge_id(s: &str) -> Result<u64, RpcError> {
+    s.strip_prefix("barge-")
+        .and_then(|n| n.parse().ok())
+        .ok_or_else(|| RpcError::bad_request("unknown barge-in session"))
+}
+
+async fn barge_start(ctx: RpcContext, _p: m::BargeStartParams) -> Result<m::BargeStartResult, RpcError> {
+    let config = load(&ctx).await?;
+    let none = |reason: &str| m::BargeStartResult { session_id: None, engine: None, reason: Some(reason.to_owned()) };
+    if !config.enabled || !config.barge.enabled {
+        return Ok(none("disabled"));
+    }
+    let language = Some(config.language.clone()).filter(|l| l != "auto");
+    match ctx.services.voice.barge_open(&config.barge, &config.engines, language.as_deref()).await {
+        Ok(Some((id, engine))) => {
+            Ok(m::BargeStartResult { session_id: Some(format!("barge-{id}")), engine: Some(engine), reason: None })
+        }
+        Ok(None) => Ok(none("noEngine")),
+        Err(e) => {
+            tracing::warn!(error = %e, "barge-in could not start");
+            Ok(none("failed"))
+        }
+    }
+}
+
+async fn barge_feed(ctx: RpcContext, p: m::BargeFeedParams) -> Result<m::BargeFeedResult, RpcError> {
+    let started = std::time::Instant::now();
+    let id = barge_id(&p.session_id)?;
+    if p.pcm_base64.len() > MAX_BARGE_CHUNK_BYTES / 3 * 4 + 4 {
+        return Err(RpcError::bad_request("chunk is too large (max 2 s)"));
+    }
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(p.pcm_base64.as_bytes())
+        .map_err(|_| RpcError::bad_request("pcmBase64 is not valid base64"))?;
+    let pcm: Vec<i16> = bytes.as_chunks::<2>().0.iter().map(|b| i16::from_le_bytes(*b)).collect();
+    let spoken = p.spoken.as_deref().map(|s| s.chars().take(2000).collect::<String>());
+    let hit = ctx.services.voice.barge_feed(id, pcm, spoken.as_deref()).await.map_err(voice_error_to_rpc)?;
+    Ok(m::BargeFeedResult { hit, elapsed_ms: u32::try_from(started.elapsed().as_millis()).unwrap_or(u32::MAX) })
+}
+
+async fn barge_stop(ctx: RpcContext, p: m::BargeStopParams) -> Result<Empty, RpcError> {
+    if let Ok(id) = barge_id(&p.session_id) {
+        ctx.services.voice.barge_close(id);
+    }
+    Ok(Empty {})
 }
 
 fn is_code(s: &str, max: usize) -> bool {

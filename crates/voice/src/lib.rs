@@ -21,6 +21,7 @@
 #![warn(missing_docs)]
 
 pub mod audio;
+pub mod barge;
 pub mod catalog;
 pub mod cloud;
 pub mod local;
@@ -94,7 +95,29 @@ pub struct VoiceService {
     cloud: cloud::Cloud,
     vosk: Arc<local::VoskCache>,
     windows: Mutex<Option<local::WindowsSpeech>>,
+    barge: Mutex<BargeSessions>,
 }
+
+/// Open barge-in sessions (ADR-0053).
+#[derive(Default)]
+struct BargeSessions {
+    next: u64,
+    open: std::collections::HashMap<u64, BargeSession>,
+}
+
+struct BargeSession {
+    spotter: Arc<Mutex<barge::BargeSpotter>>,
+    at: std::time::Instant,
+    engines: VoiceEngineSettings,
+    language: Option<String>,
+}
+
+/// Max concurrent barge-in sessions (one per window that speaks; stale ones are dropped).
+const MAX_BARGE_SESSIONS: usize = 4;
+/// A session not fed for this long is closed.
+const BARGE_IDLE: std::time::Duration = std::time::Duration::from_secs(60);
+/// The Vosk model with a grammar-capable (dynamic) graph used for stop phrases.
+pub const BARGE_VOSK_MODEL: &str = "vosk-small-ru";
 
 impl std::fmt::Debug for VoiceService {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -116,6 +139,7 @@ impl VoiceService {
             cloud: cloud::Cloud { http, endpoints: cloud::Endpoints::default() },
             vosk: Arc::default(),
             windows: Mutex::new(None),
+            barge: Mutex::new(BargeSessions::default()),
         }
     }
 
@@ -173,6 +197,118 @@ impl VoiceService {
             SttEngine::GoogleCloud => self.cloud.google_stt(need_key()?, pcm, language).await,
             SttEngine::YandexSpeechKit => self.cloud.yandex_stt(need_key()?, s, pcm, language).await,
         }
+    }
+
+    /// Opens a barge-in session: a Vosk grammar recognizer when `vosk-small-ru`
+    /// is installed, else voiced windows for an installed offline engine
+    /// (whisper.cpp / sherpa-onnx). `Ok(None)` when nothing can spot phrases.
+    pub async fn barge_open(
+        &self,
+        cfg: &orkestr_protocol::methods::voice::BargeInConfig,
+        engines: &VoiceEngineSettings,
+        language: Option<&str>,
+    ) -> Result<Option<(u64, orkestr_protocol::methods::voice::BargeEngine)>, VoiceError> {
+        let phrases = barge::StopPhrases::from_config(cfg);
+        if phrases.is_empty() {
+            return Ok(None);
+        }
+        let vosk = self.models.installed_dir("vosk-runtime").zip(self.models.installed_dir(BARGE_VOSK_MODEL));
+        let rec = match vosk {
+            Some((runtime, model_dir)) => {
+                let cache = Arc::clone(&self.vosk);
+                let grammar = phrases.grammar(!BARGE_VOSK_MODEL.ends_with("-ru"));
+                let made = tokio::task::spawn_blocking(move || {
+                    let model = local::vosk_model_blocking(&cache, &runtime, &model_dir)?;
+                    let fail = |e: orkestr_platform::PlatformError| VoiceError::Failed(e.to_string());
+                    let stream = orkestr_platform::vosk::VoskStream::new(&model, audio::SAMPLE_RATE, Some(&grammar))
+                        .map_err(fail)?;
+                    Ok::<_, VoiceError>(barge::Recognizer::Vosk(stream))
+                })
+                .await
+                .map_err(|e| VoiceError::Failed(e.to_string()))?;
+                match made {
+                    Ok(rec) => Some(rec),
+                    Err(e) => {
+                        tracing::warn!(error = %e, "barge-in: Vosk grammar recognizer unavailable, using windows");
+                        None
+                    }
+                }
+            }
+            None => None,
+        };
+        let rec = match rec {
+            Some(r) => r,
+            None if self.barge_window_engine(engines).is_some() => barge::Recognizer::Window,
+            None => return Ok(None),
+        };
+        let spotter = barge::BargeSpotter::new(phrases, cfg.sensitivity, rec);
+        let engine = spotter.engine();
+        let mut g = self.barge.lock();
+        let now = std::time::Instant::now();
+        g.open.retain(|_, b| now.duration_since(b.at) < BARGE_IDLE);
+        while g.open.len() >= MAX_BARGE_SESSIONS {
+            let Some(oldest) = g.open.iter().min_by_key(|(_, b)| b.at).map(|(k, _)| *k) else { break };
+            g.open.remove(&oldest);
+        }
+        g.next += 1;
+        let id = g.next;
+        g.open.insert(
+            id,
+            BargeSession {
+                spotter: Arc::new(Mutex::new(spotter)),
+                at: now,
+                engines: engines.clone(),
+                language: language.map(str::to_owned),
+            },
+        );
+        Ok(Some((id, engine)))
+    }
+
+    /// The offline engine that transcribes fallback windows, if one is installed.
+    fn barge_window_engine(&self, s: &VoiceEngineSettings) -> Option<SttEngine> {
+        let m = &self.models;
+        if m.is_installed("whisper-runtime") && m.is_installed(&s.whisper_model) {
+            Some(SttEngine::WhisperCpp)
+        } else if m.is_installed("sherpa-runtime") && m.is_installed(&s.sherpa_model) {
+            Some(SttEngine::SherpaOnnx)
+        } else {
+            None
+        }
+    }
+
+    /// Feeds a chunk to a barge-in session. `Err(BadRequest)` for an unknown / expired session.
+    pub async fn barge_feed(
+        &self,
+        id: u64,
+        pcm: Vec<i16>,
+        spoken: Option<&str>,
+    ) -> Result<Option<orkestr_protocol::methods::voice::BargeHit>, VoiceError> {
+        let (session, engines, language) = {
+            let mut g = self.barge.lock();
+            let entry = g.open.get_mut(&id).ok_or_else(|| VoiceError::BadRequest("unknown barge-in session".into()))?;
+            entry.at = std::time::Instant::now();
+            (Arc::clone(&entry.spotter), entry.engines.clone(), entry.language.clone())
+        };
+        // Vosk decoding of ~100 ms takes a few ms: run it off the async workers.
+        let spoken_owned = spoken.map(str::to_owned);
+        let feeder = Arc::clone(&session);
+        let out = tokio::task::spawn_blocking(move || feeder.lock().feed(&pcm, spoken_owned.as_deref()))
+            .await
+            .map_err(|e| VoiceError::Failed(e.to_string()))?;
+        if out.hit.is_some() {
+            return Ok(out.hit);
+        }
+        let Some(window) = out.window else { return Ok(None) };
+        let Some(engine) = self.barge_window_engine(&engines) else { return Ok(None) };
+        let text =
+            self.transcribe(engine, &engines, None, &audio::Pcm { samples: window }, language.as_deref()).await?;
+        let hit = session.lock().classify_text(&text, spoken);
+        Ok(hit)
+    }
+
+    /// Closes a barge-in session (unknown ids are ignored).
+    pub fn barge_close(&self, id: u64) {
+        self.barge.lock().open.remove(&id);
     }
 
     /// Synthesizes `text` with exactly `engine`. `voice` overrides the

@@ -15,7 +15,8 @@
       "command": "Listening",
       "wake": "Wake word",
       "enroll": "Recording",
-      "meter": "Mic test"
+      "meter": "Mic test",
+      "barge": "Stop phrases"
     }
   },
   "hud": {
@@ -218,7 +219,8 @@
       "cloud": "Cloud speech provider",
       "agents": "Agent voices",
       "engines": "Speech engines",
-      "models": "Voice models"
+      "models": "Voice models",
+      "conversation": "Conversation"
     },
     "general": {
       "enabled": "Voice commands",
@@ -497,6 +499,32 @@
         "SttModel": "Recognition model",
         "TtsVoice": "Voice"
       }
+    },
+    "barge": {
+      "enabled": "Interrupt by voice",
+      "enabledDesc": "While the assistant speaks or works, say a stop phrase — no wake word needed. Spotted on this device by the offline Vosk model (Settings → Voice → Models: “Vosk small Russian”); audio never leaves the computer.",
+      "hard": "Stop phrases",
+      "hardDesc": "Silence speech and cancel the reply, the AI request or the running action (one per line or comma-separated).",
+      "soft": "Silence phrases",
+      "softDesc": "Only silence speech; a running action goes on.",
+      "softMode": "What “okay” / “quiet” do",
+      "softModeDesc": "Silence phrases can also cancel the running action.",
+      "softModes": {
+        "silence": "Only silence speech",
+        "cancel": "Silence and cancel the action"
+      },
+      "sensitivity": "Sensitivity",
+      "sensitivityDesc": "Higher accepts quieter and shorter phrases (more accidental stops)."
+    },
+    "followUp": {
+      "enabled": "Continue the conversation without the wake word",
+      "enabledDesc": "After a reply the assistant keeps listening for a few seconds, so you can just go on talking. Silence, “thanks, that's all” or a stop phrase end the conversation.",
+      "window": "Follow-up window",
+      "windowDesc": "How long to wait for you to start speaking. While you speak, it waits until you finish.",
+      "seconds_one": "{{count}} s",
+      "seconds_other": "{{count}} s",
+      "chime": "Chime when the conversation ends",
+      "chimeDesc": "A soft sound when the follow-up window closes in silence."
     }
   },
   "sound": {

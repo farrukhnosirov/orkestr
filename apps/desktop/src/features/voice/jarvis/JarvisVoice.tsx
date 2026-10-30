@@ -67,6 +67,10 @@ export interface JarvisVoiceProps {
   onConfirm?: (yes: boolean) => void;
   /** Pointer down on the reactor (window drag). */
   onReactorPointerDown?: (e: ReactPointerEvent) => void;
+  /** Last barge-in (epoch ms): the circle plays the "interrupted" animation. */
+  interruptedAt?: number | null;
+  /** Follow-up window (epoch ms): thin countdown ring + status. */
+  followUp?: { until: number; ms: number } | null;
 }
 
 /** Words that fade in as they arrive. */
@@ -151,13 +155,13 @@ export function JarvisVoice(props: JarvisVoiceProps) {
 
   const listening = state === "listening" || state === "wake";
   const heard = listening ? partialText : finalText || partialText;
-  const status = t(statusKey(state, phase));
+  const status = props.followUp && (state === "listening" || state === "wake") ? t("status.followUp") : t(statusKey(state, phase));
   const replyShown = replyText.slice(0, typed);
   const typing = typed < replyText.length;
 
   const reactor = (
     <div className="jv__reactor" style={{ width: size, height: size }} onPointerDown={props.onReactorPointerDown}>
-      <JarvisReactor state={state} level={level} size={size} fps={fps} signal={signal} themeKey={themeKey ?? ""} accent={accent} />
+      <JarvisReactor state={state} level={level} size={size} fps={fps} signal={signal} themeKey={themeKey ?? ""} accent={accent} interruptedAt={props.interruptedAt ?? null} followUp={props.followUp ?? null} />
     </div>
   );
 

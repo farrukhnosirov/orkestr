@@ -8,8 +8,16 @@
  * engine, or (c) enrollment / the level meter in Settings. The mic indicator
  * in the title bar shows every open purpose. Audio buffers are dropped right
  * after recognition; only transcripts are logged (`voice.recordCommand`).
+ *
+ * Barge-in and continuous conversation (ADR-0053): while the assistant
+ * speaks or works, the same microphone feeds the core's stop-phrase spotter
+ * (`barge/spotter.ts`); «стоп» / «хватит» silence speech and cancel the
+ * reply or action, «окей» / «тихо» only silence speech, then a short window
+ * listens for the next command. After a reply the assistant re-opens
+ * listening without the wake word for the follow-up window; silence, «спасибо,
+ * всё» or a stop phrase end the conversation quietly.
  */
-import type { Event, VoiceCommandSource } from "@orkestr/protocol";
+import type { BargeHit, Event, StopKind, VoiceCommandSource } from "@orkestr/protocol";
 import { topic } from "@orkestr/protocol";
 
 import { maybeClient } from "../../core/client";
@@ -33,6 +41,12 @@ import { speakable } from "./pipeline/summary";
 import { type MicPurpose, useVoiceStore } from "./store";
 import { engineNeedsPcm, SttError, type SttSession, startStt, webSpeechAvailable } from "./stt/engines";
 import { speak, speechLang, stopSpeaking } from "./tts/speaker";
+import { stopAssistant } from "../assistant/api";
+import { useAssistantStore } from "../assistant/store";
+import { stopCursor, useCursorStore } from "../cursor/store";
+import { jarvisSession } from "../jarvis/session";
+import { classifyStop, isConversationEnd, isEchoOf, splitLeadingStop } from "./barge/phrases";
+import { type BargeTransport, BargeSpotterClient } from "./barge/spotter";
 import { segmentFrames } from "./wake/segmenter";
 import { loadTemplates as loadWakeTemplates, WakeSpotter } from "./wake/spotter";
 
@@ -151,6 +165,25 @@ let starting = false;
 let pending: Intent | null = null;
 let dismissTimer: number | null = null;
 let managerWatch: (() => void) | null = null;
+/** The capture in progress is a follow-up window (no wake word): silence closes it quietly. */
+let followUpCapture = false;
+/** Turn counter: a turn interrupted by a hard stop phrase must not speak or show its late result. */
+let turnSeq = 0;
+/** Speech of the current turn was silenced (barge-in): later sentences are dropped. */
+let hushed = false;
+/** `say()` calls in progress. */
+let speechDepth = 0;
+/** What the assistant is saying now / said last (self-echo protection). */
+let currentSpoken: string | null = null;
+let lastSpoken = "";
+/** A reply finished: re-open listening for a follow-up once speech is over. */
+let followUpArmed = false;
+let followUpTimer: number | null = null;
+
+/** Pause between the end of the assistant's speech and the follow-up window (room echo tail). */
+export const FOLLOW_UP_DELAY_MS = 300;
+/** Listening window after a stop phrase («стоп, открой ютуб»). */
+export const AFTER_STOP_MS = 5000;
 
 function clearDismiss(): void {
   if (dismissTimer !== null) window.clearTimeout(dismissTimer);
@@ -181,14 +214,29 @@ export function sttReady(): boolean {
   return true;
 }
 
-/** Push-to-talk pressed / HUD mic clicked / wake word heard. */
-export async function startListening(source: VoiceCommandSource): Promise<void> {
+export interface ListenOptions {
+  /** A follow-up window (no wake word): close quietly when nothing is said for this long, ms. */
+  followUpMs?: number;
+  /** Audio captured just before (barge-in pre-roll). */
+  preroll?: readonly Float32Array[];
+}
+
+/** Push-to-talk pressed / HUD mic clicked / wake word heard / follow-up window. */
+export async function startListening(source: VoiceCommandSource, opts: ListenOptions = {}): Promise<void> {
   const s = useVoiceStore.getState();
   const c = s.config;
   if (!c?.enabled) return;
-  if (isBusy(s.phase) || session) return;
+  if (session) return;
+  // Push-to-talk / the wake word while the assistant works: interrupt it and take the new command.
+  if (isBusy(s.phase)) {
+    if (s.phase !== "thinking" || source === "Typed" || !bargeEnabled()) return;
+    interrupt("Hard", { listen: false });
+  }
   clearDismiss();
+  clearFollowUp();
+  stopBarge();
   stopSpeaking();
+  hushed = false;
   if (!sttReady()) {
     // No recognition: open the HUD for a typed command.
     s.setHudOpen(true);
@@ -198,8 +246,15 @@ export async function startListening(source: VoiceCommandSource): Promise<void> 
     return;
   }
   if (!emit({ type: "listen" })) return;
-  s.setRuntime({ source, transcript: "", reply: pending ? s.reply : null });
-  if (source !== "WakeWord") playSound("listenStart");
+  const follow = opts.followUpMs !== undefined;
+  followUpCapture = follow;
+  s.setRuntime({
+    source,
+    transcript: "",
+    reply: pending ? s.reply : null,
+    followUp: follow ? { until: Date.now() + (opts.followUpMs ?? 0), ms: opts.followUpMs ?? 0 } : null,
+  });
+  if (source !== "WakeWord" && !follow) playSound("listenStart");
   const gen = ++startGen;
   starting = true;
   try {
@@ -212,10 +267,19 @@ export async function startListening(source: VoiceCommandSource): Promise<void> 
       return;
     }
     if (!needPcm) useVoiceStore.getState().micOn("command");
-    session = startStt({ engine: c.sttEngine, lang: lang(), mic: m, autoEnd: source === "WakeWord" });
+    session = startStt({
+      engine: c.sttEngine,
+      lang: lang(),
+      mic: m,
+      autoEnd: source === "WakeWord" || follow,
+      ...(follow ? { noSpeechMs: opts.followUpMs } : {}),
+      ...(opts.preroll?.length ? { preroll: opts.preroll } : {}),
+    });
     sessionSource = source;
     session.onInterim((text) => useVoiceStore.getState().setRuntime({ transcript: text }));
     session.onAutoEnd(() => void stopListening());
+    // The user started talking: the follow-up window extends until they finish.
+    session.onSpeech?.(() => useVoiceStore.getState().setRuntime({ followUp: null }));
   } catch (e) {
     releaseMic("command");
     session = null;
@@ -265,6 +329,9 @@ export async function stopListening(): Promise<void> {
   }
   session = null;
   const source = sessionSource ?? "PushToTalk";
+  const follow = followUpCapture;
+  followUpCapture = false;
+  useVoiceStore.getState().setRuntime({ followUp: null });
   if (!emit({ type: "speechEnd" })) {
     sess.cancel();
     releaseMic("command");
@@ -276,10 +343,16 @@ export async function stopListening(): Promise<void> {
     text = await sess.finish();
   } catch (e) {
     releaseMic("command");
+    if (follow && e instanceof SttError && e.code === "noSpeech") return closeConversation();
     fail(e instanceof SttError ? sttErrorText(e) : describeError(e));
     return;
   }
   releaseMic("command");
+  if (follow) {
+    const next = followUpText(text);
+    if (next === null) return closeConversation();
+    text = next;
+  }
   if (!text) {
     fail(t("voice:errors.noSpeech"));
     return;
@@ -296,11 +369,14 @@ export function cancelVoice(): void {
   session?.cancel();
   session = null;
   pending = null;
+  followUpCapture = false;
+  followUpArmed = false;
+  clearFollowUp();
   releaseMic("command");
   stopSpeaking();
   clearDismiss();
   emit({ type: "cancel" });
-  useVoiceStore.getState().setRuntime({ confirmText: null, transcript: "", reply: null });
+  useVoiceStore.getState().setRuntime({ confirmText: null, transcript: "", reply: null, followUp: null });
 }
 
 /** A typed command from the HUD. */
@@ -308,7 +384,9 @@ export async function submitTyped(text: string): Promise<void> {
   const clean = text.trim();
   if (!clean) return;
   clearDismiss();
+  clearFollowUp();
   stopSpeaking();
+  hushed = false;
   if (!emit({ type: "typed", text: clean })) return;
   useVoiceStore.getState().setRuntime({ source: "Typed", transcript: clean, reply: null });
   await handleText(clean, "Typed");
@@ -351,6 +429,8 @@ export function installVoiceDebugHook(): () => void {
       /** Same path as a detected wake word (sound + command capture). */
       simulateWake: () => onWake(),
       cancel: () => cancelVoice(),
+      /** Same path as a spotted stop phrase (`Hard` / `Soft`). */
+      simulateStop: (kind: StopKind = "Hard") => interrupt(kind),
       state: () => {
         const s = useVoiceStore.getState();
         return {
@@ -361,6 +441,9 @@ export function installVoiceDebugHook(): () => void {
           speaking: s.speaking,
           hudOpen: s.hudOpen,
           wakeStatus: s.wakeStatus,
+          followUp: s.followUp,
+          interruptedAt: s.interruptedAt,
+          barge: barge?.engine ?? null,
           mic: [...s.mic],
           micTicks,
           hidden: document.hidden,
@@ -414,6 +497,8 @@ async function intentContext() {
 
 async function handleText(text: string, source: VoiceCommandSource): Promise<void> {
   const s = useVoiceStore.getState();
+  const turn = ++turnSeq;
+  hushed = false;
   // An answer to a pending confirmation?
   if (pending) {
     const answer = parseConfirmation(text, wakePhrases());
@@ -441,6 +526,7 @@ async function handleText(text: string, source: VoiceCommandSource): Promise<voi
       if (partial) useVoiceStore.getState().setRuntime({ reply: { text: partial, tone: "info", outcome: "ok" } });
     },
   }).catch(() => null);
+  if (turn !== turnSeq) return; // interrupted by a stop phrase while it ran
   if (viaAssistant) {
     finish(intent, assistantResult(viaAssistant), source);
     for (const extra of viaAssistant.speak) void say(extra);
@@ -457,7 +543,9 @@ async function handleText(text: string, source: VoiceCommandSource): Promise<voi
     emit({ type: "needsConfirm" });
     s.setRuntime({ confirmText: prompt, reply: null });
     playSound("approval");
+    if (source !== "Typed") followUpArmed = true; // the spoken answer needs no wake word
     void say(`${prompt} ${t("voice:confirm.sayYesNo")}`);
+    if (speechDepth === 0) scheduleFollowUp();
     void record(text, intent, "needsConfirmation", source, null);
     return;
   }
@@ -465,12 +553,14 @@ async function handleText(text: string, source: VoiceCommandSource): Promise<voi
 }
 
 async function run(intent: Intent, source: VoiceCommandSource): Promise<void> {
+  const turn = turnSeq;
   let r: CommandResult;
   try {
     r = await executeIntent(intent, getDeps());
   } catch (e) {
     r = { outcome: "failed", reply: t("voice:reply.failed", { error: describeError(e) }), tone: "error", projectId: null };
   }
+  if (turn !== turnSeq) return;
   finish(intent, r, source);
 }
 
@@ -493,6 +583,11 @@ function finish(intent: Intent, r: CommandResult, source: VoiceCommandSource): v
   // An offered next step ("Show the errors?"): a spoken "yes" runs it.
   if (r.followUp) pending = r.followUp;
   scheduleDismiss(r.managerReply ? 60_000 : r.followUp ? 15_000 : 9000);
+  // Continuous conversation: listen for the next utterance once the reply was spoken.
+  if (source !== "Typed" && r.outcome !== "cancelled") {
+    followUpArmed = true;
+    if (speechDepth === 0) scheduleFollowUp();
+  }
 }
 
 /** Says the current reply again (Jarvis card "Repeat"). Keeps the card open while it speaks. */
@@ -508,13 +603,253 @@ export function repeatReply(): void {
 export async function say(text: string): Promise<void> {
   const c = useVoiceStore.getState().config;
   const opts = assistantOptions();
-  if (!c?.spokenReplies || !opts) return;
+  if (!c?.spokenReplies || !opts || hushed) return;
+  const line = speakable(text, 260);
+  speechDepth += 1;
+  currentSpoken = line;
+  lastSpoken = line;
   useVoiceStore.getState().setRuntime({ speaking: true });
   try {
-    await speak(speakable(text, 260), opts);
+    await speak(line, opts);
   } finally {
-    useVoiceStore.getState().setRuntime({ speaking: false });
+    speechDepth = Math.max(0, speechDepth - 1);
+    if (speechDepth === 0) {
+      currentSpoken = null;
+      useVoiceStore.getState().setRuntime({ speaking: false });
+      scheduleFollowUp();
+    }
   }
+}
+
+// ---------------------------------------------------------------------------
+// Barge-in (ADR-0053).
+// ---------------------------------------------------------------------------
+
+/** What barge-in may cancel (test seam). */
+export interface BargeActions {
+  /** Stops the AI reply being streamed. */
+  cancelReply: () => Promise<void>;
+  /** A computer command (multi-step) is running. */
+  assistantBusy: () => boolean;
+  stopAssistant: () => Promise<void>;
+  /** Cursor capture mode is running. */
+  cursorActive: () => boolean;
+  stopCursor: () => Promise<void>;
+}
+
+const realBargeActions: BargeActions = {
+  cancelReply: () => jarvisSession.cancel(),
+  assistantBusy: () => useAssistantStore.getState().busy,
+  stopAssistant: () => stopAssistant(),
+  cursorActive: () => useCursorStore.getState().active,
+  stopCursor: async () => {
+    await stopCursor();
+  },
+};
+let bargeActions: BargeActions = realBargeActions;
+
+function coreBargeTransport(): BargeTransport {
+  return {
+    start: async () => {
+      const client = maybeClient();
+      if (!client) return { sessionId: null, engine: null, reason: "offline" };
+      return client.call("voice.bargeStart", {});
+    },
+    feed: async (sessionId, pcmBase64, spoken) => {
+      const client = maybeClient();
+      if (!client) throw new Error("offline");
+      return client.call("voice.bargeFeed", { sessionId, pcmBase64, ...(spoken ? { spoken } : {}) });
+    },
+    stop: async (sessionId) => {
+      await maybeClient()?.call("voice.bargeStop", { sessionId });
+    },
+  };
+}
+let bargeTransport: BargeTransport | null = null;
+
+/** Test seams. */
+export function setBargeTransport(t: BargeTransport | null): void {
+  bargeTransport = t;
+}
+export function setBargeActions(a: BargeActions | null): void {
+  bargeActions = a ?? realBargeActions;
+}
+
+let barge: BargeSpotterClient | null = null;
+let bargeGen = 0;
+/** A start in flight (opening the mic / the core session). */
+let bargeStarting = false;
+/** No offline engine could spot phrases: do not retry before this time (epoch ms). */
+let bargeRetryAt = 0;
+
+function bargeEnabled(): boolean {
+  const c = useVoiceStore.getState().config;
+  return !!c?.enabled && !!c.barge?.enabled;
+}
+
+/** Whether the spotter should run now: the assistant speaks, works, or controls the cursor. */
+export function bargeWanted(): boolean {
+  if (!bargeEnabled()) return false;
+  const s = useVoiceStore.getState();
+  if (s.phase === "listening" || s.phase === "transcribing" || session || s.mic.includes("enroll")) return false;
+  return s.speaking || s.phase === "thinking" || bargeActions.cursorActive();
+}
+
+/** Starts or stops the stop-phrase spotter to match the state. Idempotent. */
+export async function syncBarge(): Promise<void> {
+  const want = bargeWanted();
+  if (!want) {
+    stopBarge();
+    return;
+  }
+  if (barge?.running || bargeStarting || Date.now() < bargeRetryAt) return;
+  const gen = ++bargeGen;
+  barge = null;
+  bargeStarting = true;
+  try {
+    const m = await openMic("barge");
+    if (gen !== bargeGen || !bargeWanted()) {
+      if (gen === bargeGen) releaseMic("barge");
+      return;
+    }
+    const client = await BargeSpotterClient.start({
+      transport: bargeTransport ?? coreBargeTransport(),
+      mic: m,
+      spoken: () => currentSpoken,
+      onHit: (hit, preroll) => onBargeHit(hit, preroll),
+      // A command capture that started meanwhile keeps recording.
+      releaseRecording: () => {
+        if (!session) m.setRecording(false);
+      },
+    });
+    if (!client) {
+      bargeRetryAt = Date.now() + 30_000;
+      if (gen === bargeGen) releaseMic("barge");
+      return;
+    }
+    if (gen !== bargeGen || !bargeWanted()) {
+      client.stop();
+      if (gen === bargeGen) releaseMic("barge");
+      return;
+    }
+    barge = client;
+  } catch {
+    if (gen === bargeGen) releaseMic("barge");
+    bargeRetryAt = Date.now() + 30_000;
+  } finally {
+    if (gen === bargeGen) bargeStarting = false;
+  }
+}
+
+function stopBarge(): void {
+  bargeGen += 1;
+  bargeStarting = false;
+  const b = barge;
+  barge = null;
+  b?.stop();
+  if (useVoiceStore.getState().mic.includes("barge")) releaseMic("barge");
+}
+
+function onBargeHit(hit: BargeHit, preroll: Float32Array[]): void {
+  barge = null;
+  releaseMic("barge");
+  // Final self-echo guard on the client (the core checks the sentence being spoken too).
+  const c = useVoiceStore.getState().config;
+  if (c && classifyStop(hit.heard, c.barge, currentSpoken) === null && classifyStop(hit.phrase, c.barge, currentSpoken) === null) return;
+  interrupt(hit.kind, { preroll });
+}
+
+/**
+ * Interrupts the assistant: silences speech at once; a hard stop (or a soft
+ * one with "soft phrases cancel actions") also cancels the streamed reply,
+ * the running computer command and cursor control. Nothing is said
+ * («Слушаю, сэр.» is not spoken); the circle plays the "interrupted"
+ * animation and listens for the next command for a few seconds.
+ */
+export function interrupt(kind: StopKind, o: { listen?: boolean; preroll?: readonly Float32Array[] } = {}): void {
+  const s = useVoiceStore.getState();
+  const c = s.config;
+  stopBarge();
+  clearFollowUp();
+  followUpArmed = false;
+  hushed = true;
+  stopSpeaking();
+  speechDepth = 0;
+  currentSpoken = null;
+  const cancelActions = kind === "Hard" || !!c?.barge.softCancelsActions;
+  const cursor = bargeActions.cursorActive();
+  if (cursor) void bargeActions.stopCursor().catch(() => undefined);
+  if (cancelActions) {
+    turnSeq += 1; // the turn in flight neither speaks nor shows its late result
+    void bargeActions.cancelReply().catch(() => undefined);
+    if (bargeActions.assistantBusy()) void bargeActions.stopAssistant().catch(() => undefined);
+    pending = null;
+    if (s.phase === "thinking" || s.phase === "confirm") emit({ type: "cancel" });
+    s.setRuntime({ confirmText: null });
+  }
+  s.setRuntime({ speaking: false, interruptedAt: Date.now() });
+  const listen = o.listen ?? true;
+  if (listen && !isBusy(useVoiceStore.getState().phase) && sttReady()) {
+    void startListening("WakeWord", { followUpMs: AFTER_STOP_MS, ...(o.preroll ? { preroll: o.preroll } : {}) });
+  }
+}
+
+/** Esc / a click on the circle while it speaks: silence speech only (a running action goes on). */
+export function hushSpeech(): void {
+  if (!useVoiceStore.getState().speaking) return;
+  interrupt("Soft", { listen: false });
+}
+
+// ---------------------------------------------------------------------------
+// Continuous conversation (ADR-0053).
+// ---------------------------------------------------------------------------
+
+function clearFollowUp(): void {
+  if (followUpTimer !== null) window.clearTimeout(followUpTimer);
+  followUpTimer = null;
+}
+
+/** After a reply: re-open listening (no wake word) for the follow-up window. */
+function scheduleFollowUp(): void {
+  if (!followUpArmed || speechDepth > 0) return;
+  followUpArmed = false;
+  const c = useVoiceStore.getState().config;
+  if (!c?.followUp?.enabled || !sttReady()) return;
+  clearFollowUp();
+  followUpTimer = window.setTimeout(() => {
+    followUpTimer = null;
+    const s = useVoiceStore.getState();
+    if ((s.phase !== "result" && s.phase !== "confirm") || s.speaking || session) return;
+    void startListening("WakeWord", { followUpMs: c.followUp.windowSecs * 1000 });
+  }, FOLLOW_UP_DELAY_MS);
+}
+
+/**
+ * A follow-up utterance: `null` ends the conversation (a stop phrase alone,
+ * «спасибо, всё», the assistant's own echo), otherwise the command to run
+ * («стоп, открой ютуб» → «открой ютуб»).
+ */
+export function followUpText(text: string): string | null {
+  const c = useVoiceStore.getState().config;
+  const clean = text.trim();
+  if (!clean) return null;
+  if (isEchoOf(clean, lastSpoken)) return null;
+  if (isConversationEnd(clean)) return null;
+  if (c) {
+    const lead = splitLeadingStop(clean, c.barge);
+    if (lead) return lead.rest && !isConversationEnd(lead.rest) ? lead.rest : null;
+    if (classifyStop(clean, c.barge)) return null;
+  }
+  return clean;
+}
+
+/** Silence / an ending in the follow-up window: close without a word. */
+function closeConversation(): void {
+  const s = useVoiceStore.getState();
+  emit({ type: "cancel" });
+  pending = null;
+  s.setRuntime({ followUp: null, confirmText: null, transcript: "", reply: null });
+  if (s.config?.followUp.chimeOnClose) playSound("listenEnd");
 }
 
 async function record(transcript: string, intent: Intent, outcome: string, source: VoiceCommandSource, projectId: string | null): Promise<void> {
@@ -631,8 +966,10 @@ async function startWake(gen: number, cpuBudgetPct: number): Promise<void> {
     const unsub = m.subscribe((msg) => {
       if (msg.type !== "segment" || !spotter) return;
       const st = useVoiceStore.getState();
-      // While a command is captured/processed, or during enrollment, segments are not wake candidates.
-      if (st.phase === "listening" || isBusy(st.phase) || st.mic.includes("enroll")) return;
+      // While a command is captured/recognized, or during enrollment, segments are not wake candidates.
+      // While the assistant works (thinking), the wake word interrupts it (barge-in) and starts a new command.
+      if (st.phase === "listening" || st.phase === "transcribing" || st.mic.includes("enroll")) return;
+      if (st.phase === "thinking" && !bargeEnabled()) return;
       const hit = spotter.detect(segmentFrames(msg), Date.now(), msg.early);
       if (hit) onWake();
     });
@@ -686,6 +1023,7 @@ function onWake(): void {
 /** Stops everything (core disconnect / unmount). */
 export function shutdownVoice(): void {
   cancelVoice();
+  stopBarge();
   stopWake();
   wakeKey = "";
   // Supersede a start still opening the mic: it releases its claim when it lands.
@@ -694,4 +1032,24 @@ export function shutdownVoice(): void {
   managerWatch?.();
   closeMic();
   useVoiceStore.getState().setRuntime({ wakeStatus: "off" });
+}
+
+/**
+ * Keeps the barge-in spotter in sync with the voice state (speaking /
+ * thinking) and cursor control. Returns the unsubscribe function.
+ */
+export function installBargeWatcher(): () => void {
+  const sync = () => void syncBarge();
+  const offVoice = useVoiceStore.subscribe((st, prev) => {
+    if (st.speaking !== prev.speaking || st.phase !== prev.phase || st.config !== prev.config || st.mic !== prev.mic) sync();
+  });
+  const offCursor = useCursorStore.subscribe((st, prev) => {
+    if (st.active !== prev.active || st.status !== prev.status) sync();
+  });
+  sync();
+  return () => {
+    offVoice();
+    offCursor();
+    stopBarge();
+  };
 }

@@ -34,6 +34,11 @@ import type { ArchMapResult } from "./ArchMapResult";
 import type { ArchRefreshParams } from "./ArchRefreshParams";
 import type { ArchRefreshResult } from "./ArchRefreshResult";
 import type { AssignTeamParams } from "./AssignTeamParams";
+import type { BargeFeedParams } from "./BargeFeedParams";
+import type { BargeFeedResult } from "./BargeFeedResult";
+import type { BargeStartParams } from "./BargeStartParams";
+import type { BargeStartResult } from "./BargeStartResult";
+import type { BargeStopParams } from "./BargeStopParams";
 import type { BenchmarkRecordsParams } from "./BenchmarkRecordsParams";
 import type { BenchmarkRecordsResult } from "./BenchmarkRecordsResult";
 import type { BlobGetParams } from "./BlobGetParams";
@@ -961,6 +966,9 @@ export type Methods = {
   "voice.downloadModel": [VoicePackageParams, VoiceModelsResult];
   "voice.cancelDownload": [VoicePackageParams, VoiceModelsResult];
   "voice.removeModel": [VoicePackageParams, VoiceModelsResult];
+  "voice.bargeStart": [BargeStartParams, BargeStartResult];
+  "voice.bargeFeed": [BargeFeedParams, BargeFeedResult];
+  "voice.bargeStop": [BargeStopParams, Empty];
   "voice.verifyModel": [VoicePackageParams, VoiceVerifyResult];
   "vscode.status": [Empty, VsCodeStatus];
   "vscode.checkUpdate": [Empty, VsCodeRelease];
@@ -1467,6 +1475,9 @@ export const METHOD_NAMES = [
   "voice.downloadModel",
   "voice.cancelDownload",
   "voice.removeModel",
+  "voice.bargeStart",
+  "voice.bargeFeed",
+  "voice.bargeStop",
   "voice.verifyModel",
   "vscode.status",
   "vscode.checkUpdate",
