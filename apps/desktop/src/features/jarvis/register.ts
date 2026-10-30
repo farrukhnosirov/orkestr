@@ -8,6 +8,7 @@ import { useEffect } from "react";
 
 import { t } from "../../i18n";
 import { useAssistantStore } from "../assistant/store";
+import { useBootStore } from "../boot/store";
 import { commands } from "../commands/registry";
 import { settingsSections } from "../settings/sections";
 import { useSettingsStore } from "../settings/settingsStore";
@@ -82,21 +83,29 @@ export function registerJarvisFeature(): void {
   );
 }
 
-/** Greets once the voice settings are known (spoken replies on / off). */
+/**
+ * Greets once the voice settings are known (spoken replies on / off) and the
+ * startup animation is over (ADR-0053: when it spoke its own greeting, the
+ * greeting of the day counts as given).
+ */
 function greetOnStart(): () => void {
   let done = false;
   const tryGreet = () => {
-    if (done || !useVoiceStore.getState().config) return;
+    if (done || !useVoiceStore.getState().config || !useBootStore.getState().finished) return;
     done = true;
     const text = dailyGreeting();
-    if (!text) return;
+    if (!text || useBootStore.getState().spokeGreeting) return;
     useAssistantStore.getState().patch({ reply: { text, tone: "info" } });
     useJarvisStore.getState().patch({ lastReply: text });
     void say(text);
   };
   const off = useVoiceStore.subscribe(tryGreet);
+  const offBoot = useBootStore.subscribe(tryGreet);
   tryGreet();
-  return off;
+  return () => {
+    off();
+    offBoot();
+  };
 }
 
 /** Mount once in the app shell (after the core connection is ready). */

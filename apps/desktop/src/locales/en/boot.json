@@ -1,0 +1,54 @@
+{
+  "title": "ORKESTR · v{{version}}",
+  "steps": {
+    "core": "Initializing core…",
+    "providers": "Connecting AI sources…",
+    "voice": "Voice module…",
+    "nodes": "Compute nodes…",
+    "plugins": "Loading plugins…"
+  },
+  "status": {
+    "ok": "OK",
+    "pending": "··",
+    "skipped": "—",
+    "error": "ERR"
+  },
+  "allOnline": "All systems nominal",
+  "waiting": "Bringing systems online…",
+  "welcome": "Welcome{{addr}}.",
+  "subtitle": {
+    "morning": "Good morning · {{time}} · {{date}}",
+    "day": "Good afternoon · {{time}} · {{date}}",
+    "evening": "Good evening · {{time}} · {{date}}",
+    "night": "Good night · {{time}} · {{date}}"
+  },
+  "spoken": {
+    "morning": "Good morning{{addr}}. All systems are online.",
+    "day": "Good afternoon{{addr}}. All systems are online.",
+    "evening": "Good evening{{addr}}. All systems are online.",
+    "night": "Good evening{{addr}}. Working late, I see. All systems are online."
+  },
+  "skip": "Press any key to skip",
+  "label": "Orkestr is starting",
+  "settings": {
+    "group": "Startup",
+    "animation": "Startup animation",
+    "animationDesc": "The Jarvis reactor assembles while Orkestr starts. It never delays the app: click or press any key to skip.",
+    "sound": "Startup sound",
+    "soundDesc": "A soft synthesized chime. Follows the sound settings, Do Not Disturb and quiet hours.",
+    "voice": "Voice greeting",
+    "voiceDesc": "Jarvis greets you aloud after the start (needs spoken replies in Voice settings).",
+    "when": {
+      "always": "Always",
+      "firstLaunch": "After install & updates",
+      "off": "Off"
+    },
+    "preview": "Preview",
+    "reducedNote": "Reduced motion or Performance / Battery Saver mode: a calm static version plays instead.",
+    "whenSound": {
+      "always": "Always",
+      "firstLaunch": "After install & updates",
+      "off": "Off"
+    }
+  }
+}

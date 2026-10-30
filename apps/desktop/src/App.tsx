@@ -21,6 +21,7 @@ import { registerAssistantFeature, useAssistantMode } from "./features/assistant
 import { registerJarvisFeature, useJarvisBootstrap } from "./features/jarvis/register";
 import { registerCursorFeature } from "./features/cursor/register";
 import { useAssistantStore } from "./features/assistant/store";
+import { BootHost, useBootMirror } from "./features/boot";
 import { VisualLayer } from "./features/performance/VisualLayer";
 import { registerRemoteSyncFeature } from "./features/remoteSync/register";
 import { registerSecurityFeature } from "./features/security/register";
@@ -107,6 +108,7 @@ export function App() {
   useVoiceBootstrap(ready); // voice-sound (Phase 3)
   useAssistantMode(ready); // computer assistant (ADR-0035)
   useJarvisBootstrap(ready); // Jarvis persona & conversation (ADR-0049)
+  useBootMirror(ready); // startup animation environment (ADR-0053)
   const assistantMode = useAssistantStore((s) => s.mode === "assistant");
 
   const boot = useCallback(() => {
@@ -170,6 +172,8 @@ export function App() {
         {ready && <LauncherToast />}
         <Toasts />
       </div>
+      {/* Startup animation (ADR-0053): over the connection screen while the core starts. */}
+      <BootHost ready={ready} compact={assistantMode} />
     </div>
   );
 }
