@@ -415,6 +415,102 @@ impl Default for WakeWordConfig {
     }
 }
 
+/// Default hard stop phrases: silence speech AND cancel the reply / AI call /
+/// running action (ADR-0054).
+pub const DEFAULT_HARD_STOP_PHRASES: &[&str] = &[
+    "стоп",
+    "хватит",
+    "прекрати",
+    "прекращай",
+    "отмена",
+    "отменить",
+    "отмени",
+    "перестань",
+    "достаточно",
+    "не надо",
+    "остановись",
+    "стой",
+    "джарвис стоп",
+    "stop",
+    "enough",
+    "cancel",
+    "abort",
+];
+
+/// Default soft stop phrases: only silence speech (a running action goes on
+/// unless [`BargeInConfig::soft_cancels_actions`]).
+pub const DEFAULT_SOFT_STOP_PHRASES: &[&str] = &[
+    "окей",
+    "ок",
+    "тихо",
+    "тишина",
+    "замолчи",
+    "заткнись",
+    "помолчи",
+    "молчи",
+    "всё",
+    "ладно",
+    "понял",
+    "shut up",
+    "quiet",
+    "okay",
+    "ok",
+    "silence",
+];
+
+/// Max stop phrases per list.
+pub const MAX_STOP_PHRASES: usize = 64;
+
+/// Voice barge-in: interrupting the assistant with a stop phrase without the
+/// wake word (ADR-0054).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase", default)]
+#[ts(export)]
+pub struct BargeInConfig {
+    /// Listen for stop phrases while the assistant speaks or works.
+    pub enabled: bool,
+    /// Phrases that silence speech and cancel the reply / running action.
+    pub hard_phrases: Vec<String>,
+    /// Phrases that only silence speech.
+    pub soft_phrases: Vec<String>,
+    /// Soft phrases («окей», «тихо») cancel running actions too.
+    pub soft_cancels_actions: bool,
+    /// Sensitivity 0..=100 (higher = quieter / less certain speech accepted).
+    pub sensitivity: u8,
+}
+
+impl Default for BargeInConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            hard_phrases: DEFAULT_HARD_STOP_PHRASES.iter().map(|s| (*s).to_owned()).collect(),
+            soft_phrases: DEFAULT_SOFT_STOP_PHRASES.iter().map(|s| (*s).to_owned()).collect(),
+            soft_cancels_actions: false,
+            sensitivity: 50,
+        }
+    }
+}
+
+/// Continuous conversation: after a reply the assistant keeps listening for
+/// a follow-up without the wake word (ADR-0054).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase", default)]
+#[ts(export)]
+pub struct FollowUpConfig {
+    /// Re-open listening after a reply.
+    pub enabled: bool,
+    /// How long to wait for the user to start speaking, seconds (3..=30).
+    pub window_secs: u8,
+    /// A soft chime when the window closes in silence.
+    pub chime_on_close: bool,
+}
+
+impl Default for FollowUpConfig {
+    fn default() -> Self {
+        Self { enabled: true, window_secs: 8, chime_on_close: true }
+    }
+}
+
 /// Quiet hours (local time, `HH:MM`, may wrap past midnight).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase", default)]
@@ -573,6 +669,10 @@ pub struct VoiceConfig {
     pub tts_consents: Vec<TtsConsent>,
     /// Per-engine options.
     pub engines: VoiceEngineSettings,
+    /// Voice barge-in (stop phrases while the assistant speaks; ADR-0054).
+    pub barge: BargeInConfig,
+    /// Continuous conversation without the wake word (ADR-0054).
+    pub follow_up: FollowUpConfig,
 }
 
 /// Max entries in `VoiceConfig::agent_voices`.
@@ -611,6 +711,8 @@ impl Default for VoiceConfig {
             stt_consents: Vec::new(),
             tts_consents: Vec::new(),
             engines: VoiceEngineSettings::default(),
+            barge: BargeInConfig::default(),
+            follow_up: FollowUpConfig::default(),
         }
     }
 }
@@ -754,6 +856,21 @@ impl VoiceConfig {
         }
         if self.stt_consents.len() > 32 || self.tts_consents.len() > 32 {
             return Err(invalid("sttConsents", "too many consent records"));
+        }
+        let b = &self.barge;
+        for (field, list) in [("barge.hardPhrases", &b.hard_phrases), ("barge.softPhrases", &b.soft_phrases)] {
+            if list.len() > MAX_STOP_PHRASES {
+                return Err(invalid(field, format!("at most {MAX_STOP_PHRASES} phrases")));
+            }
+            if list.iter().any(|p| p.trim().is_empty() || !printable(p, 40)) {
+                return Err(invalid(field, "phrases are 1..=40 printable characters"));
+            }
+        }
+        if b.sensitivity > 100 {
+            return Err(invalid("barge.sensitivity", "must be between 0 and 100"));
+        }
+        if !(3..=30).contains(&self.follow_up.window_secs) {
+            return Err(invalid("followUp.windowSecs", "must be between 3 and 30"));
         }
         self.engines.validate()
     }
@@ -1307,6 +1424,100 @@ pub struct RecordVoiceCommandParams {
     pub project_id: Option<ProjectId>,
 }
 
+/// How the barge-in spotter recognizes stop phrases.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub enum BargeEngine {
+    /// Vosk grammar recognizer restricted to the stop phrases (fast).
+    VoskGrammar,
+    /// Short voiced windows transcribed by an installed offline engine (slower).
+    LocalWindow,
+}
+
+/// Params of `voice.bargeStart`.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct BargeStartParams {
+    /// Recognition language hint (`ru`, `en`); defaults to the config language.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub language: Option<String>,
+}
+
+/// Result of `voice.bargeStart`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct BargeStartResult {
+    /// Session to feed (`None` = barge-in is off or no offline engine is installed).
+    pub session_id: Option<String>,
+    /// The engine in use.
+    pub engine: Option<BargeEngine>,
+    /// Why there is no session.
+    pub reason: Option<String>,
+}
+
+/// Params of `voice.bargeFeed`: the next chunk of the shared microphone.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct BargeFeedParams {
+    /// Session from `voice.bargeStart`.
+    pub session_id: String,
+    /// 16 kHz mono 16-bit little-endian PCM, base64 (≤ 2 s).
+    pub pcm_base64: String,
+    /// What the assistant is saying right now (self-echo protection).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub spoken: Option<String>,
+}
+
+/// Strength of a stop phrase.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub enum StopKind {
+    /// Silence speech and cancel the reply / running action.
+    Hard,
+    /// Only silence speech.
+    Soft,
+}
+
+/// A detected stop phrase.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct BargeHit {
+    /// The configured phrase that matched.
+    pub phrase: String,
+    /// Hard / soft.
+    pub kind: StopKind,
+    /// What was recognized.
+    pub heard: String,
+    /// Recognizer confidence 0..=1 (1 for partial results).
+    pub confidence: f32,
+}
+
+/// Result of `voice.bargeFeed`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct BargeFeedResult {
+    /// A stop phrase was heard in this chunk (the session resets after a hit).
+    pub hit: Option<BargeHit>,
+    /// Processing time of the chunk, ms.
+    pub elapsed_ms: u32,
+}
+
+/// Params of `voice.bargeStop`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct BargeStopParams {
+    /// Session.
+    pub session_id: String,
+}
+
 method!(
     /// `voice.getConfig`.
     GetConfig, "voice.getConfig", super::Empty, VoiceConfigResult
@@ -1363,6 +1574,18 @@ method!(
     /// `voice.verifyModel`: re-hashes installed files against the install manifest.
     VerifyModel, "voice.verifyModel", VoicePackageParams, VoiceVerifyResult
 );
+method!(
+    /// `voice.bargeStart`: opens a stop-phrase spotter session (ADR-0054).
+    BargeStart, "voice.bargeStart", BargeStartParams, BargeStartResult
+);
+method!(
+    /// `voice.bargeFeed`: feeds microphone PCM to a spotter session.
+    BargeFeed, "voice.bargeFeed", BargeFeedParams, BargeFeedResult
+);
+method!(
+    /// `voice.bargeStop`: closes a spotter session.
+    BargeStop, "voice.bargeStop", BargeStopParams, super::Empty
+);
 
 #[cfg(test)]
 mod tests {
@@ -1376,6 +1599,26 @@ mod tests {
         assert!(!c.wake.enabled, "wake word is off by default (ADR-0017)");
         assert!(c.stt_consented());
         assert!(!c.tts_consented());
+    }
+
+    #[test]
+    fn barge_and_follow_up_defaults_and_bounds() {
+        let mut c = VoiceConfig::default();
+        assert!(c.barge.enabled && c.follow_up.enabled);
+        assert_eq!(c.follow_up.window_secs, 8);
+        assert!(c.barge.hard_phrases.iter().any(|p| p == "стоп"));
+        assert!(c.barge.soft_phrases.iter().any(|p| p == "окей"));
+        // A stored document without the new sections loads the defaults.
+        let old: VoiceConfig = serde_json::from_str(r#"{"enabled":true}"#).unwrap();
+        assert_eq!(old.barge, BargeInConfig::default());
+        c.follow_up.window_secs = 2;
+        assert_eq!(c.validate().unwrap_err().field, "followUp.windowSecs");
+        c.follow_up.window_secs = 30;
+        c.barge.hard_phrases.push("  ".into());
+        assert_eq!(c.validate().unwrap_err().field, "barge.hardPhrases");
+        c.barge.hard_phrases.pop();
+        c.barge.sensitivity = 101;
+        assert_eq!(c.validate().unwrap_err().field, "barge.sensitivity");
     }
 
     #[test]

@@ -388,8 +388,9 @@ export function OrbApp() {
   const onPointerUp = () => {
     const p = press.current;
     press.current = null;
-    // During a voice command the circle only drags; afterwards a click opens the Agent Hub.
-    if (p && !p.dragged && panel !== "voice") openPanel(panel === "hub" ? "none" : "hub");
+    // During a voice command a click silences speech (barge-in) and the circle otherwise only drags; afterwards a click opens the Agent Hub.
+    if (p && !p.dragged && panel === "voice" && voiceState.speaking) main.voiceAction("hush");
+    else if (p && !p.dragged && panel !== "voice") openPanel(panel === "hub" ? "none" : "hub");
   };
 
   const label = t("orb.label", { state: t(`mood.${mood}`) });
@@ -460,6 +461,8 @@ export function OrbApp() {
           themeKey={themeKey}
           accent={theme.robot?.accent ?? null}
           className={clsx("jv-reactor orb-reactor", (hovered || panel === "hub") && "orb-reactor--lit")}
+          interruptedAt={voiceOn ? (voiceState.interruptedAt ?? null) : null}
+          followUp={voiceOn && !jarvisForced ? (voiceState.followUp ?? null) : null}
         />
         {badge && (
           <span className={clsx("orb-badge", `orb-badge--${badge.tone}`)} aria-hidden="true">

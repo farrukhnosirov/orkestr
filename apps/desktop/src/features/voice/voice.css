@@ -787,3 +787,19 @@
   background: var(--ok-color-border-accent);
   transition: width 0.2s var(--ok-ease);
 }
+.vx-phrases {
+  width: 100%;
+  min-height: 56px;
+  padding: 6px 8px;
+  border: 1px solid var(--ok-color-border);
+  border-radius: var(--ok-radius-md);
+  background: var(--ok-color-surface-sunken);
+  color: var(--ok-color-text);
+  font: inherit;
+  font-size: var(--ok-font-size-sm);
+  resize: vertical;
+}
+.vx-phrases:focus-visible {
+  outline: 2px solid var(--ok-color-border-accent);
+  outline-offset: 1px;
+}

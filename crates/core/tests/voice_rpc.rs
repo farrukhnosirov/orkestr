@@ -242,6 +242,19 @@ async fn voice_config_consent_cloud_speech_and_command_log() {
     assert_eq!(c.err_code("voice.removeModel", json!({"id": "nope"})).await, "bad_request");
     assert_eq!(c.err_code("voice.verifyModel", json!({"id": "whisper-base"})).await, "bad_request");
 
+    // Barge-in (ADR-0054): no offline engine installed → no session, and a clean answer.
+    let b = c.ok("voice.bargeStart", json!({})).await;
+    assert_eq!(b["sessionId"], Value::Null, "{b}");
+    assert_eq!(b["reason"], "noEngine");
+    let feed = json!({"sessionId": "barge-999", "pcmBase64": "AAAAAA=="});
+    assert_eq!(c.err_code("voice.bargeFeed", feed).await, "bad_request");
+    assert_eq!(c.err_code("voice.bargeFeed", json!({"sessionId": "x", "pcmBase64": "@@"})).await, "bad_request");
+    c.ok("voice.bargeStop", json!({"sessionId": "barge-999"})).await;
+    let mut off = c.ok("voice.getConfig", json!({})).await["config"].clone();
+    off["barge"]["enabled"] = json!(false);
+    c.ok("voice.setConfig", json!({"config": off})).await;
+    assert_eq!(c.ok("voice.bargeStart", json!({})).await["reason"], "disabled");
+
     // Command log: transcript + intent only.
     c.ok(
         "voice.recordCommand",

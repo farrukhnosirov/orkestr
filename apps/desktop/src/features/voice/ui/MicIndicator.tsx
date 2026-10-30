@@ -12,7 +12,7 @@ import { cancelVoice } from "../controller";
 import { type MicPurpose, useVoiceStore } from "../store";
 import "../voice.css";
 
-const PRIORITY: readonly MicPurpose[] = ["command", "enroll", "meter", "wake"];
+const PRIORITY: readonly MicPurpose[] = ["command", "enroll", "meter", "barge", "wake"];
 
 export function MicIndicator() {
   const { t } = useT("voice");

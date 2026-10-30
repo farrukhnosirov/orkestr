@@ -33,7 +33,12 @@ export interface SttSession {
   finish: () => Promise<string>;
   /** Aborts without a transcript. */
   cancel: () => void;
+  /** Called once when voice activity starts (PCM engines; ends a follow-up countdown). */
+  onSpeech?: (cb: () => void) => void;
 }
+
+/** Nothing said after the wake word for this long ends the capture. */
+export const NO_SPEECH_MS = 6000;
 
 export class SttError extends Error {
   constructor(
@@ -151,9 +156,10 @@ function webSpeechSession(lang: string, continuous: boolean): SttSession {
 
 // --- Whisper (PCM via the worklet) ------------------------------------------
 
-function whisperSession(mic: MicCapture, lang: string, autoEnd: boolean): SttSession {
-  const chunks: Float32Array[] = [];
+function whisperSession(mic: MicCapture, lang: string, autoEnd: boolean, noSpeechMs: number, preroll: readonly Float32Array[]): SttSession {
+  const chunks: Float32Array[] = [...preroll];
   let autoEndCb: () => void = () => {};
+  let speechCb: () => void = () => {};
   let spoke = false;
   let silentSince = 0;
   const started = Date.now();
@@ -161,13 +167,14 @@ function whisperSession(mic: MicCapture, lang: string, autoEnd: boolean): SttSes
     if (m.type === "pcm") chunks.push(m.data);
     if (m.type === "level" && autoEnd) {
       if (m.speaking) {
+        if (!spoke) speechCb();
         spoke = true;
         silentSince = 0;
       } else if (spoke) {
         silentSince ||= Date.now();
         if (Date.now() - silentSince > END_SILENCE_MS) autoEndCb();
-      } else if (Date.now() - started > 6000) {
-        autoEndCb(); // nothing said after the wake word
+      } else if (Date.now() - started > noSpeechMs) {
+        autoEndCb(); // nothing said after the wake word / in the follow-up window
       }
     }
   });
@@ -182,6 +189,9 @@ function whisperSession(mic: MicCapture, lang: string, autoEnd: boolean): SttSes
     onInterim: () => {},
     onAutoEnd: (cb) => {
       autoEndCb = cb;
+    },
+    onSpeech: (cb) => {
+      speechCb = cb;
     },
     finish: async () => {
       stop();
@@ -224,6 +234,10 @@ export interface StartSttOptions {
   mic: MicCapture | null;
   /** End on silence (wake word) instead of on key release (push-to-talk). */
   autoEnd: boolean;
+  /** With `autoEnd`: give up when nothing is said for this long (default {@link NO_SPEECH_MS}). */
+  noSpeechMs?: number;
+  /** PCM captured just before the session (barge-in pre-roll: «стоп, открой ютуб»). */
+  preroll?: readonly Float32Array[];
 }
 
 /** Starts a recognition session, or throws `SttError`. */
@@ -235,6 +249,6 @@ export function startStt(o: StartSttOptions): SttSession {
       throw new SttError("disabled", "speech recognition is disabled");
     default:
       if (!o.mic) throw new SttError("unsupported", "microphone not open");
-      return whisperSession(o.mic, o.lang, o.autoEnd);
+      return whisperSession(o.mic, o.lang, o.autoEnd, o.noSpeechMs ?? NO_SPEECH_MS, o.preroll ?? []);
   }
 }

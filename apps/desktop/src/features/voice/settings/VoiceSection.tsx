@@ -1,7 +1,8 @@
 /**
  * Settings → Voice (§33): voice commands, microphone (device + level test),
  * speech recognition engines with explicit consent for anything that sends
- * audio off the device, the local wake word, the assistant voice (TTS test)
+ * audio off the device, the local wake word, conversation (barge-in and
+ * follow-up without the wake word, ADR-0054), the assistant voice (TTS test)
  * and voice per agent.
  */
 import type { SttEngine, TtsEngine, VoiceConfig } from "@orkestr/protocol";
@@ -20,6 +21,7 @@ import { webSpeechAvailable } from "../stt/engines";
 import { optionsFromConfig, speak, speechLang, systemVoices, ttsSupported } from "../tts/speaker";
 import { LevelMeter } from "../ui/LevelMeter";
 import { AgentVoices } from "./AgentVoices";
+import { ConversationSettings } from "./ConversationSettings";
 import { EnginesPanel } from "./EnginesPanel";
 import { ModelsPanel } from "./ModelsPanel";
 import { Notice, Select, Slider } from "./fields";
@@ -167,6 +169,10 @@ export function VoiceSection(_props: SettingsSectionProps) {
 
       <SettingGroup title={t("settings.groups.wake")}>
         <WakeEnrollment config={config} patch={up} />
+      </SettingGroup>
+
+      <SettingGroup title={t("settings.groups.conversation")}>
+        <ConversationSettings config={config} patch={up} />
       </SettingGroup>
 
       <SettingGroup title={t("settings.groups.tts")}>

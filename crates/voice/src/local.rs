@@ -102,11 +102,41 @@ pub async fn whisper(
 
 // --- Vosk ------------------------------------------------------------------
 
-/// Cached Vosk library + model.
+/// Cached Vosk library + models (the dictation model and the small grammar
+/// model of the barge-in spotter may differ; both stay loaded).
 #[derive(Default)]
 pub struct VoskCache {
     lib: Mutex<Option<orkestr_platform::vosk::VoskLibrary>>,
-    model: Mutex<Option<Arc<orkestr_platform::vosk::VoskModel>>>,
+    models: Mutex<Vec<Arc<orkestr_platform::vosk::VoskModel>>>,
+}
+
+/// Max Vosk models kept loaded.
+const VOSK_MODELS_CACHED: usize = 2;
+
+/// Loads (or reuses) the Vosk library from `runtime` and the model in `model_dir`. Blocking.
+pub fn vosk_model_blocking(
+    cache: &VoskCache,
+    runtime: &Path,
+    model_dir: &Path,
+) -> Result<Arc<orkestr_platform::vosk::VoskModel>, VoiceError> {
+    let native = |e: orkestr_platform::PlatformError| VoiceError::Failed(e.to_string());
+    let lib = {
+        let mut g = cache.lib.lock();
+        if g.is_none() {
+            *g = Some(orkestr_platform::vosk::VoskLibrary::load(runtime).map_err(native)?);
+        }
+        g.clone().ok_or_else(|| VoiceError::Failed("vosk".into()))?
+    };
+    let mut g = cache.models.lock();
+    if let Some(m) = g.iter().find(|m| m.path() == model_dir) {
+        return Ok(Arc::clone(m));
+    }
+    let m = Arc::new(lib.model(model_dir).map_err(native)?);
+    if g.len() >= VOSK_MODELS_CACHED {
+        g.remove(0);
+    }
+    g.push(Arc::clone(&m));
+    Ok(m)
 }
 
 /// Transcribes with libvosk (in process, model cached).
@@ -121,26 +151,8 @@ pub async fn vosk(
     let cache = Arc::clone(cache);
     let samples = pcm.samples.clone();
     tokio::task::spawn_blocking(move || {
-        let native = |e: orkestr_platform::PlatformError| VoiceError::Failed(e.to_string());
-        let lib = {
-            let mut g = cache.lib.lock();
-            if g.is_none() {
-                *g = Some(orkestr_platform::vosk::VoskLibrary::load(&runtime).map_err(native)?);
-            }
-            g.clone().ok_or_else(|| VoiceError::Failed("vosk".into()))?
-        };
-        let model = {
-            let mut g = cache.model.lock();
-            match g.as_ref() {
-                Some(m) if m.path() == model_dir => Arc::clone(m),
-                _ => {
-                    let m = Arc::new(lib.model(&model_dir).map_err(native)?);
-                    *g = Some(Arc::clone(&m));
-                    m
-                }
-            }
-        };
-        model.recognize(&samples, crate::audio::SAMPLE_RATE).map_err(native)
+        let model = vosk_model_blocking(&cache, &runtime, &model_dir)?;
+        model.recognize(&samples, crate::audio::SAMPLE_RATE).map_err(|e| VoiceError::Failed(e.to_string()))
     })
     .await
     .map_err(|e| VoiceError::Failed(e.to_string()))?

@@ -7,7 +7,7 @@
  */
 import { useEffect, useRef } from "react";
 
-import { BANDS, type JarvisSignal, type JarvisState, type ReactorAmbient, ReactorDynamics } from "./model";
+import { BANDS, followUpLeft, interruptProgress, type JarvisSignal, type JarvisState, type ReactorAmbient, ReactorDynamics } from "./model";
 import { ReactorRenderer, readPalette } from "./renderer";
 
 export interface JarvisReactorProps {
@@ -28,12 +28,16 @@ export interface JarvisReactorProps {
   presence?: boolean;
   ambient?: ReactorAmbient;
   workers?: number;
+  /** Last barge-in (epoch ms): plays the short "interrupted" animation. */
+  interruptedAt?: number | null;
+  /** Follow-up window (epoch ms): a thin countdown ring. */
+  followUp?: { until: number; ms: number } | null;
 }
 
-export function JarvisReactor({ state, level, size, fps, signal = null, themeKey = "", accent = null, className, presence = false, ambient = "calm", workers = 0 }: JarvisReactorProps) {
+export function JarvisReactor({ state, level, size, fps, signal = null, themeKey = "", accent = null, className, presence = false, ambient = "calm", workers = 0, interruptedAt = null, followUp = null }: JarvisReactorProps) {
   const ref = useRef<HTMLCanvasElement | null>(null);
-  const live = useRef({ state, level, signal, opts: { presence, ambient, workers } });
-  live.current = { state, level, signal, opts: { presence, ambient, workers } };
+  const live = useRef({ state, level, signal, opts: { presence, ambient, workers }, interruptedAt, followUp });
+  live.current = { state, level, signal, opts: { presence, ambient, workers }, interruptedAt, followUp };
   const renderer = useRef<ReactorRenderer | null>(null);
   const dyn = useRef(new ReactorDynamics());
 
@@ -58,7 +62,7 @@ export function JarvisReactor({ state, level, size, fps, signal = null, themeKey
     const bands = new Float32Array(BANDS);
     if (fps <= 0) {
       r.clearParticles();
-      r.draw(dyn.current.still(state, level, { presence, ambient, workers }));
+      r.draw(dyn.current.still(state, level, { presence, ambient, workers, countdown: followUpLeft(followUp, Date.now()) }));
       return undefined;
     }
     let raf = 0;
@@ -80,7 +84,9 @@ export function JarvisReactor({ state, level, size, fps, signal = null, themeKey
       last = now;
       const cur = live.current;
       const s = cur.signal?.sample(bands, now) ?? null;
-      r.draw(dyn.current.step(now, dt, cur.state, s ? s.level : cur.level, s ? bands : null, cur.opts));
+      const wall = Date.now();
+      const opts = { ...cur.opts, interrupt: interruptProgress(cur.interruptedAt, wall), countdown: followUpLeft(cur.followUp, wall) };
+      r.draw(dyn.current.step(now, dt, cur.state, s ? s.level : cur.level, s ? bands : null, opts));
     };
     raf = requestAnimationFrame(loop);
     return () => {
@@ -88,7 +94,17 @@ export function JarvisReactor({ state, level, size, fps, signal = null, themeKey
       io?.disconnect();
     };
     // `state` / `level` are read live through the ref; a still frame redraws on change.
-  }, [fps, size, themeKey, accent, fps <= 0 ? `${state}|${ambient}|${presence}` : "", fps <= 0 ? Math.round(level * 10) : 0]);
+  }, [fps, size, themeKey, accent, fps <= 0 ? `${state}|${ambient}|${presence}|${followUp ? "f" : ""}` : "", fps <= 0 ? Math.round(level * 10) : 0]);
 
-  return <canvas ref={ref} className={className ?? "jv-reactor"} style={{ width: size, height: size }} aria-hidden="true" data-jarvis-state={state} data-jarvis-ambient={presence ? ambient : undefined} />;
+  return (
+    <canvas
+      ref={ref}
+      className={className ?? "jv-reactor"}
+      style={{ width: size, height: size }}
+      aria-hidden="true"
+      data-jarvis-state={state}
+      data-jarvis-ambient={presence ? ambient : undefined}
+      data-jarvis-followup={followUp ? "" : undefined}
+    />
+  );
 }

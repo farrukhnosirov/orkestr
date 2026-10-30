@@ -6,8 +6,8 @@
 //! platform crate (engineering contract §4). The `unsafe` blocks below are
 //! limited to:
 //!
-//! - loading the library and resolving seven C symbols of the stable Vosk C
-//!   API (`vosk_api.h`, v0.3.x);
+//! - loading the library and resolving the C symbols of the stable Vosk C
+//!   API (`vosk_api.h`, v0.3.x; the grammar / streaming symbols are optional);
 //! - calling them with pointers that this module owns: model and recognizer
 //!   handles are created and freed here only, PCM slices are borrowed for
 //!   the duration of one call, and returned C strings are copied before the
@@ -30,6 +30,9 @@ type RecognizerFree = unsafe extern "C" fn(*mut c_void);
 type AcceptWaveformS = unsafe extern "C" fn(*mut c_void, *const c_short, c_int) -> c_int;
 type ResultFn = unsafe extern "C" fn(*mut c_void) -> *const c_char;
 type SetLogLevel = unsafe extern "C" fn(c_int);
+type RecognizerNewGrm = unsafe extern "C" fn(*mut c_void, c_float, *const c_char) -> *mut c_void;
+type RecognizerSetInt = unsafe extern "C" fn(*mut c_void, c_int);
+type RecognizerReset = unsafe extern "C" fn(*mut c_void);
 
 struct Api {
     _lib: libloading::Library,
@@ -40,6 +43,12 @@ struct Api {
     accept_waveform_s: AcceptWaveformS,
     result: ResultFn,
     final_result: ResultFn,
+    // Grammar / streaming recognition (barge-in, ADR-0054). Optional so an
+    // older libvosk still serves plain transcription.
+    recognizer_new_grm: Option<RecognizerNewGrm>,
+    partial_result: Option<ResultFn>,
+    set_words: Option<RecognizerSetInt>,
+    reset: Option<RecognizerReset>,
 }
 
 /// A loaded `libvosk`.
@@ -110,6 +119,10 @@ impl VoskLibrary {
             if let Ok(set_log) = lib.get::<SetLogLevel>(b"vosk_set_log_level\0") {
                 set_log(-1);
             }
+            let recognizer_new_grm = lib.get::<RecognizerNewGrm>(b"vosk_recognizer_new_grm\0").ok().map(|f| *f);
+            let partial_result = lib.get::<ResultFn>(b"vosk_recognizer_partial_result\0").ok().map(|f| *f);
+            let set_words = lib.get::<RecognizerSetInt>(b"vosk_recognizer_set_words\0").ok().map(|f| *f);
+            let reset = lib.get::<RecognizerReset>(b"vosk_recognizer_reset\0").ok().map(|f| *f);
             Api {
                 model_new,
                 model_free,
@@ -118,6 +131,10 @@ impl VoskLibrary {
                 accept_waveform_s,
                 result,
                 final_result,
+                recognizer_new_grm,
+                partial_result,
+                set_words,
+                reset,
                 _lib: lib,
             }
         };
@@ -217,6 +234,155 @@ impl VoskModel {
     }
 }
 
+/// One recognized word of a final result.
+#[derive(Debug, Clone, PartialEq)]
+pub struct VoskWord {
+    /// The word.
+    pub word: String,
+    /// Confidence 0..=1.
+    pub conf: f32,
+}
+
+/// What a [`VoskStream`] produced for a chunk.
+#[derive(Debug, Clone, PartialEq)]
+pub enum VoskEvent {
+    /// Nothing new.
+    None,
+    /// The utterance so far (no confidence yet).
+    Partial(String),
+    /// An utterance ended (endpoint): its text and words with confidences.
+    Final {
+        /// The text.
+        text: String,
+        /// Words with confidences.
+        words: Vec<VoskWord>,
+    },
+}
+
+fn read_json(ptr: *const c_char) -> serde_json::Value {
+    if ptr.is_null() {
+        return serde_json::Value::Null;
+    }
+    // SAFETY: see `read_text`.
+    let json = unsafe { CStr::from_ptr(ptr) }.to_string_lossy().into_owned();
+    serde_json::from_str(&json).unwrap_or(serde_json::Value::Null)
+}
+
+fn final_event(v: &serde_json::Value) -> VoskEvent {
+    let text = v.get("text").and_then(|t| t.as_str()).unwrap_or_default().to_owned();
+    #[allow(clippy::cast_possible_truncation)]
+    let words = v
+        .get("result")
+        .and_then(|r| r.as_array())
+        .map(|a| {
+            a.iter()
+                .filter_map(|w| {
+                    Some(VoskWord {
+                        word: w.get("word")?.as_str()?.to_owned(),
+                        conf: w.get("conf").and_then(serde_json::Value::as_f64).unwrap_or(1.0) as f32,
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    VoskEvent::Final { text, words }
+}
+
+/// A streaming recognizer (optionally restricted to a grammar: a JSON list
+/// of phrases, usually ending in `"[unk]"`), fed chunk by chunk. Used by the
+/// barge-in stop-phrase spotter. Not shared between threads (`Send`, not `Sync`).
+pub struct VoskStream {
+    model: Arc<VoskModel>,
+    rec: *mut c_void,
+    last_partial: String,
+}
+
+// SAFETY: a recognizer may be used from any thread, one call at a time;
+// `&mut self` on every call guarantees that. It is freed only in Drop.
+unsafe impl Send for VoskStream {}
+
+impl std::fmt::Debug for VoskStream {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("VoskStream").field("model", &self.model.path).finish_non_exhaustive()
+    }
+}
+
+impl Drop for VoskStream {
+    fn drop(&mut self) {
+        // SAFETY: `rec` came from vosk_recognizer_new_grm and is freed exactly once.
+        unsafe { (self.model.api.recognizer_free)(self.rec) }
+    }
+}
+
+impl VoskStream {
+    /// Opens a streaming recognizer on `model`: restricted to `grammar` (a
+    /// JSON array of phrases) or, with `None`, the model's full vocabulary.
+    pub fn new(model: &Arc<VoskModel>, sample_rate: u32, grammar: Option<&str>) -> PlatformResult<Self> {
+        let api = &model.api;
+        let (Some(new_grm), Some(_)) = (api.recognizer_new_grm, api.partial_result) else {
+            return Err(PlatformError::Native("this Vosk runtime has no streaming recognizer".into()));
+        };
+        #[allow(clippy::cast_precision_loss)]
+        let rate = sample_rate as c_float;
+        let rec = match grammar {
+            Some(grammar) => {
+                let g = CString::new(grammar).map_err(|_| PlatformError::Native("grammar contains NUL".into()))?;
+                // SAFETY: the model handle is valid while `model` lives (the stream keeps it); `g` is NUL-terminated.
+                unsafe { new_grm(model.ptr, rate, g.as_ptr()) }
+            }
+            // SAFETY: as above.
+            None => unsafe { (api.recognizer_new)(model.ptr, rate) },
+        };
+        if rec.is_null() {
+            return Err(PlatformError::Native("Vosk could not create a grammar recognizer".into()));
+        }
+        if let Some(set_words) = api.set_words {
+            // SAFETY: `rec` is valid.
+            unsafe { set_words(rec, 1) };
+        }
+        Ok(Self { model: Arc::clone(model), rec, last_partial: String::new() })
+    }
+
+    /// Feeds 16-bit mono PCM; returns a final result at an endpoint, a
+    /// partial result when it changed, or [`VoskEvent::None`].
+    pub fn accept(&mut self, pcm: &[i16]) -> VoskEvent {
+        let api = &self.model.api;
+        let len = c_int::try_from(pcm.len()).unwrap_or(0);
+        // SAFETY: `pcm` is a valid slice of `len` samples for the call; `rec` is valid.
+        let done = unsafe { (api.accept_waveform_s)(self.rec, pcm.as_ptr(), len) };
+        if done == 1 {
+            self.last_partial.clear();
+            // SAFETY: as above; the string is copied by read_json.
+            return final_event(&read_json(unsafe { (api.result)(self.rec) }));
+        }
+        let Some(partial) = api.partial_result else { return VoskEvent::None };
+        // SAFETY: as above.
+        let v = read_json(unsafe { partial(self.rec) });
+        let text = v.get("partial").and_then(|t| t.as_str()).unwrap_or_default().to_owned();
+        if text == self.last_partial {
+            return VoskEvent::None;
+        }
+        self.last_partial.clone_from(&text);
+        VoskEvent::Partial(text)
+    }
+
+    /// Ends the utterance in progress and returns its final result.
+    pub fn flush(&mut self) -> VoskEvent {
+        self.last_partial.clear();
+        // SAFETY: `rec` is valid; the string is copied.
+        final_event(&read_json(unsafe { (self.model.api.final_result)(self.rec) }))
+    }
+
+    /// Drops the utterance in progress.
+    pub fn reset(&mut self) {
+        self.last_partial.clear();
+        if let Some(reset) = self.model.api.reset {
+            // SAFETY: `rec` is valid.
+            unsafe { reset(self.rec) };
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -233,5 +399,15 @@ mod tests {
         let s = CString::new(r#"{"text" : "привет мир"}"#).unwrap();
         assert_eq!(read_text(s.as_ptr()), "привет мир");
         assert_eq!(read_text(std::ptr::null()), "");
+    }
+
+    #[test]
+    fn final_result_words_are_parsed() {
+        let v: serde_json::Value =
+            serde_json::from_str(r#"{"result":[{"conf":0.93,"end":1.1,"start":0.7,"word":"стоп"}],"text":"стоп"}"#)
+                .unwrap();
+        let VoskEvent::Final { text, words } = final_event(&v) else { panic!("not final") };
+        assert_eq!(text, "стоп");
+        assert_eq!(words, vec![VoskWord { word: "стоп".into(), conf: 0.93 }]);
     }
 }
