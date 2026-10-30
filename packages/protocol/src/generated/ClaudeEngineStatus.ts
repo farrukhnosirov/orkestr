@@ -32,4 +32,10 @@ rolesOnClaude: number,
 /**
  * Why the provider could not be registered, if so.
  */
-reason: string | null, };
+reason: string | null, 
+/**
+ * The saved Claude Code model alias (`sonnet`, `opus`, `haiku`): the
+ * Manager's model when it runs on Claude Code, else the provider's
+ * default model. Survives restarts; the card's «Model» shows it.
+ */
+model: string, };

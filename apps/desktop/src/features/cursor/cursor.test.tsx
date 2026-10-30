@@ -1,5 +1,5 @@
 import type { CursorSession, CursorSettings, CursorStatus, Event as OkEvent } from "@orkestr/protocol";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const calls: { method: string; params: Record<string, unknown> }[] = [];
@@ -72,7 +72,9 @@ const fake = {
       case "computer.cursorStatus":
       case "computer.cursorConfirm":
       case "computer.cursorStop":
+        return Promise.resolve(status);
       case "computer.cursorSetSettings":
+        status = { ...status, settings: params.settings as CursorSettings };
         return Promise.resolve(status);
       case "computer.cursorConsent":
         startResult = { status: "Started", session: { ...SESSION, state: "Thinking", confirmation: undefined } };
@@ -93,14 +95,14 @@ vi.mock("../../core/client", () => ({ getClient: () => fake, maybeClient: () => 
 import { applyLanguagePreference } from "../../i18n";
 import { routeCursor } from "../assistant/voiceRoute";
 import { CursorPanel } from "./CursorPanel";
-import { reorder } from "./CursorSettingsSection";
+import { CursorSettingsSection, reorder } from "./CursorSettingsSection";
 import { actionText, onCursorEvent, onCursorPhrase, startCursor, useCursorStore } from "./store";
 import { parseCursorTrigger } from "./trigger";
 
 beforeEach(async () => {
   calls.length = 0;
   startResult = { status: "NeedsConsent", backend: status.backends[0] };
-  status = { ...status, session: undefined };
+  status = { ...status, session: undefined, settings: SETTINGS };
   useCursorStore.setState({ status: null, active: false, shots: {}, consent: null, awaitingTask: false, error: null, busy: false, open: false, dismissed: null });
   await applyLanguagePreference("en");
 });
@@ -189,6 +191,22 @@ describe("settings + voice", () => {
     const s = reorder(SETTINGS, "subscriptions", ["claudeCode", "codex"], "codex", -1);
     expect(s.subscriptionOrder).toEqual(["codex", "claudeCode"]);
     expect(reorder(SETTINGS, "api", ["anthropic", "openai"], "anthropic", -1)).toBe(SETTINGS);
+  });
+
+  it("a model typed right before another change is not lost", async () => {
+    render(<CursorSettingsSection />);
+    const row = await screen.findByTestId("cursor-backend-claudeCode");
+    const input = within(row).getByPlaceholderText("sonnet");
+    fireEvent.change(input, { target: { value: "opus" } });
+    // Leaving the field saves the model; the click lands before that save returns.
+    fireEvent.blur(input);
+    fireEvent.click(within(row).getByRole("button", { name: "Move down" }));
+    await waitFor(() => expect(calls.filter((c) => c.method === "computer.cursorSetSettings")).toHaveLength(2));
+    await waitFor(() => expect(useCursorStore.getState().status?.settings.subscriptionOrder).toEqual(["codex", "claudeCode"]));
+    const last = calls.filter((c) => c.method === "computer.cursorSetSettings").at(-1)!.params.settings as CursorSettings;
+    expect(last.models).toEqual({ claudeCode: "opus" });
+    expect(last.subscriptionOrder).toEqual(["codex", "claudeCode"]);
+    expect(useCursorStore.getState().status?.settings.models).toEqual({ claudeCode: "opus" });
   });
 
   it("voice: trigger without a task asks for it, the next utterance starts", async () => {

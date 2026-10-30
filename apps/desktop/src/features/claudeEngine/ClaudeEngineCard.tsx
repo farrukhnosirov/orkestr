@@ -13,7 +13,8 @@ import { useCallback, useEffect, useState } from "react";
 import { useT } from "../../i18n";
 import { describeError } from "../../i18n/errors";
 import { useAppStore } from "../../store/app";
-import { CLAUDE_MODELS, engineStatus, applyClaudeForEverything } from "./api";
+import { useEnginesStore } from "../engines/store";
+import { CLAUDE_MODELS, engineStatus, applyClaudeForEverything, setClaudeModel } from "./api";
 import "./claudeEngine.css";
 
 export interface ClaudeEngineCardProps {
@@ -25,7 +26,10 @@ export function ClaudeEngineCard({ onApplied }: ClaudeEngineCardProps) {
   const { t } = useT(["providers", "common"]);
   const connected = useAppStore((s) => s.connection.state === "open");
   const [status, setStatus] = useState<ClaudeEngineStatus | null>(null);
-  const [model, setModel] = useState<string>("sonnet");
+  // The saved model comes from the core (`status.model`); `draft` is a
+  // choice still being saved (or one that could not be saved yet).
+  const [draft, setDraft] = useState<string | null>(null);
+  const model = draft ?? (status?.model || "sonnet");
   const [busy, setBusy] = useState(false);
   const [checking, setChecking] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -45,12 +49,37 @@ export function ClaudeEngineCard({ onApplied }: ClaudeEngineCardProps) {
     if (connected) void load(false);
   }, [connected, load]);
 
+  // The parallel engines card keeps the same Claude model: refresh it so a
+  // later «Save» there does not write the old one back.
+  const syncEngines = () => {
+    if (useEnginesStore.getState().status) void useEnginesStore.getState().load();
+  };
+
+  const ready = status?.installed === true && (status.signedIn || status.providerId != null);
+
+  const chooseModel = async (next: string) => {
+    setDraft(next);
+    setMsg(null);
+    if (!ready) return;
+    try {
+      setStatus(await setClaudeModel(next));
+      setDraft((d) => (d === next ? null : d));
+      // Rules already on Claude Code moved to the new model.
+      syncEngines();
+      onApplied?.();
+    } catch (e) {
+      setMsg({ ok: false, text: describeError(e) });
+    }
+  };
+
   const apply = async () => {
     setBusy(true);
     setMsg(null);
     try {
       const r = await applyClaudeForEverything(model);
       setStatus(r.status);
+      setDraft(null);
+      syncEngines();
       setMsg({ ok: true, text: t("claudeEngine.applied", { count: r.status.rolesOnClaude }) });
       onApplied?.();
     } catch (e) {
@@ -60,7 +89,6 @@ export function ClaudeEngineCard({ onApplied }: ClaudeEngineCardProps) {
     }
   };
 
-  const ready = status?.installed === true && (status.signedIn || status.providerId != null);
   let state: string;
   if (!status) state = t("claudeEngine.checking");
   else if (!status.installed) state = t("claudeEngine.notInstalled");
@@ -99,12 +127,13 @@ export function ClaudeEngineCard({ onApplied }: ClaudeEngineCardProps) {
       <div className="ce-card__actions">
         <label className="ce-card__model">
           <span>{t("claudeEngine.model")}</span>
-          <select className="pv-select" value={model} onChange={(e) => setModel(e.target.value)} disabled={busy}>
+          <select className="pv-select" value={model} onChange={(e) => void chooseModel(e.target.value)} disabled={busy} data-testid="claude-engine-model">
             {CLAUDE_MODELS.map((m) => (
               <option key={m} value={m}>
                 {t(`claudeEngine.models.${m}`)}
               </option>
             ))}
+            {!(CLAUDE_MODELS as readonly string[]).includes(model) && <option value={model}>{model}</option>}
           </select>
         </label>
         <Button variant="primary" leftIcon={<Zap size={14} />} loading={busy} disabled={!ready} onClick={() => void apply()}>

@@ -60,10 +60,14 @@ function BackendRow({
             defaultValue={settings.models[b.id] ?? ""}
             placeholder={b.model || t("settings.modelDefault")}
             onBlur={(e) => {
-              const models = { ...settings.models };
-              if (e.target.value.trim()) models[b.id] = e.target.value.trim();
-              else delete models[b.id];
-              void saveCursorSettings({ ...settings, models });
+              const value = e.target.value.trim();
+              if (value === (settings.models[b.id] ?? "")) return;
+              void saveCursorSettings((cur) => {
+                const models = { ...cur.models };
+                if (value) models[b.id] = value;
+                else delete models[b.id];
+                return { ...cur, models };
+              });
             }}
           />
         </label>
@@ -77,13 +81,13 @@ function BackendRow({
           label={t("settings.up")}
           icon={<ArrowUp size={14} />}
           disabled={index === 0}
-          onClick={() => void saveCursorSettings(reorder(settings, b.source, ids, b.id, -1))}
+          onClick={() => void saveCursorSettings((cur) => reorder(cur, b.source, ids, b.id, -1))}
         />
         <IconButton
           label={t("settings.down")}
           icon={<ArrowDown size={14} />}
           disabled={index === count - 1}
-          onClick={() => void saveCursorSettings(reorder(settings, b.source, ids, b.id, 1))}
+          onClick={() => void saveCursorSettings((cur) => reorder(cur, b.source, ids, b.id, 1))}
         />
       </div>
     </li>
@@ -102,9 +106,10 @@ export function CursorSettingsSection() {
   const s = status.settings;
   const list = status.backends.filter((b) => b.source === s.source && b.id !== "mock");
   const ids = list.map((b) => b.id);
+  const onFlag = (key: "abortOnMouse" | "minimizeOrkestr", v: boolean) => void saveCursorSettings((cur) => ({ ...cur, [key]: v }));
   const num = (key: "maxSteps" | "maxSeconds" | "maxImageSide", v: string) => {
     const n = Number(v);
-    if (Number.isFinite(n) && n > 0) void saveCursorSettings({ ...s, [key]: Math.round(n) });
+    if (Number.isFinite(n) && n > 0) void saveCursorSettings((cur) => ({ ...cur, [key]: Math.round(n) }));
   };
   return (
     <div className="cu-settings" data-testid="cursor-settings">
@@ -118,7 +123,7 @@ export function CursorSettingsSection() {
             { id: "api", label: t("settings.sourceApi") },
           ]}
           value={s.source}
-          onChange={(source) => void saveCursorSettings({ ...s, source })}
+          onChange={(source) => void saveCursorSettings((cur) => ({ ...cur, source }))}
         />
         <span className="cu-note">{s.source === "subscriptions" ? t("settings.sourceSubscriptionsHint") : t("settings.sourceApiHint")}</span>
       </div>
@@ -153,11 +158,11 @@ export function CursorSettingsSection() {
         </label>
       </div>
       <label className="cu-check">
-        <input type="checkbox" checked={s.abortOnMouse} onChange={(e) => void saveCursorSettings({ ...s, abortOnMouse: e.target.checked })} />{" "}
+        <input type="checkbox" checked={s.abortOnMouse} onChange={(e) => onFlag("abortOnMouse", e.target.checked)} />{" "}
         {t("settings.abortOnMouse")}
       </label>
       <label className="cu-check">
-        <input type="checkbox" checked={s.minimizeOrkestr} onChange={(e) => void saveCursorSettings({ ...s, minimizeOrkestr: e.target.checked })} />{" "}
+        <input type="checkbox" checked={s.minimizeOrkestr} onChange={(e) => onFlag("minimizeOrkestr", e.target.checked)} />{" "}
         {t("settings.minimize")}
       </label>
       <p className="cu-note">{t("privacy")}</p>

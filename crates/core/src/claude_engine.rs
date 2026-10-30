@@ -148,6 +148,9 @@ pub async fn status(services: &Services, refresh: bool) -> ClaudeEngineStatus {
     let mgr = services.providers.manager_config().await.unwrap_or_default();
     let routing = services.providers.routing_config().await.unwrap_or_default();
     let on = |m: &ModelRef| Some(m.provider_id) == provider;
+    let provider_default =
+        provider.and_then(|id| services.providers.get(id).ok()).and_then(|v| v.provider.default_model);
+    let model = saved_model(mgr.model.as_ref(), provider, provider_default.as_deref());
     ClaudeEngineStatus {
         installed: st.binary.is_some(),
         signed_in: st.auth.as_ref().is_some_and(|a| a.logged_in),
@@ -156,7 +159,103 @@ pub async fn status(services: &Services, refresh: bool) -> ClaudeEngineStatus {
         manager_on_claude: mgr.model.as_ref().is_some_and(on),
         roles_on_claude: u32::try_from(routing.rules.iter().filter(|r| on(&r.model)).count()).unwrap_or(u32::MAX),
         reason,
+        model,
     }
+}
+
+/// The saved Claude Code model (pure; tested): the Manager's model when it
+/// runs on Claude Code, else the provider's default model, else
+/// [`DEFAULT_MODEL`].
+#[must_use]
+pub fn saved_model(manager: Option<&ModelRef>, provider: Option<ProviderId>, provider_default: Option<&str>) -> String {
+    manager
+        .filter(|m| Some(m.provider_id) == provider)
+        .map(|m| m.model.as_str())
+        .or(provider_default)
+        .map(str::trim)
+        .filter(|m| !m.is_empty())
+        .unwrap_or(DEFAULT_MODEL)
+        .to_owned()
+}
+
+/// Switches every reference to the Claude Code provider `id` in a (model,
+/// fallbacks) pair to `model`, dropping fallbacks that became duplicates
+/// (pure; tested). Other providers are left as they are.
+pub fn retarget(current: &mut ModelRef, fallback: &mut Vec<ModelRef>, id: ProviderId, model: &str) {
+    if current.provider_id == id {
+        model.clone_into(&mut current.model);
+    }
+    for m in fallback.iter_mut().filter(|m| m.provider_id == id) {
+        model.clone_into(&mut m.model);
+    }
+    let mut seen: Vec<ModelRef> = vec![current.clone()];
+    fallback.retain(|m| {
+        if seen.contains(m) {
+            false
+        } else {
+            seen.push(m.clone());
+            true
+        }
+    });
+}
+
+/// Stores `model` as the Claude Code provider's default and as the parallel
+/// engines' Claude model, so a restart, a re-detection of the CLI or the
+/// `balanced` re-pointing never brings back the old one.
+async fn persist_model(services: &Services, id: ProviderId, model: &str) -> Result<(), RpcError> {
+    let current = services.providers.get(id).ok().and_then(|v| v.provider.default_model);
+    if current.as_deref() != Some(model) {
+        let patch = ProviderPatch { default_model: Some(model.to_owned()), ..ProviderPatch::default() };
+        services.providers.update(id, patch).await.map_err(crate::rpc::providers::to_rpc)?;
+    }
+    let dir = services.claude.data_dir();
+    let mut engines = crate::engines::load(dir);
+    if engines.claude_model != model {
+        model.clone_into(&mut engines.claude_model);
+        crate::engines::save(dir, &engines).map_err(RpcError::internal)?;
+    }
+    Ok(())
+}
+
+/// `claudeEngine.setModel`: saves the model and moves everything already
+/// running on Claude Code (Manager, routing rules, fallbacks) to it.
+pub async fn set_model(services: &Services, model: String) -> Result<ClaudeEngineStatus, RpcError> {
+    let model = model.trim().to_owned();
+    if model.is_empty() || !valid_model(&model) {
+        return Err(RpcError::bad_request(format!("invalid model name `{model}`")));
+    }
+    let id = ensure_provider(services, false).await.map_err(RpcError::bad_request)?;
+    persist_model(services, id, &model).await?;
+    let to_rpc = crate::rpc::providers::to_rpc;
+    let mut mgr = services.providers.manager_config().await.map_err(to_rpc)?;
+    let before = mgr.clone();
+    match mgr.model.as_mut() {
+        Some(cur) => retarget(cur, &mut mgr.fallback_chain, id, &model),
+        None => {
+            for m in mgr.fallback_chain.iter_mut().filter(|m| m.provider_id == id) {
+                model.clone_into(&mut m.model);
+            }
+        }
+    }
+    if mgr != before {
+        services.providers.set_manager_config(mgr).await.map_err(to_rpc)?;
+    }
+    let mut routing = services.providers.routing_config().await.map_err(to_rpc)?;
+    let before = routing.clone();
+    for rule in &mut routing.rules {
+        retarget(&mut rule.model, &mut rule.fallback, id, &model);
+    }
+    if routing != before {
+        services.providers.set_routing_config(routing).await.map_err(to_rpc)?;
+    }
+    let sec = &services.security;
+    sec.audit
+        .record(
+            NewAudit::new(sec.user(), "claudeEngine.setModel", model.clone(), AuditOutcome::Executed)
+                .details(serde_json::json!({ "providerId": id })),
+        )
+        .await;
+    Ok(status(services, false).await)
 }
 
 fn valid_model(m: &str) -> bool {
@@ -186,6 +285,7 @@ pub async fn use_for_everything(
     if !valid_model(&model) {
         return Err(RpcError::bad_request(format!("invalid model name `{model}`")));
     }
+    persist_model(services, id, &model).await?;
     let mref = ModelRef { provider_id: id, model };
     let to_rpc = crate::rpc::providers::to_rpc;
     let mut mgr = services.providers.manager_config().await.map_err(to_rpc)?;
@@ -476,6 +576,37 @@ mod tests {
         assert_eq!(fb, vec![ModelRef { provider_id: other, model: "gpt".into() }]);
         promote(&mut cur, &mut fb, &target);
         assert_eq!(fb.len(), 1, "idempotent");
+    }
+
+    #[test]
+    fn saved_model_follows_the_manager_then_the_provider_default() {
+        let claude = ProviderId::new();
+        let other = ProviderId::new();
+        let on = ModelRef { provider_id: claude, model: "opus".into() };
+        let off = ModelRef { provider_id: other, model: "gpt".into() };
+        assert_eq!(saved_model(Some(&on), Some(claude), Some("sonnet")), "opus");
+        assert_eq!(saved_model(Some(&off), Some(claude), Some("opus")), "opus", "provider default");
+        assert_eq!(saved_model(None, Some(claude), None), DEFAULT_MODEL);
+        assert_eq!(saved_model(None, None, None), DEFAULT_MODEL);
+    }
+
+    #[test]
+    fn retarget_moves_only_claude_refs_and_dedupes() {
+        let claude = ProviderId::new();
+        let other = ProviderId::new();
+        let mut cur = ModelRef { provider_id: claude, model: "sonnet".into() };
+        let mut fb = vec![
+            ModelRef { provider_id: other, model: "gpt".into() },
+            ModelRef { provider_id: claude, model: "haiku".into() },
+        ];
+        retarget(&mut cur, &mut fb, claude, "opus");
+        assert_eq!(cur.model, "opus");
+        assert_eq!(fb, vec![ModelRef { provider_id: other, model: "gpt".into() }], "duplicate of the primary dropped");
+        let mut cur = ModelRef { provider_id: other, model: "gpt".into() };
+        let mut fb = vec![ModelRef { provider_id: claude, model: "sonnet".into() }];
+        retarget(&mut cur, &mut fb, claude, "opus");
+        assert_eq!(cur.model, "gpt", "other providers untouched");
+        assert_eq!(fb[0].model, "opus");
     }
 
     #[test]

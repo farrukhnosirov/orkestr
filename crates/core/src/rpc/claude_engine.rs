@@ -2,7 +2,7 @@
 
 use orkestr_protocol::methods::claude_engine::{
     self as m, ClaudeAgentsParams, ClaudeEngineStatusParams, DeleteClaudeAgentParams, SaveClaudeAgentParams,
-    UseClaudeForEverythingParams,
+    SetClaudeModelParams, UseClaudeForEverythingParams,
 };
 use orkestr_protocol::RpcError;
 
@@ -17,6 +17,9 @@ pub fn register(router: &mut RpcRouter) {
         })
         .method::<m::UseForEverything, _, _>(|ctx: RpcContext, p: UseClaudeForEverythingParams| async move {
             engine::use_for_everything(&ctx.services, p.model).await
+        })
+        .method::<m::SetModel, _, _>(|ctx: RpcContext, p: SetClaudeModelParams| async move {
+            engine::set_model(&ctx.services, p.model).await
         })
         .method::<m::Agents, _, _>(|ctx: RpcContext, p: ClaudeAgentsParams| async move {
             engine::agents(&ctx.services, p.project_id, p.refresh).await
