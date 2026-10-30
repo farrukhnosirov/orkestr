@@ -1,6 +1,6 @@
 {
-  "date": "2026-10-30T02:36:36.950Z",
-  "result": "31/31 checks passed",
+  "date": "2026-10-30T14:19:08.027Z",
+  "result": "76/76 checks passed",
   "checks": [
     {
       "id": "J0",
@@ -54,7 +54,7 @@
       "id": "F-wake-dark-ru",
       "label": "the grown circle fits in the orb window (wake)",
       "ok": true,
-      "detail": "{\"l\":323.2471618652344,\"t\":13.247154235839844,\"r\":474.75286865234375,\"b\":164.7528305053711,\"w\":474,\"h\":164}"
+      "detail": "{\"l\":324.9632873535156,\"t\":14.963294982910156,\"r\":473.03668212890625,\"b\":163.0367202758789,\"w\":474,\"h\":164}"
     },
     {
       "id": "S-listening-dark-ru",
@@ -153,6 +153,258 @@
       "detail": "{\"l\":324,\"t\":14,\"r\":474,\"b\":164,\"w\":474,\"h\":164}"
     },
     {
+      "id": "S-wake-dark-en",
+      "label": "the orb grows into the voice circle: wake (dark, en)",
+      "ok": true,
+      "detail": "wake"
+    },
+    {
+      "id": "F-wake-dark-en",
+      "label": "the grown circle fits in the orb window (wake)",
+      "ok": true,
+      "detail": "{\"l\":324,\"t\":14,\"r\":474,\"b\":164,\"w\":474,\"h\":164}"
+    },
+    {
+      "id": "S-listening-dark-en",
+      "label": "the orb grows into the voice circle: listening (dark, en)",
+      "ok": true,
+      "detail": "listening"
+    },
+    {
+      "id": "F-listening-dark-en",
+      "label": "the grown circle fits in the orb window (listening)",
+      "ok": true,
+      "detail": "{\"l\":324,\"t\":14,\"r\":474,\"b\":164,\"w\":474,\"h\":164}"
+    },
+    {
+      "id": "S-thinking-dark-en",
+      "label": "the orb grows into the voice circle: thinking (dark, en)",
+      "ok": true,
+      "detail": "thinking"
+    },
+    {
+      "id": "F-thinking-dark-en",
+      "label": "the grown circle fits in the orb window (thinking)",
+      "ok": true,
+      "detail": "{\"l\":324,\"t\":14,\"r\":474,\"b\":164,\"w\":474,\"h\":164}"
+    },
+    {
+      "id": "S-speaking-dark-en",
+      "label": "the orb grows into the voice circle: speaking (dark, en)",
+      "ok": true,
+      "detail": "speaking"
+    },
+    {
+      "id": "F-speaking-dark-en",
+      "label": "the grown circle fits in the orb window (speaking)",
+      "ok": true,
+      "detail": "{\"l\":324,\"t\":14,\"r\":474,\"b\":164,\"w\":474,\"h\":164}"
+    },
+    {
+      "id": "S-done-dark-en",
+      "label": "the orb grows into the voice circle: done (dark, en)",
+      "ok": true,
+      "detail": "done"
+    },
+    {
+      "id": "F-done-dark-en",
+      "label": "the grown circle fits in the orb window (done)",
+      "ok": true,
+      "detail": "{\"l\":324,\"t\":14,\"r\":474,\"b\":164,\"w\":474,\"h\":164}"
+    },
+    {
+      "id": "S-confirm-dark-en",
+      "label": "the orb grows into the voice circle: confirm (dark, en)",
+      "ok": true,
+      "detail": "listening"
+    },
+    {
+      "id": "F-confirm-dark-en",
+      "label": "the grown circle fits in the orb window (confirm)",
+      "ok": true,
+      "detail": "{\"l\":324,\"t\":14,\"r\":474,\"b\":164,\"w\":474,\"h\":164}"
+    },
+    {
+      "id": "S-error-dark-en",
+      "label": "the orb grows into the voice circle: error (dark, en)",
+      "ok": true,
+      "detail": "error"
+    },
+    {
+      "id": "F-error-dark-en",
+      "label": "the grown circle fits in the orb window (error)",
+      "ok": true,
+      "detail": "{\"l\":324,\"t\":14,\"r\":474,\"b\":164,\"w\":474,\"h\":164}"
+    },
+    {
+      "id": "S-chat-dark-en",
+      "label": "the orb grows into the voice circle: chat (dark, en)",
+      "ok": true,
+      "detail": "speaking"
+    },
+    {
+      "id": "F-chat-dark-en",
+      "label": "the grown circle fits in the orb window (chat)",
+      "ok": true,
+      "detail": "{\"l\":324,\"t\":14,\"r\":474,\"b\":164,\"w\":474,\"h\":164}"
+    },
+    {
+      "id": "S-cursor-dark-en",
+      "label": "the orb grows into the voice circle: cursor (dark, en)",
+      "ok": true,
+      "detail": "listening"
+    },
+    {
+      "id": "F-cursor-dark-en",
+      "label": "the grown circle fits in the orb window (cursor)",
+      "ok": true,
+      "detail": "{\"l\":324,\"t\":14,\"r\":474,\"b\":164,\"w\":474,\"h\":164}"
+    },
+    {
+      "id": "M-idle-light",
+      "label": "orb at rest is the one reactor, idle (light)",
+      "ok": true,
+      "detail": "idle"
+    },
+    {
+      "id": "M-working-light",
+      "label": "orb at rest is the one reactor, working (light)",
+      "ok": true,
+      "detail": "working"
+    },
+    {
+      "id": "M-approval-light",
+      "label": "orb at rest is the one reactor, approval (light)",
+      "ok": true,
+      "detail": "approval"
+    },
+    {
+      "id": "M-error-light",
+      "label": "orb at rest is the one reactor, error (light)",
+      "ok": true,
+      "detail": "error"
+    },
+    {
+      "id": "M-offline-light",
+      "label": "orb at rest is the one reactor, offline (light)",
+      "ok": true,
+      "detail": "offline"
+    },
+    {
+      "id": "M-stopped-light",
+      "label": "orb at rest is the one reactor, stopped (light)",
+      "ok": true,
+      "detail": "stopped"
+    },
+    {
+      "id": "S-wake-light-ru",
+      "label": "the orb grows into the voice circle: wake (light, ru)",
+      "ok": true,
+      "detail": "wake"
+    },
+    {
+      "id": "F-wake-light-ru",
+      "label": "the grown circle fits in the orb window (wake)",
+      "ok": true,
+      "detail": "{\"l\":323.1399841308594,\"t\":13.139991760253906,\"r\":474.8599853515625,\"b\":164.86002349853516,\"w\":474,\"h\":164}"
+    },
+    {
+      "id": "S-listening-light-ru",
+      "label": "the orb grows into the voice circle: listening (light, ru)",
+      "ok": true,
+      "detail": "listening"
+    },
+    {
+      "id": "F-listening-light-ru",
+      "label": "the grown circle fits in the orb window (listening)",
+      "ok": true,
+      "detail": "{\"l\":324,\"t\":14,\"r\":474,\"b\":164,\"w\":474,\"h\":164}"
+    },
+    {
+      "id": "S-thinking-light-ru",
+      "label": "the orb grows into the voice circle: thinking (light, ru)",
+      "ok": true,
+      "detail": "thinking"
+    },
+    {
+      "id": "F-thinking-light-ru",
+      "label": "the grown circle fits in the orb window (thinking)",
+      "ok": true,
+      "detail": "{\"l\":324,\"t\":14,\"r\":474,\"b\":164,\"w\":474,\"h\":164}"
+    },
+    {
+      "id": "S-speaking-light-ru",
+      "label": "the orb grows into the voice circle: speaking (light, ru)",
+      "ok": true,
+      "detail": "speaking"
+    },
+    {
+      "id": "F-speaking-light-ru",
+      "label": "the grown circle fits in the orb window (speaking)",
+      "ok": true,
+      "detail": "{\"l\":324,\"t\":14,\"r\":474,\"b\":164,\"w\":474,\"h\":164}"
+    },
+    {
+      "id": "S-done-light-ru",
+      "label": "the orb grows into the voice circle: done (light, ru)",
+      "ok": true,
+      "detail": "done"
+    },
+    {
+      "id": "F-done-light-ru",
+      "label": "the grown circle fits in the orb window (done)",
+      "ok": true,
+      "detail": "{\"l\":324,\"t\":14,\"r\":474,\"b\":164,\"w\":474,\"h\":164}"
+    },
+    {
+      "id": "S-confirm-light-ru",
+      "label": "the orb grows into the voice circle: confirm (light, ru)",
+      "ok": true,
+      "detail": "listening"
+    },
+    {
+      "id": "F-confirm-light-ru",
+      "label": "the grown circle fits in the orb window (confirm)",
+      "ok": true,
+      "detail": "{\"l\":324,\"t\":14,\"r\":474,\"b\":164,\"w\":474,\"h\":164}"
+    },
+    {
+      "id": "S-error-light-ru",
+      "label": "the orb grows into the voice circle: error (light, ru)",
+      "ok": true,
+      "detail": "error"
+    },
+    {
+      "id": "F-error-light-ru",
+      "label": "the grown circle fits in the orb window (error)",
+      "ok": true,
+      "detail": "{\"l\":324,\"t\":14,\"r\":474,\"b\":164,\"w\":474,\"h\":164}"
+    },
+    {
+      "id": "S-chat-light-ru",
+      "label": "the orb grows into the voice circle: chat (light, ru)",
+      "ok": true,
+      "detail": "speaking"
+    },
+    {
+      "id": "F-chat-light-ru",
+      "label": "the grown circle fits in the orb window (chat)",
+      "ok": true,
+      "detail": "{\"l\":324,\"t\":14,\"r\":474,\"b\":164,\"w\":474,\"h\":164}"
+    },
+    {
+      "id": "S-cursor-light-ru",
+      "label": "the orb grows into the voice circle: cursor (light, ru)",
+      "ok": true,
+      "detail": "listening"
+    },
+    {
+      "id": "F-cursor-light-ru",
+      "label": "the grown circle fits in the orb window (cursor)",
+      "ok": true,
+      "detail": "{\"l\":324,\"t\":14,\"r\":474,\"b\":164,\"w\":474,\"h\":164}"
+    },
+    {
       "id": "J1",
       "label": "the circle collapses back into the small orb when the command ends",
       "ok": true,
@@ -173,6 +425,24 @@
     {
       "id": "H-error-dark",
       "label": "in-app HUD: Jarvis panel, no second circle while the orb carries the voice (error, dark)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "id": "H-listening-light",
+      "label": "in-app HUD: Jarvis panel, no second circle while the orb carries the voice (listening, light)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "id": "H-speaking-light",
+      "label": "in-app HUD: Jarvis panel, no second circle while the orb carries the voice (speaking, light)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "id": "H-error-light",
+      "label": "in-app HUD: Jarvis panel, no second circle while the orb carries the voice (error, light)",
       "ok": true,
       "detail": ""
     },
@@ -263,6 +533,126 @@
     {
       "name": "orb-cursor-dark-ru.png",
       "note": "Orb Jarvis card: cursor, dark theme, ru",
+      "consoleMessages": []
+    },
+    {
+      "name": "orb-wake-dark-en.png",
+      "note": "Orb Jarvis card: wake, dark theme, en",
+      "consoleMessages": []
+    },
+    {
+      "name": "orb-listening-dark-en.png",
+      "note": "Orb Jarvis card: listening, dark theme, en",
+      "consoleMessages": []
+    },
+    {
+      "name": "orb-thinking-dark-en.png",
+      "note": "Orb Jarvis card: thinking, dark theme, en",
+      "consoleMessages": []
+    },
+    {
+      "name": "orb-speaking-dark-en.png",
+      "note": "Orb Jarvis card: speaking, dark theme, en",
+      "consoleMessages": []
+    },
+    {
+      "name": "orb-done-dark-en.png",
+      "note": "Orb Jarvis card: done, dark theme, en",
+      "consoleMessages": []
+    },
+    {
+      "name": "orb-confirm-dark-en.png",
+      "note": "Orb Jarvis card: confirm, dark theme, en",
+      "consoleMessages": []
+    },
+    {
+      "name": "orb-error-dark-en.png",
+      "note": "Orb Jarvis card: error, dark theme, en",
+      "consoleMessages": []
+    },
+    {
+      "name": "orb-chat-dark-en.png",
+      "note": "Orb Jarvis card: chat, dark theme, en",
+      "consoleMessages": []
+    },
+    {
+      "name": "orb-cursor-dark-en.png",
+      "note": "Orb Jarvis card: cursor, dark theme, en",
+      "consoleMessages": []
+    },
+    {
+      "name": "orb-rest-idle-light.png",
+      "note": "Orb at rest (small Jarvis reactor): idle, light theme",
+      "consoleMessages": []
+    },
+    {
+      "name": "orb-rest-working-light.png",
+      "note": "Orb at rest (small Jarvis reactor): working, light theme",
+      "consoleMessages": []
+    },
+    {
+      "name": "orb-rest-approval-light.png",
+      "note": "Orb at rest (small Jarvis reactor): approval, light theme",
+      "consoleMessages": []
+    },
+    {
+      "name": "orb-rest-error-light.png",
+      "note": "Orb at rest (small Jarvis reactor): error, light theme",
+      "consoleMessages": []
+    },
+    {
+      "name": "orb-rest-offline-light.png",
+      "note": "Orb at rest (small Jarvis reactor): offline, light theme",
+      "consoleMessages": []
+    },
+    {
+      "name": "orb-rest-stopped-light.png",
+      "note": "Orb at rest (small Jarvis reactor): stopped, light theme",
+      "consoleMessages": []
+    },
+    {
+      "name": "orb-wake-light-ru.png",
+      "note": "Orb Jarvis card: wake, light theme, ru",
+      "consoleMessages": []
+    },
+    {
+      "name": "orb-listening-light-ru.png",
+      "note": "Orb Jarvis card: listening, light theme, ru",
+      "consoleMessages": []
+    },
+    {
+      "name": "orb-thinking-light-ru.png",
+      "note": "Orb Jarvis card: thinking, light theme, ru",
+      "consoleMessages": []
+    },
+    {
+      "name": "orb-speaking-light-ru.png",
+      "note": "Orb Jarvis card: speaking, light theme, ru",
+      "consoleMessages": []
+    },
+    {
+      "name": "orb-done-light-ru.png",
+      "note": "Orb Jarvis card: done, light theme, ru",
+      "consoleMessages": []
+    },
+    {
+      "name": "orb-confirm-light-ru.png",
+      "note": "Orb Jarvis card: confirm, light theme, ru",
+      "consoleMessages": []
+    },
+    {
+      "name": "orb-error-light-ru.png",
+      "note": "Orb Jarvis card: error, light theme, ru",
+      "consoleMessages": []
+    },
+    {
+      "name": "orb-chat-light-ru.png",
+      "note": "Orb Jarvis card: chat, light theme, ru",
+      "consoleMessages": []
+    },
+    {
+      "name": "orb-cursor-light-ru.png",
+      "note": "Orb Jarvis card: cursor, light theme, ru",
       "consoleMessages": []
     },
     {
@@ -373,6 +763,21 @@
     {
       "name": "hud-error-dark.png",
       "note": "In-app voice HUD with the orb shown (the orb is the circle): error, dark theme",
+      "consoleMessages": []
+    },
+    {
+      "name": "hud-listening-light.png",
+      "note": "In-app voice HUD with the orb shown (the orb is the circle): listening, light theme",
+      "consoleMessages": []
+    },
+    {
+      "name": "hud-speaking-light.png",
+      "note": "In-app voice HUD with the orb shown (the orb is the circle): speaking, light theme",
+      "consoleMessages": []
+    },
+    {
+      "name": "hud-error-light.png",
+      "note": "In-app voice HUD with the orb shown (the orb is the circle): error, light theme",
       "consoleMessages": []
     },
     {
