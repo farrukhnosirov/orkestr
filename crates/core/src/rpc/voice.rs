@@ -218,13 +218,23 @@ async fn get_config(ctx: RpcContext) -> Result<VoiceConfigResult, RpcError> {
 }
 
 /// The wake phrases (whisper's vocabulary prompt starts with them).
+/// Every configured phrase (ADR-0056), primary first, without blanks or
+/// case-insensitive duplicates; falls back to the single `phrase` when the
+/// list is empty (a document that was not migrated).
 fn wake_phrases(config: &VoiceConfig) -> Vec<String> {
-    let p = config.wake.phrase.trim();
-    if p.is_empty() {
-        Vec::new()
+    let all: Vec<&str> = if config.wake.phrases.is_empty() {
+        vec![config.wake.phrase.as_str()]
     } else {
-        vec![p.to_owned()]
+        config.wake.phrases.iter().map(String::as_str).collect()
+    };
+    let mut out: Vec<String> = Vec::new();
+    for p in all {
+        let p = p.trim();
+        if !p.is_empty() && !out.iter().any(|o| o.to_lowercase() == p.to_lowercase()) {
+            out.push(p.to_owned());
+        }
     }
+    out
 }
 
 /// Loads the whisper model in the background when whisper.cpp is in use, so
@@ -842,6 +852,16 @@ async fn record_command(ctx: RpcContext, p: RecordVoiceCommandParams) -> Result<
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn whisper_hints_carry_every_wake_phrase() {
+        let mut c = VoiceConfig::default();
+        c.wake.phrase = "Джарвис".to_owned();
+        c.wake.phrases = vec!["Джарвис".to_owned(), " Эй, Джарвис ".to_owned(), "".to_owned(), "джарвис".to_owned(), "Jarvis".to_owned()];
+        assert_eq!(wake_phrases(&c), vec!["Джарвис", "Эй, Джарвис", "Jarvis"]);
+        c.wake.phrases.clear();
+        assert_eq!(wake_phrases(&c), vec!["Джарвис"], "an unmigrated document still has its one phrase");
+    }
 
     #[test]
     fn stored_documents_fall_back_to_defaults() {
