@@ -1,5 +1,5 @@
 {
-  "date": "2026-10-30T01:43:23.355Z",
+  "date": "2026-10-30T02:38:11.684Z",
   "result": "6/6 checks passed",
   "checks": [
     {
@@ -12,7 +12,7 @@
       "id": "B1",
       "label": "the full version ends on its own once the core is ready",
       "ok": true,
-      "detail": "4730 ms after attach"
+      "detail": "4989 ms after attach"
     },
     {
       "id": "B2",
@@ -30,7 +30,7 @@
       "id": "B4",
       "label": "the short version ends within ~2 s",
       "ok": true,
-      "detail": "1553 ms after attach"
+      "detail": "1562 ms after attach"
     },
     {
       "id": "B5",
