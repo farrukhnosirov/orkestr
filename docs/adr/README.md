@@ -54,6 +54,7 @@ summarises them: **Built** = implemented as decided (with listed deviations),
 | [0049](0049-jarvis-persona-and-conversation-mode.md) | Jarvis persona (form of address everywhere), 16 000+ phrasing local small-talk bank, conversation mode with streamed AI replies, memory and command hand-off | Accepted | W9 | — | — | Implemented (wave 9, package B) |
 | [0051](0051-system-wide-provider-failover.md) | System-wide AI source failover (one priority list of subscriptions/API keys, classification, cooldown, per-purpose overrides) | Accepted | W9 | — | — | Implemented (wave 9, package D) |
 | [0052](0052-orb-is-the-jarvis-reactor.md) | Orb = Jarvis reactor: one voice-reactive circle (modes command / chat / cursor) replaces the sphere and the «Слушаю…» box | Accepted | W9 | — | 0045 (sphere part) | Implemented (wave 9, package A) |
+| [0053](0053-startup-animation.md) | Startup animation: Jarvis boot sequence over the splash, gated on core readiness (full / short / static), device-local settings | Accepted | W10 | — | — | Implemented (wave 10) |
 | [0035](0035-computer-control.md) | Computer Control: personal computer assistant (`orkestr-computer`, Windows backend, 1035-command catalogue, user sets, AI plans, confirmations, Assistant mode) | Accepted | Wave 8 | — | — | Implemented (Wave 8; macOS/Linux backends `Unsupported`) |
 | [0046](0046-switchable-speech-engines.md) | Switchable STT/TTS engines (whisper.cpp, Vosk, sherpa-onnx, Windows speech, Piper, Silero, cloud services), voice model manager, engine keys in the secret vault | Accepted | Wave 8 | — | — | Implemented (wave 8) |
 | [0047](0047-codex-chatgpt-subscription-and-parallel-engines.md) | Codex (ChatGPT subscription) over `codex app-server`: bridged approvals, chat pool, panel, sign-in, limits; parallel engines routing | Accepted | wave 8 | 0012 (for Codex) | — | Implemented |
@@ -86,6 +87,7 @@ summarises them: **Built** = implemented as decided (with listed deviations),
 | [ADR-0050](0050-cursor-capture-mode.md) | Cursor capture mode (AI computer use) — Implemented (wave 9) | W9 |
 | [ADR-0046](0046-switchable-speech-engines.md) | Switchable speech engines + voice model manager (§33) — Implemented (wave 8) | 8 |
 | [ADR-0052](0052-orb-is-the-jarvis-reactor.md) | Orb = Jarvis reactor (one circle; supersedes the sphere part of 0045) — Implemented (wave 9) | W9 |
+| [ADR-0053](0053-startup-animation.md) | Startup animation (Jarvis boot sequence) — Implemented (wave 10) | W10 |
 | [ADR-0045](0045-floating-orb-agent-hub.md) | One floating orb + Agent Hub replaces per-agent robots (supersedes 0016) — Implemented (Wave 8) | W8 |
 
 ## Decision map
@@ -130,6 +132,7 @@ flowchart TB
   A17 --> A46[0046 Switchable speech engines]
   A16 --> A45[0045 Floating orb + Agent Hub]
   A45 --> A52[0052 Orb = Jarvis reactor]
+  A52 --> A53[0053 Startup animation]
   A25[0025 VS Code extensions] --> A43[0043 VS Code embedded in Orkestr]
   A18 --> A22[0022 Crash recovery]
   A20[0020 UUID v7] --> A18

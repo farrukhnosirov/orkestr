@@ -11,6 +11,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { formatPercent, useT } from "../../i18n";
 import { useAiUiStore, useUiPrefs } from "../aiui/aiuiStore";
+import { BootSettings } from "../boot/BootSettings";
 import { canRedo, canUndo } from "../aiui/undo";
 import { HUD_SHORTCUT } from "../hud/commands";
 import { hudControls } from "../hud/hudWindow";
@@ -205,6 +206,8 @@ export function VisualSettings(_props: SettingsSectionProps) {
           <PolicyTable policy={preview} />
         </div>
       </SettingGroup>
+
+      <BootSettings reduced={perf.reducedMotion || chosen === "Performance" || chosen === "BatterySaver"} />
 
       <SettingGroup title={t("performance:group.auto")}>
         <SettingRow title={t("performance:autoBattery")} description={t("performance:autoBatteryDesc")}>

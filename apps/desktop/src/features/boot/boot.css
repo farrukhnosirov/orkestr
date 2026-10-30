@@ -1,0 +1,220 @@
+/* Startup animation overlay (ADR-0053): theme tokens only. */
+.boot {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  overflow: hidden;
+  cursor: default;
+  user-select: none;
+  color: var(--ok-color-text);
+  font-family: var(--ok-font-sans);
+  /* Until the first canvas frame. */
+  background: color-mix(in srgb, var(--ok-color-bg) 60%, black);
+}
+.boot[data-phase] {
+  background: transparent;
+}
+.boot[data-phase="exit"] {
+  pointer-events: none;
+}
+.boot__canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.boot__hud {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.boot [data-on="0"] {
+  opacity: 0;
+}
+.boot [data-on="1"] {
+  opacity: 1;
+  transition: opacity 0.25s ease-out;
+}
+
+/* Boot log (bottom left). */
+.boot__log {
+  position: absolute;
+  left: 44px;
+  bottom: 40px;
+  width: min(380px, calc(100vw - 88px));
+  display: grid;
+  gap: 5px;
+  font-family: var(--ok-font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--ok-color-text) 72%, transparent);
+}
+.boot__line {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  min-height: 1.35em;
+  white-space: nowrap;
+}
+.boot__line--title {
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: var(--ok-font-weight-semibold);
+  letter-spacing: 0.22em;
+  color: var(--ok-color-accent);
+  text-shadow: 0 0 calc(12px * var(--ok-glow-scale, 1)) color-mix(in srgb, var(--ok-color-accent) 55%, transparent);
+}
+.boot__line--all {
+  margin-top: 6px;
+  color: var(--ok-color-text);
+}
+.boot__line--all::before {
+  content: "▸ ";
+  color: var(--ok-color-accent);
+}
+.boot__txt {
+  overflow: hidden;
+  text-overflow: clip;
+}
+.boot__tag {
+  min-width: 4ch;
+  text-align: right;
+  color: var(--ok-color-accent);
+}
+.boot__tag[data-state="pending"] {
+  color: var(--ok-color-text-muted);
+  animation: boot-blink 0.9s steps(2, jump-none) infinite;
+}
+.boot__tag[data-state="skipped"] {
+  color: var(--ok-color-text-subtle);
+}
+.boot__tag[data-state="error"] {
+  color: var(--ok-color-warning);
+}
+@keyframes boot-blink {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+/* Greeting under the reactor. */
+.boot__greet {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  top: calc(var(--boot-cy, 42vh) + var(--boot-r, 120px) * 1.2);
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  text-align: center;
+}
+.boot__welcome {
+  display: inline-flex;
+  align-items: baseline;
+  min-height: 1.3em;
+  font-size: clamp(22px, 2.6vw, 36px);
+  font-weight: 300;
+  letter-spacing: 0.03em;
+  color: var(--ok-color-text);
+  text-shadow: 0 0 calc(18px * var(--ok-glow-scale, 1)) color-mix(in srgb, var(--ok-color-accent) 45%, transparent);
+}
+.boot__caret {
+  display: inline-block;
+  width: 0.5em;
+  height: 2px;
+  margin-left: 3px;
+  background: var(--ok-color-accent);
+  animation: boot-blink 0.7s steps(2, jump-none) infinite;
+}
+.boot__subtitle {
+  font-family: var(--ok-font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--ok-color-text-muted);
+}
+
+/* System meter (bottom right). */
+.boot__meter {
+  position: absolute;
+  right: 44px;
+  bottom: 44px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--ok-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: var(--ok-color-text-muted);
+}
+.boot__bar {
+  position: relative;
+  width: 150px;
+  height: 2px;
+  background: color-mix(in srgb, var(--ok-color-accent) 18%, transparent);
+  overflow: hidden;
+}
+.boot__bar i {
+  position: absolute;
+  inset: 0;
+  transform-origin: left center;
+  transform: scaleX(0);
+  background: var(--ok-color-accent);
+  box-shadow: 0 0 8px var(--ok-color-accent);
+  transition: transform 0.3s ease-out;
+}
+.boot__pct {
+  min-width: 5ch;
+  text-align: right;
+}
+.boot__skip {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 14px;
+  text-align: center;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--ok-color-text-subtle);
+}
+
+/* Short and static versions: a lighter HUD. */
+.boot--short .boot__meter,
+.boot--static .boot__meter,
+.boot--short .boot__skip,
+.boot--static .boot__skip {
+  display: none;
+}
+
+/* Compact (Assistant mode, small windows): reactor + greeting only. */
+.boot--compact .boot__log,
+.boot--compact .boot__meter,
+.boot--compact .boot__skip {
+  display: none;
+}
+.boot--compact .boot__welcome {
+  font-size: 19px;
+}
+.boot--compact .boot__subtitle {
+  font-size: 10px;
+  letter-spacing: 0.16em;
+}
+
+@media (max-width: 720px) {
+  .boot__log {
+    left: 20px;
+    bottom: 24px;
+  }
+  .boot__meter {
+    display: none;
+  }
+}
+
+/* Settings → Interface → Startup. */
+.boot-settings__preview {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 4px;
+}
