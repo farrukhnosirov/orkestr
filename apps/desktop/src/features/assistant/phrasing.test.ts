@@ -75,7 +75,7 @@ describe("natural replies (en)", () => {
     expect(naturalRunReply(report("Timer", [{ type: "Timer", seconds: 300, message: "" }], { commandId: "x" }), first)).toBe("Setting a timer for 5 minutes.");
     expect(naturalRunReply(report("Display settings", [{ type: "OpenSettings", page: "display" }], { commandId: "x" }), first)).toBe("Opening display settings.");
     expect(naturalRunReply(report("Copy", [{ type: "Keys", combo: "ctrl+c" }], { commandId: "x" }), first)).toBe("Copying.");
-    const plan = report("list", [{ type: "Launch", target: "notepad" }, { type: "TypeText", text: "milk" }, { type: "Screenshot" }]);
+    const plan = report("list", [{ type: "Launch", target: "notepad" }, { type: "TypeText", text: "milk" }, { type: "Screenshot", scope: "Full", clipboard: false }]);
     expect(naturalRunReply(plan, { ...first, planned: true })).toBe("Done — opened Notepad, typed the text and took a screenshot.");
     expect(naturalRunReply(report("Close Word", [{ type: "CloseApp", app: "word", discard: false }], { commandId: "x", fail: 0, error: "no window" }), first)).toBe(
       "I’m afraid I couldn’t close Word: no window",
@@ -104,6 +104,46 @@ describe("Jarvis persona in command replies (ADR-0049)", () => {
       await applyLanguagePreference("en");
       applyPersona({ persona: true, address: "Sir", userName: "" });
       expect(naturalRunReply(report("Open calculator", [{ type: "Launch", target: "calc.exe" }], { commandId: "x" }), first)).toBe("Opening Calculator, sir.");
+    } finally {
+      applyPersona({ persona: false, address: "Sir", userName: "" });
+    }
+  });
+});
+
+describe("full PC control replies (ADR-0053)", () => {
+  const withDetail = (title: string, step: ComputerAction, detail: string): ComputerRunReport => ({
+    ...report(title, [step], { commandId: "x" }),
+    steps: [{ index: 0, action: step.type, ok: true, detail, step }],
+  });
+
+  it("speaks every new action family in the Jarvis manner", async () => {
+    await applyLanguagePreference("ru");
+    try {
+      applyPersona({ persona: true, address: "Sir", userName: "" });
+      const say = (s: ComputerAction, detail = "ok") => naturalRunReply(withDetail("x", s, detail), { rnd: () => 0.5 });
+      expect(say({ type: "Volume", op: "Set", value: 10 })).toBe("Громкость 10 процентов, сэр.");
+      expect(say({ type: "Volume", op: "MuteOn" })).toMatch(/сэр\.$/);
+      expect(say({ type: "Volume", op: "Down", value: 20, app: "spotify" })).toBe("Делаю Спотифай тише, сэр.");
+      expect(say({ type: "Microphone", op: "MuteOn" })).toMatch(/^(Микрофон выключен|Вас больше не слышно), сэр\.$/);
+      expect(say({ type: "AudioDevice", kind: "Output", name: "наушники" }, "Наушники (USB)")).toMatch(/Наушники \(USB\), сэр\.$/);
+      expect(say({ type: "Window", op: "SnapTopRight" })).toBe("Окно в правом верхнем углу, сэр.");
+      expect(naturalRunReply(withDetail("x", { type: "Window", op: "SnapLeft" }, "ok"), second)).toBe("Окно слева, сэр.");
+      expect(say({ type: "MouseTo", point: "Center" }, '{"x":960,"y":540}')).toMatch(/^Курсор в центре( экрана)?, сэр\.$/);
+      expect(say({ type: "KeyboardLayout", lang: "en" }, "en")).toMatch(/английский, сэр\.$/);
+      expect(say({ type: "Query", what: "Time" }, '{"time":"14:05","iso":"2026-10-30T14:05:00+05:00"}')).toMatch(/14:05, сэр\.$/);
+      expect(say({ type: "Query", what: "Battery" }, '{"percent":76,"charging":false,"plugged":false}')).toBe("Заряд 76 процентов, сэр.");
+      expect(say({ type: "Query", what: "Battery" }, '{"percent":null}')).toMatch(/^У этого компьютера нет батареи, сэр/);
+      expect(say({ type: "Query", what: "NowPlaying" }, '{"title":"Back in Black","artist":"AC/DC"}')).toBe("Сейчас играет AC/DC — Back in Black, сэр.");
+      expect(say({ type: "Query", what: "NowPlaying" }, '{"none":true}')).toBe("Сейчас ничего не играет, сэр.");
+      expect(say({ type: "Calculate", expression: "25*4" }, '{"expression":"25*4","result":"100"}')).toMatch(/100, сэр\.$/);
+      expect(say({ type: "Radio", kind: "Wifi", on: false })).toBe("Выключаю Wi-Fi, сэр.");
+      expect(say({ type: "FileSearch", name: "отчет" }, '{"count":0}')).toBe("Боюсь, файлов «отчет» не нашлось, сэр.");
+      applyPersona({ persona: true, address: "Boss", userName: "" });
+      expect(say({ type: "MouseTo", point: "Center" })).toMatch(/^Курсор в центре( экрана)?, босс\.$/);
+      await applyLanguagePreference("en");
+      applyPersona({ persona: true, address: "Sir", userName: "" });
+      expect(say({ type: "Window", op: "Center" })).toBe("Window centered, sir.");
+      expect(say({ type: "Query", what: "Volume" }, '{"percent":40,"muted":false}')).toBe("The volume is 40 percent, sir.");
     } finally {
       applyPersona({ persona: false, address: "Sir", userName: "" });
     }

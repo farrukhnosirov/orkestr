@@ -1,6 +1,7 @@
 {
   "_comment": "Known folders: opened through shell: URIs (no hard-coded paths). `path` is also accepted by FileCreate / FolderCreate / FileMove as a root.",
   "folders": [
+    { "key": "recent", "shell": "shell:Recent", "en": ["recent files", "recent documents", "recent items"], "ru": ["недавние файлы", "последние файлы", "недавние документы"] },
     { "key": "downloads", "shell": "shell:Downloads", "en": ["downloads"], "ru": ["загрузки"] },
     { "key": "documents", "shell": "shell:Personal", "en": ["documents", "my documents"], "ru": ["документы", "мои документы"] },
     { "key": "desktop", "shell": "shell:Desktop", "en": ["desktop folder"], "ru": ["папку рабочий стол"] },

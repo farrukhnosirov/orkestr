@@ -3,4 +3,4 @@
 /**
  * Window operation.
  */
-export type WindowOp = "Focus" | "Minimize" | "Maximize" | "Restore" | "Close" | "SnapLeft" | "SnapRight" | "NextMonitor" | "PreviousMonitor" | "SwitchNext" | "ShowDesktop";
+export type WindowOp = "Focus" | "Minimize" | "Maximize" | "Restore" | "Close" | "SnapLeft" | "SnapRight" | "NextMonitor" | "PreviousMonitor" | "SwitchNext" | "ShowDesktop" | "SnapTop" | "SnapBottom" | "SnapTopLeft" | "SnapTopRight" | "SnapBottomLeft" | "SnapBottomRight" | "Center" | "AlwaysOnTop" | "NotOnTop" | "MinimizeAll" | "RestoreAll";

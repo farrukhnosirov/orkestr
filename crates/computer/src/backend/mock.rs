@@ -5,9 +5,10 @@ use std::path::Path;
 use parking_lot::Mutex;
 
 use orkestr_protocol::methods::computer::{
-    MediaKey, MouseButton, ProcessInfo, ScrollDirection, ScrollUnit, SystemOp, WindowInfo, WindowOp,
+    AudioDeviceKind, MediaKey, MouseButton, ProcessInfo, ScrollDirection, ScrollUnit, SystemOp, WindowInfo, WindowOp,
 };
 
+use super::pc::{AudioDeviceInfo, AudioSessionInfo, BatteryInfo, MediaInfo, PcReply, PcRequest, Rect};
 use super::{ComputerBackend, InstalledApp};
 use crate::error::{ComputerError, ComputerResult};
 
@@ -46,6 +47,71 @@ pub enum MockCall {
     Kill(u32),
     /// `recycle`.
     Recycle(String),
+    /// `pc` (extended control).
+    Pc(PcRequest),
+}
+
+/// Simulated machine state for [`ComputerBackend::pc`].
+#[derive(Debug, Clone)]
+pub struct MockPc {
+    /// Output volume percent + muted.
+    pub volume: (u32, bool),
+    /// Microphone percent + muted.
+    pub mic: (u32, bool),
+    /// App sessions.
+    pub sessions: Vec<AudioSessionInfo>,
+    /// Output devices.
+    pub outputs: Vec<AudioDeviceInfo>,
+    /// Input devices.
+    pub inputs: Vec<AudioDeviceInfo>,
+    /// Media session.
+    pub media: Option<MediaInfo>,
+    /// Cursor.
+    pub cursor: (i32, i32),
+    /// Work area.
+    pub work_area: Rect,
+    /// Monitor bounds.
+    pub monitor: Rect,
+    /// Window rects by handle (default 100,100 800×600).
+    pub rects: std::collections::HashMap<String, Rect>,
+    /// Pointer speed.
+    pub mouse_speed: u32,
+    /// Keyboard layout.
+    pub layout: String,
+    /// Battery.
+    pub battery: BatteryInfo,
+    /// Buttons held.
+    pub held: Vec<MouseButton>,
+}
+
+impl Default for MockPc {
+    fn default() -> Self {
+        let dev = |id: &str, name: &str, default: bool| AudioDeviceInfo { id: id.into(), name: name.into(), default };
+        Self {
+            volume: (40, false),
+            mic: (70, false),
+            sessions: vec![
+                AudioSessionInfo { app: "spotify".into(), pid: 501, percent: 100, muted: false },
+                AudioSessionInfo { app: "chrome".into(), pid: 502, percent: 80, muted: false },
+            ],
+            outputs: vec![dev("out-1", "Динамики (Realtek)", true), dev("out-2", "Наушники (USB Headset)", false)],
+            inputs: vec![dev("in-1", "Микрофон (Realtek)", true), dev("in-2", "Микрофон (USB Headset)", false)],
+            media: Some(MediaInfo {
+                title: "Back in Black".into(),
+                artist: "AC/DC".into(),
+                app: "Spotify.exe".into(),
+                playing: true,
+            }),
+            cursor: (500, 400),
+            work_area: Rect::xywh(0, 0, 1920, 1040),
+            monitor: Rect::xywh(0, 0, 1920, 1080),
+            rects: std::collections::HashMap::new(),
+            mouse_speed: 10,
+            layout: "en-US".into(),
+            battery: BatteryInfo { percent: Some(76), charging: true, plugged: true },
+            held: Vec::new(),
+        }
+    }
 }
 
 /// Recording backend.
@@ -65,6 +131,8 @@ pub struct MockBackend {
     pub clipboard: Mutex<String>,
     /// `shell_open` fails for targets containing this text.
     pub fail_open: Mutex<Option<String>>,
+    /// Extended state (`pc`).
+    pub pc: Mutex<MockPc>,
 }
 
 impl MockBackend {
@@ -198,5 +266,126 @@ impl ComputerBackend for MockBackend {
     fn recycle(&self, path: &Path) -> ComputerResult<()> {
         self.rec(MockCall::Recycle(path.display().to_string()));
         Ok(())
+    }
+    #[allow(clippy::too_many_lines)]
+    fn pc(&self, req: &PcRequest) -> ComputerResult<PcReply> {
+        self.rec(MockCall::Pc(req.clone()));
+        let mut st = self.pc.lock();
+        let toggle = |cur: bool, m: Option<bool>| m.unwrap_or(!cur);
+        let session = |st: &MockPc, app: &str| -> ComputerResult<usize> {
+            let a = app.to_lowercase();
+            st.sessions
+                .iter()
+                .position(|s| s.app.contains(&a) || a.contains(&s.app))
+                .ok_or_else(|| ComputerError::NotFound(format!("no app “{app}” is playing sound")))
+        };
+        Ok(match req {
+            PcRequest::GetVolume => PcReply::Level(st.volume.0, st.volume.1),
+            PcRequest::SetVolume(v) => {
+                st.volume.0 = (*v).min(100);
+                PcReply::Level(st.volume.0, st.volume.1)
+            }
+            PcRequest::SetMute(m) => {
+                st.volume.1 = toggle(st.volume.1, *m);
+                PcReply::Level(st.volume.0, st.volume.1)
+            }
+            PcRequest::GetAppVolume(app) => {
+                let i = session(&st, app)?;
+                PcReply::Level(st.sessions[i].percent, st.sessions[i].muted)
+            }
+            PcRequest::SetAppVolume(app, v) => {
+                let i = session(&st, app)?;
+                st.sessions[i].percent = (*v).min(100);
+                PcReply::Level(st.sessions[i].percent, st.sessions[i].muted)
+            }
+            PcRequest::SetAppMute(app, m) => {
+                let i = session(&st, app)?;
+                st.sessions[i].muted = toggle(st.sessions[i].muted, *m);
+                PcReply::Level(st.sessions[i].percent, st.sessions[i].muted)
+            }
+            PcRequest::GetMic => PcReply::Level(st.mic.0, st.mic.1),
+            PcRequest::SetMic(v) => {
+                st.mic.0 = (*v).min(100);
+                PcReply::Level(st.mic.0, st.mic.1)
+            }
+            PcRequest::SetMicMute(m) => {
+                st.mic.1 = toggle(st.mic.1, *m);
+                PcReply::Level(st.mic.0, st.mic.1)
+            }
+            PcRequest::AudioDevices(k) => PcReply::Devices(match k {
+                AudioDeviceKind::Output => st.outputs.clone(),
+                AudioDeviceKind::Input => st.inputs.clone(),
+            }),
+            PcRequest::SetDefaultAudioDevice(k, id) => {
+                let list = match k {
+                    AudioDeviceKind::Output => &mut st.outputs,
+                    AudioDeviceKind::Input => &mut st.inputs,
+                };
+                if !list.iter().any(|d| &d.id == id) {
+                    return Err(ComputerError::NotFound(format!("no audio device {id}")));
+                }
+                for d in list.iter_mut() {
+                    d.default = &d.id == id;
+                }
+                PcReply::Unit
+            }
+            PcRequest::AudioSessions => PcReply::Sessions(st.sessions.clone()),
+            PcRequest::NowPlaying => PcReply::Media(st.media.clone()),
+            PcRequest::MediaSeek(_) => {
+                if st.media.is_none() {
+                    return Err(ComputerError::NotFound("nothing is playing".into()));
+                }
+                PcReply::Unit
+            }
+            PcRequest::WorkArea(_) => PcReply::Rect(st.work_area),
+            PcRequest::MonitorBounds => PcReply::Rect(st.monitor),
+            PcRequest::WindowRect(h) => {
+                PcReply::Rect(st.rects.get(h).copied().unwrap_or(Rect::xywh(100, 100, 800, 600)))
+            }
+            PcRequest::PlaceWindow(h, r) => {
+                st.rects.insert(h.clone(), *r);
+                PcReply::Unit
+            }
+            PcRequest::SetTopmost(..)
+            | PcRequest::SetOpacity(..)
+            | PcRequest::Display(_)
+            | PcRequest::CaptureRect(..)
+            | PcRequest::EmptyRecycleBin => PcReply::Unit,
+            PcRequest::CursorPos => PcReply::Point(st.cursor.0, st.cursor.1),
+            PcRequest::SetCursor(x, y) => {
+                st.cursor = (*x, *y);
+                PcReply::Unit
+            }
+            PcRequest::MouseButton(b, down) => {
+                if *down {
+                    st.held.push(*b);
+                } else {
+                    st.held.retain(|x| x != b);
+                }
+                PcReply::Unit
+            }
+            PcRequest::ElementCenter(_, name) => {
+                if name.to_lowercase().contains("missing") {
+                    return Err(ComputerError::NotFound(format!("no element “{name}”")));
+                }
+                PcReply::Element(300, 200, name.clone())
+            }
+            PcRequest::GetMouseSpeed => PcReply::Level(st.mouse_speed, false),
+            PcRequest::SetMouseSpeed(v) => {
+                st.mouse_speed = (*v).clamp(1, 20);
+                PcReply::Level(st.mouse_speed, false)
+            }
+            PcRequest::GetKeyboardLayout => PcReply::Text(st.layout.clone()),
+            PcRequest::SetKeyboardLayout(l) => {
+                st.layout = match l.as_deref() {
+                    Some(x) => x.to_owned(),
+                    None if st.layout == "en-US" => "ru-RU".into(),
+                    None => "en-US".into(),
+                };
+                PcReply::Text(st.layout.clone())
+            }
+            PcRequest::Radio(k, on) => PcReply::Text(format!("{k:?} {}", if *on { "on" } else { "off" })),
+            PcRequest::Battery => PcReply::Battery(st.battery),
+        })
     }
 }

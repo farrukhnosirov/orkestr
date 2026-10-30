@@ -131,6 +131,63 @@ const ALIASES: &[(&str, &str)] = &[
     ("`", "backquote"),
 ];
 
+/// Spoken names of Latin letters (as Russian speech recognition writes them):
+/// «контрл шифт эс» → ctrl+shift+s.
+const LETTER_NAMES: &[(&str, &str)] = &[
+    ("эй", "a"),
+    ("би", "b"),
+    ("бэ", "b"),
+    ("си", "c"),
+    ("цэ", "c"),
+    ("ди", "d"),
+    ("дэ", "d"),
+    ("эф", "f"),
+    ("джи", "g"),
+    ("гэ", "g"),
+    ("эйч", "h"),
+    ("аш", "h"),
+    ("ай", "i"),
+    ("джей", "j"),
+    ("кей", "k"),
+    ("ка", "k"),
+    ("эл", "l"),
+    ("эль", "l"),
+    ("эм", "m"),
+    ("эн", "n"),
+    ("оу", "o"),
+    ("пи", "p"),
+    ("пэ", "p"),
+    ("кью", "q"),
+    ("ар", "r"),
+    ("эр", "r"),
+    ("эс", "s"),
+    ("ти", "t"),
+    ("тэ", "t"),
+    ("ю", "u"),
+    ("ви", "v"),
+    ("вэ", "v"),
+    ("дабл", "w"),
+    ("икс", "x"),
+    ("игрек", "y"),
+    ("уай", "y"),
+    ("зед", "z"),
+    ("зет", "z"),
+    ("зэт", "z"),
+    ("контрал", "ctrl"),
+    ("контр", "ctrl"),
+    ("кнтрл", "ctrl"),
+    ("шыфт", "shift"),
+    ("шифтом", "shift"),
+    ("альтом", "alt"),
+    ("эскейп", "esc"),
+    ("эскейб", "esc"),
+    ("ентер", "enter"),
+    ("капслок", "capslock"),
+    ("капс", "capslock"),
+    ("плюс", "plus"),
+    ("минус", "minus"),
+];
+
 const RU_LAYOUT: &str = "йцукенгшщзфывапролдячсмить";
 const EN_LAYOUT: &str = "qwertyuiopasdfghjklzxcvbnm";
 
@@ -143,6 +200,9 @@ fn canonical(part: &str) -> Option<String> {
         return Some(p);
     }
     if let Some((_, k)) = ALIASES.iter().find(|(a, _)| *a == p) {
+        return Some((*k).to_owned());
+    }
+    if let Some((_, k)) = LETTER_NAMES.iter().find(|(a, _)| *a == p) {
         return Some((*k).to_owned());
     }
     let chars: Vec<char> = p.chars().collect();
@@ -213,6 +273,10 @@ mod tests {
         assert_eq!(parse_combo("+").unwrap(), ["plus"]);
         assert_eq!(parse_combo("пробел").unwrap(), ["space"]);
         assert_eq!(parse_combo("ф5").unwrap(), ["f5"]);
+        assert_eq!(parse_combo("контрл шифт эс").unwrap(), ["ctrl", "shift", "s"]);
+        assert_eq!(parse_combo("контрол эф").unwrap(), ["ctrl", "f"]);
+        assert_eq!(parse_combo("альт таб").unwrap(), ["alt", "tab"]);
+        assert_eq!(parse_combo("вин икс").unwrap(), ["win", "x"]);
         assert!(parse_combo("ctrl+nothing").is_err());
         assert!(parse_combo("").is_err());
     }

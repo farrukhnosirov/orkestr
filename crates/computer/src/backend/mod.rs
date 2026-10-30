@@ -21,8 +21,13 @@ mod cursor_win;
 #[cfg(windows)]
 pub use self::cursor_win::{send_test_input, set_test_physical_marker, test_overlay_visible, WindowsCursor};
 
+#[cfg(windows)]
+mod pc_win;
+
 mod mock;
-pub use mock::{MockBackend, MockCall};
+pub use mock::{MockBackend, MockCall, MockPc};
+pub mod pc;
+pub use pc::{AudioDeviceInfo, AudioSessionInfo, BatteryInfo, MediaInfo, PcReply, PcRequest, Rect};
 
 /// An installed app from the Start menu (name + launch target).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -154,6 +159,14 @@ pub trait ComputerBackend: Send + Sync {
     /// # Errors
     /// Backend failure.
     fn recycle(&self, path: &Path) -> ComputerResult<()>;
+    /// Extended PC control (audio, media session, window geometry, cursor,
+    /// layouts, displays, radios…), see [`pc`]. Default: `Unsupported`.
+    ///
+    /// # Errors
+    /// `Unsupported`, `NotFound`, backend failure.
+    fn pc(&self, req: &PcRequest) -> ComputerResult<PcReply> {
+        pc::unsupported_pc(req)
+    }
 }
 
 /// Backend for hosts without computer control.

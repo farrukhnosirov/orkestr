@@ -132,7 +132,7 @@ describe("assistant api", () => {
 
   it("step field specs cover every action and parse slot numbers", () => {
     for (const type of ACTION_TYPES) expect(STEP_FIELDS[type]).toBeDefined();
-    expect(ACTION_TYPES.length).toBe(33);
+    expect(ACTION_TYPES.length).toBe(55);
     expect(slotNum("5")).toBe(5);
     expect(slotNum("{n}")).toBe("{n}");
   });

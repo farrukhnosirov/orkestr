@@ -354,8 +354,10 @@ pub fn system_prompt(
         "{persona} {address} Answer in {language}. {style} Current local date and time: {} (the user's clock). \
          If the user asks you to do something on the computer (open a program or website, search the web, change the volume, take a screenshot, set a timer, scroll…), \
          reply with one short sentence and put the exact command on the last line as <<run: command in the user's language>> (for example <<run: открой youtube>>). \
-         Never claim you did something yourself otherwise; never invent facts about the user's projects.",
-        now.format("%A, %Y-%m-%d %H:%M")
+         Never claim you did something yourself otherwise; never invent facts about the user's projects.          Orkestr fully controls this PC through these command families — never say you cannot do something listed here, hand it off with <<run: …>> instead:
+{}",
+        now.format("%A, %Y-%m-%d %H:%M"),
+        orkestr_computer::vocab::capability_summary()
     );
     if !projects.is_empty() {
         s.push_str("\nThe user's Orkestr projects (name: tasks running / failed):\n");
@@ -652,6 +654,12 @@ mod tests {
         assert_eq!(c[0].content, "u1\nu2");
         let c = context_messages(&h, 1);
         assert!(c.is_empty(), "a lone assistant message is dropped");
+    }
+
+    #[test]
+    fn prompt_lists_the_pc_capabilities() {
+        let p = system_prompt(&JarvisConfig::default(), "ru", true, chrono::Local::now(), "");
+        assert!(p.contains("never say you cannot") && p.contains("sound:") && p.contains("mouse:"), "{p}");
     }
 
     #[test]

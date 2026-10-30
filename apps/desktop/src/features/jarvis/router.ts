@@ -26,6 +26,9 @@ import { type ChatTone, type ConversationMode, useJarvisStore } from "./store";
 export const COMMAND_MATCH = 0.74;
 /** A template action beats a command match from this score on. */
 export const ACTION_SCORE = 0.85;
+/** A near miss of a computer command (core `NEAR_MISS_THRESHOLD`): the
+ * assistant asks «Вы имели в виду: …?» instead of chatting / planning. */
+export const NEAR_MATCH = 0.6;
 
 export interface JarvisRouteDeps {
   matchTemplate: (text: string) => Promise<JarvisTemplateReply | null>;
@@ -202,6 +205,16 @@ export async function routeJarvis(text: string, o: JarvisRouteOptions, deps: Jar
     show(clean, tpl.text, "template");
     void deps.record(clean, tpl.text, "template");
     return { kind: "template", reply: tpl.text, tone: "info", spoken: false, intent: tpl.intent };
+  }
+
+  // 2b. near miss of a computer command (speech-recognition noise): «Вы имели в виду …?»
+  if (score >= NEAR_MATCH) {
+    const run = await deps.runCommand(clean, false);
+    if (run.outcome !== "notUnderstood") {
+      const tone: ChatTone = run.outcome === "ok" ? "ok" : run.outcome === "failed" ? "error" : "warn";
+      if (run.reply) show(clean, run.reply, "command", tone);
+      return { kind: "command", reply: run.reply, tone, spoken: false, run };
+    }
   }
 
   // 3. conversation with the AI

@@ -285,3 +285,126 @@ async fn global_stop_cancels_runs_pending_and_timers() {
     assert!(!f.backend.take_calls().iter().any(|c| matches!(c, MockCall::System(_))), "shutdown never ran");
     assert!(f.svc.history(50).len() >= 3);
 }
+
+// ── wave 10: full PC control (ADR-0053) ─────────────────────────────────────
+
+fn steps_of(r: &HandleResult) -> Vec<ComputerAction> {
+    executed(r).steps.iter().filter_map(|s| s.step.clone()).collect()
+}
+
+#[tokio::test]
+async fn sound_commands_by_noisy_voice() {
+    let f = fx().await;
+    // the screenshot bug: STT heard «громко с 10%»
+    let r = f.svc.handle("громко с 10%", "ru", false, "voice").await.unwrap();
+    assert_eq!(executed(&r).outcome, RunOutcome::Succeeded, "{r:?}");
+    assert_eq!(f.backend.pc.lock().volume, (10, false));
+    let r = f.svc.handle("сделай погромче", "ru", false, "voice").await.unwrap();
+    assert_eq!(executed(&r).outcome, RunOutcome::Succeeded);
+    assert_eq!(f.backend.pc.lock().volume.0, 20);
+    f.svc.handle("звук на десять", "ru", false, "voice").await.unwrap();
+    assert_eq!(f.backend.pc.lock().volume.0, 10);
+    f.svc.handle("громкость на полную", "ru", false, "voice").await.unwrap();
+    assert_eq!(f.backend.pc.lock().volume.0, 100);
+    f.svc.handle("в два раза тише", "ru", false, "voice").await.unwrap();
+    assert_eq!(f.backend.pc.lock().volume.0, 50);
+    f.svc.handle("выключи звук", "ru", false, "voice").await.unwrap();
+    assert!(f.backend.pc.lock().volume.1);
+    // setting a level makes it audible again
+    f.svc.handle("громкость 30 процентов", "ru", false, "voice").await.unwrap();
+    assert_eq!(f.backend.pc.lock().volume, (30, false));
+    // per app, microphone, devices
+    f.svc.handle("спотифай тише", "ru", false, "voice").await.unwrap();
+    assert_eq!(f.backend.pc.lock().sessions[0].percent, 80);
+    f.svc.handle("выключи звук в хроме", "ru", false, "voice").await.unwrap();
+    assert!(f.backend.pc.lock().sessions[1].muted);
+    f.svc.handle("выключи микрофон", "ru", false, "voice").await.unwrap();
+    assert!(f.backend.pc.lock().mic.1);
+    f.svc.handle("звук в наушники", "ru", false, "voice").await.unwrap();
+    assert!(f.backend.pc.lock().outputs[1].default);
+    // what is playing: a report the client speaks
+    let r = f.svc.handle("что сейчас играет", "ru", false, "voice").await.unwrap();
+    let run = executed(&r);
+    assert!(run.steps[0].detail.contains("Back in Black"), "{}", run.steps[0].detail);
+    assert!(run.effects.iter().any(|e| matches!(e, ClientEffect::Show { lines, .. } if lines[0].contains("AC/DC"))));
+    // an app that plays nothing: a clear error, nothing changes
+    let r = f.svc.handle("громкость телеграма на 30", "ru", false, "voice").await.unwrap();
+    assert_eq!(executed(&r).outcome, RunOutcome::Failed);
+}
+
+#[tokio::test]
+async fn windows_cursor_keyboard_and_reports() {
+    let f = fx().await;
+    f.backend.add_window("0x10", "Untitled - Notepad", "Notepad.exe", true);
+    let r = f.svc.handle("окно в правый верхний угол", "ru", false, "voice").await.unwrap();
+    assert_eq!(executed(&r).outcome, RunOutcome::Succeeded, "{r:?}");
+    let rect = f.backend.pc.lock().rects["0x10"];
+    assert_eq!((rect.left, rect.top, rect.width(), rect.height()), (960, 0, 960, 520));
+    f.svc.handle("закрепи окно поверх всех", "ru", false, "voice").await.unwrap();
+    assert!(f
+        .backend
+        .take_calls()
+        .iter()
+        .any(|c| matches!(c, MockCall::Pc(orkestr_computer::backend::PcRequest::SetTopmost(h, true)) if h == "0x10")));
+    f.svc.handle("курсор в центр", "ru", false, "voice").await.unwrap();
+    assert_eq!(f.backend.pc.lock().cursor, (960, 540));
+    f.svc.handle("курсор вверх на 200", "ru", false, "voice").await.unwrap();
+    assert_eq!(f.backend.pc.lock().cursor, (960, 340));
+    let r = f.svc.handle("где курсор", "ru", false, "voice").await.unwrap();
+    assert_eq!(executed(&r).outcome, RunOutcome::Succeeded);
+    assert_eq!(f.backend.pc.lock().cursor, (960, 340), "the circle returns to the start");
+    f.svc.handle("переключи на русский", "ru", false, "voice").await.unwrap();
+    assert_eq!(f.backend.pc.lock().layout, "ru");
+    let r = f.svc.handle("сколько будет двадцать пять умножить на четыре", "ru", false, "voice").await.unwrap();
+    assert!(executed(&r).steps[0].detail.contains("\"result\":\"100\""), "{:?}", executed(&r).steps);
+    let r = f.svc.handle("сколько заряда", "ru", false, "voice").await.unwrap();
+    assert!(executed(&r).steps[0].detail.contains("\"percent\":76"));
+    let r = f.svc.handle("разбуди меня в 7:30", "ru", false, "voice").await.unwrap();
+    assert!(steps_of(&r).iter().any(|s| matches!(s, ComputerAction::Alarm { at, .. } if at == "07:30")));
+    // hold → global stop releases the button
+    f.svc.handle("зажми левую кнопку", "ru", false, "voice").await.unwrap();
+    assert_eq!(f.backend.pc.lock().held.len(), 1);
+    f.svc.stop().await;
+    assert!(f.backend.pc.lock().held.is_empty(), "stop must release a held button");
+}
+
+#[tokio::test]
+async fn risky_pc_steps_need_confirmation() {
+    let f = fx().await;
+    for (text, code) in
+        [("очисти корзину", "emptyRecycleBin"), ("выключи вайфай", "radio"), ("расширь экран", "display")]
+    {
+        let r = f.svc.handle(text, "ru", false, "voice").await.unwrap();
+        match r {
+            HandleResult::NeedsConfirmation { pending, .. } => {
+                assert!(pending.reasons.iter().any(|x| x.code == code), "{text}: {:?}", pending.reasons);
+                assert!(pending.approval_id.is_some(), "{text}: risky steps go to the approvals inbox");
+            }
+            other => panic!("{text}: expected a confirmation, got {other:?}"),
+        }
+    }
+    assert!(!f.backend.take_calls().iter().any(|c| matches!(c, MockCall::Pc(_))), "nothing ran");
+    // pasting into a password field asks first
+    f.backend.add_window("0x10", "Sign in", "chrome.exe", true);
+    *f.backend.password_focused.lock() = true;
+    let r = f.svc.handle("вставь", "ru", false, "voice").await.unwrap();
+    assert!(
+        matches!(r, HandleResult::NeedsConfirmation { ref pending, .. } if pending.reasons[0].code == "passwordField"),
+        "{r:?}"
+    );
+}
+
+#[tokio::test]
+async fn near_miss_asks_did_you_mean_then_runs() {
+    let f = fx().await;
+    let r = f.svc.handle("громкость десять ну", "ru", false, "voice").await.unwrap();
+    let pending = match r {
+        HandleResult::NeedsConfirmation { pending, .. } => pending,
+        other => panic!("expected «Вы имели в виду», got {other:?}"),
+    };
+    assert_eq!(pending.reasons[0].code, "didYouMean");
+    assert!(pending.approval_id.is_none(), "a did-you-mean is not an approvals-inbox item");
+    let r = f.svc.confirm(&pending.pending_id, true).await.unwrap();
+    assert_eq!(executed(&r).outcome, RunOutcome::Succeeded);
+    assert_eq!(f.backend.pc.lock().volume.0, 10);
+}

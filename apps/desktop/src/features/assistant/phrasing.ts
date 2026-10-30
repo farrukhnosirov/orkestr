@@ -102,8 +102,85 @@ export function duration(seconds: number): string {
   return parts.join(" ");
 }
 
+/** The step's JSON detail (reports, calculations), or {}. */
+function detailJson(detail: string | undefined): Record<string, unknown> {
+  if (!detail || !detail.startsWith("{")) return {};
+  try {
+    const v: unknown = JSON.parse(detail);
+    return v && typeof v === "object" ? (v as Record<string, unknown>) : {};
+  } catch {
+    return {};
+  }
+}
+
+const percent = (v: unknown): string => str("assistant:say.unit.percent", { count: Math.round(num(v) ?? 0) });
+const langName = (code: unknown): string => str(`assistant:say.lang.${String(code ?? "")}`, { defaultValue: String(code ?? "") });
+
+/** «пятница, 30 октября» in the UI language. */
+function spokenDate(iso: unknown, lang = currentLanguage()): string {
+  const d = new Date(String(iso ?? ""));
+  if (Number.isNaN(d.getTime())) return "";
+  return new Intl.DateTimeFormat(lang === "ru" ? "ru-RU" : "en-US", { weekday: "long", day: "numeric", month: "long" }).format(d);
+}
+
+/** Template key + variables of a report (`Query`) from its JSON detail. */
+function describeQuery(what: string, j: Record<string, unknown>): { key: string; vars: Record<string, unknown> } {
+  const q = (k: string, vars: Record<string, unknown> = {}) => ({ key: `Query.${k}`, vars });
+  switch (what) {
+    case "Time":
+      return q("Time", { time: j["time"] });
+    case "Date":
+      return q("Date", { date: spokenDate(j["iso"]) });
+    case "DateTime":
+      return q("DateTime", { date: spokenDate(j["iso"]), time: j["time"] });
+    case "Battery":
+      if (j["percent"] === null || j["percent"] === undefined) return q("BatteryNone");
+      return q(j["charging"] ? "BatteryCharging" : "Battery", { value: percent(j["percent"]) });
+    case "DiskSpace": {
+      const disks = Array.isArray(j["disks"]) ? (j["disks"] as Record<string, unknown>[]) : [];
+      const gb = (v: unknown) => str("assistant:say.unit.gb", { count: Math.round(num(v) ?? 0) });
+      const list = disks
+        .slice(0, 4)
+        .map((d) => `${String(d["mount"] ?? "").replace(/[\\/:]+$/, "")} ${gb(d["freeGb"])} ${str("assistant:say.unit.of")} ${Math.round(num(d["totalGb"]) ?? 0)}`)
+        .join(", ");
+      return q("DiskSpace", { list });
+    }
+    case "IpAddress":
+      return j["ip"] ? q("IpAddress", { ip: j["ip"] }) : q("NetworkNone");
+    case "Network":
+      return j["ip"] ? q("Network", { ip: j["ip"] }) : q("NetworkNone");
+    case "SystemInfo":
+      return q("SystemInfo", { cpu: percent(j["cpu"]), used: Math.round(num(j["ramUsedGb"]) ?? 0), total: Math.round(num(j["ramTotalGb"]) ?? 0) });
+    case "Volume":
+      return q(j["muted"] ? "VolumeMuted" : "Volume", { value: percent(j["percent"]) });
+    case "Brightness":
+      return q("Brightness", { value: percent(j["percent"]) });
+    case "NowPlaying": {
+      if (j["none"] || !j["title"]) return q("NowPlayingNone");
+      const artist = String(j["artist"] ?? "").trim();
+      return q("NowPlaying", { track: artist ? `${artist} — ${String(j["title"])}` : String(j["title"]) });
+    }
+    case "ActiveWindow":
+      return q("ActiveWindow", { title: j["title"] });
+    case "CursorPosition":
+      return q("CursorPosition", { x: j["x"], y: j["y"] });
+    case "AudioDevices":
+      return q("AudioDevices", { output: j["defaultOutput"] ?? "—", input: j["defaultInput"] ?? "—" });
+    case "AudioSessions": {
+      const apps = Array.isArray(j["apps"]) ? (j["apps"] as Record<string, unknown>[]) : [];
+      return apps.length ? q("AudioSessions", { list: apps.map((a) => appName(String(a["app"] ?? ""))).join(", ") }) : q("AudioSessionsNone");
+    }
+    case "Uptime":
+      return q("Uptime", { time: duration(Math.round((num(j["seconds"]) ?? 0) / 60) * 60) });
+    case "KeyboardLayout":
+      return q("KeyboardLayout", { lang: langName(j["layout"]) });
+    default:
+      return q(what, j);
+  }
+}
+
 /** Template key + variables of one action (null: nothing natural to say). */
-function describe(a: ComputerAction): { key: string; vars: Record<string, unknown> } | null {
+function describe(a: ComputerAction, detail?: string): { key: string; vars: Record<string, unknown> } | null {
   switch (a.type) {
     case "Launch":
       return { key: "Launch", vars: { name: appName(a.target) } };
@@ -126,17 +203,72 @@ function describe(a: ComputerAction): { key: string; vars: Record<string, unknow
     case "Scroll":
       return { key: `Scroll.${a.direction}`, vars: {} };
     case "Volume":
+    case "Microphone":
     case "Brightness": {
       const v = num(a.value);
-      if (a.op === "Set" && v !== null) return { key: `${a.type}.Set`, vars: { value: str("assistant:say.unit.percent", { count: v }) } };
-      return { key: `${a.type}.${a.op === "Set" ? "Up" : a.op}`, vars: {} };
+      const app = a.type === "Volume" && a.app ? appName(a.app) : null;
+      const family = app ? "VolumeApp" : a.type;
+      if (a.op === "Set" && v !== null) return { key: `${family}.Set`, vars: { value: percent(v), name: app } };
+      return { key: `${family}.${a.op === "Set" ? "Up" : a.op}`, vars: { name: app } };
     }
+    case "AudioDevice":
+      return { key: a.kind === "Input" ? "AudioDeviceInput" : "AudioDevice", vars: { name: detail || a.name || "" } };
+    case "MediaSeek":
+      return { key: `MediaSeek.${a.forward ? "Forward" : "Back"}`, vars: { time: duration(num(a.seconds) ?? 10) } };
+    case "WindowResize": {
+      const pct = num(a.percent);
+      return { key: "WindowResize", vars: { size: pct !== null ? percent(pct) : `${num(a.width) ?? ""}×${num(a.height) ?? ""}` } };
+    }
+    case "WindowOpacity":
+      return { key: "WindowOpacity", vars: { value: percent(a.percent) } };
+    case "Desktop":
+      return { key: `Desktop.${a.op}`, vars: {} };
+    case "MouseMove":
+      return { key: `MouseMove.${a.direction}`, vars: {} };
+    case "MouseTo":
+      return { key: `MouseTo.${a.point}`, vars: {} };
+    case "MouseToElement":
+      return { key: "MouseToElement", vars: { name: detail || a.name } };
+    case "MouseHold":
+      return { key: `MouseHold.${a.release ? "Release" : "Hold"}`, vars: {} };
+    case "MouseDrag":
+      return { key: "MouseDrag", vars: {} };
+    case "MouseSpeed":
+      return { key: `MouseSpeed.${a.op === "Down" ? "Down" : a.op === "Up" ? "Up" : "Set"}`, vars: {} };
+    case "LocateCursor":
+      return { key: "LocateCursor", vars: {} };
+    case "KeyboardLayout":
+      return { key: "KeyboardLayout", vars: { lang: langName(detail || a.lang) } };
+    case "Display":
+      return { key: `Display.${a.op}`, vars: {} };
+    case "Radio":
+      return { key: `Radio.${a.kind}${a.on ? "On" : "Off"}`, vars: {} };
+    case "Query":
+      return describeQuery(a.what, detailJson(detail));
+    case "Calculate": {
+      const j = detailJson(detail);
+      return { key: "Calculate", vars: { expression: j["expression"] ?? a.expression, result: j["result"] ?? "" } };
+    }
+    case "Alarm": {
+      const j = detailJson(detail);
+      return { key: "Alarm", vars: { at: j["at"] ?? a.at } };
+    }
+    case "FileCopy":
+      return { key: "FileCopy", vars: { name: base(a.from) } };
+    case "FileSearch": {
+      const n = num(detailJson(detail)["count"]) ?? 0;
+      return { key: n > 0 ? "FileSearch" : "FileSearchNone", vars: { count: n, name: a.name } };
+    }
+    case "EmptyRecycleBin":
+      return { key: "EmptyRecycleBin", vars: {} };
     case "Timer": {
       const s = num(a.seconds);
       return s === null ? null : { key: "Timer", vars: { time: duration(s) } };
     }
     case "Screenshot":
-      return { key: "Screenshot", vars: {} };
+      if (a.scope === "Region") return { key: "ScreenshotRegion", vars: {} };
+      if (a.scope === "Window") return { key: "ScreenshotWindow", vars: {} };
+      return { key: a.clipboard ? "ScreenshotClipboard" : "Screenshot", vars: {} };
     case "ClipboardSet":
       return { key: "ClipboardSet", vars: {} };
     case "ClipboardGet":
@@ -159,11 +291,13 @@ function describe(a: ComputerAction): { key: string; vars: Record<string, unknow
   }
 }
 
-/** Steps that are worth mentioning (no waits, speech, mode switches, conditions). */
-function meaningful(run: ComputerRunReport): ComputerAction[] {
-  return run.steps
-    .map((s) => s.step)
-    .filter((s): s is ComputerAction => !!s && !["Wait", "Speak", "SetMode", "If"].includes(s.type));
+/** Steps that are worth mentioning (no waits, speech, mode switches, conditions) with their details. */
+function meaningful(run: ComputerRunReport): { step: ComputerAction; detail: string }[] {
+  const out: { step: ComputerAction; detail: string }[] = [];
+  for (const s of run.steps) {
+    if (s.step && !["Wait", "Speak", "SetMode", "If"].includes(s.step.type)) out.push({ step: s.step, detail: s.detail });
+  }
+  return out;
 }
 
 /** Imperative command title → progressive ("Открыть блокнот" → "Открываю блокнот"). */
@@ -189,7 +323,7 @@ export function naturalRunReply(run: ComputerRunReport, o: PhraseOptions = {}): 
   if (run.outcome === "Failed") {
     const failed = run.steps.find((s) => !s.ok);
     const error = failed?.detail ?? "";
-    const d = failed?.step ? describe(failed.step) : null;
+    const d = failed?.step ? describe(failed.step, "") : null;
     const said = d && pick(`fail.${d.key}`, { ...d.vars, error }, rnd);
     return said || str("assistant:reply.failed", { title: run.title, error });
   }
@@ -197,7 +331,7 @@ export function naturalRunReply(run: ComputerRunReport, o: PhraseOptions = {}): 
   if ((o.planned || !run.commandId) && steps.length > 1) {
     const done: string[] = [];
     for (const s of steps) {
-      const d = describe(s);
+      const d = describe(s.step, s.detail);
       const p = d && pick(`done.${d.key}`, d.vars, () => 0);
       if (p && !done.includes(p)) done.push(p);
     }
@@ -208,14 +342,14 @@ export function naturalRunReply(run: ComputerRunReport, o: PhraseOptions = {}): 
       return pick("summary", { list: list + more }, rnd) ?? list;
     }
   }
-  if (steps.length === 1 && steps[0]!.type === "OpenSettings") {
+  if (steps.length === 1 && steps[0]!.step.type === "OpenSettings") {
     // ru titles: «Настройки: экрана»; en: "Display settings"
     const colon = run.title.indexOf(":");
     const said = colon >= 0 ? pick("now.OpenSettings", { what: run.title.slice(colon + 1).trim() }, rnd) : pick("now.OpenSettingsTitled", { what: lowerFirst(run.title) }, rnd);
     if (said) return said;
   }
   if (steps.length === 1) {
-    const d = describe(steps[0]!);
+    const d = describe(steps[0]!.step, steps[0]!.detail);
     const said = d && pick(`now.${d.key}`, d.vars, rnd);
     if (said) return said;
   }

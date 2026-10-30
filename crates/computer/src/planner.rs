@@ -28,32 +28,17 @@ pub trait PlanModel: Send + Sync {
     ) -> ComputerResult<(String, String)>;
 }
 
-/// The system prompt.
+/// The system prompt: the rules + the full action vocabulary generated from
+/// the registry ([`crate::vocab`]) so the model knows everything Orkestr can
+/// do on this PC (sound, windows, cursor, keyboard, displays, radios…).
 #[must_use]
 pub fn system_prompt() -> String {
     format!(
-        "You are {PLANNER_MARKER}. The user controls a Windows PC by voice or text. Turn the request into a short \
-plan of steps from this JSON action vocabulary ONLY (field `type` selects the action):
-- Launch {{target}} — app name (\"notepad\", \"chrome\", \"telegram\"), exe, URL or file
-- OpenUrl {{url}} · WebSearch {{query, engine?}} (engine: google, yandex, youtube, wikipedia, github, maps…)
-- OpenSettings {{page}} (ms-settings page id, e.g. display, sound, bluetooth, network-wifi)
-- OpenPath {{path}} (file / folder; known: downloads, documents, desktop, pictures, music, videos)
-- FocusApp {{app}} · CloseApp {{app, discard}} · KillProcess {{name}}
-- Window {{op, app?}} op: Focus, Minimize, Maximize, Restore, Close, SnapLeft, SnapRight, NextMonitor, PreviousMonitor, SwitchNext, ShowDesktop
-- Keys {{combo, times?}} e.g. \"ctrl+s\", \"alt+f4\", \"win+d\", \"enter\"
-- TypeText {{text}} · Scroll {{direction: Up|Down|Left|Right, amount?, unit?: Lines|Pages|Edge}}
-- ClickElement {{name}} (UI Automation name of a button / link / menu item in the active window)
-- MouseClick {{button?: Left|Right|Middle|Double}}
-- Media {{key: PlayPause|Next|Previous|Stop}} · Volume {{op: Up|Down|Set|Mute, value?}} · Brightness {{op, value?}}
-- System {{op: Lock|Sleep|Shutdown|Restart|SignOut}} · Screenshot {{}} · ClipboardSet {{text}} · ClipboardGet {{}}
-- Notify {{title, body}} · Timer {{seconds, message}} · Wait {{ms}} · Speak {{text}}
-- FileCreate {{path, content}} · FolderCreate {{path}} · FileMove {{from, to}} · FileDelete {{path}}
-- If {{condition: {{type: WindowActive|WindowExists, app}} | {{type: ProcessRunning, name}}, then: [...], otherwise: [...]}}
-Rules: prefer the fewest steps; add Wait {{ms: 1000-2000}} after Launch before typing into the new app; never \
-invent apps the user did not ask for; destructive steps (FileDelete, KillProcess, CloseApp with discard, \
-Shutdown) only when explicitly requested — the user confirms them separately. Answer with ONE JSON object and \
-nothing else: {{\"explanation\": \"<one sentence in the user's language>\", \"steps\": [ ... ]}}. If the request \
-cannot be done with these actions, answer {{\"explanation\": \"<why>\", \"steps\": []}}."
+        "You are {PLANNER_MARKER}. The user controls their Windows PC by voice or text. You have NO tools of your own in this conversation and must ignore any tools of your environment: Orkestr executes the JSON steps below on the user's PC, and these actions give you FULL control of the computer — sound (system volume, per-app volume, mute, microphone, output / input device, media), windows, virtual desktops, cursor and mouse, keyboard, displays, screenshots, Wi-Fi / Bluetooth, power, files, the browser and system information. Never say that you cannot control something these actions cover.
+The request may come from speech recognition and contain recognition errors: read it by sound and meaning («громко с 10%» = «громкость 10%», «звук на десять» = volume 10%, «на полную» = 100%).
+Action vocabulary (field `type` selects the action; `?` = optional; `A|B` = allowed values):
+{vocab}Rules: prefer the fewest steps; add Wait {{ms: 1000-2000}} after Launch before typing into the new app; never invent apps the user did not ask for; destructive steps (FileDelete, KillProcess, CloseApp with discard, EmptyRecycleBin, Radio, Shutdown) only when explicitly requested — the user confirms them separately; never type into password fields. Answer with ONE JSON object and nothing else: {{\"explanation\": \"<one sentence in the user's language>\", \"steps\": [ ... ]}}. Only when a request truly cannot be done with these actions, answer {{\"explanation\": \"<exactly which part is impossible and why>\", \"steps\": []}}.",
+        vocab = crate::vocab::prompt_vocabulary()
     )
 }
 
@@ -141,6 +126,40 @@ mod tests {
         assert!(parse_plan("{\"steps\":[{\"type\":\"FormatDisk\"}]}").is_err());
         assert!(parse_plan("{\"explanation\":\"cannot\",\"steps\":[]}").unwrap_err().to_string().contains("cannot"));
         assert!(parse_plan("{\"steps\":[{\"type\":\"Launch\",\"target\":\"{app}\"}]}").is_err());
+    }
+
+    #[test]
+    fn prompt_gives_the_full_vocabulary() {
+        let p = system_prompt();
+        // the «нет управления звуком» regression: sound is in the prompt with examples
+        for must in [
+            "\"type\":\"Volume\",\"op\":\"Set\",\"value\":10",
+            "«громко с 10%»",
+            "«сделай погромче»",
+            "«звук на десять»",
+            "AudioDevice",
+            "Microphone",
+            "MouseMove",
+            "WindowOpacity",
+            "NO tools of your own",
+        ] {
+            assert!(p.contains(must), "{must} missing from the planner prompt");
+        }
+        for s in crate::vocab::ACTIONS {
+            assert!(p.contains(&format!("- {} ", s.name)), "{} missing", s.name);
+        }
+    }
+
+    #[test]
+    fn planned_volume_answers_parse() {
+        for answer in [
+            r#"{"explanation":"Громкость 10%","steps":[{"type":"Volume","op":"Set","value":10}]}"#,
+            r#"{"explanation":"Погромче","steps":[{"type":"Volume","op":"Up","value":10}]}"#,
+            r#"{"explanation":"Spotify тише","steps":[{"type":"Volume","op":"Down","value":20,"app":"spotify"}]}"#,
+        ] {
+            let (steps, _) = parse_plan(answer).unwrap();
+            assert_eq!(steps[0].type_name(), "Volume");
+        }
     }
 
     #[test]

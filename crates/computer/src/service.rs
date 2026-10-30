@@ -28,7 +28,7 @@ use crate::backend::{ComputerBackend, InstalledApp};
 use crate::catalogue::builtin_sets;
 use crate::error::{ComputerError, ComputerResult};
 use crate::executor::{execute, substitute, ExecEnv, TimerFn};
-use crate::matcher::{Entry, Matcher, MATCH_THRESHOLD};
+use crate::matcher::{Entry, Matcher, MATCH_THRESHOLD, NEAR_MISS_THRESHOLD};
 use crate::planner::{parse_plan, system_prompt, user_prompt, PlanModel};
 use crate::safety;
 use crate::store::{export_document, parse_set_document, SetStore};
@@ -377,6 +377,26 @@ impl ComputerService {
                 }
             }
         }
+        // near miss («громкасть десит»): ask «Вы имели в виду: громкость 10?»
+        if let Some(near) = raw.first().filter(|r| r.score >= NEAR_MISS_THRESHOLD) {
+            if let Some(m) = self.to_match(near, &idx, lang) {
+                if let Some((_, c)) = self.command(Some(&m.set_id), &m.command_id) {
+                    let spec = RunSpec {
+                        title: title_of(&c, lang),
+                        command_id: Some(c.id.clone()),
+                        declared: c.safety,
+                        steps: c.steps.clone(),
+                        slots: m.slots.clone(),
+                        matched: Some(m.clone()),
+                        text: text.to_owned(),
+                        source: source.to_owned(),
+                    };
+                    if let Some(r) = self.ask_did_you_mean(spec, &near.phrase, &m.slots).await {
+                        return Ok(r);
+                    }
+                }
+            }
+        }
         let suggestions: Vec<CommandMatch> = raw.iter().take(3).filter_map(|r| self.to_match(r, &idx, lang)).collect();
         if plan_unknown {
             match self.plan(text, None, None, lang).await {
@@ -441,6 +461,33 @@ impl ComputerService {
         let spec =
             RunSpec { title: title.clone(), steps, slots, text: title, source: "execute".into(), ..RunSpec::default() };
         self.run_spec(spec, false).await
+    }
+
+    /// A near-miss match waits for «да»: the reason `didYouMean` (+ the
+    /// command's own risks, so confirming never skips them). `None` when the
+    /// steps cannot be resolved / are refused.
+    async fn ask_did_you_mean(
+        self: &Arc<Self>,
+        spec: RunSpec,
+        phrase: &str,
+        slots: &BTreeMap<String, String>,
+    ) -> Option<HandleResult> {
+        let resolved = substitute(&spec.steps, &spec.slots).ok()?;
+        let mut reasons = safety::classify(&resolved, Some(&self.deps.security.guard)).ok()?;
+        if reasons.is_empty() && spec.declared > SafetyLevel::Safe {
+            reasons.push(RiskReason {
+                step: 0,
+                code: "declared".into(),
+                detail: spec.title.clone(),
+                level: spec.declared,
+            });
+        }
+        let mut said = phrase.to_owned();
+        for (k, v) in slots {
+            said = said.replace(&format!("{{{k}}}"), v);
+        }
+        reasons.insert(0, RiskReason { step: 0, code: "didYouMean".into(), detail: said, level: SafetyLevel::Confirm });
+        Some(self.create_pending(&spec, resolved, reasons).await)
     }
 
     async fn run_spec(self: &Arc<Self>, spec: RunSpec, confirmed: bool) -> ComputerResult<HandleResult> {
@@ -541,11 +588,17 @@ impl ComputerService {
             "fileDelete" => Some(DangerCategory::RecursiveDelete),
             _ => None,
         });
-        let approval_id = match self.deps.security.approvals.request(req).await {
-            Ok(a) => Some(a.id),
-            Err(e) => {
-                tracing::warn!(error = %e, "approval request failed; confirmation stays local");
-                None
+        // «Вы имели в виду …?» alone is not a risk: no approvals-inbox entry
+        let local_only = reasons.iter().all(|r| r.code == "didYouMean");
+        let approval_id = if local_only {
+            None
+        } else {
+            match self.deps.security.approvals.request(req).await {
+                Ok(a) => Some(a.id),
+                Err(e) => {
+                    tracing::warn!(error = %e, "approval request failed; confirmation stays local");
+                    None
+                }
             }
         };
         let (tx, _rx) = watch::channel(None);
@@ -997,6 +1050,9 @@ impl ComputerService {
         for t in timers {
             t.cancel();
         }
+        // a `MouseHold` must not outlive the stop
+        let b = Arc::clone(&self.deps.backend);
+        let _ = tokio::task::spawn_blocking(move || crate::executor::release_held_buttons(b.as_ref())).await;
         let pend: Vec<(String, Pending)> = self.pending.lock().drain().collect();
         for (_, p) in &pend {
             if let Some(a) = p.approval_id {
