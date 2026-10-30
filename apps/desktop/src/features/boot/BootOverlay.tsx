@@ -9,6 +9,7 @@
  */
 import { clsx } from "clsx";
 import { useEffect, useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
 
 import { formatPercent, useT } from "../../i18n";
 import { useAppStore } from "../../store/app";
@@ -56,6 +57,26 @@ function flyTarget(): FlyTarget | null {
 /** Debug hook (`localStorage["orkestr.debugHooks"] = "1"`): freeze a frame for screenshots. */
 interface BootDebug {
   freeze: (s: Partial<BootFrameState> | null, now?: number) => void;
+  info: () => unknown;
+}
+
+const PLAYED_KEY = "orkestr.boot.played";
+
+/** A sequence already played in this app session (a page reload keeps the core's startup report). */
+function playedThisSession(): boolean {
+  try {
+    return window.sessionStorage.getItem(PLAYED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function markPlayed(): void {
+  try {
+    window.sessionStorage.setItem(PLAYED_KEY, "1");
+  } catch {
+    /* storage unavailable */
+  }
 }
 
 function debugOn(): boolean {
@@ -94,7 +115,7 @@ export function BootOverlay({ plan, ready, compact, preview = false, onDone }: B
   // The core's startup check (`app-version.json`) may know better: a regular
   // start that is really the first one of an installed / updated version.
   useEffect(() => {
-    if (preview || variant !== "short" || !updatesAvailableHere()) return;
+    if (preview || variant !== "short" || playedThisSession() || !updatesAvailableHere()) return;
     updatesApi
       .status()
       .then((st) => {
@@ -199,13 +220,14 @@ export function BootOverlay({ plan, ready, compact, preview = false, onDone }: B
 
     if (debugOn()) {
       const w = window as unknown as { __orkestrDebug?: Record<string, unknown> };
-      const hook: BootDebug = { freeze: (s, now) => (frozen = s ? { s, now } : null) };
+      const hook: BootDebug = { freeze: (s, now) => (frozen = s ? { s, now } : null), info: () => ({ palette: renderer?.palette, layout: renderer?.layout }) };
       w.__orkestrDebug = { ...(w.__orkestrDebug ?? {}), boot: hook };
     }
 
     const finish = (spoke: boolean) => {
       if (finished) return;
       finished = true;
+      if (!preview) markPlayed();
       useBootStore.getState().finish(spoke);
       doneRef.current();
     };
@@ -300,7 +322,8 @@ export function BootOverlay({ plan, ready, compact, preview = false, onDone }: B
     };
   }, [variant, compact, preview, texts]);
 
-  return (
+  // Portalled to <body>: above the app's own overlays (onboarding, dialogs), which live there too.
+  const node = (
     <div
       ref={rootRef}
       className={clsx("boot", `boot--${variant}`, compact && "boot--compact")}
@@ -341,4 +364,5 @@ export function BootOverlay({ plan, ready, compact, preview = false, onDone }: B
       </div>
     </div>
   );
+  return typeof document === "undefined" ? node : createPortal(node, document.body);
 }

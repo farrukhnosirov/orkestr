@@ -1,0 +1,199 @@
+{
+  "date": "2026-10-30T01:43:23.355Z",
+  "result": "6/6 checks passed",
+  "checks": [
+    {
+      "id": "B0",
+      "label": "first start after install: the full version plays",
+      "ok": true,
+      "detail": "boot boot--full"
+    },
+    {
+      "id": "B1",
+      "label": "the full version ends on its own once the core is ready",
+      "ok": true,
+      "detail": "4730 ms after attach"
+    },
+    {
+      "id": "B2",
+      "label": "the app is usable under it (main body mounted)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "id": "B3",
+      "label": "a regular start plays the short version (or it already ended)",
+      "ok": true,
+      "detail": "boot boot--short"
+    },
+    {
+      "id": "B4",
+      "label": "the short version ends within ~2 s",
+      "ok": true,
+      "detail": "1553 ms after attach"
+    },
+    {
+      "id": "B5",
+      "label": "no console errors while capturing",
+      "ok": true,
+      "detail": ""
+    }
+  ],
+  "screenshots": [
+    {
+      "name": "full-dark-ru-01-grid.jpg",
+      "note": "full: grid revealed from the centre, first ring drawing in",
+      "consoleMessages": []
+    },
+    {
+      "name": "full-dark-ru-02-rings.jpg",
+      "note": "full: rings draw in (stroke-dash), ticks start lighting clockwise",
+      "consoleMessages": []
+    },
+    {
+      "name": "full-dark-ru-03-ticks.jpg",
+      "note": "full: tick ring lighting clockwise, boot log typing",
+      "consoleMessages": []
+    },
+    {
+      "name": "full-dark-ru-04-coils.jpg",
+      "note": "full: core ring and coils filling",
+      "consoleMessages": []
+    },
+    {
+      "name": "full-dark-ru-05-ignite.jpg",
+      "note": "full: core ignition: bloom + shock wave",
+      "consoleMessages": []
+    },
+    {
+      "name": "full-dark-ru-06-holding.jpg",
+      "note": "full: core still starting: idle scan, real step statuses",
+      "consoleMessages": []
+    },
+    {
+      "name": "full-dark-ru-07-online.jpg",
+      "note": "full: all systems nominal, greeting typing",
+      "consoleMessages": []
+    },
+    {
+      "name": "full-dark-ru-08-welcome.jpg",
+      "note": "full: welcome + time-of-day line",
+      "consoleMessages": []
+    },
+    {
+      "name": "full-dark-ru-09-exit.jpg",
+      "note": "full: reactor shrinks and flies to the title-bar logo",
+      "consoleMessages": []
+    },
+    {
+      "name": "full-dark-ru-10-exit.jpg",
+      "note": "full: main UI fades in",
+      "consoleMessages": []
+    },
+    {
+      "name": "short-dark-ru-01-assemble.jpg",
+      "note": "short: short version: fast assembly",
+      "consoleMessages": []
+    },
+    {
+      "name": "short-dark-ru-02-ignite.jpg",
+      "note": "short: short version: ignition",
+      "consoleMessages": []
+    },
+    {
+      "name": "short-dark-ru-03-welcome.jpg",
+      "note": "short: short version: greeting",
+      "consoleMessages": []
+    },
+    {
+      "name": "short-dark-ru-04-exit.jpg",
+      "note": "short: short version: fly to the title bar",
+      "consoleMessages": []
+    },
+    {
+      "name": "full-light-ru-01-grid.jpg",
+      "note": "full: grid revealed from the centre, first ring drawing in",
+      "consoleMessages": []
+    },
+    {
+      "name": "full-light-ru-02-rings.jpg",
+      "note": "full: rings draw in (stroke-dash), ticks start lighting clockwise",
+      "consoleMessages": []
+    },
+    {
+      "name": "full-light-ru-03-ticks.jpg",
+      "note": "full: tick ring lighting clockwise, boot log typing",
+      "consoleMessages": []
+    },
+    {
+      "name": "full-light-ru-04-coils.jpg",
+      "note": "full: core ring and coils filling",
+      "consoleMessages": []
+    },
+    {
+      "name": "full-light-ru-05-ignite.jpg",
+      "note": "full: core ignition: bloom + shock wave",
+      "consoleMessages": []
+    },
+    {
+      "name": "full-light-ru-06-holding.jpg",
+      "note": "full: core still starting: idle scan, real step statuses",
+      "consoleMessages": []
+    },
+    {
+      "name": "full-light-ru-07-online.jpg",
+      "note": "full: all systems nominal, greeting typing",
+      "consoleMessages": []
+    },
+    {
+      "name": "full-light-ru-08-welcome.jpg",
+      "note": "full: welcome + time-of-day line",
+      "consoleMessages": []
+    },
+    {
+      "name": "full-light-ru-09-exit.jpg",
+      "note": "full: reactor shrinks and flies to the title-bar logo",
+      "consoleMessages": []
+    },
+    {
+      "name": "full-light-ru-10-exit.jpg",
+      "note": "full: main UI fades in",
+      "consoleMessages": []
+    },
+    {
+      "name": "short-light-ru-01-assemble.jpg",
+      "note": "short: short version: fast assembly",
+      "consoleMessages": []
+    },
+    {
+      "name": "short-light-ru-02-ignite.jpg",
+      "note": "short: short version: ignition",
+      "consoleMessages": []
+    },
+    {
+      "name": "short-light-ru-03-welcome.jpg",
+      "note": "short: short version: greeting",
+      "consoleMessages": []
+    },
+    {
+      "name": "short-light-ru-04-exit.jpg",
+      "note": "short: short version: fly to the title bar",
+      "consoleMessages": []
+    },
+    {
+      "name": "static-dark-ru-01-static.jpg",
+      "note": "static: reduced motion / Performance mode: static version",
+      "consoleMessages": []
+    },
+    {
+      "name": "compact-dark-ru-01-compact.jpg",
+      "note": "short: compact layout (Assistant mode / small window)",
+      "consoleMessages": []
+    },
+    {
+      "name": "full-dark-en-08-welcome.jpg",
+      "note": "full: English greeting",
+      "consoleMessages": []
+    }
+  ]
+}

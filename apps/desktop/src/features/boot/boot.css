@@ -59,6 +59,7 @@
   white-space: nowrap;
 }
 .boot__line--title {
+  text-transform: none;
   margin-bottom: 6px;
   font-size: 13px;
   font-weight: var(--ok-font-weight-semibold);
@@ -67,6 +68,7 @@
   text-shadow: 0 0 calc(12px * var(--ok-glow-scale, 1)) color-mix(in srgb, var(--ok-color-accent) 55%, transparent);
 }
 .boot__line--all {
+  display: block;
   margin-top: 6px;
   color: var(--ok-color-text);
 }
@@ -217,4 +219,13 @@
   display: flex;
   justify-content: flex-start;
   margin-top: 4px;
+}
+
+/* Blinking parts: the blink animation drives opacity, so hide with visibility. */
+.boot .boot__caret[data-on="0"] {
+  visibility: hidden;
+}
+.boot--short .boot__line[data-step][data-on="0"],
+.boot--static .boot__line[data-step][data-on="0"] {
+  display: none;
 }

@@ -124,6 +124,10 @@ export class BootRenderer {
     return this.L;
   }
 
+  get palette(): JarvisPalette {
+    return this.pal;
+  }
+
   resize(w: number, h: number, dpr: number, compact: boolean): BootLayout {
     this.dpr = Math.min(2, Math.max(1, dpr));
     this.canvas.width = Math.max(1, Math.round(w * this.dpr));
@@ -230,10 +234,19 @@ export class BootRenderer {
     ctx.globalAlpha = bgAlpha;
     ctx.fillStyle = rgba(base, 1);
     ctx.fillRect(0, 0, L.w, L.h);
-    const vig = ctx.createRadialGradient(L.cx, L.cy, 0, L.cx, L.cy, Math.hypot(L.w, L.h) * 0.6);
-    vig.addColorStop(0, rgba(pal.accent, pal.light ? 0.1 : 0.12));
-    vig.addColorStop(0.45, rgba(pal.accent, pal.light ? 0.03 : 0.035));
-    vig.addColorStop(1, rgba(pal.light ? mix(pal.bg, BLACK, 0.06) : BLACK, pal.light ? 0.5 : 0.55));
+    // Canvas gradients interpolate unpremultiplied: a colour stop next to a
+    // black one bleeds, so the glow and the vignette are two gradients.
+    const diag = Math.hypot(L.w, L.h);
+    const glow = ctx.createRadialGradient(L.cx, L.cy, 0, L.cx, L.cy, diag * 0.42);
+    glow.addColorStop(0, rgba(pal.accent, pal.light ? 0.12 : 0.13));
+    glow.addColorStop(0.5, rgba(pal.accent, pal.light ? 0.04 : 0.045));
+    glow.addColorStop(1, rgba(pal.accent, 0));
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, L.w, L.h);
+    const shade = pal.light ? mix(pal.bg, BLACK, 0.1) : BLACK;
+    const vig = ctx.createRadialGradient(L.cx, L.cy, diag * 0.25, L.cx, L.cy, diag * 0.62);
+    vig.addColorStop(0, rgba(shade, 0));
+    vig.addColorStop(1, rgba(shade, pal.light ? 0.35 : 0.6));
     ctx.fillStyle = vig;
     ctx.fillRect(0, 0, L.w, L.h);
 
@@ -316,7 +329,7 @@ export class BootRenderer {
     const col = pal.light ? mix(pal.accent, BLACK, 0.25) : pal.accentStrong;
     const inset = L.compact ? 10 : 18;
     const len = L.compact ? 16 : 30;
-    ctx.strokeStyle = rgba(col, a * 0.55);
+    ctx.strokeStyle = rgba(col, a * 0.8);
     ctx.lineWidth = 1.2;
     ctx.beginPath();
     for (const [x, y, sx, sy] of [

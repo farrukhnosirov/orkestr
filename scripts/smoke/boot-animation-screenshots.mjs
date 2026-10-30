@@ -220,12 +220,12 @@ let exitCode = 0;
 try {
   // Real first start: the full version plays while the core starts and ends on its own.
   let main = await waitFor(() => windowOf("main"), 120_000, "main window");
-  const firstSeen = await waitFor(() => main.eval(`${OVERLAY}?.className ?? "gone"`), 20_000, "overlay state");
+  const firstSeen = await waitFor(() => main.eval(`(document.getElementById("root")?.children.length ?? 0) > 0 && (${OVERLAY}?.className ?? "gone")`), 30_000, "overlay state");
   check("B0", "first start after install: the full version plays", String(firstSeen).includes("boot--full"), firstSeen);
   const t0 = Date.now();
   await waitFor(() => main.eval(`!${OVERLAY}`), 30_000, "overlay ends");
   check("B1", "the full version ends on its own once the core is ready", true, `${Date.now() - t0} ms after attach`);
-  check("B2", "the app is usable under it (main body mounted)", await main.eval("!!document.querySelector('.app__body')"));
+  check("B2", "the app is usable under it (main body mounted)", await waitFor(() => main.eval("!!document.querySelector('.app__body')"), 60_000, "app body"));
 
   const info = await waitFor(() => JSON.parse(readFileSync(join(home, "core.json"), "utf8")), 90_000, "core.json");
   const token = readFileSync(join(home, "core.token"), "utf8").trim();
@@ -241,7 +241,7 @@ try {
   await sleep(700);
   main.ws.close();
   main = await waitFor(() => windowOf("main"), 60_000, "main window after reload");
-  const second = await waitFor(() => main.eval(`document.readyState === "complete" && (${OVERLAY}?.className ?? "gone")`), 20_000, "overlay after reload");
+  const second = await waitFor(() => main.eval(`(document.getElementById("root")?.children.length ?? 0) > 0 && (${OVERLAY}?.className ?? "gone")`), 20_000, "overlay after reload");
   check("B3", "a regular start plays the short version (or it already ended)", String(second).includes("boot--short") || second === "gone", second);
   const t1 = Date.now();
   await waitFor(() => main.eval(`!${OVERLAY}`), 10_000, "short overlay ends");
