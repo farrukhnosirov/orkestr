@@ -21,6 +21,11 @@ export function engineStatus(refresh = false): Promise<ClaudeEngineStatus> {
   return getClient().call("claudeEngine.status", { refresh });
 }
 
+/** Saves the Claude Code model (survives restarts; moves what already runs on Claude Code). */
+export function setClaudeModel(model: string): Promise<ClaudeEngineStatus> {
+  return getClient().call("claudeEngine.setModel", { model });
+}
+
 export function applyClaudeForEverything(model: string): Promise<UseClaudeForEverythingResult> {
   return getClient().call("claudeEngine.useForEverything", { model });
 }

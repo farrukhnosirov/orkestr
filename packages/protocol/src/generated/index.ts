@@ -1229,6 +1229,7 @@ export * from "./SecretScope";
 export * from "./ServerFrame";
 export * from "./SessionId";
 export * from "./SetBudgetParams";
+export * from "./SetClaudeModelParams";
 export * from "./SetCredentialParams";
 export * from "./SetEnabledParams";
 export * from "./SetExtensionEnabledParams";

@@ -224,12 +224,38 @@ export async function confirmCursor(approve: boolean): Promise<void> {
   }
 }
 
-export async function saveCursorSettings(settings: CursorSettings): Promise<void> {
-  try {
-    setStatus(await getClient().call("computer.cursorSetSettings", { settings }));
-  } catch (e) {
-    useCursorStore.getState().patch({ error: describeError(e) });
-  }
+/** Settings sent but not yet confirmed by the core (newest last). */
+let pendingSettings: CursorSettings | null = null;
+let settingsQueue: Promise<void> = Promise.resolve();
+
+/**
+ * Saves the cursor settings. Pass an updater: it gets the newest settings,
+ * including a save still in flight — two quick edits (a model field's blur,
+ * then a click on «up») otherwise both start from the same old settings and
+ * the second silently drops the first (the model "resets"). Saves are sent
+ * in order and shown immediately.
+ */
+export function saveCursorSettings(next: CursorSettings | ((s: CursorSettings) => CursorSettings)): Promise<void> {
+  const st = useCursorStore.getState().status;
+  const base = pendingSettings ?? st?.settings;
+  if (!base) return settingsQueue;
+  const settings = typeof next === "function" ? next(base) : next;
+  pendingSettings = settings;
+  if (st) useCursorStore.getState().patch({ status: { ...st, settings } });
+  settingsQueue = settingsQueue.then(async () => {
+    try {
+      const r: CursorStatus = await getClient().call("computer.cursorSetSettings", { settings });
+      // A newer save is queued: keep showing it until its own answer.
+      if (pendingSettings === settings) {
+        pendingSettings = null;
+        setStatus(r);
+      }
+    } catch (e) {
+      if (pendingSettings === settings) pendingSettings = null;
+      useCursorStore.getState().patch({ error: describeError(e) });
+    }
+  });
+  return settingsQueue;
 }
 
 export async function setConsent(backend: string, granted: boolean): Promise<void> {

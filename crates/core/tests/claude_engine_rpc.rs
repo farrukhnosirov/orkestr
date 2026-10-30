@@ -246,6 +246,76 @@ async fn claude_code_as_the_engine_end_to_end() {
     core.shutdown().await;
 }
 
+async fn connect(core: &orkestr_core::CoreHandle) -> Client {
+    let (mut ws, _) = tokio_tungstenite::connect_async(core.url.as_str()).await.unwrap();
+    ws.send(Message::Text(json!({"type": "auth", "token": core.token}).to_string().into())).await.unwrap();
+    let mut c = Client { ws, events: VecDeque::new(), seq: 0 };
+    assert_eq!(c.recv().await["ok"], true);
+    c
+}
+
+/// The «Model» of the Claude Code card is saved in the core: it survives a
+/// status refresh (CLI re-detection), "use for everything" and a restart,
+/// and moves whatever already runs on Claude Code. Before the fix the card
+/// kept it in React state only and always came back as `sonnet`.
+#[tokio::test]
+async fn claude_model_choice_persists() {
+    let dir = tempfile::tempdir().unwrap();
+    let data = dir.path().join("data");
+    let fake = env!("CARGO_BIN_EXE_orkestr-fake-claude");
+    let core = orkestr_core::start(CoreConfig::for_tests(data.clone())).await.unwrap();
+    let mut c = connect(&core).await;
+    c.ok("claudeCode.setBinaryPath", json!({"path": fake})).await;
+    let st = c.ok("claudeEngine.status", json!({"refresh": true})).await;
+    let provider = st["providerId"].as_str().expect("provider registered").to_owned();
+    assert_eq!(st["model"], "sonnet", "default before any choice");
+
+    // Everything on Claude Code with Sonnet, then the user picks Opus.
+    c.ok("claudeEngine.useForEverything", json!({"model": "sonnet"})).await;
+    let st = c.ok("claudeEngine.setModel", json!({"model": "opus"})).await;
+    assert_eq!(st["model"], "opus");
+    let mgr = c.ok("providers.getManager", json!({})).await["config"].clone();
+    assert_eq!(mgr["model"], json!({"providerId": provider, "model": "opus"}));
+    let routing = c.ok("providers.getRouting", json!({})).await["config"].clone();
+    for rule in routing["rules"].as_array().unwrap() {
+        if rule["model"]["providerId"] == provider.as_str() {
+            assert_eq!(rule["model"]["model"], "opus", "{rule}");
+        }
+    }
+    // A refresh (CLI re-detection) does not reset it.
+    assert_eq!(c.ok("claudeEngine.status", json!({"refresh": true})).await["model"], "opus");
+    // The parallel engines use the same model (their `balanced` re-pointing
+    // would otherwise bring Sonnet back).
+    let engines = c.ok("engines.status", json!({})).await;
+    assert_eq!(engines["config"]["claudeModel"], "opus");
+    assert_eq!(c.call("claudeEngine.setModel", json!({"model": "bad model!"})).await["error"]["code"], "bad_request");
+    drop(c);
+    core.shutdown().await;
+
+    // After a restart the saved choice is still there.
+    let core = orkestr_core::start(CoreConfig::for_tests(data.clone())).await.unwrap();
+    let mut c = connect(&core).await;
+    let st = c.ok("claudeEngine.status", json!({"refresh": true})).await;
+    assert_eq!(st["providerId"], provider.as_str());
+    assert_eq!(st["model"], "opus", "{st}");
+    let providers = c.ok("providers.list", json!({})).await["providers"].as_array().unwrap().clone();
+    let cc = providers.iter().find(|p| p["provider"]["kind"] == "ClaudeCode").unwrap();
+    assert_eq!(cc["provider"]["defaultModel"], "opus", "{cc}");
+
+    // Not on Claude Code: the provider default still remembers the choice,
+    // and "use for everything" applies the chosen model.
+    let mock = providers.iter().find(|p| p["provider"]["kind"] == "Mock").unwrap()["provider"]["id"].clone();
+    let mut mgr = c.ok("providers.getManager", json!({})).await["config"].clone();
+    mgr["model"] = json!({"providerId": mock, "model": "mock-smart"});
+    c.ok("providers.setManager", json!({"config": mgr})).await;
+    assert_eq!(c.ok("claudeEngine.setModel", json!({"model": "haiku"})).await["model"], "haiku");
+    let r = c.ok("claudeEngine.useForEverything", json!({"model": "haiku"})).await;
+    assert_eq!(r["manager"]["model"]["model"], "haiku");
+    assert_eq!(r["status"]["model"], "haiku");
+    drop(c);
+    core.shutdown().await;
+}
+
 /// Live check against the real, signed-in Claude Code (haiku, one tiny task):
 /// `ORKESTR_REAL_CLAUDE=C:\path\to\claude.exe cargo test -p orkestr-core
 /// --test claude_engine_rpc -- --ignored --nocapture`.

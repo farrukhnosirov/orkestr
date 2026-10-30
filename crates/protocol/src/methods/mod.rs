@@ -499,6 +499,7 @@ pub fn registry() -> Vec<MethodDescriptor> {
         // Claude Code as Orkestr's engine (provider, routing, sub-agents)
         MethodDescriptor::of::<claude_engine::Status>(),
         MethodDescriptor::of::<claude_engine::UseForEverything>(),
+        MethodDescriptor::of::<claude_engine::SetModel>(),
         MethodDescriptor::of::<claude_engine::Agents>(),
         MethodDescriptor::of::<claude_engine::SaveAgent>(),
         MethodDescriptor::of::<claude_engine::DeleteAgent>(),

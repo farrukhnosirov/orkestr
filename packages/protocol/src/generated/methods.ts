@@ -561,6 +561,7 @@ import type { SearchMemoryParams } from "./SearchMemoryParams";
 import type { SearchMemoryResult } from "./SearchMemoryResult";
 import type { SecretResult } from "./SecretResult";
 import type { SetBudgetParams } from "./SetBudgetParams";
+import type { SetClaudeModelParams } from "./SetClaudeModelParams";
 import type { SetCredentialParams } from "./SetCredentialParams";
 import type { SetEnabledParams } from "./SetEnabledParams";
 import type { SetExtensionEnabledParams } from "./SetExtensionEnabledParams";
@@ -1028,6 +1029,7 @@ export type Methods = {
   "claudeCode.transcript": [ClaudeTranscriptParams, ClaudeTranscriptResult];
   "claudeEngine.status": [ClaudeEngineStatusParams, ClaudeEngineStatus];
   "claudeEngine.useForEverything": [UseClaudeForEverythingParams, UseClaudeForEverythingResult];
+  "claudeEngine.setModel": [SetClaudeModelParams, ClaudeEngineStatus];
   "claudeEngine.agents": [ClaudeAgentsParams, ClaudeAgentsResult];
   "claudeEngine.saveAgent": [SaveClaudeAgentParams, ClaudeAgentFileResult];
   "claudeEngine.deleteAgent": [DeleteClaudeAgentParams, ClaudeAgentFileResult];
@@ -1537,6 +1539,7 @@ export const METHOD_NAMES = [
   "claudeCode.transcript",
   "claudeEngine.status",
   "claudeEngine.useForEverything",
+  "claudeEngine.setModel",
   "claudeEngine.agents",
   "claudeEngine.saveAgent",
   "claudeEngine.deleteAgent",

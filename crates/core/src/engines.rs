@@ -62,7 +62,7 @@ pub fn load(data_dir: &Path) -> EnginesConfig {
         .unwrap_or_default()
 }
 
-fn save(data_dir: &Path, cfg: &EnginesConfig) -> Result<(), String> {
+pub(crate) fn save(data_dir: &Path, cfg: &EnginesConfig) -> Result<(), String> {
     let text = serde_json::to_string_pretty(cfg).map_err(|e| e.to_string())?;
     let path = data_dir.join(CONFIG_FILE);
     let tmp = path.with_extension("json.tmp");
@@ -317,6 +317,18 @@ pub async fn set_config(services: &Services, cfg: EnginesConfig) -> Result<Engin
     }
     apply(services, &cfg).await?;
     save(services.claude.data_dir(), &cfg).map_err(RpcError::internal)?;
+    // The Claude Code card shows the provider's default model: keep it in step.
+    if cfg.mode != EnginesMode::Off {
+        if let Some(id) = crate::claude_engine::provider_id(services) {
+            let patch = orkestr_providers::ProviderPatch {
+                default_model: Some(cfg.claude_model.clone()),
+                ..orkestr_providers::ProviderPatch::default()
+            };
+            if let Err(e) = services.providers.update(id, patch).await {
+                tracing::warn!(error = %e, "could not save the Claude Code model");
+            }
+        }
+    }
     let sec = &services.security;
     sec.audit
         .record(

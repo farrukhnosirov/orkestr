@@ -73,6 +73,11 @@ pub struct ClaudeEngineStatus {
     /// Why the provider could not be registered, if so.
     #[serde(default)]
     pub reason: Option<String>,
+    /// The saved Claude Code model alias (`sonnet`, `opus`, `haiku`): the
+    /// Manager's model when it runs on Claude Code, else the provider's
+    /// default model. Survives restarts; the card's «Model» shows it.
+    #[serde(default)]
+    pub model: String,
 }
 
 /// Params of `claudeEngine.status`.
@@ -93,6 +98,15 @@ pub struct UseClaudeForEverythingParams {
     /// Model alias for the Manager and the agents (default `sonnet`).
     #[serde(default)]
     pub model: Option<String>,
+}
+
+/// Params of `claudeEngine.setModel`.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct SetClaudeModelParams {
+    /// Model alias (`sonnet`, `opus`, `haiku`, or a full model id).
+    pub model: String,
 }
 
 /// Result of `claudeEngine.useForEverything`.
@@ -195,6 +209,12 @@ method!(
     /// `claudeEngine.useForEverything` — Manager, every agent role, review,
     /// consensus and PM on Claude Code (previous models kept as fallbacks).
     UseForEverything, "claudeEngine.useForEverything", UseClaudeForEverythingParams, UseClaudeForEverythingResult
+);
+method!(
+    /// `claudeEngine.setModel` — saves the Claude Code model: the provider's
+    /// default, every Manager / routing rule already on Claude Code and the
+    /// parallel engines' Claude model.
+    SetModel, "claudeEngine.setModel", SetClaudeModelParams, ClaudeEngineStatus
 );
 method!(
     /// `claudeEngine.agents` — Claude Code's sub-agents, synced as templates.
