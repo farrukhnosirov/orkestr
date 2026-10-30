@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { dtwDistance, meanPairwiseDistance, normalizeFeatures, thresholdFor } from "./dtw";
 import { fft, FRAME_LEN, frameEnergyDb, MfccExtractor, NUM_CEPS, SAMPLE_RATE } from "./mfcc";
 import { FrameSegmenter, segmentFrames } from "./segmenter";
-import { checkEnrollSample, consistentWith, WakeSpotter } from "./spotter";
+import { checkEnrollSample, consistentWith, WakeDetector, WakeSpotter } from "./spotter";
 import { EnergyVad } from "./vad";
 
 /** Seeded PRNG (mulberry32). */
@@ -215,5 +215,27 @@ describe("FrameSegmenter", () => {
     }
     expect(out.map((s) => s.early)).toEqual([true]);
     expect(out[0]?.frames).toBe(160);
+  });
+});
+
+describe("WakeDetector (several wake phrases, ADR-0056)", () => {
+  const jarvis = { phrase: "Джарвис", samples: [word(1, 58, 11), word(1, 66, 12), word(1, 61, 13)] };
+  const hey = { phrase: "Эй, Джарвис", samples: [word(2.3, 70, 61), word(2.3, 75, 62), word(2.3, 72, 63)] };
+
+  it("detects any recorded phrase and names it", () => {
+    const d = new WakeDetector([jarvis, hey], 50);
+    expect(d.ready).toBe(true);
+    expect(d.phrases).toEqual(["Джарвис", "Эй, Джарвис"]);
+    expect(d.detect(word(1, 64, 71, 0.4, 2), 10_000)?.phrase).toBe("Джарвис");
+    expect(d.detect(word(2.3, 74, 72, 0.4, -2), 20_000)?.phrase).toBe("Эй, Джарвис");
+    expect(d.detect(word(0.4, 60, 73), 30_000)).toBeNull();
+  });
+
+  it("shares one cooldown and skips phrases without enough samples", () => {
+    const d = new WakeDetector([jarvis, { phrase: "Jarvis", samples: [word(1, 60, 81)] }], 50);
+    expect(d.phrases).toEqual(["Джарвис"]);
+    expect(d.detect(word(1, 60, 82), 10_000)).not.toBeNull();
+    expect(d.detect(word(1, 60, 83), 11_000)).toBeNull();
+    expect(new WakeDetector([], 50).ready).toBe(false);
   });
 });

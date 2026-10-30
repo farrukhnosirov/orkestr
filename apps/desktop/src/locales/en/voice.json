@@ -316,7 +316,9 @@
         "listening": "Listening",
         "pausedBattery": "Paused: Battery Saver",
         "pausedBusy": "Paused",
-        "error": "Error"
+        "error": "Error",
+        "restarting": "Restarting the listener…",
+        "listeningFor": "Listening for {{phrases}}"
       },
       "phrase": "Wake phrase",
       "phraseDesc": "A short word that's easy to recognize, e.g. “Jarvis” or “Оркестр”.",
@@ -352,7 +354,17 @@
       "cpuBudgetDesc": "Average share of one CPU core the detector may use.",
       "cpuBudgetLoad": "Current load: {{load}} of one CPU core.",
       "pauseOnBattery": "Pause in Battery Saver",
-      "pauseOnBatteryDesc": "Push-to-talk keeps working."
+      "pauseOnBatteryDesc": "Push-to-talk keeps working.",
+      "phrases": "Wake phrases",
+      "phrasesDesc": "Any of these wakes the assistant. Speech-recognition slips like “Jervis” are understood too.",
+      "addPhrase": "Add",
+      "newPhrase": "New wake phrase",
+      "removePhrase": "Remove “{{phrase}}”",
+      "suggest": "Add “{{phrase}}”",
+      "primary": "Main phrase",
+      "recordedMark": "Voice samples recorded",
+      "phrasesHint": "Record samples for each phrase that sounds different. “Jarvis” and “Джарвис” sound the same — one recording covers both.",
+      "testHitPhrase": "Detected “{{phrase}}” (distance {{ratio}} of the threshold)."
     },
     "tts": {
       "engine": "Engine",
@@ -520,11 +532,13 @@
       "enabled": "Continue the conversation without the wake word",
       "enabledDesc": "After a reply the assistant keeps listening for a few seconds, so you can just go on talking. Silence, “thanks, that's all” or a stop phrase end the conversation.",
       "window": "Follow-up window",
-      "windowDesc": "How long to wait for you to start speaking. While you speak, it waits until you finish.",
+      "windowDesc": "One short window after the assistant finishes speaking. Nothing said in time — the wake word is needed again.",
       "seconds_one": "{{count}} s",
       "seconds_other": "{{count}} s",
       "chime": "Chime when the conversation ends",
-      "chimeDesc": "A soft sound when the follow-up window closes in silence."
+      "chimeDesc": "A soft sound when the follow-up window closes in silence.",
+      "maxTurns": "Replies in a row without the wake word",
+      "maxTurnsDesc": "After this many follow-up replies the wake word is needed again. Noise or silence ends the conversation at once."
     }
   },
   "sound": {

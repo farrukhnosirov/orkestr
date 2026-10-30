@@ -374,6 +374,54 @@
 .vx-phrase {
   width: 200px;
 }
+/* Wake phrases (ADR-0056) */
+.vx-wake-phrases {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ok-space-2);
+  width: 100%;
+}
+.vx-wake-phrases__list,
+.vx-wake-phrases__add {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.vx-wake-chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  border: 1px solid var(--ok-color-border);
+  border-radius: var(--ok-radius-pill);
+  color: var(--ok-color-text);
+  font-size: var(--ok-font-size-sm);
+}
+.vx-wake-chip--target {
+  border-color: var(--ok-color-border-accent);
+}
+.vx-wake-chip__name,
+.vx-wake-chip__remove {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.vx-wake-chip__remove {
+  padding: 3px 8px 3px 2px;
+  color: var(--ok-color-text-muted);
+}
+.vx-wake-chip__remove:hover {
+  color: var(--ok-color-text);
+}
+.vx-wake-status {
+  white-space: nowrap;
+}
 .vx-time {
   width: 104px;
 }

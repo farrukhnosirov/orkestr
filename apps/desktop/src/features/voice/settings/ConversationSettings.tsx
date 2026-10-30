@@ -1,7 +1,8 @@
 /**
  * Settings → Voice → Conversation (ADR-0054): voice barge-in (stop phrases
  * while the assistant speaks or works, what «окей» does, sensitivity) and
- * continuous conversation (follow-up without the wake word, window length).
+ * continuous conversation (follow-up without the wake word, window length,
+ * turns in a row — ADR-0056).
  */
 import type { VoiceConfig } from "@orkestr/protocol";
 import { useEffect, useState } from "react";
@@ -80,7 +81,10 @@ export function ConversationSettings({ config, patch }: { config: VoiceConfig; p
       {f.enabled && (
         <>
           <SettingRow title={t("settings.followUp.window")} description={t("settings.followUp.windowDesc")}>
-            <Slider value={f.windowSecs} min={3} max={30} step={1} label={t("settings.followUp.window")} format={(v) => t("settings.followUp.seconds", { count: v })} onCommit={(v) => setFollow({ windowSecs: v })} />
+            <Slider value={f.windowSecs} min={3} max={10} step={1} label={t("settings.followUp.window")} format={(v) => t("settings.followUp.seconds", { count: v })} onCommit={(v) => setFollow({ windowSecs: v })} />
+          </SettingRow>
+          <SettingRow title={t("settings.followUp.maxTurns")} description={t("settings.followUp.maxTurnsDesc")}>
+            <Slider value={f.maxTurns} min={1} max={10} step={1} label={t("settings.followUp.maxTurns")} onCommit={(v) => setFollow({ maxTurns: v })} />
           </SettingRow>
           <SettingRow title={t("settings.followUp.chime")} description={t("settings.followUp.chimeDesc")}>
             <Switch label={t("settings.followUp.chime")} checked={f.chimeOnClose} onChange={(v) => setFollow({ chimeOnClose: v })} />

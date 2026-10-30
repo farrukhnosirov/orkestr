@@ -16,6 +16,13 @@
  * listens for the next command. After a reply the assistant re-opens
  * listening without the wake word for the follow-up window; silence, «спасибо,
  * всё» or a stop phrase end the conversation quietly.
+ *
+ * Wake reliability, several wake phrases and a bounded follow-up (ADR-0056):
+ * a watchdog (`wake/health.ts`) restarts a listener whose audio stalled, whose
+ * device went away or that failed to open, and resets a pipeline phase that
+ * never settled; every await of the listen → recognize → route chain has a
+ * timeout. The follow-up window opens once after a reply (6 s by default),
+ * noise in it closes it, and only a few real turns chain without the wake word.
  */
 import type { BargeHit, Event, StopKind, VoiceCommandSource } from "@orkestr/protocol";
 import { topic } from "@orkestr/protocol";
@@ -36,9 +43,10 @@ import { bindApproval, type CommandResult, confirmationPrompt, executeIntent, pr
 import { assistantResult } from "../assistant/voiceResult";
 import { isWeakIntent, routeUtterance } from "../assistant/voiceRoute";
 import { dailyGreeting } from "../jarvis/greeting";
+import { FollowUpChain, isMeaningfulUtterance } from "./pipeline/followUp";
 import { isBusy, type MachineEvent, nextPhase } from "./pipeline/machine";
 import { speakable } from "./pipeline/summary";
-import { type MicPurpose, useVoiceStore } from "./store";
+import { type MicPurpose, type VoicePhase, useVoiceStore } from "./store";
 import { engineNeedsPcm, SttError, type SttSession, startStt, webSpeechAvailable } from "./stt/engines";
 import { speak, speechLang, stopSpeaking } from "./tts/speaker";
 import { confirmPending, stopAssistant } from "../assistant/api";
@@ -47,8 +55,10 @@ import { stopCursor, useCursorStore } from "../cursor/store";
 import { jarvisSession } from "../jarvis/session";
 import { classifyStop, isConversationEnd, isEchoOf, splitLeadingStop } from "./barge/phrases";
 import { type BargeTransport, BargeSpotterClient } from "./barge/spotter";
+import { WakeHealth } from "./wake/health";
+import { configWakePhrases, matchWakePhrase, wakeVariants } from "./wake/phrases";
 import { segmentFrames } from "./wake/segmenter";
-import { loadTemplates as loadWakeTemplates, WakeSpotter } from "./wake/spotter";
+import { loadTemplateSets, MIN_ENROLL_SAMPLES, templatesSignature, WakeDetector } from "./wake/spotter";
 
 let deps: VoiceDeps | null = null;
 function getDeps(): VoiceDeps {
@@ -65,7 +75,40 @@ export function setVoiceDeps(d: VoiceDeps | null): void {
 // Microphone (shared by wake spotting, commands, enrollment, meter).
 // ---------------------------------------------------------------------------
 
+/** Timeouts of the listen → recognize → route chain (ADR-0056): the phase always settles. */
+export const VOICE_TIMEOUTS = {
+  /** Opening the microphone (getUserMedia + the audio graph). */
+  micOpenMs: 10_000,
+  /** Finishing a recognition (the core's own transcribe timeout is 60 s). */
+  transcribeMs: 70_000,
+  /** Listing agents for the intent parser (optional context). */
+  contextMs: 3000,
+} as const;
+
+class VoiceTimeout extends Error {
+  readonly code = "failed";
+}
+
+/** Rejects with `VoiceTimeout` when `p` does not settle within `ms`. */
+function withTimeout<T>(p: Promise<T>, ms: number, what: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = window.setTimeout(() => reject(new VoiceTimeout(`${what} timed out after ${ms} ms`)), ms);
+    p.then(
+      (v) => {
+        window.clearTimeout(timer);
+        resolve(v);
+      },
+      (e: unknown) => {
+        window.clearTimeout(timer);
+        reject(e);
+      },
+    );
+  });
+}
+
 let mic: MicCapture | null = null;
+/** Health of the background wake listener (ADR-0056). */
+const wakeHealth = new WakeHealth();
 /** Messages received from the microphone worklet (debug: proves the loop runs in the background). */
 let micTicks = 0;
 let micOpening: Promise<MicCapture> | null = null;
@@ -82,18 +125,33 @@ function emit(ev: MachineEvent): boolean {
 async function openMic(purpose: MicPurpose): Promise<MicCapture> {
   const store = useVoiceStore.getState();
   store.micOn(purpose);
-  if (mic && !mic.isClosed) return mic;
+  if (mic && !mic.isClosed && !mic.isDead) return mic;
+  if (mic?.isDead) closeMic(); // the old stream is gone: open a fresh one
   if (!micOpening) {
     const cfg = store.config;
-    micOpening = import("./audio/mic")
+    let timedOut = false;
+    const opening = import("./audio/mic")
       .then(({ MicCapture: Mic }) => Mic.open({ deviceId: cfg?.inputDeviceId ?? null, cpuBudgetPct: cfg?.wake.cpuBudgetPct ?? 2 }))
+      .then((m) => {
+        // getUserMedia answered after we gave up: do not leave the device open.
+        if (timedOut) m.close();
+        return m;
+      });
+    micOpening = withTimeout(opening, VOICE_TIMEOUTS.micOpenMs, "opening the microphone")
+      .catch((e: unknown) => {
+        if (e instanceof VoiceTimeout) timedOut = true;
+        throw e;
+      })
       .then(
         (m) => {
           mic = m;
           micOpening = null;
           let smoothed = 0;
+          wakeHealth.beat(Date.now());
+          m.onDead?.(() => onMicDead(m));
           offLevel = m.subscribe((msg) => {
             micTicks += 1;
+            wakeHealth.beat(Date.now());
             if (msg.type === "level") {
               // dBFS → 0..1 (−60 dB .. −10 dB), fast attack / slow release.
               const v = Math.min(1, Math.max(0, (msg.db + 60) / 50));
@@ -179,11 +237,19 @@ let lastSpoken = "";
 /** A reply finished: re-open listening for a follow-up once speech is over. */
 let followUpArmed = false;
 let followUpTimer: number | null = null;
+/** Hard end of the follow-up window: nobody started speaking in time (ADR-0056). */
+let followUpWindowTimer: number | null = null;
+/** The turn being handled came from a follow-up window (no wake word). */
+let turnFromFollowUp = false;
+/** Follow-up turns in a row (capped by `followUp.maxTurns`). */
+const followUpChain = new FollowUpChain();
 
 /** Pause between the end of the assistant's speech and the follow-up window (room echo tail). */
 export const FOLLOW_UP_DELAY_MS = 300;
 /** Listening window after a stop phrase («стоп, открой ютуб»). */
 export const AFTER_STOP_MS = 5000;
+/** The follow-up window's hard limit runs this much past the engine's own no-speech limit. */
+export const FOLLOW_UP_GRACE_MS = 400;
 
 function clearDismiss(): void {
   if (dismissTimer !== null) window.clearTimeout(dismissTimer);
@@ -248,6 +314,7 @@ export async function startListening(source: VoiceCommandSource, opts: ListenOpt
   if (!emit({ type: "listen" })) return;
   const follow = opts.followUpMs !== undefined;
   followUpCapture = follow;
+  if (!follow) followUpChain.reset(); // the wake word / push-to-talk starts a new conversation
   s.setRuntime({
     source,
     transcript: "",
@@ -276,10 +343,27 @@ export async function startListening(source: VoiceCommandSource, opts: ListenOpt
       ...(opts.preroll?.length ? { preroll: opts.preroll } : {}),
     });
     sessionSource = source;
+    const sess = session;
     session.onInterim((text) => useVoiceStore.getState().setRuntime({ transcript: text }));
     session.onAutoEnd(() => void stopListening());
     // The user started talking: the follow-up window extends until they finish.
-    session.onSpeech?.(() => useVoiceStore.getState().setRuntime({ followUp: null }));
+    session.onSpeech?.(() => {
+      clearFollowUpWindow();
+      useVoiceStore.getState().setRuntime({ followUp: null });
+    });
+    // The window is a hard limit: nothing said in time closes it, whatever the engine does.
+    if (follow) {
+      clearFollowUpWindow();
+      followUpWindowTimer = window.setTimeout(() => {
+        followUpWindowTimer = null;
+        if (session !== sess || !followUpCapture) return;
+        session = null;
+        followUpCapture = false;
+        sess.cancel();
+        releaseMic("command");
+        closeConversation();
+      }, (opts.followUpMs ?? 0) + FOLLOW_UP_GRACE_MS);
+    }
   } catch (e) {
     releaseMic("command");
     session = null;
@@ -331,6 +415,7 @@ export async function stopListening(): Promise<void> {
   const source = sessionSource ?? "PushToTalk";
   const follow = followUpCapture;
   followUpCapture = false;
+  clearFollowUpWindow();
   useVoiceStore.getState().setRuntime({ followUp: null });
   if (!emit({ type: "speechEnd" })) {
     sess.cancel();
@@ -340,19 +425,32 @@ export async function stopListening(): Promise<void> {
   playSound("listenEnd");
   let text = "";
   try {
-    text = await sess.finish();
+    text = await withTimeout(sess.finish(), VOICE_TIMEOUTS.transcribeMs, "speech recognition");
   } catch (e) {
+    if (e instanceof VoiceTimeout) sess.cancel();
     releaseMic("command");
-    if (follow && e instanceof SttError && e.code === "noSpeech") return closeConversation();
-    fail(e instanceof SttError ? sttErrorText(e) : describeError(e));
+    // In the follow-up window a failed or empty recognition just ends the conversation.
+    if (follow && (e instanceof VoiceTimeout || (e instanceof SttError && e.code === "noSpeech"))) return closeConversation();
+    fail(e instanceof SttError ? sttErrorText(e) : e instanceof VoiceTimeout ? t("voice:errors.sttFailed") : describeError(e));
     return;
   }
   releaseMic("command");
+  let calledAgain = false;
   if (follow) {
+    // The wake phrase alone in the window: the user calls the assistant again.
+    const wake = matchWakePhrase(text, configuredWakePhrases());
+    calledAgain = wake !== null; // «Джарвис, …» in the window starts a new conversation
+    if (wake && !wake.rest) {
+      closeConversation({ chime: false });
+      onWake();
+      return;
+    }
     const next = followUpText(text);
-    if (next === null) return closeConversation();
+    // Noise, fillers and recognizer hallucinations close the window without a reply.
+    if (next === null || !isMeaningfulUtterance(next, { expectingAnswer: pending !== null })) return closeConversation();
     text = next;
   }
+  turnFromFollowUp = follow && !calledAgain;
   if (!text) {
     fail(t("voice:errors.noSpeech"));
     return;
@@ -371,7 +469,10 @@ export function cancelVoice(): void {
   pending = null;
   followUpCapture = false;
   followUpArmed = false;
+  turnFromFollowUp = false;
+  followUpChain.reset();
   clearFollowUp();
+  clearFollowUpWindow();
   releaseMic("command");
   stopSpeaking();
   clearDismiss();
@@ -388,6 +489,8 @@ export async function submitTyped(text: string): Promise<void> {
   stopSpeaking();
   hushed = false;
   if (!emit({ type: "typed", text: clean })) return;
+  turnFromFollowUp = false;
+  followUpChain.reset();
   useVoiceStore.getState().setRuntime({ source: "Typed", transcript: clean, reply: null });
   await handleText(clean, "Typed");
 }
@@ -405,6 +508,7 @@ export async function simulateTranscript(text: string, source: VoiceCommandSourc
   clearDismiss();
   stopSpeaking();
   if (!emit({ type: "listen" })) return;
+  turnFromFollowUp = false;
   useVoiceStore.getState().setRuntime({ source, transcript: "", reply: null });
   emit({ type: "speechEnd" });
   useVoiceStore.getState().setRuntime({ transcript: clean });
@@ -428,6 +532,8 @@ export function installVoiceDebugHook(): () => void {
       simulateTranscript,
       /** Same path as a detected wake word (sound + command capture). */
       simulateWake: () => onWake(),
+      /** Runs one watchdog check now (as the periodic timer does). */
+      checkHealth: () => checkVoiceHealth(),
       cancel: () => cancelVoice(),
       /** Same path as a spotted stop phrase (`Hard` / `Soft`). */
       simulateStop: (kind: StopKind = "Hard") => interrupt(kind),
@@ -441,6 +547,9 @@ export function installVoiceDebugHook(): () => void {
           speaking: s.speaking,
           hudOpen: s.hudOpen,
           wakeStatus: s.wakeStatus,
+          wakeRestarts: wakeHealth.restarts,
+          wakeRestartReason: wakeHealth.lastReason,
+          followUpTurns: followUpChain.count,
           followUp: s.followUp,
           interruptedAt: s.interruptedAt,
           barge: barge?.engine ?? null,
@@ -470,9 +579,15 @@ export async function answerConfirmation(yes: boolean): Promise<void> {
   await run(intent, useVoiceStore.getState().source ?? "Typed");
 }
 
-function wakePhrases(): string[] {
+/** The configured wake phrases («Джарвис», «Эй, Джарвис»…). */
+function configuredWakePhrases(): string[] {
   const c = useVoiceStore.getState().config;
-  return c ? [c.wake.phrase] : [];
+  return c ? configWakePhrases(c.wake) : [];
+}
+
+/** Every spelling of the wake phrases a transcript may start with (stripped from commands). */
+function wakePhrases(): string[] {
+  return wakeVariants(configuredWakePhrases());
 }
 
 async function intentContext() {
@@ -480,7 +595,7 @@ async function intentContext() {
   let agents: { id: string; name: string; aliases: string[]; projectId: string }[] = [];
   try {
     // The localized name (what the UI shows, «Тестировщик #1») is matched alongside the stored one.
-    agents = (await getDeps().listAgents(null)).map((a) => {
+    agents = (await withTimeout(getDeps().listAgents(null), VOICE_TIMEOUTS.contextMs, "listing agents")).map((a) => {
       const shown = agentName(a.name);
       return { id: a.id, name: a.name, aliases: shown !== a.name ? [shown] : [], projectId: a.projectId };
     });
@@ -593,8 +708,12 @@ function finish(intent: Intent, r: CommandResult, source: VoiceCommandSource): v
   // An offered next step ("Show the errors?"): a spoken "yes" runs it.
   if (r.followUp) pending = r.followUp;
   scheduleDismiss(r.managerReply ? 60_000 : r.followUp ? 15_000 : 9000);
-  // Continuous conversation: listen for the next utterance once the reply was spoken.
-  if (source !== "Typed" && r.outcome !== "cancelled") {
+  // Continuous conversation: listen once more after the reply — only after a real
+  // answer, and only a few turns in a row (ADR-0056); then the wake word is needed.
+  const fromFollowUp = turnFromFollowUp;
+  turnFromFollowUp = false;
+  if (source === "Typed") followUpChain.reset();
+  else if (followUpChain.afterTurn({ fromFollowUp, outcome: r.outcome }, s.config?.followUp.maxTurns ?? 3)) {
     followUpArmed = true;
     if (speechDepth === 0) scheduleFollowUp();
   }
@@ -819,6 +938,11 @@ function clearFollowUp(): void {
   followUpTimer = null;
 }
 
+function clearFollowUpWindow(): void {
+  if (followUpWindowTimer !== null) window.clearTimeout(followUpWindowTimer);
+  followUpWindowTimer = null;
+}
+
 /** After a reply: re-open listening (no wake word) for the follow-up window. */
 function scheduleFollowUp(): void {
   if (!followUpArmed || speechDepth > 0) return;
@@ -853,13 +977,16 @@ export function followUpText(text: string): string | null {
   return clean;
 }
 
-/** Silence / an ending in the follow-up window: close without a word. */
-function closeConversation(): void {
+/** Silence / noise / an ending in the follow-up window: close without a word (the wake word is needed again). */
+function closeConversation(o: { chime?: boolean } = {}): void {
   const s = useVoiceStore.getState();
+  clearFollowUpWindow();
+  followUpChain.reset();
+  turnFromFollowUp = false;
   emit({ type: "cancel" });
   pending = null;
   s.setRuntime({ followUp: null, confirmText: null, transcript: "", reply: null });
-  if (s.config?.followUp.chimeOnClose) playSound("listenEnd");
+  if ((o.chime ?? true) && s.config?.followUp.chimeOnClose) playSound("listenEnd");
 }
 
 async function record(transcript: string, intent: Intent, outcome: string, source: VoiceCommandSource, projectId: string | null): Promise<void> {
@@ -909,19 +1036,20 @@ function watchManagerReply(projectId: string, messageId: string): void {
 // ---------------------------------------------------------------------------
 
 let wakeOff: (() => void) | null = null;
-let spotter: WakeSpotter | null = null;
+let detector: WakeDetector | null = null;
 let wakeKey = "";
 /** Generation of the latest sync: a start that resolves after a newer sync is superseded. */
 let wakeGen = 0;
 /** The start in flight (opening the mic), shared by syncs with the same key. */
 let wakeStarting: { key: string; promise: Promise<void> } | null = null;
+/** A watchdog restart is in progress (Settings shows «Перезапуск слушателя…»). */
+let wakeRestarting = false;
 
 /** Whether the wake listener should run with the current config and performance mode. */
 export function wakeWanted(): { run: boolean; status: "off" | "needsEnrollment" | "pausedBattery" | "ok" } {
   const c = useVoiceStore.getState().config;
   if (!c?.enabled || !c.wake.enabled) return { run: false, status: "off" };
-  const stored = loadWakeTemplates();
-  if (!stored || stored.samples.length < 3) return { run: false, status: "needsEnrollment" };
+  if (!loadTemplateSets().some((s) => s.samples.length >= MIN_ENROLL_SAMPLES)) return { run: false, status: "needsEnrollment" };
   // The effective mode counts: auto Battery Saver on battery switches it without changing the user's choice.
   const inBatterySaver = usePerfStore.getState().mode === "BatterySaver" || useSettingsStore.getState().settings?.performanceMode === "BatterySaver";
   if (c.wake.pauseOnBatterySaver && inBatterySaver) return { run: false, status: "pausedBattery" };
@@ -932,7 +1060,7 @@ export function wakeWanted(): { run: boolean; status: "off" | "needsEnrollment" 
 export async function syncWakeListener(): Promise<void> {
   const want = wakeWanted();
   const c = useVoiceStore.getState().config;
-  const key = want.run && c ? `${c.wake.sensitivity}|${c.wake.cpuBudgetPct}|${c.inputDeviceId ?? ""}|${loadWakeTemplates()?.samples.length ?? 0}` : "";
+  const key = want.run && c ? `${c.wake.sensitivity}|${c.wake.cpuBudgetPct}|${c.inputDeviceId ?? ""}|${templatesSignature()}` : "";
   // Same target as the start in flight: share it (one segment subscription only).
   if (wakeStarting && wakeStarting.key === key && key !== "") return wakeStarting.promise;
   if (key === wakeKey && !wakeStarting && (want.run ? wakeOff !== null : wakeOff === null)) return;
@@ -942,13 +1070,12 @@ export async function syncWakeListener(): Promise<void> {
   wakeStarting = null;
   const s = useVoiceStore.getState();
   if (!want.run || !c) {
+    wakeRestarting = false;
     s.setRuntime({ wakeStatus: want.status === "ok" ? "off" : want.status });
     return;
   }
-  const stored = loadWakeTemplates();
-  if (!stored) return;
-  spotter = new WakeSpotter(stored.samples, c.wake.sensitivity);
-  s.setRuntime({ wakeStatus: "starting", wakeError: null });
+  detector = new WakeDetector(loadTemplateSets(), c.wake.sensitivity);
+  s.setRuntime({ wakeStatus: wakeRestarting ? "restarting" : "starting", wakeError: null });
   const promise = startWake(gen, c.wake.cpuBudgetPct);
   wakeStarting = { key, promise };
   return promise;
@@ -974,13 +1101,13 @@ async function startWake(gen: number, cpuBudgetPct: number): Promise<void> {
     m.setBudget(cpuBudgetPct);
     m.setSegmenting(true);
     const unsub = m.subscribe((msg) => {
-      if (msg.type !== "segment" || !spotter) return;
+      if (msg.type !== "segment" || !detector) return;
       const st = useVoiceStore.getState();
       // While a command is captured/recognized, or during enrollment, segments are not wake candidates.
       // While the assistant works (thinking), the wake word interrupts it (barge-in) and starts a new command.
       if (st.phase === "listening" || st.phase === "transcribing" || st.mic.includes("enroll")) return;
       if (st.phase === "thinking" && !bargeEnabled()) return;
-      const hit = spotter.detect(segmentFrames(msg), Date.now(), msg.early);
+      const hit = detector.detect(segmentFrames(msg), Date.now(), msg.early);
       if (hit) onWake();
     });
     const releaseKeepAlive = holdKeepAlive();
@@ -989,13 +1116,18 @@ async function startWake(gen: number, cpuBudgetPct: number): Promise<void> {
       releaseKeepAlive();
       releaseMic("wake");
     };
-    s.setRuntime({ wakeStatus: "listening" });
+    wakeRestarting = false;
+    wakeHealth.started(Date.now());
+    s.setRuntime({ wakeStatus: "listening", wakeError: null });
   } catch (e) {
     if (!current()) {
       if (!newerOwnsMic()) releaseMic("wake");
       return;
     }
     releaseMic("wake");
+    wakeRestarting = false;
+    wakeHealth.failed(Date.now());
+    console.warn("[voice] wake listener could not open the microphone", e);
     s.setRuntime({ wakeStatus: "error", wakeError: micErrorText(e) });
   } finally {
     if (current()) wakeStarting = null;
@@ -1022,12 +1154,106 @@ function holdKeepAlive(): () => void {
 function stopWake(): void {
   wakeOff?.();
   wakeOff = null;
-  spotter = null;
+  detector = null;
 }
 
 function onWake(): void {
   playSound("wake");
   void startListening("WakeWord");
+}
+
+// ---------------------------------------------------------------------------
+// Watchdog (ADR-0056): the wake listener never dies silently.
+// ---------------------------------------------------------------------------
+
+/** How often the watchdog checks the listener and the pipeline phase. */
+export const WATCHDOG_INTERVAL_MS = 2000;
+
+/** The microphone stream ended or its audio graph stopped (unplugged, sleep, driver reset). */
+function onMicDead(m: MicCapture): void {
+  if (m !== mic) return;
+  wakeHealth.signal("ended");
+  checkVoiceHealth();
+}
+
+/**
+ * Restarts the wake listener: closes the microphone (when nothing else
+ * uses it) and opens it again. Never cuts a command being captured — the
+ * next check retries.
+ */
+async function restartWakeListener(reason: string): Promise<void> {
+  const s = useVoiceStore.getState();
+  if (session || starting || s.mic.includes("enroll") || s.mic.includes("meter")) {
+    if (reason === "ended" || reason === "device") wakeHealth.signal(reason);
+    return;
+  }
+  console.warn(`[voice] wake listener restart (${reason})`);
+  wakeRestarting = true;
+  s.setRuntime({ wakeStatus: "restarting", wakeError: null });
+  stopWake();
+  stopBarge();
+  // Supersede a start in flight and force a fresh device.
+  wakeKey = "";
+  wakeGen += 1;
+  wakeStarting = null;
+  closeMic();
+  await syncWakeListener();
+}
+
+/**
+ * A phase that never settled (a recognition or reply that hung): back to
+ * idle so the wake word and push-to-talk work again. A late result of that
+ * turn is dropped.
+ */
+function recoverStuckPhase(phase: VoicePhase, stuckMs: number): void {
+  console.warn(`[voice] pipeline phase "${phase}" stuck for ${Math.round(stuckMs / 1000)} s: resetting`);
+  turnSeq += 1;
+  cancelVoice();
+}
+
+/** One watchdog pass (the periodic timer; also after device / visibility events). */
+export function checkVoiceHealth(now = Date.now()): void {
+  const s = useVoiceStore.getState();
+  const actions = wakeHealth.check(now, { wanted: wakeWanted().run, status: s.wakeStatus, phase: s.phase });
+  for (const a of actions) {
+    if (a.type === "resetPhase") recoverStuckPhase(a.phase, a.stuckMs);
+    else void restartWakeListener(a.reason);
+  }
+}
+
+/**
+ * Runs the watchdog: a periodic check, plus immediate ones when audio
+ * devices change and when the window becomes visible again (after sleep).
+ * Returns the stop function.
+ */
+export function installVoiceWatchdog(): () => void {
+  const timer = window.setInterval(() => checkVoiceHealth(), WATCHDOG_INTERVAL_MS);
+  let deviceTimer: number | null = null;
+  const onDeviceChange = () => {
+    if (deviceTimer !== null) window.clearTimeout(deviceTimer);
+    // Devices settle in bursts: react once, a moment later.
+    deviceTimer = window.setTimeout(() => {
+      deviceTimer = null;
+      const s = useVoiceStore.getState();
+      // The default device may have changed; a failed listener may now find its device.
+      if (s.wakeStatus === "error" || (s.wakeStatus === "listening" && !s.config?.inputDeviceId) || mic?.isDead) {
+        wakeHealth.signal("device");
+        checkVoiceHealth();
+      }
+    }, 1500);
+  };
+  const onVisible = () => {
+    if (document.visibilityState === "visible") checkVoiceHealth();
+  };
+  const media = typeof navigator !== "undefined" ? navigator.mediaDevices : undefined;
+  media?.addEventListener?.("devicechange", onDeviceChange);
+  document.addEventListener("visibilitychange", onVisible);
+  return () => {
+    window.clearInterval(timer);
+    if (deviceTimer !== null) window.clearTimeout(deviceTimer);
+    media?.removeEventListener?.("devicechange", onDeviceChange);
+    document.removeEventListener("visibilitychange", onVisible);
+  };
 }
 
 /** Stops everything (core disconnect / unmount). */
@@ -1036,6 +1262,7 @@ export function shutdownVoice(): void {
   stopBarge();
   stopWake();
   wakeKey = "";
+  wakeRestarting = false;
   // Supersede a start still opening the mic: it releases its claim when it lands.
   wakeGen += 1;
   wakeStarting = null;
