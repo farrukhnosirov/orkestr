@@ -58,6 +58,7 @@ summarises them: **Built** = implemented as decided (with listed deviations),
 | [0054](0054-voice-barge-in-and-continuous-conversation.md) | Voice barge-in (Vosk grammar stop-phrase spotter on the shared mic, hard / soft phrases, self-echo rejection) and continuous conversation without the wake word | Accepted | W10 | — | — | Implemented (wave 10) |
 | [0055](0055-full-pc-control.md) | Full PC control: sound / windows / cursor / keyboard / display / radios / reports; planner prompt generated from the action registry; STT-robust matcher with «Вы имели в виду» | Accepted | W10 | 0035 | — | Implemented (wave 10) |
 | [0056](0056-wake-reliability-phrases-bounded-follow-up.md) | Wake listener watchdog (stall / device / resume restarts, stuck-phase reset, chain timeouts), several wake phrases with per-phrase samples and STT spellings, bounded follow-up (6 s window, noise gate, turn cap) | Accepted | W11 | 0017, 0054 | — | Implemented (wave 11) |
+| [0057](0057-fast-accurate-stt-and-noise-rejection.md) | Fast, accurate local STT (resident whisper-server, CUDA 12 runtime with cuBLAS, large-v3-turbo recommended per hardware, vocabulary prompt) and noise rejection (activity gate, Silero VAD, confidence, hallucination filter, router confidence gate) | Accepted | W11 | 0046, 0054 | — | Implemented (wave 11) |
 | [0035](0035-computer-control.md) | Computer Control: personal computer assistant (`orkestr-computer`, Windows backend, 1035-command catalogue, user sets, AI plans, confirmations, Assistant mode) | Accepted | Wave 8 | — | — | Implemented (Wave 8; macOS/Linux backends `Unsupported`) |
 | [0046](0046-switchable-speech-engines.md) | Switchable STT/TTS engines (whisper.cpp, Vosk, sherpa-onnx, Windows speech, Piper, Silero, cloud services), voice model manager, engine keys in the secret vault | Accepted | Wave 8 | — | — | Implemented (wave 8) |
 | [0047](0047-codex-chatgpt-subscription-and-parallel-engines.md) | Codex (ChatGPT subscription) over `codex app-server`: bridged approvals, chat pool, panel, sign-in, limits; parallel engines routing | Accepted | wave 8 | 0012 (for Codex) | — | Implemented |
@@ -94,6 +95,7 @@ summarises them: **Built** = implemented as decided (with listed deviations),
 | [ADR-0054](0054-voice-barge-in-and-continuous-conversation.md) | Voice barge-in and continuous conversation — Implemented (wave 10) | W10 |
 | [ADR-0055](0055-full-pc-control.md) | Full PC control + registry-generated planner vocabulary — Implemented (wave 10) | W10 |
 | [ADR-0056](0056-wake-reliability-phrases-bounded-follow-up.md) | Wake reliability, several wake phrases, bounded follow-up — Implemented (wave 11) | W11 |
+| [ADR-0057](0057-fast-accurate-stt-and-noise-rejection.md) | Fast, accurate local STT + noise rejection — Implemented (wave 11) | W11 |
 | [ADR-0045](0045-floating-orb-agent-hub.md) | One floating orb + Agent Hub replaces per-agent robots (supersedes 0016) — Implemented (Wave 8) | W8 |
 
 ## Decision map
@@ -142,6 +144,7 @@ flowchart TB
   A52 --> A54[0054 Barge-in + follow-up]
   A35 --> A55[0055 Full PC control]
   A54 --> A56[0056 Wake reliability + phrases]
+  A54 --> A57[0057 Fast STT + noise rejection]
   A25[0025 VS Code extensions] --> A43[0043 VS Code embedded in Orkestr]
   A18 --> A22[0022 Crash recovery]
   A20[0020 UUID v7] --> A18

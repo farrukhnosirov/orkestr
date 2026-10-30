@@ -273,6 +273,8 @@ pub struct VoiceEngineSettings {
     pub whisper_model: String,
     /// Run whisper.cpp on the GPU (needs the CUDA runtime package).
     pub whisper_gpu: bool,
+    /// Noise rejection before / after recognition (ADR-0057).
+    pub noise_rejection: NoiseRejection,
     /// Vosk model package id.
     pub vosk_model: String,
     /// sherpa-onnx model package id.
@@ -310,6 +312,7 @@ impl Default for VoiceEngineSettings {
         Self {
             whisper_model: "whisper-base".into(),
             whisper_gpu: false,
+            noise_rejection: NoiseRejection::Normal,
             vosk_model: "vosk-small-ru".into(),
             sherpa_model: "sherpa-zipformer-small-ru-int8".into(),
             piper_voice: "piper-ru-irina".into(),
@@ -1166,6 +1169,41 @@ pub struct TranscribeResult {
     /// Wall time of the recognition in milliseconds.
     #[serde(default)]
     pub elapsed_ms: u64,
+    /// Decoder confidence 0..=100 when the engine reports one (whisper.cpp;
+    /// ADR-0057). The router asks for more before free text reaches an AI.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub confidence: Option<u8>,
+    /// Set when the noise gates decided the audio was not speech meant for
+    /// the assistant (`text` is then empty; ADR-0057).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub rejected: Option<SttRejectReason>,
+}
+
+/// Why a recording was not turned into a command (ADR-0057).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub enum SttRejectReason {
+    /// No speech in the audio (silence, steady noise, clicks).
+    NoSpeech,
+    /// A known whisper hallucination / annotation only (`[музыка]`, «Продолжение следует…»).
+    Hallucination,
+    /// The decoder was too unsure (music, TV, distant voices).
+    LowConfidence,
+}
+
+/// How hard the noise gates reject uncertain audio (ADR-0057).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub enum NoiseRejection {
+    /// Only the transcript itself is checked (hallucinations).
+    Off,
+    /// Speech-activity gate + whisper confidence + hallucination filter.
+    #[default]
+    Normal,
+    /// Like `Normal` with higher thresholds (loud rooms, music, TV).
+    Strict,
 }
 
 /// Params of `voice.synthesize` (cloud TTS; only with consent).
@@ -1335,6 +1373,34 @@ pub struct VoiceEnginesResult {
     pub tts: Vec<VoiceEngineInfo>,
     /// Key slots that hold a key.
     pub configured_keys: Vec<VoiceKeyId>,
+    /// The best local speech recognition for this PC (ADR-0057).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub stt_recommendation: Option<SttRecommendation>,
+}
+
+/// The recommended local recognizer for this machine (ADR-0057): picked from
+/// the GPU (CUDA, VRAM) and RAM; `packages` lists what still has to be downloaded.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct SttRecommendation {
+    /// Engine (always `WhisperCpp` today).
+    pub engine: SttEngine,
+    /// whisper model package id.
+    pub model: String,
+    /// Use the GPU (CUDA runtime).
+    pub gpu: bool,
+    /// Packages still to download (in install order).
+    pub packages: Vec<String>,
+    /// Total bytes still to download.
+    pub download_bytes: u64,
+    /// The GPU it was picked for (`NVIDIA GeForce RTX 2060 SUPER, 8 GB`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub gpu_name: Option<String>,
+    /// Whether the current settings already use it.
+    pub active: bool,
 }
 
 /// Params of `voice.setEngineKey`.

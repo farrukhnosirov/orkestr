@@ -11,6 +11,7 @@ export const VOICE_ENGINE_DEFAULTS: Pick<VoiceConfig, "sttFallback" | "ttsFallba
   engines: {
     whisperModel: "whisper-base",
     whisperGpu: false,
+    noiseRejection: "Normal",
     voskModel: "vosk-small-ru",
     sherpaModel: "sherpa-zipformer-small-ru-int8",
     piperVoice: "piper-ru-irina",

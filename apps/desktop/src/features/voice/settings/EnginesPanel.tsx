@@ -5,14 +5,14 @@
  * write-only from the UI) and test buttons (record & transcribe / speak a
  * sample with exactly that engine).
  */
-import type { SttEngine, TtsEngine, VoiceConfig, VoiceEngineInfo, VoiceEngineSettings, VoiceEnginesResult, VoiceKeyId } from "@orkestr/protocol";
+import type { NoiseRejection, SttEngine, SttRecommendation, TtsEngine, VoiceConfig, VoiceEngineInfo, VoiceEngineSettings, VoiceEnginesResult, VoiceKeyId } from "@orkestr/protocol";
 import { Badge, Button, Spinner } from "@orkestr/ui";
-import { ArrowUp, KeyRound, Mic, Play, RefreshCw, X } from "lucide-react";
+import { ArrowUp, Download, KeyRound, Mic, Play, RefreshCw, Sparkles, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import { maybeClient } from "../../../core/client";
 import { describeError } from "../../../i18n/errors";
-import { useT } from "../../../i18n";
+import { useFormat, useT } from "../../../i18n";
 import { SettingRow, Switch } from "../../settings/controls";
 import { concatPcm, encodeWav, fromBase64, toBase64 } from "../audio/wav";
 import { acquireMic } from "../controller";
@@ -137,6 +137,15 @@ export function EnginesPanel({ config, patch }: { config: VoiceConfig; patch: Pa
 
   return (
     <div className="vx-engines">
+      {data?.sttRecommendation && !data.sttRecommendation.active && <RecommendationCard rec={data.sttRecommendation} patch={patch} onDone={() => void reload()} />}
+      <SettingRow title={t("settings.engines.noise")} description={t("settings.engines.noiseDesc")}>
+        <Select
+          label={t("settings.engines.noise")}
+          value={config.engines?.noiseRejection ?? "Normal"}
+          options={NOISE_LEVELS.map((v) => ({ value: v, label: t(`settings.engines.noiseLevel.${v}`) }))}
+          onChange={(v) => patch((c) => ({ ...c, engines: { ...c.engines, noiseRejection: v as NoiseRejection } }))}
+        />
+      </SettingRow>
       <SettingRow title={t("settings.engines.byLanguage")} description={t("settings.engines.byLanguageDesc")} stacked>
         <div className="vx-engines__grid">
           {LANGS.map((lang) => (
@@ -181,6 +190,70 @@ export function EnginesPanel({ config, patch }: { config: VoiceConfig; patch: Pa
         </div>
       )}
     </div>
+  );
+}
+
+const NOISE_LEVELS: readonly NoiseRejection[] = ["Off", "Normal", "Strict"];
+
+/**
+ * «Best recognition for this PC» (ADR-0057): the core picks whisper
+ * large-v3-turbo on a CUDA GPU (or a CPU-sized model); one click downloads
+ * what is missing (checksum-verified, with progress) and switches to it.
+ */
+export function RecommendationCard({ rec, patch, onDone, pollMs = 1000 }: { rec: SttRecommendation; patch: Patch; onDone: () => void; pollMs?: number }) {
+  const { t } = useT("voice");
+  const fmt = useFormat();
+  const [state, setState] = useState<{ pct: number } | { error: string } | null>(null);
+  const apply = () =>
+    patch((c) => ({ ...c, sttEngine: rec.engine, engines: { ...c.engines, whisperModel: rec.model, whisperGpu: rec.gpu } }));
+
+  const install = async () => {
+    const client = maybeClient();
+    if (!client) return;
+    try {
+      setState({ pct: 0 });
+      for (const id of rec.packages) await client.call("voice.downloadModel", { id });
+      for (;;) {
+        const r = await client.call("voice.listModels", {});
+        const mine = r.packages.filter((p) => rec.packages.includes(p.id));
+        const failed = mine.find((p) => p.state === "Failed");
+        if (failed) throw new Error(failed.error ?? failed.id);
+        const total = mine.reduce((n, p) => n + p.downloadBytes, 0);
+        const done = mine.reduce((n, p) => n + (p.state === "Installed" ? p.downloadBytes : p.progressBytes), 0);
+        if (mine.every((p) => p.state === "Installed")) break;
+        setState({ pct: total > 0 ? Math.floor((done / total) * 100) : 0 });
+        await new Promise((r2) => window.setTimeout(r2, pollMs));
+      }
+      setState(null);
+      apply();
+      onDone();
+    } catch (e) {
+      setState({ error: describeError(e) });
+    }
+  };
+
+  const busy = state !== null && "pct" in state;
+  return (
+    <article className="vx-engine vx-engine--rec" data-testid="stt-recommendation">
+      <header className="vx-engine__head">
+        <Sparkles size={14} aria-hidden />
+        <strong>{t("settings.engines.rec.title")}</strong>
+      </header>
+      <div className="set-muted set-muted--small">
+        {rec.gpu ? t("settings.engines.rec.gpu", { gpu: rec.gpuName ?? "GPU" }) : t("settings.engines.rec.cpu", { model: rec.model.replace(/^whisper-/, "") })}
+      </div>
+      <div className="vx-engine__row">
+        <Button size="sm" disabled={busy} onClick={() => void (rec.packages.length > 0 ? install() : (apply(), onDone()))}>
+          {busy ? <Spinner size={12} /> : <Download size={14} />}{" "}
+          {busy ? t("settings.engines.rec.installing", { pct: state.pct }) : rec.packages.length > 0 ? t("settings.engines.rec.download", { size: fmt.bytes(rec.downloadBytes) }) : t("settings.engines.rec.use")}
+        </Button>
+        {state && "error" in state && (
+          <span className="set-alert" role="alert">
+            {t("settings.engines.rec.failed", { error: state.error })}
+          </span>
+        )}
+      </div>
+    </article>
   );
 }
 

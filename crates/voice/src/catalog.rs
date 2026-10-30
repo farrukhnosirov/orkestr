@@ -85,6 +85,13 @@ const fn f(url: &'static str, size: u64, sha256: &'static str, unpack: Unpack) -
     PackageFile { url, size, sha256, unpack }
 }
 
+/// The self-contained CUDA runtime of whisper.cpp (bundles cuBLAS; ADR-0057).
+pub const WHISPER_CUDA: &str = "whisper-runtime-cuda12";
+/// The Silero VAD model run by whisper.cpp before decoding (ADR-0057).
+pub const WHISPER_VAD: &str = "whisper-vad-silero";
+/// The best whisper model for a GPU / a strong CPU (ADR-0057).
+pub const WHISPER_TURBO: &str = "whisper-large-v3-turbo-q5";
+
 const STT_W: Option<SttEngine> = Some(SttEngine::WhisperCpp);
 const STT_V: Option<SttEngine> = Some(SttEngine::Vosk);
 const STT_S: Option<SttEngine> = Some(SttEngine::SherpaOnnx);
@@ -158,7 +165,7 @@ pub static CATALOG: &[Package] = &[
     },
     Package {
         id: "whisper-runtime-cuda",
-        title: "whisper.cpp CLI (NVIDIA CUDA 11.8, b5454)",
+        title: "whisper.cpp CLI (NVIDIA CUDA 11.8, b5454; needs the CUDA toolkit's cuBLAS — prefer CUDA 12.4)",
         kind: VoicePackageKind::Runtime,
         stt: STT_W,
         tts: None,
@@ -173,6 +180,42 @@ pub static CATALOG: &[Package] = &[
         recommended: false,
         windows_x64_only: true,
         license: "MIT (CUDA runtime: NVIDIA EULA)",
+    },
+    Package {
+        id: WHISPER_CUDA,
+        title: "whisper.cpp CLI + server (NVIDIA CUDA 12.4 with cuBLAS, b5454)",
+        kind: VoicePackageKind::Runtime,
+        stt: STT_W,
+        tts: None,
+        languages: MULTI,
+        files: &[f(
+            "https://github.com/ggml-org/whisper.cpp/releases/download/b5454/whisper-bin-win-cuda-12.4.0-x64.zip",
+            684_913_404,
+            "afef0b881c500958921c3f5523b50e59ee2ec9b6f5cbd25b324c51ed308a957a",
+            Unpack::Zip,
+        )],
+        depends: &[],
+        recommended: false,
+        windows_x64_only: true,
+        license: "MIT (CUDA runtime, cuBLAS: NVIDIA EULA)",
+    },
+    Package {
+        id: WHISPER_VAD,
+        title: "Silero VAD v5.1.2 for whisper.cpp (speech detection, 0.9 MB)",
+        kind: VoicePackageKind::Runtime,
+        stt: STT_W,
+        tts: None,
+        languages: MULTI,
+        files: &[f(
+            "https://huggingface.co/ggml-org/whisper-vad/resolve/main/ggml-silero-v5.1.2.bin",
+            885_098,
+            "29940d98d42b91fbd05ce489f3ecf7c72f0a42f027e4875919a28fb4c04ea2cf",
+            Unpack::Raw("ggml-silero-v5.1.2.bin"),
+        )],
+        depends: &[],
+        recommended: true,
+        windows_x64_only: false,
+        license: "MIT",
     },
     Package {
         id: "whisper-base",
@@ -211,7 +254,7 @@ pub static CATALOG: &[Package] = &[
         license: "MIT",
     },
     Package {
-        id: "whisper-large-v3-turbo-q5",
+        id: WHISPER_TURBO,
         title: "Whisper large-v3-turbo q5_0 (multilingual, 574 MB; best with GPU)",
         kind: VoicePackageKind::SttModel,
         stt: STT_W,

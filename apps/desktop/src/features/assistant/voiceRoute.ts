@@ -73,6 +73,51 @@ export interface RouteVoiceOptions {
   speak?: (sentence: string) => Promise<void>;
   /** The reply so far (streaming). */
   onPartial?: (text: string) => void;
+  /** Speech-recognition confidence 0..1 (`null`: the engine reports none, typed text: omit). */
+  confidence?: number | null;
+  /** The utterance came in the follow-up window without a wake word (ADR-0054): free text must be addressed. */
+  followUp?: boolean;
+}
+
+/** Below this recognizer confidence free text never reaches an AI / the Manager (ADR-0057). */
+export const FREE_TEXT_MIN_CONFIDENCE = 0.5;
+/** Very short free text («смещая музыка») needs this much — noise turns into one or two words. */
+export const SHORT_TEXT_MIN_CONFIDENCE = 0.8;
+/** Unaddressed statements in the follow-up window need this much (TV, people talking nearby). */
+export const FOLLOW_UP_MIN_CONFIDENCE = 0.9;
+/** Assumed confidence of engines that report none (Vosk, sherpa, cloud). */
+const UNKNOWN_CONFIDENCE = 0.6;
+
+const REQUEST = /^(?:(?:а|и|ну|так|слушай|скажи-ка|and|so|ok|okay)[\s,]+)?(?:что|чем|чего|как|какой|какая|какое|какие|каков|сколько|где|куда|откуда|когда|почему|зачем|кто|кого|кому|чей|чья|чьё|ли|можешь|можно|могу|расскажи|объясни|подскажи|скажи|напомни|найди|покажи|придумай|переведи|посчитай|напиши|сделай|давай|помоги|what|how|why|when|where|who|whom|which|whose|can|could|would|will|is|are|do|does|tell|explain|show|find|write|help|please)(?=[\s,.!?]|$)/i;
+
+/**
+ * Whether recognized free text (nothing local matched it) may go to an AI /
+ * the Manager (ADR-0057). Noise turned into words is short and uncertain;
+ * a real request is either clear (confidence) or long enough / phrased as a
+ * question or a request. In the follow-up window (no wake word) a TV or a
+ * conversation nearby produces long, confident sentences: there free text
+ * must be addressed (wake phrase), a question / request, or very clear.
+ */
+export function freeTextAllowed(text: string, confidence: number | null | undefined, wakePhrases: readonly string[] = [], followUp = false): boolean {
+  if (confidence === undefined) return true; // typed text
+  const c = confidence ?? UNKNOWN_CONFIDENCE;
+  if (c < FREE_TEXT_MIN_CONFIDENCE) return false;
+  let clean = text.trim().toLowerCase();
+  let addressed = false;
+  for (const w of wakePhrases) {
+    const p = w.trim().toLowerCase();
+    if (p && clean.startsWith(p)) {
+      clean = clean.slice(p.length);
+      addressed = true;
+    }
+  }
+  clean = clean.replace(/^[\s,.!?:;—-]+/, "");
+  const words = clean.split(/[\s,.!?:;—-]+/).filter(Boolean);
+  if (words.length === 0) return false;
+  const asks = clean.endsWith("?") || REQUEST.test(clean);
+  if (words.length <= 2 && !asks && c < SHORT_TEXT_MIN_CONFIDENCE) return false;
+  if (followUp && !addressed && !asks && c < FOLLOW_UP_MIN_CONFIDENCE) return false;
+  return true;
 }
 
 /**
@@ -110,11 +155,14 @@ export async function routeUtterance(
     if (score < STRONG_MATCH) return null;
     return runAssistant(text, "voice", false);
   }
+  const allowFreeText = freeTextAllowed(text, o.confidence, wakePhrases, o.followUp ?? false);
   const turn = await jarvisSession.send(text, {
     source: "voice",
     ...(o.speak ? { speak: o.speak } : {}),
     ...(o.onPartial ? { onPartial: o.onPartial } : {}),
+    ...(allowFreeText ? {} : { allowFreeText: false }),
   });
+  if (turn?.kind === "unheard") return { outcome: "cancelled", reply: "", tone: "info", speak: [], spoken: true, unheard: true };
   return turn ? turnToRun(turn) : null;
 }
 

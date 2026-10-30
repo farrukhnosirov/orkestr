@@ -35,6 +35,8 @@ export interface SttSession {
   cancel: () => void;
   /** Called once when voice activity starts (PCM engines; ends a follow-up countdown). */
   onSpeech?: (cb: () => void) => void;
+  /** Recognizer confidence 0..1 of the last `finish()` (`null`: the engine reports none). */
+  confidence?: () => number | null;
 }
 
 /** Nothing said after the wake word for this long ends the capture. */
@@ -42,7 +44,7 @@ export const NO_SPEECH_MS = 6000;
 
 export class SttError extends Error {
   constructor(
-    readonly code: "unsupported" | "denied" | "network" | "noSpeech" | "failed" | "disabled" | "noModel",
+    readonly code: "unsupported" | "denied" | "network" | "noSpeech" | "failed" | "disabled" | "noModel" | "rejected",
     message: string,
   ) {
     super(message);
@@ -162,6 +164,7 @@ function whisperSession(mic: MicCapture, lang: string, autoEnd: boolean, noSpeec
   let speechCb: () => void = () => {};
   let spoke = false;
   let silentSince = 0;
+  let confidence: number | null = null;
   const started = Date.now();
   const off = mic.subscribe((m) => {
     if (m.type === "pcm") chunks.push(m.data);
@@ -193,6 +196,7 @@ function whisperSession(mic: MicCapture, lang: string, autoEnd: boolean, noSpeec
     onSpeech: (cb) => {
       speechCb = cb;
     },
+    confidence: () => confidence,
     finish: async () => {
       stop();
       const pcm = concatPcm(chunks, SAMPLE_RATE * (MAX_COMMAND_MS / 1000));
@@ -203,6 +207,9 @@ function whisperSession(mic: MicCapture, lang: string, autoEnd: boolean, noSpeec
       const audioBase64 = toBase64(encodeWav(pcm, SAMPLE_RATE));
       try {
         const r = await client.call("voice.transcribe", { audioBase64, mimeType: "audio/wav", language: lang.split("-")[0] ?? lang }, { timeoutMs: 60_000 });
+        // The core's noise gates (ADR-0057) decided this was not speech for us.
+        if (r.rejected) throw new SttError("rejected", r.rejected);
+        confidence = typeof r.confidence === "number" ? r.confidence / 100 : null;
         return r.text.trim();
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);

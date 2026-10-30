@@ -43,6 +43,8 @@ export interface SendOptions {
   onPartial?: (text: string) => void;
   /** Force a conversation mode for this turn. */
   mode?: ConversationMode;
+  /** `false`: unsure speech recognition — no AI turn for unmatched free text (ADR-0057). */
+  allowFreeText?: boolean;
 }
 
 export interface ConversationSession {
@@ -70,6 +72,7 @@ export const jarvisSession: ConversationSession = {
         ...(o.mode ? { mode: o.mode } : {}),
         ...(o.speak ? { speak: o.speak } : {}),
         ...(o.onPartial ? { onPartial: o.onPartial } : {}),
+        ...(o.allowFreeText === false ? { allowFreeText: false } : {}),
       },
       realJarvisDeps(o.source),
     ),

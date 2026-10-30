@@ -429,8 +429,11 @@ export async function stopListening(): Promise<void> {
   } catch (e) {
     if (e instanceof VoiceTimeout) sess.cancel();
     releaseMic("command");
-    // In the follow-up window a failed or empty recognition just ends the conversation.
-    if (follow && (e instanceof VoiceTimeout || (e instanceof SttError && e.code === "noSpeech"))) return closeConversation();
+    // In the follow-up window a failed, empty or rejected (noise, ADR-0057) recognition
+    // just ends the conversation quietly; the window is not re-armed.
+    if (follow && (e instanceof VoiceTimeout || (e instanceof SttError && (e.code === "noSpeech" || e.code === "rejected")))) return closeConversation();
+    // Noise / music / TV (ADR-0057): stay quiet, at most «не расслышал» in the HUD.
+    if (e instanceof SttError && e.code === "rejected") return notHeard();
     fail(e instanceof SttError ? sttErrorText(e) : e instanceof VoiceTimeout ? t("voice:errors.sttFailed") : describeError(e));
     return;
   }
@@ -457,7 +460,26 @@ export async function stopListening(): Promise<void> {
   }
   useVoiceStore.getState().setRuntime({ transcript: text });
   emit({ type: "transcript", text });
-  await handleText(text, source);
+  sttConfidence = sess.confidence ? sess.confidence() : null;
+  sttFollowUp = follow;
+  try {
+    await handleText(text, source);
+  } finally {
+    sttConfidence = undefined;
+    sttFollowUp = false;
+  }
+}
+
+/** Recognizer confidence of the utterance being handled (ADR-0057; `undefined`: typed / simulated). */
+let sttConfidence: number | null | undefined;
+/** The utterance being handled came in the follow-up window (no wake word). */
+let sttFollowUp = false;
+
+/** The recording was noise or too unsure to act on: no sound, no speech, a quiet HUD note (ADR-0057). */
+function notHeard(): void {
+  emit({ type: "cancel" });
+  useVoiceStore.getState().setRuntime({ followUp: null, transcript: "", reply: { text: t("voice:errors.notHeard"), tone: "info", outcome: "cancelled" } });
+  scheduleDismiss(2500);
 }
 
 /** Cancels whatever the pipeline is doing (Esc, HUD close). */
@@ -646,12 +668,20 @@ async function handleText(text: string, source: VoiceCommandSource): Promise<voi
   // Computer assistant (ADR-0035): computer commands, its confirmations and AI plans.
   // Jarvis (ADR-0049): AI conversation replies stream into the HUD and are spoken sentence by sentence.
   const viaAssistant = await routeUtterance(text, intent, wakePhrases(), {
+    ...(source !== "Typed" && sttConfidence !== undefined ? { confidence: sttConfidence, followUp: sttFollowUp } : {}),
     speak: (sentence) => say(sentence),
     onPartial: (partial) => {
       if (partial) useVoiceStore.getState().setRuntime({ reply: { text: partial, tone: "info", outcome: "ok" } });
     },
   }).catch(() => null);
   if (turn !== turnSeq) return; // interrupted by a stop phrase while it ran
+  if (viaAssistant?.unheard) {
+    // Too unsure to act on (ADR-0057). Inside the follow-up window this closes the
+    // conversation quietly and does not re-arm it (ADR-0056).
+    if (sttFollowUp) closeConversation();
+    else notHeard();
+    return;
+  }
   if (viaAssistant) {
     finish(intent, assistantResult(viaAssistant), source);
     for (const extra of viaAssistant.speak) void say(extra);

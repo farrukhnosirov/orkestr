@@ -213,7 +213,34 @@ fn pick_provider(ctx: &RpcContext, config: &VoiceConfig) -> Result<ProviderView,
 
 async fn get_config(ctx: RpcContext) -> Result<VoiceConfigResult, RpcError> {
     let config = load(&ctx).await?;
+    prewarm(&ctx, &config);
     Ok(result(&ctx, config))
+}
+
+/// The wake phrases (whisper's vocabulary prompt starts with them).
+fn wake_phrases(config: &VoiceConfig) -> Vec<String> {
+    let p = config.wake.phrase.trim();
+    if p.is_empty() {
+        Vec::new()
+    } else {
+        vec![p.to_owned()]
+    }
+}
+
+/// Loads the whisper model in the background when whisper.cpp is in use, so
+/// the first command does not pay the model load (ADR-0057); stops the
+/// resident server when it is not.
+fn prewarm(ctx: &RpcContext, config: &VoiceConfig) {
+    let uses_whisper = config.stt_engines_in_use().contains(&SttEngine::WhisperCpp);
+    let voice = std::sync::Arc::clone(&ctx.services.voice);
+    let engines = config.engines.clone();
+    tokio::spawn(async move {
+        if uses_whisper {
+            voice.prewarm(&engines).await;
+        } else {
+            voice.stop_whisper().await;
+        }
+    });
 }
 
 async fn set_config(ctx: RpcContext, p: SetVoiceConfigParams) -> Result<VoiceConfigResult, RpcError> {
@@ -247,6 +274,7 @@ async fn set_config(ctx: RpcContext, p: SetVoiceConfigParams) -> Result<VoiceCon
         }
     }
     save(&ctx, &next).await?;
+    prewarm(&ctx, &next);
     tracing::info!(stt = ?next.stt_engine, tts = ?next.tts_engine, wake = next.wake.enabled, "voice settings updated");
     Ok(result(&ctx, next))
 }
@@ -445,33 +473,58 @@ async fn transcribe(ctx: RpcContext, p: TranscribeParams) -> Result<TranscribeRe
     }
     // Local engines need PCM; uploads are WAV (the voice worklet encodes 16 kHz WAV).
     let pcm = orkestr_voice::audio::to_pcm16k(&audio).ok();
+    // The voice pipeline (no explicit engine) runs behind the noise gates
+    // (ADR-0057); an engine test shows the raw transcript.
+    let gated = p.engine.is_none();
+    let hints = orkestr_voice::SttHints { wake_phrases: wake_phrases(&config) };
     let mut first_err: Option<RpcError> = None;
     for engine in chain {
-        let r: Result<(String, Option<String>), RpcError> = async {
+        let r: Result<(orkestr_voice::Transcript, Option<String>), RpcError> = async {
             let key = match engine.key() {
                 Some(k) => engine_key(&ctx, k).await,
                 None => None,
             };
             if engine == SttEngine::OpenAiWhisper && key.is_none() {
-                return provider_transcribe(&ctx, &config, audio.clone(), p.mime_type.clone(), language.clone()).await;
+                let (text, lang) =
+                    provider_transcribe(&ctx, &config, audio.clone(), p.mime_type.clone(), language.clone()).await?;
+                let t = match orkestr_voice::gate::check_text(&text) {
+                    Ok(text) => orkestr_voice::Transcript { text, confidence: None, rejected: None },
+                    Err(r) if gated => {
+                        orkestr_voice::Transcript { text: String::new(), confidence: None, rejected: Some(r) }
+                    }
+                    Err(_) => orkestr_voice::Transcript { text, confidence: None, rejected: None },
+                };
+                return Ok((t, lang));
             }
             let pcm = pcm.as_ref().ok_or_else(|| RpcError::bad_request("audio must be a PCM WAV file"))?;
-            ctx.services
-                .voice
-                .transcribe(engine, &config.engines, key.as_deref().map(String::as_str), pcm, language.as_deref())
-                .await
-                .map(|t| (t, None))
-                .map_err(voice_error_to_rpc)
+            let key = key.as_deref().map(String::as_str);
+            let voice = &ctx.services.voice;
+            let t = if gated {
+                voice.transcribe_checked(engine, &config.engines, key, pcm, language.as_deref(), &hints).await
+            } else {
+                voice
+                    .transcribe(engine, &config.engines, key, pcm, language.as_deref())
+                    .await
+                    .map(|text| orkestr_voice::Transcript { text, confidence: None, rejected: None })
+            };
+            t.map(|t| (t, None)).map_err(voice_error_to_rpc)
         }
         .await;
         match r {
-            Ok((text, lang)) => {
+            Ok((t, lang)) => {
+                if let Some(reason) = t.rejected {
+                    tracing::debug!(?engine, ?reason, "voice: recording rejected by the noise gates");
+                }
+                #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+                let confidence = t.confidence.map(|c| (c.clamp(0.0, 1.0) * 100.0).round() as u8);
                 return Ok(TranscribeResult {
-                    text: text.trim().to_owned(),
+                    text: t.text.trim().to_owned(),
                     language: lang,
                     engine: Some(engine),
                     elapsed_ms: u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX),
-                })
+                    confidence,
+                    rejected: t.rejected,
+                });
             }
             Err(e) => {
                 tracing::warn!(?engine, error = %e.message, "speech recognition engine failed");
