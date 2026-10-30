@@ -857,7 +857,13 @@ mod tests {
     fn whisper_hints_carry_every_wake_phrase() {
         let mut c = VoiceConfig::default();
         c.wake.phrase = "Джарвис".to_owned();
-        c.wake.phrases = vec!["Джарвис".to_owned(), " Эй, Джарвис ".to_owned(), "".to_owned(), "джарвис".to_owned(), "Jarvis".to_owned()];
+        c.wake.phrases = vec![
+            "Джарвис".to_owned(),
+            " Эй, Джарвис ".to_owned(),
+            "".to_owned(),
+            "джарвис".to_owned(),
+            "Jarvis".to_owned(),
+        ];
         assert_eq!(wake_phrases(&c), vec!["Джарвис", "Эй, Джарвис", "Jarvis"]);
         c.wake.phrases.clear();
         assert_eq!(wake_phrases(&c), vec!["Джарвис"], "an unmigrated document still has its one phrase");
