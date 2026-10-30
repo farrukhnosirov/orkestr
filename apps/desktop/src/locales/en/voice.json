@@ -480,7 +480,7 @@
         "active": "In use",
         "download": "Download {{size}} and use",
         "use": "Use it",
-        "installing": "Downloading… {{pct}}%",
+        "installing": "Downloading… {{percent}}",
         "failed": "Could not install: {{error}}"
       },
       "region": "Region",

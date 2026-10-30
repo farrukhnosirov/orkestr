@@ -245,7 +245,7 @@ export function RecommendationCard({ rec, patch, onDone, pollMs = 1000 }: { rec:
       <div className="vx-engine__row">
         <Button size="sm" disabled={busy} onClick={() => void (rec.packages.length > 0 ? install() : (apply(), onDone()))}>
           {busy ? <Spinner size={12} /> : <Download size={14} />}{" "}
-          {busy ? t("settings.engines.rec.installing", { pct: state.pct }) : rec.packages.length > 0 ? t("settings.engines.rec.download", { size: fmt.bytes(rec.downloadBytes) }) : t("settings.engines.rec.use")}
+          {busy ? t("settings.engines.rec.installing", { percent: fmt.percent(state.pct / 100) }) : rec.packages.length > 0 ? t("settings.engines.rec.download", { size: fmt.bytes(rec.downloadBytes) }) : t("settings.engines.rec.use")}
         </Button>
         {state && "error" in state && (
           <span className="set-alert" role="alert">
